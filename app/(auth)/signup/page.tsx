@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -10,20 +10,23 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Ticket, AlertCircle } from "lucide-react"
+import { createClient } from "@/lib/supabase"
 
 export default function SignupPage() {
   const router = useRouter()
+  const supabase = useMemo(() => createClient(), [])
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [successMessage, setSuccessMessage] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
     setError("")
+    setSuccessMessage("")
 
     try {
       if (!name || !email || !password || !confirmPassword) {
@@ -46,20 +49,30 @@ export default function SignupPage() {
         return
       }
 
-      // Store mock user session - ready for Supabase integration
-      localStorage.setItem(
-        "ticketiv_user",
-        JSON.stringify({
-          email,
-          name,
-          id: Math.random().toString(36).substr(2, 9),
-          createdAt: new Date().toISOString(),
-        }),
-      )
+      setLoading(true)
 
-      router.push("/browse")
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: name,
+          },
+        },
+      })
+
+      if (signUpError) {
+        setError(signUpError.message)
+        return
+      }
+
+      if (data.session) {
+        router.push("/browse")
+      } else {
+        setSuccessMessage("Check your email to confirm your account before signing in.")
+      }
     } catch (err) {
-      setError("Signup failed. Please try again.")
+      setError(err instanceof Error ? err.message : "Signup failed. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -84,6 +97,11 @@ export default function SignupPage() {
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            {successMessage && (
+              <Alert>
+                <AlertDescription>{successMessage}</AlertDescription>
               </Alert>
             )}
             <div className="space-y-2">

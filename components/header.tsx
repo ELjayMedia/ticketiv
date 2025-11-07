@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Ticket } from "lucide-react"
+import { createClient } from "@/lib/supabase"
 
 interface HeaderProps {
   user?: any
@@ -12,15 +13,20 @@ interface HeaderProps {
 
 export function Header({ user }: HeaderProps) {
   const router = useRouter()
+  const supabase = useMemo(() => createClient(), [])
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  const handleLogout = () => {
-    localStorage.removeItem("ticketiv_user")
-    router.push("/login")
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut()
+    } finally {
+      router.push("/login")
+      router.refresh()
+    }
   }
 
   if (!mounted) return null

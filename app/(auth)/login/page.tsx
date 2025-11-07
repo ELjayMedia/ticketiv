@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -10,9 +10,11 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Ticket, AlertCircle } from "lucide-react"
+import { createClient } from "@/lib/supabase"
 
 export default function LoginPage() {
   const router = useRouter()
+  const supabase = useMemo(() => createClient(), [])
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
@@ -20,7 +22,6 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
     setError("")
 
     try {
@@ -34,19 +35,21 @@ export default function LoginPage() {
         return
       }
 
-      // Store mock user session - ready for Supabase integration
-      localStorage.setItem(
-        "ticketiv_user",
-        JSON.stringify({
-          email,
-          id: Math.random().toString(36).substr(2, 9),
-          createdAt: new Date().toISOString(),
-        }),
-      )
+      setLoading(true)
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (signInError) {
+        setError(signInError.message)
+        return
+      }
 
       router.push("/browse")
     } catch (err) {
-      setError("Login failed. Please try again.")
+      setError(err instanceof Error ? err.message : "Login failed. Please try again.")
     } finally {
       setLoading(false)
     }
