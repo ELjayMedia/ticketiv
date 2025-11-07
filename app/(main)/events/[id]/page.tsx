@@ -1,13 +1,32 @@
 "use client"
 
+import type React from "react"
+
 import { useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { MOCK_EVENTS } from "@/lib/mock-data"
-import { ArrowLeft, MapPin, Calendar, Users, Clock, AlertCircle } from "lucide-react"
+import {
+  ArrowLeft,
+  MapPin,
+  Calendar,
+  Users,
+  Clock,
+  AlertCircle,
+  MapPinIcon,
+  Wifi,
+  Utensils,
+  ParkingCircle,
+} from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+
+const AMENITY_ICONS: Record<string, React.ReactNode> = {
+  WiFi: <Wifi size={16} />,
+  Catering: <Utensils size={16} />,
+  Parking: <ParkingCircle size={16} />,
+}
 
 export default function EventDetailPage() {
   const params = useParams()
@@ -111,15 +130,73 @@ export default function EventDetailPage() {
             </Card>
           </div>
 
-          {/* Venue Details */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Venue Information</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">{event.venue}</p>
-            </CardContent>
-          </Card>
+          {event.artists && event.artists.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Featured Speakers & Artists</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {event.artists.map((artist) => (
+                    <div key={artist.id} className="flex gap-4">
+                      <img
+                        src={artist.image || "/placeholder.svg"}
+                        alt={artist.name}
+                        className="w-20 h-20 rounded-lg object-cover shrink-0"
+                      />
+                      <div className="flex-1">
+                        <h3 className="font-semibold">{artist.name}</h3>
+                        <p className="text-sm text-primary font-medium mb-1">{artist.role}</p>
+                        {artist.description && <p className="text-sm text-muted-foreground">{artist.description}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {event.venueDetails && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Venue Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <h3 className="font-semibold text-lg mb-1">{event.venueDetails.name}</h3>
+                  <p className="text-muted-foreground flex items-center gap-2">
+                    <MapPinIcon size={16} />
+                    {event.venueDetails.address}, {event.venueDetails.city}
+                  </p>
+                </div>
+
+                {event.venueDetails.description && (
+                  <p className="text-muted-foreground text-sm">{event.venueDetails.description}</p>
+                )}
+
+                <div>
+                  <p className="text-sm font-medium mb-2">Capacity: {event.venueDetails.capacity.toLocaleString()}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Occupancy: {Math.round((event.attendees / event.venueDetails.capacity) * 100)}%
+                  </p>
+                </div>
+
+                {event.venueDetails.amenities && event.venueDetails.amenities.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium mb-2">Amenities</p>
+                    <div className="flex flex-wrap gap-2">
+                      {event.venueDetails.amenities.map((amenity) => (
+                        <Badge key={amenity} variant="secondary" className="gap-1">
+                          {AMENITY_ICONS[amenity] || <MapPinIcon size={14} />}
+                          {amenity}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Sidebar */}

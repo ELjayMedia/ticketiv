@@ -5,6 +5,24 @@ export interface User {
   createdAt: string
 }
 
+export interface Artist {
+  id: string
+  name: string
+  role: string
+  image: string
+  description?: string
+}
+
+export interface Venue {
+  id: string
+  name: string
+  address: string
+  city: string
+  capacity: number
+  amenities: string[]
+  description?: string
+}
+
 export interface Event {
   id: string
   title: string
@@ -15,6 +33,8 @@ export interface Event {
   endTime: string
   location: string
   venue: string
+  venueDetails?: Venue
+  artists?: Artist[]
   price: number
   image: string
   category: string

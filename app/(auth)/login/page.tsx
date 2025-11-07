@@ -8,6 +8,8 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Ticket, AlertCircle } from "lucide-react"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -22,13 +24,17 @@ export default function LoginPage() {
     setError("")
 
     try {
-      // Mocked authentication - in production, use Supabase
       if (!email || !password) {
         setError("Please fill in all fields")
         return
       }
 
-      // Store mock user session
+      if (!email.includes("@")) {
+        setError("Please enter a valid email address")
+        return
+      }
+
+      // Store mock user session - ready for Supabase integration
       localStorage.setItem(
         "ticketiv_user",
         JSON.stringify({
@@ -46,50 +52,75 @@ export default function LoginPage() {
     }
   }
 
+  const fillDemo = () => {
+    setEmail("demo@ticketiv.com")
+    setPassword("demo123456")
+  }
+
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl">Welcome back</CardTitle>
-        <CardDescription>Sign in to your Ticketiv account</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">{error}</div>}
-          <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-medium">
-              Email
-            </label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <label htmlFor="password" className="text-sm font-medium">
-              Password
-            </label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Signing in..." : "Sign in"}
+    <div className="w-full max-w-md">
+      {/* Logo */}
+      <div className="flex items-center justify-center gap-2 mb-8">
+        <Ticket className="w-8 h-8 text-primary" />
+        <span className="text-3xl font-bold text-primary">Ticketiv</span>
+      </div>
+
+      <Card>
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl">Welcome back</CardTitle>
+          <CardDescription>Sign in to your Ticketiv account to continue</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            <div className="space-y-2">
+              <label htmlFor="email" className="text-sm font-medium">
+                Email
+              </label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="password" className="text-sm font-medium">
+                Password
+              </label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Signing in..." : "Sign in"}
+            </Button>
+          </form>
+
+          <Button variant="outline" className="w-full mt-2 bg-transparent" onClick={fillDemo} type="button">
+            Use Demo Credentials
           </Button>
-        </form>
-        <p className="text-sm text-muted-foreground mt-4 text-center">
-          Don&apos;t have an account?{" "}
-          <Link href="/signup" className="text-primary hover:underline">
-            Create one
-          </Link>
-        </p>
-      </CardContent>
-    </Card>
+
+          <p className="text-sm text-muted-foreground mt-4 text-center">
+            Don&apos;t have an account?{" "}
+            <Link href="/signup" className="text-primary hover:underline font-medium">
+              Create one
+            </Link>
+          </p>
+        </CardContent>
+      </Card>
+    </div>
   )
 }
