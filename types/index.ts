@@ -11,6 +11,16 @@ export interface Artist {
   role: string
   image: string
   description?: string
+  banner?: string
+  genre?: string
+  followers?: number
+  verified?: boolean
+  socialLinks?: {
+    spotify?: string
+    instagram?: string
+    twitter?: string
+    youtube?: string
+  }
 }
 
 export interface Venue {

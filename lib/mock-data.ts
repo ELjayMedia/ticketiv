@@ -3,15 +3,34 @@ export const MOCK_ARTISTS = [
     id: "artist-1",
     name: "Alex Chen",
     role: "Keynote Speaker",
-    image: "/placeholder.svg?height=200&width=200",
-    description: "CEO of TechCorp, pioneer in AI and machine learning",
+    image: "/placeholder.svg?height=400&width=400",
+    banner: "/placeholder.svg?height=300&width=1200",
+    description:
+      "CEO of TechCorp, pioneer in AI and machine learning. Alex has delivered keynotes at over 50 international conferences and is passionate about making technology accessible to everyone.",
+    genre: "Technology",
+    followers: 5700,
+    verified: true,
+    socialLinks: {
+      twitter: "https://twitter.com",
+      linkedin: "https://linkedin.com",
+      youtube: "https://youtube.com",
+    },
   },
   {
     id: "artist-2",
     name: "Sarah Williams",
     role: "Workshop Host",
-    image: "/placeholder.svg?height=200&width=200",
-    description: "Full-stack developer and open-source advocate",
+    image: "/placeholder.svg?height=400&width=400",
+    banner: "/placeholder.svg?height=300&width=1200",
+    description:
+      "Full-stack developer and open-source advocate with 10+ years of industry experience. Sarah specializes in web development and mentoring the next generation of developers.",
+    genre: "Education",
+    followers: 3200,
+    verified: true,
+    socialLinks: {
+      twitter: "https://twitter.com",
+      github: "https://github.com",
+    },
   },
 ]
 

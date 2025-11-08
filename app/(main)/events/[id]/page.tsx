@@ -4,6 +4,7 @@ import type React from "react"
 
 import { useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -56,6 +57,7 @@ export default function EventDetailPage() {
   }
 
   const availabilityPercentage = (event.attendees / (event.attendees + event.ticketsAvailable)) * 100
+  const categorySlug = event.category.toLowerCase().replace(/\s+/g, "-")
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -78,7 +80,11 @@ export default function EventDetailPage() {
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h1 className="text-4xl font-bold mb-2">{event.title}</h1>
-                <Badge className="bg-primary">{event.category}</Badge>
+                <Link href={`/category/${categorySlug}`}>
+                  <Badge className="bg-primary cursor-pointer hover:opacity-80 transition-opacity">
+                    {event.category}
+                  </Badge>
+                </Link>
               </div>
               <div className="text-right">
                 <p className="text-3xl font-bold text-primary">${event.price}</p>
@@ -138,18 +144,20 @@ export default function EventDetailPage() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {event.artists.map((artist) => (
-                    <div key={artist.id} className="flex gap-4">
-                      <img
-                        src={artist.image || "/placeholder.svg"}
-                        alt={artist.name}
-                        className="w-20 h-20 rounded-lg object-cover shrink-0"
-                      />
-                      <div className="flex-1">
-                        <h3 className="font-semibold">{artist.name}</h3>
-                        <p className="text-sm text-primary font-medium mb-1">{artist.role}</p>
-                        {artist.description && <p className="text-sm text-muted-foreground">{artist.description}</p>}
+                    <Link key={artist.id} href={`/artists/${artist.id}`}>
+                      <div className="flex gap-4 cursor-pointer group">
+                        <img
+                          src={artist.image || "/placeholder.svg"}
+                          alt={artist.name}
+                          className="w-20 h-20 rounded-lg object-cover shrink-0 group-hover:opacity-80 transition-opacity"
+                        />
+                        <div className="flex-1">
+                          <h3 className="font-semibold group-hover:text-primary transition-colors">{artist.name}</h3>
+                          <p className="text-sm text-primary font-medium mb-1">{artist.role}</p>
+                          {artist.description && <p className="text-sm text-muted-foreground">{artist.description}</p>}
+                        </div>
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               </CardContent>

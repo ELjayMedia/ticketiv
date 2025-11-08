@@ -4,10 +4,10 @@ import { useState, useMemo } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
-import { MOCK_EVENTS } from "@/lib/mock-data"
+import { MOCK_EVENTS, MOCK_ARTISTS } from "@/lib/mock-data"
 import { MapPin, Clock, Globe, Mails as Masks, Calendar, Heart, Briefcase, ChevronRight } from "lucide-react"
 
 export default function BrowsePage() {
@@ -35,6 +35,19 @@ export default function BrowsePage() {
     })
   }, [searchQuery, selectedCategory])
 
+  const getEventsThisMonth = () => {
+    const now = new Date()
+    const currentMonth = now.getMonth()
+    const currentYear = now.getFullYear()
+
+    return MOCK_EVENTS.filter((event) => {
+      const eventDate = new Date(event.date)
+      return eventDate.getMonth() === currentMonth && eventDate.getFullYear() === currentYear
+    }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+  }
+
+  const eventsThisMonth = getEventsThisMonth()
+
   const eventsByCategory = useMemo(() => {
     const grouped: Record<string, typeof MOCK_EVENTS> = {}
     filteredEvents.forEach((event) => {
@@ -51,33 +64,31 @@ export default function BrowsePage() {
   const EventCard = ({ event }: { event: (typeof MOCK_EVENTS)[0] }) => (
     <Link href={`/events/${event.id}`}>
       <Card className="h-full hover:shadow-lg transition-all duration-300 hover:border-primary cursor-pointer overflow-hidden">
-        <div className="aspect-video bg-muted overflow-hidden relative group">
+        <div className="relative w-full h-64 group overflow-hidden">
           <img
             src={event.image || "/placeholder.svg"}
             alt={event.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
           <Badge className="absolute top-3 right-3 bg-primary">{event.category}</Badge>
-        </div>
-        <CardHeader className="pb-2">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1">
-              <CardTitle className="text-base">{event.title}</CardTitle>
+
+          {/* Text overlay positioned at bottom */}
+          <div className="absolute inset-0 flex flex-col justify-end p-4">
+            <h3 className="text-white font-semibold text-base mb-2 line-clamp-2">{event.title}</h3>
+            <div className="flex items-center justify-between text-white text-xs">
+              <div className="flex items-center gap-1">
+                <MapPin className="w-3 h-3" />
+                <span className="line-clamp-1">{event.location}</span>
+              </div>
+              <span className="font-bold text-primary">${event.price}</span>
             </div>
-            <div className="text-base font-bold text-primary shrink-0">${event.price}</div>
+            <div className="flex items-center gap-1 text-white/80 text-xs mt-2">
+              <Clock className="w-3 h-3" />
+              <span className="line-clamp-1">{event.date}</span>
+            </div>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Clock className="w-3 h-3" />
-            <span className="line-clamp-1">{event.date}</span>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <MapPin className="w-3 h-3" />
-            <span className="line-clamp-1">{event.location}</span>
-          </div>
-        </CardContent>
+        </div>
       </Card>
     </Link>
   )
@@ -125,16 +136,17 @@ export default function BrowsePage() {
           placeholder="Search events by title, location, or category..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="h-12 text-base border-solid border-primary rounded-full border w-6/12 text-center"
+          className="h-12 text-base border-solid border-primary rounded-full border text-center w-9/12"
         />
       </div>
 
       <div className="flex flex-wrap justify-center gap-8">
         {categories.map((category) => {
           const IconComponent = category.icon
-          return (
+          const categorySlug = category.name === "All" ? null : category.name.toLowerCase().replace(/\s+/g, "-")
+
+          const categoryButton = (
             <button
-              key={category.name}
               onClick={() => setSelectedCategory(category.name === "All" ? null : category.name)}
               className="flex flex-col items-center gap-2 group"
             >
@@ -155,7 +167,69 @@ export default function BrowsePage() {
               <span className="text-xs font-medium text-center">{category.name}</span>
             </button>
           )
+
+          return (
+            <div key={category.name}>
+              {categorySlug ? <Link href={`/category/${categorySlug}`}>{categoryButton}</Link> : categoryButton}
+            </div>
+          )
         })}
+      </div>
+
+      {/* Events Happening This Month */}
+      {eventsThisMonth.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="font-bold text-lg">Happening This Month</h2>
+          <Carousel className="w-full">
+            <CarouselContent className="-ml-2">
+              {eventsThisMonth.map((event) => (
+                <CarouselItem
+                  key={event.id}
+                  className="pl-2 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5"
+                >
+                  <EventCard event={event} />
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <CarouselPrevious className="hidden sm:flex" />
+            <CarouselNext className="hidden sm:flex" />
+          </Carousel>
+        </div>
+      )}
+
+      {/* Featured Artists & Speakers */}
+      <div className="space-y-4">
+        <h2 className="font-bold text-lg">Featured Artists & Speakers</h2>
+        <Carousel className="w-full">
+          <CarouselContent className="-ml-2">
+            {MOCK_ARTISTS.map((artist) => (
+              <CarouselItem
+                key={artist.id}
+                className="pl-2 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5"
+              >
+                <Link href={`/artists/${artist.id}`}>
+                  <div className="flex flex-col items-center gap-4 group cursor-pointer">
+                    <div className="relative w-32 h-32 rounded-full overflow-hidden ring-2 ring-primary/20 group-hover:ring-primary transition-all duration-300">
+                      <img
+                        src={artist.image || "/placeholder.svg"}
+                        alt={artist.name}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      />
+                    </div>
+                    <div className="text-center">
+                      <h3 className="font-semibold text-sm group-hover:text-primary transition-colors">
+                        {artist.name}
+                      </h3>
+                      <p className="text-xs text-muted-foreground">{artist.role}</p>
+                    </div>
+                  </div>
+                </Link>
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+          <CarouselPrevious className="hidden sm:flex" />
+          <CarouselNext className="hidden sm:flex" />
+        </Carousel>
       </div>
 
       {Object.entries(eventsByCategory).length > 0 ? (
@@ -163,7 +237,9 @@ export default function BrowsePage() {
           {Object.entries(eventsByCategory).map(([category, events]) => (
             <div key={category} className="space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="font-bold text-lg">{category}</h2>
+                <Link href={`/category/${category.toLowerCase().replace(/\s+/g, "-")}`}>
+                  <h2 className="font-bold text-lg hover:text-primary transition-colors cursor-pointer">{category}</h2>
+                </Link>
                 <Badge variant="secondary">{events.length} events</Badge>
               </div>
               <Carousel className="w-full">
