@@ -165,45 +165,63 @@ export default function EventDetailPage() {
           )}
 
           {event.venueDetails && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Venue Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <h3 className="font-semibold text-lg mb-1">{event.venueDetails.name}</h3>
-                  <p className="text-muted-foreground flex items-center gap-2">
-                    <MapPinIcon size={16} />
-                    {event.venueDetails.address}, {event.venueDetails.city}
-                  </p>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Map Visualization */}
+              <div className="bg-muted rounded-lg overflow-hidden h-80 md:h-auto">
+                <iframe
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  loading="lazy"
+                  allowFullScreen
+                  referrerPolicy="no-referrer-when-downgrade"
+                  src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyB41DFb05-BlusSH4BI2-5dNN3HSm0ZeIw&q=${encodeURIComponent(
+                    `${event.venueDetails.address}, ${event.venueDetails.city}`,
+                  )}`}
+                />
+              </div>
 
-                {event.venueDetails.description && (
-                  <p className="text-muted-foreground text-sm">{event.venueDetails.description}</p>
-                )}
-
-                <div>
-                  <p className="text-sm font-medium mb-2">Capacity: {event.venueDetails.capacity.toLocaleString()}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Occupancy: {Math.round((event.attendees / event.venueDetails.capacity) * 100)}%
-                  </p>
-                </div>
-
-                {event.venueDetails.amenities && event.venueDetails.amenities.length > 0 && (
+              {/* Venue Details */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Venue Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   <div>
-                    <p className="text-sm font-medium mb-2">Amenities</p>
-                    <div className="flex flex-wrap gap-2">
-                      {event.venueDetails.amenities.map((amenity) => (
-                        <Badge key={amenity} variant="secondary" className="gap-1">
-                          {AMENITY_ICONS[amenity] || <MapPinIcon size={14} />}
-                          {amenity}
-                        </Badge>
-                      ))}
-                    </div>
+                    <h3 className="font-semibold text-lg mb-1">{event.venueDetails.name}</h3>
+                    <p className="text-muted-foreground flex items-center gap-2">
+                      <MapPinIcon size={16} />
+                      {event.venueDetails.address}, {event.venueDetails.city}
+                    </p>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+
+                  {event.venueDetails.description && (
+                    <p className="text-muted-foreground text-sm">{event.venueDetails.description}</p>
+                  )}
+
+                  <div>
+                    <p className="text-sm font-medium mb-2">Capacity: {event.venueDetails.capacity.toLocaleString()}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Occupancy: {Math.round((event.attendees / event.venueDetails.capacity) * 100)}%
+                    </p>
+                  </div>
+
+                  {event.venueDetails.amenities && event.venueDetails.amenities.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium mb-2">Amenities</p>
+                      <div className="flex flex-wrap gap-2">
+                        {event.venueDetails.amenities.map((amenity) => (
+                          <Badge key={amenity} variant="secondary" className="gap-1">
+                            {AMENITY_ICONS[amenity] || <MapPinIcon size={14} />}
+                            {amenity}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           )}
         </div>
 
