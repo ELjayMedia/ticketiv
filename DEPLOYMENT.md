@@ -1,243 +1,106 @@
-# Deployment Guide - Ticketiv
+# Deployment Guide – Ticketiv
 
-This guide covers deploying Ticketiv to Vercel with Supabase integration.
+Deploy Ticketiv to Vercel backed by Supabase with confidence. This playbook assumes you have the schema from [`SUPABASE_SETUP.md`](SUPABASE_SETUP.md) applied and that your payment providers (DeltaPay, Paystack, Flutterwave) are configured with sandbox and production keys.
 
 ## Prerequisites
 
-- A GitHub account with your repository pushed
-- A Vercel account (free at [vercel.com](https://vercel.com))
-- A Supabase account (free at [supabase.com](https://supabase.com))
+- GitHub (or GitLab/Bitbucket) repository containing the application code
+- Vercel account with permissions to create projects
+- Supabase project for each environment (development, staging, production)
+- Credentials for at least one supported payment provider
 
-## Step 1: Prepare Supabase (Optional for Demo)
+## Step 1 – Prepare Supabase
 
-If you want to use Supabase for production:
+1. Create separate Supabase projects for staging and production, or use the Supabase CLI to manage environments.
+2. Apply the SQL from [`SUPABASE_SETUP.md`](SUPABASE_SETUP.md) to each project.
+3. Seed reference events if desired so QA testers have data to verify.
+4. Configure authentication redirect URLs for each environment domain (see Step 4 below).
 
-### Create Supabase Project
+## Step 2 – Configure Payment Providers
 
-1. Go to [supabase.com](https://supabase.com) and create a new project
-2. Save your project URL and anon key from the API settings
-3. Create the following tables:
+- **DeltaPay**: Generate public and secret keys, enable webhook delivery, and note the webhook signing secret if provided.
+- **Paystack**: Create API keys, enable test mode, and add your callback URL (e.g., `https://<project>.vercel.app/api/orders/paystack`).
+- **Flutterwave**: Create public and secret keys, whitelist your domains, and configure event/webhook URLs.
 
-\`\`\`sql
--- Events table
-CREATE TABLE events (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  title TEXT NOT NULL,
-  description TEXT NOT NULL,
-  full_description TEXT NOT NULL,
-  date DATE NOT NULL,
-  time TIME NOT NULL,
-  end_time TIME NOT NULL,
-  location TEXT NOT NULL,
-  venue TEXT NOT NULL,
-  price DECIMAL NOT NULL,
-  image_url TEXT,
-  category TEXT NOT NULL,
-  attendees INTEGER DEFAULT 0,
-  tickets_available INTEGER NOT NULL,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
+Record all secrets so they can be added to Vercel in the next step.
 
--- Tickets table
-CREATE TABLE tickets (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  event_id UUID REFERENCES events(id) ON DELETE CASCADE,
-  quantity INTEGER NOT NULL,
-  total DECIMAL NOT NULL,
-  ticket_number TEXT UNIQUE NOT NULL,
-  purchase_date TIMESTAMP DEFAULT NOW(),
-  created_at TIMESTAMP DEFAULT NOW()
-);
+## Step 3 – Deploy to Vercel
 
--- Enable RLS
-ALTER TABLE events ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
+### Option A – Git Integration (Recommended)
 
--- Create RLS policies
-CREATE POLICY "Events are readable by everyone" ON events
-  FOR SELECT USING (true);
+1. Push your repository to GitHub.
+2. Visit [vercel.com/new](https://vercel.com/new) and import the repository.
+3. Choose the **Next.js** preset and confirm the project name.
+4. Before the first deploy, open the **Environment Variables** section and add the following for each environment scope you intend to use:
 
-CREATE POLICY "Tickets are readable by owner" ON tickets
-  FOR SELECT USING (auth.uid() = user_id);
+   | Variable | Scope | Source |
+   | --- | --- | --- |
+   | `NEXT_PUBLIC_SUPABASE_URL` | All | Supabase project URL |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | All | Supabase anon key |
+   | `SUPABASE_SERVICE_ROLE_KEY` | Server (Preview/Production) | Supabase service role key |
+   | `NEXT_PUBLIC_APP_URL` | All | Vercel deployment domain or custom domain |
+   | `DELTAPAY_PUBLIC_KEY` | Relevant envs | DeltaPay dashboard |
+   | `DELTAPAY_SECRET_KEY` | Server | DeltaPay dashboard |
+   | `PAYSTACK_PUBLIC_KEY` | Relevant envs | Paystack dashboard |
+   | `PAYSTACK_SECRET_KEY` | Server | Paystack dashboard |
+   | `FLUTTERWAVE_PUBLIC_KEY` | Relevant envs | Flutterwave dashboard |
+   | `FLUTTERWAVE_SECRET_KEY` | Server | Flutterwave dashboard |
+   | `NODE_ENV` | Optional | Set automatically by Vercel but can be overridden |
 
-CREATE POLICY "Tickets are creatable by authenticated users" ON tickets
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+5. Trigger the initial deployment. Vercel will build the Next.js project and expose preview URLs per branch.
 
--- Create indexes for better performance
-CREATE INDEX idx_events_category ON events(category);
-CREATE INDEX idx_events_date ON events(date);
-CREATE INDEX idx_tickets_user_id ON tickets(user_id);
-CREATE INDEX idx_tickets_event_id ON tickets(event_id);
-\`\`\`
+### Option B – Vercel CLI
 
-4. Seed initial events (optional):
+If you prefer the CLI:
 
-\`\`\`sql
-INSERT INTO events (title, description, full_description, date, time, end_time, location, venue, price, category, attendees, tickets_available) VALUES
-('Tech Conference 2025', 'Join industry leaders for a day of innovation', '...', '2025-03-15', '09:00', '17:00', 'San Francisco, CA', 'Moscone Center', 199, 'Conference', 1250, 850),
--- Add more events...
-;
-\`\`\`
-
-## Step 2: Deploy to Vercel
-
-### Option A: Automatic Deployment (Recommended)
-
-1. Go to [vercel.com/new](https://vercel.com/new)
-2. Select "Import Git Repository"
-3. Find your `ticketiv` repository
-4. Click "Import"
-5. Configure the project:
-   - **Project Name**: `ticketiv` (or your choice)
-   - **Framework Preset**: Next.js
-   - Click "Deploy"
-
-### Option B: Manual Deployment via CLI
-
-1. Install Vercel CLI:
-\`\`\`bash
+```bash
 npm i -g vercel
-\`\`\`
+vercel login
+vercel link
+vercel env add NEXT_PUBLIC_SUPABASE_URL
+# Repeat for each variable listed above
+vercel --prod
+```
 
-2. Deploy:
-\`\`\`bash
-vercel
-\`\`\`
+## Step 4 – Align Supabase Redirects
 
-3. Follow the prompts to connect your GitHub repository
+For each Supabase project, navigate to **Authentication → URL Configuration** and add:
 
-## Step 3: Configure Environment Variables
+- `http://localhost:3000/browse`
+- `http://localhost:3000/dashboard`
+- `https://<preview-domain>.vercel.app/browse`
+- `https://<preview-domain>.vercel.app/dashboard`
+- `https://<production-domain>/browse`
+- `https://<production-domain>/dashboard`
 
-1. In your Vercel project dashboard, go to **Settings** → **Environment Variables**
-2. Add the following variables:
+## Step 5 – Map Webhooks and Callbacks
 
-\`\`\`
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-NEXT_PUBLIC_APP_URL=https://your-project.vercel.app
-NODE_ENV=production
-\`\`\`
+1. Point DeltaPay, Paystack, and Flutterwave webhooks to the respective routes in `app/api/orders` or `app/api/payouts` depending on your integration pattern.
+2. Ensure each provider sends signatures/headers that your handlers expect. Store signing secrets as additional environment variables if required.
+3. Test callbacks using sandbox modes or provider-specific testing tools before going live.
 
-3. Click "Save" and trigger a redeployment
+## Step 6 – Smoke Test the Deployment
 
-## Step 4: Update Auth Redirects
+- Run through attendee checkout flows using test payment keys.
+- Validate that Supabase receives new `tickets` records and that `/scanner/scan` verifies the generated codes.
+- Confirm organiser dashboards display up-to-date payout and order data.
+- Monitor Vercel build logs and Supabase logs for errors.
 
-In Supabase, update your auth configuration:
+## Step 7 – Promote to Production
 
-1. Go to **Authentication** → **URL Configuration**
-2. Add redirect URLs:
-   - `https://your-project.vercel.app/browse`
-   - `https://your-project.vercel.app/dashboard`
-   - `http://localhost:3000/browse` (for local development)
-
-## Step 5: Verify Deployment
-
-1. Visit your Vercel deployment URL
-2. Test the authentication flow
-3. Create a test account and purchase a ticket
-4. Check the Supabase dashboard to verify data is being saved
+1. Merge the release branch into `main` (or your production branch).
+2. Confirm the production Vercel project points to the production Supabase and payment credentials.
+3. Flip providers from test to live mode.
+4. Announce availability and continue monitoring analytics and logs.
 
 ## Troubleshooting
 
-### 401 Unauthorized Errors
-- Check that `NEXT_PUBLIC_SUPABASE_ANON_KEY` is correct
-- Verify RLS policies in Supabase are set correctly
+- **401/403 responses**: Verify Supabase keys and RLS policies. Ensure service role keys are only used server-side.
+- **Webhook retries**: Check signature validation logic and confirm Vercel routes respond within provider timeouts.
+- **Payment discrepancies**: Reconcile Supabase `tickets` totals with provider dashboards and investigate mismatches promptly.
 
-### Data Not Appearing
-- Check that Supabase credentials are set in Vercel environment variables
-- Verify RLS policies aren't blocking reads
-- Check browser console for error messages
+## Ongoing Operations
 
-### Slow Performance
-- Enable Vercel Analytics to identify bottlenecks
-- Add database indexes (see SQL above)
-- Consider enabling Supabase caching
-
-### Build Failures
-- Check Vercel build logs
-- Ensure all environment variables are set
-- Try clearing `.next` and rebuilding locally
-
-## Monitoring & Maintenance
-
-### Enable Analytics
-
-1. In Vercel dashboard, go to **Analytics**
-2. Enable **Web Analytics** and **Edge Requests**
-3. Monitor performance metrics
-
-### Set Up Error Tracking
-
-Vercel automatically captures errors. View them in:
-- Vercel Dashboard → **Deployments** → **Logs**
-- Browser console for client-side errors
-
-### Database Monitoring
-
-In Supabase:
-1. Go to **Logs** to view query performance
-2. Check **Database** → **Replication** for sync status
-3. Monitor **Auth** → **Users** for user activity
-
-## Updating the Deployment
-
-### Push Changes to GitHub
-
-1. Commit your changes:
-\`\`\`bash
-git add .
-git commit -m "Your commit message"
-\`\`\`
-
-2. Push to GitHub:
-\`\`\`bash
-git push origin main
-\`\`\`
-
-3. Vercel automatically redeploys on push to main branch
-
-### Manual Redeployment
-
-In Vercel dashboard:
-1. Go to **Deployments**
-2. Click the three dots on the latest deployment
-3. Select **Redeploy**
-
-## Custom Domain
-
-1. In Vercel dashboard, go to **Settings** → **Domains**
-2. Add your custom domain
-3. Follow DNS configuration instructions
-4. Update `NEXT_PUBLIC_APP_URL` in environment variables
-
-## Production Checklist
-
-- [ ] Supabase project created with all tables
-- [ ] Environment variables set in Vercel
-- [ ] Auth redirects configured in Supabase
-- [ ] Database backups enabled in Supabase
-- [ ] Custom domain configured (optional)
-- [ ] Analytics enabled
-- [ ] Error tracking verified
-- [ ] Security headers configured (vercel.json)
-- [ ] Rate limiting considered
-- [ ] User data privacy reviewed
-
-## Rollback
-
-If something goes wrong:
-
-1. In Vercel dashboard, go to **Deployments**
-2. Find the last working deployment
-3. Click the three dots and select **Promote to Production**
-
-## Support
-
-For issues:
-- Check [Vercel Docs](https://vercel.com/docs)
-- Check [Supabase Docs](https://supabase.com/docs)
-- Review browser console for errors
-- Check Vercel and Supabase dashboards for warnings
+- Rotate keys periodically in Supabase and payment provider dashboards, updating Vercel secrets accordingly.
+- Enable Vercel Analytics and Supabase log drains for long-term monitoring.
+- Schedule database backups or use Supabase PITR (Point-In-Time Recovery) for disaster readiness.
