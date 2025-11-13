@@ -1,15 +1,16 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
+import { ShoppingCart, Check, AlertCircle } from "lucide-react"
+
+import { QuantitySelector } from "@/components/forms/quantity-selector"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ShoppingCart, Check, AlertCircle } from "lucide-react"
+import { calculatePricing, formatCurrency } from "@/lib/pricing"
 import { MOCK_EVENTS } from "@/lib/mock-data"
 
 export default function CheckoutPage() {
@@ -17,7 +18,7 @@ export default function CheckoutPage() {
   const router = useRouter()
   const eventId = params.id as string
 
-  const event = MOCK_EVENTS.find((e) => e.id === eventId)
+  const event = MOCK_EVENTS.find((item) => item.id === eventId)
 
   const [quantity, setQuantity] = useState(1)
   const [name, setName] = useState("")
@@ -25,12 +26,10 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
-  const subtotal = (event?.price || 0) * quantity
-  const fees = subtotal * 0.1
-  const total = subtotal + fees
+  const pricing = useMemo(() => calculatePricing({ eventId, quantity }), [eventId, quantity])
 
-  const handleCheckout = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleCheckout = async (event: React.FormEvent) => {
+    event.preventDefault()
     setError("")
 
     if (!name.trim() || !email.trim()) {
@@ -41,24 +40,40 @@ export default function CheckoutPage() {
     setLoading(true)
 
     try {
-      // Simulate checkout
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          eventId,
+          quantity,
+          attendeeName: name,
+          attendeeEmail: email,
+        }),
+      })
 
-      // Store ticket
+      if (!response.ok) {
+        throw new Error("Unable to create order")
+      }
+
+      const order = await response.json()
+
       const tickets = JSON.parse(localStorage.getItem("ticketiv_tickets") || "[]")
       tickets.push({
-        id: Math.random().toString(36).substr(2, 9),
+        id: order.id,
         eventId,
         eventTitle: event?.title,
-        quantity,
-        total,
-        purchaseDate: new Date().toISOString(),
-        ticketNumber: `TICKET-${Date.now()}`,
+        quantity: order.quantity,
+        total: order.pricing.total,
+        purchaseDate: order.createdAt,
+        ticketNumber: order.tickets[0]?.code || `TICKET-${Date.now()}`,
       })
       localStorage.setItem("ticketiv_tickets", JSON.stringify(tickets))
 
       router.push("/dashboard")
-    } catch (err) {
+    } catch (error) {
+      console.error(error)
       setError("Checkout failed. Please try again.")
     } finally {
       setLoading(false)
@@ -67,7 +82,7 @@ export default function CheckoutPage() {
 
   if (!event) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         <p className="text-muted-foreground">Event not found</p>
         <Button onClick={() => router.push("/browse")} className="mt-4">
           Back to Events
@@ -77,14 +92,13 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Complete Your Purchase</h1>
+        <h1 className="mb-2 text-3xl font-bold">Complete Your Purchase</h1>
         <p className="text-muted-foreground">You're just a few steps away from securing your tickets</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Form */}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <form onSubmit={handleCheckout} className="space-y-6">
             {error && (
@@ -94,64 +108,39 @@ export default function CheckoutPage() {
               </Alert>
             )}
 
-            {/* Ticket Selection */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <ShoppingCart className="w-5 h-5" />
+                  <ShoppingCart className="h-5 w-5" />
                   Select Tickets
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-accent/50 transition">
+                <div className="flex items-center justify-between gap-4 rounded-lg border bg-card p-4 transition hover:bg-accent/50">
                   <div>
                     <p className="font-semibold">{event.title}</p>
-                    <p className="text-sm text-muted-foreground">${event.price} per ticket</p>
+                    <p className="text-sm text-muted-foreground">{formatCurrency(event.price)} per ticket</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="px-3 py-1 border rounded hover:bg-muted transition"
-                    >
-                      −
-                    </button>
-                    <input
-                      type="number"
-                      value={quantity}
-                      onChange={(e) => setQuantity(Math.max(1, Number.parseInt(e.target.value) || 1))}
-                      className="w-12 text-center border rounded"
-                      min="1"
-                      max="10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setQuantity(Math.min(10, quantity + 1))}
-                      className="px-3 py-1 border rounded hover:bg-muted transition"
-                    >
-                      +
-                    </button>
-                  </div>
+                  <QuantitySelector quantity={quantity} onChange={setQuantity} />
                 </div>
               </CardContent>
             </Card>
 
-            {/* Attendee Info */}
             <Card>
               <CardHeader>
                 <CardTitle>Your Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Full Name *</label>
-                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="John Doe" required />
+                  <label className="mb-2 block text-sm font-medium">Full Name *</label>
+                  <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="John Doe" required />
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Email Address *</label>
+                  <label className="mb-2 block text-sm font-medium">Email Address *</label>
                   <Input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(event) => setEmail(event.target.value)}
                     placeholder="you@example.com"
                     required
                   />
@@ -159,23 +148,22 @@ export default function CheckoutPage() {
               </CardContent>
             </Card>
 
-            {/* Payment Method */}
             <Card>
               <CardHeader>
                 <CardTitle>Payment Method</CardTitle>
               </CardHeader>
               <CardContent>
                 <RadioGroup defaultValue="card">
-                  <div className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-accent/50 transition">
+                  <div className="flex items-center space-x-3 rounded-lg border p-4 transition hover:bg-accent/50">
                     <RadioGroupItem value="card" id="card" />
-                    <label htmlFor="card" className="cursor-pointer flex-1">
+                    <label htmlFor="card" className="flex-1 cursor-pointer">
                       <p className="font-semibold">Credit Card</p>
                       <p className="text-sm text-muted-foreground">Visa, Mastercard, American Express</p>
                     </label>
                   </div>
                 </RadioGroup>
-                <div className="mt-4 p-4 bg-muted rounded-lg border">
-                  <p className="text-sm font-medium mb-2">Demo Checkout</p>
+                <div className="mt-4 rounded-lg border bg-muted p-4">
+                  <p className="mb-2 text-sm font-medium">Demo Checkout</p>
                   <p className="text-xs text-muted-foreground">
                     This is a demonstration. No real payment processing occurs. Click "Complete Purchase" to finalize.
                   </p>
@@ -183,15 +171,15 @@ export default function CheckoutPage() {
               </CardContent>
             </Card>
 
-            <Button type="submit" className="w-full h-12 text-base" disabled={loading}>
+            <Button type="submit" className="h-12 w-full text-base" disabled={loading}>
               {loading ? (
                 <>
-                  <span className="animate-spin mr-2">⟳</span>
+                  <span className="mr-2 animate-spin">⟳</span>
                   Processing...
                 </>
               ) : (
                 <>
-                  <Check className="w-4 h-4 mr-2" />
+                  <Check className="mr-2 h-4 w-4" />
                   Complete Purchase
                 </>
               )}
@@ -199,34 +187,43 @@ export default function CheckoutPage() {
           </form>
         </div>
 
-        {/* Order Summary */}
-        <div className="lg:col-span-1">
-          <Card className="sticky top-24">
+        <div className="lg:col-span-1 space-y-4">
+          <Card>
             <CardHeader>
               <CardTitle>Order Summary</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3 text-sm">
               <div>
-                <h4 className="font-semibold mb-1">{event.title}</h4>
-                <p className="text-sm text-muted-foreground">
+                <h4 className="font-semibold">{event.title}</h4>
+                <p className="text-muted-foreground">
                   {quantity} ticket{quantity !== 1 ? "s" : ""}
                 </p>
               </div>
-
-              <div className="space-y-2 text-sm border-t pt-4">
+              <div className="space-y-2 border-t pt-4">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span>${subtotal.toFixed(2)}</span>
+                  <span>Subtotal</span>
+                  <span>{formatCurrency(pricing.subtotal)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Fees</span>
-                  <span>${fees.toFixed(2)}</span>
+                  <span>Fees</span>
+                  <span>{formatCurrency(pricing.fees)}</span>
                 </div>
-                <div className="flex justify-between font-bold text-base border-t pt-2 mt-2">
+                <div className="flex justify-between border-t pt-2 text-base font-semibold">
                   <span>Total</span>
-                  <span className="text-primary">${total.toFixed(2)}</span>
+                  <span className="text-primary">{formatCurrency(pricing.total)}</span>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Secure Checkout</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm text-muted-foreground">
+              <p>✓ SSL encrypted payment processing</p>
+              <p>✓ Instant ticket delivery via email</p>
+              <p>✓ 24/7 customer support for attendees</p>
             </CardContent>
           </Card>
         </div>

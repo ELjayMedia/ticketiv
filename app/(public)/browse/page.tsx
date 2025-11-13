@@ -1,14 +1,17 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
+import { Globe, Mails as Masks, Calendar, Heart, Briefcase, ChevronRight } from "lucide-react"
+
+import { EventCard } from "@/components/events/event-card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
-import { MOCK_EVENTS, MOCK_ARTISTS } from "@/lib/mock-data"
-import { MapPin, Clock, Globe, Mails as Masks, Calendar, Heart, Briefcase, ChevronRight } from "lucide-react"
+import { getAllEvents } from "@/lib/events"
+import { MOCK_ARTISTS } from "@/lib/mock-data"
+import type { MOCK_EVENTS } from "@/lib/mock-data"
 
 export default function BrowsePage() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -24,8 +27,10 @@ export default function BrowsePage() {
     { name: "Gala", icon: Heart },
   ]
 
+  const events = useMemo(() => getAllEvents(), [])
+
   const filteredEvents = useMemo(() => {
-    return MOCK_EVENTS.filter((event) => {
+    return events.filter((event) => {
       const matchesSearch =
         event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         event.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -40,7 +45,7 @@ export default function BrowsePage() {
     const currentMonth = now.getMonth()
     const currentYear = now.getFullYear()
 
-    return MOCK_EVENTS.filter((event) => {
+    return events.filter((event) => {
       const eventDate = new Date(event.date)
       return eventDate.getMonth() === currentMonth && eventDate.getFullYear() === currentYear
     }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
@@ -59,39 +64,7 @@ export default function BrowsePage() {
     return grouped
   }, [filteredEvents])
 
-  const featuredEvents = MOCK_EVENTS.slice(0, 3)
-
-  const EventCard = ({ event }: { event: (typeof MOCK_EVENTS)[0] }) => (
-    <Link href={`/events/${event.id}`}>
-      <Card className="h-full hover:shadow-lg transition-all duration-300 hover:border-primary cursor-pointer overflow-hidden">
-        <div className="relative w-full h-64 group overflow-hidden">
-          <img
-            src={event.image || "/placeholder.svg"}
-            alt={event.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-          <Badge className="absolute top-3 right-3 bg-primary">{event.category}</Badge>
-
-          {/* Text overlay positioned at bottom */}
-          <div className="absolute inset-0 flex flex-col justify-end p-4">
-            <h3 className="text-white font-semibold text-base mb-2 line-clamp-2">{event.title}</h3>
-            <div className="flex items-center justify-between text-white text-xs">
-              <div className="flex items-center gap-1">
-                <MapPin className="w-3 h-3" />
-                <span className="line-clamp-1">{event.location}</span>
-              </div>
-              <span className="font-bold text-primary">${event.price}</span>
-            </div>
-            <div className="flex items-center gap-1 text-white/80 text-xs mt-2">
-              <Clock className="w-3 h-3" />
-              <span className="line-clamp-1">{event.date}</span>
-            </div>
-          </div>
-        </div>
-      </Card>
-    </Link>
-  )
+  const featuredEvents = events.slice(0, 3)
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 space-y-8 lg:px-8">

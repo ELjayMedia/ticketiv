@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { Ticket, DollarSign, Zap } from "lucide-react"
+
+import { TicketCard } from "@/components/tickets/ticket-card"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Ticket, Calendar, DollarSign, Zap } from "lucide-react"
 
 export default function DashboardPage() {
   const [tickets, setTickets] = useState<any[]>([])
@@ -81,32 +83,9 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {tickets.map((ticket: any) => (
-              <Card key={ticket.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                <CardHeader className="bg-gradient-to-r from-primary/10 to-accent/10 pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <CardTitle className="line-clamp-2 mb-1">{ticket.eventTitle}</CardTitle>
-                      <CardDescription className="text-xs">{ticket.ticketNumber}</CardDescription>
-                    </div>
-                    <Badge className="bg-primary shrink-0">x{ticket.quantity}</Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-4 space-y-3">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Calendar className="w-4 h-4 text-muted-foreground" />
-                    <span>{new Date(ticket.purchaseDate).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center pt-3 border-t">
-                    <span className="text-sm text-muted-foreground">Total Paid</span>
-                    <span className="font-bold text-primary text-lg">${ticket.total.toFixed(2)}</span>
-                  </div>
-                  <Button variant="outline" className="w-full mt-2 bg-transparent">
-                    View Details
-                  </Button>
-                </CardContent>
-              </Card>
+              <TicketCard key={ticket.id} ticket={ticket} />
             ))}
           </div>
         )}
