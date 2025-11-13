@@ -2,11 +2,9 @@
 
 This guide covers integrating Supabase for authentication and data persistence.
 
-## Current State (Demo)
+## Current State
 
-The app currently uses localStorage for demo purposes. This is perfect for testing the UI without backend infrastructure.
-
-## Transitioning to Supabase
+The application ships with Supabase integration for authentication, event data, ticketing, and scanning workflows.
 
 ### Step 1: Create Supabase Project
 
@@ -129,11 +127,11 @@ EXECUTE FUNCTION update_updated_at_column();
    - `https://your-domain.com/browse`
    - `https://your-domain.com/dashboard`
 
-### Step 5: Update Application Code
+### Step 5: Review Application Code
 
-#### 1. Authentication (app/(main)/layout.tsx)
+#### 1. Authentication (components/ui/workspace-shell.tsx)
 
-Replace localStorage-based auth with Supabase:
+Authentication is powered by Supabase Auth sessions handled in the workspace shell:
 
 \`\`\`typescript
 import { createBrowserClient } from '@supabase/ssr'
@@ -164,9 +162,9 @@ export default function MainLayout({ children }) {
 }
 \`\`\`
 
-#### 2. Event Fetching (app/(main)/browse/page.tsx)
+#### 2. Event Fetching (lib/events.ts)
 
-Replace mock data with Supabase query:
+Event data is queried from Supabase with helpers that power both server and client components:
 
 \`\`\`typescript
 import { createBrowserClient } from '@supabase/ssr'
@@ -192,9 +190,9 @@ export default function BrowsePage() {
 }
 \`\`\`
 
-#### 3. Ticket Creation (app/(main)/checkout/[id]/page.tsx)
+#### 3. Ticket Creation (lib/orders.ts)
 
-Save ticket to Supabase:
+Checkout uses Supabase server actions to persist orders, calculate fees, and mint tickets:
 
 \`\`\`typescript
 const { data, error } = await supabase
@@ -336,14 +334,9 @@ Go to **Database** → **Webhooks**
 5. **Rotate secrets** regularly
 6. **Monitor suspicious activity** in logs
 
-## Migration from localStorage
+## Legacy localStorage Data
 
-Once Supabase is set up:
-
-1. Existing localStorage tickets are local-only
-2. Users can continue using app with localStorage
-3. New purchases go to Supabase
-4. Optional: Migrate old data manually
+Earlier versions of Ticketiv stored demo data in `localStorage`. The current implementation persists all records in Supabase. If you have legacy browser data you wish to keep, migrate it manually into the relevant Supabase tables.
 
 ## Support & Documentation
 
