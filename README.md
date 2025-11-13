@@ -4,7 +4,7 @@ A modern, full-stack ticketing platform built with Next.js 16 (App Router), Tail
 
 ## Features
 
-- **Authentication**: Login and signup flows (ready for Supabase integration)
+- **Authentication**: Supabase Auth login and signup flows
 - **Event Discovery**: Browse, search, and filter events by category
 - **Event Details**: Rich event information with availability tracking
 - **Checkout Flow**: Multi-step ticket purchase with order summary
@@ -18,7 +18,7 @@ A modern, full-stack ticketing platform built with Next.js 16 (App Router), Tail
 - **Styling**: Tailwind CSS v4
 - **UI Components**: shadcn/ui
 - **Language**: TypeScript
-- **Storage**: localStorage (demo), ready for Supabase
+- **Database**: Supabase Postgres
 - **Icons**: Lucide React
 
 ## Getting Started
@@ -88,9 +88,13 @@ ticketiv/
 │   ├── ui/                  # shadcn/ui components
 │   └── ...
 ├── lib/
-│   ├── mock-data.ts         # Mock event data
-│   ├── supabase.ts          # Client Supabase (for future)
-│   ├── supabase-server.ts   # Server Supabase (for future)
+│   ├── events.ts            # Event queries (Supabase, server-only)
+│   ├── events-client.ts     # Client-side event queries
+│   ├── orders.ts            # Order creation and ticket minting
+│   ├── pricing.ts           # Fee calculations
+│   ├── scanning.ts          # QR code validation helpers
+│   ├── supabase.ts          # Client Supabase helpers
+│   ├── supabase-server.ts   # Server Supabase helpers
 │   └── utils.ts             # Utility functions
 ├── types/
 │   └── index.ts             # TypeScript type definitions
@@ -114,75 +118,24 @@ ticketiv/
 - `/checkout/[id]` - Checkout page
 - `/dashboard` - User's ticket dashboard
 
-## Current Features (Demo)
+## Data & Integrations
 
-The app currently uses localStorage for demo purposes:
-- User sessions stored in localStorage
-- Event data from mock data file
-- Tickets stored in localStorage
-- No real payment processing (mocked)
+- **Supabase Auth** handles email/password sign-in and session refresh.
+- **Supabase Postgres** stores events, ticket types, orders, tickets, scans, and device sessions.
+- **Server Components** read data via `lib/events.ts`, while client components use `lib/events-client.ts#getEventsUsingClient` for live filtering.
+- **Checkout** creates orders through `lib/orders.ts`, which inserts order items, calculates Eventbrite-style fees, and invokes the `fn_mint_tickets` RPC to mint tickets.
+- **Scanning** APIs validate QR codes against Supabase data and support offline sync queues.
 
-## Future: Supabase Integration
+### Environment Variables
 
-To connect Supabase:
+Create a `.env.local` file with your Supabase credentials:
 
-1. Create a Supabase project at [supabase.com](https://supabase.com)
-
-2. Create database tables:
-
-\`\`\`sql
--- Users table (handled by Supabase Auth)
-
--- Events table
-CREATE TABLE events (
-  id UUID PRIMARY KEY,
-  title TEXT NOT NULL,
-  description TEXT,
-  full_description TEXT,
-  date DATE,
-  time TIME,
-  end_time TIME,
-  location TEXT,
-  venue TEXT,
-  price DECIMAL,
-  image_url TEXT,
-  category TEXT,
-  attendees INTEGER,
-  tickets_available INTEGER,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- Tickets table
-CREATE TABLE tickets (
-  id UUID PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id),
-  event_id UUID REFERENCES events(id),
-  quantity INTEGER,
-  total DECIMAL,
-  ticket_number TEXT UNIQUE,
-  purchase_date TIMESTAMP DEFAULT NOW(),
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Enable Row Level Security
-ALTER TABLE events ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
-
--- Policies
-CREATE POLICY "Events are readable by everyone" ON events FOR SELECT USING (true);
-CREATE POLICY "Tickets are readable by owner" ON tickets FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Tickets are creatable by authenticated users" ON tickets FOR INSERT WITH CHECK (auth.uid() = user_id);
-\`\`\`
-
-3. Add Supabase credentials to `.env.local`
-
-4. Replace localStorage calls with Supabase client calls in:
-   - `app/(main)/layout.tsx` - Authentication checks
-   - `app/(main)/browse/page.tsx` - Event fetching
-   - `app/(main)/events/[id]/page.tsx` - Event details
-   - `app/(main)/checkout/[id]/page.tsx` - Ticket creation
-   - `app/(main)/dashboard/page.tsx` - User tickets
+```
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
 
 ## Deployment
 
@@ -232,7 +185,7 @@ npm run start
 
 ### Add new events
 
-Edit `lib/mock-data.ts` and add to the `MOCK_EVENTS` array.
+Manage events directly in the Supabase `events` table or extend `lib/events.ts` for custom queries.
 
 ### Customize styling
 

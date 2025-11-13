@@ -3,6 +3,7 @@ import { Calendar, Ticket as TicketIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { formatCurrency } from "@/lib/pricing"
 
 interface TicketCardProps {
   ticket: {
@@ -11,6 +12,7 @@ interface TicketCardProps {
     ticketNumber: string
     quantity: number
     total: number
+    currency: string
     purchaseDate: string
   }
 }
@@ -38,7 +40,7 @@ export function TicketCard({ ticket }: TicketCardProps) {
         </div>
         <div className="flex items-center justify-between border-t pt-3">
           <span className="text-sm text-muted-foreground">Total Paid</span>
-          <span className="text-lg font-bold text-primary">${ticket.total.toFixed(2)}</span>
+          <span className="text-lg font-bold text-primary">{formatCurrency(ticket.total, ticket.currency)}</span>
         </div>
         <Button variant="outline" className="mt-2 w-full bg-transparent">
           View Details
