@@ -1,277 +1,164 @@
-# Ticketiv - Event Ticketing Platform
+# Ticketiv – Full Stack Event Ticketing Platform
 
-A modern, full-stack ticketing platform built with Next.js 16 (App Router), Tailwind CSS, and shadcn/ui. Ready for Supabase integration and Vercel deployment.
-
-## Features
-
-- **Authentication**: Login and signup flows (ready for Supabase integration)
-- **Event Discovery**: Browse, search, and filter events by category
-- **Event Details**: Rich event information with availability tracking
-- **Checkout Flow**: Multi-step ticket purchase with order summary
-- **Ticket Dashboard**: View and manage purchased tickets
-- **Responsive Design**: Mobile-first, works on all devices
-- **Modern UI**: Beautiful gradients, smooth transitions, and consistent design
+Ticketiv is an African-first ticketing suite that connects organisers, vendors, and fans across the continent. The platform ships with regional payment rails, scalable Supabase persistence, and role-based dashboards so that teams can launch, monetise, and operate live experiences without stitching tools together.
 
 ## Tech Stack
 
-- **Framework**: Next.js 16 (App Router)
-- **Styling**: Tailwind CSS v4
-- **UI Components**: shadcn/ui
-- **Language**: TypeScript
-- **Storage**: localStorage (demo), ready for Supabase
-- **Icons**: Lucide React
+| Layer | Technology | Notes |
+| --- | --- | --- |
+| Frontend | Next.js 16 (App Router), React 19, TypeScript | Responsive client with streaming layouts and client/server components. |
+| Styling | Tailwind CSS v4, shadcn/ui, Radix primitives | Design system tuned for dark/light theming and motion. |
+| Data | Supabase (Postgres, Auth, Storage) | Managed Postgres schema, RLS policies, real-time subscriptions. |
+| Payments | DeltaPay, Paystack, Flutterwave adapters | Regional payment orchestration with webhooks for settlement. |
+| Deployment | Vercel (frontend) + Supabase (backend) | Zero-config CI/CD, environment promotion, edge caching. |
+
+> **Deployment notes**: The repository is optimised for Vercel previews backed by a shared Supabase project. Configure staging and production environments with separate Supabase instances and payment credentials, and promote builds once smoke-tests pass.
+
+## Platform Capabilities
+
+### 🎟️ Attendee Experience
+- Curated browse surfaces for events, artists, and categories with rich search and filters.
+- Mobile-ready checkout that handles ticket quantity, tier selection, and secure payments.
+- Personal dashboard for managing upcoming events, downloads, and payment receipts.
+
+### 🧑‍💼 Organizer Workspace
+- Event management flows covering draft publishing, pricing controls, and inventory.
+- Settlement and payout tracking with reconciliation views for DeltaPay, Paystack, and Flutterwave transactions.
+- Role-aware navigation shared across organiser sub-routes and API handlers for orders/payouts.
+
+### 📱 Scanner Tools
+- Web-based validation console for QR codes or manual ticket codes via `/scanner/scan`.
+- API endpoints for instant ticket verification and audit logging of entry attempts.
+- Real-time feedback states to keep gate staff moving during peak check-in windows.
+
+### 🛡️ Platform Administration
+- Supabase policies enforcing least-privilege access for events and tickets.
+- Admin-only tooling hooks for suspending events, refunding orders, and rotating API keys.
+- Observability touchpoints (Supabase logs, Vercel analytics) to monitor platform health.
+
+## Supabase Data Model
+
+| Table | Purpose | Key Columns |
+| --- | --- | --- |
+| `events` | Stores public event metadata and ticket inventory. | `title`, `description`, `date`, `location`, `price`, `tickets_available`, `category`, `created_at`, `updated_at` |
+| `tickets` | Records purchases and links them to Supabase Auth users. | `user_id`, `event_id`, `quantity`, `total`, `ticket_number`, `purchase_date`, `created_at` |
+| `user_role` enum | Distinguishes attendee vs. admin profiles. | Values: `user`, `admin` |
+
+All tables are protected with Row Level Security. Events are publicly readable, while tickets are only readable/insertable by the owning authenticated user. Indexed columns (`category`, `date`, `user_id`, `event_id`, `created_at`) keep queries fast at scale.
+
+## User Journeys
+
+- **Attendee**: Discover events → authenticate via Supabase → checkout with preferred regional payment rail → receive ticket confirmation → manage tickets from the dashboard.
+- **Organizer**: Authenticate as organiser → create or edit events → monitor orders and payouts → export reports for finance reconciliation.
+- **Scanner**: Access the scanner console → validate QR code or manual ticket input → check Supabase-backed validity response → admit attendee or flag issue.
+- **Platform Admin**: Authenticate with elevated role → manage global settings, payment credentials, and policy enforcement → audit logs and respond to support tickets.
+
+## Supabase Integration Steps
+
+1. **Provision Supabase** – Create a project, secure the database password, and note the project URL, anon key, and service role key from **Settings → API**.
+2. **Run the schema** – Execute the SQL from [`SUPABASE_SETUP.md`](SUPABASE_SETUP.md) to create the `user_role` enum, `events`, and `tickets` tables, apply indexes, and register the `update_events_updated_at` trigger.
+3. **Configure Auth** – Enable email sign-in and register redirect URLs for local (`http://localhost:3000/...`) and production domains.
+4. **Seed catalogue data** – Use the provided insert statements (or your own CSV imports) to load initial events so the public marketplace renders meaningful content.
+5. **Wire credentials** – Populate the environment variables described below, ensuring that service role keys stay on the server only.
+6. **Connect the app** – Replace the mock data helpers with Supabase client queries inside the data loaders (`lib/events.ts`, `lib/orders.ts`, etc.), and subscribe to real-time channels where required.
+7. **Validate flows** – Run the end-to-end journeys locally, verifying Supabase rows, payment webhook callbacks, and scanner validation responses before promoting to staging.
+
+## Project Structure
+
+```
+ticketiv/
+├── app/
+│   ├── (app)/checkout/               # Authenticated attendee checkout
+│   ├── (app)/dashboard/              # Attendee ticket management
+│   ├── (auth)/login|signup/          # Supabase-auth powered forms
+│   ├── (organizer)/events|payouts/   # Organizer dashboards and ledgers
+│   ├── (public)/…                    # Marketing, browse, categories, artists
+│   ├── (scanner)/scan/               # Entry validation console
+│   ├── api/                          # Route handlers for orders, payouts, scanner
+│   └── layout.tsx                    # Root layout and providers
+├── components/
+│   ├── events/                       # Cards, sliders, detail sections
+│   ├── forms/                        # Reusable form patterns (auth, organiser)
+│   ├── tickets/                      # Ticket UI fragments
+│   └── ui/                           # shadcn/ui wrappers and primitives
+├── lib/
+│   ├── events.ts, orders.ts, payouts.ts, scanning.ts  # Data access helpers
+│   ├── supabase.ts & supabase-server.ts               # Supabase clients (browser/server)
+│   └── utils.ts, navigation.ts, pricing.ts            # Cross-cutting utilities
+├── public/                           # Static assets and favicons
+├── styles/                           # Tailwind entrypoints and tokens
+├── types/                            # Shared TypeScript types
+├── SUPABASE_SETUP.md                 # SQL migrations and integration guidance
+├── DEPLOYMENT.md                     # Vercel + Supabase deployment playbook
+└── …                                 # Config files (Next, PostCSS, TypeScript, etc.)
+```
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+ 
-- npm or pnpm
+- Node.js 18+
+- pnpm (recommended) or npm
+- Supabase project with database schema applied
+- Credentials for at least one payment provider (DeltaPay, Paystack, or Flutterwave)
 
 ### Installation
 
-1. Clone the repository:
-\`\`\`bash
+```bash
 git clone <your-repo-url>
 cd ticketiv
-\`\`\`
-
-2. Install dependencies:
-\`\`\`bash
-npm install
-# or
 pnpm install
-\`\`\`
+# or npm install
+```
 
-3. Set up environment variables:
-\`\`\`bash
-cp .env.local.example .env.local
-\`\`\`
+### Environment Variables
 
-Update `.env.local` with your configuration:
-\`\`\`
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-\`\`\`
+Create an `.env.local` file and supply the following values:
 
-4. Run the development server:
-\`\`\`bash
-npm run dev
-# or
+| Variable | Required | Description |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase project URL used on both client and server. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Public anon key for client-side requests. |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ (server-only) | Service role key for server route handlers and background jobs. |
+| `NEXT_PUBLIC_APP_URL` | ✅ | Base URL for constructing callbacks (e.g., `http://localhost:3000`). |
+| `DELTAPAY_PUBLIC_KEY` | ✅ (if enabled) | Public key for DeltaPay checkout. |
+| `DELTAPAY_SECRET_KEY` | ✅ (server-only) | Secret key for verifying DeltaPay webhooks. |
+| `PAYSTACK_PUBLIC_KEY` | ✅ (if enabled) | Public key for Paystack inline payments. |
+| `PAYSTACK_SECRET_KEY` | ✅ (server-only) | Secret key for Paystack server-side verification. |
+| `FLUTTERWAVE_PUBLIC_KEY` | ✅ (if enabled) | Public key for Flutterwave checkout. |
+| `FLUTTERWAVE_SECRET_KEY` | ✅ (server-only) | Secret key for Flutterwave webhook validation. |
+| `NODE_ENV` | Optional | Runtime mode (`development`, `production`). |
+
+> Store server-only secrets in Vercel's encrypted environment variable manager. Never expose service role or payment secret keys in client bundles.
+
+### Run Locally
+
+```bash
 pnpm dev
-\`\`\`
+```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-## Demo Credentials
-
-For testing purposes, use:
-- **Email**: demo@ticketiv.com
-- **Password**: demo123456
-
-Or create a new account to test the signup flow.
-
-## Project Structure
-
-\`\`\`
-ticketiv/
-├── app/
-│   ├── (auth)/              # Auth pages (login, signup)
-│   ├── (main)/              # Protected pages (browse, events, checkout, dashboard)
-│   ├── layout.tsx           # Root layout
-│   ├── page.tsx             # Home (redirects to browse)
-│   └── globals.css          # Global styles
-├── components/
-│   ├── header.tsx           # Navigation header
-│   ├── ui/                  # shadcn/ui components
-│   └── ...
-├── lib/
-│   ├── mock-data.ts         # Mock event data
-│   ├── supabase.ts          # Client Supabase (for future)
-│   ├── supabase-server.ts   # Server Supabase (for future)
-│   └── utils.ts             # Utility functions
-├── types/
-│   └── index.ts             # TypeScript type definitions
-├── public/                  # Static assets
-├── .env.local               # Environment variables
-├── next.config.mjs          # Next.js configuration
-├── tsconfig.json            # TypeScript configuration
-└── package.json             # Dependencies
-
-\`\`\`
-
-## Pages & Routes
-
-### Public Routes
-- `/login` - User login
-- `/signup` - Create new account
-
-### Protected Routes (require login)
-- `/browse` - Browse and search events
-- `/events/[id]` - Event details page
-- `/checkout/[id]` - Checkout page
-- `/dashboard` - User's ticket dashboard
-
-## Current Features (Demo)
-
-The app currently uses localStorage for demo purposes:
-- User sessions stored in localStorage
-- Event data from mock data file
-- Tickets stored in localStorage
-- No real payment processing (mocked)
-
-## Future: Supabase Integration
-
-To connect Supabase:
-
-1. Create a Supabase project at [supabase.com](https://supabase.com)
-
-2. Create database tables:
-
-\`\`\`sql
--- Users table (handled by Supabase Auth)
-
--- Events table
-CREATE TABLE events (
-  id UUID PRIMARY KEY,
-  title TEXT NOT NULL,
-  description TEXT,
-  full_description TEXT,
-  date DATE,
-  time TIME,
-  end_time TIME,
-  location TEXT,
-  venue TEXT,
-  price DECIMAL,
-  image_url TEXT,
-  category TEXT,
-  attendees INTEGER,
-  tickets_available INTEGER,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- Tickets table
-CREATE TABLE tickets (
-  id UUID PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id),
-  event_id UUID REFERENCES events(id),
-  quantity INTEGER,
-  total DECIMAL,
-  ticket_number TEXT UNIQUE,
-  purchase_date TIMESTAMP DEFAULT NOW(),
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Enable Row Level Security
-ALTER TABLE events ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
-
--- Policies
-CREATE POLICY "Events are readable by everyone" ON events FOR SELECT USING (true);
-CREATE POLICY "Tickets are readable by owner" ON tickets FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Tickets are creatable by authenticated users" ON tickets FOR INSERT WITH CHECK (auth.uid() = user_id);
-\`\`\`
-
-3. Add Supabase credentials to `.env.local`
-
-4. Replace localStorage calls with Supabase client calls in:
-   - `app/(main)/layout.tsx` - Authentication checks
-   - `app/(main)/browse/page.tsx` - Event fetching
-   - `app/(main)/events/[id]/page.tsx` - Event details
-   - `app/(main)/checkout/[id]/page.tsx` - Ticket creation
-   - `app/(main)/dashboard/page.tsx` - User tickets
+Visit [http://localhost:3000](http://localhost:3000) and complete the attendee and organiser journeys. Use Supabase Studio to confirm that events and tickets are persisted as expected.
 
 ## Deployment
 
-### Deploy to Vercel
+1. Push the repository to GitHub (or your preferred Git provider).
+2. Import the project into Vercel and select the Next.js framework preset.
+3. In Vercel, add all environment variables from the table above for **Production**, **Preview**, and **Development** scopes as needed.
+4. Point your production build at the production Supabase project and live payment credentials; keep staging and preview builds on sandbox keys.
+5. Trigger a deployment. Vercel will build the Next.js app, while Supabase hosts the database and auth services.
+6. Configure Supabase auth redirect URLs for each environment (e.g., `https://<project>.vercel.app/browse`, `https://<project>.vercel.app/dashboard`).
+7. Validate DeltaPay/Paystack/Flutterwave webhook endpoints against your `/api/orders` and `/api/payouts` handlers before announcing availability.
 
-1. Push your repository to GitHub:
-\`\`\`bash
-git add .
-git commit -m "Initial commit"
-git push origin main
-\`\`\`
+## Maintenance Checklist
 
-2. Go to [vercel.com](https://vercel.com) and import your repository
-
-3. Set environment variables in Vercel project settings:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-   - `NEXT_PUBLIC_APP_URL` (your Vercel domain)
-
-4. Click "Deploy"
-
-### Manual Deployment
-
-\`\`\`bash
-npm run build
-npm run start
-\`\`\`
-
-## Environment Variables
-
-| Variable | Type | Required | Description |
-|----------|------|----------|-------------|
-| `NEXT_PUBLIC_SUPABASE_URL` | String | No | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | String | No | Supabase anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | String | No | Supabase service role (server-only) |
-| `NEXT_PUBLIC_APP_URL` | String | Yes | Application base URL |
-| `NODE_ENV` | String | No | Environment (development, production) |
-
-## Development
-
-### Create a new page
-
-1. Create a new file in `app/(main)/your-page/page.tsx`
-2. Use the `Header` component for navigation
-3. Follow the existing component patterns
-
-### Add new events
-
-Edit `lib/mock-data.ts` and add to the `MOCK_EVENTS` array.
-
-### Customize styling
-
-Edit `app/globals.css` to modify design tokens and theme colors.
-
-## Performance Optimizations
-
-- React Compiler enabled (Next.js 16)
-- Image optimization with Next.js Image component ready
-- Automatic code splitting
-- Layout components for better caching
-- CSS-in-JS minimized with Tailwind
-
-## Browser Support
-
-- Chrome (latest)
-- Firefox (latest)
-- Safari (latest)
-- Edge (latest)
+- Monitor Supabase logs and RLS policies when adjusting schema migrations.
+- Rotate payment provider keys on a scheduled cadence and update Vercel secrets accordingly.
+- Use Vercel Analytics and Supabase real-time feeds to watch conversion funnels and entry scans in real time.
 
 ## Contributing
 
-Contributions welcome! Please follow the existing code style and patterns.
+Contributions are welcome! Please open an issue or pull request with context about the regions and payment rails you are targeting so we can validate compliance requirements.
 
 ## License
 
-MIT License - feel free to use this as a template.
-
-## Support
-
-For issues or questions, please open an issue on GitHub.
-
-## Next Steps
-
-1. **Connect Supabase**: Follow the "Future: Supabase Integration" section
-2. **Add Payment Processing**: Integrate Stripe for real payments
-3. **Email Notifications**: Set up email service for ticket confirmations
-4. **Admin Dashboard**: Create admin panel for event management
-5. **Advanced Search**: Add filters for date, price range, etc.
-6. **User Reviews**: Allow users to review events
-7. **Wishlists**: Let users save favorite events
-8. **Social Features**: Share events, invite friends
+MIT License. Use, adapt, and deploy across your event ecosystems.
