@@ -1,48 +1,18 @@
 # Supabase Integration Guide
 
-This guide covers integrating Supabase for authentication and data persistence.
+This guide walks through the production-ready Supabase setup that powers Ticketiv across attendees, organisers, scanner agents, and platform admins. Follow each step to provision the database schema, secure authentication, and connect the Next.js application.
 
 ## Current State
 
 The application ships with Supabase integration for authentication, event data, ticketing, and scanning workflows.
 
-### Step 1: Create Supabase Project
+Open the **SQL Editor**, create a new query, and run the migration below. It sets up the `user_role` enum, core tables, security policies, indexes, and triggers that keep the platform responsive.
 
-1. Go to [supabase.com](https://supabase.com)
-2. Click "Start your project"
-3. Sign up / log in
-4. Create a new project:
-   - **Name**: `ticketiv`
-   - **Database Password**: Strong password (save it!)
-   - **Region**: Closest to your users
-5. Wait for project to initialize (2-3 minutes)
-
-### Step 2: Get API Keys
-
-1. Go to **Settings** → **API**
-2. Copy:
-   - `Project URL` → `NEXT_PUBLIC_SUPABASE_URL`
-   - `anon key` → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `service_role key` → `SUPABASE_SERVICE_ROLE_KEY`
-3. Add to `.env.local`:
-
-\`\`\`
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
-SUPABASE_SERVICE_ROLE_KEY=eyJ...
-\`\`\`
-
-### Step 3: Create Database Schema
-
-1. Go to **SQL Editor**
-2. Click **New Query**
-3. Paste and run:
-
-\`\`\`sql
--- Create enum for user roles
+```sql
+-- Enum for platform roles
 CREATE TYPE user_role AS ENUM ('user', 'admin');
 
--- Events table
+-- Events catalogue
 CREATE TABLE events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL,
@@ -62,7 +32,7 @@ CREATE TABLE events (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Tickets table
+-- Ticket purchases linked to Supabase Auth users
 CREATE TABLE tickets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -74,32 +44,27 @@ CREATE TABLE tickets (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Enable Row Level Security
+-- Security configuration
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
 
--- Policies for events (public read)
 CREATE POLICY "Events are readable by everyone" ON events
-  FOR SELECT
-  USING (true);
+  FOR SELECT USING (true);
 
--- Policies for tickets (user-specific)
 CREATE POLICY "Users can view their own tickets" ON tickets
-  FOR SELECT
-  USING (auth.uid() = user_id);
+  FOR SELECT USING (auth.uid() = user_id);
 
 CREATE POLICY "Users can create tickets for themselves" ON tickets
-  FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
 
--- Create indexes
+-- Performance indexes
 CREATE INDEX idx_events_category ON events(category);
 CREATE INDEX idx_events_date ON events(date DESC);
 CREATE INDEX idx_tickets_user_id ON tickets(user_id);
 CREATE INDEX idx_tickets_event_id ON tickets(event_id);
 CREATE INDEX idx_tickets_created_at ON tickets(created_at DESC);
 
--- Create updated_at trigger
+-- Trigger keeps updated_at current
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -112,16 +77,14 @@ CREATE TRIGGER update_events_updated_at
 BEFORE UPDATE ON events
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
-\`\`\`
+```
 
-4. Click **Run**
+Run the migration once per environment (development, staging, production). Subsequent schema changes should be versioned via SQL migration files or the Supabase migration CLI to keep environments aligned.
 
-### Step 4: Configure Authentication
+## 3. Configure Authentication
 
-1. Go to **Authentication** → **Providers**
-2. Ensure **Email** is enabled
-3. Go to **URL Configuration**
-4. Add redirect URLs:
+1. Navigate to **Authentication → Providers** and ensure **Email** sign-in is enabled. Add social providers if required by your rollout plan.
+2. In **Authentication → URL Configuration**, register redirect URLs for local development and each deployed environment:
    - `http://localhost:3000/browse`
    - `http://localhost:3000/dashboard`
    - `https://your-domain.com/browse`
@@ -255,58 +218,37 @@ INSERT INTO events (title, description, full_description, date, time, end_time, 
   8500,
   2100
 );
--- Add more as needed
-\`\`\`
+```
 
-### Step 7: Test Integration
+Replace these with your own events or import CSV data using Supabase's table editor.
 
-1. Start development server: `npm run dev`
-2. Go to `http://localhost:3000`
-3. Sign up with test account
-4. Browse events
-5. Purchase a ticket
-6. Check Supabase dashboard to verify data saved
+## 5. Wire Environment Variables
 
-## Useful Supabase Features
+Add the Supabase keys and payment provider credentials to `.env.local` for local development and to Vercel for hosted environments:
 
-### Real-time Updates
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `NEXT_PUBLIC_APP_URL`
+- `DELTAPAY_PUBLIC_KEY`, `DELTAPAY_SECRET_KEY`
+- `PAYSTACK_PUBLIC_KEY`, `PAYSTACK_SECRET_KEY`
+- `FLUTTERWAVE_PUBLIC_KEY`, `FLUTTERWAVE_SECRET_KEY`
 
-Subscribe to ticket changes:
+Keep service role and secret keys server-side only. Use Vercel's environment management to scope secrets per environment.
 
-\`\`\`typescript
-const subscription = supabase
-  .on('postgres_changes', 
-    { event: 'INSERT', schema: 'public', table: 'tickets' },
-    (payload) => {
-      // Update UI with new ticket
-    }
-  )
-  .subscribe()
-\`\`\`
+## 6. Connect the Next.js Application
 
-### Row Level Security (RLS)
+1. Use the Supabase client helpers in `lib/supabase.ts` (client) and `lib/supabase-server.ts` (server) to query the `events` and `tickets` tables.
+2. Replace any remaining mock helpers with `supabase.from("events")` or `supabase.from("tickets")` queries.
+3. Update organiser and scanner routes (`app/api/orders`, `app/api/payouts`, `app/api/scanner`) to read and write via Supabase rather than stubbed responses.
+4. Subscribe to `postgres_changes` for tickets if you need real-time dashboards.
 
-Already configured! Users can only:
-- View all events
-- View their own tickets
-- Create tickets for themselves
+## 7. Test the Integration End-to-End
 
-### Database Webhooks
-
-Set up webhooks to:
-- Send email confirmations
-- Trigger event notifications
-- Sync to external services
-
-Go to **Database** → **Webhooks**
-
-## Performance Tips
-
-1. **Add indexes** (already done in schema)
-2. **Use real-time subscriptions** instead of polling
-3. **Implement pagination** for large result sets
-4. **Cache events** client-side with SWR
-5. **Use select()** to only fetch needed columns
+- Run `pnpm dev` and create an attendee account via the Supabase-auth forms.
+- Complete a checkout using sandbox credentials for your chosen payment provider.
+- Validate that tickets appear in the Supabase dashboard and can be scanned via `/scanner/scan`.
+- Review Supabase logs and Vercel serverless logs for errors before deploying to production.
 
 ## Troubleshooting
 
@@ -338,8 +280,8 @@ Go to **Database** → **Webhooks**
 
 Earlier versions of Ticketiv stored demo data in `localStorage`. The current implementation persists all records in Supabase. If you have legacy browser data you wish to keep, migrate it manually into the relevant Supabase tables.
 
-## Support & Documentation
+## Useful References
 
-- [Supabase Docs](https://supabase.com/docs)
-- [Supabase Discord](https://discord.supabase.com)
-- [GitHub Issues](https://github.com/supabase/supabase/issues)
+- [Supabase Documentation](https://supabase.com/docs)
+- [Next.js App Router Docs](https://nextjs.org/docs/app)
+- [Vercel Environment Variables](https://vercel.com/docs/projects/environment-variables)
