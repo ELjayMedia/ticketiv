@@ -8,12 +8,12 @@ export interface ScanResult {
   scannedAt?: string
 }
 
-export function validateTicket(code: string): ScanResult {
+export async function validateTicket(code: string): Promise<ScanResult> {
   if (!code.trim()) {
     return { valid: false, message: "No QR code provided" }
   }
 
-  const match = findTicketByCode(code)
+  const match = await findTicketByCode(code)
   if (!match) {
     return { valid: false, message: "Ticket not found" }
   }
@@ -28,7 +28,7 @@ export function validateTicket(code: string): ScanResult {
     }
   }
 
-  const updated = markTicketScanned(code)
+  const updated = await markTicketScanned(code)
   return {
     valid: true,
     message: "Ticket validated",

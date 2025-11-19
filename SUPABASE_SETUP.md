@@ -48,9 +48,35 @@ CREATE TABLE tickets (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Orders used by payouts + scanner validation
+CREATE TABLE orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id TEXT NOT NULL,
+  event_title TEXT NOT NULL,
+  attendee_name TEXT NOT NULL,
+  attendee_email TEXT NOT NULL,
+  quantity INTEGER NOT NULL CHECK (quantity > 0),
+  pricing_subtotal DECIMAL(10, 2) NOT NULL CHECK (pricing_subtotal >= 0),
+  pricing_fees DECIMAL(10, 2) NOT NULL CHECK (pricing_fees >= 0),
+  pricing_total DECIMAL(10, 2) NOT NULL CHECK (pricing_total >= 0),
+  pricing_currency TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE order_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  event_id TEXT NOT NULL,
+  code TEXT UNIQUE NOT NULL,
+  scanned_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Security configuration
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Events are readable by everyone" ON events
   FOR SELECT USING (true);
@@ -61,12 +87,32 @@ CREATE POLICY "Users can view their own tickets" ON tickets
 CREATE POLICY "Users can create tickets for themselves" ON tickets
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+CREATE POLICY "Orders readable by organiser routes" ON orders
+  FOR SELECT USING (true);
+
+CREATE POLICY "Orders insertable by organiser routes" ON orders
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Order items readable by scanner routes" ON order_items
+  FOR SELECT USING (true);
+
+CREATE POLICY "Order items insertable by organiser routes" ON order_items
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Order items updatable for scan status" ON order_items
+  FOR UPDATE USING (true) WITH CHECK (true);
+
 -- Performance indexes
 CREATE INDEX idx_events_category ON events(category);
 CREATE INDEX idx_events_date ON events(date DESC);
 CREATE INDEX idx_tickets_user_id ON tickets(user_id);
 CREATE INDEX idx_tickets_event_id ON tickets(event_id);
 CREATE INDEX idx_tickets_created_at ON tickets(created_at DESC);
+CREATE INDEX idx_orders_event_id ON orders(event_id);
+CREATE INDEX idx_orders_attendee_email ON orders(attendee_email);
+CREATE INDEX idx_orders_created_at ON orders(created_at DESC);
+CREATE INDEX idx_order_items_order_id ON order_items(order_id);
+CREATE INDEX idx_order_items_code ON order_items(code);
 
 -- Trigger keeps updated_at current
 CREATE OR REPLACE FUNCTION update_updated_at_column()

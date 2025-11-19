@@ -3,7 +3,8 @@ import { NextResponse } from "next/server"
 import { createOrder, listOrders } from "@/lib/orders"
 
 export async function GET() {
-  return NextResponse.json({ orders: listOrders() })
+  const orders = await listOrders()
+  return NextResponse.json({ orders })
 }
 
 export async function POST(request: Request) {
