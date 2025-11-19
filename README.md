@@ -4,6 +4,13 @@ Ticketiv is an African-first ticketing suite that connects organisers, vendors, 
 
 ## Tech Stack
 
+- **Authentication**: Supabase Auth login and signup flows
+- **Event Discovery**: Browse, search, and filter events by category
+- **Event Details**: Rich event information with availability tracking
+- **Checkout Flow**: Multi-step ticket purchase with order summary
+- **Ticket Dashboard**: View and manage purchased tickets
+- **Responsive Design**: Mobile-first, works on all devices
+- **Modern UI**: Beautiful gradients, smooth transitions, and consistent design
 | Layer | Technology | Notes |
 | --- | --- | --- |
 | Frontend | Next.js 16 (App Router), React 19, TypeScript | Responsive client with streaming layouts and client/server components. |
@@ -14,7 +21,12 @@ Ticketiv is an African-first ticketing suite that connects organisers, vendors, 
 
 > **Deployment notes**: The repository is optimised for Vercel previews backed by a shared Supabase project. Configure staging and production environments with separate Supabase instances and payment credentials, and promote builds once smoke-tests pass.
 
-## Platform Capabilities
+- **Framework**: Next.js 16 (App Router)
+- **Styling**: Tailwind CSS v4
+- **UI Components**: shadcn/ui
+- **Language**: TypeScript
+- **Database**: Supabase Postgres
+- **Icons**: Lucide React
 
 ### 🎟️ Attendee Experience
 - Curated browse surfaces for events, artists, and categories with rich search and filters.
@@ -82,16 +94,65 @@ ticketiv/
 │   ├── tickets/                      # Ticket UI fragments
 │   └── ui/                           # shadcn/ui wrappers and primitives
 ├── lib/
-│   ├── events.ts, orders.ts, payouts.ts, scanning.ts  # Data access helpers
-│   ├── supabase.ts & supabase-server.ts               # Supabase clients (browser/server)
-│   └── utils.ts, navigation.ts, pricing.ts            # Cross-cutting utilities
-├── public/                           # Static assets and favicons
-├── styles/                           # Tailwind entrypoints and tokens
-├── types/                            # Shared TypeScript types
-├── SUPABASE_SETUP.md                 # SQL migrations and integration guidance
-├── DEPLOYMENT.md                     # Vercel + Supabase deployment playbook
-└── …                                 # Config files (Next, PostCSS, TypeScript, etc.)
+│   ├── events.ts            # Event queries (Supabase, server-only)
+│   ├── events-client.ts     # Client-side event queries
+│   ├── orders.ts            # Order creation and ticket minting
+│   ├── pricing.ts           # Fee calculations
+│   ├── scanning.ts          # QR code validation helpers
+│   ├── supabase.ts          # Client Supabase helpers
+│   ├── supabase-server.ts   # Server Supabase helpers
+│   └── utils.ts             # Utility functions
+├── types/
+│   └── index.ts             # TypeScript type definitions
+├── public/                  # Static assets
+├── .env.local               # Environment variables
+├── next.config.mjs          # Next.js configuration
+├── tsconfig.json            # TypeScript configuration
+└── package.json             # Dependencies
+
+\`\`\`
+
+## Pages & Routes
+
+### Public Routes
+- `/login` - User login
+- `/signup` - Create new account
+
+### Protected Routes (require login)
+- `/browse` - Browse and search events
+- `/events/[id]` - Event details page
+- `/checkout/[id]` - Checkout page
+- `/dashboard` - User's ticket dashboard
+
+## Data & Integrations
+
+- **Supabase Auth** handles email/password sign-in and session refresh.
+- **Supabase Postgres** stores events, ticket types, orders, tickets, scans, and device sessions.
+- **Server Components** read data via `lib/events.ts`, while client components use `lib/events-client.ts#getEventsUsingClient` for live filtering.
+- **Checkout** creates orders through `lib/orders.ts`, which inserts order items, calculates Eventbrite-style fees, and invokes the `fn_mint_tickets` RPC to mint tickets.
+- **Scanning** APIs validate QR codes against Supabase data and support offline sync queues.
+
+### Environment Variables
+
+Create a `.env.local` file with your Supabase credentials:
+
 ```
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+## Deployment
+
+### Deploy to Vercel
+
+1. Push your repository to GitHub:
+\`\`\`bash
+git add .
+git commit -m "Initial commit"
+git push origin main
+\`\`\`
 
 ## Getting Started
 
@@ -131,7 +192,7 @@ Create an `.env.local` file and supply the following values:
 
 > Store server-only secrets in Vercel's encrypted environment variable manager. Never expose service role or payment secret keys in client bundles.
 
-### Run Locally
+Manage events directly in the Supabase `events` table or extend `lib/events.ts` for custom queries.
 
 ```bash
 pnpm dev

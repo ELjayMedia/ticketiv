@@ -5,11 +5,13 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Ticket, AlertCircle } from "lucide-react"
+import { createClient } from "@/lib/supabase"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -31,11 +33,6 @@ export default function SignupPage() {
         return
       }
 
-      if (!email.includes("@")) {
-        setError("Please enter a valid email address")
-        return
-      }
-
       if (password.length < 6) {
         setError("Password must be at least 6 characters")
         return
@@ -46,20 +43,24 @@ export default function SignupPage() {
         return
       }
 
-      // Store mock user session - ready for Supabase integration
-      localStorage.setItem(
-        "ticketiv_user",
-        JSON.stringify({
-          email,
-          name,
-          id: Math.random().toString(36).substr(2, 9),
-          createdAt: new Date().toISOString(),
-        }),
-      )
+      const supabase = createClient()
+      const { error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: name,
+          },
+        },
+      })
+
+      if (signUpError) {
+        throw signUpError
+      }
 
       router.push("/browse")
-    } catch (err) {
-      setError("Signup failed. Please try again.")
+    } catch (err: any) {
+      setError(err.message ?? "Signup failed. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -67,7 +68,6 @@ export default function SignupPage() {
 
   return (
     <div className="w-full max-w-md">
-      {/* Logo */}
       <div className="flex items-center justify-center gap-2 mb-8">
         <Ticket className="w-8 h-8 text-primary" />
         <span className="text-3xl font-bold text-primary">Ticketiv</span>
