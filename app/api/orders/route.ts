@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server"
 
-import { createOrder, listOrders } from "@/lib/orders"
+import { createOrder } from "@/lib/orders"
+import { fetchOrdersForCurrentUser } from "@/lib/api/orders/get-orders-handler"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export async function GET() {
-  return NextResponse.json({ orders: listOrders() })
+  const supabase = createServerSupabaseClient()
+  const result = await fetchOrdersForCurrentUser(supabase)
+  return NextResponse.json(result.body, { status: result.status })
 }
 
 export async function POST(request: Request) {

@@ -6,6 +6,7 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "eslint .",
+    "test": "rm -rf .tests-dist && tsc -p tsconfig.tests.json && node --test $(find .tests-dist/tests -name '*.test.js')",
     "start": "next start"
   },
   "dependencies": {
