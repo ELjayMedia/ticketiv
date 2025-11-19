@@ -48,12 +48,18 @@ async function ensureDevice(client: SupabaseServerClient, deviceId: string) {
       .from("devices")
       .update({ last_seen_at: new Date().toISOString(), active: true })
       .eq("id", deviceId)
+
     return existing
   }
 
   const { data: created, error: createError } = await client
     .from("devices")
-    .insert({ id: deviceId, name: `Scanner ${deviceId}`, active: true, last_seen_at: new Date().toISOString() })
+    .insert({
+      id: deviceId,
+      name: `Scanner ${deviceId}`,
+      active: true,
+      last_seen_at: new Date().toISOString(),
+    })
     .select("*")
     .single<DeviceRecord>()
 
@@ -65,9 +71,13 @@ async function ensureDevice(client: SupabaseServerClient, deviceId: string) {
   return created
 }
 
-export async function startDeviceSession(deviceId: string, eventId: string): Promise<DeviceSessionRecord> {
+export async function startDeviceSession(
+  deviceId: string,
+  eventId: string,
+): Promise<DeviceSessionRecord> {
   const supabase = createServerSupabaseClient()
   await ensureDevice(supabase, deviceId)
+
   const { data, error } = await supabase
     .from("device_sessions")
     .insert({
@@ -89,6 +99,7 @@ export async function startDeviceSession(deviceId: string, eventId: string): Pro
 
 export async function closeDeviceSession(sessionId: string): Promise<DeviceSessionRecord> {
   const supabase = createServerSupabaseClient()
+
   const { data, error } = await supabase
     .from("device_sessions")
     .update({ ended_at: new Date().toISOString(), status: "closed" })
@@ -184,6 +195,7 @@ export async function validateQrCode(input: ValidateQrCodeInput): Promise<Valida
 
   const scannedAt = input.scannedAt ?? new Date().toISOString()
 
+  // Scanner is offline – we just trust the device and let it sync later
   if (input.offline) {
     return {
       valid: true,
@@ -210,6 +222,7 @@ export async function validateQrCode(input: ValidateQrCodeInput): Promise<Valida
 
   if (updateTicketError) {
     console.error("Failed to update ticket status", updateTicketError)
+    // we still treat the scan as valid; you could downgrade this to "error" if you want stricter semantics
   }
 
   return {
@@ -227,8 +240,8 @@ export async function syncOfflineScans(scans: OfflineScanPayload[]) {
   }
 
   const supabase = createServerSupabaseClient()
-
   let inserted = 0
+
   for (const payload of scans) {
     const { data: ticket } = await supabase
       .from("tickets")

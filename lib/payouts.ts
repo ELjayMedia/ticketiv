@@ -64,17 +64,27 @@ export async function getPayoutSummary(): Promise<PayoutSummary> {
       lastSaleAt: null as string | null,
     }
 
-    const ticketsSold = (order.order_items ?? []).reduce((total, item) => total + (item.quantity ?? 0), 0)
+    const ticketsSold = (order.order_items ?? []).reduce(
+      (total, item) => total + (item.quantity ?? 0),
+      0,
+    )
+
     existing.ticketsSold += ticketsSold
     existing.grossSales += order.total_amount ?? 0
     existing.platformFees += order.fee_amount ?? 0
     existing.netPayout += (order.total_amount ?? 0) - (order.fee_amount ?? 0)
-    existing.lastSaleAt = existing.lastSaleAt && existing.lastSaleAt > order.created_at ? existing.lastSaleAt : order.created_at
+    existing.lastSaleAt =
+      existing.lastSaleAt && existing.lastSaleAt > order.created_at
+        ? existing.lastSaleAt
+        : order.created_at
 
     summary.set(eventId, existing)
   }
 
-  const rows = Array.from(summary.values()).sort((a, b) => (b.lastSaleAt ?? "").localeCompare(a.lastSaleAt ?? ""))
+  const rows = Array.from(summary.values()).sort((a, b) =>
+    (b.lastSaleAt ?? "").localeCompare(a.lastSaleAt ?? ""),
+  )
+
   const totals = rows.reduce(
     (acc, row) => {
       acc.grossSales += row.grossSales

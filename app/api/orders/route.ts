@@ -7,13 +7,19 @@ export async function GET() {
   const supabase = createServerSupabaseClient()
   const {
     data: { session },
+    error,
   } = await supabase.auth.getSession()
+
+  if (error) {
+    return NextResponse.json({ error: "Failed to get session" }, { status: 500 })
+  }
 
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   const orders = await getOrdersForUser(session.user.id)
+
   return NextResponse.json({ orders })
 }
 
@@ -21,7 +27,12 @@ export async function POST(request: Request) {
   const supabase = createServerSupabaseClient()
   const {
     data: { session },
+    error,
   } = await supabase.auth.getSession()
+
+  if (error) {
+    return NextResponse.json({ error: "Failed to get session" }, { status: 500 })
+  }
 
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -29,6 +40,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
+
     const result = await createOrder({
       eventId: String(body.eventId),
       purchaserId: session.user.id,
@@ -40,12 +52,21 @@ export async function POST(request: Request) {
             ticketTypeId: String(item.ticketTypeId),
             quantity: Number(item.quantity) || 1,
           }))
-        : [{ ticketTypeId: String(body.ticketTypeId), quantity: Number(body.quantity) || 1 }],
+        : [
+            {
+              ticketTypeId: String(body.ticketTypeId),
+              quantity: Number(body.quantity) || 1,
+            },
+          ],
       metadata: body.metadata ?? null,
     })
 
     return NextResponse.json(result, { status: 201 })
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message ?? "Unable to create order" }, { status: 400 })
+  } catch (err: any) {
+    console.error("Error creating order:", err)
+    return NextResponse.json(
+      { error: err?.message ?? "Unable to create order" },
+      { status: 400 },
+    )
   }
 }

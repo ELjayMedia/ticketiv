@@ -16,9 +16,18 @@ export async function POST(request: Request) {
     })
 
     const status = result.valid ? 200 : result.status === "not_found" ? 404 : 409
+
     return NextResponse.json(result, { status })
   } catch (error: any) {
     console.error("Failed to validate QR code", error)
-    return NextResponse.json({ valid: false, status: "error", message: error.message ?? "Scan failed" }, { status: 400 })
+
+    return NextResponse.json(
+      {
+        valid: false,
+        status: "error",
+        message: error?.message ?? "Scan failed",
+      },
+      { status: 400 },
+    )
   }
 }

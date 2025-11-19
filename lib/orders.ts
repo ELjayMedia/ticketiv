@@ -1,7 +1,11 @@
 import "server-only"
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { calculateOrderPricing, type FeeConfiguration, type OrderPricingBreakdown } from "@/lib/pricing"
+import {
+  calculateOrderPricing,
+  type FeeConfiguration,
+  type OrderPricingBreakdown,
+} from "@/lib/pricing"
 import type {
   OrderItemRecord,
   OrderRecord,
@@ -72,7 +76,9 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
     if (!ticketType) {
       throw new Error("Ticket type not found")
     }
+
     const requestedQuantity = Math.max(1, Math.floor(item.quantity))
+
     if (
       typeof ticketType.quantity_remaining === "number" &&
       ticketType.quantity_remaining >= 0 &&
@@ -80,6 +86,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
     ) {
       throw new Error(`Only ${ticketType.quantity_remaining} tickets remaining for ${ticketType.name}`)
     }
+
     return { ticketType, quantity: requestedQuantity }
   })
 
@@ -108,7 +115,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
     .select("*")
     .single()
 
-  if (orderError) {
+  if (orderError || !order) {
     console.error("Failed to create order", orderError)
     throw new Error("Unable to create order")
   }
@@ -138,6 +145,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
     throw new Error("Unable to create order items")
   }
 
+  // Mint tickets per order_item via Postgres function
   await Promise.all(
     (createdItems ?? []).map(async (item) => {
       const { error: mintError } = await supabase.rpc("fn_mint_tickets", {
