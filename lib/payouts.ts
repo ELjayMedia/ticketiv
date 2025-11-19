@@ -20,8 +20,8 @@ export interface PayoutSummary {
   }
 }
 
-export function getPayoutSummary(): PayoutSummary {
-  const orders = listOrders()
+export async function getPayoutSummary(): Promise<PayoutSummary> {
+  const orders = await listOrders()
   const summary: Record<string, PayoutRow> = {}
 
   for (const order of orders) {
