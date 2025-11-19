@@ -2,15 +2,9 @@
 
 This guide walks through the production-ready Supabase setup that powers Ticketiv across attendees, organisers, scanner agents, and platform admins. Follow each step to provision the database schema, secure authentication, and connect the Next.js application.
 
-## 1. Create Your Supabase Project
+## Current State
 
-1. Visit [supabase.com](https://supabase.com) and create a project named `ticketiv` (or reuse an existing workspace).
-2. Choose the region closest to your primary audience and define a strong database password.
-3. Once the project is ready, open **Settings → API** and copy the **Project URL**, **anon key**, and **service_role key**. You will reference these values when configuring environment variables.
-
-## 2. Apply the Core Schema
-
-Open the **SQL Editor**, create a new query, and run the migration below. It sets up the `user_role` enum, core tables, security policies, indexes, and triggers that keep the platform responsive.
+The application ships with Supabase integration for authentication, event data, ticketing, and scanning workflows.
 
 ```sql
 -- Enum for platform roles
@@ -48,9 +42,35 @@ CREATE TABLE tickets (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Orders used by payouts + scanner validation
+CREATE TABLE orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id TEXT NOT NULL,
+  event_title TEXT NOT NULL,
+  attendee_name TEXT NOT NULL,
+  attendee_email TEXT NOT NULL,
+  quantity INTEGER NOT NULL CHECK (quantity > 0),
+  pricing_subtotal DECIMAL(10, 2) NOT NULL CHECK (pricing_subtotal >= 0),
+  pricing_fees DECIMAL(10, 2) NOT NULL CHECK (pricing_fees >= 0),
+  pricing_total DECIMAL(10, 2) NOT NULL CHECK (pricing_total >= 0),
+  pricing_currency TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE order_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  event_id TEXT NOT NULL,
+  code TEXT UNIQUE NOT NULL,
+  scanned_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Security configuration
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Events are readable by everyone" ON events
   FOR SELECT USING (true);
@@ -61,12 +81,32 @@ CREATE POLICY "Users can view their own tickets" ON tickets
 CREATE POLICY "Users can create tickets for themselves" ON tickets
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+CREATE POLICY "Orders readable by organiser routes" ON orders
+  FOR SELECT USING (true);
+
+CREATE POLICY "Orders insertable by organiser routes" ON orders
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Order items readable by scanner routes" ON order_items
+  FOR SELECT USING (true);
+
+CREATE POLICY "Order items insertable by organiser routes" ON order_items
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Order items updatable for scan status" ON order_items
+  FOR UPDATE USING (true) WITH CHECK (true);
+
 -- Performance indexes
 CREATE INDEX idx_events_category ON events(category);
 CREATE INDEX idx_events_date ON events(date DESC);
 CREATE INDEX idx_tickets_user_id ON tickets(user_id);
 CREATE INDEX idx_tickets_event_id ON tickets(event_id);
 CREATE INDEX idx_tickets_created_at ON tickets(created_at DESC);
+CREATE INDEX idx_orders_event_id ON orders(event_id);
+CREATE INDEX idx_orders_attendee_email ON orders(attendee_email);
+CREATE INDEX idx_orders_created_at ON orders(created_at DESC);
+CREATE INDEX idx_order_items_order_id ON order_items(order_id);
+CREATE INDEX idx_order_items_code ON order_items(code);
 
 -- Trigger keeps updated_at current
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -91,14 +131,108 @@ Run the migration once per environment (development, staging, production). Subse
 2. In **Authentication → URL Configuration**, register redirect URLs for local development and each deployed environment:
    - `http://localhost:3000/browse`
    - `http://localhost:3000/dashboard`
-   - `https://<your-vercel-domain>/browse`
-   - `https://<your-vercel-domain>/dashboard`
+   - `https://your-domain.com/browse`
+   - `https://your-domain.com/dashboard`
 
-## 4. Seed Initial Data (Optional)
+### Step 5: Review Application Code
 
-Populate the catalogue with representative events so stakeholders can demo the full experience. In the SQL Editor, run inserts such as:
+#### 1. Authentication (components/ui/workspace-shell.tsx)
 
-```sql
+Authentication is powered by Supabase Auth sessions handled in the workspace shell:
+
+\`\`\`typescript
+import { createBrowserClient } from '@supabase/ssr'
+import { useEffect, useState } from 'react'
+
+export default function MainLayout({ children }) {
+  const [user, setUser] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  useEffect(() => {
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        router.push('/login')
+      } else {
+        setUser(session.user)
+      }
+      setLoading(false)
+    }
+    getSession()
+  }, [])
+
+  // ... rest of component
+}
+\`\`\`
+
+#### 2. Event Fetching (lib/events.ts)
+
+Event data is queried from Supabase with helpers that power both server and client components:
+
+\`\`\`typescript
+import { createBrowserClient } from '@supabase/ssr'
+
+export default function BrowsePage() {
+  const [events, setEvents] = useState([])
+  const supabase = createBrowserClient(...)
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .order('date', { ascending: true })
+
+      if (error) console.error(error)
+      else setEvents(data)
+    }
+    fetchEvents()
+  }, [])
+
+  // ... rest of component
+}
+\`\`\`
+
+#### 3. Ticket Creation (lib/orders.ts)
+
+Checkout uses Supabase server actions to persist orders, calculate fees, and mint tickets:
+
+\`\`\`typescript
+const { data, error } = await supabase
+  .from('tickets')
+  .insert({
+    user_id: user.id,
+    event_id: eventId,
+    quantity,
+    total,
+    ticket_number: `TICKET-${Date.now()}`
+  })
+\`\`\`
+
+#### 4. Dashboard (app/(main)/dashboard/page.tsx)
+
+Fetch user's tickets:
+
+\`\`\`typescript
+const { data: tickets } = await supabase
+  .from('tickets')
+  .select('*')
+  .eq('user_id', user.id)
+  .order('created_at', { ascending: false })
+\`\`\`
+
+### Step 6: Seed Initial Data (Optional)
+
+Add demo events to your database:
+
+1. Go to **SQL Editor**
+2. Run:
+
+\`\`\`sql
 INSERT INTO events (title, description, full_description, date, time, end_time, location, venue, price, category, attendees, tickets_available) VALUES
 (
   'Tech Conference 2025',
@@ -162,9 +296,33 @@ Keep service role and secret keys server-side only. Use Vercel's environment man
 
 ## Troubleshooting
 
-- **Auth issues**: Double-check redirect URLs, domain whitelists, and that the anon key matches the active environment.
-- **Permission errors**: Inspect RLS policies and confirm the authenticated user owns the requested `tickets` rows.
-- **Webhook failures**: Ensure payment provider callbacks target the deployed API routes and include required headers for signature validation.
+### Auth Not Working
+- Verify redirect URLs in Supabase settings
+- Check anon key is correct
+- Ensure email provider is enabled
+
+### No Data Showing
+- Check RLS policies
+- Verify tables exist in database
+- Run SQL queries manually to test
+
+### Slow Performance
+- Add indexes (SQL provided)
+- Check query performance in Supabase logs
+- Consider enabling caching
+
+## Security Considerations
+
+1. **Never expose service role key** on client
+2. **Always use RLS** to protect data
+3. **Validate input** before sending to database
+4. **Use HTTPS** in production
+5. **Rotate secrets** regularly
+6. **Monitor suspicious activity** in logs
+
+## Legacy localStorage Data
+
+Earlier versions of Ticketiv stored demo data in `localStorage`. The current implementation persists all records in Supabase. If you have legacy browser data you wish to keep, migrate it manually into the relevant Supabase tables.
 
 ## Useful References
 

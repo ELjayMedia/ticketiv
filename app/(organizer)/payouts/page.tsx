@@ -2,8 +2,8 @@ import { getPayoutSummary } from "@/lib/payouts"
 import { formatCurrency } from "@/lib/pricing"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-export default function OrganizerPayoutsPage() {
-  const summary = getPayoutSummary()
+export default async function OrganizerPayoutsPage() {
+  const summary = await getPayoutSummary()
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
