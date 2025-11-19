@@ -1,12 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
 import { Ticket } from "lucide-react"
 
 import { getWorkspaceHome, getWorkspaceLabel, getWorkspaceNavigation, type WorkspaceType } from "@/lib/navigation"
 import { Button } from "@/components/ui/button"
+import { createClient } from "@/lib/supabase"
 
 interface HeaderProps {
   workspace: WorkspaceType
@@ -17,6 +18,7 @@ interface HeaderProps {
 export function Header({ workspace, user, onLogout }: HeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
+  const supabase = useMemo(() => createClient(), [])
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -29,15 +31,13 @@ export function Header({ workspace, user, onLogout }: HeaderProps) {
 
   const navItems = getWorkspaceNavigation(workspace)
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (onLogout) {
       onLogout()
       return
     }
 
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("ticketiv_user")
-    }
+    await supabase.auth.signOut()
     router.push("/login")
   }
 
@@ -70,9 +70,7 @@ export function Header({ workspace, user, onLogout }: HeaderProps) {
               </Link>
             )
           })}
-          {user?.email && (
-            <span className="text-sm text-muted-foreground">{user.email}</span>
-          )}
+          {user?.email && <span className="text-sm text-muted-foreground">{user.email}</span>}
         </nav>
         {showAuthActions ? (
           <Button variant="ghost" size="sm" onClick={handleLogout}>

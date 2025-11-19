@@ -4,29 +4,31 @@ import { MOCK_EVENTS } from "./mock-data"
 import { calculatePricing } from "./pricing"
 import { createServerSupabaseClient } from "./supabase-server"
 
-export interface TicketRecord {
-  code: string
-  eventId: string
-  scannedAt?: string
+import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { calculateOrderPricing, type FeeConfiguration, type OrderPricingBreakdown } from "@/lib/pricing"
+import type {
+  OrderItemRecord,
+  OrderRecord,
+  TicketRecord,
+  TicketTypeRecord,
+  EventRecord,
+} from "@/types"
+
+export interface CreateOrderItemInput {
+  ticketTypeId: string
+  quantity: number
 }
 
-export interface OrderRecord {
-  id: string
+export interface CreateOrderInput {
   eventId: string
-  eventTitle: string
-  attendeeName: string
-  attendeeEmail: string
-  quantity: number
-  pricing: ReturnType<typeof calculatePricing>
-  tickets: TicketRecord[]
-  createdAt: string
-}
-
-export interface OrderInput {
-  eventId: string
-  quantity: number
-  attendeeName: string
-  attendeeEmail: string
+  purchaserId: string
+  purchaserEmail: string
+  purchaserFirstName?: string
+  purchaserLastName?: string
+  items: CreateOrderItemInput[]
+  metadata?: Record<string, any>
+  paymentReference?: string | null
+  feeConfiguration?: Partial<FeeConfiguration>
 }
 
 type SupabaseDB = SupabaseClient<any, "public", any>
@@ -53,8 +55,9 @@ interface OrderItemRow {
   scanned_at: string | null
 }
 
-function generateId(prefix: string) {
-  return `${prefix}_${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36)}`
+export interface UserOrder extends OrderRecord {
+  order_items: UserOrderItem[]
+  event?: EventRecord | null
 }
 
 function mapTicket(ticket: OrderItemRow): TicketRecord {

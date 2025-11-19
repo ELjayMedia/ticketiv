@@ -1,4 +1,7 @@
-import { listOrders } from "./orders"
+import "server-only"
+
+import { createServerSupabaseClient } from "@/lib/supabase-server"
+import type { EventRecord, OrderItemRecord, OrderRecord } from "@/types"
 
 export interface PayoutRow {
   eventId: string
@@ -37,15 +40,27 @@ export async function getPayoutSummary(): Promise<PayoutSummary> {
       }
     }
 
-    const row = summary[order.eventId]
-    row.ticketsSold += order.quantity
-    row.grossSales += order.pricing.total
-    row.platformFees += order.pricing.fees
-    row.netPayout += order.pricing.total - order.pricing.fees
-    row.lastSaleAt = order.createdAt
+    const existing = summary.get(eventId) ?? {
+      eventId,
+      eventTitle: order.event?.title ?? "Untitled Event",
+      ticketsSold: 0,
+      grossSales: 0,
+      platformFees: 0,
+      netPayout: 0,
+      lastSaleAt: null as string | null,
+    }
+
+    const ticketsSold = (order.order_items ?? []).reduce((total, item) => total + (item.quantity ?? 0), 0)
+    existing.ticketsSold += ticketsSold
+    existing.grossSales += order.total_amount ?? 0
+    existing.platformFees += order.fee_amount ?? 0
+    existing.netPayout += (order.total_amount ?? 0) - (order.fee_amount ?? 0)
+    existing.lastSaleAt = existing.lastSaleAt && existing.lastSaleAt > order.created_at ? existing.lastSaleAt : order.created_at
+
+    summary.set(eventId, existing)
   }
 
-  const rows = Object.values(summary).sort((a, b) => (b.lastSaleAt ?? "").localeCompare(a.lastSaleAt ?? ""))
+  const rows = Array.from(summary.values()).sort((a, b) => (b.lastSaleAt ?? "").localeCompare(a.lastSaleAt ?? ""))
   const totals = rows.reduce(
     (acc, row) => {
       acc.grossSales += row.grossSales
