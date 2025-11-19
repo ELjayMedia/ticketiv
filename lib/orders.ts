@@ -1,92 +1,210 @@
-import { MOCK_EVENTS } from "./mock-data"
-import { calculatePricing } from "./pricing"
+import "server-only"
 
-export interface TicketRecord {
-  code: string
-  eventId: string
-  scannedAt?: string
-}
+import { createServerSupabaseClient } from "@/lib/supabase-server"
+import {
+  calculateOrderPricing,
+  type FeeConfiguration,
+  type OrderPricingBreakdown,
+} from "@/lib/pricing"
+import type {
+  OrderItemRecord,
+  OrderRecord,
+  TicketRecord,
+  TicketTypeRecord,
+  EventRecord,
+} from "@/types"
 
-export interface OrderRecord {
-  id: string
-  eventId: string
-  eventTitle: string
-  attendeeName: string
-  attendeeEmail: string
+export interface CreateOrderItemInput {
+  ticketTypeId: string
   quantity: number
-  pricing: ReturnType<typeof calculatePricing>
-  tickets: TicketRecord[]
-  createdAt: string
 }
 
-export interface OrderInput {
+export interface CreateOrderInput {
   eventId: string
-  quantity: number
-  attendeeName: string
-  attendeeEmail: string
+  purchaserId: string
+  purchaserEmail: string
+  purchaserFirstName?: string
+  purchaserLastName?: string
+  items: CreateOrderItemInput[]
+  metadata?: Record<string, any>
+  paymentReference?: string | null
+  feeConfiguration?: Partial<FeeConfiguration>
 }
 
-const ORDER_STORE: Map<string, OrderRecord> = new Map()
-
-function generateId(prefix: string) {
-  return `${prefix}_${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36)}`
+export interface CreateOrderResult {
+  order: OrderRecord
+  items: OrderItemRecord[]
+  pricing: OrderPricingBreakdown
 }
 
-export async function createOrder(input: OrderInput): Promise<OrderRecord> {
-  const event = MOCK_EVENTS.find((item) => item.id === input.eventId)
-  if (!event) {
-    throw new Error("Event not found")
+export interface UserOrderItem extends OrderItemRecord {
+  ticket_type?: TicketTypeRecord | null
+  event?: EventRecord | null
+  tickets?: TicketRecord[] | null
+}
+
+export interface UserOrder extends OrderRecord {
+  order_items: UserOrderItem[]
+  event?: EventRecord | null
+}
+
+export async function createOrder(input: CreateOrderInput): Promise<CreateOrderResult> {
+  if (!input.items || input.items.length === 0) {
+    throw new Error("At least one order item is required")
   }
 
-  const pricing = calculatePricing({ eventId: input.eventId, quantity: input.quantity })
-  const tickets: TicketRecord[] = Array.from({ length: input.quantity }, (_, index) => ({
-    code: generateId(`TICKET-${index + 1}`),
-    eventId: input.eventId,
-  }))
+  const supabase = createServerSupabaseClient()
+  const ticketTypeIds = input.items.map((item) => item.ticketTypeId)
 
-  const order: OrderRecord = {
-    id: generateId("ORDER"),
-    eventId: input.eventId,
-    eventTitle: event.title,
-    attendeeName: input.attendeeName,
-    attendeeEmail: input.attendeeEmail,
-    quantity: input.quantity,
-    pricing,
-    tickets,
-    createdAt: new Date().toISOString(),
+  const { data: ticketTypes, error: ticketTypesError } = await supabase
+    .from("ticket_types")
+    .select("*")
+    .in("id", ticketTypeIds)
+
+  if (ticketTypesError) {
+    console.error("Failed to load ticket types", ticketTypesError)
+    throw new Error("Unable to load ticket types")
   }
 
-  ORDER_STORE.set(order.id, order)
-  return order
-}
+  const ticketTypeMap = new Map<string, TicketTypeRecord>()
+  for (const ticketType of ticketTypes ?? []) {
+    ticketTypeMap.set(ticketType.id, ticketType as TicketTypeRecord)
+  }
 
-export function listOrders(): OrderRecord[] {
-  return Array.from(ORDER_STORE.values())
-}
-
-export function getOrdersByEmail(email: string): OrderRecord[] {
-  return listOrders().filter((order) => order.attendeeEmail.toLowerCase() === email.toLowerCase())
-}
-
-export function findTicketByCode(code: string): { order: OrderRecord; ticket: TicketRecord } | null {
-  for (const order of ORDER_STORE.values()) {
-    const ticket = order.tickets.find((item) => item.code === code)
-    if (ticket) {
-      return { order, ticket }
+  const lineItems = input.items.map((item) => {
+    const ticketType = ticketTypeMap.get(item.ticketTypeId)
+    if (!ticketType) {
+      throw new Error("Ticket type not found")
     }
+
+    const requestedQuantity = Math.max(1, Math.floor(item.quantity))
+
+    if (
+      typeof ticketType.quantity_remaining === "number" &&
+      ticketType.quantity_remaining >= 0 &&
+      requestedQuantity > ticketType.quantity_remaining
+    ) {
+      throw new Error(`Only ${ticketType.quantity_remaining} tickets remaining for ${ticketType.name}`)
+    }
+
+    return { ticketType, quantity: requestedQuantity }
+  })
+
+  const pricing = calculateOrderPricing({
+    items: lineItems,
+    feeConfiguration: input.feeConfiguration,
+    currency: lineItems[0]?.ticketType.currency,
+  })
+
+  const { data: order, error: orderError } = await supabase
+    .from("orders")
+    .insert({
+      event_id: input.eventId,
+      purchaser_id: input.purchaserId,
+      purchaser_email: input.purchaserEmail,
+      purchaser_first_name: input.purchaserFirstName ?? null,
+      purchaser_last_name: input.purchaserLastName ?? null,
+      status: "completed",
+      subtotal_amount: pricing.subtotal,
+      fee_amount: pricing.fees,
+      total_amount: pricing.total,
+      currency: pricing.currency,
+      payment_reference: input.paymentReference ?? null,
+      metadata: input.metadata ?? null,
+    })
+    .select("*")
+    .single()
+
+  if (orderError || !order) {
+    console.error("Failed to create order", orderError)
+    throw new Error("Unable to create order")
   }
-  return null
+
+  const orderItemsPayload = pricing.lineItems.map((lineItem, index) => {
+    const { ticketType } = lineItems[index]
+    return {
+      order_id: order.id,
+      event_id: input.eventId,
+      ticket_type_id: ticketType.id,
+      quantity: lineItem.quantity,
+      unit_price: lineItem.unitPrice,
+      subtotal_amount: lineItem.subtotal,
+      fee_amount: lineItem.fees,
+      total_amount: lineItem.total,
+      currency: pricing.currency,
+    }
+  })
+
+  const { data: createdItems, error: orderItemsError } = await supabase
+    .from("order_items")
+    .insert(orderItemsPayload)
+    .select("*")
+
+  if (orderItemsError) {
+    console.error("Failed to create order items", orderItemsError)
+    throw new Error("Unable to create order items")
+  }
+
+  // Mint tickets per order_item via Postgres function
+  await Promise.all(
+    (createdItems ?? []).map(async (item) => {
+      const { error: mintError } = await supabase.rpc("fn_mint_tickets", {
+        order_item_id: item.id,
+        quantity: item.quantity,
+      })
+
+      if (mintError) {
+        console.error("Failed to mint tickets", mintError)
+        throw new Error("Unable to mint tickets")
+      }
+    }),
+  )
+
+  return {
+    order: order as OrderRecord,
+    items: (createdItems ?? []) as OrderItemRecord[],
+    pricing,
+  }
 }
 
-export function markTicketScanned(code: string): { order: OrderRecord; ticket: TicketRecord } | null {
-  const match = findTicketByCode(code)
-  if (!match) {
-    return null
+export async function getOrdersForUser(userId: string): Promise<UserOrder[]> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from("orders")
+    .select(
+      `*,
+      order_items:order_items(*, ticket_type:ticket_types(*), tickets:tickets(*)),
+      event:events(*)
+    `,
+    )
+    .eq("purchaser_id", userId)
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("Failed to load user orders", error)
+    throw new Error("Unable to load orders")
   }
 
-  if (!match.ticket.scannedAt) {
-    match.ticket.scannedAt = new Date().toISOString()
+  return (data ?? []) as UserOrder[]
+}
+
+export async function getOrderById(orderId: string): Promise<UserOrder | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from("orders")
+    .select(
+      `*,
+      order_items:order_items(*, ticket_type:ticket_types(*), tickets:tickets(*)),
+      event:events(*)
+    `,
+    )
+    .eq("id", orderId)
+    .maybeSingle()
+
+  if (error && error.code !== "PGRST116") {
+    console.error("Failed to load order", error)
+    throw new Error("Unable to load order")
   }
 
-  return match
+  return (data as UserOrder) ?? null
 }
