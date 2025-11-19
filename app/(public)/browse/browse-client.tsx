@@ -8,7 +8,7 @@ import { EventCard } from "@/components/events/event-card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
-import { getEventsUsingClient } from "@/lib/events"
+import { getEventsUsingClient } from "@/lib/events-client"
 import type { ArtistRecord, EventSummary } from "@/types"
 import { createClient } from "@/lib/supabase"
 

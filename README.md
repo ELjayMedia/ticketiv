@@ -94,7 +94,8 @@ ticketiv/
 │   ├── tickets/                      # Ticket UI fragments
 │   └── ui/                           # shadcn/ui wrappers and primitives
 ├── lib/
-│   ├── events.ts            # Event queries (Supabase)
+│   ├── events.ts            # Event queries (Supabase, server-only)
+│   ├── events-client.ts     # Client-side event queries
 │   ├── orders.ts            # Order creation and ticket minting
 │   ├── pricing.ts           # Fee calculations
 │   ├── scanning.ts          # QR code validation helpers
@@ -127,7 +128,7 @@ ticketiv/
 
 - **Supabase Auth** handles email/password sign-in and session refresh.
 - **Supabase Postgres** stores events, ticket types, orders, tickets, scans, and device sessions.
-- **Server Components** read data via `lib/events.ts`, while client components use `getEventsUsingClient` for live filtering.
+- **Server Components** read data via `lib/events.ts`, while client components use `lib/events-client.ts#getEventsUsingClient` for live filtering.
 - **Checkout** creates orders through `lib/orders.ts`, which inserts order items, calculates Eventbrite-style fees, and invokes the `fn_mint_tickets` RPC to mint tickets.
 - **Scanning** APIs validate QR codes against Supabase data and support offline sync queues.
 

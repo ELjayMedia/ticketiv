@@ -1,3 +1,5 @@
+import "server-only"
+
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import type { DeviceRecord, DeviceSessionRecord, ScanRecord, TicketRecord } from "@/types"
 

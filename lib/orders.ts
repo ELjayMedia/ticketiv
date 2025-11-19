@@ -1,3 +1,5 @@
+import "server-only"
+
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { calculateOrderPricing, type FeeConfiguration, type OrderPricingBreakdown } from "@/lib/pricing"
 import type {

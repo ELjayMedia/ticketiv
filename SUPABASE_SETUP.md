@@ -6,8 +6,6 @@ This guide walks through the production-ready Supabase setup that powers Ticketi
 
 The application ships with Supabase integration for authentication, event data, ticketing, and scanning workflows.
 
-Open the **SQL Editor**, create a new query, and run the migration below. It sets up the `user_role` enum, core tables, security policies, indexes, and triggers that keep the platform responsive.
-
 ```sql
 -- Enum for platform roles
 CREATE TYPE user_role AS ENUM ('user', 'admin');
