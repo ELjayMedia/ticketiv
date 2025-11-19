@@ -127,6 +127,7 @@ Create an `.env.local` file and supply the following values:
 | `PAYSTACK_SECRET_KEY` | ✅ (server-only) | Secret key for Paystack server-side verification. |
 | `FLUTTERWAVE_PUBLIC_KEY` | ✅ (if enabled) | Public key for Flutterwave checkout. |
 | `FLUTTERWAVE_SECRET_KEY` | ✅ (server-only) | Secret key for Flutterwave webhook validation. |
+| `GOOGLE_MAPS_EMBED_KEY` | ✅ (server-only) | Server-side key used by the Google Maps embed proxy. |
 | `NODE_ENV` | Optional | Runtime mode (`development`, `production`). |
 
 > Store server-only secrets in Vercel's encrypted environment variable manager. Never expose service role or payment secret keys in client bundles.

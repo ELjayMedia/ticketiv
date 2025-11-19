@@ -58,6 +58,8 @@ export default function EventDetailPage() {
 
   const availabilityPercentage = (event.attendees / (event.attendees + event.ticketsAvailable)) * 100
   const categorySlug = event.category.toLowerCase().replace(/\s+/g, "-")
+  const mapQuery = event.venueDetails ? `${event.venueDetails.address}, ${event.venueDetails.city}` : ""
+  const mapEmbedSrc = mapQuery ? `/api/maps/embed?${new URLSearchParams({ q: mapQuery }).toString()}` : ""
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -164,7 +166,7 @@ export default function EventDetailPage() {
             </Card>
           )}
 
-          {event.venueDetails && (
+          {event.venueDetails && mapEmbedSrc && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Map Visualization */}
               <div className="bg-muted rounded-lg overflow-hidden h-80 md:h-auto">
@@ -175,9 +177,7 @@ export default function EventDetailPage() {
                   loading="lazy"
                   allowFullScreen
                   referrerPolicy="no-referrer-when-downgrade"
-                  src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyB41DFb05-BlusSH4BI2-5dNN3HSm0ZeIw&q=${encodeURIComponent(
-                    `${event.venueDetails.address}, ${event.venueDetails.city}`,
-                  )}`}
+                  src={mapEmbedSrc}
                 />
               </div>
 
