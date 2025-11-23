@@ -6,7 +6,7 @@ This guide walks through the production-ready Supabase setup that powers Ticketi
 
 The application ships with Supabase integration for authentication, event data, ticketing, and scanning workflows.
 
-```sql
+\`\`\`sql
 -- Enum for platform roles
 CREATE TYPE user_role AS ENUM ('user', 'admin');
 
@@ -121,7 +121,7 @@ CREATE TRIGGER update_events_updated_at
 BEFORE UPDATE ON events
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
-```
+\`\`\`
 
 Run the migration once per environment (development, staging, production). Subsequent schema changes should be versioned via SQL migration files or the Supabase migration CLI to keep environments aligned.
 
@@ -262,7 +262,7 @@ INSERT INTO events (title, description, full_description, date, time, end_time, 
   8500,
   2100
 );
-```
+\`\`\`
 
 Replace these with your own events or import CSV data using Supabase's table editor.
 

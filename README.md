@@ -77,7 +77,7 @@ All tables are protected with Row Level Security. Events are publicly readable, 
 
 ## Project Structure
 
-```
+\`\`\`
 ticketiv/
 ├── app/
 │   ├── (app)/checkout/               # Authenticated attendee checkout
@@ -136,12 +136,12 @@ ticketiv/
 
 Create a `.env.local` file with your Supabase credentials:
 
-```
+\`\`\`
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 NEXT_PUBLIC_APP_URL=http://localhost:3000
-```
+\`\`\`
 
 ## Deployment
 
@@ -165,12 +165,12 @@ git push origin main
 
 ### Installation
 
-```bash
+\`\`\`bash
 git clone <your-repo-url>
 cd ticketiv
 pnpm install
 # or npm install
-```
+\`\`\`
 
 ### Environment Variables
 
@@ -194,9 +194,9 @@ Create an `.env.local` file and supply the following values:
 
 Manage events directly in the Supabase `events` table or extend `lib/events.ts` for custom queries.
 
-```bash
+\`\`\`bash
 pnpm dev
-```
+\`\`\`
 
 Visit [http://localhost:3000](http://localhost:3000) and complete the attendee and organiser journeys. Use Supabase Studio to confirm that events and tickets are persisted as expected.
 
