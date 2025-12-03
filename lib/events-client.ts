@@ -4,6 +4,12 @@ import type { EventSummary } from "@/types"
 
 export async function getEventsUsingClient(filters?: { category?: string; search?: string }): Promise<EventSummary[]> {
   const supabase = createClient()
+
+  if (!supabase) {
+    console.warn("[v0] Supabase not configured, returning empty events")
+    return []
+  }
+
   let query = supabase
     .from("events")
     .select(EVENT_SUMMARY_SELECTION)

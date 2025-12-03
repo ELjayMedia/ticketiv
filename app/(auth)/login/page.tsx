@@ -31,16 +31,48 @@ export default function LoginPage() {
         return
       }
 
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(email)) {
+        setError("Please enter a valid email address")
+        return
+      }
+
       const supabase = createClient()
+
+      if (!supabase) {
+        setError("Authentication service is not available. Please try again later.")
+        return
+      }
+
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
 
       if (signInError) {
-        throw signInError
+        if (signInError.message.includes("Invalid login credentials")) {
+          setError("Invalid email or password. Please try again.")
+        } else if (signInError.message.includes("Email not confirmed")) {
+          setError("Please confirm your email before logging in.")
+        } else {
+          setError(signInError.message ?? "Login failed. Please try again.")
+        }
+        console.error("[v0] Login error:", signInError)
+        return
       }
 
-      router.push("/browse")
+      const { data: orgMember } = await supabase
+        .from("org_members")
+        .select("role")
+        .eq("user_id", (await supabase.auth.getSession()).data.session?.user.id)
+        .single()
+
+      if (orgMember?.role === "organizer" || orgMember?.role === "admin") {
+        router.push("/org")
+      } else {
+        router.push("/app")
+      }
     } catch (err: any) {
-      setError(err.message ?? "Login failed. Please try again.")
+      const message = err?.message ?? "An unexpected error occurred"
+      setError(message)
+      console.error("[v0] Login exception:", err)
     } finally {
       setLoading(false)
     }
@@ -82,6 +114,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={loading}
+                autoComplete="email"
               />
             </div>
             <div className="space-y-2">
@@ -95,6 +128,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={loading}
+                autoComplete="current-password"
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>

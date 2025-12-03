@@ -8,6 +8,12 @@ export const dynamic = "force-dynamic"
 
 export default async function DashboardPage() {
   const supabase = createServerSupabaseClient()
+
+  if (!supabase) {
+    // Redirect to login when Supabase is not configured
+    redirect("/login")
+  }
+
   const {
     data: { session },
   } = await supabase.auth.getSession()

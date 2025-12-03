@@ -47,7 +47,7 @@ export function Header({ workspace, user, onLogout }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-      <div className="max-w-7xl mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[980px] mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href={brandHref} className="flex items-center gap-2">
           <Ticket className="h-6 w-6 text-primary" />
           <div className="flex flex-col leading-none">

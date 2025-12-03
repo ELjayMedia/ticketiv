@@ -1,6 +1,17 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ArrowLeft, MapPin, Calendar, Users, Clock, MapPinIcon, Wifi, Utensils, ParkingCircle, Ticket as TicketIcon } from "lucide-react"
+import {
+  ArrowLeft,
+  MapPin,
+  Calendar,
+  Users,
+  Clock,
+  MapPinIcon,
+  Wifi,
+  Utensils,
+  ParkingCircle,
+  TicketIcon,
+} from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -64,7 +75,11 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           <div className="aspect-video bg-muted rounded-lg overflow-hidden">
-            <img src={event.banner_image_url || event.cover_image_url || "/placeholder.svg"} alt={event.title} className="w-full h-full object-cover" />
+            <img
+              src={event.banner_image_url || event.cover_image_url || "/placeholder.svg"}
+              alt={event.title}
+              className="w-full h-full object-cover"
+            />
           </div>
 
           <div>
@@ -73,7 +88,9 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
                 <h1 className="text-4xl font-bold mb-2">{event.title}</h1>
                 {event.category && (
                   <Link href={`/category/${categorySlug}`}>
-                    <Badge className="bg-primary cursor-pointer hover:opacity-80 transition-opacity">{event.category}</Badge>
+                    <Badge className="bg-primary cursor-pointer hover:opacity-80 transition-opacity">
+                      {event.category}
+                    </Badge>
                   </Link>
                 )}
               </div>
@@ -82,7 +99,9 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
                 <p className="text-sm text-muted-foreground">per ticket</p>
               </div>
             </div>
-            <p className="text-lg text-muted-foreground leading-relaxed">{event.full_description ?? event.description}</p>
+            <p className="text-lg text-muted-foreground leading-relaxed">
+              {event.full_description ?? event.description}
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -120,7 +139,9 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
                   <p className="text-sm text-muted-foreground">Capacity</p>
                   <p className="font-semibold">
                     {totalCapacity ? `${totalCapacity.toLocaleString()} seats` : "General Admission"}
-                    {availabilityPercentage != null && <span className="block text-xs text-muted-foreground">{availabilityPercentage}% sold</span>}
+                    {availabilityPercentage != null && (
+                      <span className="block text-xs text-muted-foreground">{availabilityPercentage}% sold</span>
+                    )}
                   </p>
                 </div>
               </CardContent>
@@ -134,7 +155,10 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
               </CardHeader>
               <CardContent className="space-y-4">
                 {event.ticket_types.map((ticket) => (
-                  <div key={ticket.id} className="flex items-center justify-between gap-4 rounded-lg border bg-card p-4">
+                  <div
+                    key={ticket.id}
+                    className="flex items-center justify-between gap-4 rounded-lg border bg-card p-4"
+                  >
                     <div>
                       <p className="font-semibold flex items-center gap-2">
                         <TicketIcon className="h-4 w-4 text-primary" />
@@ -181,7 +205,9 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
                     </p>
                   </div>
 
-                  {event.venue.description && <p className="text-muted-foreground text-sm">{event.venue.description}</p>}
+                  {event.venue.description && (
+                    <p className="text-muted-foreground text-sm">{event.venue.description}</p>
+                  )}
 
                   {event.venue.capacity && (
                     <p className="text-sm text-muted-foreground">Capacity: {event.venue.capacity.toLocaleString()}</p>
@@ -231,7 +257,9 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
               <CardTitle>Need help?</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <p className="text-muted-foreground">Contact the organizer for additional information about this event.</p>
+              <p className="text-muted-foreground">
+                Contact the organizer for additional information about this event.
+              </p>
               <Button variant="outline" asChild>
                 <Link href={`mailto:${event.organizer_id}@ticketiv.com`}>Email organizer</Link>
               </Button>
