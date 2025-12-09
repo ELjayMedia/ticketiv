@@ -54,16 +54,10 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
     notFound()
   }
 
-  const primaryDate = event.dates.find((date) => date.is_primary) ?? event.dates[0]
-  const categorySlug = event.category ? event.category.toLowerCase().replace(/\s+/g, "-") : null
-  const priceLabel =
-    event.minimum_price != null ? formatCurrency(event.minimum_price, event.currency) : "Free registration"
-  const totalCapacity = event.tickets_available ?? event.venue?.capacity ?? null
-  const ticketsSold = event.tickets_sold ?? null
-  const availabilityPercentage =
-    totalCapacity != null && ticketsSold != null && totalCapacity > 0
-      ? Math.min(100, Math.round((ticketsSold / totalCapacity) * 100))
-      : null
+  const availabilityPercentage = (event.attendees / (event.attendees + event.ticketsAvailable)) * 100
+  const categorySlug = event.category.toLowerCase().replace(/\s+/g, "-")
+  const mapQuery = event.venueDetails ? `${event.venueDetails.address}, ${event.venueDetails.city}` : ""
+  const mapEmbedSrc = mapQuery ? `/api/maps/embed?${new URLSearchParams({ q: mapQuery }).toString()}` : ""
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -178,7 +172,7 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
             </Card>
           )}
 
-          {event.venue && (
+          {event.venueDetails && mapEmbedSrc && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-muted rounded-lg overflow-hidden h-80 md:h-auto">
                 <iframe
@@ -188,7 +182,7 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
                   loading="lazy"
                   allowFullScreen
                   referrerPolicy="no-referrer-when-downgrade"
-                  src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyB41DFb05-BlusSH4BI2-5dNN3HSm0ZeIw&q=${encodeURIComponent(`${event.venue.address_line1 ?? ""} ${event.venue.city ?? ""}`)}`}
+                  src={mapEmbedSrc}
                 />
               </div>
 
