@@ -20,17 +20,17 @@ const WORKSPACE_NAVIGATION: Record<WorkspaceType, WorkspaceNavigationConfig> = {
       { href: "/browse", label: "Browse" },
       { href: "/categories", label: "Categories" },
       { href: "/artists", label: "Artists" },
-      { href: "/dashboard", label: "Attendee App" },
+      { href: "/app/tickets", label: "Attendee App" },
       { href: "/events", label: "Organizer Workspace" },
       { href: "/scan", label: "Scanner" },
     ],
   },
   app: {
     label: "Attendee",
-    home: "/dashboard",
+    home: "/app/home",
     items: [
       { href: "/browse", label: "Browse" },
-      { href: "/dashboard", label: "My Tickets" },
+      { href: "/app/tickets", label: "My Tickets" },
       { href: "/checkout/1", label: "Checkout" },
       { href: "/events", label: "Organizer" },
       { href: "/scan", label: "Scanner" },
@@ -42,7 +42,7 @@ const WORKSPACE_NAVIGATION: Record<WorkspaceType, WorkspaceNavigationConfig> = {
     items: [
       { href: "/events", label: "Events" },
       { href: "/payouts", label: "Payouts" },
-      { href: "/dashboard", label: "Attendee" },
+      { href: "/app/tickets", label: "Attendee" },
       { href: "/scan", label: "Scanner" },
     ],
   },
@@ -51,7 +51,7 @@ const WORKSPACE_NAVIGATION: Record<WorkspaceType, WorkspaceNavigationConfig> = {
     home: "/scan",
     items: [
       { href: "/scan", label: "Scan Tickets" },
-      { href: "/dashboard", label: "Attendee" },
+      { href: "/app/tickets", label: "Attendee" },
       { href: "/events", label: "Organizer" },
       { href: "/browse", label: "Browse" },
     ],

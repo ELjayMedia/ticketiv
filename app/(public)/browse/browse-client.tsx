@@ -1,264 +1,242 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import Link from "next/link"
-import { Globe, Calendar, Heart, Briefcase, ChevronRight } from "lucide-react"
+import { useState, useMemo } from "react"
+import { Search } from "lucide-react"
 
 import { EventCard } from "@/components/events/event-card"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
-import { getEventsUsingClient } from "@/lib/events-client"
-import type { ArtistRecord, EventSummary } from "@/types"
-import { createClient } from "@/lib/supabase"
+import { Label } from "@/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
+import type { EventSummary } from "@/types"
 
 interface BrowseClientProps {
   initialEvents: EventSummary[]
 }
 
 const CATEGORIES = [
-  { name: "All" },
-  { name: "Conference", icon: Briefcase },
-  { name: "Festival", icon: Globe },
-  { name: "Networking", icon: Briefcase },
-  { name: "Workshop", icon: Calendar },
-  { name: "Gala", icon: Heart },
+  "All Categories",
+  "Music",
+  "Lifestyle",
+  "Other Sport",
+  "Soccer",
+  "Comedy",
+  "Rugby",
+  "Cricket",
+  "Hospitality",
+  "Park and Ride",
+  "Theatre",
 ]
+
+const DATE_FILTERS = ["Any time", "Today", "This Weekend", "This Week", "This Month", "Next 30 Days"]
 
 export default function BrowseClient({ initialEvents }: BrowseClientProps) {
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [events, setEvents] = useState<EventSummary[]>(initialEvents)
-  const [loading, setLoading] = useState(false)
-  const [artists, setArtists] = useState<ArtistRecord[]>([])
+  const [selectedCategory, setSelectedCategory] = useState("All Categories")
+  const [selectedDate, setSelectedDate] = useState("Any time")
+  const [selectedLocation, setSelectedLocation] = useState("all")
+  const [priceMin, setPriceMin] = useState("")
+  const [priceMax, setPriceMax] = useState("")
 
-  useEffect(() => {
-    let active = true
+  const locations = useMemo(() => {
+    const locs = new Set<string>()
+    initialEvents.forEach((event) => {
+      if (event.location) locs.add(event.location)
+    })
+    return Array.from(locs).sort()
+  }, [initialEvents])
 
-    async function fetchEvents() {
-      setLoading(true)
-      try {
-        const result = await getEventsUsingClient({
-          category: selectedCategory && selectedCategory !== "All" ? selectedCategory : undefined,
-          search: searchQuery || undefined,
-        })
-        if (active) {
-          setEvents(result)
+  const filteredEvents = useMemo(() => {
+    return initialEvents.filter((event) => {
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase()
+        const matchesSearch =
+          event.title.toLowerCase().includes(query) ||
+          event.location?.toLowerCase().includes(query) ||
+          event.category?.toLowerCase().includes(query)
+        if (!matchesSearch) return false
+      }
+
+      // Category filter
+      if (selectedCategory !== "All Categories" && event.category !== selectedCategory) {
+        return false
+      }
+
+      // Location filter
+      if (selectedLocation !== "all" && event.location !== selectedLocation) {
+        return false
+      }
+
+      // Price filter
+      if (priceMin && event.minimum_price != null && event.minimum_price < Number.parseInt(priceMin)) {
+        return false
+      }
+      if (priceMax && event.minimum_price != null && event.minimum_price > Number.parseInt(priceMax)) {
+        return false
+      }
+
+      // Date filter
+      if (selectedDate !== "Any time" && event.starts_at) {
+        const eventDate = new Date(event.starts_at)
+        const now = new Date()
+
+        switch (selectedDate) {
+          case "Today":
+            if (eventDate.toDateString() !== now.toDateString()) return false
+            break
+          case "This Weekend": {
+            const dayOfWeek = now.getDay()
+            const daysUntilFriday = (5 - dayOfWeek + 7) % 7 || 7
+            const fridayStart = new Date(now)
+            fridayStart.setDate(now.getDate() + daysUntilFriday)
+            fridayStart.setHours(0, 0, 0, 0)
+            const sundayEnd = new Date(fridayStart)
+            sundayEnd.setDate(fridayStart.getDate() + 2)
+            sundayEnd.setHours(23, 59, 59, 999)
+            if (eventDate < fridayStart || eventDate > sundayEnd) return false
+            break
+          }
+          case "This Week": {
+            const weekStart = new Date(now)
+            weekStart.setDate(now.getDate() - now.getDay())
+            weekStart.setHours(0, 0, 0, 0)
+            const weekEnd = new Date(weekStart)
+            weekEnd.setDate(weekStart.getDate() + 6)
+            weekEnd.setHours(23, 59, 59, 999)
+            if (eventDate < weekStart || eventDate > weekEnd) return false
+            break
+          }
+          case "This Month":
+            if (eventDate.getMonth() !== now.getMonth() || eventDate.getFullYear() !== now.getFullYear()) return false
+            break
+          case "Next 30 Days": {
+            const thirtyDaysLater = new Date(now)
+            thirtyDaysLater.setDate(now.getDate() + 30)
+            if (eventDate < now || eventDate > thirtyDaysLater) return false
+            break
+          }
         }
-      } catch (error) {
-        console.error("Failed to fetch events", error)
-        if (active) {
-          setEvents(initialEvents)
-        }
-      } finally {
-        if (active) {
-          setLoading(false)
-        }
-      }
-    }
-
-    const debounce = setTimeout(fetchEvents, 250)
-
-    return () => {
-      active = false
-      clearTimeout(debounce)
-    }
-  }, [selectedCategory, searchQuery, initialEvents])
-
-  useEffect(() => {
-    const supabase = createClient()
-    let cancelled = false
-
-    async function loadArtists() {
-      if (!supabase) {
-        console.warn("[v0] Supabase not configured, skipping artists fetch")
-        return
       }
 
-      const { data, error } = await supabase.from("artists").select("*").limit(15)
-      if (error) {
-        console.warn("Failed to load artists", error)
-        return
-      }
-      if (!cancelled) {
-        setArtists(data as ArtistRecord[])
-      }
-    }
-
-    loadArtists()
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const eventsThisMonth = useMemo(() => {
-    const now = new Date()
-    const month = now.getMonth()
-    const year = now.getFullYear()
-
-    return events
-      .filter((event) => {
-        if (!event.starts_at) return false
-        const date = new Date(event.starts_at)
-        return date.getMonth() === month && date.getFullYear() === year
-      })
-      .sort((a, b) => {
-        const aDate = a.starts_at ? new Date(a.starts_at).getTime() : Number.POSITIVE_INFINITY
-        const bDate = b.starts_at ? new Date(b.starts_at).getTime() : Number.POSITIVE_INFINITY
-        return aDate - bDate
-      })
-  }, [events])
-
-  const featuredEvents = events.slice(0, 3)
+      return true
+    })
+  }, [initialEvents, searchQuery, selectedCategory, selectedDate, selectedLocation, priceMin, priceMax])
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 space-y-8 lg:px-8">
-      <div className="space-y-4">
-        <h1 className="text-4xl md:text-5xl font-bold text-balance">
-          Discover <span className="text-primary">Amazing Events</span>
-        </h1>
-        {loading && <p className="text-sm text-muted-foreground">Loading events...</p>}
-      </div>
-
-      <Carousel className="w-full">
-        <CarouselContent>
-          {featuredEvents.map((event) => (
-            <CarouselItem key={event.id} className="basis-full">
-              <Link href={`/events/${event.id}`}>
-                <div className="relative rounded-xl overflow-hidden h-80 group cursor-pointer">
-                  <img
-                    src={event.cover_image_url || "/placeholder.svg"}
-                    alt={event.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-transparent" />
-                  <div className="absolute inset-0 flex flex-col justify-center p-8">
-                    <h2 className="text-3xl md:text-5xl font-bold text-white mb-4">{event.title}</h2>
-                    <Button size="lg" className="w-fit gap-2">
-                      Get Tickets Now
-                      <ChevronRight className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </Link>
-            </CarouselItem>
-          ))}
-        </CarouselContent>
-        <CarouselPrevious className="hidden sm:flex left-4" />
-        <CarouselNext className="hidden sm:flex right-4" />
-      </Carousel>
-
-      <div className="relative text-center">
-        <Input
-          placeholder="Search events by title, location, or category..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="h-12 text-base border-solid border-primary rounded-full border text-center w-9/12"
-        />
-      </div>
-
-      <div className="flex flex-wrap justify-center gap-8">
-        {CATEGORIES.map((category) => {
-          const IconComponent = category.icon
-          const isActive = selectedCategory === category.name || (!selectedCategory && category.name === "All")
-          const categorySlug = category.name === "All" ? null : category.name.toLowerCase().replace(/\s+/g, "-")
-
-          const categoryButton = (
-            <button
-              onClick={() => setSelectedCategory(category.name === "All" ? null : category.name)}
-              className="flex flex-col items-center gap-2 group"
-            >
-              <div
-                className={`w-16 h-16 rounded-full flex items-center justify-center border transition-all duration-300 ${
-                  isActive ? "border-primary bg-primary/10" : "border-foreground/20 group-hover:border-primary"
-                }`}
-                style={{ borderWidth: "1px" }}
-              >
-                {IconComponent ? (
-                  <IconComponent className="w-6 h-6" />
-                ) : (
-                  <span className="text-xs font-semibold">All</span>
-                )}
-              </div>
-              <span className="text-xs font-medium text-center">{category.name}</span>
-            </button>
-          )
-
-          return (
-            <div key={category.name}>
-              {categorySlug ? <Link href={`/category/${categorySlug}`}>{categoryButton}</Link> : categoryButton}
-            </div>
-          )
-        })}
-      </div>
-
-      {eventsThisMonth.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="font-bold text-lg">Happening This Month</h2>
-          <Carousel className="w-full">
-            <CarouselContent className="-ml-2">
-              {eventsThisMonth.map((event) => (
-                <CarouselItem
-                  key={event.id}
-                  className="pl-2 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5"
-                >
-                  <EventCard event={event} />
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-            <CarouselPrevious className="hidden sm:flex" />
-            <CarouselNext className="hidden sm:flex" />
-          </Carousel>
-        </div>
-      )}
-
-      {events.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="font-bold text-lg">All Events</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {events.map((event) => (
-              <EventCard key={event.id} event={event} />
-            ))}
+    <div className="max-w-[980px] mx-auto px-4 sm:px-6 py-8 lg:px-8">
+      <div className="flex flex-col lg:flex-row gap-8">
+        <aside className="w-full lg:w-64 flex-shrink-0 space-y-6">
+          <div>
+            <h2 className="text-lg font-bold mb-4">Filters</h2>
           </div>
-        </div>
-      )}
 
-      {artists.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="font-bold text-lg">Featured Artists & Speakers</h2>
-          <Carousel className="w-full">
-            <CarouselContent className="-ml-2">
-              {artists.map((artist) => (
-                <CarouselItem
-                  key={artist.id}
-                  className="pl-2 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5"
-                >
-                  <Link href={`/artists/${artist.id}`}>
-                    <div className="flex flex-col items-center gap-4 group cursor-pointer">
-                      <div className="relative w-32 h-32 rounded-full overflow-hidden ring-2 ring-primary/20 group-hover:ring-primary transition-all duration-300">
-                        <img
-                          src={artist.avatar_url || "/placeholder.svg"}
-                          alt={artist.name}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                        />
-                      </div>
-                      <div className="text-center">
-                        <h3 className="font-semibold text-sm group-hover:text-primary transition-colors">
-                          {artist.name}
-                        </h3>
-                        {artist.role && <p className="text-xs text-muted-foreground">{artist.role}</p>}
-                      </div>
-                    </div>
-                  </Link>
-                </CarouselItem>
+          <div className="space-y-3">
+            <h3 className="font-semibold text-sm">Categories</h3>
+            <RadioGroup value={selectedCategory} onValueChange={setSelectedCategory}>
+              {CATEGORIES.map((category) => (
+                <div key={category} className="flex items-center space-x-2">
+                  <RadioGroupItem value={category} id={category} />
+                  <Label htmlFor={category} className="text-sm font-normal cursor-pointer">
+                    {category}
+                  </Label>
+                </div>
               ))}
-            </CarouselContent>
-            <CarouselPrevious className="hidden sm:flex" />
-            <CarouselNext className="hidden sm:flex" />
-          </Carousel>
-        </div>
-      )}
+            </RadioGroup>
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="font-semibold text-sm">Date</h3>
+            <RadioGroup value={selectedDate} onValueChange={setSelectedDate}>
+              {DATE_FILTERS.map((date) => (
+                <div key={date} className="flex items-center space-x-2">
+                  <RadioGroupItem value={date} id={date} />
+                  <Label htmlFor={date} className="text-sm font-normal cursor-pointer">
+                    {date}
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="font-semibold text-sm">Location</h3>
+            <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Cities" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Cities</SelectItem>
+                {locations.map((location) => (
+                  <SelectItem key={location} value={location}>
+                    {location}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="font-semibold text-sm">Price Range</h3>
+            <div className="space-y-2">
+              <Input
+                type="number"
+                placeholder="Min (R)"
+                value={priceMin}
+                onChange={(e) => setPriceMin(e.target.value)}
+                className="h-9"
+              />
+              <Input
+                type="number"
+                placeholder="Max (R)"
+                value={priceMax}
+                onChange={(e) => setPriceMax(e.target.value)}
+                className="h-9"
+              />
+            </div>
+          </div>
+        </aside>
+
+        <main className="flex-1 space-y-6">
+          <div className="space-y-4">
+            <h1 className="text-3xl font-bold">All Events</h1>
+
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search events, venues, or artists..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-12"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-muted-foreground">
+                Showing {filteredEvents.length} of {initialEvents.length} events
+              </p>
+              {searchQuery && (
+                <Badge variant="secondary" className="gap-1">
+                  Search: {searchQuery}
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          {filteredEvents.length > 0 ? (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredEvents.map((event) => (
+                <EventCard key={event.id} event={event} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">No events found matching your criteria.</p>
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   )
 }

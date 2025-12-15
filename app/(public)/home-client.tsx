@@ -49,13 +49,11 @@ export default function HomeClient({ initialEvents }: HomeClientProps) {
     const now = new Date()
     const dayOfWeek = now.getDay()
 
-    // Calculate Friday of this week
     const daysUntilFriday = (5 - dayOfWeek + 7) % 7 || 7
     const fridayStart = new Date(now)
     fridayStart.setDate(now.getDate() + daysUntilFriday)
     fridayStart.setHours(0, 0, 0, 0)
 
-    // Calculate Monday of next week
     const sundayEnd = new Date(fridayStart)
     sundayEnd.setDate(fridayStart.getDate() + 2)
     sundayEnd.setHours(23, 59, 59, 999)
@@ -104,29 +102,30 @@ export default function HomeClient({ initialEvents }: HomeClientProps) {
   const featuredEvents = initialEvents.slice(0, 3)
 
   return (
-    <div className="max-w-[980px] mx-auto px-4 sm:px-6 py-12 space-y-12 lg:px-8">
+    <div className="max-w-[980px] mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8 sm:space-y-12 lg:px-8">
       <div className="space-y-4">
-        <h1 className="text-4xl md:text-5xl font-bold text-balance">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-balance">
           Discover <span className="text-primary">Amazing Events</span>
         </h1>
       </div>
 
-      {/* Featured Carousel */}
       <Carousel className="w-full">
         <CarouselContent>
           {featuredEvents.map((event) => (
             <CarouselItem key={event.id} className="basis-full">
               <Link href={`/events/${event.id}`}>
-                <div className="relative rounded-xl overflow-hidden h-80 group cursor-pointer">
+                <div className="relative rounded-xl overflow-hidden h-64 sm:h-80 group cursor-pointer">
                   <img
                     src={event.cover_image_url || "/placeholder.svg"}
                     alt={event.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                   <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-transparent" />
-                  <div className="absolute inset-0 flex flex-col justify-center p-8">
-                    <h2 className="text-3xl md:text-5xl font-bold text-white mb-4">{event.title}</h2>
-                    <Button size="lg" className="w-fit gap-2">
+                  <div className="absolute inset-0 flex flex-col justify-center p-4 sm:p-8">
+                    <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold text-white mb-2 sm:mb-4">
+                      {event.title}
+                    </h2>
+                    <Button size="lg" className="w-fit gap-2 text-sm sm:text-base">
                       Get Tickets Now
                       <ChevronRight className="w-4 h-4" />
                     </Button>
@@ -140,22 +139,18 @@ export default function HomeClient({ initialEvents }: HomeClientProps) {
         <CarouselNext className="hidden sm:flex right-4" />
       </Carousel>
 
-      {/* This Weekend Section */}
       {eventsThisWeekend.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-bold text-2xl">This Weekend</h2>
-            <Link href="/browse?filter=weekend" className="text-primary hover:underline text-sm">
+            <h2 className="font-bold text-xl sm:text-2xl">This Weekend</h2>
+            <Link href="/browse?filter=weekend" className="text-primary hover:underline text-xs sm:text-sm">
               See All
             </Link>
           </div>
           <Carousel className="w-full">
             <CarouselContent className="-ml-2">
               {eventsThisWeekend.map((event) => (
-                <CarouselItem
-                  key={event.id}
-                  className="pl-2 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5"
-                >
+                <CarouselItem key={event.id} className="pl-2 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/3">
                   <EventCard event={event} />
                 </CarouselItem>
               ))}
@@ -166,22 +161,18 @@ export default function HomeClient({ initialEvents }: HomeClientProps) {
         </div>
       )}
 
-      {/* This Month Section */}
       {eventsThisMonth.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-bold text-2xl">Happening This Month</h2>
-            <Link href="/browse?filter=month" className="text-primary hover:underline text-sm">
+            <h2 className="font-bold text-xl sm:text-2xl">Happening This Month</h2>
+            <Link href="/browse?filter=month" className="text-primary hover:underline text-xs sm:text-sm">
               See All
             </Link>
           </div>
           <Carousel className="w-full">
             <CarouselContent className="-ml-2">
               {eventsThisMonth.map((event) => (
-                <CarouselItem
-                  key={event.id}
-                  className="pl-2 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5"
-                >
+                <CarouselItem key={event.id} className="pl-2 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/3">
                   <EventCard event={event} />
                 </CarouselItem>
               ))}
@@ -192,22 +183,18 @@ export default function HomeClient({ initialEvents }: HomeClientProps) {
         </div>
       )}
 
-      {/* Trending Events Section */}
       {trendingEvents.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-bold text-2xl">Trending Now</h2>
-            <Link href="/browse?filter=trending" className="text-primary hover:underline text-sm">
+            <h2 className="font-bold text-xl sm:text-2xl">Trending Now</h2>
+            <Link href="/browse?filter=trending" className="text-primary hover:underline text-xs sm:text-sm">
               See All
             </Link>
           </div>
           <Carousel className="w-full">
             <CarouselContent className="-ml-2">
               {trendingEvents.map((event) => (
-                <CarouselItem
-                  key={event.id}
-                  className="pl-2 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5"
-                >
+                <CarouselItem key={event.id} className="pl-2 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/3">
                   <EventCard event={event} />
                 </CarouselItem>
               ))}
@@ -218,20 +205,16 @@ export default function HomeClient({ initialEvents }: HomeClientProps) {
         </div>
       )}
 
-      {/* Featured Artists & Speakers Section */}
       {artists.length > 0 && (
         <div className="space-y-4">
-          <h2 className="font-bold text-2xl">Featured Artists & Speakers</h2>
+          <h2 className="font-bold text-xl sm:text-2xl">Featured Artists & Speakers</h2>
           <Carousel className="w-full">
             <CarouselContent className="-ml-2">
               {artists.map((artist) => (
-                <CarouselItem
-                  key={artist.id}
-                  className="pl-2 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5"
-                >
+                <CarouselItem key={artist.id} className="pl-2 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5">
                   <Link href={`/artists/${artist.id}`}>
                     <div className="flex flex-col items-center gap-4 group cursor-pointer">
-                      <div className="relative w-32 h-32 rounded-full overflow-hidden ring-2 ring-primary/20 group-hover:ring-primary transition-all duration-300">
+                      <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden ring-2 ring-primary/20 group-hover:ring-primary transition-all duration-300">
                         <img
                           src={artist.avatar_url || "/placeholder.svg"}
                           alt={artist.name}
@@ -239,7 +222,7 @@ export default function HomeClient({ initialEvents }: HomeClientProps) {
                         />
                       </div>
                       <div className="text-center">
-                        <h3 className="font-semibold text-sm group-hover:text-primary transition-colors">
+                        <h3 className="font-semibold text-xs sm:text-sm group-hover:text-primary transition-colors">
                           {artist.name}
                         </h3>
                         {artist.role && <p className="text-xs text-muted-foreground">{artist.role}</p>}

@@ -1,23 +1,14 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import {
-  ArrowLeft,
-  MapPin,
-  Calendar,
-  Users,
-  Clock,
-  MapPinIcon,
-  Wifi,
-  Utensils,
-  ParkingCircle,
-  TicketIcon,
-} from "lucide-react"
+import { ArrowLeft, MapPin, Calendar, MapPinIcon, Wifi, Utensils, ParkingCircle, TicketIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getEventById } from "@/lib/events"
 import { formatCurrency } from "@/lib/pricing"
+import { EventCountdown } from "@/components/event-countdown"
 
 const AMENITY_ICONS = {
   wifi: <Wifi size={16} />,
@@ -58,28 +49,31 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
   const categorySlug = event.category.toLowerCase().replace(/\s+/g, "-")
   const mapQuery = event.venueDetails ? `${event.venueDetails.address}, ${event.venueDetails.city}` : ""
   const mapEmbedSrc = mapQuery ? `/api/maps/embed?${new URLSearchParams({ q: mapQuery }).toString()}` : ""
+  const priceLabel = formatCurrency(event.price, event.currency)
+
+  const isSoldOut = event.ticketsAvailable === 0 || event.ticket_types?.every((tt) => tt.quantity_remaining === 0)
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <Link href="/browse" className="flex items-center gap-2 text-primary hover:underline mb-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+      <Link href="/browse" className="flex items-center gap-2 text-primary hover:underline mb-4 sm:mb-6">
         <ArrowLeft size={20} />
         Back to Events
       </Link>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-          <div className="aspect-video bg-muted rounded-lg overflow-hidden">
-            <img
-              src={event.banner_image_url || event.cover_image_url || "/placeholder.svg"}
-              alt={event.title}
-              className="w-full h-full object-cover"
-            />
-          </div>
+      <div className="aspect-video bg-muted rounded-lg overflow-hidden mb-6 sm:mb-8">
+        <img
+          src={event.banner_image_url || event.cover_image_url || "/placeholder.svg"}
+          alt={event.title}
+          className="w-full h-full object-cover"
+        />
+      </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+        <div className="lg:col-span-2 space-y-6">
           <div>
-            <div className="flex items-start justify-between mb-4 gap-4">
+            <div className="flex flex-col sm:flex-row items-start justify-between mb-4 gap-4">
               <div>
-                <h1 className="text-4xl font-bold mb-2">{event.title}</h1>
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">{event.title}</h1>
                 {event.category && (
                   <Link href={`/category/${categorySlug}`}>
                     <Badge className="bg-primary cursor-pointer hover:opacity-80 transition-opacity">
@@ -88,35 +82,27 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
                   </Link>
                 )}
               </div>
-              <div className="text-right">
-                <p className="text-3xl font-bold text-primary">{priceLabel}</p>
+              <div className="text-left sm:text-right">
+                <p className="text-2xl sm:text-3xl font-bold text-primary">{priceLabel}</p>
                 <p className="text-sm text-muted-foreground">per ticket</p>
               </div>
             </div>
-            <p className="text-lg text-muted-foreground leading-relaxed">
+            <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
               {event.full_description ?? event.description}
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Card>
               <CardContent className="pt-6 flex items-start gap-3">
                 <Calendar className="w-5 h-5 text-primary mt-0.5 shrink-0" />
                 <div>
                   <p className="text-sm text-muted-foreground">Date</p>
-                  <p className="font-semibold">{formatDateRange(primaryDate?.starts_at, primaryDate?.ends_at)}</p>
+                  <p className="font-semibold">{formatDateRange(event.start_date, event.end_date)}</p>
                 </div>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="pt-6 flex items-start gap-3">
-                <Clock className="w-5 h-5 text-primary mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Timezone</p>
-                  <p className="font-semibold">{primaryDate ? primaryDate.timezone : "TBA"}</p>
-                </div>
-              </CardContent>
-            </Card>
+            {event.start_date && <EventCountdown eventDate={event.start_date} />}
             <Card>
               <CardContent className="pt-6 flex items-start gap-3">
                 <MapPin className="w-5 h-5 text-primary mt-0.5 shrink-0" />
@@ -126,20 +112,47 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
                 </div>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="pt-6 flex items-start gap-3">
-                <Users className="w-5 h-5 text-primary mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Capacity</p>
-                  <p className="font-semibold">
-                    {totalCapacity ? `${totalCapacity.toLocaleString()} seats` : "General Admission"}
-                    {availabilityPercentage != null && (
-                      <span className="block text-xs text-muted-foreground">{availabilityPercentage}% sold</span>
+            {event.artists && event.artists.length > 0 && (
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-sm text-muted-foreground mb-3">Featured Artists</p>
+                  <div className="flex items-center gap-3">
+                    {event.artists.slice(0, 3).map((artist) => (
+                      <Link
+                        key={artist.id}
+                        href={`/artists/${artist.id}`}
+                        className="group flex flex-col items-center gap-1.5"
+                      >
+                        <Avatar className="w-12 h-12 border-2 border-background ring-2 ring-primary/10 group-hover:ring-primary/30 transition-all">
+                          <AvatarImage src={artist.image_url || artist.avatar_url} alt={artist.name} />
+                          <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                            {artist.name
+                              .split(" ")
+                              .map((n) => n[0])
+                              .join("")
+                              .toUpperCase()
+                              .slice(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <p className="text-xs font-medium text-center max-w-[60px] truncate group-hover:text-primary transition-colors">
+                          {artist.name}
+                        </p>
+                      </Link>
+                    ))}
+                    {event.artists.length > 3 && (
+                      <div className="flex flex-col items-center gap-1.5">
+                        <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center border-2 border-background">
+                          <span className="text-xs font-semibold text-muted-foreground">
+                            +{event.artists.length - 3}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">more</p>
+                      </div>
                     )}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {event.ticket_types.length > 0 && (
@@ -173,8 +186,8 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
           )}
 
           {event.venueDetails && mapEmbedSrc && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-muted rounded-lg overflow-hidden h-80 md:h-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-muted rounded-lg overflow-hidden h-64 sm:h-80 lg:h-auto">
                 <iframe
                   width="100%"
                   height="100%"
@@ -224,7 +237,7 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
           )}
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
           <Card>
             <CardHeader>
               <CardTitle>Tickets</CardTitle>
@@ -240,9 +253,23 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
                   <span>{availabilityPercentage}%</span>
                 </div>
               )}
-              <Link href={`/checkout/${event.id}`}>
-                <Button className="w-full mt-4">Get Tickets</Button>
-              </Link>
+              {isSoldOut ? (
+                <div className="space-y-3 mt-4">
+                  <Badge variant="destructive" className="w-full justify-center py-1">
+                    Sold Out
+                  </Badge>
+                  <Button className="w-full bg-transparent" variant="outline" asChild>
+                    <Link href={`/events/${event.id}/waitlist`}>Join Waitlist</Link>
+                  </Button>
+                  <p className="text-xs text-center text-muted-foreground">
+                    Get notified when tickets become available
+                  </p>
+                </div>
+              ) : (
+                <Link href={`/checkout/${event.id}`}>
+                  <Button className="w-full mt-4">Get Tickets</Button>
+                </Link>
+              )}
             </CardContent>
           </Card>
 

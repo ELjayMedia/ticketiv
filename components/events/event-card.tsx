@@ -30,7 +30,7 @@ export function EventCard({ event }: EventCardProps) {
       <Card className="group h-full cursor-pointer overflow-hidden transition-all duration-300 hover:border-primary hover:shadow-lg">
         <div className="relative h-64 w-full overflow-hidden">
           <img
-            src={event.cover_image_url || "/placeholder.svg"}
+            src={event.cover_image_url || "/placeholder.svg?height=256&width=384"}
             alt={event.title}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />

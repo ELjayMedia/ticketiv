@@ -1,8 +1,10 @@
 "use client"
 
+import type React from "react"
+
 import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ShoppingCart, Check, AlertCircle } from "lucide-react"
+import { ShoppingCart, Check, AlertCircle, Tag } from "lucide-react"
 
 import { QuantitySelector } from "@/components/forms/quantity-selector"
 import { Button } from "@/components/ui/button"
@@ -26,15 +28,67 @@ export default function CheckoutClient({ event }: CheckoutClientProps) {
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [promoCode, setPromoCode] = useState("")
+  const [promoCodeValidating, setPromoCodeValidating] = useState(false)
+  const [promoCodeError, setPromoCodeError] = useState("")
+  const [appliedPromoCode, setAppliedPromoCode] = useState<{ code: string; discount: number } | null>(null)
 
-  const selectedTicketType = useMemo(() => event.ticket_types.find((ticket) => ticket.id === selectedTicketTypeId), [event.ticket_types, selectedTicketTypeId])
+  const selectedTicketType = useMemo(
+    () => event.ticket_types.find((ticket) => ticket.id === selectedTicketTypeId),
+    [event.ticket_types, selectedTicketTypeId],
+  )
 
   const pricing = useMemo(() => {
     if (!selectedTicketType) {
       return calculateOrderPricing({ items: [] })
     }
-    return calculateOrderPricing({ items: [{ ticketType: selectedTicketType, quantity }] })
-  }, [selectedTicketType, quantity])
+    const basePricing = calculateOrderPricing({ items: [{ ticketType: selectedTicketType, quantity }] })
+
+    if (appliedPromoCode) {
+      const discountAmount = Math.min(appliedPromoCode.discount, basePricing.subtotal)
+      return {
+        ...basePricing,
+        discount: discountAmount,
+        total: basePricing.subtotal + basePricing.fees - discountAmount,
+      }
+    }
+
+    return basePricing
+  }, [selectedTicketType, quantity, appliedPromoCode])
+
+  const handleApplyPromoCode = async () => {
+    if (!promoCode.trim()) return
+
+    setPromoCodeValidating(true)
+    setPromoCodeError("")
+
+    try {
+      const response = await fetch("/api/promo-codes/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: promoCode,
+          eventId: event.id,
+          purchaseAmount: pricing.subtotal,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (result.valid) {
+        setAppliedPromoCode({ code: promoCode, discount: result.discount })
+        setPromoCodeError("")
+      } else {
+        setPromoCodeError(result.error || "Invalid promo code")
+        setAppliedPromoCode(null)
+      }
+    } catch (err) {
+      setPromoCodeError("Failed to validate promo code")
+      setAppliedPromoCode(null)
+    } finally {
+      setPromoCodeValidating(false)
+    }
+  }
 
   const handleCheckout = async (submitEvent: React.FormEvent) => {
     submitEvent.preventDefault()
@@ -64,6 +118,7 @@ export default function CheckoutClient({ event }: CheckoutClientProps) {
           firstName,
           lastName,
           email,
+          promoCode: appliedPromoCode?.code,
         }),
       })
 
@@ -72,7 +127,7 @@ export default function CheckoutClient({ event }: CheckoutClientProps) {
         throw new Error(data.error ?? "Unable to create order")
       }
 
-      router.push("/dashboard")
+      router.push("/app/tickets")
     } catch (submitError: any) {
       console.error(submitError)
       setError(submitError.message ?? "Checkout failed. Please try again.")
@@ -108,7 +163,10 @@ export default function CheckoutClient({ event }: CheckoutClientProps) {
               <CardContent className="space-y-4">
                 <RadioGroup value={selectedTicketTypeId} onValueChange={setSelectedTicketTypeId}>
                   {event.ticket_types.map((ticket) => (
-                    <label key={ticket.id} className="flex items-center justify-between gap-4 rounded-lg border bg-card p-4 transition hover:bg-accent/50 cursor-pointer">
+                    <label
+                      key={ticket.id}
+                      className="flex items-center justify-between gap-4 rounded-lg border bg-card p-4 transition hover:bg-accent/50 cursor-pointer"
+                    >
                       <div className="flex items-center gap-3">
                         <RadioGroupItem value={ticket.id} id={ticket.id} />
                         <div>
@@ -123,7 +181,11 @@ export default function CheckoutClient({ event }: CheckoutClientProps) {
                     </label>
                   ))}
                 </RadioGroup>
-                <QuantitySelector quantity={quantity} onChange={setQuantity} max={selectedTicketType?.quantity_remaining ?? undefined} />
+                <QuantitySelector
+                  quantity={quantity}
+                  onChange={setQuantity}
+                  max={selectedTicketType?.quantity_remaining ?? undefined}
+                />
               </CardContent>
             </Card>
 
@@ -135,16 +197,32 @@ export default function CheckoutClient({ event }: CheckoutClientProps) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="mb-2 block text-sm font-medium">First Name *</label>
-                    <Input value={firstName} onChange={(event) => setFirstName(event.target.value)} placeholder="John" required />
+                    <Input
+                      value={firstName}
+                      onChange={(event) => setFirstName(event.target.value)}
+                      placeholder="John"
+                      required
+                    />
                   </div>
                   <div>
                     <label className="mb-2 block text-sm font-medium">Last Name *</label>
-                    <Input value={lastName} onChange={(event) => setLastName(event.target.value)} placeholder="Doe" required />
+                    <Input
+                      value={lastName}
+                      onChange={(event) => setLastName(event.target.value)}
+                      placeholder="Doe"
+                      required
+                    />
                   </div>
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium">Email Address *</label>
-                  <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" required />
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="you@example.com"
+                    required
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -208,9 +286,61 @@ export default function CheckoutClient({ event }: CheckoutClientProps) {
                 <span>Fees</span>
                 <span>{formatCurrency(pricing.fees, pricing.currency)}</span>
               </div>
+              {appliedPromoCode && (
+                <div className="flex items-center justify-between text-green-600">
+                  <span className="flex items-center gap-1">
+                    <Tag className="h-3 w-3" />
+                    Discount ({appliedPromoCode.code})
+                  </span>
+                  <span>-{formatCurrency(appliedPromoCode.discount, pricing.currency)}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between border-t pt-3 font-semibold text-base">
                 <span>Total</span>
                 <span>{formatCurrency(pricing.total, pricing.currency)}</span>
+              </div>
+
+              <div className="border-t pt-3 space-y-2">
+                <label className="text-sm font-medium">Promo Code</label>
+                <div className="flex gap-2">
+                  <Input
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                    placeholder="ENTER CODE"
+                    disabled={!!appliedPromoCode}
+                    className="flex-1"
+                  />
+                  {appliedPromoCode ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setAppliedPromoCode(null)
+                        setPromoCode("")
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleApplyPromoCode}
+                      disabled={!promoCode.trim() || promoCodeValidating}
+                    >
+                      {promoCodeValidating ? "..." : "Apply"}
+                    </Button>
+                  )}
+                </div>
+                {promoCodeError && <p className="text-xs text-destructive">{promoCodeError}</p>}
+                {appliedPromoCode && (
+                  <p className="text-xs text-green-600 flex items-center gap-1">
+                    <Check className="h-3 w-3" />
+                    Promo code applied successfully
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -220,7 +350,9 @@ export default function CheckoutClient({ event }: CheckoutClientProps) {
               <CardTitle>Why Ticketiv?</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <p className="text-muted-foreground">Secure checkout, instant ticket delivery, and trusted by thousands of organizers.</p>
+              <p className="text-muted-foreground">
+                Secure checkout, instant ticket delivery, and trusted by thousands of organizers.
+              </p>
             </CardContent>
           </Card>
         </div>

@@ -221,6 +221,78 @@ export interface LedgerEntryRecord {
   updated_at: string
 }
 
+export interface PromoCodeRecord {
+  id: string
+  event_id?: string | null
+  code: string
+  type: "percentage" | "fixed"
+  value: number
+  currency?: string | null
+  max_uses?: number | null
+  used_count: number
+  valid_from?: string | null
+  valid_until?: string | null
+  min_purchase_amount?: number | null
+  active: boolean
+  metadata?: Record<string, any> | null
+  created_at: string
+  updated_at: string
+}
+
+export interface PromoCodeUsageRecord {
+  id: string
+  promo_code_id: string
+  order_id: string
+  discount_amount: number
+  used_at: string
+  created_at: string
+}
+
+export interface WaitlistRecord {
+  id: string
+  event_id: string
+  ticket_type_id?: string | null
+  user_id?: string | null
+  email: string
+  first_name?: string | null
+  last_name?: string | null
+  quantity_requested: number
+  status: "active" | "offered" | "purchased" | "expired" | "cancelled"
+  offer_expires_at?: string | null
+  notified_at?: string | null
+  joined_at: string
+  created_at: string
+  updated_at: string
+}
+
+export interface TicketTransferRecord {
+  id: string
+  ticket_id: string
+  from_user_id: string
+  to_user_id?: string | null
+  to_email?: string | null
+  status: "pending" | "accepted" | "rejected" | "cancelled" | "expired"
+  transfer_code?: string | null
+  expires_at?: string | null
+  transferred_at?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ResaleListingRecord {
+  id: string
+  ticket_id: string
+  seller_id: string
+  price: number
+  currency: string
+  status: "active" | "sold" | "cancelled" | "expired"
+  buyer_id?: string | null
+  sold_at?: string | null
+  expires_at?: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface GuestlistRecord {
   id: string
   event_id: string
@@ -262,4 +334,12 @@ export interface EventDetail extends EventSummary {
   ticket_types: TicketTypeRecord[]
   dates: EventDateRecord[]
   venue?: VenueRecord | null
+  artists?: Array<{
+    id: string
+    name: string
+    role?: string | null
+    bio?: string | null
+    image_url?: string | null
+    avatar_url?: string | null
+  }> | null
 }

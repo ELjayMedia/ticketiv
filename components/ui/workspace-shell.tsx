@@ -8,6 +8,7 @@ import { Header } from "@/components/ui/header"
 import { Spinner } from "@/components/ui/spinner"
 import type { WorkspaceType } from "@/lib/navigation"
 import { createClient } from "@/lib/supabase"
+import { getDemoSession } from "@/lib/demo-auth"
 
 interface WorkspaceShellProps {
   workspace: WorkspaceType
@@ -27,9 +28,22 @@ export function WorkspaceShell({ workspace, children, requireAuth = false }: Wor
 
     async function loadSession() {
       try {
+        const demoUser = getDemoSession()
+        if (demoUser) {
+          console.log("[v0] Demo session found:", demoUser.email)
+          if (active) {
+            setUser({ email: demoUser.email })
+            setLoading(false)
+          }
+          return
+        }
+
         if (!supabase) {
           if (active) {
             setLoading(false)
+            if (requireAuth) {
+              router.push("/login")
+            }
           }
           return
         }
@@ -72,7 +86,10 @@ export function WorkspaceShell({ workspace, children, requireAuth = false }: Wor
         if (!active) return
         setUser(session?.user ?? null)
         if (!session && requireAuth) {
-          router.push("/login")
+          const demoUser = getDemoSession()
+          if (!demoUser) {
+            router.push("/login")
+          }
         }
       })
 

@@ -1,48 +1,91 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { getDemoEventById, getDemoEventOrders } from "@/lib/demo-data"
 import { redirect, notFound } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { QrCode, Download, UserPlus } from "lucide-react"
+import { cookies } from "next/headers"
 
 export const dynamic = "force-dynamic"
 
 export default async function EventDetailPage({ params }: { params: { eventId: string } }) {
-  const supabase = createServerSupabaseClient()
+  const cookieStore = await cookies()
+  const demoSessionCookie = cookieStore.get("demo_session")
+  let event: any = null
+  let orders: any[] = []
+  let totalRevenue = 0
+  let totalTicketsSold = 0
+  let totalCheckIns = 0
+  let waitlist: any[] = []
 
-  if (!supabase) {
-    return <div className="p-4 text-center">Supabase not configured</div>
+  if (demoSessionCookie) {
+    try {
+      event = getDemoEventById(params.eventId)
+      orders = getDemoEventOrders(params.eventId)
+      totalRevenue = orders.reduce((sum, order) => sum + order.total_amount_cents, 0)
+      totalTicketsSold = orders.reduce((sum, order) => sum + (order.order_items?.length || 0), 0)
+    } catch (error) {
+      console.error("[v0] Failed to load demo event:", error)
+    }
+  } else {
+    const supabase = createServerSupabaseClient()
+
+    if (!supabase) {
+      return <div className="p-4 text-center">Supabase not configured</div>
+    }
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    if (!session) redirect("/login")
+
+    const { data: eventData } = await supabase
+      .from("events")
+      .select(`
+        *,
+        venue:venues(*),
+        ticket_types(*),
+        event_dates(starts_at, ends_at)
+      `)
+      .eq("id", params.eventId)
+      .single()
+
+    event = eventData
+
+    if (event) {
+      const { data: ordersData = [] } = await supabase
+        .from("orders")
+        .select(`
+          *,
+          order_items(*)
+        `)
+        .eq("event_id", params.eventId)
+
+      orders = ordersData
+      totalRevenue = orders.reduce((sum, order) => sum + (order.total_amount_cents || 0), 0)
+      totalTicketsSold = orders.reduce((sum, order) => sum + (order.order_items?.length || 0), 0)
+
+      const { data: scans = [] } = await supabase
+        .from("scans")
+        .select("id")
+        .eq("event_id", params.eventId)
+        .eq("outcome", "valid")
+
+      totalCheckIns = scans.length
+
+      const { data: waitlistData = [] } = await supabase.from("waitlist").select("*").eq("event_id", params.eventId)
+
+      waitlist = waitlistData
+    }
   }
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  if (!session) redirect("/login")
-
-  const { data: event } = await supabase
-    .from("events")
-    .select(`
-      id,
-      title,
-      description,
-      status,
-      starts_at,
-      ends_at,
-      venue_id,
-      organizer_id,
-      venue:venues(name, address_line1, city),
-      ticket_types:ticket_types(id, name, price, quantity_total, quantity_remaining)
-    `)
-    .eq("id", params.eventId)
-    .single()
 
   if (!event) notFound()
 
-  const { data: orders = [] } = await supabase.from("orders").select("*").eq("event_id", params.eventId)
-
-  const totalRevenue = orders.reduce((sum, order) => sum + order.total_amount, 0)
-  const totalTicketsSold = orders.length
+  const primaryDate = event.event_dates?.[0] || { starts_at: event.starts_at, ends_at: event.ends_at }
 
   return (
     <div className="mx-auto max-w-[980px] space-y-6 px-4 py-10 sm:px-6 lg:px-8">
@@ -78,17 +121,20 @@ export default async function EventDetailPage({ params }: { params: { eventId: s
             <CardTitle className="text-sm font-medium text-muted-foreground">Check-ins</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">0</p>
+            <p className="text-2xl font-bold">{totalCheckIns}</p>
           </CardContent>
         </Card>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
+        <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tickets">Tickets</TabsTrigger>
           <TabsTrigger value="orders">Orders</TabsTrigger>
+          <TabsTrigger value="waitlist">Waitlist</TabsTrigger>
           <TabsTrigger value="guestlist">Guestlist</TabsTrigger>
+          <TabsTrigger value="staff">Staff</TabsTrigger>
+          <TabsTrigger value="scanner">Scanner</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -99,7 +145,7 @@ export default async function EventDetailPage({ params }: { params: { eventId: s
             <CardContent className="space-y-4">
               <div>
                 <p className="text-sm text-muted-foreground">Date & Time</p>
-                <p className="font-medium">{new Date(event.starts_at).toLocaleString()}</p>
+                <p className="font-medium">{new Date(primaryDate.starts_at).toLocaleString()}</p>
               </div>
               {event.venue && (
                 <div>
@@ -115,20 +161,27 @@ export default async function EventDetailPage({ params }: { params: { eventId: s
 
         <TabsContent value="tickets" className="space-y-4">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Ticket Types</CardTitle>
+              <Button size="sm">Add Ticket Type</Button>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 {event.ticket_types?.map((type: any) => (
-                  <div key={type.id} className="flex items-center justify-between p-2 border rounded">
-                    <div>
+                  <div key={type.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="space-y-1">
                       <p className="font-medium">{type.name}</p>
-                      <p className="text-sm text-muted-foreground">${(type.price / 100).toFixed(2)}</p>
+                      <p className="text-sm text-muted-foreground">{type.description}</p>
+                      <p className="text-sm text-muted-foreground">
+                        ${((type.price_cents || type.price) / 100).toFixed(2)}
+                      </p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm">
-                        Sold: {type.quantity_total - type.quantity_remaining} / {type.quantity_total}
+                    <div className="text-right space-y-1">
+                      <p className="text-sm font-medium">
+                        {(type.quantity_total || 0) - (type.quantity_remaining || 0)} / {type.quantity_total || 0} sold
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {type.per_user_limit && `Max ${type.per_user_limit} per user`}
                       </p>
                     </div>
                   </div>
@@ -138,24 +191,132 @@ export default async function EventDetailPage({ params }: { params: { eventId: s
           </Card>
         </TabsContent>
 
-        <TabsContent value="orders">
+        <TabsContent value="orders" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Recent Orders</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Orders</CardTitle>
+              <Button size="sm" variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">Total orders: {orders.length}</p>
+              {orders.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No orders yet</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Order ID</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Items</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {orders.map((order: any) => (
+                      <TableRow key={order.id}>
+                        <TableCell className="font-mono text-xs">{order.id.substring(0, 8)}</TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{order.purchaser_email}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {order.purchaser_first_name} {order.purchaser_last_name}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell>{order.order_items?.length || 0}</TableCell>
+                        <TableCell className="font-medium">
+                          ${((order.total_amount_cents || order.total_amount) / 100).toFixed(2)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={order.status === "completed" ? "default" : "secondary"}>{order.status}</Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {new Date(order.created_at).toLocaleDateString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="guestlist">
+        <TabsContent value="waitlist" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Guestlist</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Waitlist</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">Manage attendees waiting for tickets</p>
+              </div>
+              <Button size="sm">Offer Tickets</Button>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">Guestlist management coming soon</p>
+              <p className="text-center text-muted-foreground py-8">
+                No waitlist entries yet. Attendees can join the waitlist when tickets are sold out.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="guestlist" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Guestlist</CardTitle>
+              <Button size="sm">
+                <UserPlus className="h-4 w-4 mr-2" />
+                Add Guest
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <p className="text-center text-muted-foreground py-8">
+                No guestlist entries yet. Add guests to provide complimentary access.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="staff" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Event Staff</CardTitle>
+              <Button size="sm">
+                <UserPlus className="h-4 w-4 mr-2" />
+                Add Staff
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <p className="text-center text-muted-foreground py-8">
+                No staff assigned yet. Add staff members to manage check-ins and event operations.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="scanner" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <QrCode className="h-5 w-5" />
+                QR Code Scanner
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="aspect-square bg-muted rounded-lg flex items-center justify-center">
+                <div className="text-center space-y-2">
+                  <QrCode className="h-16 w-16 mx-auto text-muted-foreground" />
+                  <p className="text-muted-foreground">Camera access required</p>
+                  <Button size="sm">Enable Camera</Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Recent Scans</p>
+                <div className="text-center text-muted-foreground text-sm py-4">No scans yet</div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
