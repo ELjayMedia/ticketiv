@@ -1,13 +1,6 @@
 import { createServerSupabaseClient } from "@/lib/supabase"
 import { getDemoSessionFromCookie } from "@/lib/demo-auth"
-import {
-  DEMO_ORDERS,
-  DEMO_ORDER_ITEMS,
-  DEMO_TICKET_TYPES,
-  getDemoUserTickets,
-  getDemoTicketDetail,
-} from "@/lib/demo-data"
-import type { OrderRecord, OrderItemRecord } from "@/types"
+import { DEMO_ORDERS, DEMO_ORDER_ITEMS } from "@/lib/demo-data"
 
 export async function getUserTickets(userId: string): Promise<
   Array<{
@@ -35,7 +28,7 @@ export async function getUserTickets(userId: string): Promise<
 
   // Demo mode
   if (demoSession && demoSession.id === userId) {
-    return getDemoUserTickets(userId)
+    return DEMO_ORDER_ITEMS.filter((i) => i.buyer_id === userId)
   }
 
   // Production mode - Supabase
@@ -76,7 +69,7 @@ export async function getTicketById(ticketId: string): Promise<{
 
   // Demo mode
   if (demoSession) {
-    return getDemoTicketDetail(ticketId)
+    return DEMO_ORDER_ITEMS.find((i) => i.id === ticketId)
   }
 
   // Production mode - Supabase
@@ -100,11 +93,37 @@ export async function getTicketById(ticketId: string): Promise<{
 }
 
 export async function getUserOrders(userId: string): Promise<
-  Array<
-    OrderRecord & {
-      order_items: OrderItemRecord[]
-    }
-  >
+  Array<{
+    id: string
+    event_id: string
+    purchaser_id: string
+    purchaser_email: string
+    purchaser_first_name?: string
+    purchaser_last_name?: string
+    status: string
+    subtotal_amount: number
+    fee_amount: number
+    total_amount: number
+    currency: string
+    payment_reference: string | null
+    metadata: any | null
+    created_at: string
+    updated_at: string
+    order_items: Array<{
+      id: string
+      order_id: string
+      event_id: string
+      ticket_type_id: string
+      quantity: number
+      unit_price: number
+      subtotal_amount: number
+      fee_amount: number
+      total_amount: number
+      currency: string
+      created_at: string
+      updated_at: string
+    }>
+  }>
 > {
   const demoSession = await getDemoSessionFromCookie()
 
@@ -113,7 +132,7 @@ export async function getUserOrders(userId: string): Promise<
     return DEMO_ORDERS.filter((o) => o.buyer_id === userId).map((order) => ({
       ...order,
       order_items: DEMO_ORDER_ITEMS.filter((i) => i.order_id === order.id),
-    })) as any
+    }))
   }
 
   // Production mode - Supabase
@@ -131,165 +150,283 @@ export async function getUserOrders(userId: string): Promise<
 
   if (error) throw error
 
-  return (data || []) as any
+  return data || []
 }
 
-export async function getEventOrders(eventId: string): Promise<
-  Array<
-    OrderRecord & {
-      order_items: OrderItemRecord[]
-    }
-  >
+export async function getEventOrders(
+  eventId: string,
+  filters?: { status?: string; search?: string },
+): Promise<
+  Array<{
+    id: string
+    event_id: string
+    purchaser_id: string
+    purchaser_email: string
+    purchaser_first_name?: string
+    purchaser_last_name?: string
+    status: string
+    subtotal_amount: number
+    fee_amount: number
+    total_amount: number
+    currency: string
+    payment_reference: string | null
+    metadata: any | null
+    created_at: string
+    updated_at: string
+    order_items: Array<{
+      id: string
+      order_id: string
+      event_id: string
+      ticket_type_id: string
+      quantity: number
+      unit_price: number
+      subtotal_amount: number
+      fee_amount: number
+      total_amount: number
+      currency: string
+      created_at: string
+      updated_at: string
+    }>
+  }>
 > {
   const demoSession = await getDemoSessionFromCookie()
 
-  // Demo mode
   if (demoSession) {
-    return DEMO_ORDERS.filter((o) => o.event_id === eventId).map((order) => ({
+    let orders = DEMO_ORDERS.filter((o) => o.event_id === eventId)
+    if (filters?.status) {
+      orders = orders.filter((o) => o.status === filters.status)
+    }
+    return orders.map((order) => ({
       ...order,
       order_items: DEMO_ORDER_ITEMS.filter((i) => i.order_id === order.id),
-    })) as any
+    }))
   }
 
-  // Production mode - Supabase
   const supabase = await createServerSupabaseClient()
-  const { data, error } = await supabase
+  if (!supabase) return []
+
+  let query = supabase
     .from("orders")
-    .select(
-      `
+    .select(`
       *,
       order_items(*)
-    `,
-    )
+    `)
     .eq("event_id", eventId)
+
+  if (filters?.status) {
+    query = query.eq("status", filters.status)
+  }
+
+  const { data, error } = await query.order("created_at", { ascending: false })
+
+  if (error) throw error
+  return data ?? []
+}
+
+export async function getOrderPayments(orderId: string): Promise<
+  Array<{
+    id: string
+    order_id: string
+    amount: number
+    currency: string
+    status: string
+    created_at: string
+    updated_at: string
+  }>
+> {
+  const demoSession = await getDemoSessionFromCookie()
+
+  if (demoSession) {
+    return []
+  }
+
+  const supabase = await createServerSupabaseClient()
+  if (!supabase) return []
+
+  const { data, error } = await supabase
+    .from("payments")
+    .select("*")
+    .eq("order_id", orderId)
     .order("created_at", { ascending: false })
 
   if (error) throw error
-
-  return (data || []) as any
+  return data ?? []
 }
 
-export async function createOrder(orderData: {
+export async function createOrder(input: {
+  event_id: string
+  items: Array<{ ticket_type_id: string; quantity: number }>
+  purchaser_email: string
+  promo_code?: string
+  channel?: string
+}): Promise<{
+  order: {
+    id: string
+    event_id: string
+    purchaser_id: string
+    purchaser_email: string
+    purchaser_first_name?: string
+    purchaser_last_name?: string
+    status: string
+    subtotal_amount: number
+    fee_amount: number
+    total_amount: number
+    currency: string
+    payment_reference: string | null
+    metadata: any | null
+    created_at: string
+    updated_at: string
+  }
+  items: Array<{
+    id: string
+    order_id: string
+    event_id: string
+    ticket_type_id: string
+    quantity: number
+    unit_price: number
+    subtotal_amount: number
+    fee_amount: number
+    total_amount: number
+    currency: string
+    created_at: string
+    updated_at: string
+  }>
+}> {
+  // Always call API route for order creation (server-authoritative)
+  const res = await fetch("/api/orders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  })
+
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
+export async function getOrderById(orderId: string): Promise<{
+  id: string
   event_id: string
   purchaser_id: string
   purchaser_email: string
   purchaser_first_name?: string
   purchaser_last_name?: string
-  items: Array<{
+  status: string
+  subtotal_amount: number
+  fee_amount: number
+  total_amount: number
+  currency: string
+  payment_reference: string | null
+  metadata: any | null
+  created_at: string
+  updated_at: string
+  order_items: Array<{
+    id: string
+    order_id: string
+    event_id: string
     ticket_type_id: string
     quantity: number
+    unit_price: number
+    subtotal_amount: number
+    fee_amount: number
+    total_amount: number
+    currency: string
+    created_at: string
+    updated_at: string
   }>
-}): Promise<{ order: OrderRecord; items: OrderItemRecord[] }> {
+  order_adjustments: any[]
+  payments: any[]
+} | null> {
   const demoSession = await getDemoSessionFromCookie()
 
-  // Demo mode
   if (demoSession) {
-    // Create mock order
-    const mockOrder: OrderRecord = {
-      id: `demo-order-${Date.now()}`,
-      event_id: orderData.event_id,
-      purchaser_id: orderData.purchaser_id,
-      purchaser_email: orderData.purchaser_email,
-      purchaser_first_name: orderData.purchaser_first_name || null,
-      purchaser_last_name: orderData.purchaser_last_name || null,
-      status: "completed",
-      subtotal_amount: 0,
-      fee_amount: 0,
-      total_amount: 0,
-      currency: "USD",
-      payment_reference: null,
-      metadata: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+    const order = DEMO_ORDERS.find((o) => o.id === orderId)
+    if (!order) return null
+
+    return {
+      ...order,
+      order_items: DEMO_ORDER_ITEMS.filter((i) => i.order_id === orderId),
+      order_adjustments: [],
+      payments: [],
     }
-
-    const mockItems: OrderItemRecord[] = orderData.items.map((item, idx) => {
-      const ticketType = DEMO_TICKET_TYPES.find((t) => t.id === item.ticket_type_id)
-      const unitPrice = ticketType?.price_cents || 0
-
-      return {
-        id: `demo-item-${Date.now()}-${idx}`,
-        order_id: mockOrder.id,
-        event_id: orderData.event_id,
-        ticket_type_id: item.ticket_type_id,
-        quantity: item.quantity,
-        unit_price: unitPrice,
-        subtotal_amount: unitPrice * item.quantity,
-        fee_amount: 0,
-        total_amount: unitPrice * item.quantity,
-        currency: "USD",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }
-    })
-
-    mockOrder.total_amount = mockItems.reduce((sum, item) => sum + item.total_amount, 0)
-    mockOrder.subtotal_amount = mockOrder.total_amount
-
-    return { order: mockOrder, items: mockItems }
   }
 
-  // Production mode - Supabase
   const supabase = await createServerSupabaseClient()
+  if (!supabase) return null
 
-  // Calculate totals
-  const { data: ticketTypes } = await supabase
-    .from("ticket_types")
-    .select("*")
-    .in(
-      "id",
-      orderData.items.map((i) => i.ticket_type_id),
-    )
-
-  const subtotal = orderData.items.reduce((sum, item) => {
-    const ticketType = ticketTypes?.find((t) => t.id === item.ticket_type_id)
-    return sum + (ticketType?.price || 0) * item.quantity
-  }, 0)
-
-  // Create order
-  const { data: order, error: orderError } = await supabase
+  const { data, error } = await supabase
     .from("orders")
-    .insert({
-      event_id: orderData.event_id,
-      purchaser_id: orderData.purchaser_id,
-      purchaser_email: orderData.purchaser_email,
-      purchaser_first_name: orderData.purchaser_first_name,
-      purchaser_last_name: orderData.purchaser_last_name,
-      status: "pending",
-      subtotal_amount: subtotal,
-      fee_amount: 0,
-      total_amount: subtotal,
-      currency: "USD",
-    })
-    .select()
+    .select(`
+      *,
+      order_items(*),
+      order_adjustments(*),
+      payments(*)
+    `)
+    .eq("id", orderId)
     .single()
 
-  if (orderError || !order) throw orderError
+  if (error) throw error
+  return data
+}
 
-  // Create order items
-  const { data: items, error: itemsError } = await supabase
-    .from("order_items")
-    .insert(
-      orderData.items.map((item) => {
-        const ticketType = ticketTypes?.find((t) => t.id === item.ticket_type_id)
-        const unitPrice = ticketType?.price || 0
+export async function getMyOrders(): Promise<
+  Array<{
+    id: string
+    event_id: string
+    purchaser_id: string
+    purchaser_email: string
+    purchaser_first_name?: string
+    purchaser_last_name?: string
+    status: string
+    subtotal_amount: number
+    fee_amount: number
+    total_amount: number
+    currency: string
+    payment_reference: string | null
+    metadata: any | null
+    created_at: string
+    updated_at: string
+    order_items: Array<{
+      id: string
+      order_id: string
+      event_id: string
+      ticket_type_id: string
+      quantity: number
+      unit_price: number
+      subtotal_amount: number
+      fee_amount: number
+      total_amount: number
+      currency: string
+      created_at: string
+      updated_at: string
+    }>
+  }>
+> {
+  const demoSession = await getDemoSessionFromCookie()
 
-        return {
-          order_id: order.id,
-          event_id: orderData.event_id,
-          ticket_type_id: item.ticket_type_id,
-          quantity: item.quantity,
-          unit_price: unitPrice,
-          subtotal_amount: unitPrice * item.quantity,
-          fee_amount: 0,
-          total_amount: unitPrice * item.quantity,
-          currency: "USD",
-        }
-      }),
-    )
-    .select()
+  if (demoSession) {
+    return DEMO_ORDERS.filter((o) => o.buyer_id === demoSession.id).map((order) => ({
+      ...order,
+      order_items: DEMO_ORDER_ITEMS.filter((i) => i.order_id === order.id),
+    }))
+  }
 
-  if (itemsError || !items) throw itemsError
+  const supabase = await createServerSupabaseClient()
+  if (!supabase) return []
 
-  return { order, items }
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data, error } = await supabase
+    .from("orders")
+    .select(`
+      *,
+      order_items(*)
+    `)
+    .eq("purchaser_id", user.id)
+    .order("created_at", { ascending: false })
+
+  if (error) throw error
+  return data ?? []
 }

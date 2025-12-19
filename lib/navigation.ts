@@ -19,7 +19,6 @@ const WORKSPACE_NAVIGATION: Record<WorkspaceType, WorkspaceNavigationConfig> = {
     items: [
       { href: "/browse", label: "Browse" },
       { href: "/categories", label: "Categories" },
-      { href: "/artists", label: "Artists" },
       { href: "/app/tickets", label: "Attendee App" },
       { href: "/events", label: "Organizer Workspace" },
       { href: "/scan", label: "Scanner" },

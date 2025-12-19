@@ -26,6 +26,28 @@ export interface OrderPricingBreakdown {
   lineItems: LineItemPricingBreakdown[]
 }
 
+export interface OrderAdjustment {
+  type: "fee" | "discount" | "tax" | "credit"
+  label: string
+  amount: number
+  priceRuleId?: string
+}
+
+export interface PricingPreview {
+  subtotal: number
+  adjustments: OrderAdjustment[]
+  total: number
+  currency: string
+}
+
+export interface PreviewOrderInput {
+  items: Array<{ ticketType: TicketTypeRecord; quantity: number }>
+  promoCode?: string
+  eventId?: string
+  currency?: string
+  feeConfiguration?: Partial<FeeConfiguration>
+}
+
 export interface OrderPricingInput {
   items: Array<{ ticketType: TicketTypeRecord; quantity: number }>
   currency?: string
@@ -38,7 +60,7 @@ const DEFAULT_FEE_CONFIGURATION: FeeConfiguration = {
   processingPercentFee: 0.029,
   processingFixedFee: 0.3,
   passFeesToBuyer: true,
-  currency: "USD",
+  currency: "SZL",
 }
 
 function resolveConfiguration(overrides?: Partial<FeeConfiguration>): FeeConfiguration {
@@ -106,4 +128,111 @@ export function calculateOrderPricing({ items, currency, feeConfiguration }: Ord
 
 export function formatCurrency(value: number, currency: string = DEFAULT_FEE_CONFIGURATION.currency) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(value)
+}
+
+/**
+ * Preview order pricing with all adjustments (fees, discounts, taxes)
+ * This maps to Supabase's order_adjustments and price_rules system
+ */
+export async function previewOrder({
+  items,
+  promoCode,
+  eventId,
+  currency,
+  feeConfiguration,
+}: PreviewOrderInput): Promise<PricingPreview> {
+  const config = resolveConfiguration({ currency: currency ?? items[0]?.ticketType.currency, ...feeConfiguration })
+
+  // Calculate base subtotal
+  const subtotal = items.reduce((sum, { ticketType, quantity }) => {
+    return sum + roundCurrency(ticketType.price * Math.max(1, quantity))
+  }, 0)
+
+  const adjustments: OrderAdjustment[] = []
+
+  // Add platform and processing fees
+  const platformFees = subtotal * config.platformPercentFee + config.platformFixedFee
+  const processingFees = subtotal * config.processingPercentFee + config.processingFixedFee
+  const totalFees = roundCurrency(platformFees + processingFees)
+
+  if (totalFees > 0 && config.passFeesToBuyer) {
+    adjustments.push({
+      type: "fee",
+      label: "Service Fee",
+      amount: totalFees,
+    })
+  }
+
+  // Apply promo code discount (if provided)
+  if (promoCode) {
+    // In production, this would call validatePromoCode() from lib/promo-codes.ts
+    // For now, we'll add a placeholder
+    const discountAmount = 0 // This would be calculated from validatePromoCode()
+    if (discountAmount > 0) {
+      adjustments.push({
+        type: "discount",
+        label: `Promo Code (${promoCode})`,
+        amount: -discountAmount,
+      })
+    }
+  }
+
+  // Calculate final total
+  const total = roundCurrency(subtotal + adjustments.reduce((sum, adj) => sum + adj.amount, 0))
+
+  return {
+    subtotal,
+    adjustments,
+    total,
+    currency: config.currency,
+  }
+}
+
+/**
+ * Apply promo code and return discount adjustment
+ * This integrates with price_rules and creates order_adjustments
+ */
+export async function applyPromoCodeAdjustment(
+  code: string,
+  eventId: string,
+  subtotal: number,
+): Promise<OrderAdjustment | null> {
+  // This would integrate with lib/promo-codes.ts validatePromoCode()
+  // and map to order_adjustments table
+  // Implementation depends on Supabase RPC or direct validation
+
+  return null // Placeholder
+}
+
+/**
+ * Calculate all applicable fees for an order
+ * Maps to order_adjustments with type='fee'
+ */
+export function calculateFeeAdjustments(subtotal: number, config: FeeConfiguration): OrderAdjustment[] {
+  const adjustments: OrderAdjustment[] = []
+
+  if (!config.passFeesToBuyer) {
+    return adjustments
+  }
+
+  const platformFees = subtotal * config.platformPercentFee + config.platformFixedFee
+  const processingFees = subtotal * config.processingPercentFee + config.processingFixedFee
+
+  if (platformFees > 0) {
+    adjustments.push({
+      type: "fee",
+      label: "Platform Fee",
+      amount: roundCurrency(platformFees),
+    })
+  }
+
+  if (processingFees > 0) {
+    adjustments.push({
+      type: "fee",
+      label: "Processing Fee",
+      amount: roundCurrency(processingFees),
+    })
+  }
+
+  return adjustments
 }

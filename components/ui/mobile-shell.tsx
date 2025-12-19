@@ -23,7 +23,6 @@ export function MobileShell({ children, user, workspace }: MobileShellProps) {
     public: [
       { href: "/", label: "Home", icon: Home, ariaLabel: "Navigate to home" },
       { href: "/browse", label: "Explore", icon: Search, ariaLabel: "Explore events" },
-      { href: "/artists", label: "Artists", icon: User, ariaLabel: "Browse artists" },
       { href: user ? "/app/tickets" : "/login", label: "Tickets", icon: TicketIcon, ariaLabel: "View my tickets" },
     ],
     app: [

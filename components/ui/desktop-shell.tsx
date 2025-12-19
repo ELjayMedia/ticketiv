@@ -3,7 +3,21 @@
 import type React from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Home, TicketIcon, Calendar, User, Settings, LogOut, Search, Bell, ChevronDown, Building2 } from "lucide-react"
+import {
+  Home,
+  TicketIcon,
+  Calendar,
+  User,
+  Settings,
+  LogOut,
+  Search,
+  Bell,
+  ChevronDown,
+  Building2,
+  LayoutDashboard,
+  Users,
+  ScanLine,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
@@ -34,7 +48,6 @@ export function DesktopShell({ children, user, workspace, onLogout }: DesktopShe
     public: [
       { href: "/", label: "Home", icon: Home, shortcut: "H" },
       { href: "/browse", label: "Browse Events", icon: Calendar, shortcut: "B" },
-      { href: "/artists", label: "Artists", icon: User, shortcut: "A" },
     ],
     app: [
       { href: "/app/home", label: "Home", icon: Home, shortcut: "H" },
@@ -228,6 +241,12 @@ export function DesktopShell({ children, user, workspace, onLogout }: DesktopShe
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
+                    <Link href="/dashboard">
+                      <LayoutDashboard className="h-4 w-4 mr-2" aria-hidden="true" />
+                      Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link href="/profile">
                       <User className="h-4 w-4 mr-2" aria-hidden="true" />
                       Profile
@@ -239,6 +258,38 @@ export function DesktopShell({ children, user, workspace, onLogout }: DesktopShe
                       Settings
                     </Link>
                   </DropdownMenuItem>
+
+                  {workspace === "organizer" && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel>Organizer Tools</DropdownMenuLabel>
+                      <DropdownMenuItem asChild>
+                        <Link href="/dashboard">
+                          <LayoutDashboard className="h-4 w-4 mr-2" aria-hidden="true" />
+                          Dashboard
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/events">
+                          <Calendar className="h-4 w-4 mr-2" aria-hidden="true" />
+                          Manage Events
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/events?tab=orders">
+                          <Users className="h-4 w-4 mr-2" aria-hidden="true" />
+                          Orders & Guests
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/scan">
+                          <ScanLine className="h-4 w-4 mr-2" aria-hidden="true" />
+                          Scanner
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={onLogout}>
                     <LogOut className="h-4 w-4 mr-2" aria-hidden="true" />

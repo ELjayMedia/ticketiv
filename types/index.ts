@@ -248,6 +248,61 @@ export interface PromoCodeUsageRecord {
   created_at: string
 }
 
+export interface OrderAdjustmentRecord {
+  id: string
+  order_id: string
+  type: "fee" | "discount" | "tax" | "credit"
+  label: string
+  amount: number
+  currency: string
+  price_rule_id?: string | null
+  metadata?: Record<string, any> | null
+  created_at: string
+  updated_at: string
+}
+
+export interface PriceRuleRecord {
+  id: string
+  organization_id?: string | null
+  event_id?: string | null
+  name: string
+  description?: string | null
+  type: "discount" | "fee" | "tax"
+  calculation_method: "percentage" | "fixed" | "tiered"
+  value: number
+  currency?: string | null
+  min_quantity?: number | null
+  max_quantity?: number | null
+  min_purchase_amount?: number | null
+  applies_to: "order" | "ticket_type" | "all"
+  ticket_type_ids?: string[] | null
+  priority: number
+  active: boolean
+  valid_from?: string | null
+  valid_until?: string | null
+  metadata?: Record<string, any> | null
+  created_at: string
+  updated_at: string
+}
+
+export interface PriceRuleRedemptionRecord {
+  id: string
+  price_rule_id: string
+  order_id: string
+  adjustment_id?: string | null
+  amount_applied: number
+  metadata?: Record<string, any> | null
+  applied_at: string
+  created_at: string
+}
+
+/**
+ * Type alias for clarity: A "Ticket" in the frontend is an OrderItem in Supabase.
+ * Each order_item represents a purchased ticket with a ticket_code for scanning.
+ * Do NOT create a separate tickets table - order_items ARE the tickets.
+ */
+export type Ticket = OrderItemRecord
+
 export interface WaitlistRecord {
   id: string
   event_id: string

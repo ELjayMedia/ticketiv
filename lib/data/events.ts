@@ -3,388 +3,249 @@ import { getDemoSessionFromCookie } from "@/lib/demo-auth"
 import { DEMO_EVENTS, DEMO_VENUES, DEMO_TICKET_TYPES, getDemoEventById } from "@/lib/demo-data"
 import type { EventSummary, EventDetail } from "@/types"
 
-export async function getPublicEvents(filters?: {
-  q?: string
+// Tables: events, event_dates, venues, ticket_types, ticket_type_channels, event_artists, artists
+
+export async function getPublicEvents(params?: {
+  limit?: number
   city?: string
   category?: string
-  from?: string
-  to?: string
-  page?: number
-  limit?: number
+  dateFrom?: string
+  dateTo?: string
+  sort?: "date" | "price" | "popular"
 }): Promise<EventSummary[]> {
   const demoSession = await getDemoSessionFromCookie()
 
-  // Demo mode
   if (demoSession) {
-    let events = [...DEMO_EVENTS]
+    let events = [...DEMO_EVENTS].filter((e) => e.status === "published")
 
-    // Apply filters
-    if (filters?.q) {
-      const query = filters.q.toLowerCase()
-      events = events.filter(
-        (e) => e.title.toLowerCase().includes(query) || e.description?.toLowerCase().includes(query),
-      )
+    if (params?.city) {
+      events = events.filter((e) => {
+        const venue = DEMO_VENUES.find((v) => v.id === e.venue_id)
+        return venue?.city?.toLowerCase().includes(params.city!.toLowerCase())
+      })
     }
 
-    if (filters?.category) {
-      events = events.filter((e) => e.category === filters.category)
+    if (params?.category) {
+      events = events.filter((e) => e.category === params.category)
     }
 
-    // Map to EventSummary format
-    return events.map((event) => {
-      const venue = DEMO_VENUES.find((v) => v.id === event.venue_id)
-      const ticketTypes = DEMO_TICKET_TYPES.filter((t) => t.event_id === event.id)
-      const minPrice = ticketTypes.length ? Math.min(...ticketTypes.map((t) => t.price_cents)) : null
+    return events.slice(0, params?.limit || 24).map((e) => {
+      const venue = DEMO_VENUES.find((v) => v.id === e.venue_id)
+      const tickets = DEMO_TICKET_TYPES.filter((t) => t.event_id === e.id)
+      const minPrice = tickets.length > 0 ? Math.min(...tickets.map((t) => t.price_cents)) : null
 
       return {
-        id: event.id,
-        slug: event.slug,
-        title: event.title,
-        summary: event.description,
-        description: event.description,
-        category: event.category,
-        status: event.status as EventSummary["status"],
-        currency: "USD",
-        cover_image_url: event.cover_image_url,
-        venue_name: venue?.name,
-        location: venue ? `${venue.city}, ${venue.state}` : null,
-        starts_at: event.starts_at,
-        ends_at: event.ends_at,
-        minimum_price: minPrice,
-        tickets_available: ticketTypes.reduce((sum, t) => sum + t.quantity_remaining, 0),
-        tickets_sold: null,
-        organizer_id: event.org_id,
+        id: e.id,
+        title: e.title,
+        slug: e.slug,
+        city: venue?.city || null,
+        category: e.category,
+        visibility: e.status,
+        venues: venue
+          ? { id: venue.id, name: venue.name, address: venue.address_line1, city: venue.city, tz: venue.timezone }
+          : null,
+        event_dates: [{ id: `${e.id}-date`, starts_at: e.starts_at, ends_at: e.ends_at }],
+        ticket_types: tickets.map((t) => ({ id: t.id, price_cents: t.price_cents, currency: t.currency })),
       }
     })
   }
 
-  // Production mode - Supabase
   const supabase = await createServerSupabaseClient()
+  if (!supabase) return []
+
   let query = supabase
     .from("events")
-    .select(
-      `
-      id,
-      slug,
-      title,
-      summary,
-      description,
-      category,
-      status,
-      currency,
-      cover_image_url,
-      starts_at,
-      ends_at,
-      organizer_id,
-      venue:venues(name, city, region),
-      ticket_types(price)
-    `,
-    )
-    .eq("status", "published")
+    .select(`
+      id, title, slug, city, category, visibility,
+      venues:venue_id ( id, name, address, city, tz ),
+      event_dates ( id, starts_at, ends_at ),
+      ticket_types ( id, price_cents, currency )
+    `)
     .eq("visibility", "public")
+    .limit(params?.limit || 24)
 
-  if (filters?.q) {
-    query = query.ilike("title", `%${filters.q}%`)
-  }
-  if (filters?.category) {
-    query = query.eq("category", filters.category)
-  }
+  if (params?.city) query = query.ilike("city", `%${params.city}%`)
+  if (params?.category) query = query.eq("category", params.category)
 
   const { data, error } = await query
-
   if (error) throw error
 
-  return (
-    data?.map((event: any) => ({
-      id: event.id,
-      slug: event.slug,
-      title: event.title,
-      summary: event.summary,
-      description: event.description,
-      category: event.category,
-      status: event.status,
-      currency: event.currency,
-      cover_image_url: event.cover_image_url,
-      venue_name: event.venue?.name,
-      location: event.venue ? `${event.venue.city}, ${event.venue.region}` : null,
-      starts_at: event.starts_at,
-      ends_at: event.ends_at,
-      minimum_price: event.ticket_types?.length ? Math.min(...event.ticket_types.map((t: any) => t.price)) : null,
-      tickets_available: null,
-      tickets_sold: null,
-      organizer_id: event.organizer_id,
-    })) || []
-  )
+  return data ?? []
 }
 
 export async function getEventBySlug(slug: string): Promise<EventDetail | null> {
   const demoSession = await getDemoSessionFromCookie()
 
-  // Demo mode
   if (demoSession) {
     const event = DEMO_EVENTS.find((e) => e.slug === slug)
     if (!event) return null
-
-    const demoEvent = getDemoEventById(event.id)
-    if (!demoEvent) return null
-
-    return {
-      id: demoEvent.id,
-      slug: demoEvent.slug,
-      title: demoEvent.title,
-      summary: demoEvent.description,
-      description: demoEvent.description,
-      full_description: demoEvent.full_description,
-      category: demoEvent.category,
-      status: demoEvent.status as EventDetail["status"],
-      currency: "USD",
-      cover_image_url: demoEvent.cover_image_url,
-      banner_image_url: demoEvent.banner_image_url,
-      timezone: demoEvent.timezone,
-      venue_name: demoEvent.venue?.name,
-      location: demoEvent.venue ? `${demoEvent.venue.city}, ${demoEvent.venue.state}` : null,
-      starts_at: demoEvent.starts_at,
-      ends_at: demoEvent.ends_at,
-      minimum_price: demoEvent.ticket_types?.length
-        ? Math.min(...demoEvent.ticket_types.map((t) => t.price_cents))
-        : null,
-      tickets_available: demoEvent.ticket_types?.reduce((sum, t) => sum + t.quantity_remaining, 0),
-      tickets_sold: null,
-      organizer_id: demoEvent.org_id,
-      ticket_types: demoEvent.ticket_types.map((t) => ({
-        id: t.id,
-        event_id: t.event_id,
-        name: t.name,
-        description: t.description || null,
-        price: t.price_cents,
-        currency: t.currency,
-        fee_fixed: null,
-        fee_percent: null,
-        absorb_fees: null,
-        quantity_total: t.quantity_total,
-        quantity_remaining: t.quantity_remaining,
-        sales_start: null,
-        sales_end: null,
-        metadata: null,
-        created_at: t.created_at,
-        updated_at: t.created_at,
-      })),
-      dates: [],
-      venue: demoEvent.venue
-        ? {
-            id: demoEvent.venue.id,
-            name: demoEvent.venue.name,
-            description: demoEvent.venue.description || null,
-            address_line1: demoEvent.venue.address_line1 || null,
-            address_line2: null,
-            city: demoEvent.venue.city || null,
-            region: demoEvent.venue.state || null,
-            postal_code: demoEvent.venue.postal_code || null,
-            country: demoEvent.venue.country || null,
-            latitude: null,
-            longitude: null,
-            capacity: demoEvent.venue.capacity || null,
-            created_at: demoEvent.venue.created_at,
-            updated_at: demoEvent.venue.created_at,
-          }
-        : null,
-      artists: demoEvent.artists?.map((a) => ({
-        id: a.id,
-        name: a.name,
-        role: a.role || null,
-        bio: a.bio || null,
-        image_url: a.avatar_url || null,
-        avatar_url: a.avatar_url || null,
-      })),
-    }
+    return getEventById(event.id)
   }
 
-  // Production mode - Supabase
   const supabase = await createServerSupabaseClient()
+  if (!supabase) return null
+
   const { data, error } = await supabase
     .from("events")
-    .select(
-      `
-      *,
-      venue:venues(*),
-      ticket_types(*),
-      dates:event_dates(*),
-      event_artists(
-        artist:artists(*)
-      )
-    `,
-    )
+    .select(`
+      id, title, slug, description, city, category, venue_id, visibility,
+      venues:venue_id ( id, name, address, city, tz, capacity ),
+      event_dates ( id, starts_at, ends_at ),
+      ticket_types ( id, name, price_cents, currency, quota, per_user_limit, is_reserved_seating ),
+      event_artists ( role, artists ( id, name, bio, image_url, genre ) )
+    `)
     .eq("slug", slug)
-    .eq("status", "published")
     .single()
 
-  if (error || !data) return null
-
-  return {
-    id: data.id,
-    slug: data.slug,
-    title: data.title,
-    summary: data.summary,
-    description: data.description,
-    full_description: data.full_description,
-    category: data.category,
-    status: data.status,
-    currency: data.currency,
-    cover_image_url: data.cover_image_url,
-    banner_image_url: data.banner_image_url,
-    timezone: data.timezone,
-    venue_name: data.venue?.name,
-    location: data.venue ? `${data.venue.city}, ${data.venue.region}` : null,
-    starts_at: data.starts_at,
-    ends_at: data.ends_at,
-    minimum_price: data.ticket_types?.length ? Math.min(...data.ticket_types.map((t: any) => t.price)) : null,
-    tickets_available: data.tickets_available,
-    tickets_sold: data.tickets_sold,
-    organizer_id: data.organizer_id,
-    ticket_types: data.ticket_types || [],
-    dates: data.dates || [],
-    venue: data.venue || null,
-    artists: data.event_artists?.map((ea: any) => ({
-      id: ea.artist.id,
-      name: ea.artist.name,
-      role: ea.artist.role,
-      bio: ea.artist.bio,
-      image_url: ea.artist.avatar_url,
-      avatar_url: ea.artist.avatar_url,
-    })),
-  }
+  if (error) throw error
+  return data
 }
 
 export async function getEventById(eventId: string): Promise<EventDetail | null> {
   const demoSession = await getDemoSessionFromCookie()
 
-  // Demo mode
   if (demoSession) {
-    const demoEvent = getDemoEventById(eventId)
-    if (!demoEvent) return null
+    const event = getDemoEventById(eventId)
+    if (!event) return null
 
     return {
-      id: demoEvent.id,
-      slug: demoEvent.slug,
-      title: demoEvent.title,
-      summary: demoEvent.description,
-      description: demoEvent.description,
-      full_description: demoEvent.full_description,
-      category: demoEvent.category,
-      status: demoEvent.status as EventDetail["status"],
-      currency: "USD",
-      cover_image_url: demoEvent.cover_image_url,
-      banner_image_url: demoEvent.banner_image_url,
-      timezone: demoEvent.timezone,
-      venue_name: demoEvent.venue?.name,
-      location: demoEvent.venue ? `${demoEvent.venue.city}, ${demoEvent.venue.state}` : null,
-      starts_at: demoEvent.starts_at,
-      ends_at: demoEvent.ends_at,
-      minimum_price: demoEvent.ticket_types?.length
-        ? Math.min(...demoEvent.ticket_types.map((t) => t.price_cents))
-        : null,
-      tickets_available: demoEvent.ticket_types?.reduce((sum, t) => sum + t.quantity_remaining, 0),
-      tickets_sold: null,
-      organizer_id: demoEvent.org_id,
-      ticket_types: demoEvent.ticket_types.map((t) => ({
-        id: t.id,
-        event_id: t.event_id,
-        name: t.name,
-        description: t.description || null,
-        price: t.price_cents,
-        currency: t.currency,
-        fee_fixed: null,
-        fee_percent: null,
-        absorb_fees: null,
-        quantity_total: t.quantity_total,
-        quantity_remaining: t.quantity_remaining,
-        sales_start: null,
-        sales_end: null,
-        metadata: null,
-        created_at: t.created_at,
-        updated_at: t.created_at,
-      })),
-      dates: [],
-      venue: demoEvent.venue
+      id: event.id,
+      title: event.title,
+      slug: event.slug,
+      description: event.description,
+      city: event.venue?.city || null,
+      category: event.category,
+      venue_id: event.venue_id,
+      visibility: event.status,
+      venues: event.venue
         ? {
-            id: demoEvent.venue.id,
-            name: demoEvent.venue.name,
-            description: demoEvent.venue.description || null,
-            address_line1: demoEvent.venue.address_line1 || null,
-            address_line2: null,
-            city: demoEvent.venue.city || null,
-            region: demoEvent.venue.state || null,
-            postal_code: demoEvent.venue.postal_code || null,
-            country: demoEvent.venue.country || null,
-            latitude: null,
-            longitude: null,
-            capacity: demoEvent.venue.capacity || null,
-            created_at: demoEvent.venue.created_at,
-            updated_at: demoEvent.venue.created_at,
+            id: event.venue.id,
+            name: event.venue.name,
+            address: event.venue.address_line1,
+            city: event.venue.city,
+            tz: event.venue.timezone,
+            capacity: event.venue.capacity,
           }
         : null,
-      artists: demoEvent.artists?.map((a) => ({
-        id: a.id,
-        name: a.name,
-        role: a.role || null,
-        bio: a.bio || null,
-        image_url: a.avatar_url || null,
-        avatar_url: a.avatar_url || null,
+      event_dates: [{ id: `${event.id}-date`, starts_at: event.starts_at, ends_at: event.ends_at }],
+      ticket_types: event.ticket_types.map((t) => ({
+        id: t.id,
+        name: t.name,
+        price_cents: t.price_cents,
+        currency: t.currency,
+        quota: t.quantity_total,
+        per_user_limit: null,
+        is_reserved_seating: false,
       })),
+      event_artists:
+        event.artists?.map((a) => ({
+          role: a.role || "performer",
+          artists: { id: a.id, name: a.name, bio: a.bio, image_url: a.avatar_url, genre: null },
+        })) || [],
     }
   }
 
-  // Production mode - Supabase
   const supabase = await createServerSupabaseClient()
+  if (!supabase) return null
+
   const { data, error } = await supabase
     .from("events")
-    .select(
-      `
-      *,
-      venue:venues(*),
-      ticket_types(*),
-      dates:event_dates(*),
-      event_artists(
-        artist:artists(*)
-      )
-    `,
-    )
+    .select(`
+      id, title, slug, description, city, category, venue_id, visibility,
+      venues:venue_id ( id, name, address, city, tz, capacity ),
+      event_dates ( id, starts_at, ends_at ),
+      ticket_types ( id, name, price_cents, currency, quota, per_user_limit, is_reserved_seating ),
+      event_artists ( role, artists ( id, name, bio, image_url, genre ) )
+    `)
     .eq("id", eventId)
     .single()
 
-  if (error || !data) return null
+  if (error) throw error
+  return data
+}
 
-  return {
-    id: data.id,
-    slug: data.slug,
-    title: data.title,
-    summary: data.summary,
-    description: data.description,
-    full_description: data.full_description,
-    category: data.category,
-    status: data.status,
-    currency: data.currency,
-    cover_image_url: data.cover_image_url,
-    banner_image_url: data.banner_image_url,
-    timezone: data.timezone,
-    venue_name: data.venue?.name,
-    location: data.venue ? `${data.venue.city}, ${data.venue.region}` : null,
-    starts_at: data.starts_at,
-    ends_at: data.ends_at,
-    minimum_price: data.ticket_types?.length ? Math.min(...data.ticket_types.map((t: any) => t.price)) : null,
-    tickets_available: data.tickets_available,
-    tickets_sold: data.tickets_sold,
-    organizer_id: data.organizer_id,
-    ticket_types: data.ticket_types || [],
-    dates: data.dates || [],
-    venue: data.venue || null,
-    artists: data.event_artists?.map((ea: any) => ({
-      id: ea.artist.id,
-      name: ea.artist.name,
-      role: ea.artist.role,
-      bio: ea.artist.bio,
-      image_url: ea.artist.avatar_url,
-      avatar_url: ea.artist.avatar_url,
-    })),
+export async function getEventTicketTypes(
+  eventId: string,
+  channel?: string,
+): Promise<
+  Array<{
+    id: string
+    event_id: string
+    name: string
+    description: string | null
+    price: number
+    currency: string
+    quantity_total: number
+    quantity_remaining: number
+    per_user_limit: number | null
+    is_reserved_seating: boolean
+    ticket_type_channels: Array<{
+      channel: string
+      quota: number
+      per_order_limit: number
+    }>
+  }>
+> {
+  const demoSession = await getDemoSessionFromCookie()
+
+  if (demoSession) {
+    const tickets = DEMO_TICKET_TYPES.filter((t) => t.event_id === eventId)
+    return tickets.map((t) => ({
+      id: t.id,
+      event_id: t.event_id,
+      name: t.name,
+      description: t.description || null,
+      price: t.price_cents,
+      currency: t.currency,
+      quantity_total: t.quantity_total,
+      quantity_remaining: t.quantity_remaining,
+      per_user_limit: null,
+      is_reserved_seating: false,
+      ticket_type_channels: [{ channel: "web", quota: t.quantity_total, per_order_limit: 10 }],
+    }))
   }
+
+  const supabase = await createServerSupabaseClient()
+  if (!supabase) return []
+
+  const query = supabase
+    .from("ticket_types")
+    .select(`
+      id, event_id, name, price_cents, currency, quantity_total, quantity_remaining,
+      ticket_type_channels ( channel, quota, per_order_limit )
+    `)
+    .eq("event_id", eventId)
+
+  const { data, error } = await query
+  if (error) throw error
+
+  if (!channel) return data ?? []
+
+  return (data ?? []).map((t) => ({
+    ...t,
+    ticket_type_channels: ((t as any).ticket_type_channels || []).filter((c: any) => c.channel === channel),
+  }))
+}
+
+export async function getEventLineup(eventId: string) {
+  const demoSession = await getDemoSessionFromCookie()
+
+  if (demoSession) {
+    const event = getDemoEventById(eventId)
+    return event?.artists || []
+  }
+
+  const supabase = await createServerSupabaseClient()
+  if (!supabase) return []
+
+  const { data, error } = await supabase
+    .from("event_artists")
+    .select(`
+      role,
+      artists ( id, name, bio, image_url, genre )
+    `)
+    .eq("event_id", eventId)
+
+  if (error) throw error
+  return (data ?? []).map((ea: any) => ({ role: ea.role, ...ea.artists }))
 }

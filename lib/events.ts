@@ -364,7 +364,39 @@ export async function getEventsByCategory(category: string) {
 }
 
 export async function getOrganizerEventMetrics(organizerId: string) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    console.warn("[v0] Supabase not configured, returning mock organizer event metrics")
+    // Return mock data for demo mode
+    return MOCK_EVENTS.map((event) => ({
+      id: event.id,
+      title: event.title,
+      status: "published" as const,
+      ticketsAvailable: 500,
+      ticketsSold: 120,
+      ticketTypes: [],
+      startsAt: event.starts_at,
+      endsAt: event.starts_at,
+      minimumPrice: event.minimum_price,
+    }))
+  }
+
   const supabase = createServerSupabaseClient()
+
+  if (!supabase) {
+    console.warn("[v0] Failed to create Supabase client, returning mock organizer event metrics")
+    return MOCK_EVENTS.map((event) => ({
+      id: event.id,
+      title: event.title,
+      status: "published" as const,
+      ticketsAvailable: 500,
+      ticketsSold: 120,
+      ticketTypes: [],
+      startsAt: event.starts_at,
+      endsAt: event.starts_at,
+      minimumPrice: event.minimum_price,
+    }))
+  }
+
   const { data, error } = await supabase
     .from("events")
     .select("*")

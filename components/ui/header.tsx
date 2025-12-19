@@ -31,7 +31,6 @@ export function Header({ user, onLogout }: HeaderProps) {
 
   const navItems = [
     { href: "/browse", label: "Browse Events" },
-    { href: "/artists", label: "Browse Artists" },
     { href: "/events", label: "Create Events" },
     { href: "/app/tickets", label: "Tickets" },
   ]
