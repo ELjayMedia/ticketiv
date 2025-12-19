@@ -1,10 +1,10 @@
 "use client"
 
 import type React from "react"
-
+import { CreditCard, Wallet, ShoppingCart, Check, AlertCircle, Tag, ArrowLeft } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ShoppingCart, Check, AlertCircle, Tag } from "lucide-react"
+import Link from "next/link"
 
 import { QuantitySelector } from "@/components/forms/quantity-selector"
 import { Button } from "@/components/ui/button"
@@ -32,6 +32,8 @@ export default function CheckoutClient({ event }: CheckoutClientProps) {
   const [promoCodeValidating, setPromoCodeValidating] = useState(false)
   const [promoCodeError, setPromoCodeError] = useState("")
   const [appliedPromoCode, setAppliedPromoCode] = useState<{ code: string; discount: number } | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "deltapay">("card")
+  const [processingDeltaPay, setProcessingDeltaPay] = useState(false)
 
   const selectedTicketType = useMemo(
     () => event.ticket_types.find((ticket) => ticket.id === selectedTicketTypeId),
@@ -107,6 +109,64 @@ export default function CheckoutClient({ event }: CheckoutClientProps) {
     setLoading(true)
 
     try {
+      if (paymentMethod === "deltapay") {
+        const orderResponse = await fetch("/api/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            eventId: event.id,
+            items: [{ ticketTypeId: selectedTicketType.id, quantity }],
+            firstName,
+            lastName,
+            email,
+            promoCode: appliedPromoCode?.code,
+            paymentMethod: "deltapay",
+            status: "pending",
+          }),
+        })
+
+        if (!orderResponse.ok) {
+          let errorMessage = "Unable to create order"
+          try {
+            const errorData = await orderResponse.json()
+            errorMessage = errorData.error || errorMessage
+          } catch (parseError) {
+            errorMessage = orderResponse.statusText || errorMessage
+          }
+          throw new Error(errorMessage)
+        }
+
+        const orderData = await orderResponse.json()
+
+        setProcessingDeltaPay(true)
+        const paymentResponse = await fetch("/api/payments/deltapay/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId: orderData.order.id,
+            amount: pricing.total,
+            currency: pricing.currency,
+            customerEmail: email,
+            metadata: {
+              eventId: event.id,
+              eventTitle: event.title,
+            },
+          }),
+        })
+
+        if (!paymentResponse.ok) {
+          throw new Error("Failed to initialize DeltaPay payment")
+        }
+
+        await paymentResponse.json()
+
+        setTimeout(() => {
+          router.push("/app/tickets")
+        }, 2000)
+
+        return
+      }
+
       const response = await fetch("/api/orders", {
         method: "POST",
         headers: {
@@ -123,240 +183,477 @@ export default function CheckoutClient({ event }: CheckoutClientProps) {
       })
 
       if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error ?? "Unable to create order")
+        let errorMessage = "Unable to create order"
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorMessage
+        } catch (parseError) {
+          errorMessage = response.statusText || errorMessage
+        }
+        throw new Error(errorMessage)
       }
+
+      await response.json()
 
       router.push("/app/tickets")
     } catch (submitError: any) {
-      console.error(submitError)
       setError(submitError.message ?? "Checkout failed. Please try again.")
     } finally {
       setLoading(false)
+      setProcessingDeltaPay(false)
     }
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-8">
-        <h1 className="mb-2 text-3xl font-bold">Complete Your Purchase</h1>
-        <p className="text-muted-foreground">You're just a few steps away from securing your tickets</p>
-      </div>
-
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <form onSubmit={handleCheckout} className="space-y-6">
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ShoppingCart className="h-5 w-5" />
-                  Select Tickets
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <RadioGroup value={selectedTicketTypeId} onValueChange={setSelectedTicketTypeId}>
-                  {event.ticket_types.map((ticket) => (
-                    <label
-                      key={ticket.id}
-                      className="flex items-center justify-between gap-4 rounded-lg border bg-card p-4 transition hover:bg-accent/50 cursor-pointer"
-                    >
-                      <div className="flex items-center gap-3">
-                        <RadioGroupItem value={ticket.id} id={ticket.id} />
-                        <div>
-                          <p className="font-semibold">{ticket.name}</p>
-                          {ticket.description && <p className="text-sm text-muted-foreground">{ticket.description}</p>}
-                        </div>
-                      </div>
-                      <div className="text-right text-sm">
-                        <p className="font-semibold">{formatCurrency(ticket.price, ticket.currency)}</p>
-                        <p className="text-xs text-muted-foreground">{ticket.quantity_remaining} left</p>
-                      </div>
-                    </label>
-                  ))}
-                </RadioGroup>
-                <QuantitySelector
-                  quantity={quantity}
-                  onChange={setQuantity}
-                  max={selectedTicketType?.quantity_remaining ?? undefined}
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Your Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="mb-2 block text-sm font-medium">First Name *</label>
-                    <Input
-                      value={firstName}
-                      onChange={(event) => setFirstName(event.target.value)}
-                      placeholder="John"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-medium">Last Name *</label>
-                    <Input
-                      value={lastName}
-                      onChange={(event) => setLastName(event.target.value)}
-                      placeholder="Doe"
-                      required
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium">Email Address *</label>
-                  <Input
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="you@example.com"
-                    required
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Payment Method</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <RadioGroup defaultValue="card">
-                  <div className="flex items-center space-x-3 rounded-lg border p-4 transition hover:bg-accent/50">
-                    <RadioGroupItem value="card" id="card" />
-                    <label htmlFor="card" className="flex-1 cursor-pointer">
-                      <p className="font-semibold">Credit Card</p>
-                      <p className="text-sm text-muted-foreground">Visa, Mastercard, American Express</p>
-                    </label>
-                  </div>
-                </RadioGroup>
-                <div className="mt-4 rounded-lg border bg-muted p-4">
-                  <p className="mb-2 text-sm font-medium">Demo Checkout</p>
-                  <p className="text-xs text-muted-foreground">
-                    This is a demonstration. No real payment processing occurs. Click "Complete Purchase" to finalize.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Button type="submit" className="h-12 w-full text-base" disabled={loading}>
-              {loading ? (
-                <>
-                  <span className="mr-2 animate-spin">⟳</span>
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Check className="mr-2 h-4 w-4" />
-                  Complete Purchase
-                </>
-              )}
+    <>
+      <div className="lg:hidden">
+        <div className="sticky top-0 z-10 bg-background border-b px-4 py-3 flex items-center gap-3">
+          <Link href={`/events/${event.id}`}>
+            <Button variant="ghost" size="icon" className="h-9 w-9">
+              <ArrowLeft className="h-5 w-5" />
             </Button>
-          </form>
+          </Link>
+          <div className="flex-1 min-w-0">
+            <h1 className="font-semibold truncate">Checkout</h1>
+            <p className="text-xs text-muted-foreground truncate">{event.title}</p>
+          </div>
         </div>
 
-        <div className="lg:col-span-1 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Order Summary</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
+        <form onSubmit={handleCheckout} className="px-4 py-6 space-y-6">
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Ticket Selection */}
+          <div className="space-y-3">
+            <h2 className="font-semibold">Select Tickets</h2>
+            <RadioGroup value={selectedTicketTypeId} onValueChange={setSelectedTicketTypeId}>
+              {event.ticket_types.map((ticket) => (
+                <label
+                  key={ticket.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border bg-card p-3 transition hover:bg-accent/50 cursor-pointer"
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <RadioGroupItem value={ticket.id} id={ticket.id} />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm truncate">{ticket.name}</p>
+                      {ticket.description && (
+                        <p className="text-xs text-muted-foreground truncate">{ticket.description}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="font-semibold text-sm">{formatCurrency(ticket.price, ticket.currency)}</p>
+                    <p className="text-xs text-muted-foreground">{ticket.quantity_remaining} left</p>
+                  </div>
+                </label>
+              ))}
+            </RadioGroup>
+            <QuantitySelector
+              quantity={quantity}
+              onChange={setQuantity}
+              max={selectedTicketType?.quantity_remaining ?? undefined}
+            />
+          </div>
+
+          {/* Contact Info */}
+          <div className="space-y-3">
+            <h2 className="font-semibold">Your Information</h2>
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <h4 className="font-semibold">{event.title}</h4>
-                <p className="text-muted-foreground">
-                  {quantity} ticket{quantity !== 1 ? "s" : ""}
-                </p>
+                <label className="mb-1.5 block text-xs font-medium">First Name *</label>
+                <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="John" required />
               </div>
-              <div className="flex items-center justify-between">
-                <span>Subtotal</span>
-                <span>{formatCurrency(pricing.subtotal, pricing.currency)}</span>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium">Last Name *</label>
+                <Input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Doe" required />
               </div>
-              <div className="flex items-center justify-between">
-                <span>Fees</span>
-                <span>{formatCurrency(pricing.fees, pricing.currency)}</span>
-              </div>
-              {appliedPromoCode && (
-                <div className="flex items-center justify-between text-green-600">
-                  <span className="flex items-center gap-1">
-                    <Tag className="h-3 w-3" />
-                    Discount ({appliedPromoCode.code})
-                  </span>
-                  <span>-{formatCurrency(appliedPromoCode.discount, pricing.currency)}</span>
-                </div>
-              )}
-              <div className="flex items-center justify-between border-t pt-3 font-semibold text-base">
-                <span>Total</span>
-                <span>{formatCurrency(pricing.total, pricing.currency)}</span>
-              </div>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium">Email Address *</label>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+              />
+            </div>
+          </div>
 
-              <div className="border-t pt-3 space-y-2">
-                <label className="text-sm font-medium">Promo Code</label>
-                <div className="flex gap-2">
-                  <Input
-                    value={promoCode}
-                    onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                    placeholder="ENTER CODE"
-                    disabled={!!appliedPromoCode}
-                    className="flex-1"
-                  />
-                  {appliedPromoCode ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setAppliedPromoCode(null)
-                        setPromoCode("")
-                      }}
-                    >
-                      Remove
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleApplyPromoCode}
-                      disabled={!promoCode.trim() || promoCodeValidating}
-                    >
-                      {promoCodeValidating ? "..." : "Apply"}
-                    </Button>
-                  )}
-                </div>
-                {promoCodeError && <p className="text-xs text-destructive">{promoCodeError}</p>}
-                {appliedPromoCode && (
-                  <p className="text-xs text-green-600 flex items-center gap-1">
-                    <Check className="h-3 w-3" />
-                    Promo code applied successfully
+          {/* Payment Method */}
+          <div className="space-y-3">
+            <h2 className="font-semibold">Payment Method</h2>
+            <RadioGroup value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as "card" | "deltapay")}>
+              <div className="flex items-center space-x-3 rounded-lg border p-3 transition hover:bg-accent/50">
+                <RadioGroupItem value="card" id="card-mobile" />
+                <label htmlFor="card-mobile" className="flex-1 cursor-pointer">
+                  <p className="font-semibold text-sm flex items-center gap-2">
+                    <CreditCard className="h-4 w-4" />
+                    Credit Card
                   </p>
-                )}
+                  <p className="text-xs text-muted-foreground">Visa, Mastercard, Amex</p>
+                </label>
               </div>
-            </CardContent>
-          </Card>
+              <div className="flex items-center space-x-3 rounded-lg border p-3 transition hover:bg-accent/50">
+                <RadioGroupItem value="deltapay" id="deltapay-mobile" />
+                <label htmlFor="deltapay-mobile" className="flex-1 cursor-pointer">
+                  <p className="font-semibold text-sm flex items-center gap-2">
+                    <Wallet className="h-4 w-4" />
+                    DeltaPay
+                  </p>
+                  <p className="text-xs text-muted-foreground">Pay with cryptocurrency</p>
+                </label>
+              </div>
+            </RadioGroup>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Why Ticketiv?</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <p className="text-muted-foreground">
-                Secure checkout, instant ticket delivery, and trusted by thousands of organizers.
+          {/* Promo Code */}
+          <div className="space-y-2">
+            <h2 className="font-semibold">Promo Code</h2>
+            <div className="flex gap-2">
+              <Input
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                placeholder="ENTER CODE"
+                disabled={!!appliedPromoCode}
+                className="flex-1"
+              />
+              {appliedPromoCode ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setAppliedPromoCode(null)
+                    setPromoCode("")
+                  }}
+                >
+                  Remove
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleApplyPromoCode}
+                  disabled={!promoCode.trim() || promoCodeValidating}
+                >
+                  {promoCodeValidating ? "..." : "Apply"}
+                </Button>
+              )}
+            </div>
+            {promoCodeError && <p className="text-xs text-destructive">{promoCodeError}</p>}
+            {appliedPromoCode && (
+              <p className="text-xs text-green-600 flex items-center gap-1">
+                <Check className="h-3 w-3" />
+                Promo code applied
               </p>
-            </CardContent>
-          </Card>
+            )}
+          </div>
+
+          {/* Order Summary Mobile */}
+          <div className="rounded-lg border p-4 space-y-2 bg-muted/30">
+            <h2 className="font-semibold mb-3">Order Summary</h2>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span>{formatCurrency(pricing.subtotal, pricing.currency)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Fees</span>
+              <span>{formatCurrency(pricing.fees, pricing.currency)}</span>
+            </div>
+            {appliedPromoCode && (
+              <div className="flex items-center justify-between text-sm text-green-600">
+                <span className="flex items-center gap-1">
+                  <Tag className="h-3 w-3" />
+                  Discount
+                </span>
+                <span>-{formatCurrency(appliedPromoCode.discount, pricing.currency)}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between border-t pt-2 font-semibold">
+              <span>Total</span>
+              <span className="text-lg">{formatCurrency(pricing.total, pricing.currency)}</span>
+            </div>
+          </div>
+        </form>
+
+        {/* Fixed Bottom CTA */}
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t">
+          <Button onClick={handleCheckout} className="w-full" size="lg" disabled={loading || processingDeltaPay}>
+            {loading || processingDeltaPay ? (
+              <span>{processingDeltaPay ? "Connecting to DeltaPay..." : "Processing..."}</span>
+            ) : (
+              <>
+                <Check className="mr-2 h-4 w-4" />
+                Pay {formatCurrency(pricing.total, pricing.currency)}
+              </>
+            )}
+          </Button>
+        </div>
+
+        <div className="h-24" />
+      </div>
+
+      <div className="hidden lg:block">
+        <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-6 lg:px-8">
+          <div className="mb-8">
+            <Link href={`/events/${event.id}`} className="flex items-center gap-2 text-primary hover:underline mb-4">
+              <ArrowLeft size={20} />
+              Back to Event
+            </Link>
+            <h1 className="mb-2 text-3xl font-bold">Complete Your Purchase</h1>
+            <p className="text-muted-foreground">You're just a few steps away from securing your tickets</p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-8">
+            <div className="col-span-2">
+              <form onSubmit={handleCheckout} className="space-y-6">
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <ShoppingCart className="h-5 w-5" />
+                      Select Tickets
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <RadioGroup value={selectedTicketTypeId} onValueChange={setSelectedTicketTypeId}>
+                      {event.ticket_types.map((ticket) => (
+                        <label
+                          key={ticket.id}
+                          className="flex items-center justify-between gap-4 rounded-lg border bg-card p-4 transition hover:bg-accent/50 cursor-pointer"
+                        >
+                          <div className="flex items-center gap-3">
+                            <RadioGroupItem value={ticket.id} id={ticket.id} />
+                            <div>
+                              <p className="font-semibold">{ticket.name}</p>
+                              {ticket.description && (
+                                <p className="text-sm text-muted-foreground">{ticket.description}</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right text-sm">
+                            <p className="font-semibold">{formatCurrency(ticket.price, ticket.currency)}</p>
+                            <p className="text-xs text-muted-foreground">{ticket.quantity_remaining} left</p>
+                          </div>
+                        </label>
+                      ))}
+                    </RadioGroup>
+                    <QuantitySelector
+                      quantity={quantity}
+                      onChange={setQuantity}
+                      max={selectedTicketType?.quantity_remaining ?? undefined}
+                    />
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Your Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="mb-2 block text-sm font-medium">First Name *</label>
+                        <Input
+                          value={firstName}
+                          onChange={(event) => setFirstName(event.target.value)}
+                          placeholder="John"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-2 block text-sm font-medium">Last Name *</label>
+                        <Input
+                          value={lastName}
+                          onChange={(event) => setLastName(event.target.value)}
+                          placeholder="Doe"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium">Email Address *</label>
+                      <Input
+                        type="email"
+                        value={email}
+                        onChange={(event) => setEmail(event.target.value)}
+                        placeholder="you@example.com"
+                        required
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Payment Method</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <RadioGroup
+                      value={paymentMethod}
+                      onValueChange={(value) => setPaymentMethod(value as "card" | "deltapay")}
+                    >
+                      <div className="flex items-center space-x-3 rounded-lg border p-4 transition hover:bg-accent/50">
+                        <RadioGroupItem value="card" id="card" />
+                        <label htmlFor="card" className="flex-1 cursor-pointer">
+                          <p className="font-semibold flex items-center gap-2">
+                            <CreditCard className="h-4 w-4" />
+                            Credit Card
+                          </p>
+                          <p className="text-sm text-muted-foreground">Visa, Mastercard, American Express</p>
+                        </label>
+                      </div>
+                      <div className="flex items-center space-x-3 rounded-lg border p-4 transition hover:bg-accent/50">
+                        <RadioGroupItem value="deltapay" id="deltapay" />
+                        <label htmlFor="deltapay" className="flex-1 cursor-pointer">
+                          <p className="font-semibold flex items-center gap-2">
+                            <Wallet className="h-4 w-4" />
+                            DeltaPay
+                          </p>
+                          <p className="text-sm text-muted-foreground">Pay with cryptocurrency via DeltaPay</p>
+                        </label>
+                      </div>
+                    </RadioGroup>
+                    <div className="mt-4 rounded-lg border bg-muted p-4">
+                      {paymentMethod === "deltapay" ? (
+                        <>
+                          <p className="mb-2 text-sm font-medium">DeltaPay Integration</p>
+                          <p className="text-xs text-muted-foreground">
+                            You'll be redirected to DeltaPay to complete your cryptocurrency payment securely.
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="mb-2 text-sm font-medium">Demo Checkout</p>
+                          <p className="text-xs text-muted-foreground">
+                            This is a demonstration. No real payment processing occurs. Click "Complete Purchase" to
+                            finalize.
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Button type="submit" className="h-12 w-full text-base" disabled={loading || processingDeltaPay}>
+                  {loading || processingDeltaPay ? (
+                    <>
+                      <span className="mr-2 animate-spin">⟳</span>
+                      {processingDeltaPay ? "Connecting to DeltaPay..." : "Processing..."}
+                    </>
+                  ) : (
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      Complete Purchase
+                    </>
+                  )}
+                </Button>
+              </form>
+            </div>
+
+            <div className="space-y-4 sticky top-24 self-start">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Order Summary</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  <div>
+                    <h4 className="font-semibold">{event.title}</h4>
+                    <p className="text-muted-foreground">
+                      {quantity} ticket{quantity !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Subtotal</span>
+                    <span>{formatCurrency(pricing.subtotal, pricing.currency)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Fees</span>
+                    <span>{formatCurrency(pricing.fees, pricing.currency)}</span>
+                  </div>
+                  {appliedPromoCode && (
+                    <div className="flex items-center justify-between text-green-600">
+                      <span className="flex items-center gap-1">
+                        <Tag className="h-3 w-3" />
+                        Discount ({appliedPromoCode.code})
+                      </span>
+                      <span>-{formatCurrency(appliedPromoCode.discount, pricing.currency)}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between border-t pt-3 font-semibold text-base">
+                    <span>Total</span>
+                    <span>{formatCurrency(pricing.total, pricing.currency)}</span>
+                  </div>
+
+                  <div className="border-t pt-3 space-y-2">
+                    <label className="text-sm font-medium">Promo Code</label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={promoCode}
+                        onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                        placeholder="ENTER CODE"
+                        disabled={!!appliedPromoCode}
+                        className="flex-1"
+                      />
+                      {appliedPromoCode ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setAppliedPromoCode(null)
+                            setPromoCode("")
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleApplyPromoCode}
+                          disabled={!promoCode.trim() || promoCodeValidating}
+                        >
+                          {promoCodeValidating ? "..." : "Apply"}
+                        </Button>
+                      )}
+                    </div>
+                    {promoCodeError && <p className="text-xs text-destructive">{promoCodeError}</p>}
+                    {appliedPromoCode && (
+                      <p className="text-xs text-green-600 flex items-center gap-1">
+                        <Check className="h-3 w-3" />
+                        Promo code applied successfully
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Why Ticketiv?</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  <p className="text-muted-foreground">
+                    Secure checkout, instant ticket delivery, and trusted by thousands of organizers.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }

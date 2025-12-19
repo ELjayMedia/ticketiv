@@ -1,34 +1,81 @@
-import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { createServerSupabaseClient } from "@/lib/supabase"
 import { redirect } from "next/navigation"
+import { cookies } from "next/headers"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
 export const dynamic = "force-dynamic"
 
 export default async function PaymentsPage() {
-  const supabase = createServerSupabaseClient()
+  const cookieStore = await cookies()
+  const demoSessionCookie = cookieStore.get("demo_session")
+  const demoSession = demoSessionCookie ? JSON.parse(demoSessionCookie.value) : null
 
-  if (!supabase) {
-    return <div className="p-4 text-center">Supabase not configured</div>
+  // Mock payments for demo mode
+  const mockPayments = [
+    {
+      id: "payment_1",
+      amount: 15000,
+      currency: "ZAR",
+      status: "completed",
+      created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      order: {
+        id: "order_1",
+        event: {
+          title: "Vodacom Bulls Championship Match",
+        },
+      },
+    },
+    {
+      id: "payment_2",
+      amount: 8500,
+      currency: "ZAR",
+      status: "completed",
+      created_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+      order: {
+        id: "order_2",
+        event: {
+          title: "Betway SA20 Season 4",
+        },
+      },
+    },
+  ]
+
+  let payments = []
+
+  if (demoSession) {
+    console.log("[v0] Using demo payments data")
+    payments = mockPayments
+  } else {
+    const supabase = createServerSupabaseClient()
+
+    if (!supabase) {
+      console.log("[v0] Supabase not configured, using mock data")
+      payments = mockPayments
+    } else {
+      // Only try to get session if supabase exists
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session) redirect("/login")
+
+      const { data } = await supabase
+        .from("payments")
+        .select(`
+          id,
+          amount,
+          currency,
+          status,
+          created_at,
+          order:orders(id, event_id, event:events(title))
+        `)
+        .eq("user_id", session.user.id)
+        .order("created_at", { ascending: false })
+
+      payments = data || []
+    }
   }
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  if (!session) redirect("/login")
-
-  const { data: payments = [] } = await supabase
-    .from("payments")
-    .select(`
-      id,
-      amount,
-      currency,
-      status,
-      created_at,
-      order:orders(id, event_id, event:events(title))
-    `)
-    .eq("user_id", session.user.id)
-    .order("created_at", { ascending: false })
 
   return (
     <div className="mx-auto max-w-[980px] space-y-6 px-4 py-10 sm:px-6 lg:px-8">
@@ -53,7 +100,7 @@ export default async function PaymentsPage() {
                     <p className="text-sm text-muted-foreground">{new Date(payment.created_at).toLocaleDateString()}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold">${(payment.amount / 100).toFixed(2)}</p>
+                    <p className="font-semibold">R{(payment.amount / 100).toFixed(2)}</p>
                     <Badge variant={payment.status === "completed" ? "default" : "secondary"}>{payment.status}</Badge>
                   </div>
                 </div>

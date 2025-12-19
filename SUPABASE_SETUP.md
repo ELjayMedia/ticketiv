@@ -6,7 +6,7 @@ This guide walks through the production-ready Supabase setup that powers Ticketi
 
 The application ships with Supabase integration for authentication, event data, ticketing, and scanning workflows.
 
-\`\`\`sql
+```sql
 -- Enum for platform roles
 CREATE TYPE user_role AS ENUM ('user', 'admin');
 
@@ -121,7 +121,7 @@ CREATE TRIGGER update_events_updated_at
 BEFORE UPDATE ON events
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
-\`\`\`
+```
 
 Run the migration once per environment (development, staging, production). Subsequent schema changes should be versioned via SQL migration files or the Supabase migration CLI to keep environments aligned.
 
@@ -140,7 +140,7 @@ Run the migration once per environment (development, staging, production). Subse
 
 Authentication is powered by Supabase Auth sessions handled in the workspace shell:
 
-\`\`\`typescript
+```typescript
 import { createBrowserClient } from '@supabase/ssr'
 import { useEffect, useState } from 'react'
 
@@ -167,13 +167,13 @@ export default function MainLayout({ children }) {
 
   // ... rest of component
 }
-\`\`\`
+```
 
 #### 2. Event Fetching (lib/events.ts)
 
 Event data is queried from Supabase with helpers that power both server and client components:
 
-\`\`\`typescript
+```typescript
 import { createBrowserClient } from '@supabase/ssr'
 
 export default function BrowsePage() {
@@ -195,13 +195,13 @@ export default function BrowsePage() {
 
   // ... rest of component
 }
-\`\`\`
+```
 
 #### 3. Ticket Creation (lib/orders.ts)
 
 Checkout uses Supabase server actions to persist orders, calculate fees, and mint tickets:
 
-\`\`\`typescript
+```typescript
 const { data, error } = await supabase
   .from('tickets')
   .insert({
@@ -211,19 +211,19 @@ const { data, error } = await supabase
     total,
     ticket_number: `TICKET-${Date.now()}`
   })
-\`\`\`
+```
 
 #### 4. Dashboard (app/(main)/dashboard/page.tsx)
 
 Fetch user's tickets:
 
-\`\`\`typescript
+```typescript
 const { data: tickets } = await supabase
   .from('tickets')
   .select('*')
   .eq('user_id', user.id)
   .order('created_at', { ascending: false })
-\`\`\`
+```
 
 ### Step 6: Seed Initial Data (Optional)
 
@@ -232,7 +232,7 @@ Add demo events to your database:
 1. Go to **SQL Editor**
 2. Run:
 
-\`\`\`sql
+```sql
 INSERT INTO events (title, description, full_description, date, time, end_time, location, venue, price, category, attendees, tickets_available) VALUES
 (
   'Tech Conference 2025',
@@ -262,7 +262,7 @@ INSERT INTO events (title, description, full_description, date, time, end_time, 
   8500,
   2100
 );
-\`\`\`
+```
 
 Replace these with your own events or import CSV data using Supabase's table editor.
 

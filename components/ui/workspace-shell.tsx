@@ -3,12 +3,11 @@
 import type React from "react"
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-
-import { Header } from "@/components/ui/header"
+import { AppShell } from "@/components/ui/app-shell"
 import { Spinner } from "@/components/ui/spinner"
 import type { WorkspaceType } from "@/lib/navigation"
 import { createClient } from "@/lib/supabase"
-import { getDemoSession } from "@/lib/demo-auth"
+import { getDemoSession, clearDemoSession } from "@/lib/demo-auth"
 
 interface WorkspaceShellProps {
   workspace: WorkspaceType
@@ -104,6 +103,24 @@ export function WorkspaceShell({ workspace, children, requireAuth = false }: Wor
     }
   }, [requireAuth, router, supabase])
 
+  const handleLogout = async () => {
+    const demoUser = getDemoSession()
+    if (demoUser) {
+      clearDemoSession()
+      router.push("/login")
+      return
+    }
+
+    if (supabase) {
+      const { error } = await supabase.auth.signOut()
+      if (error) {
+        console.error("[v0] Failed to sign out:", error.message)
+      }
+    } else {
+      router.push("/login")
+    }
+  }
+
   if (requireAuth && loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -133,11 +150,8 @@ export function WorkspaceShell({ workspace, children, requireAuth = false }: Wor
   }
 
   return (
-    <>
-      <Header workspace={workspace} user={user ?? undefined} />
-      <main className="min-h-screen bg-background">
-        <div className="mx-auto max-w-[980px] px-4 sm:px-6 lg:px-8">{children}</div>
-      </main>
-    </>
+    <AppShell user={user ?? undefined} workspace={workspace} onLogout={handleLogout}>
+      <div className="mx-auto max-w-[980px] px-4 sm:px-6 lg:px-0 py-0">{children}</div>
+    </AppShell>
   )
 }

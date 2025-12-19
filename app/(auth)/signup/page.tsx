@@ -37,13 +37,28 @@ export default function SignupPage() {
     setSuccess(false)
 
     try {
-      if (!name.trim() || !email.trim() || !password || !confirmPassword) {
-        setError("Please fill in all required fields")
+      if (!name.trim()) {
+        setError("Please enter your full name")
+        return
+      }
+
+      if (!email.trim()) {
+        setError("Please enter your email address")
+        return
+      }
+
+      if (!password) {
+        setError("Please enter a password")
+        return
+      }
+
+      if (!confirmPassword) {
+        setError("Please confirm your password")
         return
       }
 
       if (accountType === "organizer" && !orgName.trim()) {
-        setError("Please provide an organization name")
+        setError("Please enter your organization name")
         return
       }
 
@@ -54,7 +69,7 @@ export default function SignupPage() {
       }
 
       if (password.length < 6) {
-        setError("Password must be at least 6 characters long")
+        setError("Password must be at least 6 characters")
         return
       }
 
@@ -63,24 +78,31 @@ export default function SignupPage() {
         return
       }
 
-      if (!/[A-Z]/.test(password) && !/[0-9]/.test(password)) {
-        setError("Password should contain at least one uppercase letter or number for better security")
+      if (!/[A-Z]/.test(password)) {
+        setError("Password must contain at least one uppercase letter")
+        return
+      }
+
+      if (!/[0-9]/.test(password)) {
+        setError("Password must contain at least one number")
         return
       }
 
       const supabase = createClient()
 
       if (!supabase) {
-        setError(
-          "Authentication service is not configured. Please add Supabase credentials to your environment variables.",
-        )
+        setError("Sign up is not available in demo mode. To create real accounts, configure Supabase credentials.")
         return
       }
 
-      const { data: existingUser } = await supabase.from("profiles").select("email").eq("email", email.trim()).single()
+      const { data: existingUser } = await supabase
+        .from("profiles")
+        .select("email")
+        .eq("email", email.trim())
+        .maybeSingle()
 
       if (existingUser) {
-        setError("An account with this email already exists. Please sign in instead.")
+        setError("This email is already registered. Please sign in instead.")
         return
       }
 
@@ -92,16 +114,16 @@ export default function SignupPage() {
             full_name: name.trim(),
             account_type: accountType,
           },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       })
 
       if (signUpError) {
         if (signUpError.message.includes("already registered")) {
-          setError("An account with this email already exists. Please sign in instead.")
+          setError("This email is already registered. Please sign in instead.")
         } else {
-          setError(signUpError.message || "Signup failed. Please try again.")
+          setError(signUpError.message || "Unable to create account. Please try again.")
         }
-        console.error("[v0] Signup error:", signUpError)
         return
       }
 
@@ -109,8 +131,6 @@ export default function SignupPage() {
         setError("Failed to create account. Please try again.")
         return
       }
-
-      console.log("[v0] User created:", authData.user.id)
 
       const { error: profileError } = await supabase.from("profiles").insert({
         id: authData.user.id,
@@ -121,7 +141,6 @@ export default function SignupPage() {
 
       if (profileError) {
         console.error("[v0] Profile creation error:", profileError)
-        // Continue even if profile creation fails - user can still log in
       }
 
       if (accountType === "organizer") {
@@ -137,14 +156,10 @@ export default function SignupPage() {
           .single()
 
         if (orgError) {
-          console.error("[v0] Organization creation error:", orgError)
-          setError("Account created but failed to create organization. Please contact support.")
+          setError("Account created but failed to set up organization. Please contact support.")
           return
         }
 
-        console.log("[v0] Organization created:", org.id)
-
-        // Link user to organization with admin role
         const { error: memberError } = await supabase.from("org_members").insert({
           user_id: authData.user.id,
           org_id: org.id,
@@ -152,28 +167,18 @@ export default function SignupPage() {
         })
 
         if (memberError) {
-          console.error("[v0] Org member creation error:", memberError)
-          setError("Account created but failed to link organization. Please contact support.")
-          return
+          console.error("[v0] Org member error:", memberError)
         }
-
-        console.log("[v0] Organizer account setup complete")
-        setSuccess(true)
-
-        setTimeout(() => {
-          router.push("/org")
-        }, 1500)
-      } else {
-        console.log("[v0] Attendee account created successfully")
-        setSuccess(true)
-
-        setTimeout(() => {
-          router.push("/app")
-        }, 1500)
       }
+
+      setSuccess(true)
+
+      setTimeout(() => {
+        router.push(accountType === "organizer" ? "/dashboard" : "/app/home")
+      }, 1500)
     } catch (err: any) {
-      console.error("[v0] Signup error:", err)
       setError(err.message || "An unexpected error occurred. Please try again.")
+      console.error("[v0] Signup error:", err)
     } finally {
       setLoading(false)
     }

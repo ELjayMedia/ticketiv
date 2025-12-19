@@ -28,7 +28,7 @@ export default function LoginPage() {
 
     try {
       if (!email.trim() || !password.trim()) {
-        setError("Please fill in all fields")
+        setError("Please enter both email and password")
         return
       }
 
@@ -38,31 +38,21 @@ export default function LoginPage() {
         return
       }
 
-      if (password.length < 6) {
-        setError("Password must be at least 6 characters")
-        return
-      }
-
       const demoUser = isDemoCredentials(email.trim(), password)
       if (demoUser) {
         setDemoSession(demoUser)
         console.log("[v0] Demo login successful for:", demoUser.email)
 
-        // Force a full page navigation to ensure server components see the demo session
-        if (demoUser.role === "organizer") {
-          window.location.href = "/org"
-        } else if (demoUser.role === "staff") {
-          window.location.href = "/scanner"
-        } else {
-          window.location.href = "/app"
-        }
+        const redirectPath =
+          demoUser.role === "organizer" ? "/dashboard" : demoUser.role === "staff" ? "/scan" : "/app/home"
+        window.location.href = redirectPath
         return
       }
 
       const supabase = createClient()
 
       if (!supabase) {
-        setError("Authentication service is not configured. Use demo credentials: demo@ticketiv.com / demo123456")
+        setError("Demo mode: Use demo@ticketiv.com / demo123456 or organizer@ticketiv.com / organizer123456")
         return
       }
 
@@ -73,52 +63,34 @@ export default function LoginPage() {
 
       if (signInError) {
         if (signInError.message.includes("Invalid login credentials")) {
-          setError("Invalid email or password. Please try again.")
+          setError("Incorrect email or password. Please try again.")
         } else if (signInError.message.includes("Email not confirmed")) {
-          setError("Please confirm your email address before logging in. Check your inbox for a confirmation link.")
-        } else if (signInError.message.includes("Email link is invalid")) {
-          setError("This login link has expired. Please request a new one.")
+          setError("Please verify your email address. Check your inbox for a confirmation link.")
         } else {
-          setError(signInError.message || "Login failed. Please try again.")
+          setError("Unable to sign in. Please check your credentials and try again.")
         }
-        console.error("[v0] Login error:", signInError)
         return
       }
 
       if (!authData.user) {
-        setError("Login failed. Please try again.")
+        setError("Sign in failed. Please try again.")
         return
       }
 
       const { data: orgMember } = await supabase
         .from("org_members")
-        .select("role, org_id")
+        .select("role")
         .eq("user_id", authData.user.id)
         .maybeSingle()
 
-      if (orgMember && (orgMember.role === "admin" || orgMember.role === "organizer")) {
-        console.log("[v0] Organizer login successful, redirecting to /org")
-        router.push("/org")
+      if (orgMember?.role === "admin" || orgMember?.role === "organizer") {
+        router.push("/dashboard")
       } else {
-        // Check if user is staff/scanner
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", authData.user.id)
-          .maybeSingle()
-
-        if (profile?.role === "staff") {
-          console.log("[v0] Staff login successful, redirecting to /scanner")
-          router.push("/scanner")
-        } else {
-          console.log("[v0] Attendee login successful, redirecting to /app")
-          router.push("/app")
-        }
+        router.push("/app/home")
       }
     } catch (err: any) {
-      const message = err?.message || "An unexpected error occurred"
-      setError(message)
-      console.error("[v0] Login exception:", err)
+      setError("An unexpected error occurred. Please try again.")
+      console.error("[v0] Login error:", err)
     } finally {
       setLoading(false)
     }

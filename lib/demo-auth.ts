@@ -68,9 +68,13 @@ export function clearDemoSessionCookie(): void {
 
 export function setDemoSession(user: DemoUser): void {
   if (typeof window !== "undefined") {
-    localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(user))
-    setDemoSessionCookie(user)
-    console.log("[v0] Demo session created for:", user.email)
+    try {
+      localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(user))
+      setDemoSessionCookie(user)
+      console.log("[v0] Demo session created for:", user.email)
+    } catch (error) {
+      console.error("[v0] Failed to set demo session:", error)
+    }
   }
 }
 
@@ -80,21 +84,60 @@ export function getDemoSession(): DemoUser | null {
   try {
     const session = localStorage.getItem(DEMO_SESSION_KEY)
     if (!session) return null
-    return JSON.parse(session) as DemoUser
+    const user = JSON.parse(session) as DemoUser
+
+    if (!user.id || !user.email || !user.role) {
+      console.error("[v0] Invalid demo session data, clearing session")
+      clearDemoSession()
+      return null
+    }
+
+    return user
   } catch (error) {
     console.error("[v0] Failed to parse demo session:", error)
+    clearDemoSession()
     return null
   }
 }
 
 export function clearDemoSession(): void {
   if (typeof window !== "undefined") {
-    localStorage.removeItem(DEMO_SESSION_KEY)
-    clearDemoSessionCookie()
-    console.log("[v0] Demo session cleared")
+    try {
+      localStorage.removeItem(DEMO_SESSION_KEY)
+      clearDemoSessionCookie()
+      console.log("[v0] Demo session cleared")
+    } catch (error) {
+      console.error("[v0] Failed to clear demo session:", error)
+    }
   }
 }
 
 export function isDemoMode(): boolean {
   return getDemoSession() !== null
+}
+
+export async function getDemoSessionFromCookie(): Promise<DemoUser | null> {
+  if (typeof window !== "undefined") {
+    return getDemoSession()
+  }
+
+  try {
+    const { cookies } = await import("next/headers")
+    const cookieStore = await cookies()
+    const sessionCookie = cookieStore.get("demo_session")
+
+    if (!sessionCookie?.value) return null
+
+    const user = JSON.parse(decodeURIComponent(sessionCookie.value)) as DemoUser
+
+    if (!user.id || !user.email || !user.role) {
+      console.error("[v0] Invalid demo session cookie data")
+      return null
+    }
+
+    return user
+  } catch (error) {
+    console.error("[v0] Failed to parse demo session from cookie:", error)
+    return null
+  }
 }

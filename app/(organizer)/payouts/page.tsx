@@ -6,7 +6,7 @@ export default async function OrganizerPayoutsPage() {
   const summary = await getPayoutSummary()
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-[1200px] space-y-6 px-4 py-10 sm:px-6 lg:px-8">
       <div>
         <h1 className="text-3xl font-bold">Payouts</h1>
         <p className="text-muted-foreground">Monitor revenue and platform fees for each event you host.</p>

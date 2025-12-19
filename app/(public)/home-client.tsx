@@ -2,13 +2,36 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { ChevronRight } from "lucide-react"
+import {
+  ChevronRight,
+  CalendarDays,
+  Music,
+  Martini,
+  Theater,
+  Gamepad2,
+  Briefcase,
+  UtensilsCrossed,
+  Heart,
+} from "lucide-react"
 
 import { EventCard } from "@/components/events/event-card"
 import { Button } from "@/components/ui/button"
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
+import { CategoryRail } from "@/components/ui/category-rail"
+import type { CategoryItem } from "@/components/ui/category-rail"
 import type { ArtistRecord, EventSummary } from "@/types"
 import { createClient } from "@/lib/supabase"
+
+const CATEGORY_ITEMS: CategoryItem[] = [
+  { id: "nye", label: "NYE", icon: CalendarDays, isNew: true },
+  { id: "music", label: "Music", icon: Music },
+  { id: "nightlife", label: "Nightlife", icon: Martini },
+  { id: "arts", label: "Performing & Visual Arts", icon: Theater },
+  { id: "hobbies", label: "Hobbies", icon: Gamepad2 },
+  { id: "business", label: "Business", icon: Briefcase },
+  { id: "food", label: "Food & Drink", icon: UtensilsCrossed },
+  { id: "dating", label: "Dating", icon: Heart },
+]
 
 interface HomeClientProps {
   initialEvents: EventSummary[]
@@ -16,6 +39,7 @@ interface HomeClientProps {
 
 export default function HomeClient({ initialEvents }: HomeClientProps) {
   const [artists, setArtists] = useState<ArtistRecord[]>([])
+  const [selectedCategory, setSelectedCategory] = useState<string>("")
 
   useEffect(() => {
     const supabase = createClient()
@@ -102,9 +126,9 @@ export default function HomeClient({ initialEvents }: HomeClientProps) {
   const featuredEvents = initialEvents.slice(0, 3)
 
   return (
-    <div className="max-w-[980px] mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8 sm:space-y-12 lg:px-8">
+    <div className="max-w-[980px] mx-auto sm:px-6 space-y-8 sm:space-y-12 lg:px-8 py-0 px-0 sm:py-8">
       <div className="space-y-4">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-balance">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl text-balance text-center font-light font-sans leading-7 my-0">
           Discover <span className="text-primary">Amazing Events</span>
         </h1>
       </div>
@@ -121,8 +145,8 @@ export default function HomeClient({ initialEvents }: HomeClientProps) {
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                   <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-transparent" />
-                  <div className="absolute inset-0 flex flex-col justify-center p-4 sm:p-8">
-                    <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold text-white mb-2 sm:mb-4">
+                  <div className="absolute inset-0 flex flex-col p-4 sm:p-8 justify-end items-start rounded-xs shadow-none">
+                    <h2 className="text-2xl font-bold text-white mb-2 sm:mb-4 sm:text-2xl font-sans mt-0">
                       {event.title}
                     </h2>
                     <Button size="lg" className="w-fit gap-2 text-sm sm:text-base">
@@ -139,24 +163,40 @@ export default function HomeClient({ initialEvents }: HomeClientProps) {
         <CarouselNext className="hidden sm:flex right-4" />
       </Carousel>
 
+      <CategoryRail
+        items={CATEGORY_ITEMS}
+        value={selectedCategory}
+        onChange={(id) => {
+          setSelectedCategory(id)
+          // Navigate to browse page with category filter
+          window.location.href = `/browse?category=${id}`
+        }}
+        className="mt-8"
+      />
+
       {eventsThisWeekend.length > 0 && (
-        <div className="space-y-4">
+        <div className="space-y-px">
           <div className="flex items-center justify-between">
-            <h2 className="font-bold text-xl sm:text-2xl">This Weekend</h2>
+            <h2 className="font-bold text-xl sm:text-2xl font-sans">This Weekend</h2>
             <Link href="/browse?filter=weekend" className="text-primary hover:underline text-xs sm:text-sm">
               See All
             </Link>
           </div>
-          <Carousel className="w-full">
+          <div className="lg:hidden space-y-3">
+            {eventsThisWeekend.slice(0, 3).map((event) => (
+              <EventCard key={event.id} event={event} />
+            ))}
+          </div>
+          <Carousel className="w-full hidden lg:block">
             <CarouselContent className="-ml-2">
               {eventsThisWeekend.map((event) => (
-                <CarouselItem key={event.id} className="pl-2 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/3">
+                <CarouselItem key={event.id} className="pl-2 basis-[25%]">
                   <EventCard event={event} />
                 </CarouselItem>
               ))}
             </CarouselContent>
-            <CarouselPrevious className="hidden sm:flex" />
-            <CarouselNext className="hidden sm:flex" />
+            <CarouselPrevious />
+            <CarouselNext />
           </Carousel>
         </div>
       )}
@@ -164,21 +204,26 @@ export default function HomeClient({ initialEvents }: HomeClientProps) {
       {eventsThisMonth.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-bold text-xl sm:text-2xl">Happening This Month</h2>
+            <h2 className="font-bold text-xl sm:text-2xl font-sans">Happening This Month</h2>
             <Link href="/browse?filter=month" className="text-primary hover:underline text-xs sm:text-sm">
               See All
             </Link>
           </div>
-          <Carousel className="w-full">
+          <div className="lg:hidden space-y-3">
+            {eventsThisMonth.slice(0, 3).map((event) => (
+              <EventCard key={event.id} event={event} />
+            ))}
+          </div>
+          <Carousel className="w-full hidden lg:block">
             <CarouselContent className="-ml-2">
               {eventsThisMonth.map((event) => (
-                <CarouselItem key={event.id} className="pl-2 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/3">
+                <CarouselItem key={event.id} className="pl-2 basis-[25%]">
                   <EventCard event={event} />
                 </CarouselItem>
               ))}
             </CarouselContent>
-            <CarouselPrevious className="hidden sm:flex" />
-            <CarouselNext className="hidden sm:flex" />
+            <CarouselPrevious />
+            <CarouselNext />
           </Carousel>
         </div>
       )}
@@ -186,21 +231,26 @@ export default function HomeClient({ initialEvents }: HomeClientProps) {
       {trendingEvents.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-bold text-xl sm:text-2xl">Trending Now</h2>
+            <h2 className="font-bold text-xl sm:text-2xl font-sans">Trending Now</h2>
             <Link href="/browse?filter=trending" className="text-primary hover:underline text-xs sm:text-sm">
               See All
             </Link>
           </div>
-          <Carousel className="w-full">
+          <div className="lg:hidden space-y-3">
+            {trendingEvents.slice(0, 3).map((event) => (
+              <EventCard key={event.id} event={event} />
+            ))}
+          </div>
+          <Carousel className="w-full hidden lg:block">
             <CarouselContent className="-ml-2">
               {trendingEvents.map((event) => (
-                <CarouselItem key={event.id} className="pl-2 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/3">
+                <CarouselItem key={event.id} className="pl-2 basis-[25%]">
                   <EventCard event={event} />
                 </CarouselItem>
               ))}
             </CarouselContent>
-            <CarouselPrevious className="hidden sm:flex" />
-            <CarouselNext className="hidden sm:flex" />
+            <CarouselPrevious />
+            <CarouselNext />
           </Carousel>
         </div>
       )}

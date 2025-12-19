@@ -98,7 +98,7 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-6 sm:space-y-8">
+    <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-6 sm:space-y-8">
       <Card className="overflow-hidden">
         <div className="relative h-48 sm:h-64 bg-muted">
           <img src={artist.banner_url || "/placeholder.svg"} alt={artist.name} className="h-full w-full object-cover" />

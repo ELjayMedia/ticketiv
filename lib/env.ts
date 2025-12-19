@@ -7,3 +7,7 @@ export function getRequiredServerEnvVar(name: string) {
 
   return value
 }
+
+export function getOptionalServerEnvVar(name: string): string | undefined {
+  return process.env[name]
+}

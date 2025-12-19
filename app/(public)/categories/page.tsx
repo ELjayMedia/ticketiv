@@ -14,7 +14,7 @@ export default async function CategoriesPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8">
+    <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold">Event Categories</h1>
         <p className="text-muted-foreground">Explore curated events across popular categories.</p>
@@ -27,7 +27,9 @@ export default async function CategoriesPage() {
             <Card key={category} className="border hover:border-primary transition">
               <CardHeader>
                 <CardTitle>{category}</CardTitle>
-                <CardDescription>{count} upcoming event{count === 1 ? "" : "s"}</CardDescription>
+                <CardDescription>
+                  {count} upcoming event{count === 1 ? "" : "s"}
+                </CardDescription>
               </CardHeader>
               <CardContent className="flex items-center justify-between">
                 <Badge variant="secondary">{count} listed</Badge>
