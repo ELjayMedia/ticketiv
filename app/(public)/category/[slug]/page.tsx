@@ -3,7 +3,7 @@ import { notFound } from "next/navigation"
 
 import { EventCard } from "@/components/events/event-card"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { getEventsByCategory } from "@/lib/events"
+import { getPublicEvents } from "@/lib/data/events"
 import type { EventSummary } from "@/types"
 
 interface CategoryPageProps {
@@ -16,7 +16,7 @@ function formatCategory(slug: string) {
 
 export default async function CategoryPage({ params }: CategoryPageProps) {
   const categoryName = formatCategory(params.slug)
-  const events = await getEventsByCategory(categoryName)
+  const events = await getPublicEvents({ category: categoryName })
 
   if (!events || events.length === 0) {
     notFound()

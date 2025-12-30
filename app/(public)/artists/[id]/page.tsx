@@ -6,55 +6,11 @@ import { Badge } from "@/components/ui/badge"
 import { EventCard } from "@/components/events/event-card"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import type { ArtistRecord } from "@/types"
-import { getAllEvents } from "@/lib/events"
+import { getPublicEvents } from "@/lib/data/events"
+import { DEMO_ARTISTS } from "@/lib/demo-data"
 
 interface ArtistPageProps {
   params: { id: string }
-}
-
-const MOCK_ARTISTS: Record<string, ArtistRecord> = {
-  artist_1: {
-    id: "artist_1",
-    name: "Kabza De Small",
-    role: "DJ & Producer",
-    bio: "Pioneer of the Amapiano movement, known for creating infectious beats that have defined a generation.",
-    avatar_url: "/placeholder.svg?height=200&width=200",
-    banner_url: "/placeholder.svg?height=400&width=1200",
-    website_url: "https://kabzadesmall.com",
-    twitter: "https://twitter.com/kabzadesmall",
-    instagram: "https://instagram.com/kabzadesmall",
-    youtube: "https://youtube.com/@kabzadesmall",
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  artist_2: {
-    id: "artist_2",
-    name: "Bonang Matheba",
-    role: "TV Presenter & Entrepreneur",
-    bio: "Award-winning media personality and businesswoman, hosting exclusive lifestyle and entertainment events.",
-    avatar_url: "/placeholder.svg?height=200&width=200",
-    banner_url: "/placeholder.svg?height=400&width=1200",
-    website_url: "https://bonangmatheba.com",
-    twitter: "https://twitter.com/bonang_m",
-    instagram: "https://instagram.com/bonang_m",
-    youtube: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  artist_3: {
-    id: "artist_3",
-    name: "Sho Madjozi",
-    role: "Artist & Performer",
-    bio: "Vibrant performer bringing Tsonga culture and contemporary African music to global audiences.",
-    avatar_url: "/placeholder.svg?height=200&width=200",
-    banner_url: "/placeholder.svg?height=400&width=1200",
-    website_url: null,
-    twitter: "https://twitter.com/ShoMadjozi",
-    instagram: "https://instagram.com/shomadjozi",
-    youtube: "https://youtube.com/@ShoMadjozi",
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
 }
 
 export default async function ArtistPage({ params }: ArtistPageProps) {
@@ -70,11 +26,27 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
   }
 
   if (!artist) {
-    artist = MOCK_ARTISTS[params.id]
-    if (!artist) {
+    const demoArtist = DEMO_ARTISTS.find((a) => a.id === params.id)
+    if (!demoArtist) {
       notFound()
     }
-    console.log("[v0] Using mock artist data for:", params.id)
+
+    // Map demo artist to ArtistRecord shape
+    artist = {
+      id: demoArtist.id,
+      name: demoArtist.name,
+      role: demoArtist.role || null,
+      bio: demoArtist.bio || null,
+      avatar_url: demoArtist.avatar_url || null,
+      banner_url: null,
+      website_url: null,
+      twitter: null,
+      instagram: null,
+      youtube: null,
+      created_at: demoArtist.created_at,
+      updated_at: demoArtist.created_at,
+    }
+    console.log("[v0] Using demo artist data for:", params.id)
   }
 
   let relatedEvents = []
@@ -87,26 +59,28 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
     const relatedEventIds = (eventRelations ?? [])
       .map((relation: any) => relation.event?.id)
       .filter(Boolean) as string[]
-    const events = await getAllEvents()
     relatedEvents = relatedEventIds.length
-      ? events.filter((event) => relatedEventIds.includes(event.id))
-      : events.slice(0, 3)
+      ? await getPublicEvents({ ids: relatedEventIds })
+      : await getPublicEvents({ limit: 3 })
   } else {
     // Use mock events when Supabase not configured
-    const events = await getAllEvents()
-    relatedEvents = events.slice(0, 3)
+    relatedEvents = await getPublicEvents({ limit: 3 })
   }
 
   return (
     <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-6 sm:space-y-8">
       <Card className="overflow-hidden">
         <div className="relative h-48 sm:h-64 bg-muted">
-          <img src={artist.banner_url || "/placeholder.svg"} alt={artist.name} className="h-full w-full object-cover" />
+          <img
+            src={artist.banner_url || "/placeholder.svg?height=400&width=1200"}
+            alt={artist.name}
+            className="h-full w-full object-cover"
+          />
         </div>
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="h-20 w-20 sm:h-24 sm:w-24 overflow-hidden rounded-full border-4 border-background -mt-12 sm:-mt-16">
             <img
-              src={artist.avatar_url || "/placeholder.svg"}
+              src={artist.avatar_url || "/placeholder.svg?height=200&width=200"}
               alt={artist.name}
               className="h-full w-full object-cover"
             />

@@ -1,4 +1,4 @@
-import { getOrganizerEventMetrics } from "@/lib/events"
+import { getOrganizerEvents } from "@/lib/data/organizer"
 import { formatCurrency } from "@/lib/pricing"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -56,7 +56,7 @@ export default async function OrganizerEventsPage() {
     redirect("/login")
   }
 
-  const events = await getOrganizerEventMetrics(organizerId)
+  const events = await getOrganizerEvents()
 
   return (
     <>

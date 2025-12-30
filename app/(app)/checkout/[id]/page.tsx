@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 
-import { getEventById } from "@/lib/events"
+import { getEventById } from "@/lib/data/events"
 import CheckoutClient from "./checkout-client"
 
 export const dynamic = "force-dynamic"

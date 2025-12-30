@@ -2,10 +2,10 @@ import Link from "next/link"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { getAllEvents } from "@/lib/events"
+import { getPublicEvents } from "@/lib/data/events"
 
 export default async function CategoriesPage() {
-  const events = await getAllEvents()
+  const events = await getPublicEvents()
   const categories = new Map<string, number>()
 
   for (const event of events) {
