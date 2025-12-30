@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { getDemoSessionFromCookie } from "@/lib/demo-auth"
 import { DEMO_TICKET_TYPES } from "@/lib/demo-data"
 import type { OrderRecord, OrderItemRecord } from "@/types"

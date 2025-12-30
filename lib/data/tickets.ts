@@ -1,5 +1,5 @@
 // Tables: order_items, orders, ticket_types, events, event_dates, venues, transfers
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { getDemoSessionFromCookie } from "@/lib/demo-auth"
 import { getDemoUserTickets, getDemoTicketDetail } from "@/lib/demo-data"
 

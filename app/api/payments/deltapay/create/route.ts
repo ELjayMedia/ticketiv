@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createDeltaPayPayment } from "@/lib/deltapay"
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { getDemoSessionFromCookie } from "@/lib/demo-auth"
 
 export async function POST(request: Request) {

@@ -1,5 +1,5 @@
 // Tables: events, orders, ledger_entries, scans, payouts, payout_accounts, event_staff, devices
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { getDemoSessionFromCookie } from "@/lib/demo-auth"
 import { DEMO_EVENTS, DEMO_ORDERS, DEMO_ORDER_ITEMS } from "@/lib/demo-data"
 
