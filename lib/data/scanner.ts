@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { getDemoSessionFromCookie } from "@/lib/demo-auth"
 import { DEMO_EVENTS, DEMO_VENUES } from "@/lib/demo-data"
 
