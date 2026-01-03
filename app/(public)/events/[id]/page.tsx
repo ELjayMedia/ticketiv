@@ -1,5 +1,3 @@
-"use client"
-
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import {
@@ -68,12 +66,16 @@ export default async function EventPage({ params }: { params: { id: string } }) 
 
   return (
     <>
-      <style jsx global>{`
-        #desktop-shell-bg {
-          --page-bg-image: url(${event.banner_image_url || event.cover_image_url || ""});
-          opacity: ${event.banner_image_url || event.cover_image_url ? "1" : "0"};
-        }
-      `}</style>
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            #desktop-shell-bg {
+              --page-bg-image: url(${event.banner_image_url || event.cover_image_url || ""});
+              opacity: ${event.banner_image_url || event.cover_image_url ? "1" : "0"};
+            }
+          `,
+        }}
+      />
 
       {/* Mobile View */}
       <div className="lg:hidden min-h-screen bg-background pb-24">
