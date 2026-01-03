@@ -30,6 +30,19 @@ interface OrderWithRelations extends OrderRecord {
 
 export async function getPayoutSummary(): Promise<PayoutSummary> {
   const supabase = createServerSupabaseClient()
+
+  if (!supabase) {
+    return {
+      rows: [],
+      totals: {
+        grossSales: 0,
+        platformFees: 0,
+        netPayout: 0,
+        ticketsSold: 0,
+      },
+    }
+  }
+
   const { data, error } = await supabase
     .from("orders")
     .select(
