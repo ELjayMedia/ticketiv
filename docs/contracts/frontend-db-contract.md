@@ -36,7 +36,7 @@
 - **Table:** `event_dates` (for upcoming dates)
 
 **Select Shape:**
-\`\`\`typescript
+```typescript
 // Featured events carousel
 v_events_public {
   id, slug, title, subtitle, poster_url,
@@ -54,7 +54,7 @@ v_events_public {
 }
 WHERE visibility = 'public'
 GROUP BY category
-\`\`\`
+```
 
 **RLS Expectation:**
 - Public read access, no authentication required
@@ -77,7 +77,7 @@ GROUP BY category
 - **View:** `v_event_sales_public` (optional: for "selling fast" badges)
 
 **Select Shape:**
-\`\`\`typescript
+```typescript
 v_events_public {
   id, slug, title, poster_url, starts_at, ends_at,
   city, venue_name, venue_id,
@@ -92,7 +92,7 @@ WHERE visibility = 'public'
   AND starts_at >= '{from_date}' AND starts_at <= '{to_date}'
 ORDER BY starts_at ASC | min_price_cents ASC (based on sort)
 LIMIT 50 OFFSET {page * 50}
-\`\`\`
+```
 
 **RLS Expectation:**
 - Public read access
@@ -119,7 +119,7 @@ LIMIT 50 OFFSET {page * 50}
 - **Table:** `venues` (venue details with coordinates)
 
 **Select Shape:**
-\`\`\`typescript
+```typescript
 v_events_public {
   id, slug, title, subtitle, description,
   poster_url, banner_url, video_url,
@@ -161,7 +161,7 @@ venues {
   capacity, lat, lng, amenities
 }
 WHERE id = {venue_id}
-\`\`\`
+```
 
 **RLS Expectation:**
 - Public read on `v_events_public`
@@ -188,7 +188,7 @@ WHERE id = {venue_id}
 - **View:** `v_events_public` (event details)
 
 **Select Shape:**
-\`\`\`typescript
+```typescript
 v_resale_listings_public {
   id, order_item_id, price_cents, original_price_cents,
   listed_at, expires_at, status,
@@ -204,7 +204,7 @@ WHERE status = 'active' AND expires_at > NOW()
   AND event_category = '{category}' (if filter applied)
 ORDER BY listed_at DESC
 LIMIT 50
-\`\`\`
+```
 
 **RLS Expectation:**
 - Public read on active listings only
@@ -232,7 +232,7 @@ LIMIT 50
 - **RPC:** `fn_apply_pricing_to_order` (final price computation)
 
 **Select Shape:**
-\`\`\`typescript
+```typescript
 // Step 1: Display event info
 v_events_public { id, title, poster_url, starts_at, venue_name }
 WHERE id = {event_id}
@@ -253,14 +253,14 @@ fn_quote_order({
   total_cents: int,
   breakdown: object
 }
-\`\`\`
+```
 
 **RLS Expectation:**
 - User must be authenticated
 - Can only create orders for themselves
 
 **Mutations:**
-\`\`\`typescript
+```typescript
 // DO NOT call directly from UI - use API route
 POST /api/orders
 Body: {
@@ -272,7 +272,7 @@ Body: {
   channel: 'web'
 }
 → API route calls fn_mint_tickets RPC internally
-\`\`\`
+```
 
 **Errors:**
 - Quota exceeded: "Not enough tickets available. Reduce quantity."
@@ -292,7 +292,7 @@ Body: {
 - **View:** `v_events_public` (event details)
 
 **Select Shape:**
-\`\`\`typescript
+```typescript
 v_user_tickets {
   id, ticket_code, qr_code, seat_label,
   checked_in_at, checked_in_by,
@@ -319,7 +319,7 @@ orders {
 }
 WHERE buyer_id = auth.uid()
 ORDER BY purchased_at DESC
-\`\`\`
+```
 
 **RLS Expectation:**
 - User can only read their own tickets (`buyer_id = auth.uid()`)
@@ -343,7 +343,7 @@ ORDER BY purchased_at DESC
 - **Table:** `scans` (check-in history)
 
 **Select Shape:**
-\`\`\`typescript
+```typescript
 order_items {
   id, ticket_code, qr_code, seat_label,
   checked_in_at, checked_in_by,
@@ -369,14 +369,14 @@ scans {
 WHERE ticket_code = {ticket_code}
 ORDER BY scanned_at DESC
 LIMIT 10
-\`\`\`
+```
 
 **RLS Expectation:**
 - User can only view tickets they own
 - Check-in history visible to ticket owner
 
 **Mutations:**
-\`\`\`typescript
+```typescript
 // Transfer ticket (via RPC)
 fn_initiate_transfer({
   order_item_id: uuid,
@@ -390,7 +390,7 @@ SET status = 'cancelled', cancelled_at = NOW()
 WHERE order_item_id = {order_item_id}
   AND from_user_id = auth.uid()
   AND status = 'pending'
-\`\`\`
+```
 
 **Errors:**
 - Not found: "Ticket not found."
@@ -410,7 +410,7 @@ WHERE order_item_id = {order_item_id}
 - **RPC:** `fn_ticket_is_transferable` (validation)
 
 **Select Shape:**
-\`\`\`typescript
+```typescript
 order_items {
   id, ticket_code, checked_in_at, transferred_at,
   ticket_types (name, allows_transfer)
@@ -428,14 +428,14 @@ transfers {
 }
 WHERE order_item_id = {ticket_id}
 ORDER BY created_at DESC
-\`\`\`
+```
 
 **RLS Expectation:**
 - User owns the ticket
 - Transfer window open (event not started)
 
 **Mutations:**
-\`\`\`typescript
+```typescript
 // Initiate transfer
 INSERT INTO transfers (order_item_id, from_user_id, to_email, message)
 VALUES ({ticket_id}, auth.uid(), {email}, {message})
@@ -447,7 +447,7 @@ SET status = 'cancelled'
 WHERE id = {transfer_id}
   AND from_user_id = auth.uid()
   AND status = 'pending'
-\`\`\`
+```
 
 **Errors:**
 - Not transferable: "This ticket type cannot be transferred."
@@ -469,7 +469,7 @@ WHERE id = {transfer_id}
 - **RPC:** `get_user_orgs` (user's organizations)
 
 **Select Shape:**
-\`\`\`typescript
+```typescript
 // KPI Cards (aggregate across org)
 mv_event_sales {
   total_events, total_tickets_sold, total_revenue_cents, total_checkins
@@ -485,7 +485,7 @@ event_summary {
 WHERE org_id IN (SELECT get_user_orgs())
 ORDER BY starts_at DESC
 LIMIT 10
-\`\`\`
+```
 
 **RLS Expectation:**
 - User must have organizer role
@@ -509,7 +509,7 @@ LIMIT 10
 - **Table:** `events` (for direct updates)
 
 **Select Shape:**
-\`\`\`typescript
+```typescript
 event_summary {
   event_id, title, slug, poster_url,
   starts_at, ends_at, city, venue_name,
@@ -518,14 +518,14 @@ event_summary {
 }
 WHERE org_id IN (SELECT get_user_orgs())
 ORDER BY starts_at DESC
-\`\`\`
+```
 
 **RLS Expectation:**
 - Organizers can read/update events in their orgs
 - Policy: `is_event_organizer(event_id)`
 
 **Mutations:**
-\`\`\`typescript
+```typescript
 // Publish event
 UPDATE events
 SET visibility = 'public', published_at = NOW()
@@ -544,7 +544,7 @@ SET status = 'cancelled', cancelled_at = NOW()
 WHERE id = {event_id}
   AND org_id IN (SELECT get_user_orgs())
   AND total_orders = 0  -- Prevent deletion if orders exist
-\`\`\`
+```
 
 **Errors:**
 - Cannot delete: "Cannot delete event with existing orders."
@@ -566,7 +566,7 @@ WHERE id = {event_id}
 **Tabs & Data Sources:**
 
 #### Tab 1: Overview
-\`\`\`typescript
+```typescript
 events {
   id, title, slug, description, poster_url, banner_url,
   starts_at, ends_at, timezone, city, venue_id,
@@ -582,10 +582,10 @@ ticket_types {
   id, name, description, price_cents, quota, sold_count, per_user_limit
 }
 WHERE event_id = {event_id}
-\`\`\`
+```
 
 #### Tab 2: Orders
-\`\`\`typescript
+```typescript
 orders {
   id, order_number, buyer_name, buyer_email, purchased_at,
   total_cents, status, payment_status, channel,
@@ -594,20 +594,20 @@ orders {
 WHERE event_id = {event_id}
 ORDER BY purchased_at DESC
 LIMIT 100
-\`\`\`
+```
 
 #### Tab 3: Staff
-\`\`\`typescript
+```typescript
 event_staff {
   id, user_id, role, added_at,
   users (email, full_name)
 }
 WHERE event_id = {event_id}
 ORDER BY added_at DESC
-\`\`\`
+```
 
 #### Tab 4: Scanner
-\`\`\`typescript
+```typescript
 scans {
   id, ticket_code, scanned_at, outcome, device_id, notes,
   order_items (
@@ -625,10 +625,10 @@ device_sessions {
   (SELECT COUNT(*) FROM scans WHERE device_id = device_sessions.device_id) as scan_count
 }
 WHERE event_id = {event_id}
-\`\`\`
+```
 
 #### Tab 5: Finance
-\`\`\`typescript
+```typescript
 mv_revenue_breakdown {
   gross_sales_cents, platform_fee_cents, processor_fee_cents,
   refunds_cents, net_revenue_cents
@@ -640,14 +640,14 @@ ledger_entries {
 }
 WHERE event_id = {event_id}
 ORDER BY created_at DESC
-\`\`\`
+```
 
 **RLS Expectation:**
 - All reads require `is_event_organizer(event_id)` = true
 - Orders, scans, ledger filtered by event ownership
 
 **Mutations:**
-\`\`\`typescript
+```typescript
 // Update event details
 UPDATE events
 SET title = {title}, description = {description}, ...
@@ -663,7 +663,7 @@ DELETE FROM event_staff
 WHERE id = {staff_id}
   AND event_id = {event_id}
   AND is_event_organizer({event_id})
-\`\`\`
+```
 
 **Errors:**
 - No permission: "Access denied."
@@ -682,7 +682,7 @@ WHERE id = {staff_id}
 - **Table:** `refunds` (refund requests)
 
 **Select Shape:**
-\`\`\`typescript
+```typescript
 // KPIs
 mv_revenue_breakdown {
   SUM(gross_sales_cents) as total_gross,
@@ -719,14 +719,14 @@ refunds {
 }
 WHERE org_id IN (SELECT get_user_orgs())
 ORDER BY requested_at DESC
-\`\`\`
+```
 
 **RLS Expectation:**
 - Organizers can only see ledger/payouts/refunds for their org
 - Policy: `org_id IN (SELECT get_user_orgs())`
 
 **Mutations:**
-\`\`\`typescript
+```typescript
 // Request payout
 INSERT INTO payouts (org_id, amount_cents, provider, status)
 VALUES ({org_id}, {amount}, 'deltapay', 'pending')
@@ -737,7 +737,7 @@ UPDATE refunds
 SET status = 'approved', approved_at = NOW(), approved_by = auth.uid()
 WHERE id = {refund_id}
   AND is_org_admin((SELECT org_id FROM orders WHERE id = order_id))
-\`\`\`
+```
 
 **Errors:**
 - Insufficient balance: "Insufficient balance for payout."
@@ -755,7 +755,7 @@ WHERE id = {refund_id}
 - **View:** `v_device_stats` (per-device scan counts)
 
 **Select Shape:**
-\`\`\`typescript
+```typescript
 devices {
   id, device_id, name, status, last_seen_at, created_at,
   org_id, added_by
@@ -777,14 +777,14 @@ v_device_stats {
   device_id, today_scans, total_scans, events_scanned
 }
 WHERE device_id = {device_id}
-\`\`\`
+```
 
 **RLS Expectation:**
 - Organizers can manage devices in their org
 - Policy: `org_id IN (SELECT get_user_orgs())`
 
 **Mutations:**
-\`\`\`typescript
+```typescript
 // Revoke device
 UPDATE devices
 SET status = 'revoked', revoked_at = NOW()
@@ -796,7 +796,7 @@ UPDATE devices
 SET status = 'active', revoked_at = NULL
 WHERE device_id = {device_id}
   AND org_id IN (SELECT get_user_orgs())
-\`\`\`
+```
 
 **Errors:**
 - Device not found: "Device not registered."
@@ -816,7 +816,7 @@ WHERE device_id = {device_id}
 - **RPC:** `scanner_mark_checkin` (record scan)
 
 **Select Shape:**
-\`\`\`typescript
+```typescript
 // Events staff can scan
 v_scannable_events {
   event_id, title, starts_at, venue_name, total_tickets
@@ -841,14 +841,14 @@ WHERE event_id = {selected_event_id}
   AND scanned_at::date = CURRENT_DATE
 ORDER BY scanned_at DESC
 LIMIT 50
-\`\`\`
+```
 
 **RLS Expectation:**
 - Staff can only scan events they're assigned to
 - Policy: `user_has_event_role(event_id, ARRAY['scanner', 'organizer'])`
 
 **Mutations:**
-\`\`\`typescript
+```typescript
 // Validate & check in ticket (RPC)
 fn_check_in({
   ticket_code: string,
@@ -866,7 +866,7 @@ INSERT INTO scans (
   event_id, ticket_code, outcome, device_id, scanned_at
 )
 VALUES ({event_id}, {ticket_code}, 'valid', {device_id}, NOW())
-\`\`\`
+```
 
 **Errors:**
 - Invalid ticket: "Ticket not found or invalid."
@@ -1026,33 +1026,33 @@ VALUES ({event_id}, {ticket_code}, 'valid', {device_id}, NOW())
 ### Setup
 
 1. **Install Supabase CLI:**
-   \`\`\`bash
+   ```bash
    npm install supabase --save-dev
-   \`\`\`
+   ```
 
 2. **Generate types:**
-   \`\`\`bash
+   ```bash
    npx supabase gen types typescript --project-id {project_id} > types/database.ts
-   \`\`\`
+   ```
 
 3. **Import in code:**
-   \`\`\`typescript
+   ```typescript
    import { Database } from '@/types/database'
    
    type Event = Database['public']['Tables']['events']['Row']
    type EventInsert = Database['public']['Tables']['events']['Insert']
    type EventUpdate = Database['public']['Tables']['events']['Update']
-   \`\`\`
+   ```
 
 4. **Type-safe queries:**
-   \`\`\`typescript
+   ```typescript
    const { data } = await supabase
      .from('events')
      .select('id, title, starts_at')
      .eq('visibility', 'public')
    
    // data is inferred as Event[] automatically
-   \`\`\`
+   ```
 
 ### Regeneration Triggers
 
@@ -1063,14 +1063,14 @@ Run type generation whenever:
 - RPC function signature changed
 
 **CI/CD Integration:**
-\`\`\`yaml
+```yaml
 # .github/workflows/types.yml
 - name: Generate Supabase Types
   run: npx supabase gen types typescript --project-id ${{ secrets.SUPABASE_PROJECT_ID }} > types/database.ts
   
 - name: Check for type errors
   run: npm run type-check
-\`\`\`
+```
 
 ---
 
@@ -1079,21 +1079,21 @@ Run type generation whenever:
 ### ❌ DON'T: Let v0 query raw financial tables directly
 
 **Wrong:**
-\`\`\`typescript
+```typescript
 const { data } = await supabase
   .from('payments')
   .select('*')
   .eq('order_id', orderId)
-\`\`\`
+```
 
 **Right:**
-\`\`\`typescript
+```typescript
 // Use view or RPC
 const { data } = await supabase
   .from('mv_revenue_breakdown')
   .select('*')
   .eq('event_id', eventId)
-\`\`\`
+```
 
 **Why:** `payments`, `ledger_entries`, `payouts` contain sensitive data. Use views that aggregate and sanitize.
 
@@ -1102,22 +1102,22 @@ const { data } = await supabase
 ### ❌ DON'T: Update `checked_in_at` directly
 
 **Wrong:**
-\`\`\`typescript
+```typescript
 await supabase
   .from('order_items')
   .update({ checked_in_at: new Date() })
   .eq('ticket_code', code)
-\`\`\`
+```
 
 **Right:**
-\`\`\`typescript
+```typescript
 // Use RPC
 const { data } = await supabase.rpc('fn_check_in', {
   ticket_code: code,
   event_id: eventId,
   device_id: deviceId
 })
-\`\`\`
+```
 
 **Why:** Check-in requires:
 - Validation (is ticket valid?)
@@ -1130,20 +1130,20 @@ const { data } = await supabase.rpc('fn_check_in', {
 ### ❌ DON'T: Recompute pricing in UI
 
 **Wrong:**
-\`\`\`typescript
+```typescript
 const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0)
 const platformFee = subtotal * 0.05
 const total = subtotal + platformFee
-\`\`\`
+```
 
 **Right:**
-\`\`\`typescript
+```typescript
 const { data } = await supabase.rpc('fn_quote_order', {
   event_id: eventId,
   items: items.map(i => ({ ticket_type_id: i.id, quantity: i.qty }))
 })
 const total = data.total_cents
-\`\`\`
+```
 
 **Why:** Pricing rules, promo codes, dynamic fees, taxes are server-side only. UI must always call RPC.
 
@@ -1152,7 +1152,7 @@ const total = data.total_cents
 ### ❌ DON'T: Do joins that views already provide
 
 **Wrong:**
-\`\`\`typescript
+```typescript
 const { data } = await supabase
   .from('events')
   .select(`
@@ -1162,10 +1162,10 @@ const { data } = await supabase
     event_artists(*, artists(*))
   `)
   .eq('slug', slug)
-\`\`\`
+```
 
 **Right:**
-\`\`\`typescript
+```typescript
 const { data } = await supabase
   .from('v_events_public')
   .select('*')
@@ -1173,7 +1173,7 @@ const { data } = await supabase
   .single()
 
 // Then fetch related data separately if needed
-\`\`\`
+```
 
 **Why:** Views like `v_events_public`, `event_summary`, `v_user_tickets` already have optimized joins. Don't duplicate.
 
@@ -1182,7 +1182,7 @@ const { data } = await supabase
 ### ❌ DON'T: Create orders from UI
 
 **Wrong:**
-\`\`\`typescript
+```typescript
 const { data: order } = await supabase
   .from('orders')
   .insert({ event_id, buyer_id, total_cents })
@@ -1192,16 +1192,16 @@ const { data: order } = await supabase
 const { data: items } = await supabase
   .from('order_items')
   .insert(items.map(i => ({ order_id: order.id, ticket_type_id: i.id })))
-\`\`\`
+```
 
 **Right:**
-\`\`\`typescript
+```typescript
 // Call API route
 const response = await fetch('/api/orders', {
   method: 'POST',
   body: JSON.stringify({ event_id, items, buyer_email })
 })
-\`\`\`
+```
 
 **Why:** Order creation requires:
 - Atomic transaction (orders + order_items + order_adjustments)
@@ -1215,18 +1215,18 @@ const response = await fetch('/api/orders', {
 ### ❌ DON'T: Expose service role key to client
 
 **Wrong:**
-\`\`\`typescript
+```typescript
 const supabase = createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY)
-\`\`\`
+```
 
 **Right:**
-\`\`\`typescript
+```typescript
 // Client-side
 const supabase = createClient(url, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
 // Server-side only (API routes, RSC)
 const supabase = createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY)
-\`\`\`
+```
 
 **Why:** Service role bypasses RLS. Only use in trusted server contexts.
 

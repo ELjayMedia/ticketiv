@@ -53,14 +53,14 @@ Record all secrets so they can be added to Vercel in the next step.
 
 If you prefer the CLI:
 
-\`\`\`bash
+```bash
 npm i -g vercel
 vercel login
 vercel link
 vercel env add NEXT_PUBLIC_SUPABASE_URL
 # Repeat for each variable listed above
 vercel --prod
-\`\`\`
+```
 
 ## Step 4 – Align Supabase Redirects
 
