@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     const { orderId, amount, currency, customerEmail, metadata } = body
 
     const demoSession = await getDemoSessionFromCookie()
-    const supabase = createServerSupabaseClient()
+    const supabase = await createServerSupabaseClient()
 
     let userId: string | null = null
 

@@ -1,8 +1,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { createClient } from "@/lib/supabase"
 
 export async function getPublishedEvents(limit = 20, offset = 0) {
-  const supabase = createClient()
+  const supabase = createServerSupabaseClient()
   if (!supabase) return []
 
   const { data } = await supabase
@@ -26,7 +25,7 @@ export async function getPublishedEvents(limit = 20, offset = 0) {
 }
 
 export async function getEventBySlug(slug: string) {
-  const supabase = createClient()
+  const supabase = createServerSupabaseClient()
   if (!supabase) return null
 
   const { data } = await supabase
@@ -202,7 +201,7 @@ export async function getLedgerEntries(eventId: string, limit = 10) {
 }
 
 export async function getPublishedArtists(limit = 50, offset = 0) {
-  const supabase = createClient()
+  const supabase = createServerSupabaseClient()
   if (!supabase) return []
 
   const { data } = await supabase

@@ -131,11 +131,13 @@ export async function getEventById(eventId: string): Promise<EventDetail | null>
       ticket_types: event.ticket_types.map((t) => ({
         id: t.id,
         name: t.name,
-        price_cents: t.price_cents,
+        price: t.price_cents,
         currency: t.currency,
-        quota: t.quantity_total,
+        quantity_total: t.quantity_total,
+        quantity_remaining: t.quantity_remaining,
         per_user_limit: null,
         is_reserved_seating: false,
+        ticket_type_channels: [{ channel: "web", quota: t.quantity_total, per_order_limit: 10 }],
       })),
       event_artists:
         event.artists?.map((a) => ({

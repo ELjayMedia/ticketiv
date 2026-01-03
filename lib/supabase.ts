@@ -6,8 +6,8 @@ export function createClient() {
 
   if (!url || !key) {
     console.warn("Supabase environment variables are not configured. Some features will be limited.")
-    // Return a mock client that won't break the app
-    return null as any
+    // Return null to indicate Supabase is not configured
+    return null
   }
 
   return createBrowserClient(url, key)

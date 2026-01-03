@@ -47,7 +47,7 @@ export default async function PaymentsPage() {
     console.log("[v0] Using demo payments data")
     payments = mockPayments
   } else {
-    const supabase = createServerSupabaseClient()
+    const supabase = await createServerSupabaseClient()
 
     if (!supabase) {
       console.log("[v0] Supabase not configured, using mock data")

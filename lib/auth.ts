@@ -1,5 +1,4 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { createClient } from "@/lib/supabase"
 import { getDemoSession, clearDemoSession } from "@/lib/demo-auth"
 
 export interface UserProfile {
@@ -122,25 +121,9 @@ export async function signOutUser(): Promise<{ success: boolean; error?: string 
     return { success: true }
   }
 
-  const supabase = createClient()
-
-  if (!supabase) {
-    return { success: false, error: "Authentication service not available" }
-  }
-
-  try {
-    const { error } = await supabase.auth.signOut()
-
-    if (error) {
-      console.error("[v0] Sign out error:", error)
-      return { success: false, error: error.message }
-    }
-
-    return { success: true }
-  } catch (error: any) {
-    console.error("[v0] Unexpected error during sign out:", error)
-    return { success: false, error: error?.message || "Failed to sign out" }
-  }
+  // The actual sign out should happen in the client component using the browser client
+  console.warn("[v0] signOutUser should be called from client components")
+  return { success: false, error: "This function should be called from client side" }
 }
 
 export async function isUserOrganizer(userId: string): Promise<boolean> {
