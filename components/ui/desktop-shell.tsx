@@ -47,7 +47,9 @@ export function DesktopShell({ children, user, workspace, onLogout }: DesktopShe
   const navigation = {
     public: [
       { href: "/", label: "Home", icon: Home, shortcut: "H" },
-      { href: "/browse", label: "Browse Events", icon: Calendar, shortcut: "B" },
+      { href: "/browse", label: "Events", icon: Calendar, shortcut: "E" },
+      { href: "/organisers", label: "Organisers", icon: Building2, shortcut: "O" },
+      { href: "/artists", label: "Artists", icon: Users, shortcut: "A" },
     ],
     app: [
       { href: "/app/home", label: "Home", icon: Home, shortcut: "H" },
@@ -118,23 +120,25 @@ export function DesktopShell({ children, user, workspace, onLogout }: DesktopShe
             })}
           </nav>
 
-          {/* Search */}
-          <form onSubmit={handleSearch} className="flex-1 max-w-md">
-            <div className="relative">
-              <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
-                aria-hidden="true"
-              />
-              <Input
-                type="search"
-                placeholder="Search events..."
-                className="pl-9 focus:ring-2 focus:ring-primary"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                aria-label="Search"
-              />
-            </div>
-          </form>
+          {/* Search - Only show for non-public workspace */}
+          {workspace !== "public" && (
+            <form onSubmit={handleSearch} className="flex-1 max-w-md">
+              <div className="relative">
+                <Search
+                  className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <Input
+                  type="search"
+                  placeholder="Search events, organisers, artists…"
+                  className="pl-9 focus:ring-2 focus:ring-primary"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  aria-label="Search"
+                />
+              </div>
+            </form>
+          )}
 
           <div className="flex items-center gap-2">
             {/* Organization Switcher */}

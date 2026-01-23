@@ -97,8 +97,8 @@ export default function SignupPage() {
 
       const { data: existingUser } = await supabase
         .from("profiles")
-        .select("email")
-        .eq("email", email.trim())
+        .select("id")
+        .eq("id", email.trim())
         .maybeSingle()
 
       if (existingUser) {
@@ -134,7 +134,6 @@ export default function SignupPage() {
 
       const { error: profileError } = await supabase.from("profiles").insert({
         id: authData.user.id,
-        email: email.trim(),
         full_name: name.trim(),
         role: accountType === "organizer" ? "admin" : "user",
       })

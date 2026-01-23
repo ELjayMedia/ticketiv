@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Search, SlidersHorizontal, X } from "lucide-react"
+import { SlidersHorizontal, X, Search } from "lucide-react"
+import { SearchInput } from "@/components/ui/search-input"
 
 import { EventCard } from "@/components/events/event-card"
 import { NoEventsFound } from "@/components/ui/empty-states"
@@ -285,8 +286,8 @@ export default function BrowseClient({ initialEvents }: BrowseClientProps) {
       </div>
 
       {/* Desktop View: >= lg */}
-      <div className="hidden lg:block max-w-[1200px] mx-auto py-8 px-0">
-        <div className="flex gap-2.5">
+      <div className="hidden lg:block max-w-[1200px] mx-auto py-0 px-6 pb-12 space-y-6">
+        <div className="flex gap-6">
           <aside className="w-64 flex-shrink-0 space-y-6 sticky top-8 self-start">
             <div>
               <h2 className="text-lg font-bold mb-4">Filters</h2>
@@ -366,16 +367,11 @@ export default function BrowseClient({ initialEvents }: BrowseClientProps) {
 
           <main className="flex-1 space-y-6">
             <div className="space-y-4">
-              <h1 className="text-3xl font-bold">All Events</h1>
-
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
+                <SearchInput
                   placeholder="Search events, venues, or artists..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-12 text-base"
-                  aria-label="Search events"
+                  onChange={setSearchQuery}
                 />
               </div>
 

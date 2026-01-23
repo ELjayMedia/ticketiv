@@ -6,48 +6,57 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { SearchInput } from "@/components/ui/search-input"
-import type { ArtistRecord } from "@/types"
+import { useSearchParams } from "next/navigation"
+import Loading from "./loading"
+import { Search } from "lucide-react"
 
-export default function ArtistsPage() {
-  const [artists, setArtists] = useState<ArtistRecord[]>([])
-  const [filteredArtists, setFilteredArtists] = useState<ArtistRecord[]>([])
+interface OrganiserRecord {
+  id: string
+  name: string
+  logo_url?: string
+}
+
+export default function OrganisersPage() {
+  const [organisers, setOrganisers] = useState<OrganiserRecord[]>([])
+  const [filteredOrganisers, setFilteredOrganisers] = useState<OrganiserRecord[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [loading, setLoading] = useState(true)
+  const searchParams = useSearchParams()
 
   useEffect(() => {
-    const fetchArtists = async () => {
+    const fetchOrganisers = async () => {
       try {
-        const response = await fetch("/api/artists")
+        const response = await fetch("/api/organisers")
         if (response.ok) {
           const data = await response.json()
-          setArtists(data)
-          setFilteredArtists(data)
+          setOrganisers(data)
+          setFilteredOrganisers(data)
         }
       } catch (error) {
-        console.error("[v0] Failed to fetch artists:", error)
+        console.error("[v0] Failed to fetch organisers:", error)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchArtists()
+    fetchOrganisers()
   }, [])
 
   useEffect(() => {
-    const filtered = artists.filter((artist) => artist.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    setFilteredArtists(filtered)
-  }, [searchQuery, artists])
+    const filtered = organisers.filter((organiser) => organiser.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    setFilteredOrganisers(filtered)
+  }, [searchQuery, organisers])
 
   return (
     <div className="max-w-[980px] mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8">
       {/* Header */}
       <div className="space-y-4">
-        <h1 className="text-4xl md:text-5xl font-bold text-balance">Artists & Speakers</h1>
+        <h1 className="text-4xl md:text-5xl font-bold text-balance">Organisers</h1>
       </div>
 
       {/* Search */}
       <SearchInput
-        placeholder="Search artists…"
+        placeholder="Search organisers…"
         value={searchQuery}
         onChange={setSearchQuery}
         className="max-w-md"
@@ -68,23 +77,22 @@ export default function ArtistsPage() {
         </div>
       )}
 
-      {/* Artists Grid */}
-      {!loading && filteredArtists.length > 0 && (
+      {/* Organisers Grid */}
+      {!loading && filteredOrganisers.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredArtists.map((artist) => (
-            <Link key={artist.id} href={`/artists/${artist.id}`}>
+          {filteredOrganisers.map((organiser) => (
+            <Link key={organiser.id} href={`/organisers/${organiser.id}`}>
               <Card className="h-full hover:shadow-lg transition-shadow duration-300 cursor-pointer overflow-hidden">
                 <div className="aspect-square bg-muted overflow-hidden relative group">
                   <img
-                    src={artist.avatar_url || "/placeholder.svg"}
-                    alt={artist.name}
+                    src={organiser.logo_url || "/placeholder.svg"}
+                    alt={organiser.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 </div>
                 <CardContent className="pt-4 space-y-2">
-                  <h3 className="font-semibold line-clamp-2">{artist.name}</h3>
-                  {artist.role && <Badge className="w-fit text-xs">{artist.role}</Badge>}
-                  {artist.bio && <p className="text-sm text-muted-foreground line-clamp-2">{artist.bio}</p>}
+                  <h3 className="font-semibold line-clamp-2">{organiser.name}</h3>
+                  <Badge className="w-fit text-xs">Organiser</Badge>
                 </CardContent>
               </Card>
             </Link>
@@ -93,10 +101,10 @@ export default function ArtistsPage() {
       )}
 
       {/* Empty State */}
-      {!loading && filteredArtists.length === 0 && (
+      {!loading && filteredOrganisers.length === 0 && (
         <div className="text-center py-12">
           <p className="text-muted-foreground">
-            {searchQuery ? "No artists found matching your search" : "No artists available"}
+            {searchQuery ? "No organisers found matching your search" : "No organisers available"}
           </p>
         </div>
       )}
