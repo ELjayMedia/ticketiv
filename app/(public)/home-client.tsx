@@ -72,9 +72,9 @@ export default function HomeClient({ initialEvents }: HomeClientProps) {
   const featuredEvents = initialEvents.slice(0, 3)
 
   return (
-    <div className="max-w-[980px] mx-auto sm:px-6 lg:px-8 py-0 px-0 sm:py-8">
-      <div className="space-y-4">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl text-balance text-center font-light font-sans leading-7 my-0">
+    <div className="max-w-[980px] mx-auto sm:px-6 lg:px-8 py-0 px-0 sm:py-0">
+      <div className="space-y-5">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl text-balance text-center font-light font-sans leading-7 my-4 py-4">
           Discover <span className="text-primary">Amazing Events</span>
         </h1>
         <div className="flex justify-center">
