@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { getDemoSession, clearDemoSession } from "@/lib/demo-auth"
+import { isUserAdmin } from "@/lib/data/admin"
 
 export interface UserProfile {
   id: string
@@ -149,4 +150,11 @@ export async function isUserOrganizer(userId: string): Promise<boolean> {
     console.error("[v0] Unexpected error checking organizer status:", error)
     return false
   }
+}
+
+/**
+ * Check if a user is a platform admin
+ */
+export async function isUserPlatformAdmin(userId: string): Promise<boolean> {
+  return isUserAdmin(userId)
 }

@@ -43,9 +43,9 @@ export default function LoginPage() {
         setDemoSession(demoUser)
         console.log("[v0] Demo login successful for:", demoUser.email)
 
-        const redirectPath =
-          demoUser.role === "organizer" ? "/dashboard" : demoUser.role === "staff" ? "/scan" : "/app/home"
-        window.location.href = redirectPath
+      const redirectPath =
+        demoUser.role === "organizer" ? "/dashboard" : demoUser.role === "staff" ? "/scan" : "/"
+      window.location.href = redirectPath
         return
       }
 
@@ -86,7 +86,7 @@ export default function LoginPage() {
       if (orgMember?.role === "admin" || orgMember?.role === "organizer") {
         router.push("/dashboard")
       } else {
-        router.push("/app/home")
+        router.push("/")
       }
     } catch (err: any) {
       setError("An unexpected error occurred. Please try again.")

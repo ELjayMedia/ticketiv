@@ -52,9 +52,9 @@ export default async function OrganizerDashboardPage() {
     .from("org_members")
     .select("org_id, role")
     .eq("user_id", session.user.id)
-    .single()
+    .maybeSingle()
 
-  if (!orgMember) redirect("/app/home")
+  if (!orgMember) redirect("/")
 
   const { data: events = [] } = await supabase
     .from("events")

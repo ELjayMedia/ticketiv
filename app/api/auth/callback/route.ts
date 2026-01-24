@@ -45,7 +45,7 @@ export async function GET(request: Request) {
       }
     }
 
-    return NextResponse.redirect(`${requestUrl.origin}/app/home`)
+    return NextResponse.redirect(`${requestUrl.origin}/`)
   }
 
   return NextResponse.redirect(`${requestUrl.origin}/login`)
