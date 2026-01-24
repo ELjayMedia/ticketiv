@@ -2,23 +2,18 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { SearchInput } from "@/components/ui/search-input"
 import { useSearchParams } from "next/navigation"
 import Loading from "./loading"
 import { Search } from "lucide-react"
-
-interface OrganiserRecord {
-  id: string
-  name: string
-  logo_url?: string
-}
+import { getPublicOrganisers } from "@/lib/data/public"
+import type { OrganiserSummary } from "@/lib/data/public"
 
 export default function OrganisersPage() {
-  const [organisers, setOrganisers] = useState<OrganiserRecord[]>([])
-  const [filteredOrganisers, setFilteredOrganisers] = useState<OrganiserRecord[]>([])
+  const [organisers, setOrganisers] = useState<OrganiserSummary[]>([])
+  const [filteredOrganisers, setFilteredOrganisers] = useState<OrganiserSummary[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [loading, setLoading] = useState(true)
   const searchParams = useSearchParams()
@@ -26,12 +21,9 @@ export default function OrganisersPage() {
   useEffect(() => {
     const fetchOrganisers = async () => {
       try {
-        const response = await fetch("/api/organisers")
-        if (response.ok) {
-          const data = await response.json()
-          setOrganisers(data)
-          setFilteredOrganisers(data)
-        }
+        const data = await getPublicOrganisers({ limit: 50 })
+        setOrganisers(data)
+        setFilteredOrganisers(data)
       } catch (error) {
         console.error("[v0] Failed to fetch organisers:", error)
       } finally {

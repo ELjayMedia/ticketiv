@@ -1,4 +1,4 @@
-import { getPublicEvents } from "@/lib/data/events"
+import { getPublicEvents } from "@/lib/data/public"
 import HomeClient from "./home-client"
 
 export const dynamic = "force-dynamic"
