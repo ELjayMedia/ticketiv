@@ -1,302 +1,274 @@
 "use client"
 
+import type React from "react"
 import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle2, ChevronRight, Loader2 } from "lucide-react"
+import { ChevronRight, Loader2 } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { formatCurrency } from "@/lib/pricing"
 
-export type CheckoutStep = "select" | "promo" | "preview" | "payment" | "success"
+export type CheckoutStep = "select" | "promo" | "review" | "payment" | "success"
 
-export interface CheckoutFlowProps {
-  eventTitle: string
-  eventId: string
-  onComplete?: (orderId: string) => void
-  onCancel?: () => void
+export interface CheckoutTicket {
+  id: string
+  name: string
+  price_cents: number
+  quantity: number
+  per_user_limit?: number
+  available: number
 }
 
-export interface CartItem {
-  ticketTypeId: string
-  ticketTypeName: string
-  quantity: number
-  unitPrice: number
+export interface CheckoutState {
+  step: CheckoutStep
+  tickets: Record<string, number>
+  promoCode?: string
+  total_cents: number
+  fees_cents: number
+}
+
+interface CheckoutFlowProps {
+  eventTitle: string
+  eventSlug: string
+  ticketTypes: CheckoutTicket[]
+  onSubmitCheckout: (state: CheckoutState) => Promise<{ url?: string; error?: string }>
+  currency?: string
 }
 
 export function CheckoutFlow({
   eventTitle,
-  eventId,
-  onComplete,
-  onCancel,
+  eventSlug,
+  ticketTypes,
+  onSubmitCheckout,
+  currency = "USD",
 }: CheckoutFlowProps) {
-  const [currentStep, setCurrentStep] = useState<CheckoutStep>("select")
-  const [cart, setCart] = useState<CartItem[]>([])
-  const [promoCode, setPromoCode] = useState("")
-  const [discount, setDiscount] = useState(0)
-  const [loading, setLoading] = useState(false)
+  const [state, setState] = useState<CheckoutState>({
+    step: "select",
+    tickets: {},
+    total_cents: 0,
+    fees_cents: 0,
+  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState("")
 
-  // Calculate totals
-  const subtotal = cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)
-  const total = Math.max(0, subtotal - discount)
-  const steps: Array<{ id: CheckoutStep; label: string }> = [
-    { id: "select", label: "Select Tickets" },
-    { id: "promo", label: "Apply Promo" },
-    { id: "preview", label: "Review Order" },
-    { id: "payment", label: "Payment" },
-    { id: "success", label: "Success" },
-  ]
+  const selectedTickets = ticketTypes.filter((t) => (state.tickets[t.id] || 0) > 0)
+  const hasSelection = selectedTickets.length > 0
 
-  const handleAddItem = (ticketTypeId: string, ticketTypeName: string, price: number) => {
-    setCart((prev) => {
-      const existing = prev.find((item) => item.ticketTypeId === ticketTypeId)
-      if (existing) {
-        return prev.map((item) =>
-          item.ticketTypeId === ticketTypeId
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        )
-      }
-      return [...prev, { ticketTypeId, ticketTypeName, quantity: 1, unitPrice: price }]
+  const updateQuantity = (ticketId: string, delta: number) => {
+    const ticket = ticketTypes.find((t) => t.id === ticketId)
+    if (!ticket) return
+
+    const current = state.tickets[ticketId] || 0
+    const newQty = Math.max(0, Math.min(current + delta, ticket.available, ticket.per_user_limit || 99))
+
+    setState((prev) => ({
+      ...prev,
+      tickets: { ...prev.tickets, [ticketId]: newQty },
+    }))
+  }
+
+  const calculateTotals = () => {
+    let subtotal = 0
+    selectedTickets.forEach((ticket) => {
+      subtotal += ticket.price_cents * (state.tickets[ticket.id] || 0)
     })
+
+    // In production: use fn_preview_pricing RPC to compute fees
+    const fees = Math.round(subtotal * 0.1) // 10% placeholder
+    return { subtotal, fees, total: subtotal + fees }
   }
 
-  const handleApplyPromo = async () => {
-    setLoading(true)
-    try {
-      // Call API to validate promo code
-      // This would typically call an RPC or API route
-      setDiscount(1000) // Example: $10 discount
-    } finally {
-      setLoading(false)
-    }
-  }
+  const { subtotal, fees, total } = calculateTotals()
 
-  const handlePayment = async () => {
-    setLoading(true)
+  const handleCheckout = async () => {
+    if (!hasSelection) return
+
+    setIsSubmitting(true)
+    setError("")
+
     try {
-      // Call API to process payment
-      // This would call your checkout/orders API
-      setCurrentStep("success")
-      onComplete?.("order-123")
+      // In production: use fn_quote_order RPC before redirecting
+      const result = await onSubmitCheckout({
+        step: "payment",
+        tickets: state.tickets,
+        total_cents: total,
+        fees_cents: fees,
+      })
+
+      if (result.error) {
+        setError(result.error)
+      } else if (result.url) {
+        window.location.href = result.url
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Checkout failed")
     } finally {
-      setLoading(false)
+      setIsSubmitting(false)
     }
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
-      {/* Progress Steps */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          {steps.map((step, idx) => {
-            const isActive = currentStep === step.id
-            const isCompleted = steps.findIndex((s) => s.id === currentStep) > idx
-
-            return (
-              <div key={step.id} className="flex-1 flex items-center">
-                <div
-                  className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold transition-colors ${
-                    isActive
-                      ? "bg-primary text-primary-foreground"
-                      : isCompleted
-                        ? "bg-green-500 text-white"
-                        : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {isCompleted ? (
-                    <CheckCircle2 className="w-5 h-5" />
-                  ) : (
-                    idx + 1
-                  )}
-                </div>
-                {idx < steps.length - 1 && (
-                  <div
-                    className={`flex-1 h-1 mx-2 rounded-full transition-colors ${
-                      isCompleted ? "bg-green-500" : "bg-muted"
-                    }`}
-                  />
-                )}
-              </div>
-            )
-          })}
-        </div>
-        <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-          {steps.map((step) => (
-            <span key={step.id}>{step.label}</span>
-          ))}
-        </div>
+    <div className="w-full max-w-2xl mx-auto space-y-6">
+      {/* Steps */}
+      <div className="flex gap-2 overflow-x-auto">
+        {["select", "promo", "review", "payment"].map((step, idx) => (
+          <div key={step} className="flex items-center">
+            <div
+              className={cn(
+                "h-8 w-8 rounded-full flex items-center justify-center text-sm font-semibold",
+                state.step === step
+                  ? "bg-primary text-primary-foreground"
+                  : idx < ["select", "promo", "review", "payment"].indexOf(state.step)
+                    ? "bg-primary/20 text-primary"
+                    : "bg-muted text-muted-foreground"
+              )}
+            >
+              {idx + 1}
+            </div>
+            {idx < 3 && <ChevronRight className="h-4 w-4 mx-1 text-muted-foreground" />}
+          </div>
+        ))}
       </div>
 
-      {/* Step Content */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {currentStep === "select" && "Select Tickets"}
-            {currentStep === "promo" && "Apply Promo Code"}
-            {currentStep === "preview" && "Review Your Order"}
-            {currentStep === "payment" && "Payment Method"}
-            {currentStep === "success" && "Order Complete!"}
-          </CardTitle>
-          <CardDescription>{eventTitle}</CardDescription>
-        </CardHeader>
-
-        <CardContent className="space-y-6">
-          {/* SELECT STEP */}
-          {currentStep === "select" && (
-            <div className="space-y-4">
-              <div className="space-y-2 text-sm">
-                <p>Ticket options would be rendered here</p>
-                <Button
-                  onClick={() => setCurrentStep("promo")}
-                  className="w-full"
-                >
-                  Continue <ChevronRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* PROMO STEP */}
-          {currentStep === "promo" && (
-            <div className="space-y-4">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Enter promo code"
-                  value={promoCode}
-                  onChange={(e) => setPromoCode(e.target.value)}
-                />
-                <Button
-                  variant="outline"
-                  onClick={handleApplyPromo}
-                  disabled={loading || !promoCode}
-                >
-                  {loading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    "Apply"
+      {/* Select Tickets */}
+      {state.step === "select" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Select Tickets</CardTitle>
+            <CardDescription>{eventTitle}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {ticketTypes.map((ticket) => (
+              <div key={ticket.id} className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex-1">
+                  <div className="font-semibold">{ticket.name}</div>
+                  <div className="text-sm text-muted-foreground">{formatCurrency(ticket.price_cents, currency)}</div>
+                  {ticket.available < 10 && (
+                    <Badge variant="secondary" className="mt-1">
+                      Only {ticket.available} left
+                    </Badge>
                   )}
-                </Button>
-              </div>
-              {discount > 0 && (
-                <Badge variant="secondary">
-                  Discount Applied: ${(discount / 100).toFixed(2)}
-                </Badge>
-              )}
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentStep("select")}
-                  className="flex-1"
-                >
-                  Back
-                </Button>
-                <Button
-                  onClick={() => setCurrentStep("preview")}
-                  className="flex-1"
-                >
-                  Continue <ChevronRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* PREVIEW STEP */}
-          {currentStep === "preview" && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                {cart.map((item) => (
-                  <div key={item.ticketTypeId} className="flex justify-between text-sm">
-                    <span>
-                      {item.ticketTypeName} × {item.quantity}
-                    </span>
-                    <span>${(item.unitPrice * item.quantity / 100).toFixed(2)}</span>
-                  </div>
-                ))}
-              </div>
-              <Separator />
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>Subtotal</span>
-                  <span>${(subtotal / 100).toFixed(2)}</span>
                 </div>
-                {discount > 0 && (
-                  <div className="flex justify-between text-green-600">
-                    <span>Discount</span>
-                    <span>-${(discount / 100).toFixed(2)}</span>
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => updateQuantity(ticket.id, -1)}
+                    disabled={(state.tickets[ticket.id] || 0) === 0}
+                  >
+                    −
+                  </Button>
+                  <span className="w-8 text-center font-semibold">{state.tickets[ticket.id] || 0}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => updateQuantity(ticket.id, 1)}
+                    disabled={(state.tickets[ticket.id] || 0) >= ticket.available}
+                  >
+                    +
+                  </Button>
+                </div>
               </div>
-              <Separator />
-              <div className="flex justify-between font-semibold text-lg">
-                <span>Total</span>
-                <span>${(total / 100).toFixed(2)}</span>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentStep("promo")}
-                  className="flex-1"
-                >
-                  Back
-                </Button>
-                <Button
-                  onClick={() => setCurrentStep("payment")}
-                  className="flex-1"
-                >
-                  Continue <ChevronRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
-            </div>
-          )}
+            ))}
 
-          {/* PAYMENT STEP */}
-          {currentStep === "payment" && (
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Payment processing would occur here
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentStep("preview")}
-                  className="flex-1"
-                >
-                  Back
-                </Button>
-                <Button
-                  onClick={handlePayment}
-                  disabled={loading}
-                  className="flex-1"
-                >
-                  {loading ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : null}
-                  Pay ${(total / 100).toFixed(2)}
-                </Button>
-              </div>
-            </div>
-          )}
+            <Button
+              onClick={() => setState((prev) => ({ ...prev, step: "promo" }))}
+              disabled={!hasSelection}
+              className="w-full"
+            >
+              Continue to Promo <ChevronRight className="h-4 w-4 ml-2" />
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
-          {/* SUCCESS STEP */}
-          {currentStep === "success" && (
-            <div className="space-y-4 text-center">
-              <div className="flex justify-center">
-                <CheckCircle2 className="w-12 h-12 text-green-500" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg">Order Confirmed!</h3>
-                <p className="text-sm text-muted-foreground">
-                  Your tickets have been minted and are ready to use.
-                </p>
-              </div>
-              <Button onClick={onCancel} className="w-full">
-                Done
+      {/* Promo Code */}
+      {state.step === "promo" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Promo Code</CardTitle>
+            <CardDescription>Enter a promo code if you have one</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Input
+              placeholder="SUMMER20"
+              value={state.promoCode || ""}
+              onChange={(e) => setState((prev) => ({ ...prev, promoCode: e.target.value }))}
+            />
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setState((prev) => ({ ...prev, step: "select" }))}
+                className="flex-1"
+              >
+                Back
+              </Button>
+              <Button
+                onClick={() => setState((prev) => ({ ...prev, step: "review" }))}
+                className="flex-1"
+              >
+                Continue <ChevronRight className="h-4 w-4 ml-2" />
               </Button>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Review */}
+      {state.step === "review" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Order Review</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              {selectedTickets.map((ticket) => (
+                <div key={ticket.id} className="flex justify-between text-sm">
+                  <span>
+                    {ticket.name} × {state.tickets[ticket.id]}
+                  </span>
+                  <span>{formatCurrency(ticket.price_cents * (state.tickets[ticket.id] || 0), currency)}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="border-t pt-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Subtotal</span>
+                <span>{formatCurrency(subtotal, currency)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Fees</span>
+                <span>{formatCurrency(fees, currency)}</span>
+              </div>
+              <div className="flex justify-between font-semibold text-lg border-t pt-2">
+                <span>Total</span>
+                <span>{formatCurrency(total, currency)}</span>
+              </div>
+            </div>
+
+            {error && (
+              <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-lg">{error}</div>
+            )}
+
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setState((prev) => ({ ...prev, step: "promo" }))}
+                className="flex-1"
+              >
+                Back
+              </Button>
+              <Button onClick={handleCheckout} disabled={isSubmitting} className="flex-1">
+                {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {isSubmitting ? "Processing..." : "Continue to Payment"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
