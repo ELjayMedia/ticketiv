@@ -1,70 +1,37 @@
+import { CardDescription } from "@/components/ui/card"
 import { notFound } from "next/navigation"
-import { EventCard } from "@/components/events/event-card"
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { EventCardStandard } from "@/components/standardized/event-card-standard"
+import type { EventCardData } from "@/components/standardized/event-card-standard"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { getPublicEvents } from "@/lib/data/events"
-import type { EventSummary } from "@/types"
+import { getOrganiserDetail, getOrganiserEvents } from "@/lib/data/public"
+import EventCard from "@/components/standardized/event-card"
 
 interface OrganizerPageProps {
   params: { id: string }
 }
 
 export default async function OrganizerPage({ params }: OrganizerPageProps) {
-  const supabase = createServerSupabaseClient()
-  let organizer: any = null
-  let organizerEvents: EventSummary[] = []
+  const organizer = await getOrganiserDetail(params.id)
+  const events = await getOrganiserEvents(params.id)
 
-  if (supabase) {
-    // Fetch organizer
-    const { data: orgData, error: orgError } = await supabase
-      .from("organizations")
-      .select("*")
-      .eq("id", params.id)
-      .maybeSingle()
-
-    if (!orgError && orgData) {
-      organizer = orgData
-    }
-
-    // Fetch events by this organizer
-    if (organizer) {
-      const { data: eventData } = await supabase
-        .from("events")
-        .select(
-          `
-          id, title, slug, status, category, start_date, location,
-          venues(id, name, address_line1, city, timezone),
-          ticket_types(id, price_cents, currency)
-        `
-        )
-        .eq("organizer_id", params.id)
-        .eq("status", "published")
-        .order("start_date", { ascending: true })
-
-      if (eventData) {
-        organizerEvents = eventData.map((event: any) => ({
-          id: event.id,
-          title: event.title,
-          slug: event.slug,
-          city: event.venues?.city || event.location || null,
-          category: event.category,
-          visibility: event.status,
-          venues: event.venues
-            ? {
-                id: event.venues.id,
-                name: event.venues.name,
-                address: event.venues.address_line1,
-                city: event.venues.city,
-                tz: event.venues.timezone,
-              }
-            : null,
-          event_dates: [{ id: `${event.id}-date`, starts_at: event.start_date, ends_at: null }],
-          ticket_types: event.ticket_types || [],
-        }))
-      }
-    }
-  }
+  const organizerEvents = events.map((event) => ({
+    id: event.id,
+    name: event.name,
+    category: event.category,
+    visibility: event.status,
+    venues: event.venues
+      ? {
+          id: event.venues.id,
+          name: event.venues.name,
+          address: event.venues.address_line1,
+          city: event.venues.city,
+          tz: event.venues.timezone,
+        }
+      : null,
+    event_dates: [{ id: `${event.id}-date`, starts_at: event.start_date, ends_at: null }],
+    ticket_types: event.ticket_types || [],
+  }))
 
   if (!organizer) {
     notFound()

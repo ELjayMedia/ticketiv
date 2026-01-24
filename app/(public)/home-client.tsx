@@ -1,34 +1,27 @@
 'use client'
 
 import React from "react"
-
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ChevronRight, CalendarDays, Music, Martini, Theater, Gamepad2, Briefcase, UtensilsCrossed, Heart } from "lucide-react"
+import { ChevronRight } from "lucide-react"
 
-import { EventCard } from "@/components/events/event-card"
+import { EventCardStandard } from "@/components/standardized/event-card-standard"
+import type { EventCardData } from "@/components/standardized/event-card-standard"
 import { Button } from "@/components/ui/button"
 import { SearchInput } from "@/components/ui/search-input"
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
-import { CategoryRail } from "@/components/ui/category-rail"
-import type { CategoryItem } from "@/components/ui/category-rail"
-import type { ArtistRecord, EventSummary } from "@/types"
 import { createClient } from "@/lib/supabase"
 
-const CATEGORY_ITEMS: CategoryItem[] = [
-  { id: "nye", label: "NYE", icon: CalendarDays, isNew: true },
-  { id: "music", label: "Music", icon: Music },
-  { id: "nightlife", label: "Nightlife", icon: Martini },
-  { id: "arts", label: "Performing & Visual Arts", icon: Theater },
-  { id: "hobbies", label: "Hobbies", icon: Gamepad2 },
-  { id: "business", label: "Business", icon: Briefcase },
-  { id: "food", label: "Food & Drink", icon: UtensilsCrossed },
-  { id: "dating", label: "Dating", icon: Heart },
-]
+interface ArtistRecord {
+  id: string
+  name: string
+  avatar_url?: string
+  role?: string
+}
 
 interface HomeClientProps {
-  initialEvents: EventSummary[]
+  initialEvents: EventCardData[]
 }
 
 export default function HomeClient({ initialEvents }: HomeClientProps) {
@@ -105,8 +98,8 @@ export default function HomeClient({ initialEvents }: HomeClientProps) {
                     <h2 className="text-2xl font-bold text-white mb-2 sm:mb-4 sm:text-2xl font-sans mt-0">
                       {event.title}
                     </h2>
-                    <Button size="lg" className="w-fit gap-2 text-sm sm:text-base">
-                      Get Tickets Now
+                  <Button size="lg" className="w-fit gap-2 text-sm sm:text-base">
+                      Explore Event
                       <ChevronRight className="w-4 h-4" />
                     </Button>
                   </div>
@@ -119,15 +112,20 @@ export default function HomeClient({ initialEvents }: HomeClientProps) {
         <CarouselNext className="hidden sm:flex right-4" />
       </Carousel>
 
-      <CategoryRail
-        items={CATEGORY_ITEMS}
-        value={selectedCategory}
-        onChange={(id) => {
-          setSelectedCategory(id)
-          window.location.href = `/browse?category=${id}`
-        }}
-        className="mt-8"
-      />
+      {/* Events Grid */}
+      <div className="space-y-4 mt-12">
+        <div className="flex items-center justify-between">
+          <h2 className="font-bold text-xl sm:text-2xl">Featured Events</h2>
+          <Link href="/browse" className="text-sm text-primary hover:underline">
+            View all
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {initialEvents.map((event) => (
+            <EventCardStandard key={event.id} event={event} />
+          ))}
+        </div>
+      </div>
 
       {artists.length > 0 && (
         <div className="space-y-4">
