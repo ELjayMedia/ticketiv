@@ -28,10 +28,32 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Check authentication
-  const demoUser = getDemoSession()
   let userId: string | null = null
+  const demoUser = getDemoSession()
 
+  // Event creation routes - require authentication only, no org membership
+  if (pathname.startsWith("/events/create")) {
+    if (demoUser) {
+      userId = demoUser.id
+    } else {
+      const supabase = createServerSupabaseClient()
+      if (supabase) {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+        userId = session?.user?.id || null
+      }
+    }
+
+    if (!userId) {
+      console.log("[v0] Unauthenticated access attempt to event creation:", pathname)
+      return NextResponse.redirect(new URL("/login", request.url))
+    }
+
+    return NextResponse.next()
+  }
+
+  // For all other protected routes, check authentication
   if (demoUser) {
     userId = demoUser.id
   } else {
@@ -88,7 +110,7 @@ export async function middleware(request: NextRequest) {
   return NextResponse.next()
 }
 
-/**
+/**\
  * Checks if user exists in admin_users table
  */
 async function checkGlobalAdmin(userId: string): Promise<boolean> {
