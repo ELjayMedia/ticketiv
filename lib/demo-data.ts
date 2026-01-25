@@ -82,6 +82,10 @@ export function getDemoEventOrders(eventId: string) {
   })
 }
 
+export function getDemoOrganization(orgId: string) {
+  return DEMO_ORGANISERS.find((org) => org.id === orgId) || null
+}
+
 export function getDemoTicketDetail(itemId: string) {
   const item = DEMO_ORDER_ITEMS.find((i) => i.id === itemId)
   if (!item) return null
