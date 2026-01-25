@@ -166,3 +166,5 @@ export function EventCardStandard({ event, onSave }: EventCardProps) {
     </>
   )
 }
+
+export default EventCardStandard

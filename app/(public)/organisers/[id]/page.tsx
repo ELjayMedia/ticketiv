@@ -1,11 +1,11 @@
 import { CardDescription } from "@/components/ui/card"
 import { notFound } from "next/navigation"
-import { EventCardStandard } from "@/components/standardized/event-card-standard"
+import { EventCardStandard as EventCard } from "@/components/standardized/event-card-standard"
 import type { EventCardData } from "@/components/standardized/event-card-standard"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { getOrganiserDetail, getOrganiserEvents } from "@/lib/data/public"
-import EventCard from "@/components/standardized/event-card"
+import EventCardStandard from "@/components/standardized/event-card-standard" // Import EventCardStandard
 
 interface OrganizerPageProps {
   params: { id: string }
@@ -15,22 +15,20 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
   const organizer = await getOrganiserDetail(params.id)
   const events = await getOrganiserEvents(params.id)
 
-  const organizerEvents = events.map((event) => ({
+  const organizerEvents: EventCardData[] = events.map((event) => ({
     id: event.id,
-    name: event.name,
-    category: event.category,
-    visibility: event.status,
-    venues: event.venues
-      ? {
-          id: event.venues.id,
-          name: event.venues.name,
-          address: event.venues.address_line1,
-          city: event.venues.city,
-          tz: event.venues.timezone,
-        }
-      : null,
-    event_dates: [{ id: `${event.id}-date`, starts_at: event.start_date, ends_at: null }],
-    ticket_types: event.ticket_types || [],
+    slug: event.slug,
+    title: event.title,
+    poster_url: event.poster_url,
+    starts_at: event.starts_at,
+    city: event.city,
+    venue_name: event.venue_name,
+    min_price_cents: event.min_price_cents,
+    max_price_cents: event.max_price_cents,
+    currency: event.currency,
+    is_promoted: event.is_promoted,
+    organizer_name: organizer.name,
+    tickets_remaining: event.tickets_remaining,
   }))
 
   if (!organizer) {
@@ -87,7 +85,7 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
         ) : (
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {organizerEvents.map((event) => (
-              <EventCard key={event.id} event={event} />
+              <EventCard key={event.id} event={event} /> // Use EventCard instead of EventCardStandard
             ))}
           </div>
         )}

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { getUserProfile } from "@/lib/data/public/profiles"
 
 export const dynamic = "force-dynamic"
 
@@ -19,7 +20,7 @@ export default async function ProfilePage() {
   } = await supabase.auth.getSession()
   if (!session) redirect("/login")
 
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+  const profile = await getUserProfile(session.user.id)
 
   return (
     <div className="mx-auto max-w-[980px] space-y-6 px-4 py-10 sm:px-6 lg:px-8">
@@ -40,7 +41,7 @@ export default async function ProfilePage() {
             </div>
             <div>
               <Label htmlFor="name">Full Name</Label>
-              <Input id="name" defaultValue={profile?.full_name || ""} placeholder="Your full name" className="mt-1" />
+              <Input id="name" defaultValue={profile?.name || ""} placeholder="Your full name" className="mt-1" />
             </div>
             <div>
               <Label htmlFor="phone">Phone</Label>
