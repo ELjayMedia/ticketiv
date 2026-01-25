@@ -144,7 +144,7 @@ export function DesktopShell({ children, user, workspace, onLogout }: DesktopShe
           {/* Create Event Button - Show for organizer and app workspaces */}
           {(workspace === "organizer" || workspace === "app") && (
             <Button asChild className="gap-2" aria-label="Create new event">
-              <Link href={`/orgs/${currentOrg.id}/events/new`}>
+              <Link href="/events/create">
                 <Plus className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden sm:inline">Create Event</span>
               </Link>
