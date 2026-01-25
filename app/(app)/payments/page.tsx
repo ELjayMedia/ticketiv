@@ -21,9 +21,7 @@ export default async function PaymentsPage() {
       created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
       order: {
         id: "order_1",
-        event: {
-          title: "Vodacom Bulls Championship Match",
-        },
+        event_title: "Vodacom Bulls Championship Match",
       },
     },
     {
@@ -34,9 +32,7 @@ export default async function PaymentsPage() {
       created_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
       order: {
         id: "order_2",
-        event: {
-          title: "Betway SA20 Season 4",
-        },
+        event_title: "Betway SA20 Season 4",
       },
     },
   ]
@@ -60,7 +56,8 @@ export default async function PaymentsPage() {
 
       if (!session) redirect("/login")
 
-      const { data } = await supabase
+      // Fetch payments with order relationship only (no nested events join)
+      const { data: paymentsData, error: paymentsError } = await supabase
         .from("payments")
         .select(`
           id,
@@ -68,12 +65,46 @@ export default async function PaymentsPage() {
           currency,
           status,
           created_at,
-          order:orders(id, event_id, event:events(title))
+          order:orders(id, event_id)
         `)
         .eq("user_id", session.user.id)
         .order("created_at", { ascending: false })
 
-      payments = data || []
+      if (paymentsError) {
+        console.error("[v0] Error fetching payments:", paymentsError)
+        payments = mockPayments
+      } else if (paymentsData) {
+        // For each payment, fetch the event title separately
+        const paymentWithEvents = await Promise.all(
+          paymentsData.map(async (payment: any) => {
+            if (!payment.order?.event_id) {
+              return {
+                ...payment,
+                order: {
+                  ...payment.order,
+                  event_title: "Unknown Event",
+                },
+              }
+            }
+
+            const { data: eventData } = await supabase
+              .from("events")
+              .select("title")
+              .eq("id", payment.order.event_id)
+              .single()
+
+            return {
+              ...payment,
+              order: {
+                ...payment.order,
+                event_title: eventData?.title || "Unknown Event",
+              },
+            }
+          })
+        )
+
+        payments = paymentWithEvents
+      }
     }
   }
 
@@ -94,14 +125,21 @@ export default async function PaymentsPage() {
           ) : (
             <div className="space-y-4">
               {payments.map((payment: any) => (
-                <div key={payment.id} className="flex items-center justify-between border-b pb-4 last:border-b-0">
+                <div
+                  key={payment.id}
+                  className="flex items-center justify-between border-b pb-4 last:border-b-0"
+                >
                   <div>
-                    <p className="font-medium">{payment.order?.event?.title}</p>
-                    <p className="text-sm text-muted-foreground">{new Date(payment.created_at).toLocaleDateString()}</p>
+                    <p className="font-medium">{payment.order?.event_title || "Unknown Event"}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {new Date(payment.created_at).toLocaleDateString()}
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className="font-semibold">R{(payment.amount / 100).toFixed(2)}</p>
-                    <Badge variant={payment.status === "completed" ? "default" : "secondary"}>{payment.status}</Badge>
+                    <Badge variant={payment.status === "completed" ? "default" : "secondary"}>
+                      {payment.status}
+                    </Badge>
                   </div>
                 </div>
               ))}

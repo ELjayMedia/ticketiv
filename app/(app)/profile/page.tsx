@@ -1,76 +1,227 @@
-import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { redirect } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+"use client"
+
+import { useState } from "react"
+import { createClient } from "@/lib/supabase"
+import { useRouter } from "next/navigation"
+import { Bell, Globe, Users, UserPlus, HelpCircle, Lock, LogOut, User } from "lucide-react"
+import { Card } from "@/components/ui/card"
+import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { useEffect } from "react"
 
-export const dynamic = "force-dynamic"
+interface ProfileData {
+  name: string
+  avatar_url?: string
+  friends_count: number
+}
 
-export default async function ProfilePage() {
-  const supabase = createServerSupabaseClient()
+export default function ProfilePage() {
+  const router = useRouter()
+  const supabase = createClient()
+  const [profile, setProfile] = useState<ProfileData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [pushNotifications, setPushNotifications] = useState(true)
 
-  if (!supabase) {
-    return <div className="p-4 text-center">Supabase not configured</div>
+  useEffect(() => {
+    async function loadProfile() {
+      try {
+        const { data: { session } } = await supabase?.auth.getSession() || { data: { session: null } }
+        if (!session) {
+          router.push("/login")
+          return
+        }
+
+        // For demo, use hardcoded profile data
+        setProfile({
+          name: "Smit modl",
+          avatar_url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop",
+          friends_count: 10,
+        })
+      } catch (error) {
+        console.error("Failed to load profile:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadProfile()
+  }, [])
+
+  const handleLogout = async () => {
+    await supabase?.auth.signOut()
+    router.push("/login")
   }
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  if (!session) redirect("/login")
-
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+  }
 
   return (
-    <div className="mx-auto max-w-[980px] space-y-6 px-4 py-10 sm:px-6 lg:px-8">
-      <div>
-        <h1 className="text-3xl font-bold">Profile Settings</h1>
-        <p className="text-muted-foreground">Manage your account information</p>
+    <div className="min-h-screen bg-background">
+      {/* Desktop Layout */}
+      <div className="hidden md:block">
+        <div className="mx-auto max-w-2xl space-y-8 p-6 lg:p-8">
+          {/* Profile Header */}
+          <div className="flex flex-col items-center py-8 px-6 rounded-lg border bg-card">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary/40 to-primary/20 overflow-hidden mb-4">
+              {profile?.avatar_url && (
+                <img src={profile.avatar_url || "/placeholder.svg"} alt={profile.name} className="w-full h-full object-cover" />
+              )}
+            </div>
+            <h1 className="text-3xl font-bold text-foreground">{profile?.name}</h1>
+            <p className="text-base text-muted-foreground mt-2">{profile?.friends_count} Friends</p>
+          </div>
+
+          {/* My Account Section */}
+          <div className="space-y-3">
+            <h2 className="text-2xl font-bold text-foreground">My Account</h2>
+            <div className="space-y-2">
+              <Card className="border shadow-sm hover:shadow-md transition-shadow">
+                <button className="w-full flex items-center gap-4 px-6 py-4 hover:bg-accent transition-colors">
+                  <User className="h-5 w-5 text-primary" />
+                  <span className="text-base font-medium text-foreground">Personal Information</span>
+                </button>
+              </Card>
+              <Card className="border shadow-sm hover:shadow-md transition-shadow">
+                <button className="w-full flex items-center gap-4 px-6 py-4 hover:bg-accent transition-colors">
+                  <Globe className="h-5 w-5 text-primary" />
+                  <span className="text-base font-medium text-foreground">Language</span>
+                </button>
+              </Card>
+              <Card className="border shadow-sm hover:shadow-md transition-shadow">
+                <button className="w-full flex items-center gap-4 px-6 py-4 hover:bg-accent transition-colors">
+                  <Users className="h-5 w-5 text-primary" />
+                  <span className="text-base font-medium text-foreground">My Friends</span>
+                </button>
+              </Card>
+              <Card className="border shadow-sm hover:shadow-md transition-shadow">
+                <button className="w-full flex items-center gap-4 px-6 py-4 hover:bg-accent transition-colors">
+                  <UserPlus className="h-5 w-5 text-primary" />
+                  <span className="text-base font-medium text-foreground">Invite Friends</span>
+                </button>
+              </Card>
+            </div>
+          </div>
+
+          {/* Notifications Section */}
+          <div className="space-y-3">
+            <h2 className="text-2xl font-bold text-foreground">Notifications</h2>
+            <Card className="border shadow-sm">
+              <div className="flex items-center justify-between px-6 py-4">
+                <div className="flex items-center gap-4">
+                  <Bell className="h-5 w-5 text-primary" />
+                  <span className="text-base font-medium text-foreground">Push Notifications</span>
+                </div>
+                <Switch checked={pushNotifications} onCheckedChange={setPushNotifications} />
+              </div>
+            </Card>
+          </div>
+
+          {/* More Section */}
+          <div className="space-y-3">
+            <h2 className="text-2xl font-bold text-foreground">More</h2>
+            <div className="space-y-2">
+              <Card className="border shadow-sm hover:shadow-md transition-shadow">
+                <button className="w-full flex items-center gap-4 px-6 py-4 hover:bg-accent transition-colors">
+                  <HelpCircle className="h-5 w-5 text-primary" />
+                  <span className="text-base font-medium text-foreground">Help Centre</span>
+                </button>
+              </Card>
+              <Card className="border shadow-sm hover:shadow-md transition-shadow">
+                <button className="w-full flex items-center gap-4 px-6 py-4 hover:bg-accent transition-colors">
+                  <Lock className="h-5 w-5 text-primary" />
+                  <span className="text-base font-medium text-foreground">Privacy Policy</span>
+                </button>
+              </Card>
+              <Card className="border shadow-sm hover:shadow-md transition-shadow">
+                <button className="w-full flex items-center gap-4 px-6 py-4 hover:bg-accent transition-colors" onClick={handleLogout}>
+                  <LogOut className="h-5 w-5 text-primary" />
+                  <span className="text-base font-medium text-foreground">Logout</span>
+                </button>
+              </Card>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Personal Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" value={session.user.email} disabled className="mt-1" />
-            </div>
-            <div>
-              <Label htmlFor="name">Full Name</Label>
-              <Input id="name" defaultValue={profile?.full_name || ""} placeholder="Your full name" className="mt-1" />
-            </div>
-            <div>
-              <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" defaultValue={profile?.phone || ""} placeholder="Your phone number" className="mt-1" />
-            </div>
-            <Button>Update Profile</Button>
-          </CardContent>
-        </Card>
+      {/* Mobile Layout */}
+      <div className="md:hidden pb-20">
+        {/* Profile Header */}
+        <div className="flex flex-col items-center pt-8 px-4 pb-6 border-b">
+          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary/40 to-primary/20 overflow-hidden mb-3">
+            {profile?.avatar_url && (
+              <img src={profile.avatar_url || "/placeholder.svg"} alt={profile.name} className="w-full h-full object-cover" />
+            )}
+          </div>
+          <h1 className="text-2xl font-bold text-foreground">{profile?.name}</h1>
+          <p className="text-sm text-muted-foreground">{profile?.friends_count} Friends</p>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Account</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="text-sm text-muted-foreground">Member since</p>
-              <p className="font-medium">{new Date(session.user.created_at || "").toLocaleDateString()}</p>
+        {/* My Account Section */}
+        <div className="px-4 py-4 space-y-2">
+          <h2 className="text-lg font-bold text-foreground mb-3">My Account</h2>
+          <Card className="border-none shadow-none bg-card/50">
+            <button className="w-full flex items-center gap-4 px-4 py-3 hover:bg-accent transition-colors">
+              <User className="h-5 w-5 text-primary" />
+              <span className="text-sm font-medium text-foreground">Personal Information</span>
+            </button>
+          </Card>
+          <Card className="border-none shadow-none bg-card/50">
+            <button className="w-full flex items-center gap-4 px-4 py-3 hover:bg-accent transition-colors">
+              <Globe className="h-5 w-5 text-primary" />
+              <span className="text-sm font-medium text-foreground">Language</span>
+            </button>
+          </Card>
+          <Card className="border-none shadow-none bg-card/50">
+            <button className="w-full flex items-center gap-4 px-4 py-3 hover:bg-accent transition-colors">
+              <Users className="h-5 w-5 text-primary" />
+              <span className="text-sm font-medium text-foreground">My Friends</span>
+            </button>
+          </Card>
+          <Card className="border-none shadow-none bg-card/50">
+            <button className="w-full flex items-center gap-4 px-4 py-3 hover:bg-accent transition-colors">
+              <UserPlus className="h-5 w-5 text-primary" />
+              <span className="text-sm font-medium text-foreground">Invite Friends</span>
+            </button>
+          </Card>
+        </div>
+
+        {/* Notifications Section */}
+        <div className="px-4 py-4 space-y-2">
+          <h2 className="text-lg font-bold text-foreground mb-3">Notifications</h2>
+          <Card className="border-none shadow-none bg-card/50">
+            <div className="flex items-center justify-between px-4 py-3">
+              <div className="flex items-center gap-4">
+                <Bell className="h-5 w-5 text-primary" />
+                <span className="text-sm font-medium text-foreground">Push Notifications</span>
+              </div>
+              <Switch checked={pushNotifications} onCheckedChange={setPushNotifications} />
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Last login</p>
-              <p className="font-medium">{new Date(session.user.last_sign_in_at || "").toLocaleDateString()}</p>
-            </div>
-            <Button variant="outline" className="w-full bg-transparent">
-              Change Password
-            </Button>
-            <Button variant="destructive" className="w-full">
-              Sign Out
-            </Button>
-          </CardContent>
-        </Card>
+          </Card>
+        </div>
+
+        {/* More Section */}
+        <div className="px-4 py-4 space-y-2">
+          <h2 className="text-lg font-bold text-foreground mb-3">More</h2>
+          <Card className="border-none shadow-none bg-card/50">
+            <button className="w-full flex items-center gap-4 px-4 py-3 hover:bg-accent transition-colors">
+              <HelpCircle className="h-5 w-5 text-primary" />
+              <span className="text-sm font-medium text-foreground">Help Centre</span>
+            </button>
+          </Card>
+          <Card className="border-none shadow-none bg-card/50">
+            <button className="w-full flex items-center gap-4 px-4 py-3 hover:bg-accent transition-colors">
+              <Lock className="h-5 w-5 text-primary" />
+              <span className="text-sm font-medium text-foreground">Privacy Policy</span>
+            </button>
+          </Card>
+          <Card className="border-none shadow-none bg-card/50">
+            <button className="w-full flex items-center gap-4 px-4 py-3 hover:bg-accent transition-colors" onClick={handleLogout}>
+              <LogOut className="h-5 w-5 text-primary" />
+              <span className="text-sm font-medium text-foreground">Logout</span>
+            </button>
+          </Card>
+        </div>
       </div>
     </div>
   )

@@ -1,0 +1,76 @@
+import type React from "react"
+import { redirect, notFound } from "next/navigation"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { getDemoSession } from "@/lib/demo-auth"
+import { getDemoOrganization } from "@/lib/demo-data"
+
+/**
+ * Org-scoped layout
+ * Enforces that user is a member of the org before accessing any subroutes
+ * e.g., /orgs/[orgId]/dashboard, /orgs/[orgId]/members, /orgs/[orgId]/settings, etc.
+ */
+export default async function OrgLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode
+  params: { orgId: string }
+}) {
+  const orgId = params.orgId
+  const demoUser = getDemoSession()
+
+  // Demo mode check
+  if (demoUser) {
+    const org = getDemoOrganization(orgId)
+    if (!org) {
+      notFound()
+    }
+
+    // In demo: only allow access if org matches user's org
+    if (demoUser.org_id !== orgId) {
+      console.warn("[v0] Demo user attempting access to different org:", demoUser.email, orgId)
+      return redirect("/403")
+    }
+
+    console.log("[v0] Demo org access granted:", orgId)
+    return <>{children}</>
+  }
+
+  // Production: verify org membership server-side
+  const supabase = createServerSupabaseClient()
+  if (!supabase) {
+    return redirect("/login")
+  }
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  if (!session) {
+    return redirect("/login")
+  }
+
+  const userId = session.user.id
+
+  // Check if user is a member of this org
+  const { data: membership, error: queryError } = await supabase
+    .from("org_members")
+    .select("org_id, role")
+    .eq("user_id", userId)
+    .eq("org_id", orgId)
+    .maybeSingle()
+
+  if (queryError) {
+    console.error("[v0] Error checking org membership in layout:", queryError)
+    return redirect("/login")
+  }
+
+  if (!membership) {
+    console.warn("[v0] User is not a member of org:", userId, orgId)
+    return redirect("/403")
+  }
+
+  console.log("[v0] Org layout access granted. User role:", membership.role)
+
+  return <>{children}</>
+}

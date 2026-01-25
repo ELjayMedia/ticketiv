@@ -18,35 +18,47 @@ export async function GET(request: Request) {
     const supabase = createServerSupabaseClient()
 
     if (!supabase) {
+      console.error("[v0] Supabase not configured for auth callback")
       return NextResponse.redirect(`${requestUrl.origin}/login`)
     }
 
-    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+    try {
+      const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
 
-    if (exchangeError) {
-      console.error("[v0] Code exchange error:", exchangeError)
-      return NextResponse.redirect(`${requestUrl.origin}/auth/verify-email?error=expired`)
-    }
-
-    // Check user's org membership to determine redirect
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-
-    if (session?.user) {
-      const { data: orgMember } = await supabase
-        .from("org_members")
-        .select("role")
-        .eq("user_id", session.user.id)
-        .maybeSingle()
-
-      if (orgMember?.role === "admin" || orgMember?.role === "organizer") {
-        return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
+      if (exchangeError) {
+        console.error("[v0] Code exchange error:", exchangeError)
+        return NextResponse.redirect(`${requestUrl.origin}/auth/verify-email?error=expired`)
       }
-    }
 
-    return NextResponse.redirect(`${requestUrl.origin}/app/home`)
+      console.log("[v0] Session exchanged successfully via auth callback")
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (session?.user) {
+        console.log("[v0] User authenticated:", session.user.id)
+        
+        const { data: orgMember } = await supabase
+          .from("org_members")
+          .select("role")
+          .eq("user_id", session.user.id)
+          .maybeSingle()
+
+        if (orgMember?.role === "admin" || orgMember?.role === "organizer") {
+          console.log("[v0] Redirecting to organizer dashboard")
+          return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
+        }
+      }
+
+      console.log("[v0] Redirecting to home")
+      return NextResponse.redirect(`${requestUrl.origin}/`)
+    } catch (error) {
+      console.error("[v0] Unexpected error in auth callback:", error)
+      return NextResponse.redirect(`${requestUrl.origin}/login?error=callback_failed`)
+    }
   }
 
+  console.warn("[v0] Auth callback received without code or error")
   return NextResponse.redirect(`${requestUrl.origin}/login`)
 }

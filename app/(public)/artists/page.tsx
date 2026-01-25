@@ -2,27 +2,24 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { SearchInput } from "@/components/ui/search-input"
-import type { ArtistRecord } from "@/types"
+import { getPublicArtists } from "@/lib/data/public"
+import type { Artist } from "@/lib/data/public/artists"
 
 export default function ArtistsPage() {
-  const [artists, setArtists] = useState<ArtistRecord[]>([])
-  const [filteredArtists, setFilteredArtists] = useState<ArtistRecord[]>([])
+  const [artists, setArtists] = useState<Artist[]>([])
+  const [filteredArtists, setFilteredArtists] = useState<Artist[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchArtists = async () => {
       try {
-        const response = await fetch("/api/artists")
-        if (response.ok) {
-          const data = await response.json()
-          setArtists(data)
-          setFilteredArtists(data)
-        }
+        const data = await getPublicArtists({ limit: 50 })
+        setArtists(data)
+        setFilteredArtists(data)
       } catch (error) {
         console.error("[v0] Failed to fetch artists:", error)
       } finally {
