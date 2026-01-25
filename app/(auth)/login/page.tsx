@@ -29,23 +29,25 @@ export default function LoginPage() {
     try {
       if (!email.trim() || !password.trim()) {
         setError("Please enter both email and password")
+        setLoading(false)
         return
       }
 
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
       if (!emailRegex.test(email)) {
         setError("Please enter a valid email address")
+        setLoading(false)
         return
       }
 
       const demoUser = isDemoCredentials(email.trim(), password)
       if (demoUser) {
         setDemoSession(demoUser)
-        console.log("[v0] Demo login successful for:", demoUser.email)
-
-      const redirectPath =
-        demoUser.role === "organizer" ? "/dashboard" : demoUser.role === "staff" ? "/scan" : "/"
-      window.location.href = redirectPath
+        console.log("[v0] Demo session established for:", demoUser.email)
+        
+        const redirectPath =
+          demoUser.role === "organizer" ? "/dashboard" : demoUser.role === "staff" ? "/scan" : "/"
+        window.location.href = redirectPath
         return
       }
 
@@ -53,6 +55,7 @@ export default function LoginPage() {
 
       if (!supabase) {
         setError("Demo mode: Use demo@ticketiv.com / demo123456 or organizer@ticketiv.com / organizer123456")
+        setLoading(false)
         return
       }
 
@@ -69,13 +72,17 @@ export default function LoginPage() {
         } else {
           setError("Unable to sign in. Please check your credentials and try again.")
         }
+        setLoading(false)
         return
       }
 
       if (!authData.user) {
         setError("Sign in failed. Please try again.")
+        setLoading(false)
         return
       }
+
+      console.log("[v0] Session established for user:", authData.user.id)
 
       const { data: orgMember } = await supabase
         .from("org_members")
@@ -91,7 +98,6 @@ export default function LoginPage() {
     } catch (err: any) {
       setError("An unexpected error occurred. Please try again.")
       console.error("[v0] Login error:", err)
-    } finally {
       setLoading(false)
     }
   }

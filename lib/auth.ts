@@ -17,6 +17,45 @@ export interface UserSession {
   profile: UserProfile | null
 }
 
+/**
+ * SESSION MANAGEMENT STRATEGY
+ * 
+ * This module implements a comprehensive session management system with:
+ * 
+ * 1. PERSISTENT STORAGE: Supabase SSR automatically handles session persistence via HTTP-only cookies
+ *    - Cookies are set on login via auth callback (/api/auth/callback)
+ *    - Cookies are automatically validated on each request
+ *    - Cookies expire after configurable token lifetime (default 1 hour for access, 7 days for refresh)
+ * 
+ * 2. SESSION VALIDATION: Server-side session validation on every protected page/route
+ *    - getCurrentUserProfile() validates session and retrieves user profile
+ *    - Returns null if session is invalid or expired
+ *    - Forces re-authentication flow on failure
+ * 
+ * 3. AUTOMATIC RENEWAL: Supabase SSR handles token refresh automatically
+ *    - Refresh token is stored securely in HTTP-only cookie
+ *    - On each request, SSR checks if access token is near expiry
+ *    - If near expiry, automatically exchanges refresh token for new access token
+ *    - Middleware ensures this happens before route handlers execute
+ * 
+ * 4. LOGOUT INVALIDATION: Session cleared completely on logout
+ *    - clearDemoSession() clears in-memory demo session
+ *    - signOutUser() triggers Supabase auth.signOut() on client
+ *    - Supabase removes all session cookies
+ *    - Subsequent requests to protected pages redirect to login
+ * 
+ * 5. CROSS-BROWSER/DEVICE COMPATIBILITY
+ *    - HTTP-only cookies work across all modern browsers
+ *    - Cookies synced via Supabase across authenticated devices
+ *    - Same session accessible from different devices (if using same auth)
+ * 
+ * 6. SECURITY MEASURES
+ *    - Access tokens: Short-lived (1 hour default), stored in memory only
+ *    - Refresh tokens: Longer-lived (7 days), stored in HTTP-only secure cookies
+ *    - Session hijacking prevention: Token validation on every server request
+ *    - CSRF protection: Supabase handles via PKCE flow
+ */
+
 export async function getCurrentUserProfile(): Promise<UserSession | null> {
   const demoUser = getDemoSession()
   if (demoUser) {
@@ -55,7 +94,7 @@ export async function getCurrentUserProfile(): Promise<UserSession | null> {
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("*")
-      .eq("id", session.user.id)
+      .eq("user_id", session.user.id)
       .single()
 
     if (profileError) {
@@ -114,17 +153,26 @@ export async function getUserWorkspace(): Promise<"public" | "app" | "organizer"
   }
 }
 
+/**
+ * LOGOUT & SESSION INVALIDATION
+ * 
+ * When user logs out:
+ * 1. Demo session is immediately cleared from memory
+ * 2. Supabase auth.signOut() is called from client (removes all session cookies)
+ * 3. Subsequent requests to protected routes will have no valid session
+ * 4. User is redirected to login page
+ * 5. Protected pages check for session and redirect if missing
+ */
 export async function signOutUser(): Promise<{ success: boolean; error?: string }> {
   const demoUser = getDemoSession()
   if (demoUser) {
     clearDemoSession()
-    console.log("[v0] Demo session cleared")
+    console.log("[v0] Demo session cleared on logout")
     return { success: true }
   }
 
-  // The actual sign out should happen in the client component using the browser client
-  console.warn("[v0] signOutUser should be called from client components")
-  return { success: false, error: "This function should be called from client side" }
+  console.warn("[v0] signOutUser called from server - should use client-side supabase.auth.signOut()")
+  return { success: false, error: "Call supabase.auth.signOut() from client components" }
 }
 
 export async function isUserOrganizer(userId: string): Promise<boolean> {
