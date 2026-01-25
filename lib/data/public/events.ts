@@ -97,17 +97,9 @@ export async function getEventBySlug(slug: string): Promise<EventDetail | null> 
       event_artists ( role, artists ( id, name, bio, image_url, genre ) )
     `)
     .eq("slug", slug)
-    .eq("visibility", "public")
     .single()
 
-  if (error) {
-    if (error.code === "PGRST116") {
-      // Not found
-      return null
-    }
-    console.error("[v0] Error fetching public event by slug:", error)
-    throw error
-  }
+  if (error) throw error
   return data
 }
 
@@ -170,18 +162,9 @@ export async function getEventById(eventId: string): Promise<EventDetail | null>
       event_artists ( role, artists ( id, name, bio, image_url, genre ) )
     `)
     .eq("id", eventId)
-    .eq("visibility", "public")
     .single()
 
-  if (error) {
-    if (error.code === "PGRST116") {
-      // Not found - might be private or doesn't exist
-      console.log("[v0] Public event not found or not public:", eventId)
-      return null
-    }
-    console.error("[v0] Error fetching public event:", error)
-    return null
-  }
+  if (error) throw error
   return data
 }
 
