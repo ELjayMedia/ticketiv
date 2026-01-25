@@ -57,82 +57,171 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      {/* Profile Header */}
-      <div className="flex flex-col items-center pt-8 px-4 pb-6 border-b">
-        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary/40 to-primary/20 overflow-hidden mb-3">
-          {profile?.avatar_url && (
-            <img src={profile.avatar_url || "/placeholder.svg"} alt={profile.name} className="w-full h-full object-cover" />
-          )}
-        </div>
-        <h1 className="text-2xl font-bold text-foreground">{profile?.name}</h1>
-        <p className="text-sm text-muted-foreground">{profile?.friends_count} Friends</p>
-      </div>
-
-      {/* My Account Section */}
-      <div className="px-4 py-4 space-y-2">
-        <h2 className="text-lg font-bold text-foreground mb-3">My Account</h2>
-        <Card className="border-none shadow-none bg-card/50">
-          <button className="w-full flex items-center gap-4 px-4 py-3 hover:bg-accent transition-colors">
-            <User className="h-5 w-5 text-primary" />
-            <span className="text-sm font-medium text-foreground">Personal Information</span>
-          </button>
-        </Card>
-        <Card className="border-none shadow-none bg-card/50">
-          <button className="w-full flex items-center gap-4 px-4 py-3 hover:bg-accent transition-colors">
-            <Globe className="h-5 w-5 text-primary" />
-            <span className="text-sm font-medium text-foreground">Language</span>
-          </button>
-        </Card>
-        <Card className="border-none shadow-none bg-card/50">
-          <button className="w-full flex items-center gap-4 px-4 py-3 hover:bg-accent transition-colors">
-            <Users className="h-5 w-5 text-primary" />
-            <span className="text-sm font-medium text-foreground">My Friends</span>
-          </button>
-        </Card>
-        <Card className="border-none shadow-none bg-card/50">
-          <button className="w-full flex items-center gap-4 px-4 py-3 hover:bg-accent transition-colors">
-            <UserPlus className="h-5 w-5 text-primary" />
-            <span className="text-sm font-medium text-foreground">Invite Friends</span>
-          </button>
-        </Card>
-      </div>
-
-      {/* Notifications Section */}
-      <div className="px-4 py-4 space-y-2">
-        <h2 className="text-lg font-bold text-foreground mb-3">Notifications</h2>
-        <Card className="border-none shadow-none bg-card/50">
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="flex items-center gap-4">
-              <Bell className="h-5 w-5 text-primary" />
-              <span className="text-sm font-medium text-foreground">Push Notifications</span>
+    <div className="min-h-screen bg-background">
+      {/* Desktop Layout */}
+      <div className="hidden md:block">
+        <div className="mx-auto max-w-2xl space-y-8 p-6 lg:p-8">
+          {/* Profile Header */}
+          <div className="flex flex-col items-center py-8 px-6 rounded-lg border bg-card">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary/40 to-primary/20 overflow-hidden mb-4">
+              {profile?.avatar_url && (
+                <img src={profile.avatar_url || "/placeholder.svg"} alt={profile.name} className="w-full h-full object-cover" />
+              )}
             </div>
-            <Switch checked={pushNotifications} onCheckedChange={setPushNotifications} />
+            <h1 className="text-3xl font-bold text-foreground">{profile?.name}</h1>
+            <p className="text-base text-muted-foreground mt-2">{profile?.friends_count} Friends</p>
           </div>
-        </Card>
+
+          {/* My Account Section */}
+          <div className="space-y-3">
+            <h2 className="text-2xl font-bold text-foreground">My Account</h2>
+            <div className="space-y-2">
+              <Card className="border shadow-sm hover:shadow-md transition-shadow">
+                <button className="w-full flex items-center gap-4 px-6 py-4 hover:bg-accent transition-colors">
+                  <User className="h-5 w-5 text-primary" />
+                  <span className="text-base font-medium text-foreground">Personal Information</span>
+                </button>
+              </Card>
+              <Card className="border shadow-sm hover:shadow-md transition-shadow">
+                <button className="w-full flex items-center gap-4 px-6 py-4 hover:bg-accent transition-colors">
+                  <Globe className="h-5 w-5 text-primary" />
+                  <span className="text-base font-medium text-foreground">Language</span>
+                </button>
+              </Card>
+              <Card className="border shadow-sm hover:shadow-md transition-shadow">
+                <button className="w-full flex items-center gap-4 px-6 py-4 hover:bg-accent transition-colors">
+                  <Users className="h-5 w-5 text-primary" />
+                  <span className="text-base font-medium text-foreground">My Friends</span>
+                </button>
+              </Card>
+              <Card className="border shadow-sm hover:shadow-md transition-shadow">
+                <button className="w-full flex items-center gap-4 px-6 py-4 hover:bg-accent transition-colors">
+                  <UserPlus className="h-5 w-5 text-primary" />
+                  <span className="text-base font-medium text-foreground">Invite Friends</span>
+                </button>
+              </Card>
+            </div>
+          </div>
+
+          {/* Notifications Section */}
+          <div className="space-y-3">
+            <h2 className="text-2xl font-bold text-foreground">Notifications</h2>
+            <Card className="border shadow-sm">
+              <div className="flex items-center justify-between px-6 py-4">
+                <div className="flex items-center gap-4">
+                  <Bell className="h-5 w-5 text-primary" />
+                  <span className="text-base font-medium text-foreground">Push Notifications</span>
+                </div>
+                <Switch checked={pushNotifications} onCheckedChange={setPushNotifications} />
+              </div>
+            </Card>
+          </div>
+
+          {/* More Section */}
+          <div className="space-y-3">
+            <h2 className="text-2xl font-bold text-foreground">More</h2>
+            <div className="space-y-2">
+              <Card className="border shadow-sm hover:shadow-md transition-shadow">
+                <button className="w-full flex items-center gap-4 px-6 py-4 hover:bg-accent transition-colors">
+                  <HelpCircle className="h-5 w-5 text-primary" />
+                  <span className="text-base font-medium text-foreground">Help Centre</span>
+                </button>
+              </Card>
+              <Card className="border shadow-sm hover:shadow-md transition-shadow">
+                <button className="w-full flex items-center gap-4 px-6 py-4 hover:bg-accent transition-colors">
+                  <Lock className="h-5 w-5 text-primary" />
+                  <span className="text-base font-medium text-foreground">Privacy Policy</span>
+                </button>
+              </Card>
+              <Card className="border shadow-sm hover:shadow-md transition-shadow">
+                <button className="w-full flex items-center gap-4 px-6 py-4 hover:bg-accent transition-colors" onClick={handleLogout}>
+                  <LogOut className="h-5 w-5 text-primary" />
+                  <span className="text-base font-medium text-foreground">Logout</span>
+                </button>
+              </Card>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* More Section */}
-      <div className="px-4 py-4 space-y-2">
-        <h2 className="text-lg font-bold text-foreground mb-3">More</h2>
-        <Card className="border-none shadow-none bg-card/50">
-          <button className="w-full flex items-center gap-4 px-4 py-3 hover:bg-accent transition-colors">
-            <HelpCircle className="h-5 w-5 text-primary" />
-            <span className="text-sm font-medium text-foreground">Help Centre</span>
-          </button>
-        </Card>
-        <Card className="border-none shadow-none bg-card/50">
-          <button className="w-full flex items-center gap-4 px-4 py-3 hover:bg-accent transition-colors">
-            <Lock className="h-5 w-5 text-primary" />
-            <span className="text-sm font-medium text-foreground">Privacy Policy</span>
-          </button>
-        </Card>
-        <Card className="border-none shadow-none bg-card/50">
-          <button className="w-full flex items-center gap-4 px-4 py-3 hover:bg-accent transition-colors" onClick={handleLogout}>
-            <LogOut className="h-5 w-5 text-primary" />
-            <span className="text-sm font-medium text-foreground">Logout</span>
-          </button>
-        </Card>
+      {/* Mobile Layout */}
+      <div className="md:hidden pb-20">
+        {/* Profile Header */}
+        <div className="flex flex-col items-center pt-8 px-4 pb-6 border-b">
+          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary/40 to-primary/20 overflow-hidden mb-3">
+            {profile?.avatar_url && (
+              <img src={profile.avatar_url || "/placeholder.svg"} alt={profile.name} className="w-full h-full object-cover" />
+            )}
+          </div>
+          <h1 className="text-2xl font-bold text-foreground">{profile?.name}</h1>
+          <p className="text-sm text-muted-foreground">{profile?.friends_count} Friends</p>
+        </div>
+
+        {/* My Account Section */}
+        <div className="px-4 py-4 space-y-2">
+          <h2 className="text-lg font-bold text-foreground mb-3">My Account</h2>
+          <Card className="border-none shadow-none bg-card/50">
+            <button className="w-full flex items-center gap-4 px-4 py-3 hover:bg-accent transition-colors">
+              <User className="h-5 w-5 text-primary" />
+              <span className="text-sm font-medium text-foreground">Personal Information</span>
+            </button>
+          </Card>
+          <Card className="border-none shadow-none bg-card/50">
+            <button className="w-full flex items-center gap-4 px-4 py-3 hover:bg-accent transition-colors">
+              <Globe className="h-5 w-5 text-primary" />
+              <span className="text-sm font-medium text-foreground">Language</span>
+            </button>
+          </Card>
+          <Card className="border-none shadow-none bg-card/50">
+            <button className="w-full flex items-center gap-4 px-4 py-3 hover:bg-accent transition-colors">
+              <Users className="h-5 w-5 text-primary" />
+              <span className="text-sm font-medium text-foreground">My Friends</span>
+            </button>
+          </Card>
+          <Card className="border-none shadow-none bg-card/50">
+            <button className="w-full flex items-center gap-4 px-4 py-3 hover:bg-accent transition-colors">
+              <UserPlus className="h-5 w-5 text-primary" />
+              <span className="text-sm font-medium text-foreground">Invite Friends</span>
+            </button>
+          </Card>
+        </div>
+
+        {/* Notifications Section */}
+        <div className="px-4 py-4 space-y-2">
+          <h2 className="text-lg font-bold text-foreground mb-3">Notifications</h2>
+          <Card className="border-none shadow-none bg-card/50">
+            <div className="flex items-center justify-between px-4 py-3">
+              <div className="flex items-center gap-4">
+                <Bell className="h-5 w-5 text-primary" />
+                <span className="text-sm font-medium text-foreground">Push Notifications</span>
+              </div>
+              <Switch checked={pushNotifications} onCheckedChange={setPushNotifications} />
+            </div>
+          </Card>
+        </div>
+
+        {/* More Section */}
+        <div className="px-4 py-4 space-y-2">
+          <h2 className="text-lg font-bold text-foreground mb-3">More</h2>
+          <Card className="border-none shadow-none bg-card/50">
+            <button className="w-full flex items-center gap-4 px-4 py-3 hover:bg-accent transition-colors">
+              <HelpCircle className="h-5 w-5 text-primary" />
+              <span className="text-sm font-medium text-foreground">Help Centre</span>
+            </button>
+          </Card>
+          <Card className="border-none shadow-none bg-card/50">
+            <button className="w-full flex items-center gap-4 px-4 py-3 hover:bg-accent transition-colors">
+              <Lock className="h-5 w-5 text-primary" />
+              <span className="text-sm font-medium text-foreground">Privacy Policy</span>
+            </button>
+          </Card>
+          <Card className="border-none shadow-none bg-card/50">
+            <button className="w-full flex items-center gap-4 px-4 py-3 hover:bg-accent transition-colors" onClick={handleLogout}>
+              <LogOut className="h-5 w-5 text-primary" />
+              <span className="text-sm font-medium text-foreground">Logout</span>
+            </button>
+          </Card>
+        </div>
       </div>
     </div>
   )
