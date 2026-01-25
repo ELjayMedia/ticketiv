@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation"
-import { getEventById } from "@/lib/data/events"
+import { getEventById } from "@/lib/data/public/events"
 import { EventDetailClient } from "./event-detail-client"
 
 interface EventDetailPageProps {

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation"
 
 import { EventCard } from "@/components/events/event-card"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { getPublicEvents } from "@/lib/data/events"
+import { getPublicEvents } from "@/lib/data/public/events"
 import type { EventSummary } from "@/types"
 
 interface CategoryPageProps {
