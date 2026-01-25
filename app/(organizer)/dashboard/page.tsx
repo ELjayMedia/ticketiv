@@ -24,17 +24,19 @@ export default async function OrganizerDashboardPage() {
       const activeEvents = events.filter((e) => e.status === "published").length
       const checkedInCount = Math.floor(totalTicketsSold * 0.3)
 
-      return (
-        <DashboardContent
-          userName={demoUser.full_name}
-          activeEvents={activeEvents}
-          ticketsSold={totalTicketsSold}
-          revenue={totalRevenue}
-          checkedIn={checkedInCount}
-          events={events}
-          isDemo={true}
-        />
-      )
+  return (
+    <main className="flex-1 overflow-auto">
+      <DashboardContent
+        userName={demoUser.full_name}
+        activeEvents={activeEvents}
+        ticketsSold={totalTicketsSold}
+        revenue={totalRevenue}
+        checkedIn={checkedInCount}
+        events={events}
+        isDemo={true}
+      />
+    </main>
+  )
     } catch (e) {
       // Invalid demo session, continue to Supabase check
     }
@@ -89,15 +91,17 @@ export default async function OrganizerDashboardPage() {
   const checkedInCount = scans.filter((s) => s.outcome === "valid").length
 
   return (
-    <DashboardContent
-      userName={session.user.email || "Organizer"}
-      activeEvents={activeEvents}
-      ticketsSold={totalTicketsSold}
-      revenue={totalRevenue}
-      checkedIn={checkedInCount}
-      events={events}
-      isDemo={false}
-    />
+    <main className="flex-1 overflow-auto">
+      <DashboardContent
+        userName={session.user.email || "Organizer"}
+        activeEvents={activeEvents}
+        ticketsSold={totalTicketsSold}
+        revenue={totalRevenue}
+        checkedIn={checkedInCount}
+        events={events}
+        isDemo={false}
+      />
+    </main>
   )
 }
 
