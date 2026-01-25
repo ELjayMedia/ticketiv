@@ -29,12 +29,12 @@ export function MobileShell({ children, user, workspace }: MobileShellProps) {
       { href: "/app/home", label: "Home", icon: Home, ariaLabel: "Navigate to home" },
       { href: "/browse", label: "Explore", icon: Search, ariaLabel: "Explore events" },
       { href: "/app/tickets", label: "My Tickets", icon: TicketIcon, ariaLabel: "View my tickets" },
-      { href: "/payments", label: "Profile", icon: User, ariaLabel: "View profile" },
+      { href: "/app/profile", label: "Profile", icon: User, ariaLabel: "View profile" },
     ],
     organizer: [
       { href: "/dashboard", label: "Home", icon: Home, ariaLabel: "Navigate to dashboard" },
       { href: "/events", label: "Events", icon: Calendar, ariaLabel: "Manage events" },
-      { href: "/payments", label: "Profile", icon: User, ariaLabel: "View profile" },
+      { href: "/app/profile", label: "Profile", icon: User, ariaLabel: "View profile" },
     ],
     scanner: [
       { href: "/scan", label: "Scan", icon: TicketIcon, ariaLabel: "Scan tickets" },
