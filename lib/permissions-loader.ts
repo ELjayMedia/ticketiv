@@ -49,19 +49,29 @@ export async function loadUserPermissions(userId: string): Promise<UserAuthzData
       .select("org_id, role, created_at")
       .eq("user_id", userId)
 
-    // 3. Fetch event staff roles (only when user has org memberships to avoid loading everything)
+    // 3. Fetch event staff roles with org_id mapping (only when user has org memberships to avoid loading everything)
     let eventAccessByEventId: Record<string, string> = {}
+    let eventOrgByEventId: Record<string, string> = {}
     if (orgMemberships.length > 0) {
       const orgIds = orgMemberships.map((m) => m.org_id)
       const { data: eventStaff = [] } = await supabase
         .from("event_staff")
-        .select("event_id, role")
+        .select("event_id, org_id, role")
         .eq("user_id", userId)
         .in("org_id", orgIds)
 
       eventAccessByEventId = eventStaff.reduce(
         (acc, staff) => {
           acc[staff.event_id] = staff.role
+          return acc
+        },
+        {} as Record<string, string>
+      )
+
+      // Also build eventOrgByEventId for org admin inheritance checks
+      eventOrgByEventId = eventStaff.reduce(
+        (acc, staff) => {
+          acc[staff.event_id] = staff.org_id
           return acc
         },
         {} as Record<string, string>
@@ -92,6 +102,7 @@ export async function loadUserPermissions(userId: string): Promise<UserAuthzData
         isGlobalAdmin,
         orgMemberships: orgMemberships as OrgMembership[],
         eventAccessByEventId,
+        eventOrgByEventId,
         activeOrgId,
       },
     }
@@ -133,6 +144,12 @@ function buildDemoUserAuthz(userId: string, demoUser: any): UserAuthzData {
         ? {
             "demo-event-1": isGlobalAdmin ? ("admin" as const) : ("organizer" as const),
             "demo-event-2": isGlobalAdmin ? ("admin" as const) : ("organizer" as const),
+          }
+        : {},
+      eventOrgByEventId: isOrgAdmin
+        ? {
+            "demo-event-1": demoUser.org_id || "demo-org-1",
+            "demo-event-2": demoUser.org_id || "demo-org-1",
           }
         : {},
       activeOrgId: demoUser.org_id || "demo-org-1",

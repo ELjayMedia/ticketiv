@@ -46,6 +46,7 @@ export interface Permissions {
   isGlobalAdmin: boolean
   orgMemberships: OrgMembership[]
   eventAccessByEventId: Record<string, EventRole>
+  eventOrgByEventId: Record<string, string> // Maps eventId → orgId
   activeOrgId: string | null
 }
 
@@ -144,8 +145,18 @@ export function hasPermission(
       if (perms.isGlobalAdmin) return true
       if (!scope?.eventId) return false
 
+      // Check if user is in event_staff with manage permission
       const eventRole = perms.eventAccessByEventId[scope.eventId]
-      return eventRoleCanManage(eventRole)
+      if (eventRoleCanManage(eventRole)) return true
+
+      // Check if user is org admin for the event's org
+      const eventOrgId = perms.eventOrgByEventId[scope.eventId]
+      if (eventOrgId) {
+        const orgRole = perms.orgMemberships.find((m) => m.org_id === eventOrgId)?.role || null
+        if (orgRoleCanManage(orgRole)) return true
+      }
+
+      return false
 
     case PERMISSION_ACTIONS.EVENT_SCAN:
       if (perms.isGlobalAdmin) return true
