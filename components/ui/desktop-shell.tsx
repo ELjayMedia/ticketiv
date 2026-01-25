@@ -17,6 +17,7 @@ import {
   LayoutDashboard,
   Users,
   ScanLine,
+  Plus,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -138,6 +139,16 @@ export function DesktopShell({ children, user, workspace, onLogout }: DesktopShe
                 />
               </div>
             </form>
+          )}
+
+          {/* Create Event Button - Only show for organizer workspace */}
+          {workspace === "organizer" && (
+            <Button asChild className="gap-2" aria-label="Create new event">
+              <Link href="/events/new">
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Create Event</span>
+              </Link>
+            </Button>
           )}
 
           <div className="flex items-center gap-2">
