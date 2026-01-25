@@ -186,6 +186,7 @@ export function usePermissions() {
 
 /**
  * Hook to check if user can perform an action
+ * Uses unified permission actions from lib/rbac.ts
  */
 export function useCanAccess(
   action: string,
@@ -195,56 +196,8 @@ export function useCanAccess(
 
   if (!permissions) return false
 
-  switch (action) {
-    case "admin":
-      return permissions.isGlobalAdmin
-
-    case "org:access":
-      return scope?.orgId
-        ? permissions.orgMemberships.some((m) => m.org_id === scope.orgId)
-        : false
-
-    case "org:manage":
-      return scope?.orgId
-        ? permissions.orgMemberships.some(
-            (m) => m.org_id === scope.orgId && (m.role === "admin" || m.role === "organizer")
-          )
-        : false
-
-    case "org:finance":
-      return scope?.orgId
-        ? permissions.orgMemberships.some(
-            (m) =>
-              m.org_id === scope.orgId &&
-              (m.role === "admin" || m.role === "finance" || m.role === "organizer")
-          )
-        : false
-
-    case "event:create":
-      return scope?.orgId
-        ? permissions.orgMemberships.some(
-            (m) => m.org_id === scope.orgId && (m.role === "admin" || m.role === "organizer")
-          )
-        : false
-
-    case "event:manage":
-      return (
-        permissions.isGlobalAdmin ||
-        (scope?.eventId && permissions.eventAccessByEventId[scope.eventId] !== undefined)
-      )
-
-    case "event:scan":
-      return (
-        permissions.isGlobalAdmin ||
-        (scope?.eventId &&
-          ["scanner", "admin", "organizer"].includes(
-            permissions.eventAccessByEventId[scope.eventId] || ""
-          ))
-      )
-
-    default:
-      return false
-  }
+  const { hasPermission } = require("@/lib/rbac")
+  return hasPermission(permissions, action, scope)
 }
 
 /**

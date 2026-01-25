@@ -1,5 +1,28 @@
 // RBAC: Role-Based Access Control utility module
-// Determines permissions based on org_members, event_staff, and admin_users tables
+// Unified permission actions prevent UI gate and route guard divergence
+
+/**
+ * Unified permission actions
+ * These are the ONLY actions used throughout the app
+ * Maps to org_members.role and event_staff.role via the helper functions below
+ */
+export const PERMISSION_ACTIONS = {
+  // Admin
+  ADMIN_ACCESS: "admin:access",
+
+  // Org-level
+  ORG_VIEW: "org:view",
+  ORG_MANAGE: "org:manage",
+  ORG_VIEW_PAYOUTS: "org:view_payouts",
+  ORG_MANAGE_STAFF: "org:manage_staff",
+
+  // Event-level
+  EVENT_CREATE: "event:create",
+  EVENT_MANAGE: "event:manage",
+  EVENT_SCAN: "event:scan",
+} as const
+
+export type PermissionAction = (typeof PERMISSION_ACTIONS)[keyof typeof PERMISSION_ACTIONS]
 
 export type OrgRole = "admin" | "organizer" | "finance" | "staff" | "member"
 export type EventRole = "admin" | "organizer" | "finance" | "scanner" | "staff"
@@ -37,106 +60,146 @@ export interface UserAuthzContext {
   permissions: Permissions
 }
 
-// Helper: Check if user has global admin role
+// ============================================================================
+// INTERNAL HELPERS - Role to Action Mapping
+// ============================================================================
+
+// Helper: Check if org role can manage org
+function orgRoleCanManage(role: OrgRole | null): boolean {
+  return role === "admin" || role === "organizer"
+}
+
+// Helper: Check if org role can view payouts
+function orgRoleCanViewPayouts(role: OrgRole | null): boolean {
+  return role === "admin" || role === "finance" || role === "organizer"
+}
+
+// Helper: Check if org role can manage staff
+function orgRoleCanManageStaff(role: OrgRole | null): boolean {
+  return role === "admin" || role === "organizer"
+}
+
+// Helper: Check if org role can create events
+function orgRoleCanCreateEvents(role: OrgRole | null): boolean {
+  return role === "admin" || role === "organizer"
+}
+
+// Helper: Check if event role can scan tickets
+function eventRoleCanScan(role: EventRole | null): boolean {
+  return role === "scanner" || role === "admin" || role === "organizer"
+}
+
+// Helper: Check if event role can manage event
+function eventRoleCanManage(role: EventRole | null): boolean {
+  return role === "admin" || role === "organizer"
+}
+
+// ============================================================================
+// PUBLIC API - Use these everywhere instead of role comparisons
+// ============================================================================
+
+export function hasPermission(
+  perms: Permissions,
+  action: PermissionAction,
+  scope?: { orgId?: string; eventId?: string }
+): boolean {
+  switch (action) {
+    case PERMISSION_ACTIONS.ADMIN_ACCESS:
+      return perms.isGlobalAdmin
+
+    case PERMISSION_ACTIONS.ORG_VIEW:
+      return scope?.orgId
+        ? perms.orgMemberships.some((m) => m.org_id === scope.orgId)
+        : false
+
+    case PERMISSION_ACTIONS.ORG_MANAGE:
+      return scope?.orgId
+        ? perms.orgMemberships.some(
+            (m) => m.org_id === scope.orgId && orgRoleCanManage(m.role)
+          )
+        : false
+
+    case PERMISSION_ACTIONS.ORG_VIEW_PAYOUTS:
+      return scope?.orgId
+        ? perms.orgMemberships.some(
+            (m) => m.org_id === scope.orgId && orgRoleCanViewPayouts(m.role)
+          )
+        : false
+
+    case PERMISSION_ACTIONS.ORG_MANAGE_STAFF:
+      return scope?.orgId
+        ? perms.orgMemberships.some(
+            (m) => m.org_id === scope.orgId && orgRoleCanManageStaff(m.role)
+          )
+        : false
+
+    case PERMISSION_ACTIONS.EVENT_CREATE:
+      return scope?.orgId
+        ? perms.orgMemberships.some(
+            (m) => m.org_id === scope.orgId && orgRoleCanCreateEvents(m.role)
+          )
+        : false
+
+    case PERMISSION_ACTIONS.EVENT_MANAGE:
+      if (perms.isGlobalAdmin) return true
+      if (!scope?.eventId) return false
+
+      const eventRole = perms.eventAccessByEventId[scope.eventId]
+      return eventRoleCanManage(eventRole)
+
+    case PERMISSION_ACTIONS.EVENT_SCAN:
+      if (perms.isGlobalAdmin) return true
+      if (!scope?.eventId) return false
+
+      const scanRole = perms.eventAccessByEventId[scope.eventId]
+      return eventRoleCanScan(scanRole)
+
+    default:
+      const _exhaustive: never = action
+      return _exhaustive
+  }
+}
+
+// Convenience helpers (use these in server code, useCanAccess hook in client)
+
 export function canAccessGlobalAdmin(perms: Permissions): boolean {
-  return perms.isGlobalAdmin
+  return hasPermission(perms, PERMISSION_ACTIONS.ADMIN_ACCESS)
 }
 
-// Helper: Check if user can access a specific org
 export function canAccessOrg(perms: Permissions, orgId: string): boolean {
-  return perms.orgMemberships.some((m) => m.org_id === orgId)
+  return hasPermission(perms, PERMISSION_ACTIONS.ORG_VIEW, { orgId })
 }
 
-// Helper: Get user's role in a specific org
+export function canManageOrg(perms: Permissions, orgId: string): boolean {
+  return hasPermission(perms, PERMISSION_ACTIONS.ORG_MANAGE, { orgId })
+}
+
+export function canViewOrgPayouts(perms: Permissions, orgId: string): boolean {
+  return hasPermission(perms, PERMISSION_ACTIONS.ORG_VIEW_PAYOUTS, { orgId })
+}
+
+export function canManageOrgStaff(perms: Permissions, orgId: string): boolean {
+  return hasPermission(perms, PERMISSION_ACTIONS.ORG_MANAGE_STAFF, { orgId })
+}
+
+export function canCreateEvent(perms: Permissions, orgId: string): boolean {
+  return hasPermission(perms, PERMISSION_ACTIONS.EVENT_CREATE, { orgId })
+}
+
+export function canManageEvent(perms: Permissions, eventId: string): boolean {
+  return hasPermission(perms, PERMISSION_ACTIONS.EVENT_MANAGE, { eventId })
+}
+
+export function canScanEvent(perms: Permissions, eventId: string): boolean {
+  return hasPermission(perms, PERMISSION_ACTIONS.EVENT_SCAN, { eventId })
+}
+
 export function getOrgRole(perms: Permissions, orgId: string): OrgRole | null {
   const membership = perms.orgMemberships.find((m) => m.org_id === orgId)
   return membership?.role || null
 }
 
-// Helper: Check if user can manage org (admin or organizer)
-export function canManageOrg(perms: Permissions, orgId: string): boolean {
-  const role = getOrgRole(perms, orgId)
-  return role === "admin" || role === "organizer"
-}
-
-// Helper: Check if user can view org finances
-export function canViewOrgFinance(perms: Permissions, orgId: string): boolean {
-  const role = getOrgRole(perms, orgId)
-  return role === "admin" || role === "finance" || role === "organizer"
-}
-
-// Helper: Check if user can create events in org
-export function canCreateEvent(perms: Permissions, orgId: string): boolean {
-  const role = getOrgRole(perms, orgId)
-  return role === "admin" || role === "organizer"
-}
-
-// Helper: Check if user can manage event staff
-export function canManageEventStaff(
-  perms: Permissions,
-  eventId: string,
-  eventOrgId: string
-): boolean {
-  // Global admin can manage any event
-  if (perms.isGlobalAdmin) return true
-
-  // Check if user is org admin/organizer for the event's org
-  const orgRole = getOrgRole(perms, eventOrgId)
-  if (orgRole === "admin" || orgRole === "organizer") return true
-
-  // Check if user is event admin/organizer for this specific event
-  const eventRole = perms.eventAccessByEventId[eventId]
-  return eventRole === "admin" || eventRole === "organizer"
-}
-
-// Helper: Check if user can scan tickets for event
-export function canScanEvent(perms: Permissions, eventId: string): boolean {
-  if (perms.isGlobalAdmin) return true
-
-  const eventRole = perms.eventAccessByEventId[eventId]
-  return eventRole === "scanner" || eventRole === "admin" || eventRole === "organizer"
-}
-
-// Helper: Check if user can view event
 export function canViewEvent(perms: Permissions, eventId: string): boolean {
   if (perms.isGlobalAdmin) return true
   return !!perms.eventAccessByEventId[eventId]
-}
-
-// Helper: Check if user has permission (with fallback to active org)
-export function hasPermission(
-  perms: Permissions,
-  action: string,
-  scope?: { orgId?: string; eventId?: string }
-): boolean {
-  switch (action) {
-    case "admin:access":
-      return perms.isGlobalAdmin
-
-    case "org:access":
-      return scope?.orgId ? canAccessOrg(perms, scope.orgId) : false
-
-    case "org:manage":
-      return scope?.orgId ? canManageOrg(perms, scope.orgId) : false
-
-    case "org:finance":
-      return scope?.orgId ? canViewOrgFinance(perms, scope.orgId) : false
-
-    case "event:create":
-      return scope?.orgId ? canCreateEvent(perms, scope.orgId) : false
-
-    case "event:manage_staff":
-      return scope?.eventId && scope?.orgId
-        ? canManageEventStaff(perms, scope.eventId, scope.orgId)
-        : false
-
-    case "event:scan":
-      return scope?.eventId ? canScanEvent(perms, scope.eventId) : false
-
-    case "event:view":
-      return scope?.eventId ? canViewEvent(perms, scope.eventId) : true // Public by default
-
-    default:
-      return false
-  }
 }
