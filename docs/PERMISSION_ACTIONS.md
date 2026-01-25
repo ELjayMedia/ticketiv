@@ -50,7 +50,7 @@ All permission checks must use these actions instead of comparing role strings d
 ## Usage Examples
 
 ### Client Component (React)
-```tsx
+\`\`\`tsx
 import { PERMISSION_ACTIONS } from "@/lib/rbac"
 import { useCanAccess } from "@/lib/providers/permissions-provider"
 import { PermissionButton } from "@/components/permission-gate"
@@ -68,10 +68,10 @@ export function EventActions({ eventId, orgId }) {
     </>
   )
 }
-```
+\`\`\`
 
 ### Server Component (Layout Check)
-```tsx
+\`\`\`tsx
 import { PERMISSION_ACTIONS, hasPermission } from "@/lib/rbac"
 import { loadPermissions } from "@/lib/permissions-loader"
 
@@ -84,10 +84,10 @@ export async function EventLayout({ params, children }) {
   
   return children
 }
-```
+\`\`\`
 
 ### Server API Route
-```tsx
+\`\`\`tsx
 import { PERMISSION_ACTIONS, hasPermission } from "@/lib/rbac"
 
 export async function PATCH(req: Request, { params }) {
@@ -99,19 +99,19 @@ export async function PATCH(req: Request, { params }) {
   
   // Update org...
 }
-```
+\`\`\`
 
 ## Migration Guide
 
 ### OLD ❌
-```tsx
+\`\`\`tsx
 if (orgMember?.role === "admin" || orgMember?.role === "organizer") {
   // Show manage button
 }
-```
+\`\`\`
 
 ### NEW ✅
-```tsx
+\`\`\`tsx
 import { PERMISSION_ACTIONS, hasPermission } from "@/lib/rbac"
 import { useCanAccess } from "@/lib/providers/permissions-provider"
 
@@ -122,7 +122,7 @@ const canManage = useCanAccess(PERMISSION_ACTIONS.ORG_MANAGE, { orgId })
 if (hasPermission(perms, PERMISSION_ACTIONS.ORG_MANAGE, { orgId })) {
   // Show manage button
 }
-```
+\`\`\`
 
 ## Role ↔ Action Mapping
 

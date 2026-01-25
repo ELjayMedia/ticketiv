@@ -38,7 +38,7 @@ Frontend must assume:
 - optional: `storage.objects` (poster/cover)
 
 **Frontend shape (suggested)**
-```typescript
+\`\`\`typescript
 {
   id: string
   slug: string
@@ -58,7 +58,7 @@ Frontend must assume:
   image_url: string
   min_price_cents: number
 }
-```
+\`\`\`
 
 ### 1.2 TicketType
 
@@ -67,7 +67,7 @@ Frontend must assume:
 - `ticket_type_channels` (channel-specific quota / per-order limits)
 
 **Frontend shape**
-```typescript
+\`\`\`typescript
 {
   id: string
   event_id: string
@@ -83,7 +83,7 @@ Frontend must assume:
     per_order_limit: number
   }>
 }
-```
+\`\`\`
 
 ### 1.3 Order (Buyer view)
 
@@ -95,7 +95,7 @@ Frontend must assume:
 - optional: `refunds`
 
 **Frontend shape**
-```typescript
+\`\`\`typescript
 {
   id: string
   status: string
@@ -107,7 +107,7 @@ Frontend must assume:
   payment_status: string
   provider: string
 }
-```
+\`\`\`
 
 ### 1.4 Ticket (Buyer view)
 
@@ -115,7 +115,7 @@ Frontend must assume:
 - `order_items`
 
 **Frontend shape**
-```typescript
+\`\`\`typescript
 {
   id: string
   ticket_code: string
@@ -126,7 +126,7 @@ Frontend must assume:
   seat_id: string | null
   event_id: string
 }
-```
+\`\`\`
 
 ### 1.5 Scan (Staff view)
 
@@ -135,7 +135,7 @@ Frontend must assume:
 - `devices`, `device_sessions`
 
 **Frontend shape**
-```typescript
+\`\`\`typescript
 {
   id: string
   event_id: string
@@ -145,7 +145,7 @@ Frontend must assume:
   device_id: string
   device_session_id: string
 }
-```
+\`\`\`
 
 ### 1.6 Organizer Finance
 
@@ -173,9 +173,9 @@ Frontend must assume:
 - Each event must include one "primary date" (soonest upcoming).
 
 **Suggested adapter**
-```typescript
+\`\`\`typescript
 getPublicEvents({ promoted?: boolean, limit?: number })
-```
+\`\`\`
 
 #### Route: `/browse`
 
@@ -193,9 +193,9 @@ Server supports filtering:
 - Pagination contract: page, pageSize, total (or cursor)
 
 **Suggested adapter**
-```typescript
+\`\`\`typescript
 searchEvents({ q, city, category, dateFrom, dateTo, sort, page })
-```
+\`\`\`
 
 #### Route: `/events/[id]` (Event Details)
 
@@ -217,11 +217,11 @@ Reserved seating:
 - if `ticket_types.is_reserved_seating = true`, include seat map availability pointers (see 2.4)
 
 **Suggested adapters**
-```typescript
+\`\`\`typescript
 getEventById(id)
 getEventTicketTypes(eventId, channel)
 getEventLineup(eventId)
-```
+\`\`\`
 
 ### 2.2 Checkout & Orders
 
@@ -255,11 +255,11 @@ Must return:
 - `currency`
 
 **Suggested API**
-```typescript
+\`\`\`typescript
 POST /api/orders
 input: event_id, {ticket_type_id, qty}, buyer info, channel, optional promo_code
 output: order, pricing_breakdown
-```
+\`\`\`
 
 #### Payment: `/api/payments/{provider}/create`
 
@@ -301,9 +301,9 @@ Return only tickets owned by user:
   - event title/date/venue summary
 
 **Suggested adapter**
-```typescript
+\`\`\`typescript
 getMyTickets()
-```
+\`\`\`
 
 #### Route: `/app/tickets/[orderItemId]`
 
@@ -669,7 +669,7 @@ This matrix defines **which layer owns each write operation** to prevent race co
 
 ### 8.1 Order Lifecycle
 
-```
+\`\`\`
 ┌─────────┐
 │ pending │ ← initial state (cart created)
 └────┬────┘
@@ -690,10 +690,10 @@ This matrix defines **which layer owns each write operation** to prevent race co
      └─→ timeout → ┌───────────┐
                   │ cancelled │ (can create new order)
                   └───────────┘
-```
+\`\`\`
 
 # From paid state:
-```
+\`\`\`
 ┌──────┐
 │ paid │
 └──┬───┘
@@ -702,7 +702,7 @@ This matrix defines **which layer owns each write operation** to prevent race co
 ┌──────────┐
 │ refunded │ (terminal state)
 └──────────┘
-```
+\`\`\`
 
 **Allowed transitions:**
 
@@ -721,7 +721,7 @@ This matrix defines **which layer owns each write operation** to prevent race co
 
 ### 8.2 Payment Lifecycle
 
-```
+\`\`\`
 ┌───────────┐
 │ initiated │ ← payment record created
 └─────┬─────┘
@@ -738,7 +738,7 @@ This matrix defines **which layer owns each write operation** to prevent race co
      └─→ ┌────────┐
          │ failed │ (can retry or cancel)
          └────────┘
-```
+\`\`\`
 
 **Validation:**
 - Only ONE `succeeded` payment per order
@@ -747,7 +747,7 @@ This matrix defines **which layer owns each write operation** to prevent race co
 
 ### 8.3 Ticket Lifecycle
 
-```
+\`\`\`
 ┌────────────┐
 │ code=NULL  │ ← order_item created (not minted yet)
 └─────┬──────┘
@@ -769,7 +769,7 @@ This matrix defines **which layer owns each write operation** to prevent race co
         └─→ ┌──────────────────┐
             │ refunded (parent) │ (cannot check in)
             └──────────────────┘
-```
+\`\`\`
 
 **Allowed actions per state:**
 
@@ -783,7 +783,7 @@ This matrix defines **which layer owns each write operation** to prevent race co
 
 ### 8.4 Transfer Lifecycle
 
-```
+\`\`\`
 ┌─────────┐
 │ pending │ ← transfer initiated by owner
 └────┬────┘
@@ -799,7 +799,7 @@ This matrix defines **which layer owns each write operation** to prevent race co
      └─→ ┌───────────┐
          │ cancelled │ (sender cancelled)
          └───────────┘
-```
+\`\`\`
 
 **Validation:**
 - Ticket must be unused (`checked_in_at` IS NULL)
@@ -809,7 +809,7 @@ This matrix defines **which layer owns each write operation** to prevent race co
 
 ### 8.5 Payout Lifecycle
 
-```
+\`\`\`
 ┌─────────┐
 │ pending │ ← payout batch created
 └────┬────┘
@@ -826,7 +826,7 @@ This matrix defines **which layer owns each write operation** to prevent race co
       └─→ ┌────────┐
           │ failed │ (can retry)
           └────────┘
-```
+\`\`\`
 
 **Validation:**
 - Payout amount must match ledger balance
@@ -920,11 +920,11 @@ This matrix defines **which layer owns each write operation** to prevent race co
 
 **Mechanism:** Client-provided idempotency key
 
-```typescript
+\`\`\`typescript
 POST /api/orders
 headers: { "X-Idempotency-Key": "{device_id}:{nonce}" }
 body: { event_id, items, buyer_info }
-```
+\`\`\`
 
 **Server behavior:**
 1. Check if order with this key exists in last 24 hours
@@ -940,10 +940,10 @@ body: { event_id, items, buyer_info }
 
 **Mechanism:** Provider transaction ID
 
-```typescript
+\`\`\`typescript
 POST /api/payments/deltapay/create
 body: { order_id, amount_cents }
-```
+\`\`\`
 
 **Server behavior:**
 1. Check if `payments` row exists for this `order_id` with status = `pending`
@@ -959,10 +959,10 @@ body: { order_id, amount_cents }
 
 **Mechanism:** Unique webhook ID + status check
 
-```typescript
+\`\`\`typescript
 POST /api/payments/deltapay/webhook
 body: { transaction_id, status, signature }
-```
+\`\`\`
 
 **Server behavior:**
 1. Verify signature (reject if invalid)
@@ -973,10 +973,10 @@ body: { transaction_id, status, signature }
 4. Log to `webhooks` table for audit
 
 **Unique constraint:**
-```sql
+\`\`\`sql
 CREATE UNIQUE INDEX idx_scans_dedup 
 ON scans(ticket_code, event_id, scanned_at);
-```
+\`\`\`
 
 **Edge cases:**
 - Duplicate webhooks (provider retries): safe due to status check
@@ -986,10 +986,10 @@ ON scans(ticket_code, event_id, scanned_at);
 
 **Mechanism:** Unique constraint + compare-and-set
 
-```typescript
+\`\`\`typescript
 POST /api/scanner/validate
 body: { event_id, ticket_code, device_id, scanned_at }
-```
+\`\`\`
 
 **Server behavior:**
 1. Find `order_items` by `ticket_code` + `event_id`
@@ -999,10 +999,10 @@ body: { event_id, ticket_code, device_id, scanned_at }
 3. Both operations in same transaction
 
 **Unique constraint:**
-```sql
+\`\`\`sql
 CREATE UNIQUE INDEX idx_scans_dedup 
 ON scans(ticket_code, event_id, scanned_at);
-```
+\`\`\`
 
 **Edge cases:**
 - Simultaneous scans (2 devices): first wins, second gets `already_used`
@@ -1012,10 +1012,10 @@ ON scans(ticket_code, event_id, scanned_at);
 
 **Mechanism:** Payout batch ID
 
-```typescript
+\`\`\`typescript
 POST /api/payouts
 body: { org_id, amount_cents, payout_account_id }
-```
+\`\`\`
 
 **Server behavior:**
 1. Check if pending payout exists for this org
@@ -1061,7 +1061,7 @@ All payment provider webhooks must:
 **Endpoint:** `POST /api/payments/deltapay/webhook`
 
 **Payload:**
-```json
+\`\`\`json
 {
   "transaction_id": "TXN_XXXXX",
   "order_id": "order_XXXXX",
@@ -1071,7 +1071,7 @@ All payment provider webhooks must:
   "timestamp": "2025-01-15T10:30:00Z",
   "signature": "hmac_signature"
 }
-```
+\`\`\`
 
 **Processing steps:**
 1. Verify signature using `DELTAPAY_SECRET_KEY`
@@ -1097,7 +1097,7 @@ All payment provider webhooks must:
 **Endpoint:** `POST /api/payments/paystack/webhook`
 
 **Payload:**
-```json
+\`\`\`json
 {
   "event": "charge.success",
   "data": {
@@ -1109,7 +1109,7 @@ All payment provider webhooks must:
     }
   }
 }
-```
+\`\`\`
 
 **Processing steps:**
 1. Verify `X-Paystack-Signature` header
@@ -1146,7 +1146,7 @@ If webhook processing fails (server error, DB down):
 - [ ] Add `orders.idempotency_key` (TEXT, index)
 - [ ] Add `order_items.owner_id` (UUID, FK to users, nullable)
 - [ ] Add `webhooks` table:
-  ```sql
+  \`\`\`sql
   CREATE TABLE webhooks (
     id UUID PRIMARY KEY,
     provider TEXT NOT NULL,
@@ -1158,7 +1158,7 @@ If webhook processing fails (server error, DB down):
     processed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW()
   );
-  ```
+  \`\`\`
 - [ ] Add unique index: `idx_scans_dedup` (see 10.4)
 - [ ] Add `ledger_entries.payout_id` (FK to payouts)
 

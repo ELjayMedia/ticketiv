@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { loadUserPermissions } from "@/lib/permissions-loader"
-import { getDemoSession } from "@/lib/demo-auth"
+import { getDemoSessionFromCookie } from "@/lib/demo-auth"
 
 export const dynamic = "force-dynamic"
 
@@ -11,8 +11,8 @@ export const dynamic = "force-dynamic"
  */
 export async function GET(request: Request) {
   try {
-    // Check demo session first
-    const demoUser = getDemoSession()
+    // Check demo session first (server-side)
+    const demoUser = await getDemoSessionFromCookie()
     if (demoUser) {
       const authz = await loadUserPermissions(demoUser.id)
       if (authz) {

@@ -13,13 +13,13 @@ This document clarifies naming conventions and architectural decisions to align 
 - No separate `tickets` table needed
 
 ### Implementation
-```typescript
+\`\`\`typescript
 // Type alias in types/index.ts
 export type Ticket = OrderItemRecord
 
 // Usage in code
 const tickets: Ticket[] = await getUserTickets(userId)
-```
+\`\`\`
 
 **Rule**: Do NOT create a separate `tickets` table. Treat `order_items` as tickets in all frontend code.
 
@@ -34,7 +34,7 @@ The UI now includes a **Pricing Engine Layer** in `lib/pricing.ts` that maps to:
 
 ### Key Functions
 
-```typescript
+\`\`\`typescript
 // Preview order with all adjustments
 await previewOrder({
   items: [{ ticketType, quantity }],
@@ -47,7 +47,7 @@ await applyPromoCodeAdjustment(code, eventId, subtotal)
 
 // Calculate fee adjustments
 calculateFeeAdjustments(subtotal, feeConfig)
-```
+\`\`\`
 
 ### Database Schema
 
@@ -74,7 +74,7 @@ calculateFeeAdjustments(subtotal, feeConfig)
 ### Future Enhancement
 Instead of purely mock data, leverage Supabase features:
 
-```typescript
+\`\`\`typescript
 // Use feature_flags for demo organizations
 const demoOrgFlags = await getFeatureFlags(orgId)
 if (demoOrgFlags.demo_mode) {
@@ -86,7 +86,7 @@ const orgPlan = await getPricingPlan(orgId)
 if (orgPlan.tier === "free") {
   // Limit features
 }
-```
+\`\`\`
 
 This allows "demo mode" to become real data with feature constraints rather than completely mocked data.
 
@@ -94,7 +94,7 @@ This allows "demo mode" to become real data with feature constraints rather than
 
 ### Updated Flow with Adjustments
 
-```typescript
+\`\`\`typescript
 // 1. Calculate pricing with adjustments
 const preview = await previewOrder({
   items: selectedTickets,
@@ -128,7 +128,7 @@ if (priceRuleId) {
     amount_applied: discountAmount
   })
 }
-```
+\`\`\`
 
 ## 5. Type System Alignment
 
@@ -167,7 +167,7 @@ When writing code or documentation:
 4. **Link promo codes to price_rules** conceptually
 
 Example:
-```typescript
+\`\`\`typescript
 // ✅ GOOD: Clear that we're querying order_items
 const tickets: Ticket[] = await supabase
   .from("order_items")
@@ -177,7 +177,7 @@ const tickets: Ticket[] = await supabase
 const tickets = await supabase
   .from("tickets")
   .select("*")
-```
+\`\`\`
 
 ---
 

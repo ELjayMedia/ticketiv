@@ -18,37 +18,37 @@ When permissions load, the system validates the stored activeOrgId:
 - Fallback to first org in memberships ✓
 - Return null if user has no orgs ✓
 
-```typescript
+\`\`\`typescript
 // Automatically happens in PermissionsProvider.loadPermissions()
 const normalizedOrgId = validateAndNormalizeActiveOrgId(
   storedOrgId,           // from localStorage
   permissions,            // newly loaded
   profile                 // newly loaded
 )
-```
+\`\`\`
 
 ### 2. Permission Context Validation
 The `usePermissions()` hook now provides `isActiveOrgValid` flag:
-```typescript
+\`\`\`typescript
 const { activeOrgId, isActiveOrgValid } = usePermissions()
 
 // Use this to conditionally render warning states or force org selection
 if (!isActiveOrgValid) {
   return <OrgSwitcher />  // Shows warning, forces selection
 }
-```
+\`\`\`
 
 ### 3. Org-Scoped Cache Invalidation
 When user switches orgs, all org-scoped caches are automatically cleared:
-```typescript
+\`\`\`typescript
 // In setActiveOrgId:
 if (prevOrgId !== newOrgId) {
   cacheStore.invalidateOrgScopes(newOrgId)  // Clears old cache
 }
-```
+\`\`\`
 
 Use the cache hook in your data fetching:
-```typescript
+\`\`\`typescript
 const { get, set } = useOrgScopedCache()
 
 // On fetch:
@@ -58,7 +58,7 @@ if (!events) {
   set("events-list", fresh)
   return fresh
 }
-```
+\`\`\`
 
 ### 4. UI Feedback
 The OrgSwitcher now:
@@ -69,7 +69,7 @@ The OrgSwitcher now:
 
 ### 5. No-Org State Handling
 Pages can check for no-org scenario:
-```typescript
+\`\`\`typescript
 "use client"
 import { usePermissions } from "@/lib/providers/permissions-provider"
 import { NoOrgState } from "@/components/no-org-state"
@@ -83,7 +83,7 @@ export default function MyPage() {
 
   // Render normal content
 }
-```
+\`\`\`
 
 ## Files Modified/Created
 
@@ -106,26 +106,26 @@ export default function MyPage() {
 
 ### For Existing Pages
 1. Add org validation in layouts:
-   ```typescript
+   \`\`\`typescript
    const { permissions, isActiveOrgValid } = usePermissions()
    if (!isActiveOrgValid && permissions?.orgMemberships.length > 0) {
      return <OrgSwitcher />
    }
-   ```
+   \`\`\`
 
 2. Wrap data fetching with cache:
-   ```typescript
+   \`\`\`typescript
    const { get, set } = useOrgScopedCache()
    const data = get("cache-key") || await fetch(...)
    set("cache-key", data)
-   ```
+   \`\`\`
 
 3. Handle no-org state:
-   ```typescript
+   \`\`\`typescript
    if (!permissions?.orgMemberships.length) {
      return <NoOrgState />
    }
-   ```
+   \`\`\`
 
 ### For New Features
 1. Always scope queries by activeOrgId in RLS
@@ -162,19 +162,19 @@ export default function MyPage() {
 ## Debugging
 
 Enable logging to see org drift detection:
-```
+\`\`\`
 [v0] Active org not available, falling back to profile default: org-2
 [v0] Org changed from org-1 to org-2 - invalidating caches
 [v0] Permissions loaded. Active org: org-2 Valid: true
-```
+\`\`\`
 
 Check localStorage:
-```javascript
+\`\`\`javascript
 console.log(localStorage.getItem("activeOrgId"))
-```
+\`\`\`
 
 Check permission context:
-```javascript
+\`\`\`javascript
 const { activeOrgId, isActiveOrgValid, permissions } = usePermissions()
 console.log({ activeOrgId, isActiveOrgValid, orgs: permissions?.orgMemberships })
-```
+\`\`\`
