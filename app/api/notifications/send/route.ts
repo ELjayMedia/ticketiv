@@ -1,23 +1,21 @@
 import { NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export const dynamic = "force-dynamic"
 
 /**
  * POST /api/notifications/send
- * Send a notification to a user via Realtime broadcast
+ * Send a notification to a user via Supabase Edge Function
  * 
  * Example request:
  * {
  *   "user_id": "user-uuid",
  *   "title": "Event Started",
- *   "body": "Your event has begun!",
- *   "type": "info"
+ *   "body": "Your event has begun!"
  * }
  */
 export async function POST(request: Request) {
   try {
-    const { user_id, title, body, type } = await request.json()
+    const { user_id, title, body } = await request.json()
 
     if (!user_id || !title) {
       return NextResponse.json(
@@ -26,33 +24,40 @@ export async function POST(request: Request) {
       )
     }
 
-    const supabase = createServerSupabaseClient()
-    if (!supabase) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error("[v0] Supabase environment variables not configured")
       return NextResponse.json(
         { error: "Supabase not configured" },
         { status: 500 }
       )
     }
 
-    const topic = `notifications:user:${user_id}`
-    const payload = {
-      title,
-      body,
-      type: type || "info",
-      timestamp: Date.now(),
-    }
+    // Call the Supabase Edge Function to send the notification
+    const functionUrl = `${supabaseUrl}/functions/v1/send-notification`
 
-    // Broadcast the notification via Realtime
-    const { error } = await supabase.channel(topic).send("broadcast", {
-      event: "new_notification",
-      payload,
+    const response = await fetch(functionUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${supabaseAnonKey}`,
+      },
+      body: JSON.stringify({
+        user_id,
+        title,
+        body: body || "",
+      }),
     })
 
-    if (error) {
-      console.error("[v0] Failed to broadcast notification:", error)
+    const data = await response.json()
+
+    if (!response.ok) {
+      console.error("[v0] Edge function error:", data)
       return NextResponse.json(
-        { error: "Failed to send notification" },
-        { status: 500 }
+        { error: data.error || "Failed to send notification" },
+        { status: response.status }
       )
     }
 
