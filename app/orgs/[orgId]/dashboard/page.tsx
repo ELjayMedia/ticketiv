@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { cookies } from "next/headers"
 import { getDemoOrganizerEvents, getDemoOrganization } from "@/lib/demo-data"
-import { TrendingUp, Ticket, DollarSign, Calendar, Activity, ArrowUpRight, CheckCircle2 } from "lucide-react"
+import { TrendingUp, Ticket, DollarSign, Calendar, Activity, ArrowUpRight, CheckCircle2, Zap } from "lucide-react"
 
 export const dynamic = "force-dynamic"
 
@@ -20,7 +20,7 @@ interface DashboardMetric {
 
 function MetricCard({ label, value, change, icon }: DashboardMetric) {
   return (
-    <Card>
+    <Card className="hover:shadow-md transition-shadow">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{label}</CardTitle>
         <div className="text-muted-foreground">{icon}</div>
@@ -108,81 +108,114 @@ export default async function OrgDashboardPage({ params }: { params: { orgId: st
     activeEvents = eventsData.filter((e) => e.status === "published").length
   }
 
+  const upcomingEvents = events.filter((e) => e.status === "published").slice(0, 3)
+
   return (
     <main className="flex-1 overflow-auto bg-background">
       <div className="container mx-auto p-6 space-y-8">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">{orgName}</h1>
-            <p className="text-muted-foreground mt-1">Organization Overview</p>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">{orgName} Dashboard</h1>
+            <p className="text-muted-foreground mt-1">Welcome back! Here's your event overview</p>
           </div>
-          <Button asChild>
+          <Button asChild className="w-full sm:w-auto">
             <Link href={`/orgs/${orgId}/events/new`}>+ Create Event</Link>
           </Button>
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricCard
-            label="Active Events"
-            value={activeEvents.toString()}
-            change={`${events.length} total`}
-            icon={<Calendar className="h-4 w-4" />}
-          />
-          <MetricCard
-            label="Tickets Sold"
-            value={totalTicketsSold.toString()}
-            icon={<Ticket className="h-4 w-4" />}
-          />
-          <MetricCard
-            label="Revenue"
-            value={`$${(totalRevenue / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}`}
-            icon={<DollarSign className="h-4 w-4" />}
-          />
-          <MetricCard
-            label="Growth"
-            value="+12%"
-            icon={<TrendingUp className="h-4 w-4" />}
-          />
-        </div>
+        {events.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <MetricCard
+              label="Active Events"
+              value={activeEvents.toString()}
+              change={`${events.length} total`}
+              icon={<Calendar className="h-4 w-4" />}
+            />
+            <MetricCard
+              label="Tickets Sold"
+              value={totalTicketsSold.toString()}
+              change={`${activeEvents} publishing`}
+              icon={<Ticket className="h-4 w-4" />}
+            />
+            <MetricCard
+              label="Total Revenue"
+              value={`$${(totalRevenue / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}`}
+              change="+12% from last month"
+              icon={<DollarSign className="h-4 w-4" />}
+            />
+            <MetricCard
+              label="Growth"
+              value="+12%"
+              change="Month over month"
+              icon={<TrendingUp className="h-4 w-4" />}
+            />
+          </div>
+        )}
 
-        {/* Events Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Events</CardTitle>
-            <CardDescription>Events in this organization</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {events.length === 0 ? (
-              <div className="text-center py-8">
-                <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-2 opacity-50" />
-                <p className="text-muted-foreground">No events yet. Create your first event to get started.</p>
-                <Button asChild className="mt-4">
-                  <Link href={`/orgs/${orgId}/events/new`}>Create Event</Link>
-                </Button>
+        {/* Upcoming Events or Empty State */}
+        {events.length === 0 ? (
+          <Card className="border-2 border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-16 px-4">
+              <div className="rounded-full bg-primary/10 p-3 mb-4">
+                <Zap className="h-8 w-8 text-primary" />
               </div>
-            ) : (
-              <div className="space-y-2">
-                {events.slice(0, 5).map((event) => (
+              <h2 className="text-2xl font-bold text-foreground mb-2">Create your first event</h2>
+              <p className="text-muted-foreground text-center max-w-sm mb-6">
+                Get started by creating an event and start selling tickets to your audience. Our simple wizard will guide you through the process.
+              </p>
+              <Button asChild size="lg">
+                <Link href={`/orgs/${orgId}/events/new`}>Create Event</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold text-foreground mb-4">Recent Events</h2>
+              <div className="space-y-3">
+                {upcomingEvents.map((event) => (
                   <Link
                     key={event.id}
                     href={`/orgs/${orgId}/events/${event.id}`}
-                    className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent transition-colors"
+                    className="block"
                   >
-                    <div className="flex-1">
-                      <p className="font-medium text-foreground">{event.title}</p>
-                      <p className="text-sm text-muted-foreground">{event.date}</p>
-                    </div>
-                    <Badge variant={event.status === "published" ? "default" : "secondary"}>
-                      {event.status}
-                    </Badge>
+                    <Card className="hover:shadow-md hover:border-primary/50 transition-all">
+                      <CardContent className="flex items-center justify-between p-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-foreground truncate">{event.title}</h3>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                                <Calendar className="h-3 w-3" />
+                                <span>{event.date}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4 ml-4">
+                          <div className="text-right">
+                            <p className="text-sm text-muted-foreground">Sold</p>
+                            <p className="font-semibold text-foreground">{event.orders?.[0]?.count || 0}</p>
+                          </div>
+                          <Badge variant={event.status === "published" ? "default" : "secondary"} className="capitalize">
+                            {event.status}
+                          </Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </Link>
                 ))}
               </div>
-            )}
-          </CardContent>
-        </Card>
+              {events.length > 3 && (
+                <Button asChild variant="outline" className="w-full mt-4">
+                  <Link href={`/orgs/${orgId}/events`}>View All Events ({events.length})</Link>
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </main>
   )
