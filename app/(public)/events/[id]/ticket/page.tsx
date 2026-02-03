@@ -1,166 +1,192 @@
-'use client'
+'use server'
 
 import Link from 'next/link'
-import { ArrowLeft, Download, QrCode, Share2, MapPin, Calendar } from 'lucide-react'
+import { notFound } from 'next/navigation'
+import { ArrowLeft, Download, Share2, CheckCircle2, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { getPublicEvents } from '@/lib/data/public/events'
 
 interface TicketPageProps {
-  params: { id: string }
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ order_id?: string }>
 }
 
-export default function TicketPage({ params }: TicketPageProps) {
-  const ticket = {
-    id: 'TKT-2026-001234',
-    eventId: params.id,
-    eventTitle: 'Tech Conference 2026',
-    date: 'Mar 15, 2026',
-    time: '09:00 AM',
-    venue: 'Moscone Center',
-    location: 'San Francisco, CA',
-    ticketType: 'General Admission',
-    quantity: 1,
-    status: 'VALID',
-    qrCode: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"%3E%3Crect fill="white" width="200" height="200"/%3E%3Crect x="20" y="20" width="30" height="30" fill="black"/%3E%3Crect x="120" y="20" width="30" height="30" fill="black"/%3E%3Crect x="20" y="120" width="30" height="30" fill="black"/%3E%3C/svg%3E',
+export default async function TicketPage({
+  params,
+  searchParams,
+}: TicketPageProps) {
+  const { id } = await params
+  const { order_id } = await searchParams
+
+  const events = await getPublicEvents()
+  const event = events.find((e) => e.slug === id || e.id === id)
+
+  if (!event) {
+    notFound()
   }
 
-  const handleDownload = () => {
-    alert('Download functionality would save ticket as PDF')
-  }
-
-  const handleShare = () => {
-    alert('Share functionality would open share menu')
-  }
+  // In a real app, you'd fetch actual ticket data with the order_id
+  const ticketId = 'TIX-' + (order_id || Date.now().toString()).slice(-8).toUpperCase()
+  const ticketStatus = 'VALID'
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="bg-background min-h-screen">
       {/* Header */}
-      <div className="border-b border-border/40 px-4 py-4 flex justify-between items-center">
-        <Link
-          href={`/events/${ticket.eventId}`}
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Link>
-        <div className="flex gap-2">
-          <Button variant="ghost" size="icon" onClick={handleShare}>
-            <Share2 className="h-5 w-5" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={handleDownload}>
-            <Download className="h-5 w-5" />
-          </Button>
+      <div className="border-b border-border/40 bg-background sticky top-0 z-10">
+        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
+          <Link
+            href={`/events/${event.id}`}
+            className="inline-flex p-2 hover:bg-muted rounded-lg transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <h1 className="font-bold text-lg">My Ticket</h1>
+          <div className="w-10" />
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-md mx-auto px-4 py-8">
-        <div className="space-y-6">
-          {/* Ticket Card */}
-          <Card className="overflow-hidden border-2 border-primary/20">
-            <CardContent className="p-0">
-              {/* Ticket Header */}
-              <div className="bg-gradient-to-r from-primary/10 via-accent/10 to-primary/5 p-6 space-y-2 border-b border-border/40">
-                <h1 className="text-2xl font-bold text-foreground">{ticket.eventTitle}</h1>
-                <Badge className="w-fit" variant={ticket.status === 'VALID' ? 'default' : 'destructive'}>
-                  {ticket.status}
-                </Badge>
+      <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+        {/* Ticket Card - Designed for screenshotting */}
+        <Card className="border-0 bg-gradient-to-br from-primary/10 via-accent/5 to-background overflow-hidden">
+          <CardContent className="p-0">
+            {/* Ticket Header */}
+            <div className="bg-gradient-to-r from-primary to-primary/80 text-white p-6 space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide opacity-90">
+                Event Ticket
+              </p>
+              <h2 className="text-2xl sm:text-3xl font-bold leading-tight">
+                {event.title}
+              </h2>
+            </div>
+
+            {/* Ticket Body */}
+            <div className="p-6 space-y-6">
+              {/* Event Details */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">
+                    Date & Time
+                  </p>
+                  <p className="font-semibold">
+                    {event.start_date
+                      ? new Date(event.start_date).toLocaleDateString(undefined, {
+                          weekday: 'short',
+                          month: 'short',
+                          day: 'numeric',
+                        })
+                      : 'TBA'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {event.start_date
+                      ? new Date(event.start_date).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : ''}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">
+                    Venue
+                  </p>
+                  <p className="font-semibold text-sm">
+                    {event.location || event.venue?.name || 'TBA'}
+                  </p>
+                </div>
+              </div>
+
+              {/* QR Code Section */}
+              <div className="flex flex-col items-center justify-center py-8 bg-white rounded-lg border-2 border-primary/20">
+                <div className="w-48 h-48 bg-gray-100 rounded-lg flex items-center justify-center border-2 border-primary">
+                  {/* In production, generate QR code with qr-code library */}
+                  <div className="text-center">
+                    <p className="text-xs font-medium text-muted-foreground mb-2">
+                      QR Code
+                    </p>
+                    <div className="w-40 h-40 bg-gradient-to-br from-primary/20 to-accent/20 rounded flex items-center justify-center">
+                      <p className="text-xs text-muted-foreground">{ticketId}</p>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-4">
+                  Show this at the venue for entry
+                </p>
               </div>
 
               {/* Ticket Details */}
-              <div className="p-6 space-y-4">
-                {/* Event Info */}
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <Calendar className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Date & Time</p>
-                      <p className="font-semibold text-foreground">{ticket.date} • {ticket.time}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <MapPin className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Venue</p>
-                      <p className="font-semibold text-foreground">{ticket.venue}</p>
-                      <p className="text-xs text-muted-foreground">{ticket.location}</p>
-                    </div>
-                  </div>
+              <div className="space-y-3 pt-4 border-t border-border/40">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Ticket ID</span>
+                  <span className="font-mono font-semibold text-sm">{ticketId}</span>
                 </div>
-
-                {/* Divider */}
-                <div className="border-t-2 border-dashed border-border/40 my-4" />
-
-                {/* Ticket Info */}
-                <div className="grid grid-cols-2 gap-4 text-center py-4">
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Ticket Type</p>
-                    <p className="font-semibold text-foreground text-sm">{ticket.ticketType}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Quantity</p>
-                    <p className="font-semibold text-foreground text-sm">× {ticket.quantity}</p>
-                  </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Ticket Type</span>
+                  <span className="font-semibold text-sm">
+                    {event.ticket_types?.[0]?.name || 'General Admission'}
+                  </span>
                 </div>
-
-                {/* Ticket ID */}
-                <div className="text-center py-2 bg-muted/30 rounded px-3">
-                  <p className="text-xs text-muted-foreground mb-1">Ticket ID</p>
-                  <p className="font-mono font-semibold text-xs text-foreground">{ticket.id}</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Status</span>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <Badge className="bg-green-500/10 text-green-700 hover:bg-green-500/10">
+                      {ticketStatus}
+                    </Badge>
+                  </div>
                 </div>
               </div>
+            </div>
 
-              {/* QR Code */}
-              <div className="border-t border-border/40 p-6 flex flex-col items-center gap-4">
-                <div className="flex flex-col items-center gap-2">
-                  <p className="text-sm font-semibold text-foreground">Show this QR code at entry</p>
-                  <p className="text-xs text-muted-foreground">Scan at the gate to check in</p>
-                </div>
-                <div className="bg-white p-4 rounded-lg border-2 border-primary/20">
-                  <QrCode className="h-32 w-32 text-primary" />
-                </div>
-              </div>
+            {/* Ticket Footer */}
+            <div className="bg-muted/30 px-6 py-3 border-t border-border/40">
+              <p className="text-xs text-muted-foreground text-center">
+                This ticket is valid for entry. No refunds after event start.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
-              {/* Footer */}
-              <div className="border-t border-border/40 p-6 text-center space-y-2 bg-muted/20">
-                <p className="text-xs text-muted-foreground">
-                  <strong>Keep this ticket safe.</strong> You'll need it to enter the event.
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Screenshot or download for offline access
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Additional Info */}
+        <Card className="border-0 bg-amber-50 dark:bg-amber-950/20 border-l-4 border-amber-500">
+          <CardContent className="p-4 flex gap-3">
+            <Clock className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-sm mb-1">Arrive Early</p>
+              <p className="text-xs text-muted-foreground">
+                Please arrive at least 15 minutes before the event start time.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* Action Buttons */}
-          <div className="space-y-2">
-            <Button
-              size="lg"
-              className="w-full h-12 font-semibold rounded-lg gap-2"
-              onClick={handleDownload}
-            >
-              <Download className="h-4 w-4" />
-              Download Ticket
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              className="w-full h-12 font-semibold rounded-lg gap-2"
-              onClick={handleShare}
-            >
-              <Share2 className="h-4 w-4" />
-              Share Ticket
-            </Button>
-          </div>
-
-          {/* Footer Note */}
-          <div className="text-center text-xs text-muted-foreground p-4 bg-muted/20 rounded-lg">
-            <p>Need help? Contact <strong>support@ticketiv.com</strong></p>
-          </div>
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button
+            size="lg"
+            variant="outline"
+            className="flex-1 h-11 rounded-lg gap-2"
+            onClick={() => window.print()}
+          >
+            <Download className="h-4 w-4" />
+            Save Ticket
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            className="flex-1 h-11 rounded-lg gap-2"
+          >
+            <Share2 className="h-4 w-4" />
+            Share
+          </Button>
         </div>
+
+        {/* Help Text */}
+        <p className="text-xs text-center text-muted-foreground">
+          Your ticket is stored on this device and in your email. You don't need an account.
+        </p>
       </div>
     </div>
   )

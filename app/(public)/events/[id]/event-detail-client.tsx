@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowLeft, MapPin, Calendar, Clock, Users, Shield, Zap, QrCode, Share2 } from "lucide-react"
+import { ArrowLeft, MapPin, Calendar, Clock, Share2, Shield, QrCode, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -16,28 +16,24 @@ interface EventDetailClientProps {
 function formatDateRange(start?: string | null, end?: string | null) {
   if (!start) return "Date TBA"
   const startDate = new Date(start)
-  const endDate = end ? new Date(end) : null
   const dateFormatter = new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
     month: "short",
     day: "numeric",
-    year: "numeric",
-    weekday: "short",
   })
   const timeFormatter = new Intl.DateTimeFormat(undefined, {
     hour: "numeric",
     minute: "2-digit",
   })
-  const startLabel = `${dateFormatter.format(startDate)} • ${timeFormatter.format(startDate)}`
-  if (!endDate) return startLabel
-  return `${startLabel}`
+  return `${dateFormatter.format(startDate)} • ${timeFormatter.format(startDate)}`
 }
 
 export function EventDetailClient({ event }: EventDetailClientProps) {
   const isSoldOut = event.ticketsAvailable === 0 || event.ticket_types?.every((tt) => tt.quantity_remaining === 0)
-  const priceLabel = formatCurrency(event.price, event.currency)
+  const priceLabel = event.price ? formatCurrency(event.price, event.currency) : "TBA"
 
   return (
-    <div className="bg-background">
+    <div className="bg-background min-h-screen">
       {/* Hero Section */}
       <div className="relative w-full bg-muted overflow-hidden">
         <img
@@ -45,10 +41,8 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
           alt={event.title}
           className="w-full h-auto aspect-[16/9] object-cover"
         />
-        
-        {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-        
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+
         {/* Header Buttons */}
         <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10">
           <Link
@@ -72,7 +66,7 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
             <Badge className="bg-primary/90 backdrop-blur w-fit">{event.category}</Badge>
           )}
           <div>
-            <h1 className="text-3xl font-bold leading-tight mb-2">{event.title}</h1>
+            <h1 className="text-3xl sm:text-4xl font-bold leading-tight mb-2">{event.title}</h1>
             <p className="text-white/90 text-sm">{event.location || event.venue?.name || "Location TBA"}</p>
           </div>
         </div>
@@ -80,25 +74,29 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
 
       {/* Main Content */}
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
-        {/* Key Info Cards */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* Key Info Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <Card className="border-0 bg-muted/50">
             <CardContent className="p-4 flex flex-col gap-2">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Calendar className="h-4 w-4" />
-                <span className="text-xs font-medium">Date & Time</span>
+                <span className="text-xs font-medium">Date</span>
               </div>
-              <p className="font-semibold text-sm">{formatDateRange(event.start_date, event.end_date)}</p>
+              <p className="font-semibold text-sm">
+                {event.start_date ? new Date(event.start_date).toLocaleDateString() : "TBA"}
+              </p>
             </CardContent>
           </Card>
 
           <Card className="border-0 bg-muted/50">
             <CardContent className="p-4 flex flex-col gap-2">
               <div className="flex items-center gap-2 text-muted-foreground">
-                <MapPin className="h-4 w-4" />
-                <span className="text-xs font-medium">Venue</span>
+                <Clock className="h-4 w-4" />
+                <span className="text-xs font-medium">Time</span>
               </div>
-              <p className="font-semibold text-sm line-clamp-1">{event.venue?.name || "TBA"}</p>
+              <p className="font-semibold text-sm">
+                {event.start_date ? new Date(event.start_date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "TBA"}
+              </p>
             </CardContent>
           </Card>
 
@@ -106,16 +104,6 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
             <CardContent className="p-4 flex flex-col gap-2">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Users className="h-4 w-4" />
-                <span className="text-xs font-medium">Attendees</span>
-              </div>
-              <p className="font-semibold text-sm">{event.attendees?.toLocaleString() || "0"}+</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 bg-muted/50">
-            <CardContent className="p-4 flex flex-col gap-2">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Zap className="h-4 w-4" />
                 <span className="text-xs font-medium">Status</span>
               </div>
               <p className="font-semibold text-sm">{isSoldOut ? "Sold Out" : "Selling"}</p>
@@ -123,17 +111,19 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
           </Card>
         </div>
 
-        {/* Countdown */}
-        {event.start_date && (
-          <Card className="border-2 border-primary/20 bg-primary/5">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Clock className="h-4 w-4 text-primary" />
-                <span className="text-xs font-semibold text-primary">Starts In</span>
-              </div>
-              <EventCountdown eventDate={event.start_date} />
-            </CardContent>
-          </Card>
+        {/* Performers */}
+        {event.performers && event.performers.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="font-bold text-lg">Artists & Performers</h2>
+            <div className="space-y-2">
+              {event.performers.map((performer, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm">
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                  <span>{performer}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Description */}
@@ -141,21 +131,6 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
           <div className="space-y-3">
             <h2 className="font-bold text-lg">About This Event</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">{event.description}</p>
-          </div>
-        )}
-
-        {/* Artists */}
-        {event.performers && event.performers.length > 0 && (
-          <div className="space-y-3">
-            <h2 className="font-bold text-lg">Performers</h2>
-            <div className="space-y-2">
-              {event.performers.map((performer, i) => (
-                <div key={i} className="flex items-center gap-2 text-sm">
-                  <div className="w-1 h-1 rounded-full bg-primary" />
-                  <span>{performer}</span>
-                </div>
-              ))}
-            </div>
           </div>
         )}
 
@@ -192,22 +167,22 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
         )}
 
         {/* Trust Indicators */}
-        <div className="grid grid-cols-2 gap-3 py-6 border-y border-border/40">
+        <div className="grid grid-cols-2 gap-4 py-6 border-y border-border/40">
           <div className="flex flex-col items-center text-center gap-2">
-            <Shield className="h-5 w-5 text-primary" />
+            <Shield className="h-6 w-6 text-primary" />
             <span className="text-xs font-medium">Secure Payment</span>
           </div>
           <div className="flex flex-col items-center text-center gap-2">
-            <QrCode className="h-5 w-5 text-primary" />
+            <QrCode className="h-6 w-6 text-primary" />
             <span className="text-xs font-medium">Instant QR Ticket</span>
           </div>
         </div>
 
-        {/* CTA Button */}
+        {/* Primary CTA */}
         {!isSoldOut && event.ticket_types && event.ticket_types.length > 0 ? (
           <Button size="lg" className="w-full h-12 text-base font-semibold rounded-lg" asChild>
             <Link href={`/events/${event.id}/checkout`}>
-              Get Ticket
+              Buy Ticket Now
             </Link>
           </Button>
         ) : (

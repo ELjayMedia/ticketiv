@@ -1,99 +1,114 @@
-'use client'
+'use server'
 
 import Link from 'next/link'
-import { CheckCircle2, Download, Share2, Clock } from 'lucide-react'
+import { notFound } from 'next/navigation'
+import { CheckCircle2, Mail, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { getPublicEvents } from '@/lib/data/public/events'
 
 interface SuccessPageProps {
-  params: { id: string }
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ order_id?: string }>
 }
 
-export default function SuccessPage({ params }: SuccessPageProps) {
-  const event = {
-    id: params.id,
-    title: 'Tech Conference 2026',
-    date: 'Mar 15, 2026',
-    location: 'San Francisco, CA',
+export default async function SuccessPage({
+  params,
+  searchParams,
+}: SuccessPageProps) {
+  const { id } = await params
+  const { order_id } = await searchParams
+
+  const events = await getPublicEvents()
+  const event = events.find((e) => e.slug === id || e.id === id)
+
+  if (!event) {
+    notFound()
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-8">
-      <div className="max-w-md w-full space-y-8 text-center">
+    <div className="bg-background min-h-screen flex flex-col">
+      {/* Success Content */}
+      <div className="flex-1 max-w-2xl mx-auto px-4 py-12 sm:py-16 flex flex-col items-center justify-center text-center space-y-8">
         {/* Success Icon */}
-        <div className="flex justify-center">
-          <div className="relative">
-            <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse" />
-            <div className="relative bg-gradient-to-br from-primary/20 to-accent/20 rounded-full p-6">
-              <CheckCircle2 className="h-16 w-16 text-primary mx-auto" />
-            </div>
+        <div className="relative">
+          <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl" />
+          <div className="relative bg-gradient-to-br from-primary to-primary/80 rounded-full p-6">
+            <CheckCircle2 className="h-12 w-12 text-white" />
           </div>
         </div>
 
         {/* Success Message */}
         <div className="space-y-2">
-          <h1 className="text-3xl font-bold text-foreground">Your Ticket is Ready!</h1>
-          <p className="text-muted-foreground">We've sent your ticket to your email</p>
+          <h1 className="text-3xl sm:text-4xl font-bold">Your ticket is ready!</h1>
+          <p className="text-lg text-muted-foreground">
+            Get ready for an amazing experience
+          </p>
         </div>
 
         {/* Event Summary Card */}
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-6 space-y-3">
-            <div className="text-left space-y-1">
-              <h2 className="font-bold text-lg text-foreground">{event.title}</h2>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Clock className="h-4 w-4" />
-                <span>{event.date}</span>
+        <Card className="w-full border-0 bg-muted/50">
+          <CardContent className="p-6 space-y-4">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Event
+              </p>
+              <h2 className="text-xl font-bold">{event.title}</h2>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/40">
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Date</p>
+                <p className="font-semibold text-sm">
+                  {event.start_date
+                    ? new Date(event.start_date).toLocaleDateString(undefined, {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                      })
+                    : 'TBA'}
+                </p>
               </div>
-              <p className="text-sm text-muted-foreground">{event.location}</p>
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Venue</p>
+                <p className="font-semibold text-sm">
+                  {event.location || event.venue?.name || 'TBA'}
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Info Box */}
-        <div className="bg-muted/50 rounded-lg p-4 text-center">
-          <p className="text-sm text-muted-foreground">
-            <strong>Pro Tip:</strong> Screenshot your ticket for offline access at the venue
-          </p>
+        {/* Email Confirmation */}
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <Mail className="h-5 w-5 text-primary" />
+          <span>We've emailed your ticket to your address</span>
         </div>
 
         {/* CTA Buttons */}
-        <div className="space-y-3 pt-4">
-          <Button
-            size="lg"
-            className="w-full h-12 font-semibold rounded-lg"
-            asChild
-          >
-            <Link href={`/events/${event.id}/ticket`}>
+        <div className="flex flex-col sm:flex-row gap-3 w-full">
+          <Button size="lg" className="flex-1 h-12 rounded-lg" asChild>
+            <Link href={`/events/${event.id}/ticket${order_id ? `?order_id=${order_id}` : ''}`}>
               View My Ticket
+              <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </Button>
-
           <Button
+            size="lg"
             variant="outline"
-            size="lg"
-            className="w-full h-12 font-semibold rounded-lg gap-2"
-          >
-            <Share2 className="h-4 w-4" />
-            Share with Friends
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="lg"
-            className="w-full h-12 font-semibold rounded-lg"
+            className="flex-1 h-12 rounded-lg"
             asChild
           >
-            <Link href="/browse">
-              Browse More Events
-            </Link>
+            <Link href="/browse">Browse More Events</Link>
           </Button>
         </div>
 
-        {/* Footer Note */}
-        <p className="text-xs text-muted-foreground">
-          Check your email for your ticket. If you don't see it, check your spam folder.
-        </p>
+        {/* Additional Info */}
+        <div className="space-y-2 text-xs text-muted-foreground pt-4">
+          <p>✓ Check your email for your ticket</p>
+          <p>✓ You can access your ticket anytime on this device</p>
+          <p>✓ No account needed - just save your email</p>
+        </div>
       </div>
     </div>
   )
