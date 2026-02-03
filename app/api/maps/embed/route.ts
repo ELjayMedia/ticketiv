@@ -1,4 +1,4 @@
-import { process } from "process"
+import { GOOGLE_MAPS_EMBED_KEY } from "@/lib/env"
 
 const GOOGLE_MAPS_EMBED_BASE_URL = "https://www.google.com/maps/embed/v1/place"
 
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     return Response.json({ error: "Missing 'q' query parameter" }, { status: 400 })
   }
 
-  const mapsApiKey = process.env.GOOGLE_MAPS_EMBED_KEY
+  const mapsApiKey = GOOGLE_MAPS_EMBED_KEY
 
   if (!mapsApiKey) {
     console.warn("[maps] GOOGLE_MAPS_EMBED_KEY not configured, returning error")

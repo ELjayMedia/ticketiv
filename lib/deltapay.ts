@@ -1,5 +1,7 @@
 "use server"
 
+import { DELTAPAY_PUBLIC_KEY, DELTAPAY_SECRET_KEY, DELTAPAY_ENVIRONMENT } from "./env"
+
 interface DeltaPayConfig {
   publicKey: string
   secretKey: string
@@ -152,9 +154,9 @@ class DeltaPayClient {
 }
 
 export async function getDeltaPayClient(): Promise<DeltaPayClient | null> {
-  const publicKey = process.env.DELTAPAY_PUBLIC_KEY
-  const secretKey = process.env.DELTAPAY_SECRET_KEY
-  const environment = (process.env.DELTAPAY_ENVIRONMENT || "dev") as "dev" | "prod"
+  const publicKey = DELTAPAY_PUBLIC_KEY
+  const secretKey = DELTAPAY_SECRET_KEY
+  const environment = DELTAPAY_ENVIRONMENT
 
   if (!publicKey || !secretKey) {
     console.warn("[DeltaPay] API keys not configured")
