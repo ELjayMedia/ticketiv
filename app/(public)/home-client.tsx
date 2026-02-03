@@ -1,164 +1,142 @@
 'use client'
 
 import React from "react"
-import { useEffect, useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { ChevronRight } from "lucide-react"
-
+import { ChevronRight, Zap, Calendar } from "lucide-react"
 import { EventCardStandard } from "@/components/standardized/event-card-standard"
 import type { EventCardData } from "@/components/standardized/event-card-standard"
 import { Button } from "@/components/ui/button"
 import { SearchInput } from "@/components/ui/search-input"
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
-import { createClient } from "@/lib/supabase"
-
-interface ArtistRecord {
-  id: string
-  name: string
-  avatar_url?: string
-  role?: string
-}
 
 interface HomeClientProps {
   initialEvents: EventCardData[]
 }
 
 export default function HomeClient({ initialEvents }: HomeClientProps) {
-  const router = useRouter()
-  const [artists, setArtists] = useState<ArtistRecord[]>([])
-  const [selectedCategory, setSelectedCategory] = useState("")
-  const [searchQuery, setSearchQuery] = useState("")
-
-  useEffect(() => {
-    const supabase = createClient()
-    if (!supabase) {
-      console.warn("Supabase client not available. Skipping artist data fetch.")
-      return
-    }
-
-    let cancelled = false
-    async function loadArtists() {
-      const { data, error } = await supabase.from("artists").select("*").limit(15)
-      if (error) {
-        console.warn("Failed to load artists", error)
-        return
-      }
-      if (!cancelled) {
-        setArtists(data as ArtistRecord[])
-      }
-    }
-
-    loadArtists()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (searchQuery.trim()) {
-      router.push(`/browse?q=${encodeURIComponent(searchQuery)}`)
-    }
-  }
-
-  const featuredEvents = initialEvents.slice(0, 3)
+  // Categorize events
+  const featured = initialEvents.slice(0, 1)
+  const thisWeekend = initialEvents.slice(1, 4)
+  const upcoming = initialEvents.slice(4, 10)
 
   return (
-    <div className="max-w-[980px] mx-auto sm:px-6 lg:px-8 py-0 px-0 sm:py-0">
-      <div className="space-y-5">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl text-balance text-center font-light font-sans leading-7 my-4 py-4">
-          Discover <span className="text-primary">Amazing Events</span>
-        </h1>
-        <div className="flex justify-center">
-          <div className="w-full max-w-md">
+    <div className="flex flex-col min-h-screen bg-background">
+      {/* Mobile Header */}
+      <header className="sticky top-0 z-40 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <h1 className="text-xl font-bold text-foreground">Ticketiv</h1>
+          <Link href="/browse" className="text-sm text-muted-foreground hover:text-foreground">Browse</Link>
+        </div>
+      </header>
+
+      {/* Hero Search Section */}
+      <section className="bg-gradient-to-b from-primary/10 via-accent/5 to-transparent pt-8 pb-6 px-4">
+        <div className="max-w-2xl mx-auto space-y-4 text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
+            <Zap className="h-3 w-3 text-primary" />
+            <span className="text-xs font-medium text-primary">Discover Amazing Events</span>
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Find Your Next Experience</h2>
+          <p className="text-sm text-muted-foreground">Browse concerts, conferences, festivals & more</p>
+          <div className="pt-2">
             <SearchInput
-              placeholder="Search events, organisers, artists…"
-              value={searchQuery}
-              onChange={setSearchQuery}
-              onSubmit={handleSearch}
+              placeholder="Search events, artists, venues…"
+              onSubmit={(query) => {
+                if (query.trim()) {
+                  window.location.href = `/browse?q=${encodeURIComponent(query)}`
+                }
+              }}
             />
           </div>
         </div>
-      </div>
+      </section>
 
-      <Carousel className="w-full mt-8 sm:mt-12">
-        <CarouselContent>
-          {featuredEvents.map((event) => (
-            <CarouselItem key={event.id} className="basis-full">
-              <Link href={`/events/${event.id}`}>
-                <div className="relative rounded-xl overflow-hidden h-64 sm:h-80 group cursor-pointer">
-                  <img
-                    src={event.cover_image_url || "/placeholder.svg"}
-                    alt={event.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-transparent" />
-                  <div className="absolute inset-0 flex flex-col p-4 sm:p-8 justify-end items-start rounded-xs shadow-none sm:pb-8 sm:pt-8">
-                    <h2 className="text-2xl font-bold text-white mb-2 sm:mb-4 sm:text-2xl font-sans mt-0">
-                      {event.title}
-                    </h2>
-                  <Button size="lg" className="w-fit gap-2 text-sm sm:text-base">
-                      Explore Event
-                      <ChevronRight className="w-4 h-4" />
-                    </Button>
+      {/* Main Content */}
+      <main className="flex-1 container mx-auto px-4 py-8 space-y-12 max-w-4xl">
+        {/* Featured Event Hero */}
+        {featured.length > 0 && (
+          <section className="space-y-3">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Featured</h3>
+            <Link href={`/events/${featured[0].id}`} className="group block">
+              <div className="relative rounded-2xl overflow-hidden aspect-[16/9] bg-muted">
+                <img
+                  src={featured[0].cover_image_url || "/placeholder.svg"}
+                  alt={featured[0].title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                <div className="absolute inset-0 flex flex-col justify-end p-6 text-white space-y-3">
+                  <div>
+                    <h2 className="text-2xl sm:text-3xl font-bold leading-tight">{featured[0].title}</h2>
+                    <p className="text-sm text-white/80 mt-2">{featured[0].location}</p>
                   </div>
+                  <Button size="sm" className="w-fit gap-2">
+                    View Event
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
                 </div>
+              </div>
+            </Link>
+          </section>
+        )}
+
+        {/* This Weekend Section */}
+        {thisWeekend.length > 0 && (
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-primary" />
+                This Weekend
+              </h3>
+              <Link href="/browse?filter=weekend" className="text-sm text-primary hover:underline flex items-center gap-1">
+                View all
+                <ChevronRight className="h-4 w-4" />
               </Link>
-            </CarouselItem>
-          ))}
-        </CarouselContent>
-        <CarouselPrevious className="hidden sm:flex left-4" />
-        <CarouselNext className="hidden sm:flex right-4" />
-      </Carousel>
-
-      {/* Events Grid */}
-      <div className="space-y-4 mt-12">
-        <div className="flex items-center justify-between">
-          <h2 className="font-bold text-xl sm:text-2xl">Featured Events</h2>
-          <Link href="/browse" className="text-sm text-primary hover:underline">
-            View all
-          </Link>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {initialEvents.map((event) => (
-            <EventCardStandard key={event.id} event={event} />
-          ))}
-        </div>
-      </div>
-
-      {artists.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="font-bold text-xl sm:text-2xl">Featured Artists & Speakers</h2>
-          <Carousel className="w-full">
-            <CarouselContent className="-ml-2">
-              {artists.map((artist) => (
-                <CarouselItem key={artist.id} className="pl-2 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5">
-                  <Link href={`/artists/${artist.id}`}>
-                    <div className="flex flex-col items-center gap-4 group cursor-pointer">
-                      <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden ring-2 ring-primary/20 group-hover:ring-primary transition-all duration-300">
-                        <img
-                          src={artist.avatar_url || "/placeholder.svg"}
-                          alt={artist.name}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                        />
-                      </div>
-                      <div className="text-center">
-                        <h3 className="font-semibold text-xs sm:text-sm group-hover:text-primary transition-colors">
-                          {artist.name}
-                        </h3>
-                        {artist.role && <p className="text-xs text-muted-foreground">{artist.role}</p>}
-                      </div>
-                    </div>
-                  </Link>
-                </CarouselItem>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {thisWeekend.map((event) => (
+                <EventCardStandard key={event.id} event={event} />
               ))}
-            </CarouselContent>
-            <CarouselPrevious className="hidden sm:flex" />
-            <CarouselNext className="hidden sm:flex" />
-          </Carousel>
+            </div>
+          </section>
+        )}
+
+        {/* Upcoming Events Section */}
+        {upcoming.length > 0 && (
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-foreground">Upcoming Events</h3>
+              <Link href="/browse" className="text-sm text-primary hover:underline flex items-center gap-1">
+                View all
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {upcoming.map((event) => (
+                <EventCardStandard key={event.id} event={event} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Empty State */}
+        {initialEvents.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Calendar className="h-12 w-12 text-muted-foreground/30 mb-4" />
+            <h3 className="text-lg font-semibold text-foreground mb-2">No events yet</h3>
+            <p className="text-sm text-muted-foreground mb-6">Check back soon for amazing events</p>
+            <Button asChild>
+              <Link href="/browse">Browse All Events</Link>
+            </Button>
+          </div>
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t border-border/40 bg-muted/30 py-8 px-4">
+        <div className="container mx-auto max-w-4xl text-center text-sm text-muted-foreground">
+          <p>Ticketiv - Event Discovery & Ticketing Platform</p>
         </div>
-      )}
+      </footer>
     </div>
   )
 }
