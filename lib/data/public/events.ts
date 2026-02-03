@@ -59,7 +59,7 @@ export async function getPublicEvents(params?: {
     .from("events")
     .select(`
       id, title, slug, city, category, visibility,
-      venues:venue_id ( id, name, address, city, tz ),
+      venues:venue_id ( id, name, address, tz ),
       event_dates ( id, starts_at, ends_at ),
       ticket_types ( id, price_cents, currency )
     `)
@@ -91,7 +91,7 @@ export async function getEventBySlug(slug: string): Promise<EventDetail | null> 
     .from("events")
     .select(`
       id, title, slug, description, city, category, venue_id, visibility,
-      venues:venue_id ( id, name, address, city, tz, capacity ),
+      venues:venue_id ( id, name, address, tz, capacity ),
       event_dates ( id, starts_at, ends_at ),
       ticket_types ( id, name, price_cents, currency, quota, per_user_limit, is_reserved_seating ),
       event_artists ( role, artists ( id, name, bio, image_url, genre ) )
@@ -156,7 +156,7 @@ export async function getEventById(eventId: string): Promise<EventDetail | null>
     .from("events")
     .select(`
       id, title, slug, description, city, category, venue_id, visibility,
-      venues:venue_id ( id, name, address, city, tz, capacity ),
+      venues:venue_id ( id, name, address, tz, capacity ),
       event_dates ( id, starts_at, ends_at ),
       ticket_types ( id, name, price_cents, currency, quota, per_user_limit, is_reserved_seating ),
       event_artists ( role, artists ( id, name, bio, image_url, genre ) )
