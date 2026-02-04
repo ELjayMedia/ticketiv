@@ -23,9 +23,11 @@ export async function GET(request: Request) {
     // Get session from Supabase
     const supabase = createServerSupabaseClient()
     if (!supabase) {
+      // When Supabase is not configured, return 401 to indicate no authentication available
+      console.warn("[v0] Supabase not configured, cannot load permissions")
       return NextResponse.json(
-        { error: "Supabase not configured" },
-        { status: 500 }
+        { error: "Not authenticated" },
+        { status: 401 }
       )
     }
 
@@ -44,8 +46,8 @@ export async function GET(request: Request) {
 
     if (!authz) {
       return NextResponse.json(
-        { error: "Failed to load permissions" },
-        { status: 500 }
+        { error: "Not authenticated" },
+        { status: 401 }
       )
     }
 
