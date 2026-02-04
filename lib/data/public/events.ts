@@ -1,12 +1,29 @@
 "use server"
 
+/**
+ * Public Events Data Layer
+ * 
+ * This module provides backward-compatible exports that use the new
+ * adapter-based system. Gradually migrate components to use the adapters directly
+ * from /lib/adapters/events.ts
+ * 
+ * NEW: Use getPublicEventsList() and getPublicEventBySlug() from /lib/adapters
+ * LEGACY: Existing functions below for backward compatibility
+ */
+
+import { getPublicEventsList, getPublicEventBySlug } from "@/lib/adapters/events"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { getDemoSessionFromCookie } from "@/lib/demo-auth"
 import { DEMO_EVENTS, DEMO_VENUES, DEMO_TICKET_TYPES, getDemoEventById } from "@/lib/demo-data"
 import type { EventSummary, EventDetail } from "@/types"
 
-// Tables: events, event_dates, venues, ticket_types, ticket_type_channels, event_artists, artists
+// Re-export the new adapter functions for migration
+export { getPublicEventsList, getPublicEventBySlug }
 
+/**
+ * LEGACY: getPublicEvents
+ * @deprecated Use getPublicEventsList() instead
+ */
 export async function getPublicEvents(params?: {
   limit?: number
   city?: string
@@ -15,94 +32,79 @@ export async function getPublicEvents(params?: {
   dateTo?: string
   sort?: "date" | "price" | "popular"
 }): Promise<EventSummary[]> {
-  const demoSession = await getDemoSessionFromCookie()
+  // Use new adapter
+  const events = await getPublicEventsList({
+    limit: params?.limit,
+    city: params?.city,
+    category: params?.category,
+    sort: params?.sort === "price" ? "price_low" : params?.sort === "date" ? "soonest" : undefined,
+  })
 
-  if (demoSession) {
-    let events = [...DEMO_EVENTS].filter((e) => e.status === "published")
-
-    if (params?.city) {
-      events = events.filter((e) => {
-        const venue = DEMO_VENUES.find((v) => v.id === e.venue_id)
-        return venue?.city?.toLowerCase().includes(params.city!.toLowerCase())
-      })
-    }
-
-    if (params?.category) {
-      events = events.filter((e) => e.category === params.category)
-    }
-
-    return events.slice(0, params?.limit || 24).map((e) => {
-      const venue = DEMO_VENUES.find((v) => v.id === e.venue_id)
-      const tickets = DEMO_TICKET_TYPES.filter((t) => t.event_id === e.id)
-      const minPrice = tickets.length > 0 ? Math.min(...tickets.map((t) => t.price_cents)) : null
-
-      return {
-        id: e.id,
-        title: e.title,
-        slug: e.slug,
-        city: venue?.city || null,
-        category: e.category,
-        visibility: e.status,
-        venues: venue
-          ? { id: venue.id, name: venue.name, address: venue.address_line1, city: venue.city, tz: venue.timezone }
-          : null,
-        event_dates: [{ id: `${e.id}-date`, starts_at: e.starts_at, ends_at: e.ends_at }],
-        ticket_types: tickets.map((t) => ({ id: t.id, price_cents: t.price_cents, currency: t.currency })),
-      }
-    })
-  }
-
-  const supabase = await createServerSupabaseClient()
-  if (!supabase) return []
-
-  let query = supabase
-    .from("events")
-    .select(`
-      id, title, slug, city, category, visibility,
-      venues:venue_id ( id, name, address, tz ),
-      event_dates ( id, starts_at, ends_at ),
-      ticket_types ( id, price_cents, currency )
-    `)
-    .eq("visibility", "public")
-    .limit(params?.limit || 24)
-
-  if (params?.city) query = query.ilike("city", `%${params.city}%`)
-  if (params?.category) query = query.eq("category", params.category)
-
-  const { data, error } = await query
-  if (error) throw error
-
-  return data ?? []
+  // Transform from view shape to legacy shape
+  return events.map((e) => ({
+    id: e.id,
+    title: e.title,
+    slug: e.slug,
+    city: e.city,
+    category: e.category,
+    visibility: "public" as const,
+    venues: e.venue_id ? {
+      id: e.venue_id,
+      name: e.venue_name,
+      address: e.venue_address,
+      city: e.city,
+      tz: e.venue_tz,
+    } : null,
+    event_dates: [{ id: `${e.id}-date`, starts_at: e.starts_at, ends_at: e.starts_at }],
+    ticket_types: [{ id: "ticket", price_cents: e.min_price_cents, currency: e.currency }],
+  }))
 }
 
+/**
+ * LEGACY: getEventBySlug
+ * @deprecated Use getPublicEventBySlug() instead
+ */
 export async function getEventBySlug(slug: string): Promise<EventDetail | null> {
-  const demoSession = await getDemoSessionFromCookie()
+  const event = await getPublicEventBySlug(slug)
+  if (!event) return null
 
-  if (demoSession) {
-    const event = DEMO_EVENTS.find((e) => e.slug === slug)
-    if (!event) return null
-    return getEventById(event.id)
+  return {
+    id: event.id,
+    title: event.title,
+    slug: event.slug,
+    description: event.description,
+    city: event.city,
+    category: event.category,
+    venue_id: event.venue_id,
+    visibility: event.visibility,
+    venues: event.venue_id ? {
+      id: event.venue_id,
+      name: event.venue_name,
+      address: event.venue_address,
+      city: event.city,
+      tz: event.venue_tz,
+      capacity: event.venue_capacity,
+    } : null,
+    event_dates: [{ id: `${event.id}-date`, starts_at: event.starts_at, ends_at: event.starts_at }],
+    ticket_types: [
+      {
+        id: "ticket",
+        name: "General Admission",
+        price_cents: event.min_price_cents,
+        currency: event.currency,
+        quota: 100,
+        per_user_limit: null,
+        is_reserved_seating: false,
+      },
+    ],
+    event_artists: [],
   }
-
-  const supabase = await createServerSupabaseClient()
-  if (!supabase) return null
-
-  const { data, error } = await supabase
-    .from("events")
-    .select(`
-      id, title, slug, description, city, category, venue_id, visibility,
-      venues:venue_id ( id, name, address, tz, capacity ),
-      event_dates ( id, starts_at, ends_at ),
-      ticket_types ( id, name, price_cents, currency, quota, per_user_limit, is_reserved_seating ),
-      event_artists ( role, artists ( id, name, bio, genre ) )
-    `)
-    .eq("slug", slug)
-    .single()
-
-  if (error) throw error
-  return data
 }
 
+/**
+ * LEGACY: getEventById
+ * @deprecated Use getPublicEventBySlug() instead
+ */
 export async function getEventById(eventId: string): Promise<EventDetail | null> {
   const demoSession = await getDemoSessionFromCookie()
 
@@ -168,6 +170,9 @@ export async function getEventById(eventId: string): Promise<EventDetail | null>
   return data
 }
 
+/**
+ * LEGACY: getEventTicketTypes
+ */
 export async function getEventTicketTypes(
   eventId: string,
   channel?: string,
@@ -231,6 +236,9 @@ export async function getEventTicketTypes(
   }))
 }
 
+/**
+ * LEGACY: getEventLineup
+ */
 export async function getEventLineup(eventId: string) {
   const demoSession = await getDemoSessionFromCookie()
 
