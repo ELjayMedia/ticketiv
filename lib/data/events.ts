@@ -159,7 +159,7 @@ export async function getEventById(eventId: string): Promise<EventDetail | null>
       venues:venue_id ( id, name, address, tz, capacity ),
       event_dates ( id, starts_at, ends_at ),
       ticket_types ( id, name, price_cents, currency, quota, per_user_limit, is_reserved_seating ),
-      event_artists ( role, artists ( id, name, bio, image_url, genre ) )
+      event_artists ( role, artists ( id, name, bio, genre ) )
     `)
     .eq("id", eventId)
     .single()
@@ -246,7 +246,7 @@ export async function getEventLineup(eventId: string) {
     .from("event_artists")
     .select(`
       role,
-      artists ( id, name, bio, image_url, genre )
+      artists ( id, name, bio, genre )
     `)
     .eq("event_id", eventId)
 
