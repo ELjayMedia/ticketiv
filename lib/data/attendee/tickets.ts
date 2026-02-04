@@ -26,7 +26,7 @@ export async function getMyTickets() {
         id, status, currency, event_id,
         events:event_id (
           id, title,
-          venues:venue_id ( name, city ),
+          venues:venue_id ( name ),
           event_dates ( starts_at )
         )
       ),
@@ -57,7 +57,7 @@ export async function getTicketById(orderItemId: string) {
         id, status, currency, event_id,
         events:event_id (
           id, title, description,
-          venues:venue_id ( name, address, city, tz ),
+          venues:venue_id ( name, address, tz ),
           event_dates ( starts_at, ends_at )
         )
       ),

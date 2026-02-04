@@ -71,7 +71,7 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
         events:events (
           id, title, slug, 
           event_dates(starts_at),
-          venues:venue_id(name, city)
+          venues:venue_id(name)
         )
       `
       )
@@ -92,7 +92,7 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
             slug: event.slug,
             starts_at: eventDate || "",
             venue_name: event.venues?.name,
-            city: event.venues?.city,
+            city: undefined,
             display_order: relation.display_order || 2,
           }
         })
