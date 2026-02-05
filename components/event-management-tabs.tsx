@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { BarChart3, Users, CreditCard, Eye } from 'lucide-react'
+import { BarChart3, Users, CreditCard, Eye, QrCode } from 'lucide-react'
 import Link from 'next/link'
 
 interface EventManagementTabsProps {
@@ -25,10 +25,14 @@ export function EventManagementTabs({ eventId, orgId, event }: EventManagementTa
 
   return (
     <Tabs defaultValue="overview" className="w-full">
-      <TabsList className="grid w-full grid-cols-4">
+      <TabsList className="grid w-full grid-cols-5">
         <TabsTrigger value="overview" className="gap-2">
           <BarChart3 className="h-4 w-4" />
           <span className="hidden sm:inline">Overview</span>
+        </TabsTrigger>
+        <TabsTrigger value="checkin" className="gap-2">
+          <QrCode className="h-4 w-4" />
+          <span className="hidden sm:inline">Check-in</span>
         </TabsTrigger>
         <TabsTrigger value="tickets" className="gap-2">
           <BarChart3 className="h-4 w-4" />
@@ -96,6 +100,27 @@ export function EventManagementTabs({ eventId, orgId, event }: EventManagementTa
                 </Link>
               </Button>
             </div>
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      {/* Check-in Tab */}
+      <TabsContent value="checkin" className="space-y-6 mt-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <QrCode className="h-5 w-5" />
+              Scan & Check-in
+            </CardTitle>
+            <CardDescription>Start checking in attendees using QR code scanner</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild size="lg" className="w-full gap-2">
+              <Link href={`/orgs/${orgId}/events/${eventId}/checkin`}>
+                <QrCode className="h-5 w-5" />
+                Open Scanner
+              </Link>
+            </Button>
           </CardContent>
         </Card>
       </TabsContent>
