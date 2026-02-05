@@ -78,6 +78,7 @@ export type ArtistEventsPublicView = z.infer<typeof ArtistEventsPublicViewSchema
 
 // v_my_tickets: Authenticated user tickets
 export const MyTicketsViewSchema = z.object({
+  user_id: z.string().uuid(),
   order_id: z.string().uuid(),
   order_item_id: z.string().uuid(),
   event_id: z.string().uuid(),

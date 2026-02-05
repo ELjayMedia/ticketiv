@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { getMyTickets } from "@/lib/adapters/tickets"
 import { getDemoUserTickets } from "@/lib/demo-data"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -7,26 +7,34 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { cookies } from "next/headers"
 import { Calendar, TicketIcon, QrCode } from "lucide-react"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export const dynamic = "force-dynamic"
 
-interface Ticket {
+interface TicketDisplay {
   id: string
-  event: { title: string; starts_at: string } | null
-  ticket_type: { name: string; price: number } | null
-  ticket_code: string
-  checked_in_at: string | null
+  event_title: string
+  event_date: string
+  ticket_type_name: string
+  checked_in_at?: string | null
 }
 
 export default async function MyTicketsPage() {
   const cookieStore = await cookies()
   const demoSessionCookie = cookieStore.get("demo_session")
-  let tickets: Ticket[] = []
+  let tickets: TicketDisplay[] = []
 
   if (demoSessionCookie) {
     try {
       const demoUser = JSON.parse(decodeURIComponent(demoSessionCookie.value))
-      tickets = getDemoUserTickets(demoUser.id)
+      const demoTickets = getDemoUserTickets(demoUser.id)
+      tickets = demoTickets.map((t: any) => ({
+        id: t.id,
+        event_title: t.event?.title || "Event",
+        event_date: t.event?.starts_at || "",
+        ticket_type_name: t.ticket_type?.name || "General",
+        checked_in_at: t.checked_in_at,
+      }))
     } catch (error) {
       console.error("[v0] Failed to parse demo session:", error)
     }
@@ -42,19 +50,15 @@ export default async function MyTicketsPage() {
     } = await supabase.auth.getSession()
     if (!session) redirect("/login")
 
-    const { data } = await supabase
-      .from("order_items")
-      .select(`
-        id,
-        ticket_code,
-        checked_in_at,
-        ticket_type:ticket_types(name, price_cents),
-        event:events(title, starts_at)
-      `)
-      .eq("order:orders!inner(buyer_id)", session.user.id)
-      .order("created_at", { ascending: false })
-
-    tickets = data || []
+    // Use the new v_my_tickets adapter
+    const viewTickets = await getMyTickets(session.user.id)
+    tickets = viewTickets.map((t) => ({
+      id: t.order_item_id,
+      event_title: t.event_title,
+      event_date: t.starts_at,
+      ticket_type_name: t.ticket_type_name,
+      checked_in_at: t.checked_in_at,
+    }))
   }
 
   return (
@@ -80,7 +84,7 @@ export default async function MyTicketsPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {tickets.map((ticket: Ticket) => (
+            {tickets.map((ticket: TicketDisplay) => (
               <Link key={ticket.id} href={`/app/tickets/${ticket.id}`}>
                 <Card className="overflow-hidden hover:border-primary transition-colors">
                   <CardContent className="p-4">
@@ -89,11 +93,11 @@ export default async function MyTicketsPage() {
                         <TicketIcon className="h-8 w-8 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold mb-1 line-clamp-2">{ticket.event?.title || "Event"}</h3>
+                        <h3 className="font-semibold mb-1 line-clamp-2">{ticket.event_title}</h3>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
                           <Calendar className="h-3 w-3" />
-                          {ticket.event?.starts_at
-                            ? new Date(ticket.event.starts_at).toLocaleDateString(undefined, {
+                          {ticket.event_date
+                            ? new Date(ticket.event_date).toLocaleDateString(undefined, {
                                 month: "short",
                                 day: "numeric",
                                 year: "numeric",
@@ -104,7 +108,7 @@ export default async function MyTicketsPage() {
                           <Badge variant={ticket.checked_in_at ? "secondary" : "default"} className="text-xs">
                             {ticket.checked_in_at ? "Checked In" : "Valid"}
                           </Badge>
-                          <span className="text-xs text-muted-foreground">{ticket.ticket_type?.name || "General"}</span>
+                          <span className="text-xs text-muted-foreground">{ticket.ticket_type_name}</span>
                         </div>
                       </div>
                       <QrCode className="h-5 w-5 text-muted-foreground shrink-0" />
@@ -139,11 +143,11 @@ export default async function MyTicketsPage() {
             </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {tickets.map((ticket: Ticket) => (
+              {tickets.map((ticket: TicketDisplay) => (
                 <Card key={ticket.id} className="overflow-hidden hover:border-primary transition-colors group">
                   <CardHeader className="pb-3 bg-gradient-to-br from-primary/5 to-primary/10">
                     <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="line-clamp-2 text-lg">{ticket.event?.title || "Event"}</CardTitle>
+                      <CardTitle className="line-clamp-2 text-lg">{ticket.event_title}</CardTitle>
                       <div className="shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                         <TicketIcon className="h-5 w-5 text-primary" />
                       </div>
@@ -152,14 +156,14 @@ export default async function MyTicketsPage() {
                   <CardContent className="space-y-3 pt-4">
                     <div className="text-sm">
                       <p className="text-muted-foreground text-xs mb-1">Ticket Type</p>
-                      <p className="font-medium">{ticket.ticket_type?.name || "General"}</p>
+                      <p className="font-medium">{ticket.ticket_type_name}</p>
                     </div>
                     <div className="text-sm">
                       <p className="text-muted-foreground text-xs mb-1">Event Date</p>
                       <p className="font-medium flex items-center gap-2">
                         <Calendar className="h-4 w-4 text-muted-foreground" />
-                        {ticket.event?.starts_at
-                          ? new Date(ticket.event.starts_at).toLocaleDateString(undefined, {
+                        {ticket.event_date
+                          ? new Date(ticket.event_date).toLocaleDateString(undefined, {
                               month: "long",
                               day: "numeric",
                               year: "numeric",
