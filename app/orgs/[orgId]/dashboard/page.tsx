@@ -7,7 +7,9 @@ import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { cookies } from "next/headers"
 import { getDemoOrganizerEvents, getDemoOrganization } from "@/lib/demo-data"
-import { TrendingUp, Ticket, DollarSign, Calendar, Activity, ArrowUpRight, CheckCircle2, Zap } from "lucide-react"
+import { getOrgEventKPIs } from "@/lib/adapters/kpis"
+import { TrendingUp, Ticket, DollarSign, Calendar, Activity, ArrowUpRight, CheckCircle2, Zap, Users } from "lucide-react"
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 
 export const dynamic = "force-dynamic"
 
@@ -42,9 +44,11 @@ export default async function OrgDashboardPage({ params }: { params: { orgId: st
   const demoSessionCookie = cookieStore.get("demo_session")
 
   let events: any[] = []
+  let kpis: any[] = []
   let orgName = "Organization"
   let totalTicketsSold = 0
   let totalRevenue = 0
+  let totalCheckedIn = 0
   let activeEvents = 0
 
   if (demoSessionCookie) {
@@ -56,8 +60,21 @@ export default async function OrgDashboardPage({ params }: { params: { orgId: st
       }
       orgName = org.name
       events = getDemoOrganizerEvents(orgId)
-      totalTicketsSold = events.reduce((sum, event) => sum + (event.orders?.count || 0) * 2, 0)
-      totalRevenue = totalTicketsSold * 129
+      
+      // Synthesize KPI data from demo events
+      kpis = events.map((event) => ({
+        event_id: event.id,
+        event_title: event.title,
+        event_date: event.starts_at,
+        total_tickets_sold: Math.floor(Math.random() * 300) + 20,
+        total_checked_in: Math.floor(Math.random() * 200) + 10,
+        total_revenue_cents: Math.floor(Math.random() * 50000) + 5000,
+        attendance_rate: Math.random() * 0.8,
+      }))
+      
+      totalTicketsSold = kpis.reduce((sum, kpi) => sum + kpi.total_tickets_sold, 0)
+      totalRevenue = kpis.reduce((sum, kpi) => sum + kpi.total_revenue_cents, 0)
+      totalCheckedIn = kpis.reduce((sum, kpi) => sum + kpi.total_checked_in, 0)
       activeEvents = events.filter((e) => e.status === "published").length
     } catch (error) {
       console.error("[v0] Failed to load demo data:", error)
@@ -90,25 +107,39 @@ export default async function OrgDashboardPage({ params }: { params: { orgId: st
 
     orgName = org.name
 
-    // Fetch org's events with stats (using RLS)
+    // Fetch KPIs for all org events
+    kpis = await getOrgEventKPIs(orgId)
+
+    // Fetch org's events with basic info
     const { data: eventsData = [] } = await supabase
       .from("events")
-      .select(`
-        id,
-        title,
-        status,
-        date,
-        orders:order_items(count)
-      `)
+      .select("id, title, status, starts_at")
       .eq("org_id", orgId)
 
     events = eventsData
-    totalTicketsSold = eventsData.reduce((sum, event) => sum + (event.orders?.[0]?.count || 0), 0)
-    totalRevenue = totalTicketsSold * 129 // Placeholder calculation
+    totalTicketsSold = kpis.reduce((sum, kpi) => sum + kpi.total_tickets_sold, 0)
+    totalRevenue = kpis.reduce((sum, kpi) => sum + kpi.total_revenue_cents, 0)
+    totalCheckedIn = kpis.reduce((sum, kpi) => sum + kpi.total_checked_in, 0)
     activeEvents = eventsData.filter((e) => e.status === "published").length
   }
 
-  const upcomingEvents = events.filter((e) => e.status === "published").slice(0, 3)
+  const upcomingEvents = events.filter((e) => e.status === "published").slice(0, 5)
+  
+  // Prepare chart data
+  const chartData = kpis.slice(0, 6).map((kpi) => ({
+    name: kpi.event_title.substring(0, 15),
+    tickets: kpi.total_tickets_sold,
+    revenue: kpi.total_revenue_cents / 100,
+    checkedIn: kpi.total_checked_in,
+  }))
+  
+  const attendanceData = kpis.slice(0, 6).map((kpi) => ({
+    name: kpi.event_title.substring(0, 15),
+    attended: kpi.total_checked_in,
+    notAttended: kpi.total_tickets_sold - kpi.total_checked_in,
+  }))
+
+  const COLORS = ["#3b82f6", "#ef4444"]
 
   return (
     <main className="flex-1 overflow-auto bg-background">
@@ -136,21 +167,125 @@ export default async function OrgDashboardPage({ params }: { params: { orgId: st
             <MetricCard
               label="Tickets Sold"
               value={totalTicketsSold.toString()}
-              change={`${activeEvents} publishing`}
+              change={`${totalCheckedIn} checked in`}
               icon={<Ticket className="h-4 w-4" />}
             />
             <MetricCard
               label="Total Revenue"
               value={`$${(totalRevenue / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}`}
-              change="+12% from last month"
+              change={`${((totalCheckedIn / totalTicketsSold) * 100).toFixed(0)}% attendance`}
               icon={<DollarSign className="h-4 w-4" />}
             />
             <MetricCard
-              label="Growth"
-              value="+12%"
-              change="Month over month"
-              icon={<TrendingUp className="h-4 w-4" />}
+              label="Avg Check-in"
+              value={totalTicketsSold > 0 ? `${((totalCheckedIn / totalTicketsSold) * 100).toFixed(0)}%` : "0%"}
+              change="Attendance rate"
+              icon={<CheckCircle2 className="h-4 w-4" />}
             />
+          </div>
+        )}
+
+        {/* Charts and Analytics */}
+        {events.length > 0 && kpis.length > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Tickets Sold by Event */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Tickets Sold by Event</CardTitle>
+                <CardDescription>Top events by ticket sales</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="name" className="text-xs" />
+                    <YAxis className="text-xs" />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: "var(--background)", border: "1px solid var(--border)" }}
+                      labelStyle={{ color: "var(--foreground)" }}
+                    />
+                    <Bar dataKey="tickets" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Revenue by Event */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Revenue by Event</CardTitle>
+                <CardDescription>Total revenue per event</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="name" className="text-xs" />
+                    <YAxis className="text-xs" />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: "var(--background)", border: "1px solid var(--border)" }}
+                      labelStyle={{ color: "var(--foreground)" }}
+                      formatter={(value) => `$${value.toLocaleString()}`}
+                    />
+                    <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Check-in Rate */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Attendance by Event</CardTitle>
+                <CardDescription>Check-in vs No Show</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={attendanceData}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="name" className="text-xs" />
+                    <YAxis className="text-xs" />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: "var(--background)", border: "1px solid var(--border)" }}
+                      labelStyle={{ color: "var(--foreground)" }}
+                    />
+                    <Legend />
+                    <Bar dataKey="attended" fill="#10b981" name="Checked In" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="notAttended" fill="#f3f4f6" name="No Show" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Overall Summary */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Performance Summary</CardTitle>
+                <CardDescription>Key metrics across all events</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b">
+                  <span className="text-sm text-muted-foreground">Total Events</span>
+                  <span className="font-semibold">{events.length}</span>
+                </div>
+                <div className="flex items-center justify-between pb-3 border-b">
+                  <span className="text-sm text-muted-foreground">Active Events</span>
+                  <span className="font-semibold">{activeEvents}</span>
+                </div>
+                <div className="flex items-center justify-between pb-3 border-b">
+                  <span className="text-sm text-muted-foreground">Total Tickets</span>
+                  <span className="font-semibold text-lg">{totalTicketsSold.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between pb-3 border-b">
+                  <span className="text-sm text-muted-foreground">Total Revenue</span>
+                  <span className="font-semibold text-lg">${(totalRevenue / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
+                </div>
+                <div className="flex items-center justify-between pt-2">
+                  <span className="text-sm text-muted-foreground">Avg Ticket Price</span>
+                  <span className="font-semibold text-lg">${(totalRevenue / Math.max(totalTicketsSold, 1) / 100).toFixed(2)}</span>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
 
@@ -175,40 +310,51 @@ export default async function OrgDashboardPage({ params }: { params: { orgId: st
             <div>
               <h2 className="text-xl font-semibold text-foreground mb-4">Recent Events</h2>
               <div className="space-y-3">
-                {upcomingEvents.map((event) => (
-                  <Link
-                    key={event.id}
-                    href={`/orgs/${orgId}/events/${event.id}`}
-                    className="block"
-                  >
-                    <Card className="hover:shadow-md hover:border-primary/50 transition-all">
-                      <CardContent className="flex items-center justify-between p-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3">
-                            <div className="flex-1 min-w-0">
-                              <h3 className="font-semibold text-foreground truncate">{event.title}</h3>
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                                <Calendar className="h-3 w-3" />
-                                <span>{event.date}</span>
+                {upcomingEvents.map((event) => {
+                  const eventKpi = kpis.find((k) => k.event_id === event.id)
+                  return (
+                    <Link
+                      key={event.id}
+                      href={`/orgs/${orgId}/events/${event.id}`}
+                      className="block"
+                    >
+                      <Card className="hover:shadow-md hover:border-primary/50 transition-all">
+                        <CardContent className="flex items-center justify-between p-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3">
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-semibold text-foreground truncate">{event.title}</h3>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                                  <Calendar className="h-3 w-3" />
+                                  <span>{new Date(event.starts_at).toLocaleDateString()}</span>
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-4 ml-4">
-                          <div className="text-right">
-                            <p className="text-sm text-muted-foreground">Sold</p>
-                            <p className="font-semibold text-foreground">{event.orders?.[0]?.count || 0}</p>
+                          <div className="flex items-center gap-4 ml-4">
+                            <div className="text-right hidden sm:block">
+                              <p className="text-sm text-muted-foreground">Sold</p>
+                              <p className="font-semibold text-foreground">{eventKpi?.total_tickets_sold || 0}</p>
+                            </div>
+                            <div className="text-right hidden sm:block">
+                              <p className="text-sm text-muted-foreground">Revenue</p>
+                              <p className="font-semibold text-foreground">${((eventKpi?.total_revenue_cents || 0) / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm text-muted-foreground">Check-in</p>
+                              <p className="font-semibold text-foreground">{eventKpi?.total_checked_in || 0}</p>
+                            </div>
+                            <Badge variant={event.status === "published" ? "default" : "secondary"} className="capitalize">
+                              {event.status}
+                            </Badge>
                           </div>
-                          <Badge variant={event.status === "published" ? "default" : "secondary"} className="capitalize">
-                            {event.status}
-                          </Badge>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                ))}
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  )
+                })}
               </div>
-              {events.length > 3 && (
+              {events.length > 5 && (
                 <Button asChild variant="outline" className="w-full mt-4">
                   <Link href={`/orgs/${orgId}/events`}>View All Events ({events.length})</Link>
                 </Button>

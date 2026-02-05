@@ -98,6 +98,23 @@ export const MyTicketsViewSchema = z.object({
 
 export type MyTicketsView = z.infer<typeof MyTicketsViewSchema>
 
+// v_event_kpis: Key performance indicators for an event
+export const EventKPIsViewSchema = z.object({
+  event_id: z.string().uuid(),
+  event_title: z.string(),
+  event_date: z.string().datetime(),
+  total_tickets_sold: z.number().int().nonnegative(),
+  total_revenue_cents: z.number().int().nonnegative(),
+  total_checked_in: z.number().int().nonnegative(),
+  capacity: z.number().int().nonnegative().nullable(),
+  attendance_rate: z.number().min(0).max(1),
+  avg_ticket_price_cents: z.number().int().nonnegative(),
+})
+
+export type EventKPIsView = z.infer<typeof EventKPIsViewSchema>
+
+export type MyTicketsView = z.infer<typeof MyTicketsViewSchema>
+
 /**
  * Utility function to validate and log schema mismatches
  * Call this in development to catch schema drift early
