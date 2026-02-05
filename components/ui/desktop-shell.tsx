@@ -255,6 +255,17 @@ export function DesktopShell({ children, user, workspace, onLogout }: DesktopShe
                 <DropdownMenuContent align="end" className="w-[200px]">
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  {workspace === "app" && (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link href="/app/tickets">
+                          <TicketIcon className="h-4 w-4 mr-2" aria-hidden="true" />
+                          My Tickets
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
                   <DropdownMenuItem asChild>
                     <Link href="/dashboard">
                       <LayoutDashboard className="h-4 w-4 mr-2" aria-hidden="true" />
