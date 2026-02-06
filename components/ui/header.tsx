@@ -29,10 +29,20 @@ export function Header({ user, onLogout }: HeaderProps) {
     return null
   }
 
+  const handleCreateEventClick = () => {
+    if (!user) {
+      // Redirect to signup with organizer signup flow
+      router.push("/signup?type=organizer&from=create-event")
+      return
+    }
+    // If logged in, go to create event
+    router.push("/orgs/new")
+  }
+
   const navItems = [
     { href: "/browse", label: "Browse Events" },
-    { href: "/events", label: "Create Events" },
-    { href: "/app/tickets", label: "Tickets" },
+    { href: "/host", label: "Host an Event" },
+    { href: "/app/tickets", label: "My Tickets" },
   ]
 
   const handleLogout = async () => {
@@ -64,6 +74,8 @@ export function Header({ user, onLogout }: HeaderProps) {
 
         <nav className="hidden md:flex items-center gap-8">
           {navItems.map((item) => {
+            // Hide My Tickets for logged-out users
+            if (item.href === "/app/tickets" && !user) return null
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
             return (
               <Link
@@ -83,6 +95,9 @@ export function Header({ user, onLogout }: HeaderProps) {
           {user ? (
             <>
               <span className="text-sm text-muted-foreground hidden lg:inline">{user.email}</span>
+              <Button size="sm" variant="default" onClick={handleCreateEventClick}>
+                Create Event
+              </Button>
               <Button variant="ghost" size="sm" onClick={handleLogout}>
                 Logout
               </Button>
@@ -92,8 +107,8 @@ export function Header({ user, onLogout }: HeaderProps) {
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/login">Login</Link>
               </Button>
-              <Button size="sm" asChild>
-                <Link href="/signup">Sign Up</Link>
+              <Button size="sm" variant="default" onClick={handleCreateEventClick}>
+                Create Event
               </Button>
             </>
           )}
@@ -121,6 +136,7 @@ export function Header({ user, onLogout }: HeaderProps) {
         <div className="md:hidden border-t bg-card">
           <nav className="max-w-[980px] mx-auto px-4 py-4 space-y-3">
             {navItems.map((item) => {
+              if (item.href === "/app/tickets" && !user) return null
               const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
               return (
                 <Link
@@ -135,11 +151,23 @@ export function Header({ user, onLogout }: HeaderProps) {
                 </Link>
               )
             })}
-            {user && (
-              <div className="pt-3 border-t">
-                <span className="text-sm text-muted-foreground block mb-2">{user.email}</span>
+            {user ? (
+              <div className="pt-3 border-t space-y-3">
+                <span className="text-sm text-muted-foreground block">{user.email}</span>
+                <Button size="sm" variant="default" onClick={handleCreateEventClick} className="w-full">
+                  Create Event
+                </Button>
                 <Button variant="ghost" size="sm" onClick={handleLogout} className="w-full">
                   Logout
+                </Button>
+              </div>
+            ) : (
+              <div className="pt-3 border-t space-y-3">
+                <Button variant="ghost" size="sm" asChild className="w-full">
+                  <Link href="/login">Login</Link>
+                </Button>
+                <Button size="sm" variant="default" onClick={handleCreateEventClick} className="w-full">
+                  Create Event
                 </Button>
               </div>
             )}

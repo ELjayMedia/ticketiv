@@ -190,6 +190,43 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
             Sold Out
           </Button>
         )}
+
+        {/* Organizer CTA Section */}
+        <div className="mt-12 pt-8 border-t border-border/40 space-y-4">
+          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+            <CardContent className="p-6 space-y-4">
+              <div className="space-y-2">
+                <h3 className="font-bold text-lg">Want to host an event like this?</h3>
+                <p className="text-sm text-muted-foreground">
+                  Join thousands of organizers using Ticketiv to sell tickets, manage check-ins, and grow your events.
+                </p>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-start gap-2">
+                  <div className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center mt-0.5 flex-shrink-0">
+                    <span className="text-xs font-bold text-primary">✓</span>
+                  </div>
+                  <span>QR code check-in and real-time analytics</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <div className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center mt-0.5 flex-shrink-0">
+                    <span className="text-xs font-bold text-primary">✓</span>
+                  </div>
+                  <span>Multiple ticket types and pricing tiers</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <div className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center mt-0.5 flex-shrink-0">
+                    <span className="text-xs font-bold text-primary">✓</span>
+                  </div>
+                  <span>Fast payouts to your bank account</span>
+                </div>
+              </div>
+              <Button className="w-full" asChild>
+                <Link href="/host">Learn More</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )
