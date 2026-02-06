@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowLeft, MapPin, Calendar, Clock, Share2, Shield, QrCode, Users } from "lucide-react"
+import { ArrowLeft, MapPin, Calendar, Clock, Share2, Shield, QrCode, Users, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -177,6 +177,22 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
             <span className="text-xs font-medium">Instant QR Ticket</span>
           </div>
         </div>
+
+        {/* Secondary Organizer CTA - Inline */}
+        <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 shadow-sm">
+          <CardContent className="p-4 flex items-center justify-between gap-4">
+            <div className="flex items-start gap-3 flex-1">
+              <Zap className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <h4 className="font-semibold text-sm text-foreground">Host an event like this</h4>
+                <p className="text-xs text-muted-foreground mt-0.5">Start selling tickets in minutes</p>
+              </div>
+            </div>
+            <Button asChild size="sm" variant="default" className="flex-shrink-0">
+              <Link href="/create">Get Started</Link>
+            </Button>
+          </CardContent>
+        </Card>
 
         {/* Primary CTA */}
         {!isSoldOut && event.ticket_types && event.ticket_types.length > 0 ? (
