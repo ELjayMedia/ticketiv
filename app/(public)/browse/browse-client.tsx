@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { SlidersHorizontal, X, Search } from "lucide-react"
+import { SlidersHorizontal, X, Search, Zap } from "lucide-react"
 import { SearchInput } from "@/components/ui/search-input"
+import Link from "next/link"
 
 import { EventCard } from "@/components/events/event-card"
 import { NoEventsFound } from "@/components/ui/empty-states"
@@ -274,6 +275,22 @@ export default function BrowseClient({ initialEvents }: BrowseClientProps) {
           {filteredEvents.length} event{filteredEvents.length !== 1 && "s"}
         </div>
 
+        {/* Mobile Organizer CTA */}
+        <div className="bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 rounded-lg p-4 space-y-3">
+          <div className="flex items-start gap-2">
+            <Zap className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-sm text-foreground">Hosting an event?</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Reach thousands of attendees with Ticketiv's simple ticketing platform.
+              </p>
+            </div>
+          </div>
+          <Button asChild size="sm" variant="default" className="w-full">
+            <Link href="/create">Get Started</Link>
+          </Button>
+        </div>
+
         {filteredEvents.length > 0 ? (
           <div className="space-y-4">
             {filteredEvents.map((event) => (
@@ -291,6 +308,22 @@ export default function BrowseClient({ initialEvents }: BrowseClientProps) {
           <aside className="w-64 flex-shrink-0 space-y-6 sticky top-8 self-start">
             <div>
               <h2 className="text-lg font-bold mb-4">Filters</h2>
+            </div>
+
+            {/* Organizer CTA Card */}
+            <div className="bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 rounded-lg p-4 space-y-3">
+              <div className="flex items-start gap-2">
+                <Zap className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-sm text-foreground">Hosting an event?</h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Reach thousands of attendees with Ticketiv's simple ticketing platform.
+                  </p>
+                </div>
+              </div>
+              <Button asChild size="sm" variant="default" className="w-full">
+                <Link href="/create">Get Started</Link>
+              </Button>
             </div>
 
             {/* Categories */}
