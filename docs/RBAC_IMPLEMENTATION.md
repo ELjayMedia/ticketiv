@@ -59,7 +59,7 @@ Returns 403 if unauthorized.
 
 ### Checking Permissions in Components
 
-```tsx
+\`\`\`tsx
 "use client"
 
 import { useCanAccess, usePermissions } from "@/lib/providers/permissions-provider"
@@ -71,11 +71,11 @@ export function CreateEventButton({ orgId }: { orgId: string }) {
 
   return <button>Create Event</button>
 }
-```
+\`\`\`
 
 ### Gating UI Elements
 
-```tsx
+\`\`\`tsx
 import { PermissionGate } from "@/components/permission-gate"
 
 export function EventDashboard({ eventId, orgId }: Props) {
@@ -95,11 +95,11 @@ export function EventDashboard({ eventId, orgId }: Props) {
     </>
   )
 }
-```
+\`\`\`
 
 ### Handling Access Denied
 
-```tsx
+\`\`\`tsx
 import { NoAccessEmptyState } from "@/components/no-access-empty-state"
 
 export function EventDetailPage({ eventId, orgId }: Props) {
@@ -118,7 +118,7 @@ export function EventDetailPage({ eventId, orgId }: Props) {
 
   return <EventDetail eventId={eventId} />
 }
-```
+\`\`\`
 
 ## Permission Actions
 
@@ -141,7 +141,7 @@ export function EventDetailPage({ eventId, orgId }: Props) {
 
 ### Organizer Dashboard (org scoped)
 
-```tsx
+\`\`\`tsx
 // ✅ CORRECT: Scoped by org
 const { data: events } = await supabase
   .from("events")
@@ -150,11 +150,11 @@ const { data: events } = await supabase
 
 // ❌ WRONG: No org scope
 const { data } = await supabase.from("events").select("*")
-```
+\`\`\`
 
 ### Event Management (event scoped)
 
-```tsx
+\`\`\`tsx
 // ✅ CORRECT: Scoped by event
 const { data: staff } = await supabase
   .from("event_staff")
@@ -163,7 +163,7 @@ const { data: staff } = await supabase
 
 // ❌ WRONG: Fetching all staff
 const { data } = await supabase.from("event_staff").select("*")
-```
+\`\`\`
 
 ## Active Organization
 

@@ -11,7 +11,7 @@ Relying only on middleware leaves gaps. **Layouts are always executed** for any 
 
 ## Solution: Multi-Layer Protection
 
-```
+\`\`\`
 Middleware (fast, coarse checks)
     ↓
     ├─ Authenticated? → redirect /login
@@ -29,7 +29,7 @@ Layout (detailed, with entity context)
 Component (UI gates)
     ↓
     └─ usePermissions() + PermissionGate for optional features
-```
+\`\`\`
 
 ## Layout Protection Map
 
@@ -38,30 +38,30 @@ Component (UI gates)
 **Layout** (`app/admin/layout.tsx`): **Redundant check** of `admin_users.user_id`  
 **Benefit**: Even if middleware is bypassed, admin routes are protected
 
-```tsx
+\`\`\`tsx
 // app/admin/layout.tsx
 if (!adminUser) return redirect("/403")
-```
+\`\`\`
 
 ### `/orgs/[orgId]/*` Routes
 **Middleware**: Checks `org_members.org_id` for specific org  
 **Layout** (`app/orgs/[orgId]/layout.tsx`): **Redundant check** of `org_members` for exact orgId  
 **Benefit**: Org membership mutations won't grant unexpected access
 
-```tsx
+\`\`\`tsx
 // app/orgs/[orgId]/layout.tsx
 if (!membership) return redirect("/403")
-```
+\`\`\`
 
 ### `/organizer/*` Routes
 **Middleware**: Checks "any org membership"  
 **Layout** (`app/(organizer)/layout.tsx`): **Redundant check** of "at least one org membership"  
 **Benefit**: Non-organizers can't access organizer workspace
 
-```tsx
+\`\`\`tsx
 // app/(organizer)/layout.tsx
 if (!orgMemberships?.length) return redirect("/403")
-```
+\`\`\`
 
 ### `/events/[eventId]/manage/*` Routes (if added)
 **Middleware**: Only checks "authenticated" (no event context)  
@@ -72,10 +72,10 @@ if (!orgMemberships?.length) return redirect("/403")
 
 **Benefit**: Detailed permission logic with full event context
 
-```tsx
+\`\`\`tsx
 // app/(organizer)/events/[eventId]/layout.tsx
 if (!eventStaff && !orgMember) return redirect("/403")
-```
+\`\`\`
 
 ## Implementation Details
 
@@ -107,7 +107,7 @@ When org membership or event staff changes:
 2. **Revalidation**: Use `revalidateTag()` to clear layout cache
 3. **Next.js**: Will re-evaluate layout on next request
 
-```tsx
+\`\`\`tsx
 // In API route that modifies org_members:
 import { revalidateTag } from "next/cache"
 
@@ -116,7 +116,7 @@ export async function POST(req: Request) {
   revalidateTag("org-members")
   revalidateTag("user-permissions")
 }
-```
+\`\`\`
 
 ## Testing & Verification
 
@@ -128,11 +128,11 @@ export async function POST(req: Request) {
 ## Debugging
 
 Look for logs like:
-```
+\`\`\`
 [v0] User is not a member of org: userId orgId
 [v0] Unauthorized event access: userId eventId
 [v0] Admin layout access granted: userId
-```
+\`\`\`
 
 These indicate layout permission checks are working.
 
@@ -140,7 +140,7 @@ These indicate layout permission checks are working.
 
 For any new protected route, apply the pattern:
 
-```tsx
+\`\`\`tsx
 // app/protected/[id]/layout.tsx
 import { redirect, notFound } from "next/navigation"
 
@@ -165,7 +165,7 @@ export default async function ProtectedLayout({
   // 3. Allow access
   return <>{children}</>
 }
-```
+\`\`\`
 
 ---
 

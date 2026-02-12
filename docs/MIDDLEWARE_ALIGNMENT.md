@@ -31,7 +31,7 @@ Previously, middleware tried to enforce detailed event-level access checks by fe
 
 ## Route Protection Map
 
-```
+\`\`\`
 Public Routes
   /, /login, /register, /auth/verify-email
   → No middleware check
@@ -54,7 +54,7 @@ Organizer Workspace (any org required)
   /organizer/*
   → Middleware: checks any org_members entry
   → Layout/Pages: enforce event/org-specific actions
-```
+\`\`\`
 
 ## Event Access Example
 
@@ -77,13 +77,13 @@ No middleware involved; full context available.
 ## Debugging
 
 Enable middleware logging in middleware.ts (already has console.log calls):
-```
+\`\`\`
 [v0] Middleware check: /organizer/events/abc-123
 [v0] Error checking any org membership: ...
-```
+\`\`\`
 
 Event layout logs:
-```
+\`\`\`
 [v0] Event access granted via event_staff: user-123 event-456
 [v0] Unauthorized event access: user-123 event-456
-```
+\`\`\`

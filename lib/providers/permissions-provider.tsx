@@ -79,8 +79,20 @@ export function PermissionsProvider({ children }: { children: React.ReactNode })
       setError(null)
 
       const response = await fetch("/api/auth/permissions")
+      
+      // Handle unauthenticated users gracefully
+      if (response.status === 401) {
+        console.log("[v0] User not authenticated, permissions not loaded")
+        setUserId(null)
+        setProfile(null)
+        setPermissions(null)
+        setActiveOrgIdState(null)
+        setIsActiveOrgValid(false)
+        return
+      }
+
       if (!response.ok) {
-        throw new Error("Failed to load permissions")
+        throw new Error(`Failed to load permissions: ${response.status} ${response.statusText}`)
       }
 
       const data = await response.json()
@@ -111,7 +123,7 @@ export function PermissionsProvider({ children }: { children: React.ReactNode })
     } catch (err) {
       const error = err instanceof Error ? err : new Error("Unknown error")
       setError(error)
-      console.error("[v0] Failed to load permissions:", error)
+      console.error("[v0] Failed to load permissions:", error.message)
     } finally {
       setIsLoading(false)
     }

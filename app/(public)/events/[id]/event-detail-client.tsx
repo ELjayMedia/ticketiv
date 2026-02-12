@@ -1,32 +1,13 @@
 "use client"
 
 import Link from "next/link"
-import {
-  ArrowLeft,
-  MapPin,
-  Calendar,
-  MapPinIcon,
-  Wifi,
-  Utensils,
-  ParkingCircle,
-  TicketIcon,
-  Clock,
-  Share2,
-} from "lucide-react"
-
+import { ArrowLeft, MapPin, Calendar, Clock, Share2, Shield, QrCode, Users, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { formatCurrency } from "@/lib/pricing"
 import { EventCountdown } from "@/components/event-countdown"
 import type { EventSummary } from "@/types"
-
-const AMENITY_ICONS = {
-  wifi: <Wifi size={16} />,
-  catering: <Utensils size={16} />,
-  parking: <ParkingCircle size={16} />,
-}
 
 interface EventDetailClientProps {
   event: EventSummary
@@ -35,133 +16,234 @@ interface EventDetailClientProps {
 function formatDateRange(start?: string | null, end?: string | null) {
   if (!start) return "Date TBA"
   const startDate = new Date(start)
-  const endDate = end ? new Date(end) : null
   const dateFormatter = new Intl.DateTimeFormat(undefined, {
-    month: "long",
+    weekday: "short",
+    month: "short",
     day: "numeric",
-    year: "numeric",
   })
   const timeFormatter = new Intl.DateTimeFormat(undefined, {
     hour: "numeric",
     minute: "2-digit",
   })
-  const startLabel = `${dateFormatter.format(startDate)} • ${timeFormatter.format(startDate)}`
-  if (!endDate) return startLabel
-  return `${startLabel} - ${timeFormatter.format(endDate)}`
+  return `${dateFormatter.format(startDate)} • ${timeFormatter.format(startDate)}`
 }
 
 export function EventDetailClient({ event }: EventDetailClientProps) {
-  const availabilityPercentage = (event.attendees / (event.attendees + event.ticketsAvailable)) * 100
-  const categorySlug = event.category.toLowerCase().replace(/\s+/g, "-")
-  const mapQuery = event.venueDetails ? `${event.venueDetails.address}, ${event.venueDetails.city}` : ""
-  const mapEmbedSrc = mapQuery ? `/api/maps/embed?${new URLSearchParams({ q: mapQuery }).toString()}` : ""
-  const priceLabel = formatCurrency(event.price, event.currency)
-
   const isSoldOut = event.ticketsAvailable === 0 || event.ticket_types?.every((tt) => tt.quantity_remaining === 0)
+  const priceLabel = event.price ? formatCurrency(event.price, event.currency) : "TBA"
 
   return (
-    <>
-      <style jsx global>{`
-        #desktop-shell-bg {
-          --page-bg-image: url(${event.banner_image_url || event.cover_image_url || ""});
-          opacity: ${event.banner_image_url || event.cover_image_url ? "1" : "0"};
-        }
-      `}</style>
+    <div className="bg-background min-h-screen">
+      {/* Hero Section */}
+      <div className="relative w-full bg-muted overflow-hidden">
+        <img
+          src={event.banner_image_url || event.cover_image_url || "/placeholder.svg"}
+          alt={event.title}
+          className="w-full h-auto aspect-[16/9] object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
 
-      {/* Mobile View */}
-      <div className="lg:hidden min-h-screen bg-background pb-24">
-        {/* Hero Image */}
-        <div className="relative aspect-[4/3] bg-muted">
-          <img
-            src={event.banner_image_url || event.cover_image_url || "/placeholder.svg"}
-            alt={event.title}
-            className="w-full h-full object-cover"
-          />
+        {/* Header Buttons */}
+        <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10">
           <Link
             href="/browse"
-            className="absolute top-4 left-4 bg-background/80 backdrop-blur-sm rounded-full p-2 hover:bg-background transition-colors"
+            className="bg-background/80 backdrop-blur-sm rounded-full p-2.5 hover:bg-background transition-colors inline-flex"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <Button
             variant="ghost"
             size="icon"
-            className="absolute top-4 right-4 bg-background/80 backdrop-blur-sm rounded-full hover:bg-background"
+            className="bg-background/80 backdrop-blur-sm rounded-full hover:bg-background"
           >
             <Share2 className="h-5 w-5" />
           </Button>
         </div>
 
-        {/* Content */}
-        <div className="px-4 py-6 space-y-6">
-          {/* Title & Price */}
+        {/* Content Over Image */}
+        <div className="absolute bottom-0 left-0 right-0 p-6 text-white space-y-4">
+          {event.category && (
+            <Badge className="bg-primary/90 backdrop-blur w-fit">{event.category}</Badge>
+          )}
           <div>
-            <div className="flex items-start justify-between gap-4 mb-3">
-              <div className="flex-1">
-                {event.category && <Badge className="bg-primary mb-2">{event.category}</Badge>}
-                <h1 className="text-2xl font-bold text-balance">{event.title}</h1>
+            <h1 className="text-3xl sm:text-4xl font-bold leading-tight mb-2">{event.title}</h1>
+            <p className="text-white/90 text-sm">{event.location || event.venue?.name || "Location TBA"}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
+        {/* Key Info Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <Card className="border-0 bg-muted/50">
+            <CardContent className="p-4 flex flex-col gap-2">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Calendar className="h-4 w-4" />
+                <span className="text-xs font-medium">Date</span>
               </div>
-              <div className="text-right shrink-0">
-                <p className="text-2xl font-bold text-primary">{priceLabel}</p>
-                <p className="text-xs text-muted-foreground">per ticket</p>
+              <p className="font-semibold text-sm">
+                {event.start_date ? new Date(event.start_date).toLocaleDateString() : "TBA"}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 bg-muted/50">
+            <CardContent className="p-4 flex flex-col gap-2">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Clock className="h-4 w-4" />
+                <span className="text-xs font-medium">Time</span>
               </div>
+              <p className="font-semibold text-sm">
+                {event.start_date ? new Date(event.start_date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "TBA"}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 bg-muted/50">
+            <CardContent className="p-4 flex flex-col gap-2">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Users className="h-4 w-4" />
+                <span className="text-xs font-medium">Status</span>
+              </div>
+              <p className="font-semibold text-sm">{isSoldOut ? "Sold Out" : "Selling"}</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Performers */}
+        {event.performers && event.performers.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="font-bold text-lg">Artists & Performers</h2>
+            <div className="space-y-2">
+              {event.performers.map((performer, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm">
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                  <span>{performer}</span>
+                </div>
+              ))}
             </div>
+          </div>
+        )}
+
+        {/* Description */}
+        {event.description && (
+          <div className="space-y-3">
+            <h2 className="font-bold text-lg">About This Event</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">{event.description}</p>
           </div>
+        )}
 
-          {/* Key Info Cards */}
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex items-center gap-3 p-4 rounded-lg bg-muted">
-                <Calendar className="w-5 h-5 text-primary shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">Date & Time</p>
-                  <p className="font-semibold text-sm truncate">{formatDateRange(event.start_date, event.end_date)}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 p-4 rounded-lg bg-muted">
-                <MapPin className="w-5 h-5 text-primary shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">Location</p>
-                  <p className="font-semibold text-sm">{event.location ?? event.venue?.name ?? "TBA"}</p>
-                </div>
-              </div>
-            </div>
-
-            {event.start_date && (
-              <div className="p-4 rounded-lg bg-muted">
-                <div className="flex items-center gap-2 mb-3">
-                  <Clock className="w-4 h-4 text-primary" />
-                  <p className="text-xs text-muted-foreground">Time Until Event</p>
-                </div>
-                <EventCountdown eventDate={event.start_date} />
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Desktop View */}
-      <div className="hidden lg:block">
-        <div className="max-w-7xl mx-auto py-12 px-6 space-y-12">
-          <div>
-            <p className="text-xs font-semibold text-primary mb-4">Event Details</p>
-            <h1 className="text-4xl md:text-5xl font-bold mb-6 text-balance">{event.title}</h1>
-            <p className="text-lg text-muted-foreground leading-relaxed mb-8 max-w-3xl">{event.description}</p>
-            <div className="grid grid-cols-2 gap-6 max-w-2xl">
-              <div>
-                <p className="text-xs text-muted-foreground mb-2">Date & Time</p>
-                <p className="text-lg font-semibold">{formatDateRange(event.start_date, event.end_date)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-2">Location</p>
-                <p className="text-lg font-semibold">{event.location ?? event.venue?.name ?? "TBA"}</p>
-              </div>
+        {/* Ticket Selection */}
+        {!isSoldOut && event.ticket_types && event.ticket_types.length > 0 && (
+          <div className="space-y-4">
+            <h2 className="font-bold text-lg">Select Ticket</h2>
+            <div className="space-y-3">
+              {event.ticket_types.map((ticket) => (
+                <Link
+                  key={ticket.id}
+                  href={`/events/${event.id}/checkout?ticket_type_id=${ticket.id}`}
+                  className="block"
+                >
+                  <Card className="hover:border-primary/50 hover:shadow-md transition-all cursor-pointer border-border/50">
+                    <CardContent className="p-4 flex items-center justify-between">
+                      <div className="space-y-1 flex-1">
+                        <h3 className="font-semibold text-foreground">{ticket.name}</h3>
+                        <p className="text-xs text-muted-foreground">
+                          {ticket.quantity_remaining} available
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-lg text-primary">
+                          {formatCurrency(ticket.price, event.currency)}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
             </div>
           </div>
+        )}
+
+        {/* Trust Indicators */}
+        <div className="grid grid-cols-2 gap-4 py-6 border-y border-border/40">
+          <div className="flex flex-col items-center text-center gap-2">
+            <Shield className="h-6 w-6 text-primary" />
+            <span className="text-xs font-medium">Secure Payment</span>
+          </div>
+          <div className="flex flex-col items-center text-center gap-2">
+            <QrCode className="h-6 w-6 text-primary" />
+            <span className="text-xs font-medium">Instant QR Ticket</span>
+          </div>
+        </div>
+
+        {/* Secondary Organizer CTA - Inline */}
+        <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 shadow-sm">
+          <CardContent className="p-4 flex items-center justify-between gap-4">
+            <div className="flex items-start gap-3 flex-1">
+              <Zap className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <h4 className="font-semibold text-sm text-foreground">Host an event like this</h4>
+                <p className="text-xs text-muted-foreground mt-0.5">Start selling tickets in minutes</p>
+              </div>
+            </div>
+            <Button asChild size="sm" variant="default" className="flex-shrink-0">
+              <Link href="/create">Get Started</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Primary CTA */}
+        {!isSoldOut && event.ticket_types && event.ticket_types.length > 0 ? (
+          <Button size="lg" className="w-full h-12 text-base font-semibold rounded-lg" asChild>
+            <Link href={`/events/${event.id}/checkout`}>
+              Buy Ticket Now
+            </Link>
+          </Button>
+        ) : (
+          <Button size="lg" disabled className="w-full h-12 text-base font-semibold rounded-lg">
+            Sold Out
+          </Button>
+        )}
+
+        {/* Organizer CTA Section */}
+        <div className="mt-12 pt-8 border-t border-border/40 space-y-4">
+          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+            <CardContent className="p-6 space-y-4">
+              <div className="space-y-2">
+                <h3 className="font-bold text-lg">Want to host an event like this?</h3>
+                <p className="text-sm text-muted-foreground">
+                  Join thousands of organizers using Ticketiv to sell tickets, manage check-ins, and grow your events.
+                </p>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-start gap-2">
+                  <div className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center mt-0.5 flex-shrink-0">
+                    <span className="text-xs font-bold text-primary">✓</span>
+                  </div>
+                  <span>QR code check-in and real-time analytics</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <div className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center mt-0.5 flex-shrink-0">
+                    <span className="text-xs font-bold text-primary">✓</span>
+                  </div>
+                  <span>Multiple ticket types and pricing tiers</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <div className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center mt-0.5 flex-shrink-0">
+                    <span className="text-xs font-bold text-primary">✓</span>
+                  </div>
+                  <span>Fast payouts to your bank account</span>
+                </div>
+              </div>
+              <Button className="w-full" asChild>
+                <Link href="/host">Learn More</Link>
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
-    </>
+    </div>
   )
 }

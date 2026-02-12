@@ -8,6 +8,7 @@ import { Ticket } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase"
 import { clearDemoSession, getDemoSession } from "@/lib/demo-auth"
+import { useAuth } from "@/lib/providers/auth-context"
 
 interface HeaderProps {
   user?: { email?: string }
@@ -18,8 +19,14 @@ export function Header({ user, onLogout }: HeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
   const supabase = useMemo(() => createClient(), [])
+  const auth = useAuth()
   const [mounted, setMounted] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  // Use auth context if available, fall back to user prop
+  const isLoggedIn = auth.isLoggedIn || !!user
+  const userEmail = auth.email || user?.email
+  const userRole = auth.role
 
   useEffect(() => {
     setMounted(true)
@@ -29,10 +36,25 @@ export function Header({ user, onLogout }: HeaderProps) {
     return null
   }
 
+  const handleCreateEventClick = () => {
+    if (!isLoggedIn) {
+      router.push("/signup?type=organizer&from=create-event")
+      return
+    }
+    // If logged in organizer, go to create event
+    if (userRole === "organizer") {
+      router.push("/orgs/new")
+    } else {
+      // Attendees need to complete organizer setup
+      router.push("/create")
+    }
+  }
+
   const navItems = [
     { href: "/browse", label: "Browse Events" },
-    { href: "/events", label: "Create Events" },
-    { href: "/app/tickets", label: "Tickets" },
+    { href: "/host", label: "Host an Event" },
+    { href: "/app/tickets", label: "My Tickets", showFor: ["attendee", "organizer"] as UserRole[] },
+    { href: "/orgs", label: "Dashboard", showFor: ["organizer"] as UserRole[] },
   ]
 
   const handleLogout = async () => {
@@ -64,6 +86,8 @@ export function Header({ user, onLogout }: HeaderProps) {
 
         <nav className="hidden md:flex items-center gap-8">
           {navItems.map((item) => {
+            // Show items based on user role
+            if (item.showFor && !item.showFor.includes(userRole)) return null
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
             return (
               <Link
@@ -80,9 +104,12 @@ export function Header({ user, onLogout }: HeaderProps) {
         </nav>
 
         <div className="flex items-center gap-3">
-          {user ? (
+          {isLoggedIn ? (
             <>
-              <span className="text-sm text-muted-foreground hidden lg:inline">{user.email}</span>
+              <span className="text-sm text-muted-foreground hidden lg:inline">{userEmail}</span>
+              <Button size="sm" variant="default" onClick={handleCreateEventClick}>
+                Create Event
+              </Button>
               <Button variant="ghost" size="sm" onClick={handleLogout}>
                 Logout
               </Button>
@@ -90,10 +117,10 @@ export function Header({ user, onLogout }: HeaderProps) {
           ) : (
             <>
               <Button variant="ghost" size="sm" asChild>
-                <Link href="/login">Login</Link>
+                <Link href="/login">Sign in</Link>
               </Button>
-              <Button size="sm" asChild>
-                <Link href="/signup">Sign Up</Link>
+              <Button size="sm" variant="default" onClick={handleCreateEventClick}>
+                Create Event
               </Button>
             </>
           )}
@@ -121,6 +148,7 @@ export function Header({ user, onLogout }: HeaderProps) {
         <div className="md:hidden border-t bg-card">
           <nav className="max-w-[980px] mx-auto px-4 py-4 space-y-3">
             {navItems.map((item) => {
+              if (item.showFor && !item.showFor.includes(userRole)) return null
               const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
               return (
                 <Link
@@ -135,11 +163,23 @@ export function Header({ user, onLogout }: HeaderProps) {
                 </Link>
               )
             })}
-            {user && (
-              <div className="pt-3 border-t">
-                <span className="text-sm text-muted-foreground block mb-2">{user.email}</span>
+            {isLoggedIn ? (
+              <div className="pt-3 border-t space-y-3">
+                <span className="text-sm text-muted-foreground block">{userEmail}</span>
+                <Button size="sm" variant="default" onClick={handleCreateEventClick} className="w-full">
+                  Create Event
+                </Button>
                 <Button variant="ghost" size="sm" onClick={handleLogout} className="w-full">
                   Logout
+                </Button>
+              </div>
+            ) : (
+              <div className="pt-3 border-t space-y-3">
+                <Button variant="ghost" size="sm" asChild className="w-full">
+                  <Link href="/login">Sign in</Link>
+                </Button>
+                <Button size="sm" variant="default" onClick={handleCreateEventClick} className="w-full">
+                  Create Event
                 </Button>
               </div>
             )}
@@ -149,3 +189,5 @@ export function Header({ user, onLogout }: HeaderProps) {
     </header>
   )
 }
+
+type UserRole = "guest" | "attendee" | "organizer"
