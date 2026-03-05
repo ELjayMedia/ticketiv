@@ -262,28 +262,6 @@ export default function CreateEventPage() {
     </main>
   )
 }
-                    <span className="text-sm">Organization name and basic info</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                    <span className="text-sm">Your display name and contact email</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                    <span className="text-sm">Preferred country and currency</span>
-                  </li>
-                </ul>
-              </div>
-
-              <Button className="w-full" size="lg" onClick={() => router.push("/onboarding/organizer")}>
-                Set Up Organizer Profile
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    )
   }
 
   // Guest flow: show value page with signup CTA

@@ -338,18 +338,6 @@ export default function OrganizerOnboardingPage() {
   )
 }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted/50">
-      <div className="max-w-2xl mx-auto px-4 py-12">
-        {/* Header */}
-        <div className="mb-12 text-center">
-          <Link href="/" className="inline-flex items-center gap-2 mb-6 text-primary hover:opacity-80 transition-opacity">
-            <span className="text-sm font-medium">← Back to Home</span>
-          </Link>
-          <h1 className="text-3xl font-bold mb-2">Set Up Your Organization</h1>
-          <p className="text-muted-foreground">Just a couple of steps to start hosting events on Ticketiv</p>
-        </div>
-
         {/* Stepper */}
         <div className="mb-8">
           <Tabs value={step} onValueChange={(v: any) => setStep(v)} className="w-full" disabled={loading}>
