@@ -416,43 +416,6 @@ export default function SignupPage() {
     </div>
   )
 }
-            name: orgName.trim(),
-            description: orgDescription.trim() || null,
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            default_currency: "USD",
-          })
-          .select()
-          .single()
-
-        if (orgError) {
-          setError("Account created but failed to set up organization. Please contact support.")
-          return
-        }
-
-        const { error: memberError } = await supabase.from("org_members").insert({
-          user_id: authData.user.id,
-          org_id: org.id,
-          role: "admin",
-        })
-
-        if (memberError) {
-          console.error("[v0] Org member error:", memberError)
-        }
-      }
-
-      setSuccess(true)
-
-      setTimeout(() => {
-        router.push(accountType === "organizer" ? "/onboarding/organizer" : "/app/home")
-      }, 1500)
-      */
-    } catch (err: any) {
-      setError(err.message || "An unexpected error occurred. Please try again.")
-      console.error("[v0] Signup error:", err)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   return (
     <div className="container relative min-h-screen flex-col items-center justify-center grid lg:max-w-none lg:grid-cols-2 lg:px-0">

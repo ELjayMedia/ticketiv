@@ -262,55 +262,6 @@ export default function CreateEventPage() {
     </main>
   )
 }
-
-  const features = [
-    {
-      icon: <QrCode className="h-8 w-8" />,
-      title: "QR Code Check-in",
-      description: "Staff scan tickets at the door. Real-time attendance tracking built in.",
-    },
-    {
-      icon: <BarChart3 className="h-8 w-8" />,
-      title: "Live Analytics",
-      description: "Watch sales, attendance, and revenue updates as they happen.",
-    },
-    {
-      icon: <Users className="h-8 w-8" />,
-      title: "Team Management",
-      description: "Control who can create events, check in, and view data.",
-    },
-    {
-      icon: <CreditCard className="h-8 w-8" />,
-      title: "Fast Payouts",
-      description: "Transparent fees. Get paid directly to your bank account.",
-    },
-  ]
-
-  // Attendee flow: show org setup CTA
-  if (mounted && auth.role === "attendee") {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background to-muted/50">
-        <div className="max-w-4xl mx-auto px-4 py-12">
-          <Alert className="mb-8 border-blue-500 bg-blue-50 text-blue-900">
-            <AlertCircle className="h-4 w-4 text-blue-600" />
-            <AlertDescription>
-              You're currently signed in as an attendee. To host events, you'll need to set up your organizer profile.
-            </AlertDescription>
-          </Alert>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Finish Your Organizer Setup</CardTitle>
-              <CardDescription>
-                It only takes 2 minutes to complete your organization profile and start hosting.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <h3 className="font-semibold">What you'll need:</h3>
-                <ul className="space-y-2">
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                     <span className="text-sm">Organization name and basic info</span>
                   </li>
                   <li className="flex items-start gap-3">
