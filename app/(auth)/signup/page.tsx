@@ -416,9 +416,6 @@ export default function SignupPage() {
     </div>
   )
 }
-
-  return (
-    <div className="container relative min-h-screen flex-col items-center justify-center grid lg:max-w-none lg:grid-cols-2 lg:px-0">
       {/* Left side - Brand/Image section */}
       <div className="relative hidden h-full flex-col bg-muted p-10 text-white lg:flex dark:border-r">
         <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/90 to-primary/80" />
@@ -615,35 +612,6 @@ export default function SignupPage() {
     </div>
   )
 }
-
-type AccountType = "attendee" | "organizer"
-
-export default function SignupPage() {
-  const router = useRouter()
-  const [accountType, setAccountType] = useState<AccountType>("attendee")
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [orgName, setOrgName] = useState("")
-  const [orgDescription, setOrgDescription] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState(false)
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError("")
-    setSuccess(false)
-
-    try {
-      if (!name.trim()) {
-        setError("Please enter your full name")
-        return
-      }
-
-      if (!email.trim()) {
         setError("Please enter your email address")
         return
       }
