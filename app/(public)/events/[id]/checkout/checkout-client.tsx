@@ -2,13 +2,15 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Mail, Phone, CreditCard } from 'lucide-react'
+import { ArrowLeft, Mail, Phone, CreditCard, LogIn } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { formatCurrency } from '@/lib/pricing'
+import { useAuth } from '@/lib/providers/auth-context'
 import type { EventSummary } from '@/types'
 
 interface CheckoutClientProps {
@@ -27,6 +29,7 @@ export function CheckoutClient({
   event,
   selectedTicketType,
 }: CheckoutClientProps) {
+  const auth = useAuth()
   const [quantity, setQuantity] = useState(1)
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
@@ -189,49 +192,63 @@ export function CheckoutClient({
             </div>
           </div>
 
-          {/* Payment Method */}
-          <div className="space-y-4">
-            <h2 className="font-bold text-lg">Payment Method</h2>
-            <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {PAYMENT_METHODS.map((method) => (
-                  <label
-                    key={method.id}
-                    className="relative cursor-pointer"
-                  >
-                    <input
-                      type="radio"
-                      name="payment"
-                      value={method.id}
-                      checked={paymentMethod === method.id}
-                      onChange={(e) => setPaymentMethod(e.target.value)}
-                      className="sr-only"
-                    />
-                    <Card className={`border-2 transition-all ${
-                      paymentMethod === method.id
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border/40 hover:border-primary/50'
-                    }`}>
-                      <CardContent className="p-4 text-center space-y-2">
-                        <span className="text-2xl">{method.icon}</span>
-                        <p className="text-xs font-medium">{method.name}</p>
-                      </CardContent>
-                    </Card>
-                  </label>
-                ))}
-              </div>
-            </RadioGroup>
-          </div>
+          {/* Payment Method - Only show if logged in */}
+          {!auth.isLoggedIn ? (
+            <Alert className="border-blue-500 bg-blue-50 text-blue-900">
+              <LogIn className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="flex items-center justify-between gap-4">
+                <span>Sign in to complete your purchase</span>
+                <Button size="sm" variant="outline" asChild className="bg-white hover:bg-gray-100">
+                  <Link href={`/login?redirect=/events/${event.id}/checkout`}>Sign In</Link>
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <div className="space-y-4">
+              <h2 className="font-bold text-lg">Payment Method</h2>
+              <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {PAYMENT_METHODS.map((method) => (
+                    <label
+                      key={method.id}
+                      className="relative cursor-pointer"
+                    >
+                      <input
+                        type="radio"
+                        name="payment"
+                        value={method.id}
+                        checked={paymentMethod === method.id}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
+                        className="sr-only"
+                      />
+                      <Card className={`border-2 transition-all ${
+                        paymentMethod === method.id
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border/40 hover:border-primary/50'
+                      }`}>
+                        <CardContent className="p-4 text-center space-y-2">
+                          <span className="text-2xl">{method.icon}</span>
+                          <p className="text-xs font-medium">{method.name}</p>
+                        </CardContent>
+                      </Card>
+                    </label>
+                  ))}
+                </div>
+              </RadioGroup>
+            </div>
+          )}
 
-          {/* CTA */}
-          <Button
-            type="submit"
-            size="lg"
-            disabled={loading || !email}
-            className="w-full h-12 text-base font-semibold rounded-lg"
-          >
-            {loading ? 'Processing...' : 'Pay & Get Ticket'}
-          </Button>
+          {/* CTA - Only show if logged in */}
+          {auth.isLoggedIn && (
+            <Button
+              type="submit"
+              size="lg"
+              disabled={loading || !email}
+              className="w-full h-12 text-base font-semibold rounded-lg"
+            >
+              {loading ? 'Processing...' : 'Pay & Get Ticket'}
+            </Button>
+          )}
 
           <p className="text-xs text-center text-muted-foreground">
             By purchasing, you agree to our terms. Your ticket will be emailed immediately.

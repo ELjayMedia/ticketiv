@@ -2,9 +2,10 @@
 
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { CheckCircle2, Mail, ArrowRight } from 'lucide-react'
+import { CheckCircle2, Mail, ArrowRight, Download, QrCode, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { getPublicEvents } from '@/lib/data/public/events'
 
 interface SuccessPageProps {
@@ -46,38 +47,66 @@ export default async function SuccessPage({
           </p>
         </div>
 
-        {/* Event Summary Card */}
-        <Card className="w-full border-0 bg-muted/50">
-          <CardContent className="p-6 space-y-4">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Event
-              </p>
-              <h2 className="text-xl font-bold">{event.title}</h2>
-            </div>
+        {/* Ticket Card with QR */}
+        <div className="w-full max-w-md">
+          <Card className="overflow-hidden bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+            <CardContent className="p-6 space-y-4">
+              {/* Ticket Header */}
+              <div className="space-y-2">
+                <Badge variant="secondary" className="w-fit">Your Ticket</Badge>
+                <h3 className="font-bold text-lg">{event.ticket_types?.[0]?.name || 'General Admission'}</h3>
+              </div>
 
-            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/40">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Date</p>
-                <p className="font-semibold text-sm">
-                  {event.start_date
+              {/* QR Code Placeholder */}
+              <div className="bg-white rounded-lg p-4 flex items-center justify-center aspect-square border-2 border-dashed border-primary/30">
+                <div className="text-center space-y-2">
+                  <div className="flex justify-center">
+                    <QrCode className="h-12 w-12 text-muted-foreground/50" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">QR Code</p>
+                  <p className="text-xs text-muted-foreground/60">Check email for scannable code</p>
+                </div>
+              </div>
+
+              {/* Ticket Details */}
+              <div className="space-y-2 text-sm border-t border-primary/10 pt-4">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Order ID:</span>
+                  <span className="font-mono text-xs">{order_id?.slice(0, 8)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Valid:</span>
+                  <span>{event.start_date
                     ? new Date(event.start_date).toLocaleDateString(undefined, {
-                        weekday: 'short',
                         month: 'short',
                         day: 'numeric',
                       })
-                    : 'TBA'}
-                </p>
+                    : 'Event date'}</span>
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Venue</p>
-                <p className="font-semibold text-sm">
-                  {event.location || event.venue?.name || 'TBA'}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          {/* Ticket Actions */}
+          <div className="flex gap-2 mt-4">
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1 gap-2"
+              asChild
+            >
+              <button>
+                <Download className="h-4 w-4" />
+                Download PDF
+              </button>
+            </Button>
+            <Button size="sm" className="flex-1" asChild>
+              <Link href={`/events/${event.id}/ticket${order_id ? `?order_id=${order_id}` : ''}`}>
+                View Details
+              </Link>
+            </Button>
+          </div>
+        </div>
 
         {/* Email Confirmation */}
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -86,10 +115,10 @@ export default async function SuccessPage({
         </div>
 
         {/* CTA Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3 w-full">
+        <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md">
           <Button size="lg" className="flex-1 h-12 rounded-lg" asChild>
-            <Link href={`/events/${event.id}/ticket${order_id ? `?order_id=${order_id}` : ''}`}>
-              View My Ticket
+            <Link href="/app/tickets">
+              View My Tickets
               <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </Button>
@@ -99,7 +128,7 @@ export default async function SuccessPage({
             className="flex-1 h-12 rounded-lg"
             asChild
           >
-            <Link href="/browse">Browse More Events</Link>
+            <Link href="/browse">Browse Events</Link>
           </Button>
         </div>
 
@@ -109,6 +138,20 @@ export default async function SuccessPage({
           <p>✓ You can access your ticket anytime on this device</p>
           <p>✓ No account needed - just save your email</p>
         </div>
+
+        {/* Host CTA */}
+        <Card className="w-full max-w-md bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+          <CardContent className="p-4 flex items-start gap-3">
+            <Zap className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm text-foreground">Hosting an event?</p>
+              <p className="text-xs text-muted-foreground mt-1">Start selling tickets in minutes with Ticketiv</p>
+              <Button size="sm" variant="link" className="px-0 mt-2 h-auto" asChild>
+                <Link href="/create">Get Started →</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

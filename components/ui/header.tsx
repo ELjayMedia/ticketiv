@@ -50,12 +50,23 @@ export function Header({ user, onLogout }: HeaderProps) {
     }
   }
 
-  const navItems = [
+  // Primary navigation - always visible
+  const primaryNavItems = [
+    { href: "/", label: "Home" },
     { href: "/browse", label: "Browse Events" },
-    { href: "/host", label: "Host an Event" },
-    { href: "/app/tickets", label: "My Tickets", showFor: ["attendee", "organizer"] as UserRole[] },
-    { href: "/orgs", label: "Dashboard", showFor: ["organizer"] as UserRole[] },
+    { href: "/host", label: "Organisers" },
   ]
+
+  // Secondary navigation - role-based
+  const secondaryNavItems = []
+  if (isLoggedIn) {
+    if (userRole === "attendee") {
+      secondaryNavItems.push({ href: "/app/tickets", label: "My Tickets" })
+    } else if (userRole === "organizer") {
+      secondaryNavItems.push({ href: "/orgs", label: "Dashboard" })
+      secondaryNavItems.push({ href: "/org/events", label: "Events" })
+    }
+  }
 
   const handleLogout = async () => {
     if (onLogout) {
@@ -84,10 +95,9 @@ export function Header({ user, onLogout }: HeaderProps) {
           <span className="text-2xl font-bold text-primary">Ticketiv</span>
         </Link>
 
+        {/* Desktop Primary Navigation */}
         <nav className="hidden md:flex items-center gap-8">
-          {navItems.map((item) => {
-            // Show items based on user role
-            if (item.showFor && !item.showFor.includes(userRole)) return null
+          {primaryNavItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
             return (
               <Link
@@ -103,26 +113,45 @@ export function Header({ user, onLogout }: HeaderProps) {
           })}
         </nav>
 
+        {/* Right Side: Secondary Nav + Auth */}
         <div className="flex items-center gap-3">
+          {/* Desktop Secondary Navigation */}
+          {isLoggedIn && secondaryNavItems.length > 0 && (
+            <nav className="hidden md:flex items-center gap-4 border-l border-border/40 pl-4">
+              {secondaryNavItems.map((item) => {
+                const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`text-sm font-medium transition-colors hover:text-primary ${
+                      isActive ? "text-primary" : "text-foreground/80"
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                )
+              })}
+            </nav>
+          )}
+
+          {/* Create Event Button - Always Primary CTA */}
+          <Button size="sm" variant="default" onClick={handleCreateEventClick} className="hidden sm:inline-flex">
+            Create Event
+          </Button>
+
+          {/* Auth Buttons */}
           {isLoggedIn ? (
             <>
-              <span className="text-sm text-muted-foreground hidden lg:inline">{userEmail}</span>
-              <Button size="sm" variant="default" onClick={handleCreateEventClick}>
-                Create Event
-              </Button>
+              <span className="text-xs text-muted-foreground hidden lg:inline max-w-[120px] truncate">{userEmail}</span>
               <Button variant="ghost" size="sm" onClick={handleLogout}>
                 Logout
               </Button>
             </>
           ) : (
-            <>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/login">Sign in</Link>
-              </Button>
-              <Button size="sm" variant="default" onClick={handleCreateEventClick}>
-                Create Event
-              </Button>
-            </>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/login">Sign in</Link>
+            </Button>
           )}
 
           {/* Mobile menu toggle */}
@@ -143,12 +172,12 @@ export function Header({ user, onLogout }: HeaderProps) {
         </div>
       </div>
 
-      {/* Mobile menu */}
+      {/* Mobile Menu */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t bg-card">
           <nav className="max-w-[980px] mx-auto px-4 py-4 space-y-3">
-            {navItems.map((item) => {
-              if (item.showFor && !item.showFor.includes(userRole)) return null
+            {/* Primary Nav Items */}
+            {primaryNavItems.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
               return (
                 <Link
@@ -163,26 +192,52 @@ export function Header({ user, onLogout }: HeaderProps) {
                 </Link>
               )
             })}
-            {isLoggedIn ? (
-              <div className="pt-3 border-t space-y-3">
-                <span className="text-sm text-muted-foreground block">{userEmail}</span>
-                <Button size="sm" variant="default" onClick={handleCreateEventClick} className="w-full">
-                  Create Event
-                </Button>
-                <Button variant="ghost" size="sm" onClick={handleLogout} className="w-full">
-                  Logout
-                </Button>
-              </div>
-            ) : (
-              <div className="pt-3 border-t space-y-3">
-                <Button variant="ghost" size="sm" asChild className="w-full">
-                  <Link href="/login">Sign in</Link>
-                </Button>
-                <Button size="sm" variant="default" onClick={handleCreateEventClick} className="w-full">
-                  Create Event
-                </Button>
-              </div>
+
+            {/* Secondary Nav Items (Role-Based) */}
+            {isLoggedIn && secondaryNavItems.length > 0 && (
+              <>
+                <div className="border-t my-3" />
+                {secondaryNavItems.map((item) => {
+                  const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`block py-2 text-base font-medium transition-colors hover:text-primary ${
+                        isActive ? "text-primary" : "text-foreground/80"
+                      }`}
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      {item.label}
+                    </Link>
+                  )
+                })}
+              </>
             )}
+
+            {/* Mobile Auth Section */}
+            <div className="border-t mt-4 pt-4 space-y-3">
+              {isLoggedIn ? (
+                <>
+                  <span className="text-sm text-muted-foreground block">{userEmail}</span>
+                  <Button size="sm" variant="default" onClick={handleCreateEventClick} className="w-full">
+                    Create Event
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={handleLogout} className="w-full">
+                    Logout
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="ghost" size="sm" asChild className="w-full">
+                    <Link href="/login">Sign in</Link>
+                  </Button>
+                  <Button size="sm" variant="default" onClick={handleCreateEventClick} className="w-full">
+                    Create Event
+                  </Button>
+                </>
+              )}
+            </div>
           </nav>
         </div>
       )}

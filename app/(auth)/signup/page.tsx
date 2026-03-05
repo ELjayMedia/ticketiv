@@ -416,63 +416,6 @@ export default function SignupPage() {
     </div>
   )
 }
-
-      if (!supabase) {
-        setError("Sign up is not available in demo mode. To create real accounts, configure Supabase credentials.")
-        return
-      }
-
-      const { data: existingUser } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("id", email.trim())
-        .maybeSingle()
-
-      if (existingUser) {
-        setError("This email is already registered. Please sign in instead.")
-        return
-      }
-
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        options: {
-          data: {
-            full_name: name.trim(),
-            account_type: accountType,
-          },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
-      })
-
-      if (signUpError) {
-        if (signUpError.message.includes("already registered")) {
-          setError("This email is already registered. Please sign in instead.")
-        } else {
-          setError(signUpError.message || "Unable to create account. Please try again.")
-        }
-        return
-      }
-
-      if (!authData.user) {
-        setError("Failed to create account. Please try again.")
-        return
-      }
-
-      const { error: profileError } = await supabase.from("profiles").insert({
-        id: authData.user.id,
-        full_name: name.trim(),
-        role: accountType === "organizer" ? "admin" : "user",
-      })
-
-      if (profileError) {
-        console.error("[v0] Profile creation error:", profileError)
-      }
-
-      if (accountType === "organizer") {
-        const { data: org, error: orgError } = await supabase
-          .from("orgs")
-          .insert({
             name: orgName.trim(),
             description: orgDescription.trim() || null,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,

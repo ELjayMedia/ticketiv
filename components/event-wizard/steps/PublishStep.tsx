@@ -5,14 +5,16 @@ import { createClientSupabaseClient } from "@/lib/supabase-client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Trash2 } from "lucide-react"
+import { Plus, Trash2, Lock, Globe } from "lucide-react"
 
 export function PublishStep({
   event,
   onSaving,
+  onPublish,
 }: {
   event: any
   onSaving: () => void
+  onPublish?: () => void
 }) {
   const [published, setPublished] = useState(event?.status === "published")
   const [staff, setStaff] = useState<any[]>([])
@@ -39,13 +41,19 @@ export function PublishStep({
       onSaving()
       const supabase = createClientSupabaseClient()
 
+      const newStatus = published ? "draft" : "published"
       const { error } = await supabase
         .from("events")
-        .update({ status: published ? "draft" : "published" })
+        .update({ status: newStatus })
         .eq("id", event?.id)
 
       if (error) throw error
       setPublished(!published)
+      
+      // Trigger callback for parent to show toast
+      if (!published && onPublish) {
+        onPublish()
+      }
     } catch (err) {
       console.error("[v0] Error toggling publish:", err)
     }
@@ -89,23 +97,38 @@ export function PublishStep({
 
   return (
     <div className="space-y-6">
+      {/* Event Status Section */}
       <div className="rounded-lg border p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-medium">Publish event</h3>
-            <p className="text-sm text-muted-foreground">Make this event visible to the public</p>
+        <div className="flex items-center justify-between mb-4">
+          <div className="space-y-2">
+            <h3 className="font-semibold flex items-center gap-2">
+              {published ? <Globe className="h-5 w-5 text-green-600" /> : <Lock className="h-5 w-5 text-muted-foreground" />}
+              Event Status
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {published
+                ? "Your event is visible to everyone. Attendees can browse and purchase tickets without signing in."
+                : "Your event is currently in draft mode. Only you can see it. Publishing makes it visible to everyone."}
+            </p>
           </div>
-          <Button onClick={togglePublish} variant={published ? "destructive" : "default"}>
-            {published ? "Unpublish" : "Publish"}
-          </Button>
         </div>
-        <div className="mt-3">
-          <Badge variant={published ? "default" : "secondary"}>{published ? "Published" : "Draft"}</Badge>
+        
+        <div className="flex items-center justify-between pt-4 border-t">
+          <Badge variant={published ? "default" : "secondary"} className="text-base">
+            {published ? "Published" : "Draft"}
+          </Badge>
+          <Button onClick={togglePublish} variant={published ? "destructive" : "default"}>
+            {published ? "Unpublish" : "Publish Event"}
+          </Button>
         </div>
       </div>
 
+      {/* Event Staff Section */}
       <div className="space-y-4">
-        <h3 className="font-medium">Event staff</h3>
+        <h3 className="font-semibold">Event Staff</h3>
+        <p className="text-sm text-muted-foreground">
+          Add team members who can check in attendees, manage the event, or view sales data.
+        </p>
 
         {staff.length > 0 && (
           <div className="space-y-2">
@@ -138,13 +161,13 @@ export function PublishStep({
             <select
               value={newStaffRole}
               onChange={(e) => setNewStaffRole(e.target.value)}
-              className="rounded-lg border px-3 py-2"
+              className="rounded-lg border px-3 py-2 bg-background"
             >
               <option value="scanner">Scanner</option>
               <option value="staff">Staff</option>
               <option value="organizer">Organizer</option>
             </select>
-            <Button onClick={addStaff} variant="outline" className="gap-2 bg-transparent">
+            <Button onClick={addStaff} variant="outline" className="gap-2">
               <Plus className="h-4 w-4" />
               Add
             </Button>

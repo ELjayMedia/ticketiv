@@ -4,10 +4,11 @@ import { redirect, notFound } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { QrCode, Download, UserPlus } from "lucide-react"
+import { QrCode, Download, UserPlus, AlertCircle, Eye } from "lucide-react"
 import { cookies } from "next/headers"
 
 export const dynamic = "force-dynamic"
@@ -95,8 +96,26 @@ export default async function EventDetailPage({ params }: { params: { eventId: s
           <Button variant="ghost" size="sm" asChild>
             <Link href="/org/events">← Back</Link>
           </Button>
-          <Badge variant={event.status === "published" ? "default" : "secondary"}>{event.status}</Badge>
+          <Badge variant={event.status === "published" ? "default" : "secondary"}>
+            {event.status === "published" ? "Published" : "Draft"}
+          </Badge>
         </div>
+
+        {event.status === "draft" && (
+          <Alert className="border-amber-500 bg-amber-50 text-amber-900">
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <AlertDescription>This event is private until published.</AlertDescription>
+          </Alert>
+        )}
+
+        {event.status === "published" && (
+          <Button variant="outline" size="sm" className="w-full gap-2" asChild>
+            <Link href={`/events/${event.id}`}>
+              <Eye className="h-4 w-4" />
+              View Public Page
+            </Link>
+          </Button>
+        )}
 
         <h1 className="text-2xl font-bold">{event.title}</h1>
 
@@ -234,8 +253,26 @@ export default async function EventDetailPage({ params }: { params: { eventId: s
             </Button>
             <h1 className="mt-2 text-3xl font-bold">{event.title}</h1>
           </div>
-          <Badge variant={event.status === "published" ? "default" : "secondary"}>{event.status}</Badge>
+          <Badge variant={event.status === "published" ? "default" : "secondary"}>
+            {event.status === "published" ? "Published" : "Draft"}
+          </Badge>
         </div>
+
+        {event.status === "draft" && (
+          <Alert className="border-amber-500 bg-amber-50 text-amber-900">
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <AlertDescription>This event is private until published.</AlertDescription>
+          </Alert>
+        )}
+
+        {event.status === "published" && (
+          <Button variant="outline" className="gap-2" asChild>
+            <Link href={`/events/${event.id}`}>
+              <Eye className="h-4 w-4" />
+              View Public Page
+            </Link>
+          </Button>
+        )}
 
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
