@@ -416,32 +416,6 @@ export default function SignupPage() {
     </div>
   )
 }
-      {/* Left side - Brand/Image section */}
-      <div className="relative hidden h-full flex-col bg-muted p-10 text-white lg:flex dark:border-r">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/90 to-primary/80" />
-        <div className="relative z-20 flex items-center text-lg font-medium">
-          <Ticket className="mr-2 h-6 w-6" />
-          Ticketiv
-        </div>
-        <div className="relative z-20 mt-auto">
-          <blockquote className="space-y-2">
-            <p className="text-lg">
-              "Join thousands of event organizers and attendees who trust Ticketiv for seamless event management and
-              ticketing experiences."
-            </p>
-            <footer className="text-sm">Welcome to Ticketiv</footer>
-          </blockquote>
-        </div>
-      </div>
-
-      {/* Right side - Signup form */}
-      <div className="lg:p-8">
-        <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[450px]">
-          <div className="flex flex-col space-y-2 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight">Create an account</h1>
-            <p className="text-sm text-muted-foreground">
-              Choose your account type and enter your details to get started
-            </p>
           </div>
 
           <div className="grid gap-6">
@@ -612,55 +586,6 @@ export default function SignupPage() {
     </div>
   )
 }
-        setError("Please enter your email address")
-        return
-      }
-
-      if (!password) {
-        setError("Please enter a password")
-        return
-      }
-
-      if (!confirmPassword) {
-        setError("Please confirm your password")
-        return
-      }
-
-      if (accountType === "organizer" && !orgName.trim()) {
-        setError("Please enter your organization name")
-        return
-      }
-
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-      if (!emailRegex.test(email)) {
-        setError("Please enter a valid email address")
-        return
-      }
-
-      if (password.length < 6) {
-        setError("Password must be at least 6 characters")
-        return
-      }
-
-      if (password !== confirmPassword) {
-        setError("Passwords do not match")
-        return
-      }
-
-      if (!/[A-Z]/.test(password)) {
-        setError("Password must contain at least one uppercase letter")
-        return
-      }
-
-      if (!/[0-9]/.test(password)) {
-        setError("Password must contain at least one number")
-        return
-      }
-
-      const supabase = createClient()
-
-      if (!supabase) {
-        setError("Sign up is not available in demo mode. To create real accounts, configure Supabase credentials.")
         return
       }
 
