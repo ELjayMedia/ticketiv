@@ -337,41 +337,6 @@ export default function OrganizerOnboardingPage() {
     </div>
   )
 }
-
-        {/* Stepper */}
-        <div className="mb-8">
-          <Tabs value={step} onValueChange={(v: any) => setStep(v)} className="w-full" disabled={loading}>
-            <TabsList className="grid w-full grid-cols-2 mb-8">
-              <TabsTrigger value="org" disabled={loading} className="gap-2">
-                <Building2 className="h-4 w-4" />
-                <span className="hidden sm:inline">Organization</span>
-              </TabsTrigger>
-              <TabsTrigger value="profile" disabled={loading || step === "org"} className="gap-2">
-                <User className="h-4 w-4" />
-                <span className="hidden sm:inline">Profile</span>
-              </TabsTrigger>
-            </TabsList>
-
-            {/* Step 1: Organization */}
-            <TabsContent value="org" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Organization Details</CardTitle>
-                  <CardDescription>Tell us about your organization</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleOrgNext} className="space-y-4">
-                    {error && step === "org" && (
-                      <Alert variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>{error}</AlertDescription>
-                      </Alert>
-                    )}
-
-                    <div className="grid gap-2">
-                      <Label htmlFor="orgName">Organization Name *</Label>
-                      <Input
-                        id="orgName"
                         placeholder="e.g., Sunset Festival Productions"
                         value={orgName}
                         onChange={(e) => setOrgName(e.target.value)}

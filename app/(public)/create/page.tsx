@@ -262,13 +262,6 @@ export default function CreateEventPage() {
     </main>
   )
 }
-  }
-
-  // Guest flow: show value page with signup CTA
-  if (!mounted) return null
-
-  return (
-    <main className="bg-background min-h-screen">
       {/* Hero Section */}
       <section className="relative py-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-background" />
