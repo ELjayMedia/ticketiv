@@ -1,4 +1,4 @@
-"use server"
+
 
 /**
  * Public Events Data Layer

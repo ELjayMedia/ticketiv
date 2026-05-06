@@ -1,13 +1,9 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { PermissionsProvider } from "@/lib/providers/permissions-provider"
 import { RootLayoutClient } from "@/components/root-layout-client"
 import "./globals.css"
-
-const _geist = Geist({ subsets: ["latin"] })
-const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Ticketiv - Event Ticketing Platform",
