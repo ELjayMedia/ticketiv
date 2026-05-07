@@ -46,9 +46,8 @@ export const DEMO_CREDENTIALS = {
 
 const DEMO_SESSION_KEY = "ticketiv_demo_session"
 
-export function isDemoCredentials(email: string, password: string): DemoUser | null {
-  const credentials = Object.values(DEMO_CREDENTIALS).find((cred) => cred.email === email && cred.password === password)
-  return credentials?.user || null
+export function isDemoCredentials(_email: string, _password: string): DemoUser | null {
+  return null
 }
 
 export function setDemoSessionCookie(user: DemoUser): void {

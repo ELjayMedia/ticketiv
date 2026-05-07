@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { Suspense } from "react"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -13,14 +13,12 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Textarea } from "@/components/ui/textarea"
 import { Ticket, AlertCircle, Building2, User, Loader2, CheckCircle2 } from "lucide-react"
 import { createClient } from "@/lib/supabase"
-import { setDemoSession } from "@/lib/demo-auth"
 
 type AccountType = "attendee" | "organizer"
 
 function SignupContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  // Default to attendee, allow override via ?type= param for direct organizer signup
   const initialType = (searchParams.get("type") as AccountType) || "attendee"
   const fromCreate = searchParams.get("from") === "create-event"
 
@@ -46,24 +44,20 @@ function SignupContent() {
         setError("Please enter your full name")
         return
       }
-
       if (!email.trim()) {
         setError("Please enter your email address")
         return
       }
-
       if (!password) {
         setError("Please enter a password")
         return
       }
-
       if (!confirmPassword) {
         setError("Please confirm your password")
         return
       }
-
       if (accountType === "organizer" && !orgName.trim()) {
-        setError("Please enter your organization name")
+        setError("Please enter your organisation name")
         return
       }
 
@@ -72,69 +66,27 @@ function SignupContent() {
         setError("Please enter a valid email address")
         return
       }
-
       if (password.length < 6) {
         setError("Password must be at least 6 characters")
         return
       }
-
       if (password !== confirmPassword) {
         setError("Passwords do not match")
         return
       }
-
       if (!/[A-Z]/.test(password)) {
         setError("Password must contain at least one uppercase letter")
         return
       }
-
       if (!/[0-9]/.test(password)) {
         setError("Password must contain at least one number")
         return
       }
 
-      // For demo: always create as attendee role by default
-      const userId = `user-attendee-${Date.now()}`
-      const demoRole = "attendee" // Always default to attendee
-
-      setDemoSession({
-        id: userId,
-        email: email.trim(),
-        full_name: name.trim(),
-        role: demoRole,
-        created_at: new Date().toISOString(),
-      })
-
-      setSuccess(true)
-
-      // Redirect based on where they came from
-      setTimeout(() => {
-        // If user came from /create and selected organizer, send to onboarding
-        if (fromCreate && accountType === "organizer") {
-          router.push("/onboarding/organizer")
-        } else {
-          // Default attendees go to home
-          router.push("/app/home")
-        }
-      }, 1500)
-
-      // In production with Supabase:
-      /*
       const supabase = createClient()
 
       if (!supabase) {
-        setError("Sign up is not available in demo mode. To configure real accounts, setup Supabase credentials.")
-        return
-      }
-
-      const { data: existingUser } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("id", email.trim())
-        .maybeSingle()
-
-      if (existingUser) {
-        setError("This email is already registered. Please sign in instead.")
+        setError("Sign up is not available. Please contact support.")
         return
       }
 
@@ -144,7 +96,7 @@ function SignupContent() {
         options: {
           data: {
             full_name: name.trim(),
-            account_type: "attendee",
+            account_type: accountType,
           },
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
@@ -167,38 +119,33 @@ function SignupContent() {
       const { error: profileError } = await supabase.from("profiles").insert({
         id: authData.user.id,
         full_name: name.trim(),
-        role: "user",
+        role: accountType === "organizer" ? "organizer" : "user",
       })
 
       if (profileError) {
-        console.error("[v0] Profile creation error:", profileError)
+        console.error("Profile creation error:", profileError)
       }
 
-      if (accountType === "organizer" && fromCreate) {
+      if (accountType === "organizer") {
         const { data: org, error: orgError } = await supabase
           .from("orgs")
           .insert({
             name: orgName.trim(),
             description: orgDescription.trim() || null,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            default_currency: "USD",
+            default_currency: "SZL",
           })
           .select()
           .single()
 
         if (orgError) {
-          setError("Account created but failed to set up organization. Please contact support.")
-          return
-        }
-
-        const { error: memberError } = await supabase.from("org_members").insert({
-          user_id: authData.user.id,
-          org_id: org.id,
-          role: "admin",
-        })
-
-        if (memberError) {
-          console.error("[v0] Org member error:", memberError)
+          console.error("Org creation error:", orgError)
+        } else if (org) {
+          await supabase.from("org_members").insert({
+            user_id: authData.user.id,
+            org_id: org.id,
+            role: "admin",
+          })
         }
       }
 
@@ -208,13 +155,11 @@ function SignupContent() {
         if (fromCreate && accountType === "organizer") {
           router.push("/onboarding/organizer")
         } else {
-          router.push("/app/home")
+          router.push("/")
         }
       }, 1500)
-      */
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred. Please try again.")
-      console.error("[v0] Signup error:", err)
     } finally {
       setLoading(false)
     }
@@ -222,7 +167,7 @@ function SignupContent() {
 
   return (
     <div className="container relative min-h-screen flex-col items-center justify-center grid lg:max-w-none lg:grid-cols-2 lg:px-0">
-      {/* Left side - Brand/Image section */}
+      {/* Left side */}
       <div className="relative hidden h-full flex-col bg-muted p-10 text-white lg:flex dark:border-r">
         <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/90 to-primary/80" />
         <div className="relative z-20 flex items-center text-lg font-medium">
@@ -239,172 +184,170 @@ function SignupContent() {
         </div>
       </div>
 
-      {/* Right side - Signup form */}
+      {/* Right side */}
       <div className="lg:p-8">
         <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[450px]">
           <div className="flex flex-col space-y-2 text-center">
             <h1 className="text-2xl font-semibold tracking-tight">Create an account</h1>
             <p className="text-sm text-muted-foreground">
-              You can browse events without an account. Accounts are needed to host events.
+              Browse events without an account. Accounts are needed to host events.
             </p>
           </div>
 
-          <div className="grid gap-6">
-            <form onSubmit={handleSubmit}>
-              <div className="grid gap-4">
-                {error && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
+          <form onSubmit={handleSubmit}>
+            <div className="grid gap-4">
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
 
-                {success && (
-                  <Alert className="border-green-500 bg-green-50 text-green-900">
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    <AlertDescription>Account created successfully! Redirecting...</AlertDescription>
-                  </Alert>
-                )}
+              {success && (
+                <Alert className="border-green-500 bg-green-50 text-green-900">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <AlertDescription>Account created! Check your email to verify your address.</AlertDescription>
+                </Alert>
+              )}
 
-                <div className="grid gap-3">
-                  <Label>Account Type</Label>
-                  <RadioGroup
-                    value={accountType}
-                    onValueChange={(value) => setAccountType(value as AccountType)}
-                    className="grid grid-cols-2 gap-4"
-                    disabled={loading}
-                  >
-                    <div>
-                      <RadioGroupItem value="attendee" id="attendee" className="peer sr-only" />
-                      <Label
-                        htmlFor="attendee"
-                        className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer transition-colors"
-                      >
-                        <User className="mb-3 h-6 w-6" />
-                        <div className="text-center">
-                          <div className="font-semibold">Attendee</div>
-                          <div className="text-xs text-muted-foreground">Book events</div>
-                        </div>
-                      </Label>
-                    </div>
-                    <div>
-                      <RadioGroupItem value="organizer" id="organizer" className="peer sr-only" />
-                      <Label
-                        htmlFor="organizer"
-                        className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer transition-colors"
-                      >
-                        <Building2 className="mb-3 h-6 w-6" />
-                        <div className="text-center">
-                          <div className="font-semibold">Organizer</div>
-                          <div className="text-xs text-muted-foreground">Host events</div>
-                        </div>
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="name">Full name</Label>
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder="John Doe"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    disabled={loading}
-                    required
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    disabled={loading}
-                    autoComplete="email"
-                    required
-                  />
-                </div>
-
-                {accountType === "organizer" && (
-                  <>
-                    <div className="grid gap-2">
-                      <Label htmlFor="orgName">Organization Name</Label>
-                      <Input
-                        id="orgName"
-                        type="text"
-                        placeholder="Your Company Name"
-                        value={orgName}
-                        onChange={(e) => setOrgName(e.target.value)}
-                        disabled={loading}
-                        required
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="orgDescription">Organization Description (optional)</Label>
-                      <Textarea
-                        id="orgDescription"
-                        placeholder="Tell us about your organization..."
-                        value={orgDescription}
-                        onChange={(e) => setOrgDescription(e.target.value)}
-                        disabled={loading}
-                        rows={3}
-                      />
-                    </div>
-                  </>
-                )}
-
-                <div className="grid gap-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={loading}
-                    autoComplete="new-password"
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground">Must be at least 6 characters</p>
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="confirmPassword">Confirm password</Label>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    placeholder="••••••••"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    disabled={loading}
-                    autoComplete="new-password"
-                    required
-                  />
-                </div>
-
-                <Button type="submit" disabled={loading || success}>
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating account...
-                    </>
-                  ) : success ? (
-                    <>
-                      <CheckCircle2 className="mr-2 h-4 w-4" />
-                      Account created!
-                    </>
-                  ) : (
-                    `Create ${accountType} account`
-                  )}
-                </Button>
+              <div className="grid gap-3">
+                <Label>Account Type</Label>
+                <RadioGroup
+                  value={accountType}
+                  onValueChange={(value) => setAccountType(value as AccountType)}
+                  className="grid grid-cols-2 gap-4"
+                  disabled={loading}
+                >
+                  <div>
+                    <RadioGroupItem value="attendee" id="attendee" className="peer sr-only" />
+                    <Label
+                      htmlFor="attendee"
+                      className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer transition-colors"
+                    >
+                      <User className="mb-3 h-6 w-6" />
+                      <div className="text-center">
+                        <div className="font-semibold">Attendee</div>
+                        <div className="text-xs text-muted-foreground">Book events</div>
+                      </div>
+                    </Label>
+                  </div>
+                  <div>
+                    <RadioGroupItem value="organizer" id="organizer" className="peer sr-only" />
+                    <Label
+                      htmlFor="organizer"
+                      className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer transition-colors"
+                    >
+                      <Building2 className="mb-3 h-6 w-6" />
+                      <div className="text-center">
+                        <div className="font-semibold">Organiser</div>
+                        <div className="text-xs text-muted-foreground">Host events</div>
+                      </div>
+                    </Label>
+                  </div>
+                </RadioGroup>
               </div>
-            </form>
-          </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="name">Full name</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="John Doe"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={loading}
+                  autoComplete="email"
+                  required
+                />
+              </div>
+
+              {accountType === "organizer" && (
+                <>
+                  <div className="grid gap-2">
+                    <Label htmlFor="orgName">Organisation Name</Label>
+                    <Input
+                      id="orgName"
+                      type="text"
+                      placeholder="Your Organisation Name"
+                      value={orgName}
+                      onChange={(e) => setOrgName(e.target.value)}
+                      disabled={loading}
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="orgDescription">Organisation Description (optional)</Label>
+                    <Textarea
+                      id="orgDescription"
+                      placeholder="Tell us about your organisation…"
+                      value={orgDescription}
+                      onChange={(e) => setOrgDescription(e.target.value)}
+                      disabled={loading}
+                      rows={3}
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="grid gap-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                  autoComplete="new-password"
+                  required
+                />
+                <p className="text-xs text-muted-foreground">Min 6 characters, one uppercase, one number</p>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="confirmPassword">Confirm password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  disabled={loading}
+                  autoComplete="new-password"
+                  required
+                />
+              </div>
+
+              <Button type="submit" disabled={loading || success}>
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating account…
+                  </>
+                ) : success ? (
+                  <>
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    Account created!
+                  </>
+                ) : (
+                  `Create ${accountType} account`
+                )}
+              </Button>
+            </div>
+          </form>
 
           <p className="px-8 text-center text-sm text-muted-foreground">
             Already have an account?{" "}
