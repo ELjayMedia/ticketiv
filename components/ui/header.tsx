@@ -63,17 +63,10 @@ export function Header({ user, onLogout }: HeaderProps) {
       return
     }
 
-    const demoUser = getDemoSession()
-    if (demoUser) {
-      clearDemoSession()
-      router.push("/login")
-      return
-    }
-
-    if (supabase) {
-      await supabase.auth.signOut()
-    }
-    router.push("/login")
+    // Use the sign-out API route (sets cookies properly via server action)
+    await fetch("/api/sign-out", { method: "POST" })
+    router.push("/")
+    router.refresh()
   }
 
   return (
