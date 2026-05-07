@@ -7,7 +7,6 @@ import { Ticket } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase"
-import { clearDemoSession, getDemoSession } from "@/lib/demo-auth"
 import { useAuth } from "@/lib/providers/auth-context"
 
 interface HeaderProps {
