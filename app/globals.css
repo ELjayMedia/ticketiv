@@ -1,6 +1,30 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/*
+  Ticketiv brand tokens — "cream and ink, Eswatini-warm".
+  Used by the auth/onboarding/landing screens via CSS custom properties.
+  The shadcn component system continues to use the --background/--primary tokens below.
+*/
+@theme {
+  --color-cream: #f8f4ec;
+  --color-cream-deep: #f1ead9;
+  --color-ink: #1a1715;
+  --color-ink-soft: #4a4441;
+  --color-ink-mute: #8a827d;
+  --color-saffron: #e89b2b;
+  --color-saffron-deep: #c47e16;
+  --color-forest: #1f5947;
+  --color-forest-deep: #143d31;
+  --color-paper-line: #e5dfd0;
+
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+  --font-body: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --radius-soft: 0.625rem;
+  --radius-pill: 999px;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -122,4 +146,48 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Subtle paper grain on auth/brand screens */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.04 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.6;
+}
+
+/* Stagger reveal animation — used by [data-reveal] children */
+@keyframes ticketiv-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+[data-reveal] > * {
+  opacity: 0;
+  animation: ticketiv-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+[data-reveal] > *:nth-child(1) { animation-delay: 0.05s; }
+[data-reveal] > *:nth-child(2) { animation-delay: 0.12s; }
+[data-reveal] > *:nth-child(3) { animation-delay: 0.19s; }
+[data-reveal] > *:nth-child(4) { animation-delay: 0.26s; }
+[data-reveal] > *:nth-child(5) { animation-delay: 0.33s; }
+[data-reveal] > *:nth-child(6) { animation-delay: 0.40s; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] > * { animation: none; opacity: 1; }
+}
+
+/* Brand focus ring */
+:focus-visible {
+  outline: 2px solid var(--color-saffron);
+  outline-offset: 2px;
+}
+
+/* Brand text selection */
+::selection {
+  background: var(--color-saffron);
+  color: var(--color-ink);
 }

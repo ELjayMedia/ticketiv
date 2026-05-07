@@ -65,7 +65,7 @@ export default async function OrganizerEventsPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Events</h1>
           <Button size="sm" asChild>
-            <Link href="/events/new">
+            <Link href="/events/create">
               <Plus className="h-4 w-4 mr-1" />
               New
             </Link>
@@ -81,14 +81,14 @@ export default async function OrganizerEventsPage() {
                 <p className="text-sm text-muted-foreground">Create your first event to start</p>
               </div>
               <Button asChild>
-                <Link href="/events/new">Create Event</Link>
+                <Link href="/events/create">Create Event</Link>
               </Button>
             </div>
           </Card>
         ) : (
           <div className="space-y-3">
-            {events.map((event) => (
-              <Link key={event.id} href={`/org/events/${event.id}`}>
+            {events.map((event: any) => (
+              <Link key={event.id} href={`/orgs/${event.org_id}/events/${event.id}`}>
                 <Card className="p-4 hover:border-primary transition-colors">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1 min-w-0">
@@ -131,7 +131,7 @@ export default async function OrganizerEventsPage() {
             <p className="text-muted-foreground">Track performance and create new experiences for your attendees.</p>
           </div>
           <Button size="lg" asChild>
-            <Link href="/events/new">
+            <Link href="/events/create">
               <Plus className="mr-2 h-4 w-4" />
               Create Event
             </Link>
@@ -147,13 +147,13 @@ export default async function OrganizerEventsPage() {
                 <p className="text-muted-foreground">Create your first event to start selling tickets</p>
               </div>
               <Button asChild size="lg">
-                <Link href="/events/new">Create Event</Link>
+                <Link href="/events/create">Create Event</Link>
               </Button>
             </div>
           </Card>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
-            {events.map((event) => (
+            {events.map((event: any) => (
               <Card key={event.id} className="transition hover:border-primary hover:shadow-md">
                 <CardHeader>
                   <div className="flex items-start justify-between">
@@ -176,7 +176,7 @@ export default async function OrganizerEventsPage() {
                   </div>
                   <div className="pt-4 text-right">
                     <Button variant="outline" asChild>
-                      <Link href={`/org/events/${event.id}`}>Manage Event</Link>
+                      <Link href={`/orgs/${event.org_id}/events/${event.id}`}>Manage Event</Link>
                     </Button>
                   </div>
                 </CardContent>

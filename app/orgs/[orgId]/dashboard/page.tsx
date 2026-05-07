@@ -8,8 +8,8 @@ import Link from "next/link"
 import { cookies } from "next/headers"
 import { getDemoOrganizerEvents, getDemoOrganization } from "@/lib/demo-data"
 import { getOrgEventKPIs } from "@/lib/adapters/kpis"
-import { TrendingUp, Ticket, DollarSign, Calendar, Activity, ArrowUpRight, CheckCircle2, Zap, Users } from "lucide-react"
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
+import { Ticket, DollarSign, Calendar, ArrowUpRight, CheckCircle2, Zap } from "lucide-react"
+import DashboardCharts from "./dashboard-charts"
 
 export const dynamic = "force-dynamic"
 
@@ -124,22 +124,6 @@ export default async function OrgDashboardPage({ params }: { params: { orgId: st
   }
 
   const upcomingEvents = events.filter((e) => e.status === "published").slice(0, 5)
-  
-  // Prepare chart data
-  const chartData = kpis.slice(0, 6).map((kpi) => ({
-    name: kpi.event_title.substring(0, 15),
-    tickets: kpi.total_tickets_sold,
-    revenue: kpi.total_revenue_cents / 100,
-    checkedIn: kpi.total_checked_in,
-  }))
-  
-  const attendanceData = kpis.slice(0, 6).map((kpi) => ({
-    name: kpi.event_title.substring(0, 15),
-    attended: kpi.total_checked_in,
-    notAttended: kpi.total_tickets_sold - kpi.total_checked_in,
-  }))
-
-  const COLORS = ["#3b82f6", "#ef4444"]
 
   return (
     <main className="flex-1 overflow-auto bg-background">
@@ -187,106 +171,7 @@ export default async function OrgDashboardPage({ params }: { params: { orgId: st
 
         {/* Charts and Analytics */}
         {events.length > 0 && kpis.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Tickets Sold by Event */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Tickets Sold by Event</CardTitle>
-                <CardDescription>Top events by ticket sales</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="name" className="text-xs" />
-                    <YAxis className="text-xs" />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: "var(--background)", border: "1px solid var(--border)" }}
-                      labelStyle={{ color: "var(--foreground)" }}
-                    />
-                    <Bar dataKey="tickets" fill="#3b82f6" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            {/* Revenue by Event */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Revenue by Event</CardTitle>
-                <CardDescription>Total revenue per event</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="name" className="text-xs" />
-                    <YAxis className="text-xs" />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: "var(--background)", border: "1px solid var(--border)" }}
-                      labelStyle={{ color: "var(--foreground)" }}
-                      formatter={(value) => `$${value.toLocaleString()}`}
-                    />
-                    <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            {/* Check-in Rate */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Attendance by Event</CardTitle>
-                <CardDescription>Check-in vs No Show</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={attendanceData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="name" className="text-xs" />
-                    <YAxis className="text-xs" />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: "var(--background)", border: "1px solid var(--border)" }}
-                      labelStyle={{ color: "var(--foreground)" }}
-                    />
-                    <Legend />
-                    <Bar dataKey="attended" fill="#10b981" name="Checked In" radius={[8, 8, 0, 0]} />
-                    <Bar dataKey="notAttended" fill="#f3f4f6" name="No Show" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            {/* Overall Summary */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Performance Summary</CardTitle>
-                <CardDescription>Key metrics across all events</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b">
-                  <span className="text-sm text-muted-foreground">Total Events</span>
-                  <span className="font-semibold">{events.length}</span>
-                </div>
-                <div className="flex items-center justify-between pb-3 border-b">
-                  <span className="text-sm text-muted-foreground">Active Events</span>
-                  <span className="font-semibold">{activeEvents}</span>
-                </div>
-                <div className="flex items-center justify-between pb-3 border-b">
-                  <span className="text-sm text-muted-foreground">Total Tickets</span>
-                  <span className="font-semibold text-lg">{totalTicketsSold.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center justify-between pb-3 border-b">
-                  <span className="text-sm text-muted-foreground">Total Revenue</span>
-                  <span className="font-semibold text-lg">${(totalRevenue / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
-                </div>
-                <div className="flex items-center justify-between pt-2">
-                  <span className="text-sm text-muted-foreground">Avg Ticket Price</span>
-                  <span className="font-semibold text-lg">${(totalRevenue / Math.max(totalTicketsSold, 1) / 100).toFixed(2)}</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <DashboardCharts kpis={kpis} />
         )}
 
         {/* Upcoming Events or Empty State */}
