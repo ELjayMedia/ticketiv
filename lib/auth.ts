@@ -1,3 +1,4 @@
+import { unstable_noStore as noStore } from "next/cache"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { getDemoSession, clearDemoSession } from "@/lib/demo-auth"
 import { isUserAdmin } from "@/lib/data/admin"
@@ -57,6 +58,12 @@ export interface UserSession {
  */
 
 export async function getCurrentUserProfile(): Promise<UserSession | null> {
+  // Opt out of static caching so Next.js doesn't try to bake a stale auth result
+  // into the build.  Pages that call this function via a shared layout (e.g.
+  // not-found.tsx) must not crash during prerender — we return null (= "no user")
+  // if cookies() throws DYNAMIC_SERVER_USAGE instead of letting it propagate.
+  noStore()
+
   const demoUser = getDemoSession()
   if (demoUser) {
     return {
@@ -103,7 +110,10 @@ export async function getCurrentUserProfile(): Promise<UserSession | null> {
     }
 
     return { session, profile }
-  } catch (error) {
+  } catch (error: any) {
+    // During static prerender Next.js throws DYNAMIC_SERVER_USAGE when cookies()
+    // is accessed.  Treat that as "no authenticated user" so the build succeeds.
+    if (error?.digest === "DYNAMIC_SERVER_USAGE") return null
     console.error("[v0] Unexpected error in getCurrentUserProfile:", error)
     return null
   }
