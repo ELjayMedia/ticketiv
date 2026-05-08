@@ -1,4 +1,5 @@
 import type React from "react"
+import { unstable_noStore as noStore } from "next/cache"
 import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { getDemoSession } from "@/lib/demo-auth"
@@ -21,14 +22,26 @@ export default async function EventsCreateLayout({
   }
 
   // Production: require authentication only
+  // noStore() prevents Next.js from trying to statically render this layout;
+  // getSession() calls cookies() which throws DYNAMIC_SERVER_USAGE if it runs
+  // during build, so we catch that and redirect to login gracefully.
+  noStore()
+
   const supabase = createServerSupabaseClient()
   if (!supabase) {
     return redirect("/login")
   }
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  let session: any = null
+  try {
+    const { data } = await supabase.auth.getSession()
+    session = data.session
+  } catch (error: any) {
+    if (error?.digest !== "DYNAMIC_SERVER_USAGE") {
+      console.error("[v0] Event creation layout session error:", error)
+    }
+    return redirect("/login")
+  }
 
   if (!session) {
     console.log("[v0] No session for event creation, redirecting to login")
