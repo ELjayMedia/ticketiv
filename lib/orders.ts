@@ -1,7 +1,5 @@
 import "server-only"
 
-import { randomUUID } from "crypto"
-
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import type { OrderItemRecord, OrderRecord, TicketRecord, TicketTypeRecord, EventRecord } from "@/types"
 
@@ -58,16 +56,6 @@ export interface UserOrder extends OrderRecord {
   event?: EventRecord | null
 }
 
-type LiveTicketType = {
-  id: string
-  event_id: string
-  name: string
-  price_cents: number
-  currency: string
-  quota: number
-  events: { org_id: string } | { org_id: string }[] | null
-}
-
 type LiveOrder = {
   id: string
   org_id: string
@@ -87,9 +75,9 @@ type LiveOrder = {
   buyer_phone?: string | null
 }
 
-function firstRelation<T>(value: T | T[] | null | undefined): T | null {
-  if (Array.isArray(value)) return value[0] ?? null
-  return value ?? null
+type RpcCreatedOrder = {
+  order_row: LiveOrder
+  order_items: OrderItemRecord[]
 }
 
 function centsToMajor(cents: number) {
@@ -105,6 +93,25 @@ function buildHolderName(input: CreateOrderInput) {
   return name.length > 0 ? name : null
 }
 
+function normalizeOrderError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "")
+
+  if (message.includes("sold_out:")) {
+    const ticketName = message.split("sold_out:")[1]?.split("\n")[0]?.trim()
+    return ticketName ? `${ticketName} is sold out or does not have enough tickets left.` : "This ticket type is sold out."
+  }
+
+  if (message.includes("per_user_limit_exceeded:")) {
+    const ticketName = message.split("per_user_limit_exceeded:")[1]?.split("\n")[0]?.trim()
+    return ticketName ? `${ticketName} exceeds the per-order limit.` : "This order exceeds the ticket limit."
+  }
+
+  if (message.includes("ticket_type_not_found")) return "One or more selected ticket types are no longer available."
+  if (message.includes("items_required")) return "At least one order item is required."
+
+  return "Unable to create order"
+}
+
 export async function createOrder(input: CreateOrderInput): Promise<CreateOrderResult> {
   if (!input.items || input.items.length === 0) {
     throw new Error("At least one order item is required")
@@ -113,111 +120,55 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
   const supabase = createServerSupabaseClient()
   if (!supabase) throw new Error("Supabase is not configured")
 
-  const ticketTypeIds = Array.from(new Set(input.items.map((item) => item.ticketTypeId)))
+  const normalizedItems = input.items.map((item) => ({
+    ticketTypeId: item.ticketTypeId,
+    quantity: normalizeQuantity(item.quantity),
+  }))
 
-  const { data: ticketTypes, error: ticketTypesError } = await supabase
-    .from("ticket_types")
-    .select("id, event_id, name, price_cents, currency, quota, events!inner(org_id)")
-    .in("id", ticketTypeIds)
-
-  if (ticketTypesError) {
-    console.error("Failed to load ticket types", ticketTypesError)
-    throw new Error("Unable to load ticket types")
-  }
-
-  const ticketTypeMap = new Map<string, LiveTicketType>()
-  for (const ticketType of ticketTypes ?? []) {
-    const typed = ticketType as LiveTicketType
-    if (typed.event_id !== input.eventId) {
-      throw new Error("Ticket type does not belong to this event")
-    }
-    ticketTypeMap.set(typed.id, typed)
-  }
-
-  const lineItems = input.items.map((item) => {
-    const ticketType = ticketTypeMap.get(item.ticketTypeId)
-    if (!ticketType) throw new Error("Ticket type not found")
-
-    const quantity = normalizeQuantity(item.quantity)
-    return { ticketType, quantity }
+  const { data, error } = await supabase.rpc("fn_create_inventory_protected_order", {
+    p_event_id: input.eventId,
+    p_buyer_id: input.purchaserId,
+    p_buyer_email: input.purchaserEmail,
+    p_items: normalizedItems,
+    p_holder_name: buildHolderName(input),
   })
 
-  const firstTicketType = lineItems[0]?.ticketType
-  const orgId = firstRelation(firstTicketType?.events)?.org_id
-  if (!firstTicketType || !orgId) throw new Error("Unable to resolve event organizer")
+  if (error) {
+    console.error("Failed to create inventory-protected pending order", error)
+    throw new Error(normalizeOrderError(error))
+  }
 
-  const currency = firstTicketType.currency || "SZL"
-  const subtotalCents = lineItems.reduce((sum, item) => sum + item.ticketType.price_cents * item.quantity, 0)
-  const platformFeeCents = 0
-  const processorFeeCents = 0
-  const totalCents = subtotalCents + platformFeeCents + processorFeeCents
-  const itemCount = lineItems.reduce((sum, item) => sum + item.quantity, 0)
+  const result = Array.isArray(data) ? (data[0] as RpcCreatedOrder | undefined) : (data as RpcCreatedOrder | undefined)
+  const order = result?.order_row
+  const createdItems = result?.order_items ?? []
 
-  const { data: order, error: orderError } = await supabase
-    .from("orders")
-    .insert({
-      org_id: orgId,
-      buyer_id: input.purchaserId,
-      email: input.purchaserEmail,
-      buyer_email: input.purchaserEmail,
-      total_cents: totalCents,
-      subtotal_cents: subtotalCents,
-      item_count: itemCount,
-      platform_fee_cents: platformFeeCents,
-      processor_fee_cents: processorFeeCents,
-      currency,
-      order_currency: currency,
-      order_price_cents: subtotalCents,
-      order_platform_fee_cents: platformFeeCents,
-      order_processor_fee_cents: processorFeeCents,
-      status: "pending",
-      channel: "online",
-    })
-    .select("*")
-    .single<LiveOrder>()
-
-  if (orderError || !order) {
-    console.error("Failed to create pending order", orderError)
+  if (!order) {
+    console.error("Inventory-protected order RPC returned no order", data)
     throw new Error("Unable to create order")
   }
 
-  const holderName = buildHolderName(input)
-  const orderItemsPayload = lineItems.flatMap(({ ticketType, quantity }) =>
-    Array.from({ length: quantity }, () => ({
-      order_id: order.id,
-      ticket_type_id: ticketType.id,
-      ticket_code: randomUUID(),
-      status: "pending",
-      holder_name: holderName,
-      holder_email: input.purchaserEmail,
-    })),
-  )
-
-  const { data: createdItems, error: orderItemsError } = await supabase
-    .from("order_items")
-    .insert(orderItemsPayload)
-    .select("*")
-
-  if (orderItemsError) {
-    console.error("Failed to create pending order items", orderItemsError)
-    throw new Error("Unable to create order items")
-  }
+  const subtotalCents = order.subtotal_cents ?? order.total_cents ?? 0
+  const platformFeeCents = order.platform_fee_cents ?? 0
+  const processorFeeCents = order.processor_fee_cents ?? 0
+  const totalCents = order.total_cents ?? subtotalCents + platformFeeCents + processorFeeCents
+  const itemCount = order.item_count ?? createdItems.length
+  const currency = order.currency || "SZL"
 
   return {
     order: order as unknown as OrderRecord,
-    items: (createdItems ?? []) as unknown as OrderItemRecord[],
+    items: createdItems as unknown as OrderItemRecord[],
     pricing: {
       subtotal: centsToMajor(subtotalCents),
       fees: centsToMajor(platformFeeCents + processorFeeCents),
       total: centsToMajor(totalCents),
       currency,
-      lineItems: lineItems.map(({ ticketType, quantity }) => ({
-        ticketTypeId: ticketType.id,
-        quantity,
-        unitPrice: centsToMajor(ticketType.price_cents),
-        subtotal: centsToMajor(ticketType.price_cents * quantity),
+      lineItems: normalizedItems.map((item) => ({
+        ticketTypeId: item.ticketTypeId,
+        quantity: item.quantity,
+        unitPrice: item.quantity > 0 ? centsToMajor(Math.round(subtotalCents / Math.max(itemCount, 1))) : 0,
+        subtotal: 0,
         fees: 0,
-        total: centsToMajor(ticketType.price_cents * quantity),
+        total: 0,
       })),
     },
   }
