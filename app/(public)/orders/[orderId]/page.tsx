@@ -2,6 +2,7 @@ import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 import { CheckCircle2, Clock, Download, ExternalLink, QrCode, RefreshCw, Ticket } from "lucide-react"
 
+import { PendingPaymentRefresh } from "@/components/orders/pending-payment-refresh"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -137,10 +138,11 @@ export default async function OrderPage({ params }: OrderPageProps) {
                 <p className="mt-1 text-sm text-muted-foreground">
                   If you have just paid, this page will update once Paystack sends the payment confirmation webhook.
                 </p>
+                <PendingPaymentRefresh />
               </div>
               <Button asChild variant="outline">
                 <Link href={`/orders/${data.id}`}>
-                  <RefreshCw className="mr-2 h-4 w-4" /> Refresh
+                  <RefreshCw className="mr-2 h-4 w-4" /> Refresh now
                 </Link>
               </Button>
             </CardContent>
@@ -238,8 +240,13 @@ export default async function OrderPage({ params }: OrderPageProps) {
                   </Link>
                 </Button>
               )}
+              <Button asChild variant="secondary" className="flex-1">
+                <Link href="/my-tickets">
+                  <Ticket className="mr-2 h-4 w-4" /> My tickets
+                </Link>
+              </Button>
               <Button disabled variant="secondary" className="flex-1">
-                <Download className="mr-2 h-4 w-4" /> PDF tickets coming soon
+                <Download className="mr-2 h-4 w-4" /> PDF soon
               </Button>
             </div>
           </CardContent>
