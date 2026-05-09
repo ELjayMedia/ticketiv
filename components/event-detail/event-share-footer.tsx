@@ -4,13 +4,17 @@ import { Share2, Heart, Link2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { useState } from "react"
+import { createClient } from "@/lib/supabase/client"
 
 interface EventShareFooterProps {
   eventTitle: string
+  eventId: string
+  initialFavourited?: boolean
 }
 
-export function EventShareFooter({ eventTitle }: EventShareFooterProps) {
-  const [isFavourited, setIsFavourited] = useState(false)
+export function EventShareFooter({ eventTitle, eventId, initialFavourited = false }: EventShareFooterProps) {
+  const [isFavourited, setIsFavourited] = useState(initialFavourited)
+  const [favouriteLoading, setFavouriteLoading] = useState(false)
 
   async function handleShare() {
     if (typeof navigator !== "undefined" && navigator.share) {
@@ -33,9 +37,36 @@ export function EventShareFooter({ eventTitle }: EventShareFooterProps) {
     }
   }
 
-  function handleFavourite() {
-    setIsFavourited((prev) => !prev)
-    toast(isFavourited ? "Removed from favourites" : "Added to favourites")
+  async function handleFavourite() {
+    if (favouriteLoading) return
+    setFavouriteLoading(true)
+
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      toast("Sign in to save events")
+      setFavouriteLoading(false)
+      return
+    }
+
+    if (isFavourited) {
+      await supabase
+        .from("event_favourites")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("event_id", eventId)
+      setIsFavourited(false)
+      toast("Removed from saved events")
+    } else {
+      await supabase
+        .from("event_favourites")
+        .insert({ user_id: user.id, event_id: eventId })
+      setIsFavourited(true)
+      toast.success("Saved to your events")
+    }
+
+    setFavouriteLoading(false)
   }
 
   return (
@@ -57,7 +88,8 @@ export function EventShareFooter({ eventTitle }: EventShareFooterProps) {
           variant="outline"
           className="flex items-center gap-2"
           onClick={handleFavourite}
-          aria-label={isFavourited ? "Remove from favourites" : "Add to favourites"}
+          disabled={favouriteLoading}
+          aria-label={isFavourited ? "Remove from saved events" : "Save event"}
         >
           <Heart
             className="h-4 w-4"

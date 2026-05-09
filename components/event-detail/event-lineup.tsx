@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import type { EventDetailArtist } from "@/lib/data/public/event-detail"
 
 interface EventLineupProps {
@@ -14,6 +14,29 @@ function getInitials(name: string): string {
     .join("")
 }
 
+function ArtistCard({ artist }: { artist: EventDetailArtist }) {
+  return (
+    <div className="flex w-20 flex-col items-center gap-2 p-1">
+      <Avatar className="size-16 ring-2 ring-border transition-colors group-hover:ring-primary">
+        {artist.image_url && (
+          <AvatarImage src={artist.image_url} alt={artist.name} />
+        )}
+        <AvatarFallback className="bg-primary/10 text-primary font-semibold text-lg">
+          {getInitials(artist.name)}
+        </AvatarFallback>
+      </Avatar>
+      <span className="w-full text-center text-xs font-medium leading-tight text-foreground line-clamp-2">
+        {artist.name}
+      </span>
+      {artist.role && (
+        <span className="text-center text-xs text-muted-foreground leading-tight capitalize">
+          {artist.role}
+        </span>
+      )}
+    </div>
+  )
+}
+
 export function EventLineup({ artists }: EventLineupProps) {
   if (artists.length === 0) return null
 
@@ -22,9 +45,8 @@ export function EventLineup({ artists }: EventLineupProps) {
       <h2 id="lineup-heading" className="mb-3 font-display text-xl font-bold">
         Lineup
       </h2>
-      {/* Horizontal scroll carousel */}
       <div
-        className="flex gap-4 overflow-x-auto pb-2 scrollbar-none"
+        className="flex gap-4 overflow-x-auto pb-2"
         style={{ scrollbarWidth: "none" }}
         role="list"
         aria-label="Artist lineup"
@@ -34,38 +56,12 @@ export function EventLineup({ artists }: EventLineupProps) {
             {artist.slug ? (
               <Link
                 href={`/artists/${artist.slug}`}
-                className="group flex w-20 flex-col items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg p-1"
+                className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg"
               >
-                <Avatar className="size-16 ring-2 ring-border transition-colors group-hover:ring-primary">
-                  <AvatarFallback className="bg-primary/10 text-primary font-semibold text-lg">
-                    {getInitials(artist.name)}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="w-full text-center text-xs font-medium leading-tight text-foreground line-clamp-2">
-                  {artist.name}
-                </span>
-                {artist.role && (
-                  <span className="text-center text-xs text-muted-foreground leading-tight capitalize">
-                    {artist.role}
-                  </span>
-                )}
+                <ArtistCard artist={artist} />
               </Link>
             ) : (
-              <div className="flex w-20 flex-col items-center gap-2 p-1">
-                <Avatar className="size-16 ring-2 ring-border">
-                  <AvatarFallback className="bg-primary/10 text-primary font-semibold text-lg">
-                    {getInitials(artist.name)}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="w-full text-center text-xs font-medium leading-tight text-foreground line-clamp-2">
-                  {artist.name}
-                </span>
-                {artist.role && (
-                  <span className="text-center text-xs text-muted-foreground leading-tight capitalize">
-                    {artist.role}
-                  </span>
-                )}
-              </div>
+              <ArtistCard artist={artist} />
             )}
           </div>
         ))}

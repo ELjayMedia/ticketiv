@@ -28,7 +28,7 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
     <>
       {/* ── Hero & action row (shared) ─────────────────────── */}
       <EventHero event={event} />
-      <EventActionRow eventTitle={event.title} />
+      <EventActionRow eventTitle={event.title} eventId={event.id} initialFavourited={event.is_favourited} />
 
       {/* ══════════════════════════════════════════════════════
           MOBILE LAYOUT  (< lg)
@@ -66,7 +66,7 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
               About this event
             </h2>
             <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-line">
-              No description provided yet.
+              {event.description ?? "No description provided yet."}
             </p>
           </section>
 
@@ -110,7 +110,7 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
           <Separator />
 
           {/* Share footer */}
-          <EventShareFooter eventTitle={event.title} />
+          <EventShareFooter eventTitle={event.title} eventId={event.id} initialFavourited={event.is_favourited} />
         </main>
       </div>
 
@@ -136,7 +136,7 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
                   About this event
                 </h2>
                 <p className="leading-relaxed text-muted-foreground whitespace-pre-line">
-                  No description provided yet.
+                  {event.description ?? "No description provided yet."}
                 </p>
               </section>
 
@@ -156,7 +156,7 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
               <Separator />
 
               {/* Share footer */}
-              <EventShareFooter eventTitle={event.title} />
+              <EventShareFooter eventTitle={event.title} eventId={event.id} initialFavourited={event.is_favourited} />
             </div>
 
             {/* ── Right column: sidebar (4/12) ──────────────── */}

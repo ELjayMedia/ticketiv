@@ -19,6 +19,7 @@ export type EventDetailArtist = {
   name: string
   bio: string | null
   slug: string | null
+  image_url: string | null
 }
 
 export type EventDetailData = {
@@ -34,6 +35,8 @@ export type EventDetailData = {
   city: string | null
   country_code: string | null
   org_id: string
+  description: string | null
+  is_favourited: boolean
   venue: {
     id: string
     name: string
@@ -46,6 +49,8 @@ export type EventDetailData = {
     id: string
     name: string
     slug: string
+    bio: string | null
+    logo: string | null
   } | null
   ticket_types: EventDetailTicketType[]
   artists: EventDetailArtist[]
@@ -63,11 +68,11 @@ export async function getEventDetailById(id: string): Promise<EventDetailData | 
     .from("events")
     .select(`
       id, title, slug, status, starts_at, ends_at, tz,
-      cover_image_url, category, city, country_code, org_id,
+      cover_image_url, category, city, country_code, org_id, description,
       venue:venue_id(id, name, address, city, slug, capacity),
-      organization:org_id(id, name, slug),
+      organization:org_id(id, name, slug, bio, logo),
       ticket_types(id, name, price_cents, currency, quota, per_user_limit, is_reserved_seating),
-      event_artists(role, artist:artist_id(id, name, bio, slug))
+      event_artists(role, artist:artist_id(id, name, bio, slug, image_url))
     `)
     .eq("id", id)
     .single()
@@ -114,9 +119,20 @@ export async function getEventDetailById(id: string): Promise<EventDetailData | 
     }
   }
 
-  // Friends going (only if authenticated)
+  // Check if current user has favourited this event + load friends going
+  let isFavourited = false
   let friendsGoing: Array<{ user_id: string; display_name: string | null }> = []
   const user = authData?.user
+
+  if (user) {
+    const { data: fav } = await supabase
+      .from("event_favourites")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("event_id", id)
+      .maybeSingle()
+    isFavourited = fav != null
+  }
 
   if (user && ticketTypeIds.length > 0) {
     const { data: myFriends } = await supabase.from("user_friends").select("friend_id")
@@ -152,9 +168,9 @@ export async function getEventDetailById(id: string): Promise<EventDetailData | 
   }
 
   type RawVenue = { id: string; name: string; address: string | null; city: string | null; slug: string | null; capacity: number | null } | null
-  type RawOrg = { id: string; name: string; slug: string } | null
+  type RawOrg = { id: string; name: string; slug: string; bio: string | null; logo: string | null } | null
   type RawTicketType = { id: string; name: string; price_cents: number; currency: string; quota: number | null; per_user_limit: number | null; is_reserved_seating: boolean }
-  type RawEventArtist = { role: string | null; artist: { id: string; name: string; bio: string | null; slug: string | null } | null }
+  type RawEventArtist = { role: string | null; artist: { id: string; name: string; bio: string | null; slug: string | null; image_url: string | null } | null }
 
   const venue = event.venue as unknown as RawVenue
   const organization = event.organization as unknown as RawOrg
@@ -170,10 +186,12 @@ export async function getEventDetailById(id: string): Promise<EventDetailData | 
     ends_at: event.ends_at,
     tz: event.tz ?? "Africa/Mbabane",
     cover_image_url: event.cover_image_url,
+    description: (event as unknown as { description: string | null }).description ?? null,
     category: event.category,
     city: event.city,
     country_code: event.country_code,
     org_id: event.org_id,
+    is_favourited: isFavourited,
     venue: venue
       ? {
           id: venue.id,
@@ -189,6 +207,8 @@ export async function getEventDetailById(id: string): Promise<EventDetailData | 
           id: organization.id,
           name: organization.name,
           slug: organization.slug,
+          bio: organization.bio,
+          logo: organization.logo,
         }
       : null,
     ticket_types: rawTicketTypes.map((t) => ({
@@ -209,6 +229,7 @@ export async function getEventDetailById(id: string): Promise<EventDetailData | 
         name: ea.artist!.name,
         bio: ea.artist!.bio,
         slug: ea.artist!.slug,
+        image_url: ea.artist!.image_url,
       })),
     buyer_count: buyerCount,
     friends_going: friendsGoing,
