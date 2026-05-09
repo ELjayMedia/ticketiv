@@ -1,7 +1,8 @@
 import "server-only"
 
-import { randomUUID } from "crypto"
+import crypto, { randomUUID } from "crypto"
 
+import { APP_URL, PAYSTACK_SECRET_KEY } from "@/lib/env"
 import { completePaidOrder } from "@/lib/orders"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
@@ -16,6 +17,16 @@ type LiveOrder = {
   status: "pending" | "paid" | "failed" | "refunded"
   email?: string | null
   buyer_email?: string | null
+}
+
+type PaystackInitializeResponse = {
+  status: boolean
+  message: string
+  data?: {
+    authorization_url: string
+    access_code: string
+    reference: string
+  }
 }
 
 export interface CreatePaymentAttemptInput {
@@ -58,6 +69,62 @@ async function getPendingOrder(orderId: string, userId?: string) {
   return { supabase, order }
 }
 
+function getBuyerEmail(order: LiveOrder) {
+  const email = order.buyer_email ?? order.email
+  if (!email) throw new Error("Order is missing buyer email")
+  return email
+}
+
+function toPaystackAmount(order: LiveOrder) {
+  // Ticketiv stores minor units in *_cents columns. Paystack also expects the lowest currency unit.
+  return order.total_cents
+}
+
+async function initializePaystackTransaction(order: LiveOrder, reference: string, returnUrl?: string | null) {
+  if (!PAYSTACK_SECRET_KEY) {
+    throw new Error("Missing PAYSTACK_SECRET_KEY")
+  }
+
+  const callbackUrl = returnUrl ?? `${APP_URL}/orders/${order.id}`
+
+  const response = await fetch("https://api.paystack.co/transaction/initialize", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      email: getBuyerEmail(order),
+      amount: toPaystackAmount(order),
+      currency: order.currency,
+      reference,
+      callback_url: callbackUrl,
+      metadata: {
+        order_id: order.id,
+        org_id: order.org_id,
+        buyer_id: order.buyer_id,
+      },
+    }),
+  })
+
+  const payload = (await response.json()) as PaystackInitializeResponse
+
+  if (!response.ok || !payload.status || !payload.data?.authorization_url) {
+    console.error("Paystack initialization failed", payload)
+    throw new Error(payload.message || "Unable to initialize Paystack payment")
+  }
+
+  return payload.data
+}
+
+export function verifyPaystackWebhookSignature(rawBody: string, signature: string | null) {
+  if (!PAYSTACK_SECRET_KEY) return false
+  if (!signature) return false
+
+  const expected = crypto.createHmac("sha512", PAYSTACK_SECRET_KEY).update(rawBody).digest("hex")
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
+}
+
 export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
   assertProvider(input.provider)
 
@@ -75,6 +142,7 @@ export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
 
   const extRef = `${input.provider}_${order.id}_${randomUUID()}`
   const attemptNo = (count ?? 0) + 1
+  const providerPayload = input.provider === "paystack" ? await initializePaystackTransaction(order, extRef, input.returnUrl) : null
 
   const { data: attempt, error: attemptError } = await supabase
     .from("payment_attempts")
@@ -83,11 +151,12 @@ export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
       provider: input.provider,
       attempt_no: attemptNo,
       status: "pending",
-      ext_ref: extRef,
+      ext_ref: providerPayload?.reference ?? extRef,
       payload: {
         return_url: input.returnUrl ?? null,
         amount_cents: order.total_cents,
         currency: order.currency,
+        provider: providerPayload,
       },
     })
     .select("*")
@@ -103,12 +172,12 @@ export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
     attempt,
     payment: {
       provider: input.provider,
-      reference: extRef,
+      reference: providerPayload?.reference ?? extRef,
       amountCents: order.total_cents,
       currency: order.currency,
       status: "pending",
-      // Provider integrations should replace this with a redirect or hosted checkout URL.
-      checkoutUrl: null,
+      checkoutUrl: providerPayload?.authorization_url ?? null,
+      accessCode: providerPayload?.access_code ?? null,
     },
   }
 }
@@ -157,6 +226,29 @@ export async function completeVerifiedPayment(input: CompleteVerifiedPaymentInpu
     order: completed.order,
     items: completed.items,
   }
+}
+
+export async function completePaystackPaymentFromWebhook(payload: Record<string, any>) {
+  const data = payload?.data ?? {}
+  const metadata = data?.metadata ?? {}
+  const orderId = String(metadata.order_id ?? "")
+  const status = String(data.status ?? "")
+  const reference = String(data.reference ?? "")
+
+  if (!orderId) throw new Error("Paystack webhook missing order_id metadata")
+  if (!reference) throw new Error("Paystack webhook missing reference")
+
+  if (status !== "success") {
+    await failPaymentAttempt(orderId, "paystack", reference, payload)
+    return { ok: true, status }
+  }
+
+  return completeVerifiedPayment({
+    orderId,
+    provider: "paystack",
+    extPaymentId: reference,
+    payload,
+  })
 }
 
 export async function failPaymentAttempt(orderId: string, provider: PaymentProvider, extRef?: string | null, payload?: Record<string, any>) {
