@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { getPublicEvents } from "@/lib/data/events"
 
+export const dynamic = "force-dynamic"
+
 export default async function CategoriesPage() {
   const events = await getPublicEvents()
   const categories = new Map<string, number>()
