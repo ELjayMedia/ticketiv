@@ -1,31 +1,22 @@
-'use server'
+import { notFound } from "next/navigation"
 
-import { notFound } from 'next/navigation'
-import { getPublicEvents } from '@/lib/data/public/events'
-import { CheckoutClient } from './checkout-client'
+import { CheckoutClient } from "./checkout-client"
+import { getEventDetailById } from "@/lib/data/public/event-detail"
 
 interface CheckoutPageProps {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ ticket_type_id?: string }>
+  searchParams: Promise<{ items?: string; ticket_type_id?: string; quantity?: string }>
 }
 
-export default async function CheckoutPage({
-  params,
-  searchParams,
-}: CheckoutPageProps) {
+export default async function CheckoutPage({ params, searchParams }: CheckoutPageProps) {
   const { id } = await params
-  const { ticket_type_id } = await searchParams
+  const query = await searchParams
 
-  const events = await getPublicEvents()
-  const event = events.find((e) => e.slug === id || e.id === id)
+  const event = await getEventDetailById(id)
 
   if (!event) {
     notFound()
   }
 
-  const selectedTicketType = event.ticket_types?.find(
-    (tt) => tt.id === ticket_type_id
-  )
-
-  return <CheckoutClient event={event} selectedTicketType={selectedTicketType} />
+  return <CheckoutClient event={event} selectedItemsParam={query.items} legacyTicketTypeId={query.ticket_type_id} legacyQuantity={query.quantity} />
 }
