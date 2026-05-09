@@ -2,13 +2,6 @@
   "buildCommand": "next build",
   "devCommand": "next dev",
   "outputDirectory": ".next",
-  "redirects": [
-    {
-      "source": "/",
-      "destination": "/browse",
-      "permanent": false
-    }
-  ],
   "headers": [
     {
       "source": "/:path*",
