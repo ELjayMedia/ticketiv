@@ -1,0 +1,41 @@
+import { NextResponse } from "next/server"
+
+import { createPaymentAttempt } from "@/lib/payments"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
+
+export async function POST(request: Request) {
+  try {
+    const supabase = createServerSupabaseClient()
+    if (!supabase) {
+      return NextResponse.json({ error: "Supabase is not configured" }, { status: 500 })
+    }
+
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession()
+
+    if (sessionError) {
+      return NextResponse.json({ error: "Failed to verify session" }, { status: 500 })
+    }
+
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const provider = String(body.provider ?? "").toLowerCase()
+
+    const result = await createPaymentAttempt({
+      orderId: String(body.orderId ?? ""),
+      provider: provider as any,
+      userId: session.user.id,
+      returnUrl: body.returnUrl ? String(body.returnUrl) : null,
+    })
+
+    return NextResponse.json(result, { status: 201 })
+  } catch (error: any) {
+    console.error("Failed to create payment attempt", error)
+    return NextResponse.json({ error: error?.message ?? "Unable to create payment attempt" }, { status: 400 })
+  }
+}
