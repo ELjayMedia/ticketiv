@@ -16,19 +16,19 @@ export function MobileShell({ children, user, workspace }: MobileShellProps) {
   const pathname = usePathname()
 
   const isEventDetailPage = pathname.startsWith("/events/") && pathname !== "/events"
-  const isCheckoutPage = pathname.startsWith("/checkout/")
+  const isCheckoutPage = pathname.includes("/checkout")
   const hideBottomNav = isEventDetailPage || isCheckoutPage
 
   const tabs = {
     public: [
       { href: "/", label: "Home", icon: Home, ariaLabel: "Navigate to home" },
       { href: "/browse", label: "Explore", icon: Search, ariaLabel: "Explore events" },
-      { href: user ? "/app/tickets" : "/login", label: "Tickets", icon: TicketIcon, ariaLabel: "View my tickets" },
+      { href: user ? "/my-tickets" : "/login", label: "Tickets", icon: TicketIcon, ariaLabel: "View my tickets" },
     ],
     app: [
       { href: "/app/home", label: "Home", icon: Home, ariaLabel: "Navigate to home" },
       { href: "/browse", label: "Explore", icon: Search, ariaLabel: "Explore events" },
-      { href: "/app/tickets", label: "My Tickets", icon: TicketIcon, ariaLabel: "View my tickets" },
+      { href: "/my-tickets", label: "My Tickets", icon: TicketIcon, ariaLabel: "View my tickets" },
       { href: "/app/profile", label: "Profile", icon: User, ariaLabel: "View profile" },
     ],
     organizer: [
