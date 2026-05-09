@@ -49,13 +49,14 @@ export function DesktopShell({ children, user, workspace, onLogout }: DesktopShe
     public: [
       { href: "/", label: "Home", icon: Home, shortcut: "H" },
       { href: "/browse", label: "Events", icon: Calendar, shortcut: "E" },
+      { href: user ? "/my-tickets" : "/login", label: "My Tickets", icon: TicketIcon, shortcut: "T" },
       { href: "/organisers", label: "Organisers", icon: Building2, shortcut: "O" },
       { href: "/artists", label: "Artists", icon: Users, shortcut: "A" },
     ],
     app: [
       { href: "/app/home", label: "Home", icon: Home, shortcut: "H" },
       { href: "/browse", label: "Explore", icon: Search, shortcut: "E" },
-      { href: "/app/tickets", label: "My Tickets", icon: TicketIcon, shortcut: "T" },
+      { href: "/my-tickets", label: "My Tickets", icon: TicketIcon, shortcut: "T" },
       { href: "/payments", label: "Payments", icon: Settings, shortcut: "P" },
     ],
     organizer: [
@@ -256,7 +257,7 @@ export function DesktopShell({ children, user, workspace, onLogout }: DesktopShe
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href="/app/tickets">
+                    <Link href="/my-tickets">
                       <TicketIcon className="h-4 w-4 mr-2" aria-hidden="true" />
                       My Tickets
                     </Link>
