@@ -2,6 +2,8 @@ import { getPayoutSummary } from "@/lib/payouts"
 import { formatCurrency } from "@/lib/pricing"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
+export const dynamic = "force-dynamic"
+
 export default async function OrganizerPayoutsPage() {
   const summary = await getPayoutSummary()
 
