@@ -50,12 +50,18 @@ export function TicketSelector({ eventId, ticketTypes, variant = "mobile" }: Tic
 
   function handleBuy() {
     if (!hasSelection) return
-    const checkoutExists = true // /checkout route exists
-    if (checkoutExists) {
-      router.push(`/events/${eventId}/checkout`)
-    } else {
-      toast("Checkout coming next — stay tuned!")
+
+    const selectedItems = Object.entries(quantities)
+      .filter(([, quantity]) => quantity > 0)
+      .map(([ticketTypeId, quantity]) => `${ticketTypeId}:${quantity}`)
+      .join(",")
+
+    if (!selectedItems) {
+      toast("Please select at least one ticket.")
+      return
     }
+
+    router.push(`/events/${eventId}/checkout?items=${encodeURIComponent(selectedItems)}`)
   }
 
   if (ticketTypes.length === 0) {
