@@ -3,6 +3,12 @@
 import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { AlertCircle } from "lucide-react"
 
 type Channel = "phone" | "email"
 
@@ -74,64 +80,75 @@ export function SignInForm() {
     router.push(`/verify?${params.toString()}`)
   }
 
-  const tabBase = "rounded-[var(--radius-pill)] px-4 py-1.5 text-xs font-medium transition-colors"
-  const tabActive = `${tabBase} bg-[var(--color-ink)] text-[var(--color-cream)]`
-  const tabInactive = `${tabBase} text-[var(--color-ink-soft)] hover:text-[var(--color-ink)]`
-
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-5">
-      {/* Channel toggle */}
-      <div className="inline-flex self-start rounded-[var(--radius-pill)] border border-[var(--color-paper-line)] bg-[var(--color-cream-deep)] p-1">
-        <button type="button" onClick={() => { setChannel("phone"); setValue(""); setError(null) }} className={channel === "phone" ? tabActive : tabInactive}>
-          Phone
-        </button>
-        <button type="button" onClick={() => { setChannel("email"); setValue(""); setError(null) }} className={channel === "email" ? tabActive : tabInactive}>
-          Email
-        </button>
-      </div>
+    <form onSubmit={onSubmit} className="flex flex-col gap-6">
+      {/* Channel toggle using shadcn Tabs */}
+      <Tabs value={channel} onValueChange={(v) => { setChannel(v as Channel); setValue(""); setError(null) }}>
+        <TabsList>
+          <TabsTrigger value="phone">Phone</TabsTrigger>
+          <TabsTrigger value="email">Email</TabsTrigger>
+        </TabsList>
 
-      {/* Input */}
-      <label className="flex flex-col gap-2">
-        <span className="text-xs uppercase tracking-[0.16em] text-[var(--color-ink-mute)]">
-          {channel === "phone" ? "Phone number" : "Email address"}
-        </span>
-        <div className="flex items-stretch rounded-[var(--radius-soft)] border border-[var(--color-paper-line)] bg-white/40 backdrop-blur-sm focus-within:border-[var(--color-saffron)]">
-          {channel === "phone" && (
-            <span className="flex items-center border-r border-[var(--color-paper-line)] px-3 text-sm text-[var(--color-ink-soft)]">
-              {ESWATINI_DIAL}
-            </span>
-          )}
-          <input
-            type={channel === "phone" ? "tel" : "email"}
-            inputMode={channel === "phone" ? "tel" : "email"}
-            autoComplete={channel === "phone" ? "tel" : "email"}
-            placeholder={channel === "phone" ? "76 12 34 56" : "you@example.com"}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            className="w-full bg-transparent px-3 py-3 text-base text-[var(--color-ink)] placeholder:text-[var(--color-ink-mute)] focus:outline-none"
-            required
-          />
-        </div>
-        <span className="text-xs text-[var(--color-ink-mute)]">
-          {channel === "phone"
-            ? "We'll send a 6-digit code by SMS. No country code needed for Eswatini numbers."
-            : "We'll send a 6-digit code to your inbox."}
-        </span>
-      </label>
+        <TabsContent value="phone" className="flex flex-col gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="phone-input">Phone number</Label>
+            <div className="flex items-stretch">
+              <div className="flex items-center px-3 text-sm border-r bg-muted">
+                {ESWATINI_DIAL}
+              </div>
+              <Input
+                id="phone-input"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder="76 12 34 56"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                required
+                className="flex-1"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              We&apos;ll send a 6-digit code by SMS. No country code needed for Eswatini numbers.
+            </p>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="email" className="flex flex-col gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="email-input">Email address</Label>
+            <Input
+              id="email-input"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              required
+            />
+            <p className="text-xs text-muted-foreground">
+              We&apos;ll send a 6-digit code to your inbox.
+            </p>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {error && (
-        <p role="alert" className="rounded-[var(--radius-soft)] border border-[var(--color-saffron)] bg-[var(--color-saffron)]/10 px-3 py-2 text-sm text-[var(--color-ink)]">
-          {error}
-        </p>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
-      <button
+      <Button
         type="submit"
         disabled={busy || !value}
-        className="inline-flex h-12 items-center justify-center rounded-[var(--radius-pill)] bg-[var(--color-ink)] px-6 text-[15px] font-medium text-[var(--color-cream)] transition-colors hover:bg-[var(--color-forest-deep)] focus-visible:bg-[var(--color-forest-deep)] disabled:cursor-not-allowed disabled:bg-[var(--color-ink-mute)]"
+        className="w-full"
+        size="lg"
       >
         {busy ? "Sending…" : "Send code"}
-      </button>
+      </Button>
     </form>
   )
 }
