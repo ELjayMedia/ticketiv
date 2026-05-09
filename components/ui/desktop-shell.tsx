@@ -327,7 +327,7 @@ export function DesktopShell({ children, user, workspace, onLogout }: DesktopShe
       </header>
 
       {/* Main content with route outlet */}
-      <main className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-0 py-0">
+      <main className="w-full px-4 sm:px-6 lg:px-0 py-0">
         <div
           className="fixed inset-0 top-16 -z-10 opacity-0 transition-opacity duration-500"
           id="desktop-shell-bg"

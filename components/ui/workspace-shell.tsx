@@ -151,7 +151,7 @@ export function WorkspaceShell({ workspace, children, requireAuth = false }: Wor
 
   return (
     <AppShell user={user ?? undefined} workspace={workspace} onLogout={handleLogout}>
-      <div className="mx-auto max-w-[980px] px-4 sm:px-6 lg:px-0 py-0">{children}</div>
+      <div className="w-full px-4 sm:px-6 lg:px-0 py-0">{children}</div>
     </AppShell>
   )
 }
