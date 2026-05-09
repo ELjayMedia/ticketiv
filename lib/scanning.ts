@@ -47,7 +47,11 @@ function firstRelation<T>(value: T | T[] | null | undefined): T | null {
   return value ?? null
 }
 
-async function ensureScannerAuthorized(client: SupabaseServerClient, userId: string, eventId: string) {
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+}
+
+async function getEventOrgId(client: SupabaseServerClient, eventId: string) {
   const { data: event, error: eventError } = await client
     .from("events")
     .select("id, org_id")
@@ -55,11 +59,16 @@ async function ensureScannerAuthorized(client: SupabaseServerClient, userId: str
     .maybeSingle<{ id: string; org_id: string }>()
 
   if (eventError) {
-    console.error("Failed to load event for scanner authorization", eventError)
-    throw new Error("Unable to verify scanner permissions")
+    console.error("Failed to load event", eventError)
+    throw new Error("Unable to verify event")
   }
 
-  if (!event) return false
+  return event?.org_id ?? null
+}
+
+async function ensureScannerAuthorized(client: SupabaseServerClient, userId: string, eventId: string) {
+  const orgId = await getEventOrgId(client, eventId)
+  if (!orgId) return false
 
   const { data: eventStaff, error: eventStaffError } = await client
     .from("event_staff")
@@ -81,7 +90,7 @@ async function ensureScannerAuthorized(client: SupabaseServerClient, userId: str
   const { data: orgMember, error: orgMemberError } = await client
     .from("org_members")
     .select("role")
-    .eq("org_id", event.org_id)
+    .eq("org_id", orgId)
     .eq("user_id", userId)
     .maybeSingle<{ role: string }>()
 
@@ -96,6 +105,99 @@ async function ensureScannerAuthorized(client: SupabaseServerClient, userId: str
         orgMember.role,
       ),
   )
+}
+
+export async function startDeviceSession(deviceId: string, eventId: string, userId?: string) {
+  const supabase = createServerSupabaseClient()
+  if (!supabase) throw new Error("Supabase is not configured")
+  if (!isUuid(deviceId)) throw new Error("A valid scanner deviceId is required")
+  if (!isUuid(eventId)) throw new Error("A valid eventId is required")
+  if (!userId) throw new Error("Scanner login required")
+
+  const authorized = await ensureScannerAuthorized(supabase, userId, eventId)
+  if (!authorized) throw new Error("You are not authorized to scan tickets for this event")
+
+  const orgId = await getEventOrgId(supabase, eventId)
+  if (!orgId) throw new Error("Event not found")
+
+  const { data: device, error: deviceError } = await supabase
+    .from("devices")
+    .select("id, event_id, org_id")
+    .eq("id", deviceId)
+    .maybeSingle<{ id: string; event_id: string | null; org_id: string }>()
+
+  if (deviceError) {
+    console.error("Failed to load scanner device", deviceError)
+    throw new Error("Unable to verify scanner device")
+  }
+
+  if (!device) {
+    const { error: createDeviceError } = await supabase.from("devices").insert({
+      id: deviceId,
+      org_id: orgId,
+      event_id: eventId,
+      registered_by: userId,
+      label: "Scanner device",
+      device_role: "organizer_scanner",
+      last_seen_at: new Date().toISOString(),
+    })
+
+    if (createDeviceError) {
+      console.error("Failed to register scanner device", createDeviceError)
+      throw new Error("Unable to register scanner device")
+    }
+  } else if (device.event_id && device.event_id !== eventId) {
+    throw new Error("Scanner device is assigned to a different event")
+  } else {
+    const { error: updateDeviceError } = await supabase
+      .from("devices")
+      .update({ event_id: eventId, last_seen_at: new Date().toISOString(), device_role: "organizer_scanner" })
+      .eq("id", deviceId)
+
+    if (updateDeviceError) {
+      console.error("Failed to update scanner device", updateDeviceError)
+      throw new Error("Unable to update scanner device")
+    }
+  }
+
+  const { data, error } = await supabase
+    .from("device_sessions")
+    .insert({
+      device_id: deviceId,
+      user_id: userId,
+      started_at: new Date().toISOString(),
+    })
+    .select("*")
+    .single()
+
+  if (error) {
+    console.error("Failed to start device session", error)
+    throw new Error("Unable to start device session")
+  }
+
+  return data
+}
+
+export async function closeDeviceSession(sessionId: string, userId?: string) {
+  const supabase = createServerSupabaseClient()
+  if (!supabase) throw new Error("Supabase is not configured")
+  if (!isUuid(sessionId)) throw new Error("A valid sessionId is required")
+  if (!userId) throw new Error("Scanner login required")
+
+  const { data, error } = await supabase
+    .from("device_sessions")
+    .update({ ended_at: new Date().toISOString() })
+    .eq("id", sessionId)
+    .eq("user_id", userId)
+    .select("*")
+    .single()
+
+  if (error) {
+    console.error("Failed to close session", error)
+    throw new Error("Unable to close device session")
+  }
+
+  return data
 }
 
 async function recordScan(
