@@ -37,6 +37,11 @@ export interface CreateOrderResult {
   pricing: OrderPricingBreakdown
 }
 
+export interface CompletePaidOrderResult {
+  order: OrderRecord
+  items: OrderItemRecord[]
+}
+
 export interface UserOrderItem extends OrderItemRecord {
   ticket_type?: TicketTypeRecord | null
   event?: EventRecord | null
@@ -104,13 +109,17 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
       purchaser_email: input.purchaserEmail,
       purchaser_first_name: input.purchaserFirstName ?? null,
       purchaser_last_name: input.purchaserLastName ?? null,
-      status: "completed",
+      status: "pending",
       subtotal_amount: pricing.subtotal,
       fee_amount: pricing.fees,
       total_amount: pricing.total,
       currency: pricing.currency,
       payment_reference: input.paymentReference ?? null,
-      metadata: input.metadata ?? null,
+      metadata: {
+        ...(input.metadata ?? {}),
+        payment_required: true,
+        tickets_minted: false,
+      },
     })
     .select("*")
     .single()
@@ -145,25 +154,95 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
     throw new Error("Unable to create order items")
   }
 
-  // Mint tickets per order_item via Postgres function
-  await Promise.all(
-    (createdItems ?? []).map(async (item) => {
-      const { error: mintError } = await supabase.rpc("fn_mint_tickets", {
-        order_item_id: item.id,
-        quantity: item.quantity,
-      })
-
-      if (mintError) {
-        console.error("Failed to mint tickets", mintError)
-        throw new Error("Unable to mint tickets")
-      }
-    }),
-  )
-
+  // P0 safety: do not mint tickets at order creation time.
+  // Tickets must only be minted after a trusted server-side payment verification/webhook.
   return {
     order: order as OrderRecord,
     items: (createdItems ?? []) as OrderItemRecord[],
     pricing,
+  }
+}
+
+export async function completePaidOrder(orderId: string, paymentReference?: string | null): Promise<CompletePaidOrderResult> {
+  const supabase = createServerSupabaseClient()
+
+  const { data: order, error: orderError } = await supabase
+    .from("orders")
+    .select("*")
+    .eq("id", orderId)
+    .maybeSingle<OrderRecord>()
+
+  if (orderError) {
+    console.error("Failed to load order for completion", orderError)
+    throw new Error("Unable to load order")
+  }
+
+  if (!order) {
+    throw new Error("Order not found")
+  }
+
+  if (order.status === "completed") {
+    const { data: existingItems, error: existingItemsError } = await supabase
+      .from("order_items")
+      .select("*")
+      .eq("order_id", order.id)
+
+    if (existingItemsError) {
+      console.error("Failed to load completed order items", existingItemsError)
+      throw new Error("Unable to load order items")
+    }
+
+    return { order, items: (existingItems ?? []) as OrderItemRecord[] }
+  }
+
+  if (order.status !== "pending") {
+    throw new Error(`Order cannot be completed from status: ${order.status}`)
+  }
+
+  const { data: orderItems, error: orderItemsError } = await supabase
+    .from("order_items")
+    .select("*")
+    .eq("order_id", order.id)
+
+  if (orderItemsError) {
+    console.error("Failed to load order items for ticket minting", orderItemsError)
+    throw new Error("Unable to load order items")
+  }
+
+  for (const item of orderItems ?? []) {
+    const { error: mintError } = await supabase.rpc("fn_mint_tickets", {
+      p_order_item_id: item.id,
+    })
+
+    if (mintError) {
+      console.error("Failed to mint tickets", mintError)
+      throw new Error("Unable to mint tickets")
+    }
+  }
+
+  const { data: completedOrder, error: completeError } = await supabase
+    .from("orders")
+    .update({
+      status: "completed",
+      payment_reference: paymentReference ?? order.payment_reference ?? null,
+      metadata: {
+        ...(order.metadata ?? {}),
+        tickets_minted: true,
+        completed_at: new Date().toISOString(),
+      },
+    })
+    .eq("id", order.id)
+    .select("*")
+    .single<OrderRecord>()
+
+  if (completeError || !completedOrder) {
+    console.error("Failed to complete paid order", completeError)
+    throw new Error("Unable to complete order")
+  }
+
+  return {
+    order: completedOrder,
+    items: (orderItems ?? []) as OrderItemRecord[],
   }
 }
 
