@@ -1,164 +1,203 @@
-'use client'
+"use client"
 
-import { useState } from 'react'
-import Link from 'next/link'
-import { ArrowLeft, Mail, Phone, CreditCard } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent } from '@/components/ui/card'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { formatCurrency } from '@/lib/pricing'
-import type { EventSummary } from '@/types'
+import { useMemo, useState } from "react"
+import Link from "next/link"
+import { ArrowLeft, CreditCard, Mail } from "lucide-react"
+import { toast } from "sonner"
+
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { formatCurrency } from "@/lib/pricing"
+import type { EventDetailData } from "@/lib/data/public/event-detail"
 
 interface CheckoutClientProps {
-  event: EventSummary
-  selectedTicketType?: EventSummary['ticket_types'][0]
+  event: EventDetailData
+  selectedItemsParam?: string
+  legacyTicketTypeId?: string
+  legacyQuantity?: string
 }
 
-const PAYMENT_METHODS = [
-  { id: 'deltapay', name: 'DeltaPay', icon: '💳' },
-  { id: 'card', name: 'Card', icon: '💳' },
-  { id: 'paystack', name: 'Paystack', icon: '🔐' },
-  { id: 'flutterwave', name: 'Flutterwave', icon: '🌊' },
-]
+type CheckoutItem = {
+  ticketTypeId: string
+  quantity: number
+}
 
-export function CheckoutClient({
-  event,
-  selectedTicketType,
-}: CheckoutClientProps) {
-  const [quantity, setQuantity] = useState(1)
-  const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState('deltapay')
+function parseSelectedItems(input?: string, legacyTicketTypeId?: string, legacyQuantity?: string): CheckoutItem[] {
+  if (input) {
+    return input
+      .split(",")
+      .map((part) => {
+        const [ticketTypeId, rawQuantity] = part.split(":")
+        return {
+          ticketTypeId: ticketTypeId?.trim(),
+          quantity: Math.max(1, Number(rawQuantity) || 1),
+        }
+      })
+      .filter((item) => item.ticketTypeId)
+  }
+
+  if (legacyTicketTypeId) {
+    return [
+      {
+        ticketTypeId: legacyTicketTypeId,
+        quantity: Math.max(1, Number(legacyQuantity) || 1),
+      },
+    ]
+  }
+
+  return []
+}
+
+export function CheckoutClient({ event, selectedItemsParam, legacyTicketTypeId, legacyQuantity }: CheckoutClientProps) {
+  const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
 
-  const ticket = selectedTicketType || event.ticket_types?.[0]
-  if (!ticket) return null
+  const selectedItems = useMemo(
+    () => parseSelectedItems(selectedItemsParam, legacyTicketTypeId, legacyQuantity),
+    [legacyQuantity, legacyTicketTypeId, selectedItemsParam],
+  )
 
-  const subtotal = ticket.price * quantity
-  const fee = Math.round(subtotal * 0.02 * 100) / 100
-  const total = subtotal + fee
+  const lineItems = useMemo(() => {
+    return selectedItems
+      .map((item) => {
+        const ticketType = event.ticket_types.find((ticket) => ticket.id === item.ticketTypeId)
+        if (!ticketType) return null
+
+        return {
+          ...item,
+          ticketType,
+          subtotalCents: ticketType.price_cents * item.quantity,
+        }
+      })
+      .filter(Boolean) as Array<{
+      ticketTypeId: string
+      quantity: number
+      ticketType: EventDetailData["ticket_types"][number]
+      subtotalCents: number
+    }>
+  }, [event.ticket_types, selectedItems])
+
+  const currency = lineItems[0]?.ticketType.currency ?? event.ticket_types[0]?.currency ?? "SZL"
+  const subtotalCents = lineItems.reduce((sum, item) => sum + item.subtotalCents, 0)
+  const totalQty = lineItems.reduce((sum, item) => sum + item.quantity, 0)
+  const hasValidSelection = lineItems.length > 0 && totalQty > 0
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!hasValidSelection) {
+      toast.error("Please go back and select at least one ticket.")
+      return
+    }
+
     setLoading(true)
 
     try {
-      const response = await fetch('/api/payments/deltapay/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const orderResponse = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           eventId: event.id,
-          ticketTypeId: ticket.id,
-          quantity,
           email,
-          phone,
-          amount: total,
-          paymentMethod,
+          items: lineItems.map((item) => ({
+            ticketTypeId: item.ticketTypeId,
+            quantity: item.quantity,
+          })),
         }),
       })
 
-      if (!response.ok) throw new Error('Checkout failed')
-      const data = await response.json()
-      window.location.href = data.redirectUrl || `/events/${event.id}/success`
-    } catch (error) {
-      console.error('Checkout error:', error)
+      if (orderResponse.status === 401) {
+        const redirectTo = encodeURIComponent(window.location.pathname + window.location.search)
+        window.location.href = `/sign-in?redirectTo=${redirectTo}`
+        return
+      }
+
+      const orderPayload = await orderResponse.json()
+      if (!orderResponse.ok) throw new Error(orderPayload?.error ?? "Unable to create order")
+
+      const orderId = orderPayload?.order?.id
+      if (!orderId) throw new Error("Order was created without an ID")
+
+      const paymentResponse = await fetch("/api/payments/attempt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId,
+          provider: "paystack",
+          returnUrl: `${window.location.origin}/orders/${orderId}`,
+        }),
+      })
+
+      const paymentPayload = await paymentResponse.json()
+      if (!paymentResponse.ok) throw new Error(paymentPayload?.error ?? "Unable to initialize Paystack payment")
+
+      const checkoutUrl = paymentPayload?.payment?.checkoutUrl
+      if (!checkoutUrl) throw new Error("Paystack did not return a checkout URL")
+
+      window.location.href = checkoutUrl
+    } catch (error: any) {
+      console.error("Checkout error:", error)
+      toast.error(error?.message ?? "Checkout failed. Please try again.")
       setLoading(false)
     }
   }
 
   return (
-    <div className="bg-background min-h-screen">
-      {/* Header */}
-      <div className="border-b border-border/40 bg-background sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Link
-            href={`/events/${event.id}`}
-            className="inline-flex p-2 hover:bg-muted rounded-lg transition-colors"
-          >
+    <div className="min-h-screen bg-background">
+      <div className="sticky top-0 z-10 border-b border-border/40 bg-background">
+        <div className="mx-auto flex max-w-2xl items-center gap-4 px-4 py-4">
+          <Link href={`/events/${event.id}`} className="inline-flex rounded-lg p-2 transition-colors hover:bg-muted">
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
-            <h1 className="font-bold text-lg">Checkout</h1>
+            <h1 className="text-lg font-bold">Checkout</h1>
             <p className="text-xs text-muted-foreground">{event.title}</p>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
-        {/* Ticket Summary */}
-        <div className="space-y-4">
-          <h2 className="font-bold text-lg">Order Summary</h2>
-          <Card className="border-0 bg-muted/50">
-            <CardContent className="p-4 space-y-3">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="font-semibold">{ticket.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatCurrency(ticket.price, event.currency)} × {quantity}
-                  </p>
+      <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
+        <section className="space-y-4">
+          <h2 className="text-lg font-bold">Order Summary</h2>
+
+          {!hasValidSelection ? (
+            <Card className="border-0 bg-muted/50">
+              <CardContent className="space-y-3 p-4 text-sm text-muted-foreground">
+                No ticket selection was found. Please go back to the event and select tickets again.
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-0 bg-muted/50">
+              <CardContent className="space-y-4 p-4">
+                {lineItems.map((item) => (
+                  <div key={item.ticketTypeId} className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="font-semibold">{item.ticketType.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatCurrency(item.ticketType.price_cents, item.ticketType.currency)} × {item.quantity}
+                      </p>
+                    </div>
+                    <p className="font-semibold">{formatCurrency(item.subtotalCents, item.ticketType.currency)}</p>
+                  </div>
+                ))}
+
+                <div className="flex items-center justify-between border-t border-border/40 pt-4 font-bold">
+                  <span>Total</span>
+                  <span className="text-lg text-primary">{formatCurrency(subtotalCents, currency)}</span>
                 </div>
-                <p className="font-semibold">{formatCurrency(subtotal, event.currency)}</p>
-              </div>
+              </CardContent>
+            </Card>
+          )}
+        </section>
 
-              <div className="pt-3 border-t border-border/40 flex justify-between items-center text-sm">
-                <span className="text-muted-foreground">Processing fee</span>
-                <span>{formatCurrency(fee, event.currency)}</span>
-              </div>
-
-              <div className="pt-3 border-t border-border/40 flex justify-between items-center font-bold">
-                <span>Total</span>
-                <span className="text-primary text-lg">
-                  {formatCurrency(total, event.currency)}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Quantity Selector */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Quantity</Label>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              >
-                −
-              </Button>
-              <input
-                type="number"
-                min="1"
-                max={ticket.quantity_remaining}
-                value={quantity}
-                onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                className="w-16 px-2 py-1 text-center border border-border rounded-md"
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  setQuantity(Math.min(ticket.quantity_remaining || 10, quantity + 1))
-                }
-              >
-                +
-              </Button>
-              <span className="text-xs text-muted-foreground ml-auto">
-                {ticket.quantity_remaining} available
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Contact Info */}
         <form onSubmit={handleCheckout} className="space-y-6">
-          <div className="space-y-4">
-            <h2 className="font-bold text-lg">Contact Information</h2>
+          <section className="space-y-4">
+            <h2 className="text-lg font-bold">Contact Information</h2>
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium flex items-center gap-2">
+              <Label htmlFor="email" className="flex items-center gap-2 text-sm font-medium">
                 <Mail className="h-4 w-4" />
                 Email Address
               </Label>
@@ -172,69 +211,34 @@ export function CheckoutClient({
                 className="h-11"
               />
             </div>
+          </section>
 
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="text-sm font-medium flex items-center gap-2">
-                <Phone className="h-4 w-4" />
-                Phone Number (Optional)
-              </Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="+1 (555) 000-0000"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="h-11"
-              />
-            </div>
-          </div>
+          <section className="space-y-4">
+            <h2 className="text-lg font-bold">Payment Method</h2>
+            <Card className="border-2 border-primary bg-primary/5">
+              <CardContent className="flex items-center gap-3 p-4">
+                <div className="rounded-full bg-background p-2">
+                  <CreditCard className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="font-semibold">Paystack</p>
+                  <p className="text-xs text-muted-foreground">Pay securely by card or supported Paystack methods.</p>
+                </div>
+              </CardContent>
+            </Card>
+          </section>
 
-          {/* Payment Method */}
-          <div className="space-y-4">
-            <h2 className="font-bold text-lg">Payment Method</h2>
-            <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {PAYMENT_METHODS.map((method) => (
-                  <label
-                    key={method.id}
-                    className="relative cursor-pointer"
-                  >
-                    <input
-                      type="radio"
-                      name="payment"
-                      value={method.id}
-                      checked={paymentMethod === method.id}
-                      onChange={(e) => setPaymentMethod(e.target.value)}
-                      className="sr-only"
-                    />
-                    <Card className={`border-2 transition-all ${
-                      paymentMethod === method.id
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border/40 hover:border-primary/50'
-                    }`}>
-                      <CardContent className="p-4 text-center space-y-2">
-                        <span className="text-2xl">{method.icon}</span>
-                        <p className="text-xs font-medium">{method.name}</p>
-                      </CardContent>
-                    </Card>
-                  </label>
-                ))}
-              </div>
-            </RadioGroup>
-          </div>
-
-          {/* CTA */}
           <Button
             type="submit"
             size="lg"
-            disabled={loading || !email}
-            className="w-full h-12 text-base font-semibold rounded-lg"
+            disabled={loading || !email || !hasValidSelection}
+            className="h-12 w-full rounded-lg text-base font-semibold"
           >
-            {loading ? 'Processing...' : 'Pay & Get Ticket'}
+            {loading ? "Redirecting to Paystack..." : "Pay with Paystack"}
           </Button>
 
-          <p className="text-xs text-center text-muted-foreground">
-            By purchasing, you agree to our terms. Your ticket will be emailed immediately.
+          <p className="text-center text-xs text-muted-foreground">
+            Your tickets will be issued after Paystack confirms successful payment.
           </p>
         </form>
       </div>
