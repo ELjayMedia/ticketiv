@@ -5,8 +5,7 @@
   Ticketiv UI preset — b3S8t5uYS
   Direction: modern shadcn, polished event-commerce UI, deep ink surfaces,
   indigo primary actions, amber event highlights, and crisp neutral cards.
-  This keeps shadcn components, custom brand screens, navigation, forms, cards,
-  tickets, checkout, and dashboards on one uniform token system.
+  Compact system update: tighter corners for cards/layout, pill actions for CTAs.
 */
 @theme {
   --color-cream: #f8fafc;
@@ -23,7 +22,7 @@
   --font-display: "Fraunces", ui-serif, Georgia, serif;
   --font-body: "DM Sans", ui-sans-serif, system-ui, sans-serif;
 
-  --radius-soft: 0.9rem;
+  --radius-soft: 0.5rem;
   --radius-pill: 999px;
 }
 
@@ -66,7 +65,7 @@
   --chart-4: oklch(0.62 0.14 145);
   --chart-5: oklch(0.62 0.16 330);
 
-  --radius: 1rem;
+  --radius: 0.625rem;
 
   --sidebar: oklch(0.97 0.008 260);
   --sidebar-foreground: oklch(0.18 0.018 260);
@@ -185,9 +184,9 @@
     min-height: 100vh;
     font-feature-settings: "rlig" 1, "calt" 1;
     background:
-      radial-gradient(circle at 12% -8%, color-mix(in oklch, var(--primary) 18%, transparent) 0, transparent 30rem),
-      radial-gradient(circle at 88% 8%, color-mix(in oklch, var(--accent) 20%, transparent) 0, transparent 28rem),
-      linear-gradient(180deg, color-mix(in oklch, var(--background) 92%, var(--primary) 8%) 0%, var(--background) 42rem);
+      radial-gradient(circle at 12% -8%, color-mix(in oklch, var(--primary) 13%, transparent) 0, transparent 25rem),
+      radial-gradient(circle at 88% 8%, color-mix(in oklch, var(--accent) 14%, transparent) 0, transparent 22rem),
+      linear-gradient(180deg, color-mix(in oklch, var(--background) 96%, var(--primary) 4%) 0%, var(--background) 32rem);
   }
 
   h1,
@@ -207,11 +206,11 @@ body::before {
   pointer-events: none;
   z-index: 0;
   background-image:
-    linear-gradient(color-mix(in oklch, var(--border) 42%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in oklch, var(--border) 42%, transparent) 1px, transparent 1px);
-  background-size: 36px 36px;
-  mask-image: linear-gradient(to bottom, black, transparent 70%);
-  opacity: 0.35;
+    linear-gradient(color-mix(in oklch, var(--border) 38%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklch, var(--border) 38%, transparent) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(to bottom, black, transparent 62%);
+  opacity: 0.28;
 }
 
 body > * {
