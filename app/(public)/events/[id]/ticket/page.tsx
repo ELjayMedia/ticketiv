@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Download, Share2, CheckCircle2, Clock } from 'lucide-react'
+import { ArrowLeft, Download, Share2, CheckCircle, Clock } from 'hugeicons-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -131,7 +131,7 @@ export default async function TicketPage({
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Status</span>
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <CheckCircle className="h-4 w-4 text-green-500" />
                     <Badge className="bg-green-500/10 text-green-700 hover:bg-green-500/10">
                       {ticketStatus}
                     </Badge>

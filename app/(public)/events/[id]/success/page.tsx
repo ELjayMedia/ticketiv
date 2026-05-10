@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { CheckCircle2, Mail, ArrowRight } from 'lucide-react'
+import { CheckCircle, Mail, ArrowRight } from 'hugeicons-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { getPublicEvents } from '@/lib/data/public/events'
@@ -34,7 +34,7 @@ export default async function SuccessPage({
         <div className="relative">
           <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl" />
           <div className="relative bg-gradient-to-br from-primary to-primary/80 rounded-full p-6">
-            <CheckCircle2 className="h-12 w-12 text-white" />
+            <CheckCircle className="h-12 w-12 text-white" />
           </div>
         </div>
 

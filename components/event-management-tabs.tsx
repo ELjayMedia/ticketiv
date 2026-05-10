@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { BarChart3, Users, CreditCard, Eye, QrCode } from 'lucide-react'
+import { BarChart3, Users, CreditCard, Eye, QrCode } from 'hugeicons-react'
 import Link from 'next/link'
 
 interface EventManagementTabsProps {

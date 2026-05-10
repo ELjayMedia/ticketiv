@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import * as ToastPrimitives from '@radix-ui/react-toast'
-import { X } from 'lucide-react'
+import { Cancel } from 'hugeicons-react'
 
 import { cn } from '@/lib/utils'
 
@@ -76,7 +76,7 @@ const ToastClose = React.forwardRef<
     toast-close=""
     {...props}
   >
-    <X className="h-4 w-4" />
+    <Cancel className="h-4 w-4" />
   </ToastPrimitives.Close>
 ))
 ToastClose.displayName = ToastPrimitives.Close.displayName
