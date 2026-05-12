@@ -32,7 +32,7 @@ export default function SignInPage() {
           <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Log in</p>
           <h1 className="mt-3 text-[2.35rem] font-bold leading-[1.05] tracking-tight">Let’s get you in.</h1>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            Use your email or phone number. Login will not create a new account.
+            Use your email address. Login will not create a new account.
           </p>
 
           <div className="mt-8">
