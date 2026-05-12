@@ -1,7 +1,9 @@
 import Link from "next/link"
+import { Suspense } from "react"
 import { Logo } from "@/components/Logo"
+import { OtpForm } from "@/components/OtpForm"
 
-export const metadata = { title: "Check your email" }
+export const metadata = { title: "Enter code" }
 
 export default async function VerifyPage({
   searchParams,
@@ -20,35 +22,30 @@ export default async function VerifyPage({
 
       <section data-reveal className="flex flex-1 flex-col justify-center pb-24 pt-12">
         <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-ink-mute)]">
-          Email verification
+          Step 2 of 2
         </p>
         <h1
           className="mt-3 font-[family-name:var(--font-display)] text-[2rem] leading-[1.1] tracking-tight text-[var(--color-ink)]"
           style={{ fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}
         >
-          Check your inbox to continue.
+          Enter the code we sent to your email.
         </h1>
-        <p className="mt-3 text-sm leading-6 text-[var(--color-ink-soft)]">
-          Ticketiv uses Supabase email links. Open the email and click the link to finish signing in.
-        </p>
         {to && (
-          <p className="mt-3 break-all rounded-[var(--radius-soft)] border bg-card/70 px-3 py-2 text-sm text-[var(--color-ink-soft)]">{to}</p>
+          <p className="mt-2 break-all text-sm text-[var(--color-ink-soft)]">{to}</p>
         )}
 
-        <div className="mt-8 flex flex-col gap-3">
-          <Link
-            href="/sign-in"
-            className="inline-flex h-12 items-center justify-center rounded-[var(--radius-pill)] bg-primary px-6 text-[15px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Send another login link
-          </Link>
-          <Link
-            href="/signup"
-            className="inline-flex h-12 items-center justify-center rounded-[var(--radius-pill)] border border-border bg-card px-6 text-[15px] font-medium text-foreground transition-colors hover:bg-muted"
-          >
-            Create an account instead
-          </Link>
+        <div className="mt-8">
+          <Suspense fallback={null}>
+            <OtpForm />
+          </Suspense>
         </div>
+
+        <Link
+          href="/sign-in"
+          className="mt-8 self-start text-sm text-[var(--color-ink-mute)] underline-offset-4 hover:underline"
+        >
+          ← Use a different email
+        </Link>
       </section>
     </main>
   )
