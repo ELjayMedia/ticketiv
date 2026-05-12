@@ -22,7 +22,7 @@ export async function createResourceAction(resourceKey: string, formData: FormDa
   if (error) throw new Error(error.message)
 
   revalidatePath(`/super-admin/${resource.key}`)
-  redirect(`/super-admin/${resource.key}`)
+  redirect(`/super-admin/${resource.key}?status=created`)
 }
 
 export async function updateResourceAction(resourceKey: string, recordId: string, formData: FormData) {
@@ -39,7 +39,7 @@ export async function updateResourceAction(resourceKey: string, recordId: string
 
   revalidatePath(`/super-admin/${resource.key}`)
   revalidatePath(`/super-admin/${resource.key}/${recordId}`)
-  redirect(`/super-admin/${resource.key}`)
+  redirect(`/super-admin/${resource.key}?status=updated`)
 }
 
 export async function removeResourceAction(resourceKey: string, recordId: string) {
@@ -54,6 +54,7 @@ export async function removeResourceAction(resourceKey: string, recordId: string
   if (error) throw new Error(error.message)
 
   revalidatePath(`/super-admin/${resource.key}`)
+  redirect(`/super-admin/${resource.key}?status=deleted`)
 }
 
 export async function publishEventAction(eventId: string) {
@@ -117,6 +118,7 @@ export async function publishEventAction(eventId: string) {
   await admin.from("admin_action_catalog").update({ is_enabled: true }).eq("key", "publish_event")
 
   revalidateEventAdminPaths(eventId)
+  redirect("/super-admin/events?status=published")
 }
 
 export async function archiveEventAction(eventId: string, formData?: FormData) {
@@ -136,7 +138,7 @@ export async function archiveEventAction(eventId: string, formData?: FormData) {
   if (event.status === "archived") {
     await admin.from("admin_action_catalog").update({ is_enabled: true }).eq("key", "archive_event")
     revalidateEventAdminPaths(eventId)
-    return
+    redirect("/super-admin/events?status=archived")
   }
 
   const { error: updateError } = await admin
@@ -163,22 +165,27 @@ export async function archiveEventAction(eventId: string, formData?: FormData) {
   await admin.from("admin_action_catalog").update({ is_enabled: true }).eq("key", "archive_event")
 
   revalidateEventAdminPaths(eventId)
+  redirect("/super-admin/events?status=archived")
 }
 
 export async function pauseTicketTypeSalesAction(ticketTypeId: string, formData?: FormData) {
   await setTicketTypeSalesStatus(ticketTypeId, "paused", "pause_ticket_type_sales", formData?.get("reason")?.toString().trim() || "Paused by super admin")
+  redirect("/super-admin/ticket-types?status=ticket_updated")
 }
 
 export async function resumeTicketTypeSalesAction(ticketTypeId: string) {
   await setTicketTypeSalesStatus(ticketTypeId, "on_sale", "resume_ticket_type_sales")
+  redirect("/super-admin/ticket-types?status=ticket_updated")
 }
 
 export async function markTicketTypeSoldOutAction(ticketTypeId: string, formData?: FormData) {
   await setTicketTypeSalesStatus(ticketTypeId, "sold_out", "mark_ticket_type_sold_out", formData?.get("reason")?.toString().trim() || "Marked sold out by super admin")
+  redirect("/super-admin/ticket-types?status=ticket_updated")
 }
 
 export async function hideTicketTypeAction(ticketTypeId: string, formData?: FormData) {
   await setTicketTypeSalesStatus(ticketTypeId, "hidden", "hide_ticket_type", formData?.get("reason")?.toString().trim() || "Hidden by super admin")
+  redirect("/super-admin/ticket-types?status=ticket_updated")
 }
 
 export async function assignDeviceToEventAction(deviceId: string, formData: FormData) {
@@ -233,6 +240,7 @@ export async function assignDeviceToEventAction(deviceId: string, formData: Form
   })
 
   revalidateDeviceAdminPaths(deviceId)
+  redirect("/super-admin/devices?status=device_updated")
 }
 
 export async function unassignDeviceFromEventAction(deviceId: string) {
@@ -271,6 +279,7 @@ export async function unassignDeviceFromEventAction(deviceId: string) {
   })
 
   revalidateDeviceAdminPaths(deviceId)
+  redirect("/super-admin/devices?status=device_updated")
 }
 
 async function setTicketTypeSalesStatus(
