@@ -28,7 +28,7 @@ export default async function VerifyPage({
           className="mt-3 font-[family-name:var(--font-display)] text-[2rem] leading-[1.1] tracking-tight text-[var(--color-ink)]"
           style={{ fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}
         >
-          Enter the code we sent you.
+          Enter the code we sent to your email.
         </h1>
         {to && (
           <p className="mt-2 break-all text-sm text-[var(--color-ink-soft)]">{to}</p>
@@ -44,7 +44,7 @@ export default async function VerifyPage({
           href="/sign-in"
           className="mt-8 self-start text-sm text-[var(--color-ink-mute)] underline-offset-4 hover:underline"
         >
-          ← Use a different number or email
+          ← Use a different email
         </Link>
       </section>
     </main>
