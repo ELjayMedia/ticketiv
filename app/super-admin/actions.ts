@@ -116,6 +116,56 @@ export async function publishEventAction(eventId: string) {
 
   await admin.from("admin_action_catalog").update({ is_enabled: true }).eq("key", "publish_event")
 
+  revalidateEventAdminPaths(eventId)
+}
+
+export async function archiveEventAction(eventId: string, formData?: FormData) {
+  const user = await requireSuperAdmin()
+  const admin = createAdminClient()
+  const reason = formData?.get("reason")?.toString().trim() || "Archived by super admin"
+
+  const { data: event, error: eventError } = await admin
+    .from("events")
+    .select("id, org_id, title, status")
+    .eq("id", eventId)
+    .maybeSingle()
+
+  if (eventError) throw new Error(eventError.message)
+  if (!event) throw new Error("Event not found")
+
+  if (event.status === "archived") {
+    await admin.from("admin_action_catalog").update({ is_enabled: true }).eq("key", "archive_event")
+    revalidateEventAdminPaths(eventId)
+    return
+  }
+
+  const { error: updateError } = await admin
+    .from("events")
+    .update({ status: "archived" })
+    .eq("id", eventId)
+
+  if (updateError) throw new Error(updateError.message)
+
+  await admin.from("audit_log").insert({
+    org_id: event.org_id,
+    actor_id: user.id,
+    table_name: "events",
+    record_id: eventId,
+    action: "update",
+    changes: {
+      business_action: "archive_event",
+      previous_status: event.status,
+      new_status: "archived",
+      reason,
+    },
+  })
+
+  await admin.from("admin_action_catalog").update({ is_enabled: true }).eq("key", "archive_event")
+
+  revalidateEventAdminPaths(eventId)
+}
+
+function revalidateEventAdminPaths(eventId: string) {
   revalidatePath("/super-admin")
   revalidatePath("/super-admin/workspaces/event-operations")
   revalidatePath("/super-admin/events")
