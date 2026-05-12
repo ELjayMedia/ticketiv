@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { Archive, ArrowLeft, EyeOff, PauseCircle, PlayCircle, Rocket, TicketX } from "lucide-react"
+import { Archive, ArrowLeft, EyeOff, PauseCircle, PlayCircle, QrCode, Rocket, TicketX, Unlink } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,11 +12,13 @@ import { getAdminResource } from "@/lib/super-admin/resources"
 import { requireSuperAdmin } from "@/lib/super-admin/auth"
 import {
   archiveEventAction,
+  assignDeviceToEventAction,
   hideTicketTypeAction,
   markTicketTypeSoldOutAction,
   pauseTicketTypeSalesAction,
   publishEventAction,
   resumeTicketTypeSalesAction,
+  unassignDeviceFromEventAction,
   updateResourceAction,
 } from "../../actions"
 
@@ -68,10 +70,23 @@ export default async function SuperAdminEditResourcePage({ params }: { params: P
     await hideTicketTypeAction(id, formData)
   }
 
+  async function assignDevice(formData: FormData) {
+    "use server"
+    await assignDeviceToEventAction(id, formData)
+  }
+
+  async function unassignDevice() {
+    "use server"
+    await unassignDeviceFromEventAction(id)
+  }
+
   const showEventActions = resource.key === "events"
   const showTicketTypeActions = resource.key === "ticket-types"
+  const showDeviceActions = resource.key === "devices"
   const eventStatus = typeof data.status === "string" ? data.status : null
   const salesStatus = typeof data.sales_status === "string" ? data.sales_status : "on_sale"
+  const assignedEventId = typeof data.event_id === "string" ? data.event_id : null
+  const deviceRole = typeof data.device_role === "string" ? data.device_role : null
   const isPublished = eventStatus === "published"
   const isArchived = eventStatus === "archived"
   const isPaused = salesStatus === "paused"
@@ -167,6 +182,36 @@ export default async function SuperAdminEditResourcePage({ params }: { params: P
               <p className="mt-1 text-sm text-muted-foreground">Makes the ticket tier available for sale again and clears temporary pause data.</p>
               <Button type="submit" disabled={isOnSale} className="mt-4 rounded-full">
                 {isOnSale ? "Already on sale" : "Return to on sale"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {showDeviceActions ? (
+        <Card className="mb-5 rounded-3xl border-primary/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><QrCode className="h-5 w-5" /> Scanner assignment</CardTitle>
+            <CardDescription>
+              Current role: <span className="font-medium">{deviceRole ?? "unknown"}</span>. Assigned event: <span className="font-medium">{assignedEventId ?? "none"}</span>.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <form action={assignDevice} className="rounded-3xl border p-4">
+              <p className="flex items-center gap-2 font-medium"><QrCode className="h-4 w-4" /> Assign to event</p>
+              <p className="mt-1 text-sm text-muted-foreground">Attach this device to an event for scanner operations. The event must belong to the same organization.</p>
+              <div className="mt-4 space-y-2">
+                <Label htmlFor="event_id">Event ID</Label>
+                <Input id="event_id" name="event_id" placeholder="Paste event UUID" defaultValue={assignedEventId ?? ""} />
+              </div>
+              <Button type="submit" className="mt-4 rounded-full">Assign scanner</Button>
+            </form>
+
+            <form action={unassignDevice} className="rounded-3xl border p-4">
+              <p className="flex items-center gap-2 font-medium"><Unlink className="h-4 w-4" /> Unassign from event</p>
+              <p className="mt-1 text-sm text-muted-foreground">Detach this scanner from the current event and return it to unassigned scanner state.</p>
+              <Button type="submit" variant="outline" disabled={!assignedEventId} className="mt-4 rounded-full">
+                {assignedEventId ? "Unassign scanner" : "No event assigned"}
               </Button>
             </form>
           </CardContent>
