@@ -1,84 +1,245 @@
 import Link from "next/link"
-import { Activity, Building2, CalendarDays, CreditCard, Flag, MapPin, Ticket, WalletCards } from "lucide-react"
+import {
+  Activity,
+  AlertTriangle,
+  ArrowRight,
+  BadgeDollarSign,
+  Building2,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardList,
+  CreditCard,
+  Flag,
+  MapPin,
+  QrCode,
+  RadioTower,
+  ReceiptText,
+  Ticket,
+  WalletCards,
+} from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { ADMIN_RESOURCES } from "@/lib/super-admin/resources"
 import { requireSuperAdmin } from "@/lib/super-admin/auth"
+import {
+  formatMoneyFromCents,
+  formatNumber,
+  getCommandCentreData,
+  percentage,
+} from "@/lib/super-admin/command-centre"
 import { signOutSuperAdminAction } from "./actions"
 
-const ICONS = [Building2, MapPin, CalendarDays, Ticket, CreditCard, WalletCards, Flag]
+const RESOURCE_ICONS = [Building2, MapPin, CalendarDays, Ticket, CreditCard, WalletCards, Flag]
 
-export const metadata = { title: "Super Admin" }
+const WORKSPACES = [
+  {
+    title: "Event Operations",
+    description: "Publish, pause, archive and monitor events across the marketplace.",
+    href: "/super-admin/events",
+    icon: CalendarDays,
+  },
+  {
+    title: "Organizer Operations",
+    description: "Manage promoters, companies, venues and organizer access.",
+    href: "/super-admin/organizations",
+    icon: Building2,
+  },
+  {
+    title: "Ticket Inventory",
+    description: "Control ticket tiers, quotas, channels, seating and guest allocation.",
+    href: "/super-admin/ticket-types",
+    icon: Ticket,
+  },
+  {
+    title: "Sales & Orders",
+    description: "Review order state, buyer details, issued tickets and checkout problems.",
+    href: "/super-admin/orders",
+    icon: ReceiptText,
+  },
+  {
+    title: "Payments & Finance",
+    description: "Track settlements, payouts, refunds, provider failures and reconciliation.",
+    href: "/super-admin/payouts",
+    icon: BadgeDollarSign,
+  },
+  {
+    title: "Promotions & Controls",
+    description: "Manage feature flags today; promo codes and voucher controls follow here.",
+    href: "/super-admin/feature-flags",
+    icon: Flag,
+  },
+]
+
+export const metadata = { title: "Super Admin Command Centre" }
 
 export default async function SuperAdminPage() {
   const user = await requireSuperAdmin()
-  const admin = createAdminClient()
+  const { metrics, attention, operations } = await getCommandCentreData()
 
-  const counts = await Promise.all(
-    ADMIN_RESOURCES.map(async (resource) => {
-      const { count } = await admin.from(resource.table).select(resource.primaryKey, { count: "exact", head: true })
-      return [resource.key, count ?? 0] as const
-    }),
-  )
-
-  const countMap = new Map(counts)
+  const checkInRate = percentage(metrics.tickets_checked_in, metrics.tickets_issued)
+  const eventPublishRate = percentage(metrics.published_events, metrics.total_events)
+  const failedPaymentSignals = metrics.failed_payments + metrics.failed_payment_attempts
+  const systemAlerts = metrics.unprocessed_webhooks + metrics.failed_jobs + failedPaymentSignals
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-      <header className="flex flex-col gap-4 rounded-3xl border bg-card p-6 shadow-sm md:flex-row md:items-center md:justify-between">
+    <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+      <header className="flex flex-col gap-4 rounded-3xl border bg-card p-5 shadow-sm md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Ticketiv internal</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight">Super admin dashboard</h1>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight">Command Centre</h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Manage platform records across organizations, venues, events, tickets, orders, payouts and feature flags.
+            Operate the platform from business signals first: sales, tickets, events, payouts, access control and reliability.
           </p>
           <p className="mt-2 text-xs text-muted-foreground">Signed in as {user.email}</p>
         </div>
-        <form action={signOutSuperAdminAction}>
-          <Button variant="outline" className="rounded-full">Sign out</Button>
-        </form>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" className="rounded-full">
+            <Link href="/super-admin/events">Manage events</Link>
+          </Button>
+          <form action={signOutSuperAdminAction}>
+            <Button variant="outline" className="rounded-full">Sign out</Button>
+          </form>
+        </div>
       </header>
 
-      <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="rounded-3xl">
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Live admin modules</CardTitle></CardHeader>
-          <CardContent className="flex items-end justify-between">
-            <p className="text-3xl font-bold">{ADMIN_RESOURCES.length}</p>
-            <Activity className="h-5 w-5 text-muted-foreground" />
-          </CardContent>
-        </Card>
-        {ADMIN_RESOURCES.slice(0, 3).map((resource) => (
-          <Card key={resource.key} className="rounded-3xl">
-            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">{resource.label}</CardTitle></CardHeader>
-            <CardContent><p className="text-3xl font-bold">{countMap.get(resource.key) ?? 0}</p></CardContent>
-          </Card>
-        ))}
+      <section className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard title="Gross revenue" value={formatMoneyFromCents(metrics.gross_revenue_cents)} detail={`${formatNumber(metrics.paid_orders)} paid orders`} icon={BadgeDollarSign} />
+        <MetricCard title="Platform fees" value={formatMoneyFromCents(metrics.platform_fee_cents)} detail="Tracked from paid orders" icon={WalletCards} />
+        <MetricCard title="Tickets issued" value={formatNumber(metrics.tickets_issued)} detail={`${checkInRate}% checked in`} icon={QrCode} />
+        <MetricCard title="System alerts" value={formatNumber(systemAlerts)} detail="Payments, jobs and webhooks" icon={AlertTriangle} tone={systemAlerts ? "warning" : "normal"} />
       </section>
 
-      <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {ADMIN_RESOURCES.map((resource, index) => {
-          const Icon = ICONS[index] ?? Activity
-          return (
-            <Link key={resource.key} href={`/super-admin/${resource.key}`} className="group block">
-              <Card className="h-full rounded-3xl transition group-hover:-translate-y-0.5 group-hover:shadow-md">
-                <CardHeader className="flex flex-row items-start justify-between gap-4">
-                  <div>
-                    <CardTitle>{resource.label}</CardTitle>
-                    <p className="mt-2 text-sm leading-6 text-muted-foreground">{resource.description}</p>
+      <section className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <CompactStat title="Organizations" value={metrics.total_organizations} icon={Building2} />
+        <CompactStat title="Events" value={metrics.total_events} helper={`${eventPublishRate}% published`} icon={CalendarDays} />
+        <CompactStat title="Upcoming events" value={metrics.upcoming_events} helper={`${metrics.draft_events} drafts`} icon={Activity} />
+        <CompactStat title="Pending payouts" value={metrics.pending_payouts} helper={formatMoneyFromCents(metrics.pending_payout_cents)} icon={CreditCard} />
+      </section>
+
+      <section className="mt-5 grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
+        <Card className="rounded-3xl">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2"><ClipboardList className="h-5 w-5" /> Operational workspaces</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-2">
+            {WORKSPACES.map((workspace) => {
+              const Icon = workspace.icon
+              return (
+                <Link key={workspace.title} href={workspace.href} className="group rounded-3xl border p-4 transition hover:-translate-y-0.5 hover:bg-muted/40">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="rounded-full border bg-background p-3"><Icon className="h-5 w-5" /></span>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-1" />
                   </div>
-                  <span className="rounded-full border bg-background p-3"><Icon className="h-5 w-5" /></span>
-                </CardHeader>
-                <CardContent className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">{countMap.get(resource.key) ?? 0} records</span>
-                  <Button className="rounded-full" size="sm">Open CRUD</Button>
-                </CardContent>
-              </Card>
+                  <h2 className="mt-4 font-semibold">{workspace.title}</h2>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{workspace.description}</p>
+                </Link>
+              )
+            })}
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-5">
+          <Card className="rounded-3xl">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5" /> Attention queue</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {attention.length ? attention.map((item) => (
+                <Link key={`${item.kind}-${item.record_id}`} href={item.href} className="block rounded-2xl border p-3 text-sm transition hover:bg-muted/40">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium">{item.title}</p>
+                      <p className="mt-1 line-clamp-2 text-muted-foreground">{item.detail}</p>
+                    </div>
+                    <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </div>
+                </Link>
+              )) : (
+                <div className="rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">
+                  <CheckCircle2 className="mb-2 h-5 w-5" /> No urgent operational items right now.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-3xl">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2"><RadioTower className="h-5 w-5" /> Recent operations</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {operations.length ? operations.map((operation) => (
+                <div key={`${operation.source}-${operation.record_id}`} className="rounded-2xl border p-3 text-sm">
+                  <p className="font-medium">{operation.action} · {operation.entity}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{new Date(operation.occurred_at).toLocaleString("en-SZ")}</p>
+                </div>
+              )) : (
+                <div className="rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">No audit activity yet.</div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      <section className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {ADMIN_RESOURCES.map((resource, index) => {
+          const Icon = RESOURCE_ICONS[index] ?? Activity
+          return (
+            <Link key={resource.key} href={`/super-admin/${resource.key}`} className="group block rounded-3xl border bg-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+              <div className="flex items-center justify-between gap-3">
+                <span className="rounded-full border bg-background p-2"><Icon className="h-4 w-4" /></span>
+                <ArrowRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-1" />
+              </div>
+              <p className="mt-4 font-semibold">{resource.label}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Raw admin table access</p>
             </Link>
           )
         })}
       </section>
     </main>
+  )
+}
+
+function MetricCard({
+  title,
+  value,
+  detail,
+  icon: Icon,
+  tone = "normal",
+}: {
+  title: string
+  value: string
+  detail: string
+  icon: typeof Activity
+  tone?: "normal" | "warning"
+}) {
+  return (
+    <Card className={tone === "warning" ? "rounded-3xl border-amber-300" : "rounded-3xl"}>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center justify-between text-sm font-medium">
+          {title}
+          <Icon className="h-5 w-5 text-muted-foreground" />
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-3xl font-bold tracking-tight">{value}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
+      </CardContent>
+    </Card>
+  )
+}
+
+function CompactStat({ title, value, helper, icon: Icon }: { title: string; value: number; helper?: string; icon: typeof Activity }) {
+  return (
+    <Card className="rounded-3xl">
+      <CardContent className="flex items-center justify-between gap-3 p-4">
+        <div>
+          <p className="text-xs text-muted-foreground">{title}</p>
+          <p className="mt-1 text-2xl font-bold">{formatNumber(value)}</p>
+          {helper ? <p className="mt-1 text-xs text-muted-foreground">{helper}</p> : null}
+        </div>
+        <span className="rounded-full border bg-background p-3"><Icon className="h-5 w-5" /></span>
+      </CardContent>
+    </Card>
   )
 }
