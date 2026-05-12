@@ -7,7 +7,6 @@ import { createClient } from "@/lib/supabase/client"
 export function OtpForm() {
   const router = useRouter()
   const search = useSearchParams()
-  const channel = (search.get("channel") ?? "phone") as "phone" | "email"
   const to = search.get("to") ?? ""
 
   const [digits, setDigits] = useState<string[]>(Array(6).fill(""))
@@ -54,8 +53,8 @@ export function OtpForm() {
 
     const { error: bootstrapError } = await supabase.rpc("fn_bootstrap_ticketiv_user", {
       p_user_id: user.id,
-      p_email: user.email ?? (channel === "email" ? to : null),
-      p_phone: user.phone ?? (channel === "phone" ? to : null),
+      p_email: user.email ?? to,
+      p_phone: null,
       p_display_name: user.user_metadata?.display_name ?? null,
     })
 
@@ -69,13 +68,11 @@ export function OtpForm() {
     setError(null)
     const token = digits.join("")
     if (token.length !== 6) { setError("Enter the full 6-digit code."); return }
-    if (!to) { setError("Missing destination — go back and start over."); return }
+    if (!to) { setError("Missing email address — go back and start over."); return }
 
     setBusy(true)
     const supabase = createClient()
-    const { error } = channel === "phone"
-      ? await supabase.auth.verifyOtp({ phone: to, token, type: "sms" })
-      : await supabase.auth.verifyOtp({ email: to, token, type: "email" })
+    const { error } = await supabase.auth.verifyOtp({ email: to, token, type: "email" })
 
     if (error) {
       setBusy(false)
@@ -103,9 +100,7 @@ export function OtpForm() {
     setError(null)
     setResending(true)
     const supabase = createClient()
-    const { error } = channel === "phone"
-      ? await supabase.auth.signInWithOtp({ phone: to, options: { channel: "sms" } })
-      : await supabase.auth.signInWithOtp({ email: to })
+    const { error } = await supabase.auth.signInWithOtp({ email: to })
     setResending(false)
     if (error) { setError(error.message); return }
     setResent(true)
