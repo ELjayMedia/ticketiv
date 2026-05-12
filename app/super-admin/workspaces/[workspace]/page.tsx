@@ -10,6 +10,15 @@ import { getAdminWorkspace } from "@/lib/super-admin/workspaces"
 import { requireSuperAdmin } from "@/lib/super-admin/auth"
 import { formatNumber } from "@/lib/super-admin/command-centre"
 
+type CatalogAction = {
+  key: string
+  label: string
+  description: string
+  target_table: string
+  backend_function: string | null
+  is_enabled: boolean
+}
+
 export default async function SuperAdminWorkspacePage({ params }: { params: Promise<{ workspace: string }> }) {
   await requireSuperAdmin()
   const { workspace: workspaceKey } = await params
@@ -20,13 +29,19 @@ export default async function SuperAdminWorkspacePage({ params }: { params: Prom
   const resources = getAdminResources(workspace.resources)
   const admin = createAdminClient()
 
-  const counts = await Promise.all(
-    resources.map(async (resource) => {
-      const { count } = await admin.from(resource.table).select(resource.primaryKey, { count: "exact", head: true })
-      return [resource.key, count ?? 0] as const
-    }),
-  )
+  const [counts, actionResult] = await Promise.all([
+    Promise.all(
+      resources.map(async (resource) => {
+        const { count } = await admin.from(resource.table).select(resource.primaryKey, { count: "exact", head: true })
+        return [resource.key, count ?? 0] as const
+      }),
+    ),
+    admin.from("admin_workspace_actions").select("key,label,description,target_table,backend_function,is_enabled").eq("workspace_key", workspace.key),
+  ])
 
+  if (actionResult.error) throw new Error(actionResult.error.message)
+
+  const actions = (actionResult.data ?? []) as CatalogAction[]
   const countMap = new Map(counts)
   const Icon = workspace.icon
 
@@ -66,10 +81,21 @@ export default async function SuperAdminWorkspacePage({ params }: { params: Prom
 
         <Card className="rounded-3xl">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><ClipboardList className="h-5 w-5" /> Business actions to implement next</CardTitle>
+            <CardTitle className="flex items-center gap-2"><ClipboardList className="h-5 w-5" /> Business action catalog</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">
-            {workspace.nextBusinessActions.map((action) => (
+            {actions.length ? actions.map((action) => (
+              <div key={action.key} className="rounded-2xl border p-3 text-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="font-medium">{action.label}</p>
+                  <span className={action.is_enabled ? "rounded-full bg-primary/10 px-2 py-1 text-[11px] text-primary" : "rounded-full bg-muted px-2 py-1 text-[11px] text-muted-foreground"}>
+                    {action.is_enabled ? "Live" : "Planned"}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">{action.description}</p>
+                <p className="mt-2 text-[11px] text-muted-foreground">Target: {action.target_table}{action.backend_function ? ` · ${action.backend_function}` : ""}</p>
+              </div>
+            )) : workspace.nextBusinessActions.map((action) => (
               <div key={action} className="rounded-2xl border border-dashed p-3 text-sm">
                 <p className="font-medium">{action}</p>
                 <p className="mt-1 text-xs text-muted-foreground">Level 3 action button: route this through backend validation and audit logging.</p>
