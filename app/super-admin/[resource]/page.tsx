@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ArrowLeft, Plus } from "lucide-react"
+import { ArrowLeft, CheckCircle2, Plus } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,9 +16,27 @@ function displayCell(value: unknown) {
   return String(value)
 }
 
-export default async function SuperAdminResourcePage({ params }: { params: Promise<{ resource: string }> }) {
+const STATUS_MESSAGES: Record<string, string> = {
+  created: "Record created successfully.",
+  updated: "Changes saved successfully.",
+  deleted: "Record removed successfully.",
+  published: "Event published successfully.",
+  archived: "Event archived successfully.",
+  ticket_updated: "Ticket sales status updated successfully.",
+  device_updated: "Scanner assignment updated successfully.",
+  finance_updated: "Finance status updated successfully.",
+}
+
+export default async function SuperAdminResourcePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ resource: string }>
+  searchParams?: Promise<{ status?: string }>
+}) {
   await requireSuperAdmin()
   const { resource: resourceKey } = await params
+  const query = searchParams ? await searchParams : {}
   const resource = getAdminResource(resourceKey)
 
   if (!resource) notFound()
@@ -37,6 +55,8 @@ export default async function SuperAdminResourcePage({ params }: { params: Promi
     await createResourceAction(resource.key, formData)
   }
 
+  const statusMessage = query.status ? STATUS_MESSAGES[query.status] : null
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -48,6 +68,12 @@ export default async function SuperAdminResourcePage({ params }: { params: Promi
           <p className="mt-2 text-sm text-muted-foreground">{resource.description}</p>
         </div>
       </div>
+
+      {statusMessage ? (
+        <div className="mb-5 flex items-center gap-2 rounded-3xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+          <CheckCircle2 className="h-4 w-4" /> {statusMessage}
+        </div>
+      ) : null}
 
       <section className="grid gap-6 xl:grid-cols-[0.9fr_1.4fr]">
         <Card className="rounded-3xl">
