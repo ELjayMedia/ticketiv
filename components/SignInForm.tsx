@@ -2,8 +2,8 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
-import { AlertCircle, ArrowRight, Mail } from "lucide-react"
+import { useSearchParams } from "next/navigation"
+import { AlertCircle, ArrowRight, CheckCircle2, Mail } from "lucide-react"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -40,9 +40,10 @@ function isValidEmail(input: string): boolean {
 function getAuthCopy(mode: AuthMode) {
   if (mode === "signup") {
     return {
-      submit: "Create account",
-      busy: "Creating…",
-      help: "We’ll send a 6-digit code to your email and create your Ticketiv ID as an Attendee first. Organizer, Scanner and Talent access are unlocked later from UUID-linked records.",
+      submit: "Send confirmation link",
+      busy: "Sending…",
+      help: "We’ll send a secure confirmation link to your email and create your Ticketiv ID as an Attendee first. Organizer, Scanner and Talent access are unlocked later from UUID-linked records.",
+      sent: "Check your email and click the confirmation link to finish creating your Ticketiv ID.",
       alternate: "Already have an account?",
       alternateCta: "Log in",
       alternateHref: "/sign-in",
@@ -50,26 +51,38 @@ function getAuthCopy(mode: AuthMode) {
   }
 
   return {
-    submit: "Log in",
+    submit: "Send login link",
     busy: "Sending…",
-    help: "Use the same email address linked to your Ticketiv ID.",
+    help: "Use the same email address linked to your Ticketiv ID. We’ll email you a secure login link.",
+    sent: "Check your email and click the login link to continue to Ticketiv.",
     alternate: "New to Ticketiv?",
     alternateCta: "Create an account",
     alternateHref: "/signup",
   }
 }
 
+function getAuthCallbackUrl(redirectTo: string | null) {
+  if (typeof window === "undefined") return undefined
+
+  const callbackUrl = new URL("/auth/callback", window.location.origin)
+  if (redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")) {
+    callbackUrl.searchParams.set("next", redirectTo)
+  }
+  return callbackUrl.toString()
+}
+
 export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
-  const router = useRouter()
   const search = useSearchParams()
   const [email, setEmail] = useState("")
   const [busy, setBusy] = useState(false)
+  const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const copy = getAuthCopy(mode)
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    setSent(false)
 
     const normalizedEmail = email.trim().toLowerCase()
     if (!isValidEmail(normalizedEmail)) {
@@ -80,22 +93,24 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
     const supabase = createClient()
     const shouldCreateUser = mode === "signup"
     const redirectTo = search.get("redirectTo") || search.get("from")
+    const emailRedirectTo = getAuthCallbackUrl(redirectTo)
 
     setBusy(true)
     const { error } = await supabase.auth.signInWithOtp({
       email: normalizedEmail,
-      options: { shouldCreateUser },
+      options: {
+        shouldCreateUser,
+        ...(emailRedirectTo ? { emailRedirectTo } : {}),
+      },
     })
     setBusy(false)
 
     if (error) {
-      setError(mode === "login" ? "We could not find that Ticketiv account. Create an account first, then log in." : error.message)
+      setError(mode === "login" ? "We could not send a login link for that email. Create an account first, then log in." : error.message)
       return
     }
 
-    const params = new URLSearchParams({ channel: "email", to: normalizedEmail, mode })
-    if (redirectTo) params.set("redirectTo", redirectTo)
-    router.push(`/verify?${params.toString()}`)
+    setSent(true)
   }
 
   return (
@@ -112,15 +127,22 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
               autoComplete="email"
               placeholder="you@example.com"
               value={email}
-              onChange={(e) => { setEmail(e.target.value); setError(null) }}
+              onChange={(e) => { setEmail(e.target.value); setError(null); setSent(false) }}
               required
               className="h-12 rounded-xl pl-10"
             />
           </div>
-          <p className="text-xs text-muted-foreground">We’ll send a 6-digit code to your inbox.</p>
+          <p className="text-xs text-muted-foreground">We’ll send a secure link to your inbox.</p>
         </div>
 
         <p className="text-xs leading-5 text-muted-foreground">{copy.help}</p>
+
+        {sent && (
+          <Alert className="rounded-xl border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+            <CheckCircle2 className="h-4 w-4" />
+            <AlertDescription>{copy.sent}</AlertDescription>
+          </Alert>
+        )}
 
         {error && (
           <Alert variant="destructive" className="rounded-xl">
