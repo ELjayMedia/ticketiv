@@ -181,6 +181,98 @@ export async function hideTicketTypeAction(ticketTypeId: string, formData?: Form
   await setTicketTypeSalesStatus(ticketTypeId, "hidden", "hide_ticket_type", formData?.get("reason")?.toString().trim() || "Hidden by super admin")
 }
 
+export async function assignDeviceToEventAction(deviceId: string, formData: FormData) {
+  const user = await requireSuperAdmin()
+  const admin = createAdminClient()
+  const eventId = formData.get("event_id")?.toString().trim()
+
+  if (!eventId) throw new Error("Event ID is required")
+
+  const { data: device, error: deviceError } = await admin
+    .from("devices")
+    .select("id, org_id, event_id, device_role, label")
+    .eq("id", deviceId)
+    .maybeSingle()
+
+  if (deviceError) throw new Error(deviceError.message)
+  if (!device) throw new Error("Device not found")
+
+  const { data: event, error: eventError } = await admin
+    .from("events")
+    .select("id, org_id, title")
+    .eq("id", eventId)
+    .maybeSingle()
+
+  if (eventError) throw new Error(eventError.message)
+  if (!event) throw new Error("Event not found")
+
+  if (device.org_id !== event.org_id) {
+    throw new Error("Device and event must belong to the same organization")
+  }
+
+  const { error: updateError } = await admin
+    .from("devices")
+    .update({ event_id: eventId, device_role: "organizer_scanner" })
+    .eq("id", deviceId)
+
+  if (updateError) throw new Error(updateError.message)
+
+  await admin.from("audit_log").insert({
+    org_id: event.org_id,
+    actor_id: user.id,
+    table_name: "devices",
+    record_id: deviceId,
+    action: "update",
+    changes: {
+      business_action: "assign_device_to_event",
+      previous_event_id: device.event_id,
+      new_event_id: eventId,
+      previous_device_role: device.device_role,
+      new_device_role: "organizer_scanner",
+    },
+  })
+
+  revalidateDeviceAdminPaths(deviceId)
+}
+
+export async function unassignDeviceFromEventAction(deviceId: string) {
+  const user = await requireSuperAdmin()
+  const admin = createAdminClient()
+
+  const { data: device, error: deviceError } = await admin
+    .from("devices")
+    .select("id, org_id, event_id, device_role, label")
+    .eq("id", deviceId)
+    .maybeSingle()
+
+  if (deviceError) throw new Error(deviceError.message)
+  if (!device) throw new Error("Device not found")
+
+  const { error: updateError } = await admin
+    .from("devices")
+    .update({ event_id: null, device_role: "scanner_unassigned" })
+    .eq("id", deviceId)
+
+  if (updateError) throw new Error(updateError.message)
+
+  await admin.from("audit_log").insert({
+    org_id: device.org_id,
+    actor_id: user.id,
+    table_name: "devices",
+    record_id: deviceId,
+    action: "update",
+    changes: {
+      business_action: "unassign_device_from_event",
+      previous_event_id: device.event_id,
+      new_event_id: null,
+      previous_device_role: device.device_role,
+      new_device_role: "scanner_unassigned",
+    },
+  })
+
+  revalidateDeviceAdminPaths(deviceId)
+}
+
 async function setTicketTypeSalesStatus(
   ticketTypeId: string,
   nextStatus: "on_sale" | "paused" | "sold_out" | "hidden",
@@ -254,6 +346,13 @@ function revalidateTicketTypeAdminPaths(ticketTypeId: string) {
   revalidatePath("/super-admin/workspaces/ticket-inventory")
   revalidatePath("/super-admin/ticket-types")
   revalidatePath(`/super-admin/ticket-types/${ticketTypeId}`)
+}
+
+function revalidateDeviceAdminPaths(deviceId: string) {
+  revalidatePath("/super-admin")
+  revalidatePath("/super-admin/workspaces/access-control")
+  revalidatePath("/super-admin/devices")
+  revalidatePath(`/super-admin/devices/${deviceId}`)
 }
 
 export async function signOutSuperAdminAction() {
