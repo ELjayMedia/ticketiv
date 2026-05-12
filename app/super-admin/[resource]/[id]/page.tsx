@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { Archive, ArrowLeft, PauseCircle, PlayCircle, Rocket } from "lucide-react"
+import { Archive, ArrowLeft, EyeOff, PauseCircle, PlayCircle, Rocket, TicketX } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,6 +12,8 @@ import { getAdminResource } from "@/lib/super-admin/resources"
 import { requireSuperAdmin } from "@/lib/super-admin/auth"
 import {
   archiveEventAction,
+  hideTicketTypeAction,
+  markTicketTypeSoldOutAction,
   pauseTicketTypeSalesAction,
   publishEventAction,
   resumeTicketTypeSalesAction,
@@ -56,6 +58,16 @@ export default async function SuperAdminEditResourcePage({ params }: { params: P
     await resumeTicketTypeSalesAction(id)
   }
 
+  async function markSoldOut(formData: FormData) {
+    "use server"
+    await markTicketTypeSoldOutAction(id, formData)
+  }
+
+  async function hideTicketType(formData: FormData) {
+    "use server"
+    await hideTicketTypeAction(id, formData)
+  }
+
   const showEventActions = resource.key === "events"
   const showTicketTypeActions = resource.key === "ticket-types"
   const eventStatus = typeof data.status === "string" ? data.status : null
@@ -63,6 +75,9 @@ export default async function SuperAdminEditResourcePage({ params }: { params: P
   const isPublished = eventStatus === "published"
   const isArchived = eventStatus === "archived"
   const isPaused = salesStatus === "paused"
+  const isSoldOut = salesStatus === "sold_out"
+  const isHidden = salesStatus === "hidden"
+  const isOnSale = salesStatus === "on_sale"
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
@@ -107,27 +122,51 @@ export default async function SuperAdminEditResourcePage({ params }: { params: P
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><PauseCircle className="h-5 w-5" /> Ticket sales actions</CardTitle>
             <CardDescription>
-              Pause or resume sales for this ticket tier without changing price, quota, issued tickets, or historical orders.
+              Current status: <span className="font-medium">{salesStatus}</span>. These actions preserve price, quota, issued tickets and historical orders.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
             <form action={pauseSales} className="rounded-3xl border p-4">
               <p className="flex items-center gap-2 font-medium"><PauseCircle className="h-4 w-4" /> Pause sales</p>
-              <p className="mt-1 text-sm text-muted-foreground">Stops new sales while preserving quota and inventory history.</p>
+              <p className="mt-1 text-sm text-muted-foreground">Temporarily stops new sales while keeping the ticket tier visible to admins.</p>
               <div className="mt-4 space-y-2">
                 <Label htmlFor="pause-reason">Reason</Label>
-                <Input id="pause-reason" name="reason" placeholder="e.g. Sold offline, pricing review, sponsor hold" disabled={isPaused} />
+                <Input id="pause-reason" name="reason" placeholder="e.g. Pricing review or sponsor hold" disabled={isPaused} />
               </div>
               <Button type="submit" variant="outline" disabled={isPaused} className="mt-4 rounded-full">
                 {isPaused ? "Sales paused" : "Pause sales"}
               </Button>
             </form>
 
+            <form action={markSoldOut} className="rounded-3xl border p-4">
+              <p className="flex items-center gap-2 font-medium"><TicketX className="h-4 w-4" /> Set sold out</p>
+              <p className="mt-1 text-sm text-muted-foreground">Marks the tier as sold out without changing its original quota.</p>
+              <div className="mt-4 space-y-2">
+                <Label htmlFor="sold-out-reason">Reason</Label>
+                <Input id="sold-out-reason" name="reason" placeholder="e.g. Offline allocation exhausted" disabled={isSoldOut} />
+              </div>
+              <Button type="submit" variant="outline" disabled={isSoldOut} className="mt-4 rounded-full">
+                {isSoldOut ? "Already sold out" : "Set sold out"}
+              </Button>
+            </form>
+
+            <form action={hideTicketType} className="rounded-3xl border p-4">
+              <p className="flex items-center gap-2 font-medium"><EyeOff className="h-4 w-4" /> Hide ticket type</p>
+              <p className="mt-1 text-sm text-muted-foreground">Removes this tier from buyer-facing purchase flows without deleting it.</p>
+              <div className="mt-4 space-y-2">
+                <Label htmlFor="hide-reason">Reason</Label>
+                <Input id="hide-reason" name="reason" placeholder="e.g. Internal allocation or invite-only tier" disabled={isHidden} />
+              </div>
+              <Button type="submit" variant="outline" disabled={isHidden} className="mt-4 rounded-full">
+                {isHidden ? "Already hidden" : "Hide ticket type"}
+              </Button>
+            </form>
+
             <form action={resumeSales} className="rounded-3xl border p-4">
-              <p className="flex items-center gap-2 font-medium"><PlayCircle className="h-4 w-4" /> Resume sales</p>
-              <p className="mt-1 text-sm text-muted-foreground">Returns this ticket tier to on-sale status and clears the pause reason.</p>
-              <Button type="submit" disabled={!isPaused} className="mt-4 rounded-full">
-                {isPaused ? "Resume sales" : "Already on sale"}
+              <p className="flex items-center gap-2 font-medium"><PlayCircle className="h-4 w-4" /> Return to on sale</p>
+              <p className="mt-1 text-sm text-muted-foreground">Makes the ticket tier available for sale again and clears temporary pause data.</p>
+              <Button type="submit" disabled={isOnSale} className="mt-4 rounded-full">
+                {isOnSale ? "Already on sale" : "Return to on sale"}
               </Button>
             </form>
           </CardContent>
