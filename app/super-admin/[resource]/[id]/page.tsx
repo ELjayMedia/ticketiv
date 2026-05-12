@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { Archive, ArrowLeft, EyeOff, PauseCircle, PlayCircle, QrCode, Rocket, TicketX, Unlink } from "lucide-react"
+import { Archive, ArrowLeft, BadgeDollarSign, EyeOff, PauseCircle, PlayCircle, QrCode, Rocket, TicketX, Unlink } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -21,6 +21,12 @@ import {
   unassignDeviceFromEventAction,
   updateResourceAction,
 } from "../../actions"
+import {
+  cancelPayoutAction,
+  markPayoutFailedAction,
+  markPayoutPaidAction,
+  markPayoutProcessingAction,
+} from "../../finance-actions"
 
 export default async function SuperAdminEditResourcePage({ params }: { params: Promise<{ resource: string; id: string }> }) {
   await requireSuperAdmin()
@@ -80,11 +86,33 @@ export default async function SuperAdminEditResourcePage({ params }: { params: P
     await unassignDeviceFromEventAction(id)
   }
 
+  async function markPayoutProcessing(formData: FormData) {
+    "use server"
+    await markPayoutProcessingAction(id, formData)
+  }
+
+  async function markPayoutPaid(formData: FormData) {
+    "use server"
+    await markPayoutPaidAction(id, formData)
+  }
+
+  async function markPayoutFailed(formData: FormData) {
+    "use server"
+    await markPayoutFailedAction(id, formData)
+  }
+
+  async function cancelPayout(formData: FormData) {
+    "use server"
+    await cancelPayoutAction(id, formData)
+  }
+
   const showEventActions = resource.key === "events"
   const showTicketTypeActions = resource.key === "ticket-types"
   const showDeviceActions = resource.key === "devices"
+  const showPayoutActions = resource.key === "payouts"
   const eventStatus = typeof data.status === "string" ? data.status : null
   const salesStatus = typeof data.sales_status === "string" ? data.sales_status : "on_sale"
+  const payoutStatus = typeof data.status === "string" ? data.status : null
   const assignedEventId = typeof data.event_id === "string" ? data.event_id : null
   const deviceRole = typeof data.device_role === "string" ? data.device_role : null
   const isPublished = eventStatus === "published"
@@ -93,6 +121,10 @@ export default async function SuperAdminEditResourcePage({ params }: { params: P
   const isSoldOut = salesStatus === "sold_out"
   const isHidden = salesStatus === "hidden"
   const isOnSale = salesStatus === "on_sale"
+  const isPayoutProcessing = payoutStatus === "processing"
+  const isPayoutPaid = payoutStatus === "paid"
+  const isPayoutFailed = payoutStatus === "failed"
+  const isPayoutCancelled = payoutStatus === "cancelled"
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
@@ -212,6 +244,54 @@ export default async function SuperAdminEditResourcePage({ params }: { params: P
               <p className="mt-1 text-sm text-muted-foreground">Detach this scanner from the current event and return it to unassigned scanner state.</p>
               <Button type="submit" variant="outline" disabled={!assignedEventId} className="mt-4 rounded-full">
                 {assignedEventId ? "Unassign scanner" : "No event assigned"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {showPayoutActions ? (
+        <Card className="mb-5 rounded-3xl border-primary/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><BadgeDollarSign className="h-5 w-5" /> Payout review</CardTitle>
+            <CardDescription>
+              Current status: <span className="font-medium">{payoutStatus ?? "unknown"}</span>. These controls update internal review status only.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <form action={markPayoutProcessing} className="rounded-3xl border p-4">
+              <p className="font-medium">Mark processing</p>
+              <p className="mt-1 text-sm text-muted-foreground">Use when finance has started reviewing or preparing the payout.</p>
+              <Input name="note" placeholder="Optional finance note" className="mt-4" disabled={isPayoutProcessing || isPayoutPaid} />
+              <Button type="submit" variant="outline" disabled={isPayoutProcessing || isPayoutPaid} className="mt-4 rounded-full">
+                {isPayoutProcessing ? "Already processing" : "Mark processing"}
+              </Button>
+            </form>
+
+            <form action={markPayoutPaid} className="rounded-3xl border p-4">
+              <p className="font-medium">Mark paid</p>
+              <p className="mt-1 text-sm text-muted-foreground">Confirms internal status after payout settlement has been verified.</p>
+              <Input name="note" placeholder="Optional settlement reference" className="mt-4" disabled={isPayoutPaid} />
+              <Button type="submit" disabled={isPayoutPaid} className="mt-4 rounded-full">
+                {isPayoutPaid ? "Already paid" : "Mark paid"}
+              </Button>
+            </form>
+
+            <form action={markPayoutFailed} className="rounded-3xl border p-4">
+              <p className="font-medium">Mark failed</p>
+              <p className="mt-1 text-sm text-muted-foreground">Use when finance or the provider reports that settlement failed.</p>
+              <Input name="note" placeholder="Failure reason" className="mt-4" disabled={isPayoutFailed || isPayoutPaid} />
+              <Button type="submit" variant="outline" disabled={isPayoutFailed || isPayoutPaid} className="mt-4 rounded-full">
+                {isPayoutFailed ? "Already failed" : "Mark failed"}
+              </Button>
+            </form>
+
+            <form action={cancelPayout} className="rounded-3xl border p-4">
+              <p className="font-medium">Cancel payout</p>
+              <p className="mt-1 text-sm text-muted-foreground">Stops this payout request from active finance processing.</p>
+              <Input name="note" placeholder="Cancellation reason" className="mt-4" disabled={isPayoutCancelled || isPayoutPaid} />
+              <Button type="submit" variant="outline" disabled={isPayoutCancelled || isPayoutPaid} className="mt-4 rounded-full">
+                {isPayoutCancelled ? "Already cancelled" : "Cancel payout"}
               </Button>
             </form>
           </CardContent>
