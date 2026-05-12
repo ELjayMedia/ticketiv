@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { AlertCircle, ArrowRight, Mail } from "lucide-react"
+import { AlertCircle, ArrowRight, CheckCircle2, Mail, ShieldCheck } from "lucide-react"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -21,15 +21,15 @@ const ROLE_CARDS = [
   },
   {
     label: "Organizer",
-    description: "Created automatically when your UUID creates or owns an event.",
+    description: "Unlocked when this email is linked to an organiser or event owner record.",
   },
   {
     label: "Scanner",
-    description: "Granted when your UUID is added to event staff for scanning.",
+    description: "Unlocked when this user is added to event staff for access control.",
   },
   {
     label: "Talent",
-    description: "For artists, speakers and performers linked to a public profile.",
+    description: "Unlocked when this user is connected to an artist, speaker or performer profile.",
   },
 ]
 
@@ -37,22 +37,44 @@ function isValidEmail(input: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.trim())
 }
 
+function explainAuthError(message: string, mode: AuthMode) {
+  const lower = message.toLowerCase()
+
+  if (lower.includes("rate limit") || lower.includes("too many")) {
+    return "Too many email code requests were made. Wait a few minutes, then try again."
+  }
+
+  if (lower.includes("not authorized")) {
+    return "Supabase refused to send to this email address. Check the project email settings or use an authorized test email."
+  }
+
+  if (lower.includes("signup") || lower.includes("signups")) {
+    return mode === "signup" ? message : "We could not find that Ticketiv account. Create an account first, then log in."
+  }
+
+  return mode === "login" ? "We could not send a code for that email. Create an account first, then log in." : message
+}
+
 function getAuthCopy(mode: AuthMode) {
   if (mode === "signup") {
     return {
-      submit: "Create account",
-      busy: "Sending…",
-      help: "We’ll send a 6-digit code to your email and create your Ticketiv ID as an Attendee first. Organizer, Scanner and Talent access are unlocked later from UUID-linked records.",
-      alternate: "Already have an account?",
+      badge: "Step 1 of 2",
+      submit: "Send my code",
+      busy: "Sending code…",
+      help: "Enter your email and we’ll send a 6-digit code. Once verified, your Ticketiv ID is created as an Attendee first.",
+      note: "Use an email you can access now. The code expires, and repeated requests may trigger Supabase rate limits.",
+      alternate: "Already have a Ticketiv ID?",
       alternateCta: "Log in",
       alternateHref: "/sign-in",
     }
   }
 
   return {
-    submit: "Log in",
-    busy: "Sending…",
-    help: "Use the same email address linked to your Ticketiv ID.",
+    badge: "Secure login",
+    submit: "Send login code",
+    busy: "Sending code…",
+    help: "Use the same email address linked to your Ticketiv ID. We’ll send a 6-digit login code.",
+    note: "Do not request multiple codes at once. Use the most recent code in your inbox.",
     alternate: "New to Ticketiv?",
     alternateCta: "Create an account",
     alternateHref: "/signup",
@@ -73,7 +95,7 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
 
     const normalizedEmail = email.trim().toLowerCase()
     if (!isValidEmail(normalizedEmail)) {
-      setError("That email doesn't look right.")
+      setError("Enter a valid email address, for example name@example.com.")
       return
     }
 
@@ -89,7 +111,7 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
     setBusy(false)
 
     if (error) {
-      setError(mode === "login" ? "We could not send a code for that email. Create an account first, then log in." : error.message)
+      setError(explainAuthError(error.message, mode))
       return
     }
 
@@ -102,6 +124,18 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
 
   return (
     <div className="space-y-6">
+      <div className="rounded-2xl border bg-card/70 p-4 text-sm text-muted-foreground">
+        <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">
+          <ShieldCheck className="h-3.5 w-3.5" />
+          {copy.badge}
+        </div>
+        <ol className="grid gap-2 text-xs leading-5 sm:grid-cols-3">
+          <li><span className="font-medium text-foreground">1.</span> Enter email</li>
+          <li><span className="font-medium text-foreground">2.</span> Get code</li>
+          <li><span className="font-medium text-foreground">3.</span> Verify ID</li>
+        </ol>
+      </div>
+
       <form onSubmit={onSubmit} className="flex flex-col gap-5">
         <div className="space-y-2">
           <Label htmlFor="email-input">Email address</Label>
@@ -119,10 +153,22 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
               className="h-12 rounded-xl pl-10"
             />
           </div>
-          <p className="text-xs text-muted-foreground">We’ll send a 6-digit code to your inbox.</p>
+          <p className="text-xs text-muted-foreground">We’ll send a 6-digit code to this inbox.</p>
         </div>
 
-        <p className="text-xs leading-5 text-muted-foreground">{copy.help}</p>
+        <div className="space-y-2 text-xs leading-5 text-muted-foreground">
+          <p>{copy.help}</p>
+          <p>{copy.note}</p>
+        </div>
+
+        {mode === "signup" && (
+          <Alert className="rounded-xl">
+            <CheckCircle2 className="h-4 w-4" />
+            <AlertDescription>
+              No password needed for now. Your email becomes the first identity attached to your Ticketiv profile.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {error && (
           <Alert variant="destructive" className="rounded-xl">
@@ -139,7 +185,7 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
       {mode === "signup" && (
         <Card className="rounded-2xl bg-muted/40">
           <CardContent className="space-y-3 p-4">
-            <p className="text-sm font-semibold">Ticketiv access roles</p>
+            <p className="text-sm font-semibold">What your Ticketiv ID can unlock</p>
             <div className="grid gap-2">
               {ROLE_CARDS.map((role) => (
                 <div key={role.label} className="rounded-xl bg-background/80 p-3">
