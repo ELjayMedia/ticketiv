@@ -165,11 +165,124 @@ export async function archiveEventAction(eventId: string, formData?: FormData) {
   revalidateEventAdminPaths(eventId)
 }
 
+export async function pauseTicketTypeSalesAction(ticketTypeId: string, formData?: FormData) {
+  const user = await requireSuperAdmin()
+  const admin = createAdminClient()
+  const reason = formData?.get("reason")?.toString().trim() || "Paused by super admin"
+
+  const { data: ticketType, error: ticketTypeError } = await admin
+    .from("ticket_types")
+    .select("id, event_id, name, sales_status")
+    .eq("id", ticketTypeId)
+    .maybeSingle()
+
+  if (ticketTypeError) throw new Error(ticketTypeError.message)
+  if (!ticketType) throw new Error("Ticket type not found")
+
+  const { data: event, error: eventError } = await admin
+    .from("events")
+    .select("id, org_id")
+    .eq("id", ticketType.event_id)
+    .maybeSingle()
+
+  if (eventError) throw new Error(eventError.message)
+  if (!event) throw new Error("Related event not found")
+
+  if (ticketType.sales_status !== "paused") {
+    const { error: updateError } = await admin
+      .from("ticket_types")
+      .update({
+        sales_status: "paused",
+        sales_paused_at: new Date().toISOString(),
+        sales_pause_reason: reason,
+      })
+      .eq("id", ticketTypeId)
+
+    if (updateError) throw new Error(updateError.message)
+
+    await admin.from("audit_log").insert({
+      org_id: event.org_id,
+      actor_id: user.id,
+      table_name: "ticket_types",
+      record_id: ticketTypeId,
+      action: "update",
+      changes: {
+        business_action: "pause_ticket_type_sales",
+        previous_status: ticketType.sales_status,
+        new_status: "paused",
+        reason,
+      },
+    })
+  }
+
+  await admin.from("admin_action_catalog").update({ is_enabled: true }).eq("key", "pause_ticket_type_sales")
+  revalidateTicketTypeAdminPaths(ticketTypeId)
+}
+
+export async function resumeTicketTypeSalesAction(ticketTypeId: string) {
+  const user = await requireSuperAdmin()
+  const admin = createAdminClient()
+
+  const { data: ticketType, error: ticketTypeError } = await admin
+    .from("ticket_types")
+    .select("id, event_id, name, sales_status")
+    .eq("id", ticketTypeId)
+    .maybeSingle()
+
+  if (ticketTypeError) throw new Error(ticketTypeError.message)
+  if (!ticketType) throw new Error("Ticket type not found")
+
+  const { data: event, error: eventError } = await admin
+    .from("events")
+    .select("id, org_id")
+    .eq("id", ticketType.event_id)
+    .maybeSingle()
+
+  if (eventError) throw new Error(eventError.message)
+  if (!event) throw new Error("Related event not found")
+
+  if (ticketType.sales_status !== "on_sale") {
+    const { error: updateError } = await admin
+      .from("ticket_types")
+      .update({
+        sales_status: "on_sale",
+        sales_paused_at: null,
+        sales_pause_reason: null,
+      })
+      .eq("id", ticketTypeId)
+
+    if (updateError) throw new Error(updateError.message)
+
+    await admin.from("audit_log").insert({
+      org_id: event.org_id,
+      actor_id: user.id,
+      table_name: "ticket_types",
+      record_id: ticketTypeId,
+      action: "update",
+      changes: {
+        business_action: "resume_ticket_type_sales",
+        previous_status: ticketType.sales_status,
+        new_status: "on_sale",
+      },
+    })
+  }
+
+  await admin.from("admin_action_catalog").update({ is_enabled: true }).eq("key", "resume_ticket_type_sales")
+  revalidateTicketTypeAdminPaths(ticketTypeId)
+}
+
 function revalidateEventAdminPaths(eventId: string) {
   revalidatePath("/super-admin")
   revalidatePath("/super-admin/workspaces/event-operations")
   revalidatePath("/super-admin/events")
   revalidatePath(`/super-admin/events/${eventId}`)
+}
+
+function revalidateTicketTypeAdminPaths(ticketTypeId: string) {
+  revalidatePath("/super-admin")
+  revalidatePath("/super-admin/workspaces/ticket-inventory")
+  revalidatePath("/super-admin/ticket-types")
+  revalidatePath(`/super-admin/ticket-types/${ticketTypeId}`)
 }
 
 export async function signOutSuperAdminAction() {
