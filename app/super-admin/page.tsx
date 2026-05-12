@@ -95,7 +95,16 @@ export default async function SuperAdminPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline" className="rounded-full">
-            <Link href="/super-admin/events">Manage events</Link>
+            <Link href="/super-admin/events">Events</Link>
+          </Button>
+          <Button asChild variant="outline" className="rounded-full">
+            <Link href="/super-admin/readiness">Readiness</Link>
+          </Button>
+          <Button asChild variant="outline" className="rounded-full">
+            <Link href="/super-admin/audit">Audit</Link>
+          </Button>
+          <Button asChild variant="outline" className="rounded-full">
+            <Link href="/super-admin/exports/orders">Exports</Link>
           </Button>
           <form action={signOutSuperAdminAction}>
             <Button variant="outline" className="rounded-full">Sign out</Button>
