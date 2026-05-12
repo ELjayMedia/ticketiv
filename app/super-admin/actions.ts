@@ -166,9 +166,29 @@ export async function archiveEventAction(eventId: string, formData?: FormData) {
 }
 
 export async function pauseTicketTypeSalesAction(ticketTypeId: string, formData?: FormData) {
+  await setTicketTypeSalesStatus(ticketTypeId, "paused", "pause_ticket_type_sales", formData?.get("reason")?.toString().trim() || "Paused by super admin")
+}
+
+export async function resumeTicketTypeSalesAction(ticketTypeId: string) {
+  await setTicketTypeSalesStatus(ticketTypeId, "on_sale", "resume_ticket_type_sales")
+}
+
+export async function markTicketTypeSoldOutAction(ticketTypeId: string, formData?: FormData) {
+  await setTicketTypeSalesStatus(ticketTypeId, "sold_out", "mark_ticket_type_sold_out", formData?.get("reason")?.toString().trim() || "Marked sold out by super admin")
+}
+
+export async function hideTicketTypeAction(ticketTypeId: string, formData?: FormData) {
+  await setTicketTypeSalesStatus(ticketTypeId, "hidden", "hide_ticket_type", formData?.get("reason")?.toString().trim() || "Hidden by super admin")
+}
+
+async function setTicketTypeSalesStatus(
+  ticketTypeId: string,
+  nextStatus: "on_sale" | "paused" | "sold_out" | "hidden",
+  businessAction: string,
+  reason?: string,
+) {
   const user = await requireSuperAdmin()
   const admin = createAdminClient()
-  const reason = formData?.get("reason")?.toString().trim() || "Paused by super admin"
 
   const { data: ticketType, error: ticketTypeError } = await admin
     .from("ticket_types")
@@ -188,13 +208,16 @@ export async function pauseTicketTypeSalesAction(ticketTypeId: string, formData?
   if (eventError) throw new Error(eventError.message)
   if (!event) throw new Error("Related event not found")
 
-  if (ticketType.sales_status !== "paused") {
+  if (ticketType.sales_status !== nextStatus) {
+    const pauseFields = nextStatus === "paused"
+      ? { sales_paused_at: new Date().toISOString(), sales_pause_reason: reason ?? null }
+      : { sales_paused_at: null, sales_pause_reason: reason ?? null }
+
     const { error: updateError } = await admin
       .from("ticket_types")
       .update({
-        sales_status: "paused",
-        sales_paused_at: new Date().toISOString(),
-        sales_pause_reason: reason,
+        sales_status: nextStatus,
+        ...pauseFields,
       })
       .eq("id", ticketTypeId)
 
@@ -207,67 +230,15 @@ export async function pauseTicketTypeSalesAction(ticketTypeId: string, formData?
       record_id: ticketTypeId,
       action: "update",
       changes: {
-        business_action: "pause_ticket_type_sales",
+        business_action: businessAction,
         previous_status: ticketType.sales_status,
-        new_status: "paused",
+        new_status: nextStatus,
         reason,
       },
     })
   }
 
-  await admin.from("admin_action_catalog").update({ is_enabled: true }).eq("key", "pause_ticket_type_sales")
-  revalidateTicketTypeAdminPaths(ticketTypeId)
-}
-
-export async function resumeTicketTypeSalesAction(ticketTypeId: string) {
-  const user = await requireSuperAdmin()
-  const admin = createAdminClient()
-
-  const { data: ticketType, error: ticketTypeError } = await admin
-    .from("ticket_types")
-    .select("id, event_id, name, sales_status")
-    .eq("id", ticketTypeId)
-    .maybeSingle()
-
-  if (ticketTypeError) throw new Error(ticketTypeError.message)
-  if (!ticketType) throw new Error("Ticket type not found")
-
-  const { data: event, error: eventError } = await admin
-    .from("events")
-    .select("id, org_id")
-    .eq("id", ticketType.event_id)
-    .maybeSingle()
-
-  if (eventError) throw new Error(eventError.message)
-  if (!event) throw new Error("Related event not found")
-
-  if (ticketType.sales_status !== "on_sale") {
-    const { error: updateError } = await admin
-      .from("ticket_types")
-      .update({
-        sales_status: "on_sale",
-        sales_paused_at: null,
-        sales_pause_reason: null,
-      })
-      .eq("id", ticketTypeId)
-
-    if (updateError) throw new Error(updateError.message)
-
-    await admin.from("audit_log").insert({
-      org_id: event.org_id,
-      actor_id: user.id,
-      table_name: "ticket_types",
-      record_id: ticketTypeId,
-      action: "update",
-      changes: {
-        business_action: "resume_ticket_type_sales",
-        previous_status: ticketType.sales_status,
-        new_status: "on_sale",
-      },
-    })
-  }
-
-  await admin.from("admin_action_catalog").update({ is_enabled: true }).eq("key", "resume_ticket_type_sales")
+  await admin.from("admin_action_catalog").update({ is_enabled: true }).eq("key", businessAction)
   revalidateTicketTypeAdminPaths(ticketTypeId)
 }
 
