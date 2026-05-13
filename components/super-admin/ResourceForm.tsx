@@ -2,6 +2,15 @@ import type { AdminResource } from "@/lib/super-admin/resources"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { FieldHelpTooltip } from "@/components/super-admin/FieldHelpTooltip"
+import {
+  formatAdminCell,
+  getFieldHelp,
+  getFieldLabel,
+  getRelationOptions,
+  isRelationField,
+  type LookupMaps,
+} from "@/lib/super-admin/display"
 
 function toInputDateTime(value: unknown) {
   if (!value) return ""
@@ -17,27 +26,59 @@ function formatValue(type: string, value: unknown) {
   return String(value)
 }
 
+function FieldLabel({ name, htmlFor }: { name: string; htmlFor?: string }) {
+  return (
+    <Label htmlFor={htmlFor} className="flex items-center gap-1.5">
+      {getFieldLabel(name)}
+      <FieldHelpTooltip text={getFieldHelp(name)} />
+    </Label>
+  )
+}
+
 export function ResourceForm({
   resource,
   record,
   action,
   submitLabel,
+  lookups,
 }: {
   resource: AdminResource
   record?: Record<string, unknown> | null
   action: (formData: FormData) => void
   submitLabel: string
+  lookups?: LookupMaps
 }) {
   return (
-    <form action={action} className="grid gap-4 rounded-3xl border bg-card p-5 shadow-sm md:grid-cols-2">
+    <form action={action} className="grid gap-4 rounded-2xl border bg-card p-5 shadow-sm md:grid-cols-2">
       {resource.fields.map((field) => {
         const value = record?.[field.name]
+        const relationOptions = getRelationOptions(field.name, lookups)
 
         if (field.type === "readonly") {
           return (
             <div key={field.name} className="space-y-2 md:col-span-2">
-              <Label>{field.label}</Label>
-              <Input value={formatValue(field.type, value)} readOnly className="h-11 rounded-full bg-muted" />
+              <FieldLabel name={field.name} />
+              <Input value={formatAdminCell(field.name, value, lookups)} readOnly className="h-11 rounded-full bg-muted" />
+            </div>
+          )
+        }
+
+        if (isRelationField(field.name) && relationOptions.length) {
+          return (
+            <div key={field.name} className="space-y-2">
+              <FieldLabel name={field.name} htmlFor={field.name} />
+              <select
+                id={field.name}
+                name={field.name}
+                defaultValue={formatValue(field.type, value)}
+                required={field.required}
+                className="flex h-11 w-full rounded-full border border-input bg-background px-4 py-2 text-sm"
+              >
+                <option value="">Select {getFieldLabel(field.name).toLowerCase()}</option>
+                {relationOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
             </div>
           )
         }
@@ -45,7 +86,7 @@ export function ResourceForm({
         if (field.type === "select") {
           return (
             <div key={field.name} className="space-y-2">
-              <Label htmlFor={field.name}>{field.label}</Label>
+              <FieldLabel name={field.name} htmlFor={field.name} />
               <select
                 id={field.name}
                 name={field.name}
@@ -63,7 +104,10 @@ export function ResourceForm({
           return (
             <label key={field.name} className="flex h-11 items-center gap-3 rounded-full border px-4 text-sm">
               <input name={field.name} type="checkbox" defaultChecked={Boolean(value)} />
-              {field.label}
+              <span className="flex items-center gap-1.5">
+                {getFieldLabel(field.name)}
+                <FieldHelpTooltip text={getFieldHelp(field.name)} />
+              </span>
             </label>
           )
         }
@@ -71,14 +115,14 @@ export function ResourceForm({
         if (field.type === "json" || field.name === "description" || field.name === "bio") {
           return (
             <div key={field.name} className="space-y-2 md:col-span-2">
-              <Label htmlFor={field.name}>{field.label}</Label>
+              <FieldLabel name={field.name} htmlFor={field.name} />
               <textarea
                 id={field.name}
                 name={field.name}
                 defaultValue={formatValue(field.type, value)}
                 placeholder={field.placeholder}
                 required={field.required}
-                className="min-h-28 w-full rounded-3xl border border-input bg-background px-4 py-3 text-sm"
+                className="min-h-28 w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm"
               />
             </div>
           )
@@ -88,7 +132,7 @@ export function ResourceForm({
 
         return (
           <div key={field.name} className="space-y-2">
-            <Label htmlFor={field.name}>{field.label}</Label>
+            <FieldLabel name={field.name} htmlFor={field.name} />
             <Input
               id={field.name}
               name={field.name}
