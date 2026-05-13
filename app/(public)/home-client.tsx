@@ -59,6 +59,7 @@ function formatDate(value: string) {
 }
 
 function eventHref(event: EventCardData) {
+  if (event.series_slug) return `/series/${event.series_slug}`
   return `/events/${event.slug || event.id}`
 }
 

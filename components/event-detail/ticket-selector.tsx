@@ -15,6 +15,8 @@ interface TicketSelectorProps {
   ticketTypes: EventDetailTicketType[]
   /** "mobile" renders a sticky bottom buy bar; "desktop" renders an inline buy button */
   variant?: "mobile" | "desktop"
+  /** When true, sticky buy bar hints "Choose your pass" until a tier is selected */
+  multiDay?: boolean
 }
 
 function getAvailable(t: EventDetailTicketType): number {
@@ -22,7 +24,7 @@ function getAvailable(t: EventDetailTicketType): number {
   return Math.max(0, t.quota - t.sold_count)
 }
 
-export function TicketSelector({ eventId, ticketTypes, variant = "mobile" }: TicketSelectorProps) {
+export function TicketSelector({ eventId, ticketTypes, variant = "mobile", multiDay = false }: TicketSelectorProps) {
   const router = useRouter()
   const [quantities, setQuantities] = useState<Record<string, number>>(() =>
     Object.fromEntries(ticketTypes.map((t) => [t.id, 0]))
@@ -192,7 +194,9 @@ export function TicketSelector({ eventId, ticketTypes, variant = "mobile" }: Tic
                   <p className="font-semibold">{formatCurrency(totalCents, currency)}</p>
                 </>
               ) : (
-                <p className="text-sm text-muted-foreground">Select tickets above</p>
+                <p className="text-sm text-muted-foreground">
+                  {multiDay ? "Choose your pass" : "Select tickets above"}
+                </p>
               )}
             </div>
             <Button
@@ -202,7 +206,7 @@ export function TicketSelector({ eventId, ticketTypes, variant = "mobile" }: Tic
               onClick={handleBuy}
               aria-label={hasSelection ? `Buy tickets — ${formatCurrency(totalCents, currency)}` : "Select tickets to continue"}
             >
-              Buy tickets
+              {multiDay && !hasSelection ? "Choose your pass" : "Buy tickets"}
             </Button>
           </div>
         </div>

@@ -3,6 +3,7 @@ import { Calendar, Clock, MapPin, Ticket } from "lucide-react"
 import { formatCurrency } from "@/lib/pricing"
 import type { EventDetailData } from "@/lib/data/public/event-detail"
 import { format } from "date-fns"
+import { formatMultiDayLong } from "@/lib/series/date-range"
 
 interface EventQuickFactsProps {
   event: EventDetailData
@@ -32,17 +33,27 @@ export function EventQuickFacts({ event }: EventQuickFactsProps) {
     ? Math.min(...event.ticket_types.map((t) => t.price_cents))
     : null
 
+  const isMultiDay = event.event_format === "multi_day" && event.starts_at && event.ends_at
+
   const facts = [
-    {
-      icon: Calendar,
-      label: "Date",
-      value: formatEventDate(event.starts_at),
-    },
-    {
-      icon: Clock,
-      label: "Time",
-      value: formatEventTime(event.starts_at),
-    },
+    isMultiDay
+      ? {
+          icon: Calendar,
+          label: "Dates",
+          value: formatMultiDayLong(event.starts_at!, event.ends_at!),
+        }
+      : {
+          icon: Calendar,
+          label: "Date",
+          value: formatEventDate(event.starts_at),
+        },
+    isMultiDay
+      ? null
+      : {
+          icon: Clock,
+          label: "Time",
+          value: formatEventTime(event.starts_at),
+        },
     event.venue
       ? {
           icon: MapPin,

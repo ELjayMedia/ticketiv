@@ -22,6 +22,13 @@ export type EventDetailArtist = {
   image_url: string | null
 }
 
+export type EventDetailSeries = {
+  id: string
+  slug: string
+  title: string
+  series_type: "tour" | "recurring" | "season"
+}
+
 export type EventDetailData = {
   id: string
   title: string
@@ -37,6 +44,8 @@ export type EventDetailData = {
   org_id: string
   description: string | null
   is_favourited: boolean
+  event_format: "single_day" | "multi_day"
+  series: EventDetailSeries | null
   venue: {
     id: string
     name: string
@@ -69,8 +78,10 @@ export async function getEventDetailById(id: string): Promise<EventDetailData | 
     .select(`
       id, title, slug, status, starts_at, ends_at, tz,
       cover_image_url, category, city, country_code, org_id, description,
+      event_format, series_id,
       venue:venue_id(id, name, address, city, slug, capacity),
       organization:org_id(id, name, slug, bio, logo),
+      series:series_id(id, slug, title, series_type),
       ticket_types(id, name, price_cents, currency, quota, per_user_limit, is_reserved_seating),
       event_artists(role, artist:artist_id(id, name, bio, slug, image_url))
     `)
@@ -171,11 +182,14 @@ export async function getEventDetailById(id: string): Promise<EventDetailData | 
   type RawOrg = { id: string; name: string; slug: string; bio: string | null; logo: string | null } | null
   type RawTicketType = { id: string; name: string; price_cents: number; currency: string; quota: number | null; per_user_limit: number | null; is_reserved_seating: boolean }
   type RawEventArtist = { role: string | null; artist: { id: string; name: string; bio: string | null; slug: string | null; image_url: string | null } | null }
+  type RawSeries = { id: string; slug: string; title: string; series_type: "tour" | "recurring" | "season" } | null
 
   const venue = event.venue as unknown as RawVenue
   const organization = event.organization as unknown as RawOrg
   const rawTicketTypes = (event.ticket_types as unknown as RawTicketType[]) ?? []
   const rawArtists = (event.event_artists as unknown as RawEventArtist[]) ?? []
+  const rawSeries = (event as unknown as { series: RawSeries }).series ?? null
+  const eventFormat = (event as unknown as { event_format?: string }).event_format === "multi_day" ? "multi_day" : "single_day"
 
   return {
     id: event.id,
@@ -192,6 +206,15 @@ export async function getEventDetailById(id: string): Promise<EventDetailData | 
     country_code: event.country_code,
     org_id: event.org_id,
     is_favourited: isFavourited,
+    event_format: eventFormat,
+    series: rawSeries
+      ? {
+          id: rawSeries.id,
+          slug: rawSeries.slug,
+          title: rawSeries.title,
+          series_type: rawSeries.series_type,
+        }
+      : null,
     venue: venue
       ? {
           id: venue.id,

@@ -1,23 +1,26 @@
 import { Badge } from "@/components/ui/badge"
 import type { EventDetailData } from "@/lib/data/public/event-detail"
 import { format } from "date-fns"
+import { formatMultiDayPill } from "@/lib/series/date-range"
 
 interface EventHeroProps {
   event: EventDetailData
 }
 
-function formatDatePill(startsAt: string | null, tz: string): string {
-  if (!startsAt) return "Date TBA"
+function formatDatePill(event: EventDetailData): string {
+  if (event.event_format === "multi_day" && event.starts_at && event.ends_at) {
+    return formatMultiDayPill(event.starts_at, event.ends_at)
+  }
+  if (!event.starts_at) return "Date TBA"
   try {
-    const d = new Date(startsAt)
-    return format(d, "EEE d MMM · HH:mm")
+    return format(new Date(event.starts_at), "EEE d MMM · HH:mm")
   } catch {
     return "Date TBA"
   }
 }
 
 export function EventHero({ event }: EventHeroProps) {
-  const datePill = formatDatePill(event.starts_at, event.tz)
+  const datePill = formatDatePill(event)
 
   return (
     <div className="relative w-full overflow-hidden bg-muted">
