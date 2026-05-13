@@ -1,20 +1,22 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ArrowLeft, CheckCircle2, Plus } from "lucide-react"
+import { CheckCircle2, Plus } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { FieldHelpTooltip } from "@/components/super-admin/FieldHelpTooltip"
 import { ResourceForm } from "@/components/super-admin/ResourceForm"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getAdminResource } from "@/lib/super-admin/resources"
 import { requireSuperAdmin } from "@/lib/super-admin/auth"
+import {
+  formatAdminCell,
+  getFieldHelp,
+  getFieldLabel,
+  getResourceFriendlyName,
+  type LookupMaps,
+} from "@/lib/super-admin/display"
 import { createResourceAction } from "../actions"
-
-function displayCell(value: unknown) {
-  if (value === null || value === undefined) return "—"
-  if (typeof value === "object") return JSON.stringify(value)
-  return String(value)
-}
 
 const STATUS_MESSAGES: Record<string, string> = {
   created: "Record created successfully.",
@@ -25,6 +27,54 @@ const STATUS_MESSAGES: Record<string, string> = {
   ticket_updated: "Ticket sales status updated successfully.",
   device_updated: "Scanner assignment updated successfully.",
   finance_updated: "Finance status updated successfully.",
+}
+
+function buildMap<T extends Record<string, unknown>>(rows: T[] | null, labelFor: (row: T) => string) {
+  return new Map((rows ?? []).map((row) => [String(row.id), labelFor(row)]))
+}
+
+async function getLookupMaps(): Promise<LookupMaps> {
+  const admin = createAdminClient()
+
+  const [organizations, events, venues, ticketTypes, profiles, orders, payments, refunds, devices] = await Promise.all([
+    admin.from("organizations").select("id, name, slug").limit(500),
+    admin.from("events").select("id, title, starts_at").limit(500),
+    admin.from("venues").select("id, name, city").limit(500),
+    admin.from("ticket_types").select("id, name, price_cents, currency").limit(500),
+    admin.from("profiles").select("id, email, full_name, phone").limit(500),
+    admin.from("orders").select("id, buyer_email, total_cents, currency, status").limit(500),
+    admin.from("payments").select("id, provider, amount_cents, currency, status").limit(500),
+    admin.from("refunds").select("id, amount_cents, currency, status").limit(500),
+    admin.from("devices").select("id, label, device_role").limit(500),
+  ])
+
+  return {
+    organizations: buildMap(organizations.data, (row) => String(row.name ?? row.slug ?? row.id)),
+    events: buildMap(events.data, (row) => String(row.title ?? row.id)),
+    venues: buildMap(venues.data, (row) => `${row.name ?? row.id}${row.city ? ` · ${row.city}` : ""}`),
+    ticketTypes: buildMap(ticketTypes.data, (row) => String(row.name ?? row.id)),
+    users: buildMap(profiles.data, (row) => String(row.full_name ?? row.email ?? row.phone ?? row.id)),
+    orders: buildMap(orders.data, (row) => `${row.buyer_email ?? "Order"} · ${row.status ?? "unknown"}`),
+    payments: buildMap(payments.data, (row) => `${row.provider ?? "Payment"} · ${row.status ?? "unknown"}`),
+    refunds: buildMap(refunds.data, (row) => `Refund · ${row.status ?? "unknown"}`),
+    devices: buildMap(devices.data, (row) => String(row.label ?? row.device_role ?? row.id)),
+  }
+}
+
+function StatusBadge({ value }: { value: unknown }) {
+  const label = String(value ?? "unknown")
+  return <span className="inline-flex rounded-full border bg-muted/50 px-2 py-1 text-xs font-medium capitalize">{label.replaceAll("_", " ")}</span>
+}
+
+function HeaderCell({ column }: { column: string }) {
+  return (
+    <th className="px-3 py-3 font-medium">
+      <span className="inline-flex items-center gap-1.5">
+        {getFieldLabel(column)}
+        <FieldHelpTooltip text={getFieldHelp(column)} />
+      </span>
+    </th>
+  )
 }
 
 export default async function SuperAdminResourcePage({
@@ -42,11 +92,10 @@ export default async function SuperAdminResourcePage({
   if (!resource) notFound()
 
   const admin = createAdminClient()
-  const { data, error } = await admin
-    .from(resource.table)
-    .select("*")
-    .order(resource.orderBy, { ascending: false })
-    .limit(50)
+  const [{ data, error }, lookups] = await Promise.all([
+    admin.from(resource.table).select("*").order(resource.orderBy, { ascending: false }).limit(50),
+    getLookupMaps(),
+  ])
 
   if (error) throw new Error(error.message)
 
@@ -56,44 +105,43 @@ export default async function SuperAdminResourcePage({
   }
 
   const statusMessage = query.status ? STATUS_MESSAGES[query.status] : null
+  const friendlyName = getResourceFriendlyName(resource)
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <Button asChild variant="ghost" className="mb-3 rounded-full px-0 hover:bg-transparent">
-            <Link href="/super-admin"><ArrowLeft className="mr-2 h-4 w-4" /> Super admin</Link>
-          </Button>
-          <h1 className="text-3xl font-bold tracking-tight">{resource.label}</h1>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Super admin resource</p>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight">{friendlyName}</h1>
           <p className="mt-2 text-sm text-muted-foreground">{resource.description}</p>
         </div>
       </div>
 
       {statusMessage ? (
-        <div className="mb-5 flex items-center gap-2 rounded-3xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+        <div className="mb-5 flex items-center gap-2 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
           <CheckCircle2 className="h-4 w-4" /> {statusMessage}
         </div>
       ) : null}
 
       <section className="grid gap-6 xl:grid-cols-[0.9fr_1.4fr]">
-        <Card className="rounded-3xl">
+        <Card className="rounded-2xl">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5" /> Create record</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base"><Plus className="h-4 w-4" /> Create {friendlyName}</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResourceForm resource={resource} action={createRecord} submitLabel={`Create ${resource.label}`} />
+            <ResourceForm resource={resource} action={createRecord} submitLabel={`Create ${friendlyName}`} lookups={lookups} />
           </CardContent>
         </Card>
 
-        <Card className="rounded-3xl">
+        <Card className="rounded-2xl">
           <CardHeader>
-            <CardTitle>Latest records</CardTitle>
+            <CardTitle className="text-base">Latest {friendlyName}</CardTitle>
           </CardHeader>
           <CardContent className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-sm">
               <thead>
                 <tr className="border-b text-left text-muted-foreground">
-                  {resource.listColumns.map((column) => <th key={column} className="px-3 py-3 font-medium">{column}</th>)}
+                  {resource.listColumns.map((column) => <HeaderCell key={column} column={column} />)}
                   <th className="px-3 py-3 font-medium">Actions</th>
                 </tr>
               </thead>
@@ -102,12 +150,17 @@ export default async function SuperAdminResourcePage({
                   const recordId = String(row[resource.primaryKey])
                   return (
                     <tr key={recordId} className="border-b last:border-0">
-                      {resource.listColumns.map((column) => (
-                        <td key={column} className="max-w-[220px] truncate px-3 py-3">{displayCell(row[column])}</td>
-                      ))}
+                      {resource.listColumns.map((column) => {
+                        const value = row[column]
+                        return (
+                          <td key={column} className="max-w-[240px] truncate px-3 py-3">
+                            {column === "status" || column === "sales_status" ? <StatusBadge value={value} /> : formatAdminCell(column, value, lookups)}
+                          </td>
+                        )
+                      })}
                       <td className="px-3 py-3">
                         <Button asChild variant="outline" size="sm" className="rounded-full">
-                          <Link href={`/super-admin/${resource.key}/${recordId}`}>Edit</Link>
+                          <Link href={`/super-admin/${resource.key}/${recordId}`}>Open</Link>
                         </Button>
                       </td>
                     </tr>
@@ -118,6 +171,6 @@ export default async function SuperAdminResourcePage({
           </CardContent>
         </Card>
       </section>
-    </main>
+    </div>
   )
 }
