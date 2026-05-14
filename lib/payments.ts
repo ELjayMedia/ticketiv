@@ -4,6 +4,7 @@ import crypto, { randomUUID } from "crypto"
 
 import { APP_URL, PAYSTACK_SECRET_KEY } from "@/lib/env"
 import { completePaidOrder } from "@/lib/orders"
+import { notifyPaymentFailed, notifyPaymentSucceeded, notifyTicketPurchaseSucceeded } from "@/lib/notifications"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export type PaymentProvider = "deltapay" | "paystack" | "flutterwave" | "manual"
@@ -76,14 +77,11 @@ function getBuyerEmail(order: LiveOrder) {
 }
 
 function toPaystackAmount(order: LiveOrder) {
-  // Ticketiv stores minor units in *_cents columns. Paystack also expects the lowest currency unit.
   return order.total_cents
 }
 
 async function initializePaystackTransaction(order: LiveOrder, reference: string, returnUrl?: string | null) {
-  if (!PAYSTACK_SECRET_KEY) {
-    throw new Error("Missing PAYSTACK_SECRET_KEY")
-  }
+  if (!PAYSTACK_SECRET_KEY) throw new Error("Missing PAYSTACK_SECRET_KEY")
 
   const callbackUrl = returnUrl ?? `${APP_URL}/orders/${order.id}`
 
@@ -99,11 +97,7 @@ async function initializePaystackTransaction(order: LiveOrder, reference: string
       currency: order.currency,
       reference,
       callback_url: callbackUrl,
-      metadata: {
-        order_id: order.id,
-        org_id: order.org_id,
-        buyer_id: order.buyer_id,
-      },
+      metadata: { order_id: order.id, org_id: order.org_id, buyer_id: order.buyer_id },
     }),
   })
 
@@ -130,10 +124,7 @@ export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
 
   const { supabase, order } = await getPendingOrder(input.orderId, input.userId)
 
-  const { count, error: countError } = await supabase
-    .from("payment_attempts")
-    .select("id", { count: "exact", head: true })
-    .eq("order_id", order.id)
+  const { count, error: countError } = await supabase.from("payment_attempts").select("id", { count: "exact", head: true }).eq("order_id", order.id)
 
   if (countError) {
     console.error("Failed to count payment attempts", countError)
@@ -221,11 +212,12 @@ export async function completeVerifiedPayment(input: CompleteVerifiedPaymentInpu
 
   const completed = await completePaidOrder(order.id, input.extPaymentId)
 
-  return {
-    payment,
-    order: completed.order,
-    items: completed.items,
-  }
+  await Promise.all([
+    notifyPaymentSucceeded({ userId: order.buyer_id, orderId: order.id, paymentId: payment.id, amountCents: order.total_cents, currency: order.currency }),
+    notifyTicketPurchaseSucceeded({ userId: order.buyer_id, orderId: order.id, orgId: order.org_id, amountCents: order.total_cents, currency: order.currency, ticketCount: completed.items?.length ?? undefined }),
+  ])
+
+  return { payment, order: completed.order, items: completed.items }
 }
 
 export async function completePaystackPaymentFromWebhook(payload: Record<string, any>) {
@@ -243,12 +235,7 @@ export async function completePaystackPaymentFromWebhook(payload: Record<string,
     return { ok: true, status }
   }
 
-  return completeVerifiedPayment({
-    orderId,
-    provider: "paystack",
-    extPaymentId: reference,
-    payload,
-  })
+  return completeVerifiedPayment({ orderId, provider: "paystack", extPaymentId: reference, payload })
 }
 
 export async function failPaymentAttempt(orderId: string, provider: PaymentProvider, extRef?: string | null, payload?: Record<string, any>) {
@@ -257,18 +244,16 @@ export async function failPaymentAttempt(orderId: string, provider: PaymentProvi
   const supabase = createServerSupabaseClient()
   if (!supabase) throw new Error("Supabase is not configured")
 
+  const { data: order } = await supabase.from("orders").select("id, buyer_id").eq("id", orderId).maybeSingle()
+
   const query = supabase
     .from("payment_attempts")
-    .update({
-      status: "failed",
-      payload: payload ?? {},
-    })
+    .update({ status: "failed", payload: payload ?? {} })
     .eq("order_id", orderId)
     .eq("provider", provider)
     .eq("status", "pending")
 
   if (extRef) query.eq("ext_ref", extRef)
-
   const { error } = await query
 
   if (error) {
@@ -276,5 +261,6 @@ export async function failPaymentAttempt(orderId: string, provider: PaymentProvi
     throw new Error("Unable to update payment attempt")
   }
 
+  await notifyPaymentFailed({ userId: order?.buyer_id ?? null, orderId, provider, reference: extRef })
   return { ok: true }
 }
