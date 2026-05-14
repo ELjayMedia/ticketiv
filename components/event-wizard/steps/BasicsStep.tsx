@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { createClientSupabaseClient } from "@/lib/supabase-client"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -27,57 +26,70 @@ export function BasicsStep({
   const [description, setDescription] = useState(event?.description ?? "")
   const [category, setCategory] = useState(event?.category ?? "")
   const [categories, setCategories] = useState<CategoryOption[]>([])
-  const [categoryLoading, setCategoryLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState("")
 
   useEffect(() => {
-    let active = true
+    loadBasics()
+  }, [event?.id])
 
-    async function loadCategories() {
-      setCategoryLoading(true)
-      const supabase = createClientSupabaseClient()
-      const { data, error } = await supabase
-        .from("event_categories")
-        .select("id, name, slug, description")
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true })
-        .order("name", { ascending: true })
+  async function loadBasics() {
+    setLoading(true)
+    setError("")
 
-      if (!active) return
+    try {
+      const response = await fetch(`/api/events/${event.id}/basics`, { cache: "no-store" })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.error || "Failed to load event basics")
 
-      if (error) {
-        console.error("[v0] Error loading event categories:", error.message)
-        setCategories([])
-      } else {
-        setCategories((data ?? []) as CategoryOption[])
+      if (payload.event) {
+        setTitle(payload.event.title ?? "")
+        setDescription(payload.event.description ?? "")
+        setCategory(payload.event.category ?? "")
       }
-      setCategoryLoading(false)
+      setCategories(payload.categories ?? [])
+    } catch (err: any) {
+      console.error("[v0] Error loading event basics:", err)
+      setError(err?.message || "Failed to load event basics")
+      onError()
+    } finally {
+      setLoading(false)
     }
-
-    loadCategories()
-    return () => {
-      active = false
-    }
-  }, [])
+  }
 
   async function save(nextCategory = category) {
     if (!title.trim()) {
+      setError("Event title is required")
       onError()
       return
     }
 
     try {
+      setSaving(true)
+      setError("")
       onSaving()
-      const supabase = createClientSupabaseClient()
 
-      const { error } = await supabase
-        .from("events")
-        .update({ title, description, category: nextCategory || null })
-        .eq("id", event.id)
+      const response = await fetch(`/api/events/${event.id}/basics`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, description, category: nextCategory || null }),
+      })
 
-      if (error) throw error
-    } catch (err) {
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.error || "Failed to save event basics")
+
+      if (payload.event) {
+        setTitle(payload.event.title ?? "")
+        setDescription(payload.event.description ?? "")
+        setCategory(payload.event.category ?? "")
+      }
+    } catch (err: any) {
       console.error("[v0] Error saving basics:", err)
+      setError(err?.message || "Failed to save event basics")
       onError()
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -85,6 +97,8 @@ export function BasicsStep({
     setCategory(value)
     save(value)
   }
+
+  if (loading) return <div className="p-2 text-sm text-muted-foreground">Loading event basics…</div>
 
   return (
     <div className="space-y-4">
@@ -96,6 +110,7 @@ export function BasicsStep({
           onBlur={() => save()}
           placeholder="e.g. Makoti Festival 2026"
           className="mt-2"
+          disabled={saving}
         />
       </div>
 
@@ -107,14 +122,15 @@ export function BasicsStep({
           onBlur={() => save()}
           placeholder="Tell attendees what this event is about..."
           className="mt-2 h-24"
+          disabled={saving}
         />
       </div>
 
       <div>
         <label className="text-sm font-medium">Category</label>
-        <Select value={category || undefined} onValueChange={handleCategoryChange} disabled={categoryLoading || categories.length === 0}>
+        <Select value={category || undefined} onValueChange={handleCategoryChange} disabled={saving || categories.length === 0}>
           <SelectTrigger className="mt-2">
-            <SelectValue placeholder={categoryLoading ? "Loading categories..." : "Select a category"} />
+            <SelectValue placeholder={categories.length === 0 ? "No active categories available" : "Select a category"} />
           </SelectTrigger>
           <SelectContent>
             {categories.map((item) => (
@@ -129,8 +145,10 @@ export function BasicsStep({
         </p>
       </div>
 
-      <Button onClick={() => save()} className="w-full">
-        Save changes
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
+      <Button onClick={() => save()} disabled={saving || !title.trim()} className="w-full">
+        {saving ? "Saving changes…" : "Save changes"}
       </Button>
     </div>
   )
