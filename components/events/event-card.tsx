@@ -18,6 +18,7 @@ interface EventCardProps {
     is_promoted?: boolean
     tickets_remaining?: number
   }
+  categoryLabel?: string | null
 }
 
 function formatDateShort(date: string | null | undefined) {
@@ -25,7 +26,6 @@ function formatDateShort(date: string | null | undefined) {
   const d = new Date(date)
   if (Number.isNaN(d.getTime())) return "Date TBA"
 
-  // "Sat, Dec 21 · 18:00"
   return (
     d.toLocaleDateString(undefined, {
       weekday: "short",
@@ -37,13 +37,13 @@ function formatDateShort(date: string | null | undefined) {
   )
 }
 
-export function EventCard({ event }: EventCardProps) {
+export function EventCard({ event, categoryLabel }: EventCardProps) {
   const [isSaved, setIsSaved] = useState(false)
-  const priceLabel =
-    event.minimum_price != null ? `From ${formatCurrency(event.minimum_price, event.currency)}` : "Free"
+  const priceLabel = event.minimum_price != null ? `From ${formatCurrency(event.minimum_price, event.currency)}` : "Free"
 
   const showSellingFast = event.tickets_remaining != null && event.tickets_remaining < 20 && event.tickets_remaining > 0
   const badgeText = event.is_promoted ? "Promoted" : showSellingFast ? "Selling fast" : null
+  const eventCategoryLabel = categoryLabel || event.category || null
 
   const handleSaveClick = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -57,7 +57,6 @@ export function EventCard({ event }: EventCardProps) {
         href={`/events/${event.id}`}
         className="lg:hidden flex p-4 bg-background hover:bg-accent/50 transition-colors min-h-[96px] rounded-sm shadow-none border-b-0 py-px items-center gap-3 px-[0]"
       >
-        {/* Left: Square thumbnail */}
         <div className="shrink-0">
           <img
             src={event.cover_image_url || "/placeholder.svg?height=72&width=72"}
@@ -67,8 +66,20 @@ export function EventCard({ event }: EventCardProps) {
           />
         </div>
 
-        {/* Middle: Text stack */}
         <div className="flex-1 min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-1">
+            {eventCategoryLabel && (
+              <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-medium">
+                {eventCategoryLabel}
+              </Badge>
+            )}
+            {badgeText && (
+              <Badge variant={event.is_promoted ? "default" : "secondary"} className="h-5 px-1.5 text-[10px] font-semibold">
+                {badgeText}
+              </Badge>
+            )}
+          </div>
+
           <h3 className="font-semibold text-sm leading-tight line-clamp-2">{event.title}</h3>
 
           <p className="text-xs text-muted-foreground">
@@ -77,16 +88,9 @@ export function EventCard({ event }: EventCardProps) {
 
           <p className="text-xs font-medium">{priceLabel}</p>
 
-          {badgeText && (
-            <Badge variant={event.is_promoted ? "default" : "secondary"} className="text-[10px] h-5 px-2 font-semibold">
-              {badgeText}
-            </Badge>
-          )}
-
           {event.organizer_name && <p className="text-[10px] text-muted-foreground">by {event.organizer_name}</p>}
         </div>
 
-        {/* Right: Heart icon button */}
         <Button
           variant="ghost"
           size="icon"
@@ -108,14 +112,18 @@ export function EventCard({ event }: EventCardProps) {
               loading="lazy"
             />
 
-            {badgeText && (
-              <Badge
-                variant={event.is_promoted ? "default" : "secondary"}
-                className="absolute left-3 top-3 bg-background/90 backdrop-blur"
-              >
-                {badgeText}
-              </Badge>
-            )}
+            <div className="absolute left-3 top-3 flex flex-wrap gap-2">
+              {eventCategoryLabel && (
+                <Badge variant="outline" className="bg-background/90 backdrop-blur">
+                  {eventCategoryLabel}
+                </Badge>
+              )}
+              {badgeText && (
+                <Badge variant={event.is_promoted ? "default" : "secondary"} className="bg-background/90 backdrop-blur">
+                  {badgeText}
+                </Badge>
+              )}
+            </div>
 
             <Button
               variant="ghost"
@@ -129,7 +137,6 @@ export function EventCard({ event }: EventCardProps) {
           </div>
 
           <div className="p-4 leading-4 px-2.5 py-6 shadow-none border-none space-y-1">
-            {/* Removed Calendar icon, keeping only the date text */}
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span className="text-xs">{formatDateShort(event.starts_at)}</span>
             </div>
