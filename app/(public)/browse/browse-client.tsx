@@ -15,35 +15,26 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import type { EventSummary } from "@/types"
+import type { EventCategoryOption } from "@/lib/data/event-categories"
 
 interface BrowseClientProps {
   initialEvents: EventSummary[]
+  categories: EventCategoryOption[]
 }
-
-const CATEGORIES = [
-  "All Categories",
-  "Music",
-  "Lifestyle",
-  "Other Sport",
-  "Soccer",
-  "Comedy",
-  "Rugby",
-  "Cricket",
-  "Hospitality",
-  "Park and Ride",
-  "Theatre",
-]
 
 const DATE_FILTERS = ["Any time", "Today", "This Weekend", "This Week", "This Month", "Next 30 Days"]
 
-export default function BrowseClient({ initialEvents }: BrowseClientProps) {
+export default function BrowseClient({ initialEvents, categories }: BrowseClientProps) {
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState("All Categories")
+  const [selectedCategory, setSelectedCategory] = useState("all")
   const [selectedDate, setSelectedDate] = useState("Any time")
   const [selectedLocation, setSelectedLocation] = useState("all")
   const [priceMin, setPriceMin] = useState("")
   const [priceMax, setPriceMax] = useState("")
   const [sortBy, setSortBy] = useState("date")
+
+  const categoryOptions = useMemo(() => [{ name: "All Categories", slug: "all" }, ...categories], [categories])
+  const categoryNameBySlug = useMemo(() => new Map(categories.map((category) => [category.slug, category.name])), [categories])
 
   const locations = useMemo(() => {
     const locs = new Set<string>()
@@ -55,27 +46,25 @@ export default function BrowseClient({ initialEvents }: BrowseClientProps) {
 
   const filteredEvents = useMemo(() => {
     const results = initialEvents.filter((event) => {
-      // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase()
+        const categoryLabel = event.category ? categoryNameBySlug.get(event.category)?.toLowerCase() : ""
         const matchesSearch =
           event.title.toLowerCase().includes(query) ||
           event.location?.toLowerCase().includes(query) ||
-          event.category?.toLowerCase().includes(query)
+          event.category?.toLowerCase().includes(query) ||
+          categoryLabel?.includes(query)
         if (!matchesSearch) return false
       }
 
-      // Category filter
-      if (selectedCategory !== "All Categories" && event.category !== selectedCategory) {
+      if (selectedCategory !== "all" && event.category !== selectedCategory) {
         return false
       }
 
-      // Location filter
       if (selectedLocation !== "all" && event.location !== selectedLocation) {
         return false
       }
 
-      // Price filter
       if (priceMin && event.minimum_price != null && event.minimum_price < Number.parseInt(priceMin)) {
         return false
       }
@@ -83,7 +72,6 @@ export default function BrowseClient({ initialEvents }: BrowseClientProps) {
         return false
       }
 
-      // Date filter
       if (selectedDate !== "Any time" && event.starts_at) {
         const eventDate = new Date(event.starts_at)
         const now = new Date()
@@ -142,12 +130,12 @@ export default function BrowseClient({ initialEvents }: BrowseClientProps) {
     }
 
     return results
-  }, [initialEvents, searchQuery, selectedCategory, selectedDate, selectedLocation, priceMin, priceMax, sortBy])
+  }, [initialEvents, searchQuery, selectedCategory, selectedDate, selectedLocation, priceMin, priceMax, sortBy, categoryNameBySlug])
 
   const activeFilters = useMemo(() => {
     const filters: Array<{ label: string; onRemove: () => void }> = []
-    if (selectedCategory !== "All Categories") {
-      filters.push({ label: selectedCategory, onRemove: () => setSelectedCategory("All Categories") })
+    if (selectedCategory !== "all") {
+      filters.push({ label: categoryNameBySlug.get(selectedCategory) ?? selectedCategory, onRemove: () => setSelectedCategory("all") })
     }
     if (selectedDate !== "Any time") {
       filters.push({ label: selectedDate, onRemove: () => setSelectedDate("Any time") })
@@ -162,10 +150,10 @@ export default function BrowseClient({ initialEvents }: BrowseClientProps) {
       filters.push({ label: `Max: R${priceMax}`, onRemove: () => setPriceMax("") })
     }
     return filters
-  }, [selectedCategory, selectedDate, selectedLocation, priceMin, priceMax])
+  }, [selectedCategory, selectedDate, selectedLocation, priceMin, priceMax, categoryNameBySlug])
 
   const clearAllFilters = () => {
-    setSelectedCategory("All Categories")
+    setSelectedCategory("all")
     setSelectedDate("Any time")
     setSelectedLocation("all")
     setPriceMin("")
@@ -174,7 +162,6 @@ export default function BrowseClient({ initialEvents }: BrowseClientProps) {
 
   return (
     <>
-      {/* Mobile View: < lg */}
       <div className="lg:hidden px-4 py-6 space-y-4">
         <div className="flex items-center gap-3">
           <div className="relative flex-1">
@@ -198,22 +185,20 @@ export default function BrowseClient({ initialEvents }: BrowseClientProps) {
                 <SheetTitle>Filters</SheetTitle>
               </SheetHeader>
               <div className="mt-6 space-y-6 overflow-y-auto h-[calc(85vh-80px)] pb-4">
-                {/* Categories */}
                 <div className="space-y-3">
                   <h3 className="font-semibold text-sm">Categories</h3>
                   <RadioGroup value={selectedCategory} onValueChange={setSelectedCategory}>
-                    {CATEGORIES.map((category) => (
-                      <div key={category} className="flex items-center space-x-2">
-                        <RadioGroupItem value={category} id={`mobile-${category}`} />
-                        <Label htmlFor={`mobile-${category}`} className="text-sm font-normal cursor-pointer">
-                          {category}
+                    {categoryOptions.map((category) => (
+                      <div key={category.slug} className="flex items-center space-x-2">
+                        <RadioGroupItem value={category.slug} id={`mobile-${category.slug}`} />
+                        <Label htmlFor={`mobile-${category.slug}`} className="text-sm font-normal cursor-pointer">
+                          {category.name}
                         </Label>
                       </div>
                     ))}
                   </RadioGroup>
                 </div>
 
-                {/* Date */}
                 <div className="space-y-3">
                   <h3 className="font-semibold text-sm">Date</h3>
                   <RadioGroup value={selectedDate} onValueChange={setSelectedDate}>
@@ -228,7 +213,6 @@ export default function BrowseClient({ initialEvents }: BrowseClientProps) {
                   </RadioGroup>
                 </div>
 
-                {/* Location */}
                 <div className="space-y-3">
                   <h3 className="font-semibold text-sm">Location</h3>
                   <Select value={selectedLocation} onValueChange={setSelectedLocation}>
@@ -246,24 +230,11 @@ export default function BrowseClient({ initialEvents }: BrowseClientProps) {
                   </Select>
                 </div>
 
-                {/* Price Range */}
                 <div className="space-y-3">
                   <h3 className="font-semibold text-sm">Price Range</h3>
                   <div className="space-y-2">
-                    <Input
-                      type="number"
-                      placeholder="Min (R)"
-                      value={priceMin}
-                      onChange={(e) => setPriceMin(e.target.value)}
-                      aria-label="Minimum price"
-                    />
-                    <Input
-                      type="number"
-                      placeholder="Max (R)"
-                      value={priceMax}
-                      onChange={(e) => setPriceMax(e.target.value)}
-                      aria-label="Maximum price"
-                    />
+                    <Input type="number" placeholder="Min (R)" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} aria-label="Minimum price" />
+                    <Input type="number" placeholder="Max (R)" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} aria-label="Maximum price" />
                   </div>
                 </div>
               </div>
@@ -275,7 +246,6 @@ export default function BrowseClient({ initialEvents }: BrowseClientProps) {
           {filteredEvents.length} event{filteredEvents.length !== 1 && "s"}
         </div>
 
-        {/* Mobile Organizer CTA */}
         <div className="bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 rounded-lg p-4 space-y-3">
           <div className="flex items-start gap-2">
             <Zap className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
@@ -293,16 +263,13 @@ export default function BrowseClient({ initialEvents }: BrowseClientProps) {
 
         {filteredEvents.length > 0 ? (
           <div className="space-y-4">
-            {filteredEvents.map((event) => (
-              <EventCard key={event.id} event={event} />
-            ))}
+            {filteredEvents.map((event) => <EventCard key={event.id} event={event} />)}
           </div>
         ) : (
           <NoEventsFound />
         )}
       </div>
 
-      {/* Desktop View: >= lg */}
       <div className="hidden lg:block max-w-[1200px] mx-auto py-0 px-6 pb-12 space-y-6">
         <div className="flex gap-6">
           <aside className="w-64 flex-shrink-0 space-y-6 sticky top-8 self-start">
@@ -310,7 +277,6 @@ export default function BrowseClient({ initialEvents }: BrowseClientProps) {
               <h2 className="text-lg font-bold mb-4">Filters</h2>
             </div>
 
-            {/* Organizer CTA Card */}
             <div className="bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 rounded-lg p-4 space-y-3">
               <div className="flex items-start gap-2">
                 <Zap className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
@@ -326,22 +292,20 @@ export default function BrowseClient({ initialEvents }: BrowseClientProps) {
               </Button>
             </div>
 
-            {/* Categories */}
             <div className="space-y-3">
               <h3 className="font-semibold text-sm">Categories</h3>
               <RadioGroup value={selectedCategory} onValueChange={setSelectedCategory}>
-                {CATEGORIES.map((category) => (
-                  <div key={category} className="flex items-center space-x-2">
-                    <RadioGroupItem value={category} id={category} />
-                    <Label htmlFor={category} className="text-sm font-normal cursor-pointer">
-                      {category}
+                {categoryOptions.map((category) => (
+                  <div key={category.slug} className="flex items-center space-x-2">
+                    <RadioGroupItem value={category.slug} id={category.slug} />
+                    <Label htmlFor={category.slug} className="text-sm font-normal cursor-pointer">
+                      {category.name}
                     </Label>
                   </div>
                 ))}
               </RadioGroup>
             </div>
 
-            {/* Date */}
             <div className="space-y-3">
               <h3 className="font-semibold text-sm">Date</h3>
               <RadioGroup value={selectedDate} onValueChange={setSelectedDate}>
@@ -356,7 +320,6 @@ export default function BrowseClient({ initialEvents }: BrowseClientProps) {
               </RadioGroup>
             </div>
 
-            {/* Location */}
             <div className="space-y-3">
               <h3 className="font-semibold text-sm">Location</h3>
               <Select value={selectedLocation} onValueChange={setSelectedLocation}>
@@ -374,26 +337,11 @@ export default function BrowseClient({ initialEvents }: BrowseClientProps) {
               </Select>
             </div>
 
-            {/* Price Range */}
             <div className="space-y-3">
               <h3 className="font-semibold text-sm">Price Range</h3>
               <div className="space-y-2">
-                <Input
-                  type="number"
-                  placeholder="Min (R)"
-                  value={priceMin}
-                  onChange={(e) => setPriceMin(e.target.value)}
-                  className="h-9"
-                  aria-label="Minimum price"
-                />
-                <Input
-                  type="number"
-                  placeholder="Max (R)"
-                  value={priceMax}
-                  onChange={(e) => setPriceMax(e.target.value)}
-                  className="h-9"
-                  aria-label="Maximum price"
-                />
+                <Input type="number" placeholder="Min (R)" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} className="h-9" aria-label="Minimum price" />
+                <Input type="number" placeholder="Max (R)" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} className="h-9" aria-label="Maximum price" />
               </div>
             </div>
           </aside>
@@ -401,11 +349,7 @@ export default function BrowseClient({ initialEvents }: BrowseClientProps) {
           <main className="flex-1 space-y-6">
             <div className="space-y-4">
               <div className="relative">
-                <SearchInput
-                  placeholder="Search events, venues, or artists..."
-                  value={searchQuery}
-                  onChange={setSearchQuery}
-                />
+                <SearchInput placeholder="Search events, venues, or artists..." value={searchQuery} onChange={setSearchQuery} />
               </div>
 
               <div className="flex items-center justify-between">
@@ -429,13 +373,7 @@ export default function BrowseClient({ initialEvents }: BrowseClientProps) {
                   {searchQuery && (
                     <Badge variant="secondary" className="gap-1 pr-1">
                       Search: {searchQuery}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-4 w-4 p-0 hover:bg-transparent"
-                        onClick={() => setSearchQuery("")}
-                        aria-label="Clear search"
-                      >
+                      <Button variant="ghost" size="icon" className="h-4 w-4 p-0 hover:bg-transparent" onClick={() => setSearchQuery("")} aria-label="Clear search">
                         <X className="h-3 w-3" />
                       </Button>
                     </Badge>
@@ -443,13 +381,7 @@ export default function BrowseClient({ initialEvents }: BrowseClientProps) {
                   {activeFilters.map((filter, index) => (
                     <Badge key={index} variant="secondary" className="gap-1 pr-1">
                       {filter.label}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-4 w-4 p-0 hover:bg-transparent"
-                        onClick={filter.onRemove}
-                        aria-label={`Remove ${filter.label} filter`}
-                      >
+                      <Button variant="ghost" size="icon" className="h-4 w-4 p-0 hover:bg-transparent" onClick={filter.onRemove} aria-label={`Remove ${filter.label} filter`}>
                         <X className="h-3 w-3" />
                       </Button>
                     </Badge>
@@ -465,9 +397,7 @@ export default function BrowseClient({ initialEvents }: BrowseClientProps) {
 
             {filteredEvents.length > 0 ? (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 shadow-none">
-                {filteredEvents.map((event) => (
-                  <EventCard key={event.id} event={event} />
-                ))}
+                {filteredEvents.map((event) => <EventCard key={event.id} event={event} />)}
               </div>
             ) : (
               <NoEventsFound />
