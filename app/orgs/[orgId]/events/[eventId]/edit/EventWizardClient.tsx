@@ -7,11 +7,12 @@ import { useEventRealtime } from "@/hooks/use-event-realtime"
 import { BasicsStep } from "@/components/event-wizard/steps/BasicsStep"
 import { VenueStep } from "@/components/event-wizard/steps/VenueStep"
 import { ScheduleStep } from "@/components/event-wizard/steps/ScheduleStep"
+import { LineupStep } from "@/components/event-wizard/steps/LineupStep"
 import { TicketsStep } from "@/components/event-wizard/steps/TicketsStep"
 import { PoliciesStep } from "@/components/event-wizard/steps/PoliciesStep"
 import { PublishStep } from "@/components/event-wizard/steps/PublishStep"
 
-const steps = ["basics", "venue", "schedule", "tickets", "policies", "publish"] as const
+const steps = ["basics", "venue", "schedule", "lineup", "tickets", "policies", "publish"] as const
 
 export default function EventWizardClient({ orgId, eventId }: { orgId: string; eventId: string }) {
   const router = useRouter()
@@ -63,7 +64,7 @@ export default function EventWizardClient({ orgId, eventId }: { orgId: string; e
         <div>
           <h1 className="text-xl font-semibold">{event.title ?? "Untitled event"}</h1>
           <p className="text-sm text-muted-foreground">
-            Status: {event.status ?? "draft"} {saveState === "saving" ? "• Saving..." : saveState === "saved" ? "• Saved" : ""}
+            Status: {event.status ?? "draft"} {saveState === "saving" ? "Saving..." : saveState === "saved" ? "Saved" : ""}
           </p>
         </div>
       </div>
@@ -80,6 +81,7 @@ export default function EventWizardClient({ orgId, eventId }: { orgId: string; e
         {step === "basics" && <BasicsStep event={event} onSaving={() => setSaveState("saving")} onError={() => setSaveState("error")} />}
         {step === "venue" && <VenueStep eventId={eventId} onSaving={() => setSaveState("saving")} />}
         {step === "schedule" && <ScheduleStep eventId={eventId} onSaving={() => setSaveState("saving")} />}
+        {step === "lineup" && <LineupStep eventId={eventId} onSaving={() => setSaveState("saving")} />}
         {step === "tickets" && <TicketsStep eventId={eventId} onSaving={() => setSaveState("saving")} />}
         {step === "policies" && <PoliciesStep eventId={eventId} onSaving={() => setSaveState("saving")} />}
         {step === "publish" && <PublishStep event={event} onSaving={() => setSaveState("saving")} />}
