@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useEventRealtime } from "@/hooks/use-event-realtime"
 
+import { EventReadinessPanel } from "@/components/event-wizard/EventReadinessPanel"
 import { BasicsStep } from "@/components/event-wizard/steps/BasicsStep"
 import { VenueStep } from "@/components/event-wizard/steps/VenueStep"
 import { ScheduleStep } from "@/components/event-wizard/steps/ScheduleStep"
@@ -23,6 +24,7 @@ export default function EventWizardClient({ orgId, eventId }: { orgId: string; e
   const [event, setEvent] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle")
+  const [readinessRefreshKey, setReadinessRefreshKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -46,6 +48,7 @@ export default function EventWizardClient({ orgId, eventId }: { orgId: string; e
     if (payload?.eventType === "UPDATE" || payload?.eventType === "INSERT") {
       setEvent((prev: any) => ({ ...(prev ?? {}), ...(payload.new ?? {}) }))
       setSaveState("saved")
+      setReadinessRefreshKey((prev) => prev + 1)
       setTimeout(() => setSaveState("idle"), 1000)
     }
   }, [])
@@ -56,38 +59,49 @@ export default function EventWizardClient({ orgId, eventId }: { orgId: string; e
     router.push(`/orgs/${orgId}/events/${eventId}/edit?step=${next}`)
   }
 
+  function handleSaving() {
+    setSaveState("saving")
+    setTimeout(() => {
+      setReadinessRefreshKey((prev) => prev + 1)
+    }, 600)
+  }
+
   if (loading) return <div className="p-6">Loading...</div>
   if (!event) return <div className="p-6">No access or event not found.</div>
 
   return (
-    <div className="space-y-4 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">{event.title ?? "Untitled event"}</h1>
-          <p className="text-sm text-muted-foreground">
-            Status: {event.status ?? "draft"} {saveState === "saving" ? "Saving..." : saveState === "saved" ? "Saved" : ""}
-          </p>
+    <div className="grid gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold">{event.title ?? "Untitled event"}</h1>
+            <p className="text-sm text-muted-foreground">
+              Status: {event.status ?? "draft"} {saveState === "saving" ? "Saving..." : saveState === "saved" ? "Saved" : ""}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {steps.map((s) => (
+            <button key={s} onClick={() => go(s)} className={`rounded-full px-4 py-2 text-sm transition ${s === step ? "bg-black text-white" : "bg-muted hover:bg-muted/80"}`}>
+              {s}
+            </button>
+          ))}
+        </div>
+
+        <div className="rounded-2xl border bg-background p-4 shadow-sm">
+          {step === "basics" && <BasicsStep event={event} onSaving={handleSaving} onError={() => setSaveState("error")} />}
+          {step === "venue" && <VenueStep eventId={eventId} onSaving={handleSaving} />}
+          {step === "schedule" && <ScheduleStep eventId={eventId} onSaving={handleSaving} />}
+          {step === "lineup" && <LineupStep eventId={eventId} onSaving={handleSaving} />}
+          {step === "tickets" && <TicketsStep eventId={eventId} onSaving={handleSaving} />}
+          {step === "policies" && <PoliciesStep eventId={eventId} onSaving={handleSaving} />}
+          {step === "staff" && <StaffStep eventId={eventId} onSaving={handleSaving} />}
+          {step === "publish" && <PublishStep event={event} onSaving={handleSaving} />}
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {steps.map((s) => (
-          <button key={s} onClick={() => go(s)} className={`rounded-lg px-3 py-2 text-sm ${s === step ? "bg-black text-white" : "bg-muted"}`}>
-            {s}
-          </button>
-        ))}
-      </div>
-
-      <div className="rounded-xl border p-4">
-        {step === "basics" && <BasicsStep event={event} onSaving={() => setSaveState("saving")} onError={() => setSaveState("error")} />}
-        {step === "venue" && <VenueStep eventId={eventId} onSaving={() => setSaveState("saving")} />}
-        {step === "schedule" && <ScheduleStep eventId={eventId} onSaving={() => setSaveState("saving")} />}
-        {step === "lineup" && <LineupStep eventId={eventId} onSaving={() => setSaveState("saving")} />}
-        {step === "tickets" && <TicketsStep eventId={eventId} onSaving={() => setSaveState("saving")} />}
-        {step === "policies" && <PoliciesStep eventId={eventId} onSaving={() => setSaveState("saving")} />}
-        {step === "staff" && <StaffStep eventId={eventId} onSaving={() => setSaveState("saving")} />}
-        {step === "publish" && <PublishStep event={event} onSaving={() => setSaveState("saving")} />}
-      </div>
+      <EventReadinessPanel eventId={eventId} refreshKey={readinessRefreshKey} />
     </div>
   )
 }
