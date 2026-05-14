@@ -15,10 +15,12 @@ interface WorkspaceShellProps {
   requireAuth?: boolean
 }
 
+type ShellUser = { id?: string; email?: string }
+
 export function WorkspaceShell({ workspace, children, requireAuth = false }: WorkspaceShellProps) {
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
-  const [user, setUser] = useState<{ email?: string } | null>(null)
+  const [user, setUser] = useState<ShellUser | null>(null)
   const [loading, setLoading] = useState(requireAuth)
   const [error, setError] = useState<string | null>(null)
 
@@ -31,7 +33,7 @@ export function WorkspaceShell({ workspace, children, requireAuth = false }: Wor
         if (demoUser) {
           console.log("[v0] Demo session found:", demoUser.email)
           if (active) {
-            setUser({ email: demoUser.email })
+            setUser({ id: demoUser.id, email: demoUser.email })
             setLoading(false)
           }
           return
@@ -66,7 +68,7 @@ export function WorkspaceShell({ workspace, children, requireAuth = false }: Wor
         }
 
         if (active) {
-          setUser(session?.user ?? null)
+          setUser(session?.user ? { id: session.user.id, email: session.user.email } : null)
           setLoading(false)
         }
       } catch (err) {
@@ -83,7 +85,7 @@ export function WorkspaceShell({ workspace, children, requireAuth = false }: Wor
     if (supabase) {
       const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
         if (!active) return
-        setUser(session?.user ?? null)
+        setUser(session?.user ? { id: session.user.id, email: session.user.email } : null)
         if (!session && requireAuth) {
           const demoUser = getDemoSession()
           if (!demoUser) {
