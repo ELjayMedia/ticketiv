@@ -46,6 +46,7 @@ const NAV_GROUPS: Array<{
   {
     label: "Event Operations",
     items: [
+      { label: "Event Categories", href: "/super-admin/event-categories", icon: Flag },
       { label: "Guestlists", href: "/super-admin/guestlist-entries", icon: ClipboardList },
       { label: "Coupons & Vouchers", href: "/super-admin/price-rules", icon: Flag },
       { label: "Scanning & Devices", href: "/super-admin/devices", icon: QrCode },
