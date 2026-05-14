@@ -32,12 +32,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (items.length === 0) return NextResponse.json({ error: "Select at least one ticket" }, { status: 400 })
   if (items.length > 20) return NextResponse.json({ error: "Too many line items" }, { status: 400 })
 
-  const { data: event, error: eventError } = await admin
-    .from("events")
-    .select("id, org_id, status, visibility")
-    .eq("id", eventId)
-    .maybeSingle()
-
+  const { data: event, error: eventError } = await admin.from("events").select("id, org_id, status, visibility").eq("id", eventId).maybeSingle()
   if (eventError) return NextResponse.json({ error: eventError.message }, { status: 400 })
   if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 })
   if (event.status !== "published") return NextResponse.json({ error: "Event is not published" }, { status: 409 })
@@ -139,14 +134,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const { error: itemError } = await admin.from("order_items").insert(orderItems)
   if (itemError) return NextResponse.json({ error: itemError.message }, { status: 400 })
-
-  await admin.from("payment_attempts").insert({
-    order_id: order.id,
-    provider: "manual",
-    attempt_no: 1,
-    status: "pending",
-    payload: { source: "ticketiv_checkout" },
-  })
 
   await admin.from("audit_log").insert({
     org_id: event.org_id,
