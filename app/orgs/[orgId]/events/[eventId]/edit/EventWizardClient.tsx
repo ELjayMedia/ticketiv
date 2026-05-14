@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { createClientSupabaseClient } from "@/lib/supabase-client"
 import { useEventRealtime } from "@/hooks/use-event-realtime"
 
 import { BasicsStep } from "@/components/event-wizard/steps/BasicsStep"
@@ -23,22 +22,15 @@ export default function EventWizardClient({ orgId, eventId }: { orgId: string; e
   const [loading, setLoading] = useState(true)
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle")
 
-  // initial load (client)
   useEffect(() => {
     let cancelled = false
     async function load() {
       setLoading(true)
-      const supabase = createClientSupabaseClient()
-      const { data, error } = await supabase
-        .from("events")
-        .select("*")
-        .eq("id", eventId)
-        .eq("org_id", orgId)
-        .single()
-
+      const response = await fetch(`/api/events/${eventId}`, { cache: "no-store" })
+      const payload = await response.json().catch(() => ({}))
       if (!cancelled) {
-        if (error) setEvent(null)
-        else setEvent(data)
+        if (!response.ok || !payload.event || payload.event.org_id !== orgId) setEvent(null)
+        else setEvent(payload.event)
         setLoading(false)
       }
     }
@@ -48,7 +40,6 @@ export default function EventWizardClient({ orgId, eventId }: { orgId: string; e
     }
   }, [orgId, eventId])
 
-  // realtime merge
   const onRealtimeChange = useCallback((payload: any) => {
     if (payload?.eventType === "UPDATE" || payload?.eventType === "INSERT") {
       setEvent((prev: any) => ({ ...(prev ?? {}), ...(payload.new ?? {}) }))
