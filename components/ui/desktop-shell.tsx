@@ -11,7 +11,6 @@ import {
   Settings,
   LogOut,
   Search,
-  Bell,
   ChevronDown,
   Building2,
   LayoutDashboard,
@@ -31,11 +30,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
+import { NotificationBell } from "@/components/ui/notification-bell"
 import { useState } from "react"
 
 interface DesktopShellProps {
   children: React.ReactNode
-  user?: { email?: string }
+  user?: { id?: string; email?: string }
   workspace: "public" | "app" | "organizer" | "scanner"
   onLogout?: () => void
 }
@@ -192,52 +192,7 @@ export function DesktopShell({ children, user, workspace, onLogout }: DesktopShe
             )}
 
             {/* Notifications */}
-            {user && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="relative focus:ring-2 focus:ring-primary"
-                    aria-label="Notifications"
-                  >
-                    <Bell className="h-5 w-5" aria-hidden="true" />
-                    <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
-                      3
-                    </Badge>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[350px]">
-                  <DropdownMenuLabel>Notifications</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem>
-                    <div>
-                      <p className="font-medium">New ticket sale</p>
-                      <p className="text-xs text-muted-foreground">2 tickets sold for Summer Festival</p>
-                      <p className="text-xs text-muted-foreground mt-1">2 hours ago</p>
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <div>
-                      <p className="font-medium">Event starting soon</p>
-                      <p className="text-xs text-muted-foreground">Tech Conference starts in 24 hours</p>
-                      <p className="text-xs text-muted-foreground mt-1">5 hours ago</p>
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <div>
-                      <p className="font-medium">Payment received</p>
-                      <p className="text-xs text-muted-foreground">$250.00 deposited to your account</p>
-                      <p className="text-xs text-muted-foreground mt-1">1 day ago</p>
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/notifications">View all notifications</Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+            {user?.id && <NotificationBell userId={user.id} />}
 
             {/* Profile Menu */}
             {user ? (
