@@ -17,6 +17,7 @@ import {
   Users,
   ScanLine,
   Plus,
+  ShieldCheck,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -31,6 +32,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { NotificationBell } from "@/components/ui/notification-bell"
+import { usePermissions } from "@/lib/providers/permissions-provider"
 import { useState } from "react"
 
 interface DesktopShellProps {
@@ -43,7 +45,11 @@ interface DesktopShellProps {
 export function DesktopShell({ children, user, workspace, onLogout }: DesktopShellProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const { permissions } = usePermissions()
   const [searchQuery, setSearchQuery] = useState("")
+
+  const isSuperAdmin = Boolean(permissions?.isGlobalAdmin)
+  const isOrganizer = Boolean(permissions?.orgMemberships?.length)
 
   const navigation = {
     public: [
@@ -89,7 +95,6 @@ export function DesktopShell({ children, user, workspace, onLogout }: DesktopShe
     <div className="hidden lg:flex lg:flex-col min-h-screen">
       <header className="h-16 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60 sticky top-0 z-40">
         <div className="flex items-center justify-between h-full px-6 gap-6">
-          {/* Logo */}
           <Link
             href="/"
             className="flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary rounded flex-shrink-0"
@@ -122,7 +127,6 @@ export function DesktopShell({ children, user, workspace, onLogout }: DesktopShe
             })}
           </nav>
 
-          {/* Search - Only show for non-public workspace */}
           {workspace !== "public" && (
             <form onSubmit={handleSearch} className="flex-1 max-w-md">
               <div className="relative">
@@ -142,7 +146,6 @@ export function DesktopShell({ children, user, workspace, onLogout }: DesktopShe
             </form>
           )}
 
-          {/* Create Event Button - Show for organizer and app workspaces */}
           {(workspace === "organizer" || workspace === "app") && (
             <Button asChild className="gap-2" aria-label="Create new event">
               <Link href="/events/create">
@@ -153,7 +156,6 @@ export function DesktopShell({ children, user, workspace, onLogout }: DesktopShe
           )}
 
           <div className="flex items-center gap-2">
-            {/* Organization Switcher */}
             {workspace === "organizer" && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -191,10 +193,8 @@ export function DesktopShell({ children, user, workspace, onLogout }: DesktopShe
               </DropdownMenu>
             )}
 
-            {/* Notifications */}
             {user?.id && <NotificationBell userId={user.id} />}
 
-            {/* Profile Menu */}
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -208,9 +208,44 @@ export function DesktopShell({ children, user, workspace, onLogout }: DesktopShe
                     <ChevronDown className="h-4 w-4" aria-hidden="true" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[200px]">
+                <DropdownMenuContent align="end" className="w-[240px]">
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
+
+                  {isSuperAdmin && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/super-admin">
+                        <ShieldCheck className="h-4 w-4 mr-2" aria-hidden="true" />
+                        Super Admin Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+
+                  {isOrganizer && (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link href="/dashboard">
+                          <LayoutDashboard className="h-4 w-4 mr-2" aria-hidden="true" />
+                          Organizer Dashboard
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/events">
+                          <Calendar className="h-4 w-4 mr-2" aria-hidden="true" />
+                          Manage Events
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/events?tab=orders">
+                          <Users className="h-4 w-4 mr-2" aria-hidden="true" />
+                          Orders & Guests
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+
+                  {(isSuperAdmin || isOrganizer) && <DropdownMenuSeparator />}
+
                   <DropdownMenuItem asChild>
                     <Link href="/my-tickets">
                       <TicketIcon className="h-4 w-4 mr-2" aria-hidden="true" />
@@ -230,28 +265,10 @@ export function DesktopShell({ children, user, workspace, onLogout }: DesktopShe
                     </Link>
                   </DropdownMenuItem>
 
-                  {workspace === "organizer" && (
+                  {isOrganizer && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuLabel>Organizer Tools</DropdownMenuLabel>
-                      <DropdownMenuItem asChild>
-                        <Link href="/dashboard">
-                          <LayoutDashboard className="h-4 w-4 mr-2" aria-hidden="true" />
-                          Dashboard
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/events">
-                          <Calendar className="h-4 w-4 mr-2" aria-hidden="true" />
-                          Manage Events
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/events?tab=orders">
-                          <Users className="h-4 w-4 mr-2" aria-hidden="true" />
-                          Orders & Guests
-                        </Link>
-                      </DropdownMenuItem>
                       <DropdownMenuItem asChild>
                         <Link href="/scan">
                           <ScanLine className="h-4 w-4 mr-2" aria-hidden="true" />
@@ -282,7 +299,6 @@ export function DesktopShell({ children, user, workspace, onLogout }: DesktopShe
         </div>
       </header>
 
-      {/* Main content with route outlet */}
       <main className="w-full px-4 sm:px-6 lg:px-0 py-0">
         <div
           className="fixed inset-0 top-16 -z-10 opacity-0 transition-opacity duration-500"
