@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 
+import { notifyEventChanged, notifyEventPublished } from "@/lib/notifications"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
@@ -78,9 +79,10 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: "Complete the readiness checklist before publishing.", readiness }, { status: 400 })
   }
 
+  const nextStatus = publish ? "published" : "draft"
   const { data: updatedEvent, error } = await admin
     .from("events")
-    .update({ status: publish ? "published" : "draft", published_at: publish ? new Date().toISOString() : null, visibility: publish ? "public" : event.visibility })
+    .update({ status: nextStatus, published_at: publish ? new Date().toISOString() : null, visibility: publish ? "public" : event.visibility })
     .eq("id", eventId)
     .select("id, org_id, title, category, venue_id, starts_at, ends_at, status, visibility")
     .maybeSingle()
@@ -93,8 +95,14 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     table_name: "events",
     record_id: eventId,
     action: "update",
-    changes: { status: publish ? "published" : "draft" },
+    changes: { status: nextStatus },
   })
+
+  if (publish && event.status !== "published") {
+    await notifyEventPublished({ orgId: event.org_id, eventId, title: updatedEvent?.title ?? event.title, actorId: userId })
+  } else if (!publish && event.status === "published") {
+    await notifyEventChanged({ orgId: event.org_id, eventId, title: updatedEvent?.title ?? event.title, changeType: "unpublished", actorId: userId, changes: { status: nextStatus } })
+  }
 
   const nextReadiness = await buildReadiness(admin, updatedEvent)
   return NextResponse.json({ event: updatedEvent, readiness: nextReadiness })
