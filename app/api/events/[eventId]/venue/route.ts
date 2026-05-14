@@ -144,9 +144,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (venueError) throw venueError
   if (!venue) return NextResponse.json({ error: "Venue not found" }, { status: 404 })
 
+  const nextCity = venue.city ?? (city || null)
   const { error: updateError } = await admin
     .from("events")
-    .update({ venue_id: venue.id, city: venue.city ?? city || null })
+    .update({ venue_id: venue.id, city: nextCity })
     .eq("id", eventId)
 
   if (updateError) {
