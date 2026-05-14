@@ -8,7 +8,7 @@ import { Toaster } from "@/components/ui/toaster"
 
 interface AppShellProps {
   children: React.ReactNode
-  user?: { email?: string }
+  user?: { id?: string; email?: string }
   workspace?: "public" | "app" | "organizer" | "scanner"
   onLogout?: () => void
 }
