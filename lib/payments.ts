@@ -5,6 +5,7 @@ import crypto, { randomUUID } from "crypto"
 import { APP_URL, PAYSTACK_SECRET_KEY } from "@/lib/env"
 import { completePaidOrder } from "@/lib/orders"
 import { notifyPaymentFailed, notifyPaymentSucceeded, notifyTicketPurchaseSucceeded } from "@/lib/notifications"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export type PaymentProvider = "deltapay" | "paystack" | "flutterwave" | "manual"
@@ -18,16 +19,21 @@ type LiveOrder = {
   status: "pending" | "paid" | "failed" | "refunded"
   email?: string | null
   buyer_email?: string | null
+  subtotal_cents?: number | null
+  platform_fee_cents?: number | null
+  processor_fee_cents?: number | null
 }
 
 type PaystackInitializeResponse = {
   status: boolean
   message: string
-  data?: {
-    authorization_url: string
-    access_code: string
-    reference: string
-  }
+  data?: { authorization_url: string; access_code: string; reference: string }
+}
+
+type PaystackSettings = {
+  secretKey: string
+  webhookSecret?: string | null
+  callbackUrl?: string | null
 }
 
 export interface CreatePaymentAttemptInput {
@@ -45,9 +51,20 @@ export interface CompleteVerifiedPaymentInput {
 }
 
 function assertProvider(provider: string): asserts provider is PaymentProvider {
-  if (!["deltapay", "paystack", "flutterwave", "manual"].includes(provider)) {
-    throw new Error("Unsupported payment provider")
-  }
+  if (!["deltapay", "paystack", "flutterwave", "manual"].includes(provider)) throw new Error("Unsupported payment provider")
+}
+
+async function getPaystackSettings(): Promise<PaystackSettings> {
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from("payment_provider_settings")
+    .select("is_enabled, secret_key, webhook_secret, callback_url")
+    .eq("provider", "paystack")
+    .maybeSingle()
+
+  const secretKey = data?.is_enabled && data.secret_key ? data.secret_key : PAYSTACK_SECRET_KEY
+  if (!secretKey) throw new Error("Missing Paystack secret key")
+  return { secretKey, webhookSecret: data?.webhook_secret ?? null, callbackUrl: data?.callback_url ?? null }
 }
 
 async function getPendingOrder(orderId: string, userId?: string) {
@@ -58,12 +75,10 @@ async function getPendingOrder(orderId: string, userId?: string) {
   if (userId) query = query.eq("buyer_id", userId)
 
   const { data: order, error } = await query.maybeSingle<LiveOrder>()
-
   if (error) {
     console.error("Failed to load order", error)
     throw new Error("Unable to load order")
   }
-
   if (!order) throw new Error("Order not found")
   if (order.status !== "pending") throw new Error(`Order is not payable from status: ${order.status}`)
 
@@ -76,24 +91,16 @@ function getBuyerEmail(order: LiveOrder) {
   return email
 }
 
-function toPaystackAmount(order: LiveOrder) {
-  return order.total_cents
-}
-
 async function initializePaystackTransaction(order: LiveOrder, reference: string, returnUrl?: string | null) {
-  if (!PAYSTACK_SECRET_KEY) throw new Error("Missing PAYSTACK_SECRET_KEY")
-
-  const callbackUrl = returnUrl ?? `${APP_URL}/orders/${order.id}`
+  const settings = await getPaystackSettings()
+  const callbackUrl = returnUrl ?? settings.callbackUrl ?? `${APP_URL}/orders/${order.id}`
 
   const response = await fetch("https://api.paystack.co/transaction/initialize", {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
-      "Content-Type": "application/json",
-    },
+    headers: { Authorization: `Bearer ${settings.secretKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       email: getBuyerEmail(order),
-      amount: toPaystackAmount(order),
+      amount: order.total_cents,
       currency: order.currency,
       reference,
       callback_url: callbackUrl,
@@ -102,7 +109,6 @@ async function initializePaystackTransaction(order: LiveOrder, reference: string
   })
 
   const payload = (await response.json()) as PaystackInitializeResponse
-
   if (!response.ok || !payload.status || !payload.data?.authorization_url) {
     console.error("Paystack initialization failed", payload)
     throw new Error(payload.message || "Unable to initialize Paystack payment")
@@ -111,19 +117,39 @@ async function initializePaystackTransaction(order: LiveOrder, reference: string
   return payload.data
 }
 
-export function verifyPaystackWebhookSignature(rawBody: string, signature: string | null) {
-  if (!PAYSTACK_SECRET_KEY) return false
-  if (!signature) return false
+export async function verifyPaystackWebhookSignature(rawBody: string, signature: string | null) {
+  const settings = await getPaystackSettings().catch(() => null)
+  const secretKey = settings?.webhookSecret || settings?.secretKey || PAYSTACK_SECRET_KEY
+  if (!secretKey || !signature) return false
 
-  const expected = crypto.createHmac("sha512", PAYSTACK_SECRET_KEY).update(rawBody).digest("hex")
+  const expected = crypto.createHmac("sha512", secretKey).update(rawBody).digest("hex")
   return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
+}
+
+async function writePaymentLedger(order: LiveOrder, paymentId: string) {
+  const admin = createAdminClient()
+  const subtotal = order.subtotal_cents ?? order.total_cents
+  const platformFee = order.platform_fee_cents ?? 0
+  const processorFee = order.processor_fee_cents ?? 0
+  const net = order.total_cents - platformFee - processorFee
+
+  const entries = [
+    { org_id: order.org_id, order_id: order.id, payment_id: paymentId, type: "order_gross", amount_cents: subtotal, currency: order.currency, meta: { source: "payment_completion" } },
+    ...(platformFee > 0 ? [{ org_id: order.org_id, order_id: order.id, payment_id: paymentId, type: "fee", amount_cents: -platformFee, currency: order.currency, meta: { fee_type: "platform" } }] : []),
+    ...(processorFee > 0 ? [{ org_id: order.org_id, order_id: order.id, payment_id: paymentId, type: "fee", amount_cents: -processorFee, currency: order.currency, meta: { fee_type: "processor" } }] : []),
+    { org_id: order.org_id, order_id: order.id, payment_id: paymentId, type: "payment_net", amount_cents: net, currency: order.currency, meta: { source: "payment_completion" } },
+  ]
+
+  const { error } = await admin.from("ledger_entries").insert(entries)
+  if (error) {
+    console.error("Failed to write payment ledger entries", error)
+    throw new Error("Unable to write ledger entries")
+  }
 }
 
 export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
   assertProvider(input.provider)
-
   const { supabase, order } = await getPendingOrder(input.orderId, input.userId)
-
   const { count, error: countError } = await supabase.from("payment_attempts").select("id", { count: "exact", head: true }).eq("order_id", order.id)
 
   if (countError) {
@@ -143,12 +169,7 @@ export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
       attempt_no: attemptNo,
       status: "pending",
       ext_ref: providerPayload?.reference ?? extRef,
-      payload: {
-        return_url: input.returnUrl ?? null,
-        amount_cents: order.total_cents,
-        currency: order.currency,
-        provider: providerPayload,
-      },
+      payload: { return_url: input.returnUrl ?? null, amount_cents: order.total_cents, currency: order.currency, provider: providerPayload },
     })
     .select("*")
     .single()
@@ -175,7 +196,6 @@ export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
 
 export async function completeVerifiedPayment(input: CompleteVerifiedPaymentInput) {
   assertProvider(input.provider)
-
   const { supabase, order } = await getPendingOrder(input.orderId)
 
   const { data: payment, error: paymentError } = await supabase
@@ -210,6 +230,7 @@ export async function completeVerifiedPayment(input: CompleteVerifiedPaymentInpu
     throw new Error("Unable to update payment attempt")
   }
 
+  await writePaymentLedger(order, payment.id)
   const completed = await completePaidOrder(order.id, input.extPaymentId)
 
   await Promise.all([
@@ -240,19 +261,12 @@ export async function completePaystackPaymentFromWebhook(payload: Record<string,
 
 export async function failPaymentAttempt(orderId: string, provider: PaymentProvider, extRef?: string | null, payload?: Record<string, any>) {
   assertProvider(provider)
-
   const supabase = createServerSupabaseClient()
   if (!supabase) throw new Error("Supabase is not configured")
 
   const { data: order } = await supabase.from("orders").select("id, buyer_id").eq("id", orderId).maybeSingle()
 
-  const query = supabase
-    .from("payment_attempts")
-    .update({ status: "failed", payload: payload ?? {} })
-    .eq("order_id", orderId)
-    .eq("provider", provider)
-    .eq("status", "pending")
-
+  const query = supabase.from("payment_attempts").update({ status: "failed", payload: payload ?? {} }).eq("order_id", orderId).eq("provider", provider).eq("status", "pending")
   if (extRef) query.eq("ext_ref", extRef)
   const { error } = await query
 
