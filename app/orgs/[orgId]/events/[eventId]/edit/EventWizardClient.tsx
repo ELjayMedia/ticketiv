@@ -10,9 +10,10 @@ import { ScheduleStep } from "@/components/event-wizard/steps/ScheduleStep"
 import { LineupStep } from "@/components/event-wizard/steps/LineupStep"
 import { TicketsStep } from "@/components/event-wizard/steps/TicketsStep"
 import { PoliciesStep } from "@/components/event-wizard/steps/PoliciesStep"
+import { StaffStep } from "@/components/event-wizard/steps/StaffStep"
 import { PublishStep } from "@/components/event-wizard/steps/PublishStep"
 
-const steps = ["basics", "venue", "schedule", "lineup", "tickets", "policies", "publish"] as const
+const steps = ["basics", "venue", "schedule", "lineup", "tickets", "policies", "staff", "publish"] as const
 
 export default function EventWizardClient({ orgId, eventId }: { orgId: string; eventId: string }) {
   const router = useRouter()
@@ -84,6 +85,7 @@ export default function EventWizardClient({ orgId, eventId }: { orgId: string; e
         {step === "lineup" && <LineupStep eventId={eventId} onSaving={() => setSaveState("saving")} />}
         {step === "tickets" && <TicketsStep eventId={eventId} onSaving={() => setSaveState("saving")} />}
         {step === "policies" && <PoliciesStep eventId={eventId} onSaving={() => setSaveState("saving")} />}
+        {step === "staff" && <StaffStep eventId={eventId} onSaving={() => setSaveState("saving")} />}
         {step === "publish" && <PublishStep event={event} onSaving={() => setSaveState("saving")} />}
       </div>
     </div>
