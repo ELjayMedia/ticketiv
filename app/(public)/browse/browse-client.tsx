@@ -57,20 +57,10 @@ export default function BrowseClient({ initialEvents, categories }: BrowseClient
         if (!matchesSearch) return false
       }
 
-      if (selectedCategory !== "all" && event.category !== selectedCategory) {
-        return false
-      }
-
-      if (selectedLocation !== "all" && event.location !== selectedLocation) {
-        return false
-      }
-
-      if (priceMin && event.minimum_price != null && event.minimum_price < Number.parseInt(priceMin)) {
-        return false
-      }
-      if (priceMax && event.minimum_price != null && event.minimum_price > Number.parseInt(priceMax)) {
-        return false
-      }
+      if (selectedCategory !== "all" && event.category !== selectedCategory) return false
+      if (selectedLocation !== "all" && event.location !== selectedLocation) return false
+      if (priceMin && event.minimum_price != null && event.minimum_price < Number.parseInt(priceMin)) return false
+      if (priceMax && event.minimum_price != null && event.minimum_price > Number.parseInt(priceMax)) return false
 
       if (selectedDate !== "Any time" && event.starts_at) {
         const eventDate = new Date(event.starts_at)
@@ -134,21 +124,11 @@ export default function BrowseClient({ initialEvents, categories }: BrowseClient
 
   const activeFilters = useMemo(() => {
     const filters: Array<{ label: string; onRemove: () => void }> = []
-    if (selectedCategory !== "all") {
-      filters.push({ label: categoryNameBySlug.get(selectedCategory) ?? selectedCategory, onRemove: () => setSelectedCategory("all") })
-    }
-    if (selectedDate !== "Any time") {
-      filters.push({ label: selectedDate, onRemove: () => setSelectedDate("Any time") })
-    }
-    if (selectedLocation !== "all") {
-      filters.push({ label: selectedLocation, onRemove: () => setSelectedLocation("all") })
-    }
-    if (priceMin) {
-      filters.push({ label: `Min: R${priceMin}`, onRemove: () => setPriceMin("") })
-    }
-    if (priceMax) {
-      filters.push({ label: `Max: R${priceMax}`, onRemove: () => setPriceMax("") })
-    }
+    if (selectedCategory !== "all") filters.push({ label: categoryNameBySlug.get(selectedCategory) ?? selectedCategory, onRemove: () => setSelectedCategory("all") })
+    if (selectedDate !== "Any time") filters.push({ label: selectedDate, onRemove: () => setSelectedDate("Any time") })
+    if (selectedLocation !== "all") filters.push({ label: selectedLocation, onRemove: () => setSelectedLocation("all") })
+    if (priceMin) filters.push({ label: `Min: SZL ${priceMin}`, onRemove: () => setPriceMin("") })
+    if (priceMax) filters.push({ label: `Max: SZL ${priceMax}`, onRemove: () => setPriceMax("") })
     return filters
   }, [selectedCategory, selectedDate, selectedLocation, priceMin, priceMax, categoryNameBySlug])
 
@@ -160,19 +140,15 @@ export default function BrowseClient({ initialEvents, categories }: BrowseClient
     setPriceMax("")
   }
 
+  const renderEventCard = (event: EventSummary) => <EventCard key={event.id} event={event} categoryLabel={event.category ? categoryNameBySlug.get(event.category) ?? event.category : null} />
+
   return (
     <>
       <div className="lg:hidden px-4 py-6 space-y-4">
         <div className="flex items-center gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search events..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-              aria-label="Search events"
-            />
+            <Input placeholder="Search events..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" aria-label="Search events" />
           </div>
           <Sheet>
             <SheetTrigger asChild>
@@ -233,8 +209,8 @@ export default function BrowseClient({ initialEvents, categories }: BrowseClient
                 <div className="space-y-3">
                   <h3 className="font-semibold text-sm">Price Range</h3>
                   <div className="space-y-2">
-                    <Input type="number" placeholder="Min (R)" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} aria-label="Minimum price" />
-                    <Input type="number" placeholder="Max (R)" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} aria-label="Maximum price" />
+                    <Input type="number" placeholder="Min (SZL)" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} aria-label="Minimum price" />
+                    <Input type="number" placeholder="Max (SZL)" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} aria-label="Maximum price" />
                   </div>
                 </div>
               </div>
@@ -251,9 +227,7 @@ export default function BrowseClient({ initialEvents, categories }: BrowseClient
             <Zap className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-sm text-foreground">Hosting an event?</h3>
-              <p className="text-xs text-muted-foreground mt-1">
-                Reach thousands of attendees with Ticketiv's simple ticketing platform.
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">Reach thousands of attendees with Ticketiv's simple ticketing platform.</p>
             </div>
           </div>
           <Button asChild size="sm" variant="default" className="w-full">
@@ -261,13 +235,7 @@ export default function BrowseClient({ initialEvents, categories }: BrowseClient
           </Button>
         </div>
 
-        {filteredEvents.length > 0 ? (
-          <div className="space-y-4">
-            {filteredEvents.map((event) => <EventCard key={event.id} event={event} />)}
-          </div>
-        ) : (
-          <NoEventsFound />
-        )}
+        {filteredEvents.length > 0 ? <div className="space-y-4">{filteredEvents.map(renderEventCard)}</div> : <NoEventsFound />}
       </div>
 
       <div className="hidden lg:block max-w-[1200px] mx-auto py-0 px-6 pb-12 space-y-6">
@@ -282,9 +250,7 @@ export default function BrowseClient({ initialEvents, categories }: BrowseClient
                 <Zap className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-sm text-foreground">Hosting an event?</h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Reach thousands of attendees with Ticketiv's simple ticketing platform.
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">Reach thousands of attendees with Ticketiv's simple ticketing platform.</p>
                 </div>
               </div>
               <Button asChild size="sm" variant="default" className="w-full">
@@ -340,8 +306,8 @@ export default function BrowseClient({ initialEvents, categories }: BrowseClient
             <div className="space-y-3">
               <h3 className="font-semibold text-sm">Price Range</h3>
               <div className="space-y-2">
-                <Input type="number" placeholder="Min (R)" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} className="h-9" aria-label="Minimum price" />
-                <Input type="number" placeholder="Max (R)" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} className="h-9" aria-label="Maximum price" />
+                <Input type="number" placeholder="Min (SZL)" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} className="h-9" aria-label="Minimum price" />
+                <Input type="number" placeholder="Max (SZL)" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} className="h-9" aria-label="Maximum price" />
               </div>
             </div>
           </aside>
@@ -353,9 +319,7 @@ export default function BrowseClient({ initialEvents, categories }: BrowseClient
               </div>
 
               <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
-                  Showing {filteredEvents.length} of {initialEvents.length} events
-                </p>
+                <p className="text-sm text-muted-foreground">Showing {filteredEvents.length} of {initialEvents.length} events</p>
                 <Select value={sortBy} onValueChange={setSortBy}>
                   <SelectTrigger className="w-[180px]" aria-label="Sort events">
                     <SelectValue placeholder="Sort by" />
@@ -395,13 +359,7 @@ export default function BrowseClient({ initialEvents, categories }: BrowseClient
               )}
             </div>
 
-            {filteredEvents.length > 0 ? (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 shadow-none">
-                {filteredEvents.map((event) => <EventCard key={event.id} event={event} />)}
-              </div>
-            ) : (
-              <NoEventsFound />
-            )}
+            {filteredEvents.length > 0 ? <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 shadow-none">{filteredEvents.map(renderEventCard)}</div> : <NoEventsFound />}
           </main>
         </div>
       </div>
