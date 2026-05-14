@@ -30,53 +30,30 @@ function parseSelectedItems(input?: string, legacyTicketTypeId?: string, legacyQ
       .split(",")
       .map((part) => {
         const [ticketTypeId, rawQuantity] = part.split(":")
-        return {
-          ticketTypeId: ticketTypeId?.trim(),
-          quantity: Math.max(1, Number(rawQuantity) || 1),
-        }
+        return { ticketTypeId: ticketTypeId?.trim(), quantity: Math.max(1, Number(rawQuantity) || 1) }
       })
       .filter((item) => item.ticketTypeId)
   }
 
-  if (legacyTicketTypeId) {
-    return [
-      {
-        ticketTypeId: legacyTicketTypeId,
-        quantity: Math.max(1, Number(legacyQuantity) || 1),
-      },
-    ]
-  }
-
+  if (legacyTicketTypeId) return [{ ticketTypeId: legacyTicketTypeId, quantity: Math.max(1, Number(legacyQuantity) || 1) }]
   return []
 }
 
 export function CheckoutClient({ event, selectedItemsParam, legacyTicketTypeId, legacyQuantity }: CheckoutClientProps) {
   const [email, setEmail] = useState("")
+  const [phone, setPhone] = useState("")
   const [loading, setLoading] = useState(false)
 
-  const selectedItems = useMemo(
-    () => parseSelectedItems(selectedItemsParam, legacyTicketTypeId, legacyQuantity),
-    [legacyQuantity, legacyTicketTypeId, selectedItemsParam],
-  )
+  const selectedItems = useMemo(() => parseSelectedItems(selectedItemsParam, legacyTicketTypeId, legacyQuantity), [legacyQuantity, legacyTicketTypeId, selectedItemsParam])
 
   const lineItems = useMemo(() => {
     return selectedItems
       .map((item) => {
         const ticketType = event.ticket_types.find((ticket) => ticket.id === item.ticketTypeId)
         if (!ticketType) return null
-
-        return {
-          ...item,
-          ticketType,
-          subtotalCents: ticketType.price_cents * item.quantity,
-        }
+        return { ...item, ticketType, subtotalCents: ticketType.price_cents * item.quantity }
       })
-      .filter(Boolean) as Array<{
-      ticketTypeId: string
-      quantity: number
-      ticketType: EventDetailData["ticket_types"][number]
-      subtotalCents: number
-    }>
+      .filter(Boolean) as Array<{ ticketTypeId: string; quantity: number; ticketType: EventDetailData["ticket_types"][number]; subtotalCents: number }>
   }, [event.ticket_types, selectedItems])
 
   const currency = lineItems[0]?.ticketType.currency ?? event.ticket_types[0]?.currency ?? "SZL"
@@ -95,16 +72,13 @@ export function CheckoutClient({ event, selectedItemsParam, legacyTicketTypeId, 
     setLoading(true)
 
     try {
-      const orderResponse = await fetch("/api/orders", {
+      const orderResponse = await fetch(`/api/events/${event.id}/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          eventId: event.id,
-          email,
-          items: lineItems.map((item) => ({
-            ticketTypeId: item.ticketTypeId,
-            quantity: item.quantity,
-          })),
+          buyer_email: email,
+          buyer_phone: phone || null,
+          items: lineItems.map((item) => ({ ticket_type_id: item.ticketTypeId, quantity: item.quantity })),
         }),
       })
 
@@ -123,11 +97,7 @@ export function CheckoutClient({ event, selectedItemsParam, legacyTicketTypeId, 
       const paymentResponse = await fetch("/api/payments/attempt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          orderId,
-          provider: "paystack",
-          returnUrl: `${window.location.origin}/orders/${orderId}`,
-        }),
+        body: JSON.stringify({ orderId, provider: "paystack", returnUrl: `${window.location.origin}/orders/${orderId}` }),
       })
 
       const paymentPayload = await paymentResponse.json()
@@ -164,9 +134,7 @@ export function CheckoutClient({ event, selectedItemsParam, legacyTicketTypeId, 
 
           {!hasValidSelection ? (
             <Card className="border-0 bg-muted/50">
-              <CardContent className="space-y-3 p-4 text-sm text-muted-foreground">
-                No ticket selection was found. Please go back to the event and select tickets again.
-              </CardContent>
+              <CardContent className="space-y-3 p-4 text-sm text-muted-foreground">No ticket selection was found. Please go back to the event and select tickets again.</CardContent>
             </Card>
           ) : (
             <Card className="border-0 bg-muted/50">
@@ -201,15 +169,12 @@ export function CheckoutClient({ event, selectedItemsParam, legacyTicketTypeId, 
                 <Mail className="h-4 w-4" />
                 Email Address
               </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="h-11"
-              />
+              <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-11" />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone" className="text-sm font-medium">Phone Number optional</Label>
+              <Input id="phone" type="tel" placeholder="+268..." value={phone} onChange={(e) => setPhone(e.target.value)} className="h-11" />
             </div>
           </section>
 
@@ -228,18 +193,11 @@ export function CheckoutClient({ event, selectedItemsParam, legacyTicketTypeId, 
             </Card>
           </section>
 
-          <Button
-            type="submit"
-            size="lg"
-            disabled={loading || !email || !hasValidSelection}
-            className="h-12 w-full rounded-lg text-base font-semibold"
-          >
+          <Button type="submit" size="lg" disabled={loading || !email || !hasValidSelection} className="h-12 w-full rounded-lg text-base font-semibold">
             {loading ? "Redirecting to Paystack..." : "Pay with Paystack"}
           </Button>
 
-          <p className="text-center text-xs text-muted-foreground">
-            Your tickets will be issued after Paystack confirms successful payment.
-          </p>
+          <p className="text-center text-xs text-muted-foreground">Your tickets will be issued after Paystack confirms successful payment.</p>
         </form>
       </div>
     </div>
