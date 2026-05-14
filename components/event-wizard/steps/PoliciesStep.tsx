@@ -1,79 +1,87 @@
 "use client"
 
-import { useState } from "react"
-import { createClientSupabaseClient } from "@/lib/supabase-client"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 
-export function PoliciesStep({
-  eventId,
-  onSaving,
-}: {
-  eventId: string
-  onSaving: () => void
-}) {
+export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving: () => void }) {
   const [refundPolicy, setRefundPolicy] = useState("")
   const [attendeeFields, setAttendeeFields] = useState("")
   const [confirmationMessage, setConfirmationMessage] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    loadPolicies()
+  }, [eventId])
+
+  async function loadPolicies() {
+    setLoading(true)
+    setError("")
+    try {
+      const response = await fetch(`/api/events/${eventId}/policies`, { cache: "no-store" })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.error || "Failed to load policies")
+      setRefundPolicy(payload.event?.refund_policy ?? "")
+      setAttendeeFields(Array.isArray(payload.event?.attendee_fields) ? payload.event.attendee_fields.join(", ") : "")
+      setConfirmationMessage(payload.event?.confirmation_message ?? "")
+    } catch (err: any) {
+      console.error("[v0] Error loading policies:", err)
+      setError(err?.message || "Failed to load policies")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   async function save() {
     try {
+      setSaving(true)
+      setError("")
       onSaving()
-      const supabase = createClientSupabaseClient()
-
-      const { error } = await supabase
-        .from("events")
-        .update({
-          refund_policy: refundPolicy,
-          attendee_fields: attendeeFields ? attendeeFields.split(",").map((f) => f.trim()) : [],
-          confirmation_message: confirmationMessage,
-        })
-        .eq("id", eventId)
-
-      if (error) throw error
-    } catch (err) {
+      const response = await fetch(`/api/events/${eventId}/policies`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refund_policy: refundPolicy, attendee_fields: attendeeFields, confirmation_message: confirmationMessage }),
+      })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.error || "Failed to save policies")
+      setRefundPolicy(payload.event?.refund_policy ?? "")
+      setAttendeeFields(Array.isArray(payload.event?.attendee_fields) ? payload.event.attendee_fields.join(", ") : "")
+      setConfirmationMessage(payload.event?.confirmation_message ?? "")
+    } catch (err: any) {
       console.error("[v0] Error saving policies:", err)
+      setError(err?.message || "Failed to save policies")
+    } finally {
+      setSaving(false)
     }
   }
+
+  if (loading) return <div className="p-2 text-sm text-muted-foreground">Loading policies...</div>
 
   return (
     <div className="space-y-4">
       <div>
         <label className="text-sm font-medium">Refund policy</label>
-        <Textarea
-          value={refundPolicy}
-          onChange={(e) => setRefundPolicy(e.target.value)}
-          onBlur={save}
-          placeholder="Describe your refund policy..."
-          className="mt-2 h-24"
-        />
+        <Textarea value={refundPolicy} onChange={(e) => setRefundPolicy(e.target.value)} placeholder="Describe your refund policy..." className="mt-2 h-24" disabled={saving} />
       </div>
 
       <div>
-        <label className="text-sm font-medium">Attendee fields (comma-separated)</label>
-        <input
-          type="text"
-          value={attendeeFields}
-          onChange={(e) => setAttendeeFields(e.target.value)}
-          onBlur={save}
-          placeholder="e.g. Company, Phone number, Dietary requirements"
-          className="mt-2 w-full rounded-lg border px-3 py-2"
-        />
+        <label className="text-sm font-medium">Attendee fields</label>
+        <Input value={attendeeFields} onChange={(e) => setAttendeeFields(e.target.value)} placeholder="Company, Phone number, Dietary requirements" className="mt-2" disabled={saving} />
+        <p className="mt-1 text-xs text-muted-foreground">Separate each field with a comma.</p>
       </div>
 
       <div>
         <label className="text-sm font-medium">Confirmation message</label>
-        <Textarea
-          value={confirmationMessage}
-          onChange={(e) => setConfirmationMessage(e.target.value)}
-          onBlur={save}
-          placeholder="Message to show after ticket purchase..."
-          className="mt-2 h-24"
-        />
+        <Textarea value={confirmationMessage} onChange={(e) => setConfirmationMessage(e.target.value)} placeholder="Message to show after ticket purchase..." className="mt-2 h-24" disabled={saving} />
       </div>
 
-      <Button onClick={save} className="w-full">
-        Save policies
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
+      <Button onClick={save} disabled={saving} className="w-full">
+        {saving ? "Saving policies..." : "Save policies"}
       </Button>
     </div>
   )
