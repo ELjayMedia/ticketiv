@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 type RouteContext = { params: Promise<{ eventId: string }> }
+type ScheduleDateInput = { starts_at?: string; ends_at?: string }
 const MANAGER_ROLES = new Set(["admin", "organizer", "organizer_owner", "organizer_admin"])
 
 async function getUserId() {
@@ -14,11 +15,7 @@ async function getUserId() {
 }
 
 async function loadManageContext(admin: ReturnType<typeof createAdminClient>, eventId: string, userId: string) {
-  const { data: event, error } = await admin
-    .from("events")
-    .select("id, org_id, starts_at, ends_at, tz")
-    .eq("id", eventId)
-    .maybeSingle()
+  const { data: event, error } = await admin.from("events").select("id, org_id, starts_at, ends_at, tz").eq("id", eventId).maybeSingle()
   if (error) throw error
   if (!event) return { allowed: false, event: null }
 
@@ -27,6 +24,26 @@ async function loadManageContext(admin: ReturnType<typeof createAdminClient>, ev
 
   const { data: member } = await admin.from("org_members").select("role").eq("org_id", event.org_id).eq("user_id", userId).maybeSingle()
   return { allowed: Boolean(member?.role && MANAGER_ROLES.has(String(member.role))), event }
+}
+
+function normalizeDateRows(body: any) {
+  const sourceRows = Array.isArray(body.dates) && body.dates.length > 0 ? (body.dates as ScheduleDateInput[]) : [{ starts_at: body.starts_at, ends_at: body.ends_at }]
+
+  const rows = sourceRows.map((item, index) => {
+    const startsAt = typeof item.starts_at === "string" ? item.starts_at : ""
+    const endsAt = typeof item.ends_at === "string" ? item.ends_at : ""
+    const startDate = new Date(startsAt)
+    const endDate = new Date(endsAt)
+
+    if (!startsAt || Number.isNaN(startDate.getTime())) throw new Error(`Valid start date and time is required for date ${index + 1}`)
+    if (!endsAt || Number.isNaN(endDate.getTime())) throw new Error(`Valid end date and time is required for date ${index + 1}`)
+    if (endDate <= startDate) throw new Error(`End date must be after start date for date ${index + 1}`)
+
+    return { starts_at: startDate.toISOString(), ends_at: endDate.toISOString() }
+  })
+
+  rows.sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
+  return rows
 }
 
 export async function GET(_request: NextRequest, context: RouteContext) {
@@ -39,11 +56,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 })
   if (!allowed) return NextResponse.json({ error: "Permission denied" }, { status: 403 })
 
-  const { data: dates, error } = await admin
-    .from("event_dates")
-    .select("id, starts_at, ends_at")
-    .eq("event_id", eventId)
-    .order("starts_at", { ascending: true })
+  const { data: dates, error } = await admin.from("event_dates").select("id, starts_at, ends_at").eq("event_id", eventId).order("starts_at", { ascending: true })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
   return NextResponse.json({ event, dates: dates ?? [] })
@@ -60,31 +73,21 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   if (!allowed) return NextResponse.json({ error: "Permission denied" }, { status: 403 })
 
   const body = await request.json().catch(() => ({}))
-  const startsAt = typeof body.starts_at === "string" ? body.starts_at : ""
-  const endsAt = typeof body.ends_at === "string" ? body.ends_at : ""
   const tz = typeof body.tz === "string" && body.tz.trim() ? body.tz.trim() : "Africa/Mbabane"
 
-  const startDate = new Date(startsAt)
-  const endDate = new Date(endsAt)
-
-  if (!startsAt || Number.isNaN(startDate.getTime())) {
-    return NextResponse.json({ error: "Valid start date and time is required" }, { status: 400 })
+  let rows: Array<{ starts_at: string; ends_at: string }>
+  try {
+    rows = normalizeDateRows(body)
+  } catch (error: any) {
+    return NextResponse.json({ error: error?.message || "Invalid schedule" }, { status: 400 })
   }
 
-  if (!endsAt || Number.isNaN(endDate.getTime())) {
-    return NextResponse.json({ error: "Valid end date and time is required" }, { status: 400 })
-  }
-
-  if (endDate <= startDate) {
-    return NextResponse.json({ error: "End date must be after start date" }, { status: 400 })
-  }
-
-  const startIso = startDate.toISOString()
-  const endIso = endDate.toISOString()
+  const canonicalStart = rows[0].starts_at
+  const canonicalEnd = rows.reduce((latest, row) => (new Date(row.ends_at).getTime() > new Date(latest).getTime() ? row.ends_at : latest), rows[0].ends_at)
 
   const { data: updatedEvent, error: updateError } = await admin
     .from("events")
-    .update({ starts_at: startIso, ends_at: endIso, tz })
+    .update({ starts_at: canonicalStart, ends_at: canonicalEnd, tz })
     .eq("id", eventId)
     .select("id, org_id, starts_at, ends_at, tz")
     .maybeSingle()
@@ -92,7 +95,12 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 })
 
   await admin.from("event_dates").delete().eq("event_id", eventId)
-  const { error: dateError } = await admin.from("event_dates").insert({ event_id: eventId, starts_at: startIso, ends_at: endIso })
+  const { data: savedDates, error: dateError } = await admin
+    .from("event_dates")
+    .insert(rows.map((row) => ({ event_id: eventId, starts_at: row.starts_at, ends_at: row.ends_at })))
+    .select("id, starts_at, ends_at")
+    .order("starts_at", { ascending: true })
+
   if (dateError) return NextResponse.json({ error: dateError.message }, { status: 400 })
 
   await admin.from("audit_log").insert({
@@ -101,8 +109,8 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     table_name: "events",
     record_id: eventId,
     action: "update",
-    changes: { starts_at: startIso, ends_at: endIso, tz },
+    changes: { starts_at: canonicalStart, ends_at: canonicalEnd, tz, event_dates_count: rows.length },
   })
 
-  return NextResponse.json({ event: updatedEvent })
+  return NextResponse.json({ event: updatedEvent, dates: savedDates ?? [] })
 }
