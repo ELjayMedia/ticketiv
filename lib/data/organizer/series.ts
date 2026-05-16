@@ -1,7 +1,10 @@
 "use server"
 
+import { format } from "date-fns"
 import { createClient } from "@/lib/supabase/server"
 import { findAvailableSeriesSlug, generateSeriesSlug } from "@/lib/series/slug"
+import { computeOccurrences } from "@/lib/series/occurrences"
+import type { RecurrencePattern } from "@/lib/series/recurrence"
 
 export type OrgSeriesSummary = {
   id: string
@@ -222,4 +225,97 @@ export async function updateOrgSeries(
   }
 
   return { ok: true, slug: data.slug }
+}
+
+export async function deleteOrgSeries(
+  orgId: string,
+  id: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = await createClient()
+  // event_series.id is referenced by events.series_id with ON DELETE SET NULL,
+  // so child events survive as standalone events.
+  const { error } = await supabase
+    .from("event_series")
+    .delete()
+    .eq("id", id)
+    .eq("org_id", orgId)
+
+  if (error) return { ok: false, error: error.message }
+  return { ok: true }
+}
+
+/**
+ * Generate draft event rows from a recurring series's recurrence pattern.
+ * Events are created with only title / starts_at populated and status='draft' —
+ * the organizer fills in venue, tickets, etc. before publishing.
+ */
+export async function generateSeriesEvents(
+  orgId: string,
+  seriesId: string,
+  count: number,
+): Promise<{ ok: true; created: number } | { ok: false; error: string }> {
+  const supabase = await createClient()
+
+  const { data: series, error: seriesError } = await supabase
+    .from("event_series")
+    .select("id, org_id, slug, title, series_type, recurrence_pattern, starts_on")
+    .eq("id", seriesId)
+    .eq("org_id", orgId)
+    .single()
+
+  if (seriesError || !series) {
+    return { ok: false, error: "Series not found." }
+  }
+  if (series.series_type !== "recurring") {
+    return { ok: false, error: "Only recurring series can generate events." }
+  }
+  const pattern = series.recurrence_pattern as RecurrencePattern | null
+  if (!pattern || !("freq" in pattern)) {
+    return { ok: false, error: "This series has no recurrence pattern set." }
+  }
+
+  // Anchor after the latest existing child event, or the series start, or now.
+  const { data: lastEvent } = await supabase
+    .from("events")
+    .select("starts_at")
+    .eq("series_id", seriesId)
+    .order("starts_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const now = new Date()
+  let anchor = now
+  if (lastEvent?.starts_at) {
+    const last = new Date(lastEvent.starts_at)
+    if (last.getTime() > anchor.getTime()) anchor = last
+  } else if (series.starts_on) {
+    const start = new Date(series.starts_on)
+    if (start.getTime() > anchor.getTime()) anchor = start
+  }
+
+  const occurrences = computeOccurrences(pattern, anchor, count)
+  if (occurrences.length === 0) {
+    return { ok: false, error: "Could not compute any dates from this pattern." }
+  }
+
+  const rows = occurrences.map((date) => ({
+    org_id: orgId,
+    series_id: seriesId,
+    title: `${series.title} — ${format(date, "EEE d MMM yyyy")}`,
+    slug: `${series.slug}-${format(date, "yyyy-MM-dd")}-${Math.random().toString(36).slice(2, 7)}`,
+    starts_at: date.toISOString(),
+    status: "draft",
+    event_format: "single_day",
+  }))
+
+  const { data: inserted, error: insertError } = await supabase
+    .from("events")
+    .insert(rows)
+    .select("id")
+
+  if (insertError) {
+    return { ok: false, error: insertError.message }
+  }
+
+  return { ok: true, created: inserted?.length ?? 0 }
 }

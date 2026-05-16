@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { SeriesForm } from "@/components/series/series-form"
+import { GenerateEventsButton } from "@/components/series/generate-events-button"
+import { DeleteSeriesButton } from "@/components/series/delete-series-button"
 import { getOrgSeriesBySlug } from "@/lib/data/organizer/series"
 
 export const dynamic = "force-dynamic"
@@ -62,6 +64,13 @@ export default async function EditSeriesPage({
           </CardContent>
         </Card>
 
+        {series.series_type === "recurring" && (
+          <>
+            <Separator />
+            <GenerateEventsButton orgId={orgId} seriesId={series.id} />
+          </>
+        )}
+
         <Separator />
 
         <section className="space-y-3">
@@ -115,6 +124,23 @@ export default async function EditSeriesPage({
               ))}
             </div>
           )}
+        </section>
+
+        <Separator />
+
+        <section className="flex flex-col gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold">Delete this series</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Events in the series are kept as standalone events.
+            </p>
+          </div>
+          <DeleteSeriesButton
+            orgId={orgId}
+            seriesId={series.id}
+            seriesTitle={series.title}
+            childEventCount={series.events.length}
+          />
         </section>
       </div>
     </main>

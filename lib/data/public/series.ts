@@ -122,3 +122,32 @@ export async function getSeriesBySlug(slug: string): Promise<SeriesDetailData | 
     events,
   }
 }
+
+export type SeriesFollowState = {
+  signedIn: boolean
+  following: boolean
+  followerCount: number
+}
+
+export async function getSeriesFollowState(seriesId: string): Promise<SeriesFollowState> {
+  const supabase = await createClient()
+
+  const { count } = await supabase
+    .from("series_follows")
+    .select("id", { count: "exact", head: true })
+    .eq("series_id", seriesId)
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { signedIn: false, following: false, followerCount: count ?? 0 }
+  }
+
+  const { data: follow } = await supabase
+    .from("series_follows")
+    .select("id")
+    .eq("series_id", seriesId)
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  return { signedIn: true, following: follow != null, followerCount: count ?? 0 }
+}

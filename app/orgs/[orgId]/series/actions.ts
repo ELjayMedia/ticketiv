@@ -2,7 +2,13 @@
 
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
-import { createOrgSeries, updateOrgSeries, checkSeriesSlugAvailable } from "@/lib/data/organizer/series"
+import {
+  createOrgSeries,
+  updateOrgSeries,
+  checkSeriesSlugAvailable,
+  deleteOrgSeries,
+  generateSeriesEvents,
+} from "@/lib/data/organizer/series"
 import { seriesFormSchema, type SeriesFormValues } from "@/lib/series/schema"
 
 async function assertOrgMember(orgId: string): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -65,4 +71,37 @@ export async function checkSlugAvailableAction(
   ignoreId?: string,
 ): Promise<boolean> {
   return checkSeriesSlugAvailable(slug, ignoreId)
+}
+
+export async function deleteSeriesAction(
+  orgId: string,
+  seriesId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const auth = await assertOrgMember(orgId)
+  if (!auth.ok) return auth
+
+  const result = await deleteOrgSeries(orgId, seriesId)
+  if (result.ok) {
+    revalidatePath(`/orgs/${orgId}/series`)
+  }
+  return result
+}
+
+export async function generateSeriesEventsAction(
+  orgId: string,
+  seriesId: string,
+  count: number,
+): Promise<{ ok: true; created: number } | { ok: false; error: string }> {
+  const auth = await assertOrgMember(orgId)
+  if (!auth.ok) return auth
+
+  if (!Number.isInteger(count) || count < 1 || count > 52) {
+    return { ok: false, error: "Choose between 1 and 52 events." }
+  }
+
+  const result = await generateSeriesEvents(orgId, seriesId, count)
+  if (result.ok) {
+    revalidatePath(`/orgs/${orgId}/series`)
+  }
+  return result
 }

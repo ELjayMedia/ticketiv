@@ -2,11 +2,12 @@ import { notFound } from "next/navigation"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { getSeriesBySlug, type SeriesDetailEvent } from "@/lib/data/public/series"
+import { getSeriesBySlug, getSeriesFollowState, type SeriesDetailEvent } from "@/lib/data/public/series"
 import { describeRecurrence, type RecurrencePattern } from "@/lib/series/recurrence"
 import { formatSeriesDateRange } from "@/lib/series/date-range"
 import { SeriesEventRow } from "@/components/series/series-event-row"
 import { PastEventsAccordion } from "@/components/series/past-events-accordion"
+import { SeriesFollowButton } from "@/components/series/series-follow-button"
 
 export const dynamic = "force-dynamic"
 
@@ -41,6 +42,7 @@ export default async function SeriesPage({ params }: SeriesPageProps) {
   const series = await getSeriesBySlug(slug)
   if (!series) notFound()
 
+  const followState = await getSeriesFollowState(series.id)
   const { upcoming, past } = partitionEvents(series.events)
 
   return (
@@ -81,23 +83,40 @@ export default async function SeriesPage({ params }: SeriesPageProps) {
       </div>
 
       <div className="mx-auto max-w-3xl px-4 pt-6 sm:px-6">
-        {/* Organizer attribution */}
-        {series.organization && (
-          <Link
-            href={`/organisers/${series.organization.slug}`}
-            className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent/50"
-          >
-            {series.organization.logo && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={series.organization.logo}
-                alt=""
-                className="h-5 w-5 rounded-full object-cover"
-              />
+        {/* Organizer attribution + follow */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {series.organization ? (
+            <Link
+              href={`/organisers/${series.organization.slug}`}
+              className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent/50"
+            >
+              {series.organization.logo && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={series.organization.logo}
+                  alt=""
+                  className="h-5 w-5 rounded-full object-cover"
+                />
+              )}
+              <span>Hosted by {series.organization.name}</span>
+            </Link>
+          ) : (
+            <span />
+          )}
+          <div className="flex items-center gap-3">
+            {followState.followerCount > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {followState.followerCount} follower{followState.followerCount === 1 ? "" : "s"}
+              </span>
             )}
-            <span>Hosted by {series.organization.name}</span>
-          </Link>
-        )}
+            <SeriesFollowButton
+              seriesId={series.id}
+              seriesSlug={series.slug}
+              initialFollowing={followState.following}
+              signedIn={followState.signedIn}
+            />
+          </div>
+        </div>
 
         {/* Description */}
         {series.description && (
