@@ -1,21 +1,5 @@
-import { getPublicEvents } from "@/lib/data/events"
-import { getActiveEventCategories } from "@/lib/data/event-categories"
-import BrowseClient from "./browse-client"
+import { permanentRedirect } from "next/navigation"
 
-export const dynamic = "force-dynamic"
-
-export default async function BrowsePage() {
-  const [events, categories] = await Promise.all([
-    getPublicEvents({ limit: 100 }),
-    getActiveEventCategories(),
-  ])
-
-  return (
-    <>
-      <div className="hidden lg:block max-w-[1200px] mx-auto px-6 pt-12 pb-0">
-        <h1 className="text-4xl md:text-5xl font-bold text-balance mb-8">Events</h1>
-      </div>
-      <BrowseClient initialEvents={events} categories={categories} />
-    </>
-  )
+export default function BrowsePage() {
+  permanentRedirect("/")
 }
