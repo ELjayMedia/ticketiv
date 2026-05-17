@@ -134,9 +134,14 @@ export default async function OrgDashboardPage({ params }: { params: { orgId: st
             <h1 className="text-3xl font-bold tracking-tight text-foreground">{orgName} Dashboard</h1>
             <p className="text-muted-foreground mt-1">Welcome back! Here's your event overview</p>
           </div>
-          <Button asChild className="w-full sm:w-auto">
-            <Link href={`/orgs/${orgId}/events/new`}>+ Create Event</Link>
-          </Button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <Button asChild variant="outline" className="w-full sm:w-auto">
+              <Link href={`/orgs/${orgId}/series`}>Series</Link>
+            </Button>
+            <Button asChild className="w-full sm:w-auto">
+              <Link href={`/orgs/${orgId}/events/new`}>+ Create Event</Link>
+            </Button>
+          </div>
         </div>
 
         {/* KPI Cards */}

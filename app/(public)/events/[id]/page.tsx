@@ -11,6 +11,7 @@ import { EventOrganizer } from "@/components/event-detail/event-organizer"
 import { EventWhoGoing } from "@/components/event-detail/event-who-going"
 import { EventAccordion } from "@/components/event-detail/event-accordion"
 import { EventShareFooter } from "@/components/event-detail/event-share-footer"
+import { SeriesBreadcrumb } from "@/components/event-detail/series-breadcrumb"
 
 interface EventDetailPageProps {
   params: Promise<{ id: string }>
@@ -23,6 +24,7 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
   if (!event) notFound()
 
   const hasArtists = event.artists.length > 0
+  const isMultiDay = event.event_format === "multi_day"
 
   return (
     <>
@@ -37,6 +39,11 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
         <main className="space-y-6 px-4 pb-32 pt-4">
           {/* Title block */}
           <section aria-label="Event title">
+            {event.series && (
+              <div className="mb-1.5">
+                <SeriesBreadcrumb series={event.series} />
+              </div>
+            )}
             <h2 className="font-display text-2xl font-bold leading-tight">{event.title}</h2>
             {event.city && (
               <p className="mt-1 text-sm text-muted-foreground">{event.city}</p>
@@ -55,6 +62,7 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
               eventId={event.id}
               ticketTypes={event.ticket_types}
               variant="mobile"
+              multiDay={isMultiDay}
             />
           </section>
 
@@ -124,6 +132,11 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
             <div className="col-span-8 space-y-8">
               {/* Title block */}
               <section aria-label="Event title">
+                {event.series && (
+                  <div className="mb-2">
+                    <SeriesBreadcrumb series={event.series} />
+                  </div>
+                )}
                 <h2 className="font-display text-3xl font-bold leading-tight">{event.title}</h2>
                 {event.city && (
                   <p className="mt-1 text-muted-foreground">{event.city}</p>
@@ -174,6 +187,7 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
                     eventId={event.id}
                     ticketTypes={event.ticket_types}
                     variant="desktop"
+                    multiDay={isMultiDay}
                   />
                 </section>
 

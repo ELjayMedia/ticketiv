@@ -27,6 +27,10 @@ export interface EventCardData {
   is_promoted?: boolean
   organizer_name?: string | null
   tickets_remaining?: number
+  /** When set, this card represents a collapsed series and links to /series/[slug] */
+  series_slug?: string | null
+  /** Number of additional upcoming events under the series (rendered as "+N more dates" badge) */
+  series_extra_dates?: number
 }
 
 interface EventCardProps {
@@ -60,7 +64,15 @@ export function EventCardStandard({ event, onSave }: EventCardProps) {
   const location = event.venue_name && event.city ? `${event.venue_name}, ${event.city}` : event.city || "Location TBA"
 
   const showSellingFast = event.tickets_remaining != null && event.tickets_remaining < 20 && event.tickets_remaining > 0
-  const badgeText = event.is_promoted ? "Promoted" : showSellingFast ? "Selling fast" : null
+  const hasExtraDates = event.series_extra_dates != null && event.series_extra_dates > 0
+  const badgeText = event.is_promoted
+    ? "Promoted"
+    : hasExtraDates
+      ? `+${event.series_extra_dates} more dates`
+      : showSellingFast
+        ? "Selling fast"
+        : null
+  const href = event.series_slug ? `/series/${event.series_slug}` : `/events/${event.slug}`
 
   const handleSaveClick = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -74,7 +86,7 @@ export function EventCardStandard({ event, onSave }: EventCardProps) {
     <>
       {/* Mobile: Row layout */}
       <Link
-        href={`/events/${event.slug}`}
+        href={href}
         className="lg:hidden flex p-4 bg-background hover:bg-accent/50 transition-colors min-h-[96px] rounded-sm items-center gap-3"
       >
         <div className="shrink-0">
@@ -115,7 +127,7 @@ export function EventCardStandard({ event, onSave }: EventCardProps) {
       </Link>
 
       {/* Desktop: Card layout */}
-      <Link href={`/events/${event.slug}`} className="hidden lg:block group">
+      <Link href={href} className="hidden lg:block group">
         <Card className="h-full overflow-hidden rounded-xl border bg-card transition hover:shadow-lg hover:border-primary/50">
           <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
             <img

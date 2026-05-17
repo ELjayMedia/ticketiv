@@ -29,6 +29,8 @@ type RawHomeEvent = {
   starts_at: string | null
   city: string | null
   category: string | null
+  series_id: string | null
+  series?: { id: string; slug: string; title: string; series_type: "tour" | "recurring" | "season"; cover_image_url: string | null } | { id: string; slug: string; title: string; series_type: "tour" | "recurring" | "season"; cover_image_url: string | null }[] | null
   venues?: { name: string | null; city: string | null; address: string | null } | { name: string | null; city: string | null; address: string | null }[] | null
   ticket_types?: Array<{ price_cents: number | null; currency: string | null }> | null
 }
@@ -42,6 +44,8 @@ async function getHomeEvents(limit = 24): Promise<EventCardData[]> {
   const supabase = createServerSupabaseClient()
   if (!supabase) return []
 
+  const nowIso = new Date().toISOString()
+
   const { data, error } = await supabase
     .from("events")
     .select(`
@@ -52,27 +56,38 @@ async function getHomeEvents(limit = 24): Promise<EventCardData[]> {
       starts_at,
       city,
       category,
+      series_id,
+      series:series_id(id, slug, title, series_type, cover_image_url),
       venues:venue_id(name, city, address),
       ticket_types(price_cents, currency)
     `)
     .eq("status", "published")
+    .gte("starts_at", nowIso)
     .order("starts_at", { ascending: true, nullsFirst: false })
-    .limit(limit)
+    .limit(120)
 
   if (error) {
     console.error("Failed to load home events", error)
     return []
   }
 
-  return ((data ?? []) as RawHomeEvent[]).map((event) => {
-    const venue = firstRelation(event.venues)
-    const prices = event.ticket_types ?? []
-    const pricedTickets = prices.filter((ticket) => typeof ticket.price_cents === "number")
-    const minPrice = pricedTickets.length > 0 ? Math.min(...pricedTickets.map((ticket) => ticket.price_cents ?? 0)) : null
-    const maxPrice = pricedTickets.length > 0 ? Math.max(...pricedTickets.map((ticket) => ticket.price_cents ?? 0)) : null
-    const currency = prices.find((ticket) => ticket.currency)?.currency ?? "SZL"
+  const rawEvents = (data ?? []) as RawHomeEvent[]
 
-    return {
+  // Standalone events + tour-series events go in as individual cards.
+  // Recurring/season series collapse into one card with "+N more dates".
+  const collapsedSeries = new Map<string, { card: EventCardData; extra: number }>()
+  const individuals: EventCardData[] = []
+
+  for (const event of rawEvents) {
+    const venue = firstRelation(event.venues)
+    const series = firstRelation(event.series)
+    const prices = event.ticket_types ?? []
+    const pricedTickets = prices.filter((t) => typeof t.price_cents === "number")
+    const minPrice = pricedTickets.length > 0 ? Math.min(...pricedTickets.map((t) => t.price_cents ?? 0)) : null
+    const maxPrice = pricedTickets.length > 0 ? Math.max(...pricedTickets.map((t) => t.price_cents ?? 0)) : null
+    const currency = prices.find((t) => t.currency)?.currency ?? "SZL"
+
+    const baseCard: EventCardData = {
       id: event.id,
       slug: event.slug || event.id,
       title: event.title,
@@ -85,7 +100,40 @@ async function getHomeEvents(limit = 24): Promise<EventCardData[]> {
       currency,
       organizer_name: null,
     }
-  })
+
+    if (!series || series.series_type === "tour") {
+      individuals.push(baseCard)
+      continue
+    }
+
+    // recurring or season: collapse on series id, keep earliest upcoming event's metadata
+    const existing = collapsedSeries.get(series.id)
+    if (existing) {
+      existing.extra += 1
+    } else {
+      collapsedSeries.set(series.id, {
+        card: {
+          ...baseCard,
+          id: `series-${series.id}`,
+          slug: series.slug,
+          title: series.title,
+          poster_url: series.cover_image_url ?? baseCard.poster_url,
+          series_slug: series.slug,
+          series_extra_dates: 0,
+        },
+        extra: 0,
+      })
+    }
+  }
+
+  const collapsedCards = [...collapsedSeries.values()].map(({ card, extra }) => ({
+    ...card,
+    series_extra_dates: extra,
+  }))
+
+  return [...individuals, ...collapsedCards]
+    .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
+    .slice(0, limit)
 }
 
 async function getHomeVenues(limit = 8): Promise<HomeVenue[]> {
