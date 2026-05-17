@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { CheckCircle2, Plus } from "lucide-react"
+import { CheckCircle2, Plus, ShieldAlert } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,7 +8,7 @@ import { FieldHelpTooltip } from "@/components/super-admin/FieldHelpTooltip"
 import { ResourceForm } from "@/components/super-admin/ResourceForm"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getAdminResource } from "@/lib/super-admin/resources"
-import { requireSuperAdmin } from "@/lib/super-admin/auth"
+import { requireAdminRole } from "@/lib/super-admin/auth"
 import {
   formatAdminCell,
   getFieldHelp,
@@ -27,6 +27,25 @@ const STATUS_MESSAGES: Record<string, string> = {
   ticket_updated: "Ticket sales status updated successfully.",
   device_updated: "Scanner assignment updated successfully.",
   finance_updated: "Finance status updated successfully.",
+}
+
+const ADMIN_ROLE_TIERS = ["super_admin", "finance_admin", "support_admin", "event_ops_admin", "read_only_admin"] as const
+
+const FINANCE_RESOURCE_KEYS = new Set([
+  "payments",
+  "payment-attempts",
+  "payouts",
+  "payout-accounts",
+  "refunds",
+  "refund-items",
+  "ledger-entries",
+  "pricing-plans",
+])
+
+function canMutateResource(resourceKey: string, roleTier: string) {
+  if (roleTier === "read_only_admin") return false
+  if (FINANCE_RESOURCE_KEYS.has(resourceKey)) return roleTier === "super_admin"
+  return true
 }
 
 function buildMap<T extends Record<string, unknown>>(rows: T[] | null, labelFor: (row: T) => string) {
@@ -84,7 +103,7 @@ export default async function SuperAdminResourcePage({
   params: Promise<{ resource: string }>
   searchParams?: Promise<{ status?: string }>
 }) {
-  await requireSuperAdmin()
+  const { roleTier } = await requireAdminRole([...ADMIN_ROLE_TIERS])
   const { resource: resourceKey } = await params
   const query = searchParams ? await searchParams : {}
   const resource = getAdminResource(resourceKey)
@@ -106,6 +125,8 @@ export default async function SuperAdminResourcePage({
 
   const statusMessage = query.status ? STATUS_MESSAGES[query.status] : null
   const friendlyName = getResourceFriendlyName(resource)
+  const canMutate = canMutateResource(resource.key, roleTier)
+  const createColumnClass = canMutate ? "xl:grid-cols-[0.9fr_1.4fr]" : "xl:grid-cols-1"
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -123,15 +144,29 @@ export default async function SuperAdminResourcePage({
         </div>
       ) : null}
 
-      <section className="grid gap-6 xl:grid-cols-[0.9fr_1.4fr]">
-        <Card className="rounded-2xl">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base"><Plus className="h-4 w-4" /> Create {friendlyName}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResourceForm resource={resource} action={createRecord} submitLabel={`Create ${friendlyName}`} lookups={lookups} />
-          </CardContent>
-        </Card>
+      {!canMutate ? (
+        <div className="mb-5 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <p className="font-medium">Read-only access for this resource.</p>
+            <p className="mt-1 text-amber-800">
+              Raw create/edit controls are hidden for your admin tier. Finance users should use the audited finance workflow actions where available.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      <section className={`grid gap-6 ${createColumnClass}`}>
+        {canMutate ? (
+          <Card className="rounded-2xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base"><Plus className="h-4 w-4" /> Create {friendlyName}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResourceForm resource={resource} action={createRecord} submitLabel={`Create ${friendlyName}`} lookups={lookups} />
+            </CardContent>
+          </Card>
+        ) : null}
 
         <Card className="rounded-2xl">
           <CardHeader>
