@@ -49,21 +49,24 @@ await applyPromoCodeAdjustment(code, eventId, subtotal)
 calculateFeeAdjustments(subtotal, feeConfig)
 \`\`\`
 
-### Database Schema
+### Database Schema (actual)
 
 **order_adjustments**
-- `id`, `order_id`, `type` (fee/discount/tax/credit)
-- `label`, `amount`, `currency`
-- `price_rule_id` (optional link to price_rules)
+- `id`, `order_id`, `type`, `scope`
+- `label`, `amount_cents`
+- `target_order_item_id` (optional), `price_rule_id` (optional link to price_rules)
 
-**price_rules**
-- `id`, `name`, `type` (discount/fee/tax)
-- `calculation_method` (percentage/fixed/tiered)
-- `value`, `applies_to` (order/ticket_type/all)
+**price_rules** — coded discounts/fees. A promo code is a `price_rule` with a non-null `code`.
+- `id`, `org_id`, `event_id` (nullable), `ticket_type_id` (nullable)
+- `code` (nullable), `type` (`absolute_discount` | `percent_discount` | `abs_fee` | `percent_fee` | `tax`)
+- `value_numeric`, `applies_to` (`item` | `order`), `channel` (sales_channel[])
+- `starts_at`, `ends_at`, `max_redemptions`, `per_user_limit`, `is_active`
 
-**price_rule_redemptions**
-- `id`, `price_rule_id`, `order_id`
-- `adjustment_id`, `amount_applied`
+**price_rule_redemptions** — one row per redemption; redemption count is derived from this table.
+- `id`, `price_rule_id`, `order_id`, `user_id`, `redeemed_at`
+
+> There is **no** `promo_codes` or `promo_code_usage` table. `lib/promo-codes.ts`
+> reads `price_rules` / `price_rule_redemptions` directly.
 
 ## 3. Demo Mode vs Production
 
@@ -146,16 +149,12 @@ if (priceRuleId) {
 
 ## 6. Migration Checklist
 
-- [x] Add `OrderAdjustmentRecord` type
-- [x] Add `PriceRuleRecord` type
-- [x] Add `PriceRuleRedemptionRecord` type
-- [x] Add `Ticket` type alias
-- [x] Enhance `lib/pricing.ts` with adjustment functions
-- [ ] Update `createOrder()` to create `order_adjustments`
-- [ ] Implement `previewOrder()` with full Supabase integration
+- [x] `PriceRuleRecord` / `PriceRuleRedemptionRecord` types match `price_rules` / `price_rule_redemptions`
+- [x] `PromoCodeRecord` / `PromoCodeUsageRecord` kept as aliases to the price-rule types
+- [x] `Ticket` type alias resolves to `OrderItemRecord`
+- [x] `types/index.ts` aligned to the real schema and the `v_*_public` views
 - [ ] Add admin UI for managing `price_rules`
 - [ ] Migrate demo mode to use `feature_flags` table
-- [ ] Add `pricing_plans` table and tier checking
 
 ## 7. Documentation Standards
 
