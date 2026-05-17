@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 
-import { requireSuperAdmin } from "@/lib/super-admin/auth"
+import { requireAdminRole } from "@/lib/super-admin/auth"
 import {
   createEnvVar,
   deleteEnvVar,
@@ -13,6 +13,10 @@ import {
 export const dynamic = "force-dynamic"
 
 const TARGETS: EnvTarget[] = ["production", "preview", "development"]
+
+async function requireEnvVarAdmin() {
+  await requireAdminRole(["super_admin"])
+}
 
 function isTargetList(value: unknown): value is EnvTarget[] {
   return (
@@ -28,7 +32,7 @@ function errorResponse(error: unknown) {
 }
 
 export async function GET() {
-  await requireSuperAdmin()
+  await requireEnvVarAdmin()
   try {
     const vars = await listEnvVars()
     // Mask all values before sending to client.
@@ -43,7 +47,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  await requireSuperAdmin()
+  await requireEnvVarAdmin()
 
   let body: Partial<CreateEnvVar>
   try {
@@ -74,7 +78,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  await requireSuperAdmin()
+  await requireEnvVarAdmin()
 
   let body: { id?: string; value?: string; target?: unknown }
   try {
@@ -109,7 +113,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  await requireSuperAdmin()
+  await requireEnvVarAdmin()
 
   let body: { id?: string }
   try {
