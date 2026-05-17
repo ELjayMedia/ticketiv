@@ -24,14 +24,14 @@ export default async function OrderFailedPage({ params }: { params: { orderId: s
   const isFailed = order.status === "failed" || order.status === "pending"
 
   const latestPayment = order.payments?.[0]
-  const paymentError = latestPayment?.metadata?.error_message || latestPayment?.metadata?.last_error
+  const paymentError = latestPayment?.payload?.error_message || latestPayment?.payload?.last_error
 
   const orderItems = order.order_items || []
-  const totalItems = orderItems.reduce((sum, item) => sum + (item.quantity || 1), 0)
+  const totalItems = orderItems.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0)
 
-  const subtotal = order.subtotal_amount || 0
-  const fees = order.fee_amount || 0
-  const total = order.total_amount || 0
+  const subtotal = order.subtotal_cents || 0
+  const fees = (order.platform_fee_cents || 0) + (order.processor_fee_cents || 0)
+  const total = order.total_cents || 0
 
   return (
     <>
@@ -251,7 +251,7 @@ export default async function OrderFailedPage({ params }: { params: { orderId: s
               <div>
                 <h3 className="font-semibold mb-3">Order Summary</h3>
                 <div className="space-y-2 text-sm">
-                  {orderItems.map((item, idx) => (
+                  {orderItems.map((item: any, idx: number) => (
                     <div key={idx} className="flex justify-between">
                       <span className="text-muted-foreground">{item.quantity || 1}x Ticket</span>
                       <span>E{((item.unit_price_cents || 0) / 100).toFixed(2)}</span>
@@ -311,10 +311,10 @@ export default async function OrderFailedPage({ params }: { params: { orderId: s
                           <span className="text-muted-foreground">Status</span>
                           <span className="font-medium capitalize">{latestPayment.status}</span>
                         </div>
-                        {latestPayment.provider_transaction_id && (
+                        {latestPayment.ext_payment_id && (
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Reference</span>
-                            <span className="font-mono text-xs">{latestPayment.provider_transaction_id}</span>
+                            <span className="font-mono text-xs">{latestPayment.ext_payment_id}</span>
                           </div>
                         )}
                       </div>

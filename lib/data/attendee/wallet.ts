@@ -7,24 +7,25 @@ export interface Payment {
   order_id: string
   amount_cents: number
   currency: string
-  status: "pending" | "succeeded" | "failed"
+  status: string
   provider: string
-  provider_transaction_id?: string
+  ext_payment_id?: string | null
   created_at: string
 }
 
 export interface LedgerEntry {
   id: string
-  user_id: string
-  transaction_type: "order" | "refund" | "transfer" | "adjustment"
+  org_id: string
+  order_id: string | null
+  type: string
   amount_cents: number
-  balance_after_cents: number
-  reference_id?: string
-  created_at: string
+  currency: string
+  occurred_at: string
 }
 
 /**
- * Get user payment history
+ * Get user payment history.
+ * Payments have no user column; they are reached through the owning order.
  * Reads from: payments, orders
  */
 export async function getUserPayments(userId: string): Promise<Payment[]> {
@@ -34,8 +35,8 @@ export async function getUserPayments(userId: string): Promise<Payment[]> {
   try {
     const { data, error } = await supabase
       .from("payments")
-      .select("*")
-      .eq("user_id", userId)
+      .select("*, orders!inner(buyer_id)")
+      .eq("orders.buyer_id", userId)
       .order("created_at", { ascending: false })
 
     if (error) {
@@ -51,8 +52,9 @@ export async function getUserPayments(userId: string): Promise<Payment[]> {
 }
 
 /**
- * Get user ledger/transaction history
- * Reads from: ledger_entries
+ * Get the user's order-linked ledger entries.
+ * Ledger entries have no user column; they are reached through the owning order.
+ * Reads from: ledger_entries, orders
  */
 export async function getUserLedger(userId: string, limit: number = 50): Promise<LedgerEntry[]> {
   const supabase = await createServerSupabaseClient()
@@ -61,9 +63,9 @@ export async function getUserLedger(userId: string, limit: number = 50): Promise
   try {
     const { data, error } = await supabase
       .from("ledger_entries")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
+      .select("*, orders!inner(buyer_id)")
+      .eq("orders.buyer_id", userId)
+      .order("occurred_at", { ascending: false })
       .limit(limit)
 
     if (error) {
@@ -79,36 +81,16 @@ export async function getUserLedger(userId: string, limit: number = 50): Promise
 }
 
 /**
- * Get current wallet balance
- * Reads from: ledger_entries
+ * Get current wallet balance.
+ * The ledger is org-level accounting and carries no per-user running balance,
+ * so there is no stored attendee wallet balance to read.
  */
-export async function getWalletBalance(userId: string): Promise<number> {
-  const supabase = await createServerSupabaseClient()
-  if (!supabase) return 0
-
-  try {
-    const { data, error } = await supabase
-      .from("ledger_entries")
-      .select("balance_after_cents")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (error) {
-      console.error("[v0] Error fetching wallet balance:", error)
-      return 0
-    }
-
-    return data?.balance_after_cents || 0
-  } catch (error) {
-    console.error("[v0] Unexpected error fetching wallet balance:", error)
-    return 0
-  }
+export async function getWalletBalance(_userId: string): Promise<number> {
+  return 0
 }
 
 /**
- * Get payment method stored for user
+ * Get payment methods stored for the user.
  * Reads from: payment_methods
  */
 export async function getUserPaymentMethods(userId: string) {

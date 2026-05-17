@@ -77,16 +77,22 @@ export default async function OrderConfirmationPage({ params }: { params: { orde
   const eventInfo = order.order_items?.[0]?.event || null
   const venue = eventInfo?.venue || null
 
-  const subtotal = order.subtotal_amount || order.total_amount_cents / 100 || 0
-  const fees =
-    order.order_adjustments
+  const subtotalCents = order.subtotal_cents ?? order.total_cents ?? 0
+  const feesCents =
+    (order.order_adjustments
       ?.filter((adj: any) => adj.type === "fee")
-      .reduce((sum: number, adj: any) => sum + (adj.amount_cents / 100 || 0), 0) || 0
-  const discounts =
+      .reduce((sum: number, adj: any) => sum + (adj.amount_cents || 0), 0) || 0) ||
+    (order.platform_fee_cents || 0) + (order.processor_fee_cents || 0)
+  const discountsCents =
     order.order_adjustments
       ?.filter((adj: any) => adj.type === "discount" || adj.type === "promo")
-      .reduce((sum: number, adj: any) => sum + Math.abs(adj.amount_cents / 100 || 0), 0) || 0
-  const total = order.total_amount || order.total_amount_cents / 100 || subtotal + fees - discounts
+      .reduce((sum: number, adj: any) => sum + Math.abs(adj.amount_cents || 0), 0) || 0
+  const totalCents = order.total_cents ?? subtotalCents + feesCents - discountsCents
+
+  const subtotal = subtotalCents / 100
+  const fees = feesCents / 100
+  const discounts = discountsCents / 100
+  const total = totalCents / 100
 
   const eventDate = eventInfo?.starts_at
     ? new Date(eventInfo.starts_at).toLocaleDateString(undefined, {

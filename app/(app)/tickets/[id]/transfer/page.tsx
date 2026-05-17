@@ -22,29 +22,37 @@ export default async function TransferTicketPage({ params }: { params: { id: str
   } = await supabase.auth.getSession()
   if (!session) redirect("/login")
 
-  // Fetch ticket details
-  const { data: ticket } = await supabase
-    .from("tickets")
+  // A "ticket" is an order_item; its event is reached via the ticket type.
+  const { data: orderItem } = await supabase
+    .from("order_items")
     .select(
       `
-      *,
-      event:events(id, title, starts_at, cover_image_url),
-      ticket_type:ticket_types(name, price, currency)
+      id,
+      ticket_type:ticket_types(
+        name, price_cents, currency,
+        event:events(id, title, starts_at, cover_image_url)
+      )
     `,
     )
     .eq("id", params.id)
     .single()
 
-  if (!ticket) {
+  if (!orderItem) {
     redirect("/app/tickets")
   }
 
-  // Check if ticket has pending transfer
+  const ticket = {
+    id: orderItem.id,
+    ticket_type: orderItem.ticket_type as any,
+    event: (orderItem.ticket_type as any)?.event ?? null,
+  }
+
+  // Check if ticket has a pending transfer
   const { data: existingTransfer } = await supabase
     .from("transfers")
     .select("*")
-    .eq("ticket_id", ticket.id)
-    .eq("status", "pending")
+    .eq("order_item_id", ticket.id)
+    .in("status", ["requested", "pending"])
     .maybeSingle()
 
   return (
@@ -68,18 +76,18 @@ export default async function TransferTicketPage({ params }: { params: { id: str
           <Card>
             <CardContent className="p-4">
               <div className="flex gap-3">
-                {ticket.event.cover_image_url && (
+                {ticket.event?.cover_image_url && (
                   <img
-                    src={ticket.event.cover_image_url || "/placeholder.svg"}
-                    alt={ticket.event.title}
+                    src={ticket.event?.cover_image_url || "/placeholder.svg"}
+                    alt={ticket.event?.title}
                     className="w-16 h-16 rounded object-cover"
                   />
                 )}
                 <div>
-                  <p className="font-semibold text-sm">{ticket.event.title}</p>
-                  <p className="text-xs text-muted-foreground">{ticket.ticket_type.name}</p>
+                  <p className="font-semibold text-sm">{ticket.event?.title}</p>
+                  <p className="text-xs text-muted-foreground">{ticket.ticket_type?.name}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {new Date(ticket.event.starts_at).toLocaleDateString()}
+                    {new Date(ticket.event?.starts_at).toLocaleDateString()}
                   </p>
                 </div>
               </div>
@@ -93,7 +101,7 @@ export default async function TransferTicketPage({ params }: { params: { id: str
                   <p className="font-medium text-sm">Transfer Pending</p>
                   <Badge variant="secondary">Pending</Badge>
                 </div>
-                <p className="text-sm text-muted-foreground">To: {existingTransfer.to_email}</p>
+                <p className="text-sm text-muted-foreground">To: {existingTransfer.to_user_id}</p>
                 <p className="text-xs text-muted-foreground">
                   Sent: {new Date(existingTransfer.created_at).toLocaleDateString()}
                 </p>
@@ -144,12 +152,12 @@ export default async function TransferTicketPage({ params }: { params: { id: str
                   <Input
                     id="resale-price"
                     type="number"
-                    placeholder={(ticket.ticket_type.price / 100).toFixed(2)}
+                    placeholder={(ticket.ticket_type?.price_cents / 100).toFixed(2)}
                     className="pl-9"
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Original price: {ticket.ticket_type.currency} {(ticket.ticket_type.price / 100).toFixed(2)}
+                  Original price: {ticket.ticket_type?.currency} {(ticket.ticket_type?.price_cents / 100).toFixed(2)}
                 </p>
               </div>
               <div className="space-y-2">
@@ -189,24 +197,24 @@ export default async function TransferTicketPage({ params }: { params: { id: str
                 <CardTitle>Ticket Details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {ticket.event.cover_image_url && (
+                {ticket.event?.cover_image_url && (
                   <img
-                    src={ticket.event.cover_image_url || "/placeholder.svg"}
-                    alt={ticket.event.title}
+                    src={ticket.event?.cover_image_url || "/placeholder.svg"}
+                    alt={ticket.event?.title}
                     className="w-full h-48 rounded-lg object-cover"
                   />
                 )}
                 <div>
-                  <h3 className="font-bold text-lg">{ticket.event.title}</h3>
-                  <p className="text-muted-foreground">{ticket.ticket_type.name}</p>
+                  <h3 className="font-bold text-lg">{ticket.event?.title}</h3>
+                  <p className="text-muted-foreground">{ticket.ticket_type?.name}</p>
                   <p className="text-sm text-muted-foreground mt-2">
-                    {new Date(ticket.event.starts_at).toLocaleString()}
+                    {new Date(ticket.event?.starts_at).toLocaleString()}
                   </p>
                 </div>
                 <div className="pt-4 border-t">
                   <p className="text-sm text-muted-foreground">Original Price</p>
                   <p className="text-xl font-bold">
-                    {ticket.ticket_type.currency} {(ticket.ticket_type.price / 100).toFixed(2)}
+                    {ticket.ticket_type?.currency} {(ticket.ticket_type?.price_cents / 100).toFixed(2)}
                   </p>
                 </div>
               </CardContent>
@@ -226,16 +234,11 @@ export default async function TransferTicketPage({ params }: { params: { id: str
                     </div>
                     <div className="space-y-2">
                       <p className="text-sm text-muted-foreground">
-                        <strong>To:</strong> {existingTransfer.to_email}
+                        <strong>To:</strong> {existingTransfer.to_user_id}
                       </p>
                       <p className="text-sm text-muted-foreground">
                         <strong>Sent:</strong> {new Date(existingTransfer.created_at).toLocaleDateString()}
                       </p>
-                      {existingTransfer.expires_at && (
-                        <p className="text-sm text-muted-foreground">
-                          <strong>Expires:</strong> {new Date(existingTransfer.expires_at).toLocaleDateString()}
-                        </p>
-                      )}
                     </div>
                     <Button variant="destructive" size="sm" className="w-full">
                       Cancel Transfer
@@ -289,12 +292,12 @@ export default async function TransferTicketPage({ params }: { params: { id: str
                             id="resale-price"
                             type="number"
                             step="0.01"
-                            placeholder={(ticket.ticket_type.price / 100).toFixed(2)}
+                            placeholder={(ticket.ticket_type?.price_cents / 100).toFixed(2)}
                             className="pl-9"
                           />
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Original price: {ticket.ticket_type.currency} {(ticket.ticket_type.price / 100).toFixed(2)}
+                          Original price: {ticket.ticket_type?.currency} {(ticket.ticket_type?.price_cents / 100).toFixed(2)}
                         </p>
                       </div>
                       <div className="space-y-2">
