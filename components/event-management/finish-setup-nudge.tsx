@@ -60,7 +60,7 @@ export function FinishSetupNudge({
   const pills = [
     { show: status.needsLineup, label: "Add your lineup", tab: "lineup" },
     { show: status.needsPolicies, label: "Review your policies", tab: "policies" },
-    { show: status.needsOps, label: "Configure operations", tab: "operations" },
+    { show: status.needsOps, label: "Configure operations", tab: "staff" },
   ].filter((pill) => pill.show)
 
   return (

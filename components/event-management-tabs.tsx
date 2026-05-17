@@ -6,11 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { BarChart3, CreditCard, Eye, FileText, ListMusic, QrCode, Settings } from 'lucide-react'
+import { BarChart3, CreditCard, Eye, FileText, ListMusic, QrCode, Users } from 'lucide-react'
 import Link from 'next/link'
 import { LineupStep } from '@/components/event-wizard/steps/LineupStep'
 import { PoliciesStep } from '@/components/event-wizard/steps/PoliciesStep'
-import { StaffStep } from '@/components/event-wizard/steps/StaffStep'
 import { FinishSetupNudge } from '@/components/event-management/finish-setup-nudge'
 
 interface EventManagementTabsProps {
@@ -73,9 +72,9 @@ export function EventManagementTabs({ eventId, orgId, event }: EventManagementTa
           <FileText className="h-4 w-4" />
           <span className="hidden sm:inline">Policies</span>
         </TabsTrigger>
-        <TabsTrigger value="operations" className="gap-2">
-          <Settings className="h-4 w-4" />
-          <span className="hidden sm:inline">Operations</span>
+        <TabsTrigger value="staff" className="gap-2">
+          <Users className="h-4 w-4" />
+          <span className="hidden sm:inline">Staff</span>
         </TabsTrigger>
         <TabsTrigger value="payouts" className="gap-2">
           <CreditCard className="h-4 w-4" />
@@ -206,15 +205,23 @@ export function EventManagementTabs({ eventId, orgId, event }: EventManagementTa
         </Card>
       </TabsContent>
 
-      {/* Operations Tab */}
-      <TabsContent value="operations" className="space-y-6 mt-6">
+      {/* Staff Tab */}
+      <TabsContent value="staff" className="space-y-6 mt-6">
         <Card>
           <CardHeader>
-            <CardTitle>Operations</CardTitle>
-            <CardDescription>Assign scanners and event staff for check-in on event day</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Event Staff
+            </CardTitle>
+            <CardDescription>Manage scanners and event staff who can check in attendees</CardDescription>
           </CardHeader>
           <CardContent>
-            <StaffStep eventId={eventId} onSaving={dismissNudge} />
+            <Button asChild className="gap-2">
+              <Link href={`/orgs/${orgId}/events/${eventId}/staff`}>
+                <Users className="h-4 w-4" />
+                Manage staff
+              </Link>
+            </Button>
           </CardContent>
         </Card>
       </TabsContent>
