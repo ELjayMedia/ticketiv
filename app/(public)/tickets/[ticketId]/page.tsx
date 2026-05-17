@@ -2,6 +2,7 @@ import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 import { ArrowLeft, CalendarDays, CheckCircle2, Clock, MapPin, QrCode, ShieldAlert, Ticket } from "lucide-react"
 
+import { TicketQrCode } from "@/components/tickets/ticket-qr-code"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -56,10 +57,6 @@ type PageProps = {
 function formatDate(value: string | null | undefined) {
   if (!value) return "Date to be confirmed"
   return new Intl.DateTimeFormat("en-SZ", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value))
-}
-
-function makeQrUrl(value: string) {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(value)}`
 }
 
 function canUseForEntry(ticket: TicketDetail) {
@@ -201,8 +198,7 @@ export default async function TicketDetailPage({ params }: PageProps) {
 
             <div className="flex flex-col items-center gap-3 rounded-2xl bg-background p-4 shadow-sm">
               {showQr ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={makeQrUrl(ticket.ticket_code!)} alt="Ticket QR code" className="h-56 w-56 rounded bg-white p-2" />
+                <TicketQrCode value={ticket.ticket_code!} label="Ticket QR code" size={224} />
               ) : (
                 <div className="flex h-56 w-56 flex-col items-center justify-center rounded bg-muted text-center text-sm text-muted-foreground">
                   <QrCode className="mb-3 h-10 w-10" /> QR unavailable
