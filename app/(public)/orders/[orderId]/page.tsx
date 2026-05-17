@@ -11,14 +11,14 @@ export default async function OrderPage({ params }: OrderPageProps) {
   const { orderId } = await params
   const supabase = createServerSupabaseClient()
 
-  if (!supabase) redirect("/sign-in")
+  if (!supabase) redirect("/login")
 
   const {
     data: { session },
   } = await supabase.auth.getSession()
 
   if (!session) {
-    redirect(`/sign-in?redirectTo=${encodeURIComponent(`/orders/${orderId}`)}`)
+    redirect(`/login?redirectTo=${encodeURIComponent(`/orders/${orderId}`)}`)
   }
 
   return <OrderDetailClient orderId={orderId} />

@@ -55,7 +55,7 @@ export function OnboardingForm({ initialDisplayName }: { initialDisplayName: str
     setBusy(true)
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setBusy(false); router.push("/sign-in"); return }
+    if (!user) { setBusy(false); router.push("/login"); return }
 
     const { error: profileErr } = await supabase
       .from("profiles")

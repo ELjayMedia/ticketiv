@@ -41,7 +41,7 @@ export default async function VerifyPage({
         </div>
 
         <Link
-          href="/sign-in"
+          href="/login"
           className="mt-8 self-start text-sm text-[var(--color-ink-mute)] underline-offset-4 hover:underline"
         >
           ← Use a different email

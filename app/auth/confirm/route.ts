@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
       try {
         await bootstrapTicketivProfile()
       } catch {
-        redirectTo.pathname = "/sign-in"
+        redirectTo.pathname = "/login"
         redirectTo.searchParams.set("error", "profile_bootstrap_failed")
         return NextResponse.redirect(redirectTo)
       }
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  redirectTo.pathname = "/sign-in"
+  redirectTo.pathname = "/login"
   redirectTo.searchParams.set("error", "email_confirmation_failed")
   return NextResponse.redirect(redirectTo)
 }

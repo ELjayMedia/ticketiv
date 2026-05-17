@@ -64,7 +64,7 @@ export default async function MyTicketsPage() {
   const supabase = createServerSupabaseClient()
 
   if (!supabase) {
-    redirect("/sign-in?redirectTo=/my-tickets")
+    redirect("/login?redirectTo=/my-tickets")
   }
 
   const {
@@ -72,7 +72,7 @@ export default async function MyTicketsPage() {
   } = await supabase.auth.getSession()
 
   if (!session) {
-    redirect("/sign-in?redirectTo=/my-tickets")
+    redirect("/login?redirectTo=/my-tickets")
   }
 
   const { data, error } = await supabase
