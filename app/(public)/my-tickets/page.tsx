@@ -49,12 +49,15 @@ function ticketStatusLabel(item: TicketWalletItem) {
   if (item.order?.status === "failed") return "Payment failed"
   if (item.order?.status === "refunded") return "Refunded"
   if (item.status === "checked_in") return "Checked in"
+  if (item.status === "revoked") return "Revoked"
+  if (item.status === "refunded") return "Refunded"
+  if (item.status === "transferred") return "Transferred"
   if (item.status === "issued") return "Ready"
-  return item.status
+  return item.status.replaceAll("_", " ")
 }
 
 function ticketStatusVariant(item: TicketWalletItem): "default" | "secondary" | "destructive" | "outline" {
-  if (item.order?.status === "failed") return "destructive"
+  if (item.order?.status === "failed" || item.status === "revoked") return "destructive"
   if (item.order?.status === "pending") return "outline"
   if (item.status === "issued") return "default"
   return "secondary"
@@ -163,8 +166,7 @@ function TicketSection({ title, tickets, emptyText }: { title: string; tickets: 
         <div className="grid gap-3">
           {tickets.map((item) => {
             const event = item.ticket_type?.event
-            const orderId = item.order?.id
-            const href = orderId ? `/orders/${orderId}` : "#"
+            const href = `/tickets/${item.id}`
 
             return (
               <Link key={item.id} href={href} className="block">
@@ -188,7 +190,7 @@ function TicketSection({ title, tickets, emptyText }: { title: string; tickets: 
                             <h3 className="line-clamp-1 font-semibold">{event?.title ?? "Ticketiv event"}</h3>
                             <p className="text-sm text-muted-foreground">{item.ticket_type?.name ?? "Ticket"}</p>
                           </div>
-                          <Badge variant={ticketStatusVariant(item)} className="w-fit">
+                          <Badge variant={ticketStatusVariant(item)} className="w-fit capitalize">
                             {ticketStatusLabel(item)}
                           </Badge>
                         </div>
