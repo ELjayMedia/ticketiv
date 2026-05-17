@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { CheckCircle2, Clock, Download, ExternalLink, QrCode, RefreshCw, Ticket } from "lucide-react"
+import { CheckCircle2, Clock, Download, ExternalLink, QrCode, RefreshCw, ShieldAlert, Ticket } from "lucide-react"
 
 import { PendingPaymentRefresh } from "@/components/orders/pending-payment-refresh"
 import { Badge } from "@/components/ui/badge"
@@ -61,11 +61,28 @@ function ticketStatusBadge(status: string) {
   if (status === "issued") return <Badge className="gap-1"><Ticket className="h-3 w-3" /> Issued</Badge>
   if (status === "checked_in") return <Badge variant="secondary">Checked in</Badge>
   if (status === "pending") return <Badge variant="outline">Pending payment</Badge>
+  if (status === "revoked") return <Badge variant="destructive">Revoked</Badge>
+  if (status === "refunded") return <Badge variant="secondary">Refunded</Badge>
+  if (status === "transferred") return <Badge variant="secondary">Transferred</Badge>
   return <Badge variant="secondary">{status}</Badge>
 }
 
 function makeQrUrl(value: string) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(value)}`
+}
+
+function canShowTicketQr(order: Order, item: OrderItem) {
+  return order.status === "paid" && item.status === "issued" && Boolean(item.ticket_code)
+}
+
+function blockedTicketQrMessage(order: Order, item: OrderItem) {
+  if (order.status === "pending") return "QR available after payment"
+  if (order.status === "failed") return "Payment failed"
+  if (order.status === "refunded" || item.status === "refunded") return "Ticket refunded"
+  if (item.status === "checked_in") return "Already checked in"
+  if (item.status === "revoked") return "Ticket revoked"
+  if (item.status === "transferred") return "Ticket transferred"
+  return "QR unavailable"
 }
 
 export function OrderDetailClient({ orderId }: { orderId: string }) {
@@ -93,7 +110,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   }
 
   const event = useMemo(() => order?.order_items?.[0]?.ticket_types?.events ?? null, [order])
-  const hasIssuedTickets = Boolean(order?.order_items?.some((item) => item.status === "issued" || item.status === "checked_in"))
+  const hasIssuedTickets = Boolean(order?.order_items?.some((item) => item.status === "issued"))
 
   if (loading) {
     return <main className="min-h-screen bg-background px-4 py-8"><div className="mx-auto max-w-3xl text-sm text-muted-foreground">Loading order...</div></main>
@@ -137,7 +154,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                 <CheckCircle2 className="mt-0.5 h-5 w-5 text-primary" />
                 <div>
                   <h2 className="font-semibold">Payment confirmed. Your tickets are ready.</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">Present the QR code at the gate. Each ticket can only be checked in once.</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Present each active QR code at the gate. Used, transferred, revoked or refunded tickets are blocked.</p>
                 </div>
               </div>
             </CardContent>
@@ -150,7 +167,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
           </CardHeader>
           <CardContent className="space-y-4">
             {(order.order_items ?? []).map((item, index) => {
-              const canShowQr = order.status === "paid" && item.ticket_code && (item.status === "issued" || item.status === "checked_in")
+              const showQr = canShowTicketQr(order, item)
               const ticketName = item.ticket_types?.name ?? `Ticket ${index + 1}`
 
               return (
@@ -164,17 +181,20 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                       {ticketStatusBadge(item.status)}
                       {item.holder_email && <p className="text-sm text-muted-foreground">Holder: {item.holder_email}</p>}
                       {item.checked_in_at && <p className="text-xs text-muted-foreground">Checked in: {formatDate(item.checked_in_at)}</p>}
+                      <Button asChild variant="outline" size="sm" className="mt-2 rounded-full">
+                        <Link href={`/tickets/${item.id}`}>Open ticket</Link>
+                      </Button>
                     </div>
 
                     <div className="flex flex-col items-center gap-3 rounded-lg bg-muted/40 p-3">
-                      {canShowQr ? (
+                      {showQr ? (
                         <img src={makeQrUrl(item.ticket_code!)} alt={`QR code for ${ticketName}`} className="h-40 w-40 rounded bg-white p-2" />
                       ) : (
                         <div className="flex h-40 w-40 flex-col items-center justify-center rounded bg-background text-center text-sm text-muted-foreground">
-                          <QrCode className="mb-2 h-8 w-8" /> QR available after payment
+                          <ShieldAlert className="mb-2 h-8 w-8" /> {blockedTicketQrMessage(order, item)}
                         </div>
                       )}
-                      {item.ticket_code && <p className="max-w-[10rem] break-all text-center text-[11px] text-muted-foreground">{item.ticket_code}</p>}
+                      {showQr && item.ticket_code && <p className="max-w-[10rem] break-all text-center text-[11px] text-muted-foreground">{item.ticket_code}</p>}
                     </div>
                   </div>
                 </div>
