@@ -9,6 +9,7 @@ import { ResourceForm } from "@/components/super-admin/ResourceForm"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getAdminResource } from "@/lib/super-admin/resources"
 import { requireAdminRole } from "@/lib/super-admin/auth"
+import { ADMIN_ROLE_TIERS, canMutateResource } from "@/lib/super-admin/permissions"
 import {
   formatAdminCell,
   getFieldHelp,
@@ -27,25 +28,6 @@ const STATUS_MESSAGES: Record<string, string> = {
   ticket_updated: "Ticket sales status updated successfully.",
   device_updated: "Scanner assignment updated successfully.",
   finance_updated: "Finance status updated successfully.",
-}
-
-const ADMIN_ROLE_TIERS = ["super_admin", "finance_admin", "support_admin", "event_ops_admin", "read_only_admin"] as const
-
-const FINANCE_RESOURCE_KEYS = new Set([
-  "payments",
-  "payment-attempts",
-  "payouts",
-  "payout-accounts",
-  "refunds",
-  "refund-items",
-  "ledger-entries",
-  "pricing-plans",
-])
-
-function canMutateResource(resourceKey: string, roleTier: string) {
-  if (roleTier === "read_only_admin") return false
-  if (FINANCE_RESOURCE_KEYS.has(resourceKey)) return roleTier === "super_admin"
-  return true
 }
 
 function buildMap<T extends Record<string, unknown>>(rows: T[] | null, labelFor: (row: T) => string) {
@@ -103,7 +85,7 @@ export default async function SuperAdminResourcePage({
   params: Promise<{ resource: string }>
   searchParams?: Promise<{ status?: string }>
 }) {
-  const { roleTier } = await requireAdminRole([...ADMIN_ROLE_TIERS])
+  const { roleTier } = await requireAdminRole(ADMIN_ROLE_TIERS)
   const { resource: resourceKey } = await params
   const query = searchParams ? await searchParams : {}
   const resource = getAdminResource(resourceKey)
@@ -150,7 +132,7 @@ export default async function SuperAdminResourcePage({
           <div>
             <p className="font-medium">Read-only access for this resource.</p>
             <p className="mt-1 text-amber-800">
-              Raw create/edit controls are hidden for your admin tier. Finance users should use the audited finance workflow actions where available.
+              Raw create/edit controls are hidden for your admin tier. Use the appropriate audited workflow actions where available.
             </p>
           </div>
         </div>
