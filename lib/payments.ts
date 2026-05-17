@@ -8,7 +8,7 @@ import { notifyPaymentFailed, notifyPaymentSucceeded, notifyTicketPurchaseSuccee
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
-export type PaymentProvider = "deltapay" | "paystack" | "flutterwave" | "manual"
+export type PaymentProvider = "deltapay" | "paystack" | "flutterwave" | "manual" | "momo"
 
 type LiveOrder = {
   id: string
@@ -51,7 +51,7 @@ export interface CompleteVerifiedPaymentInput {
 }
 
 function assertProvider(provider: string): asserts provider is PaymentProvider {
-  if (!["deltapay", "paystack", "flutterwave", "manual"].includes(provider)) throw new Error("Unsupported payment provider")
+  if (!["deltapay", "paystack", "flutterwave", "manual", "momo"].includes(provider)) throw new Error("Unsupported payment provider")
 }
 
 async function getPaystackSettings(): Promise<PaystackSettings> {

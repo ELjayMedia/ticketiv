@@ -1,8 +1,8 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, CreditCard, Mail } from "lucide-react"
+import { ArrowLeft, CreditCard, Mail, Smartphone } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { formatCurrency } from "@/lib/pricing"
 import type { EventDetailData } from "@/lib/data/public/event-detail"
+import { clearPendingCart, loadPendingCart, savePendingCart } from "@/lib/cart-persist"
 
 interface CheckoutClientProps {
   event: EventDetailData
@@ -43,8 +44,23 @@ export function CheckoutClient({ event, selectedItemsParam, legacyTicketTypeId, 
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
   const [loading, setLoading] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState<"paystack" | "momo">("paystack")
+  const [momoPhone, setMomoPhone] = useState("")
+  const [momoPending, setMomoPending] = useState(false)
 
-  const selectedItems = useMemo(() => parseSelectedItems(selectedItemsParam, legacyTicketTypeId, legacyQuantity), [legacyQuantity, legacyTicketTypeId, selectedItemsParam])
+  const [selectedItems, setSelectedItems] = useState<CheckoutItem[]>(() =>
+    parseSelectedItems(selectedItemsParam, legacyTicketTypeId, legacyQuantity),
+  )
+
+  // Restore a selection that was persisted before an auth redirect. The URL
+  // params take precedence when present; otherwise fall back to the saved cart.
+  useEffect(() => {
+    const cart = loadPendingCart()
+    if (cart && cart.eventId === event.id && cart.items.length > 0) {
+      setSelectedItems((current) => (current.length > 0 ? current : cart.items))
+    }
+    clearPendingCart()
+  }, [event.id])
 
   const lineItems = useMemo(() => {
     return selectedItems
@@ -60,6 +76,55 @@ export function CheckoutClient({ event, selectedItemsParam, legacyTicketTypeId, 
   const subtotalCents = lineItems.reduce((sum, item) => sum + item.subtotalCents, 0)
   const totalQty = lineItems.reduce((sum, item) => sum + item.quantity, 0)
   const hasValidSelection = lineItems.length > 0 && totalQty > 0
+
+  // Poll the MoMo status endpoint while the buyer approves the prompt.
+  const pollMomoStatus = (orderId: string, referenceId: string, attempt = 0) => {
+    const MAX_ATTEMPTS = 40 // ~2 minutes at 3s intervals
+    window.setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/payments/momo/status?referenceId=${encodeURIComponent(referenceId)}`)
+        const data = await res.json()
+        if (!res.ok) throw new Error(data?.error ?? "Unable to check MoMo status")
+
+        if (data.status === "SUCCESSFUL") {
+          window.location.href = `/orders/${orderId}/confirmation`
+          return
+        }
+        if (data.status === "FAILED") {
+          setMomoPending(false)
+          setLoading(false)
+          toast.error("The MoMo payment was declined. Please try again.")
+          return
+        }
+        if (attempt + 1 >= MAX_ATTEMPTS) {
+          setMomoPending(false)
+          setLoading(false)
+          toast.error("Timed out waiting for MoMo approval. Please try again.")
+          return
+        }
+        pollMomoStatus(orderId, referenceId, attempt + 1)
+      } catch (error: any) {
+        setMomoPending(false)
+        setLoading(false)
+        toast.error(error?.message ?? "Unable to check MoMo status.")
+      }
+    }, 3000)
+  }
+
+  const startMomoPayment = async (orderId: string) => {
+    const res = await fetch("/api/payments/momo/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId, msisdn: momoPhone }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data?.error ?? "Unable to start MoMo payment")
+    if (!data.referenceId) throw new Error("MoMo did not return a reference")
+
+    setMomoPending(true)
+    toast("Check your phone — approve the MoMo prompt to complete payment.")
+    pollMomoStatus(orderId, data.referenceId)
+  }
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -83,8 +148,14 @@ export function CheckoutClient({ event, selectedItemsParam, legacyTicketTypeId, 
       })
 
       if (orderResponse.status === 401) {
-        const redirectTo = encodeURIComponent(window.location.pathname + window.location.search)
-        window.location.href = `/sign-in?redirectTo=${redirectTo}`
+        // Persist the selection so it can be restored after authentication.
+        savePendingCart({
+          eventId: event.id,
+          items: selectedItems,
+          returnPath: `/events/${event.id}/checkout`,
+        })
+        const redirectTo = encodeURIComponent(`/events/${event.id}/checkout`)
+        window.location.href = `/login?redirectTo=${redirectTo}`
         return
       }
 
@@ -93,6 +164,11 @@ export function CheckoutClient({ event, selectedItemsParam, legacyTicketTypeId, 
 
       const orderId = orderPayload?.order?.id
       if (!orderId) throw new Error("Order was created without an ID")
+
+      if (paymentMethod === "momo") {
+        await startMomoPayment(orderId)
+        return
+      }
 
       const paymentResponse = await fetch("/api/payments/attempt", {
         method: "POST",
@@ -180,24 +256,87 @@ export function CheckoutClient({ event, selectedItemsParam, legacyTicketTypeId, 
 
           <section className="space-y-4">
             <h2 className="text-lg font-bold">Payment Method</h2>
-            <Card className="border-2 border-primary bg-primary/5">
-              <CardContent className="flex items-center gap-3 p-4">
-                <div className="rounded-full bg-background p-2">
-                  <CreditCard className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="font-semibold">Paystack</p>
-                  <p className="text-xs text-muted-foreground">Pay securely by card or supported Paystack methods.</p>
-                </div>
-              </CardContent>
-            </Card>
+
+            <button type="button" onClick={() => setPaymentMethod("paystack")} disabled={momoPending} className="w-full text-left">
+              <Card className={paymentMethod === "paystack" ? "border-2 border-primary bg-primary/5" : "border border-border/60"}>
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="rounded-full bg-background p-2">
+                    <CreditCard className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">Paystack</p>
+                    <p className="text-xs text-muted-foreground">Pay securely by card or supported Paystack methods.</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </button>
+
+            <button type="button" onClick={() => setPaymentMethod("momo")} disabled={momoPending} className="w-full text-left">
+              <Card className={paymentMethod === "momo" ? "border-2 border-primary bg-primary/5" : "border border-border/60"}>
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="rounded-full bg-background p-2">
+                    <Smartphone className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">MTN MoMo</p>
+                    <p className="text-xs text-muted-foreground">Pay with mobile money.</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </button>
+
+            {paymentMethod === "momo" && (
+              <div className="space-y-2">
+                <Label htmlFor="momo-phone" className="text-sm font-medium">MoMo phone number</Label>
+                <Input
+                  id="momo-phone"
+                  type="tel"
+                  inputMode="numeric"
+                  placeholder="e.g. 76123456"
+                  value={momoPhone}
+                  onChange={(e) => setMomoPhone(e.target.value)}
+                  required
+                  disabled={momoPending}
+                  className="h-11"
+                />
+                <p className="text-xs text-muted-foreground">Enter the Eswatini number registered for MTN MoMo.</p>
+              </div>
+            )}
+
+            {momoPending && (
+              <Card className="border border-primary/40 bg-primary/5">
+                <CardContent className="p-4 text-sm">
+                  <p className="font-semibold">Check your phone</p>
+                  <p className="text-muted-foreground">
+                    Approve the MTN MoMo prompt to complete your payment. This page updates automatically.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </section>
 
-          <Button type="submit" size="lg" disabled={loading || !email || !hasValidSelection} className="h-12 w-full rounded-lg text-base font-semibold">
-            {loading ? "Redirecting to Paystack..." : "Pay with Paystack"}
+          <Button
+            type="submit"
+            size="lg"
+            disabled={loading || !email || !hasValidSelection || (paymentMethod === "momo" && (!momoPhone || momoPending))}
+            className="h-12 w-full rounded-lg text-base font-semibold"
+          >
+            {paymentMethod === "momo"
+              ? momoPending
+                ? "Waiting for MoMo approval..."
+                : loading
+                  ? "Starting MoMo payment..."
+                  : "Pay with MTN MoMo"
+              : loading
+                ? "Redirecting to Paystack..."
+                : "Pay with Paystack"}
           </Button>
 
-          <p className="text-center text-xs text-muted-foreground">Your tickets will be issued after Paystack confirms successful payment.</p>
+          <p className="text-center text-xs text-muted-foreground">
+            {paymentMethod === "momo"
+              ? "Your tickets will be issued once MTN MoMo confirms the payment."
+              : "Your tickets will be issued after Paystack confirms successful payment."}
+          </p>
         </form>
       </div>
     </div>

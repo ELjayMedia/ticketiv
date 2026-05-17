@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
 import type { EventDetailTicketType } from "@/lib/data/public/event-detail"
 import { formatCurrency } from "@/lib/pricing"
+import { savePendingCart } from "@/lib/cart-persist"
 
 interface TicketSelectorProps {
   eventId: string
@@ -53,16 +54,23 @@ export function TicketSelector({ eventId, ticketTypes, variant = "mobile", multi
   function handleBuy() {
     if (!hasSelection) return
 
-    const selectedItems = Object.entries(quantities)
+    const items = Object.entries(quantities)
       .filter(([, quantity]) => quantity > 0)
-      .map(([ticketTypeId, quantity]) => `${ticketTypeId}:${quantity}`)
-      .join(",")
+      .map(([ticketTypeId, quantity]) => ({ ticketTypeId, quantity }))
 
-    if (!selectedItems) {
+    if (items.length === 0) {
       toast("Please select at least one ticket.")
       return
     }
 
+    // Persist the selection so it survives an auth redirect during checkout.
+    savePendingCart({
+      eventId,
+      items,
+      returnPath: `/events/${eventId}/checkout`,
+    })
+
+    const selectedItems = items.map(({ ticketTypeId, quantity }) => `${ticketTypeId}:${quantity}`).join(",")
     router.push(`/events/${eventId}/checkout?items=${encodeURIComponent(selectedItems)}`)
   }
 
