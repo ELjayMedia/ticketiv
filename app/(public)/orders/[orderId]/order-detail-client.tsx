@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { CheckCircle2, Clock, Download, ExternalLink, QrCode, RefreshCw, ShieldAlert, Ticket } from "lucide-react"
+import { CheckCircle2, Clock, Download, ExternalLink, RefreshCw, ShieldAlert, Ticket } from "lucide-react"
 
 import { PendingPaymentRefresh } from "@/components/orders/pending-payment-refresh"
+import { TicketQrCode } from "@/components/tickets/ticket-qr-code"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -65,10 +66,6 @@ function ticketStatusBadge(status: string) {
   if (status === "refunded") return <Badge variant="secondary">Refunded</Badge>
   if (status === "transferred") return <Badge variant="secondary">Transferred</Badge>
   return <Badge variant="secondary">{status}</Badge>
-}
-
-function makeQrUrl(value: string) {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(value)}`
 }
 
 function canShowTicketQr(order: Order, item: OrderItem) {
@@ -188,7 +185,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
 
                     <div className="flex flex-col items-center gap-3 rounded-lg bg-muted/40 p-3">
                       {showQr ? (
-                        <img src={makeQrUrl(item.ticket_code!)} alt={`QR code for ${ticketName}`} className="h-40 w-40 rounded bg-white p-2" />
+                        <TicketQrCode value={item.ticket_code!} label={`QR code for ${ticketName}`} size={160} />
                       ) : (
                         <div className="flex h-40 w-40 flex-col items-center justify-center rounded bg-background text-center text-sm text-muted-foreground">
                           <ShieldAlert className="mb-2 h-8 w-8" /> {blockedTicketQrMessage(order, item)}
