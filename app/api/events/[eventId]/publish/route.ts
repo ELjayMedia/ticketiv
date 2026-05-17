@@ -17,7 +17,7 @@ async function getUserId() {
 async function loadManageContext(admin: ReturnType<typeof createAdminClient>, eventId: string, userId: string) {
   const { data: event, error } = await admin
     .from("events")
-    .select("id, org_id, title, category, venue_id, starts_at, ends_at, status, visibility")
+    .select("id, org_id, title, category, venue_id, starts_at, ends_at, status, visibility, cover_image_url")
     .eq("id", eventId)
     .maybeSingle()
   if (error) throw error
@@ -36,15 +36,18 @@ async function buildReadiness(admin: ReturnType<typeof createAdminClient>, event
     admin.from("event_dates").select("id", { count: "exact", head: true }).eq("event_id", event.id),
   ])
 
+  // Required checks gate publishing; recommended checks are surfaced to the
+  // organiser but never block going live.
   const checks = [
-    { key: "title", label: "Event title", complete: Boolean(event.title?.trim()) },
-    { key: "category", label: "Category", complete: Boolean(event.category) },
-    { key: "venue", label: "Venue", complete: Boolean(event.venue_id) },
-    { key: "date", label: "Date and time", complete: Boolean(event.starts_at && event.ends_at) || (dateCount ?? 0) > 0 },
-    { key: "tickets", label: "Ticket type", complete: (ticketCount ?? 0) > 0 },
+    { key: "title", label: "Event title", complete: Boolean(event.title?.trim()), recommended: false },
+    { key: "category", label: "Category", complete: Boolean(event.category), recommended: false },
+    { key: "venue", label: "Venue", complete: Boolean(event.venue_id), recommended: false },
+    { key: "date", label: "Date and time", complete: Boolean(event.starts_at && event.ends_at) || (dateCount ?? 0) > 0, recommended: false },
+    { key: "tickets", label: "Ticket type", complete: (ticketCount ?? 0) > 0, recommended: false },
+    { key: "image", label: "Feature image (recommended)", complete: Boolean(event.cover_image_url), recommended: true },
   ]
 
-  return { checks, ready: checks.every((check) => check.complete) }
+  return { checks, ready: checks.every((check) => check.recommended || check.complete) }
 }
 
 export async function GET(_request: NextRequest, context: RouteContext) {
@@ -84,7 +87,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     .from("events")
     .update({ status: nextStatus, published_at: publish ? new Date().toISOString() : null, visibility: publish ? "public" : event.visibility })
     .eq("id", eventId)
-    .select("id, org_id, title, category, venue_id, starts_at, ends_at, status, visibility")
+    .select("id, org_id, title, category, venue_id, starts_at, ends_at, status, visibility, cover_image_url")
     .maybeSingle()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })

@@ -8,13 +8,12 @@ import { EventReadinessPanel } from "@/components/event-wizard/EventReadinessPan
 import { BasicsStep } from "@/components/event-wizard/steps/BasicsStep"
 import { VenueStep } from "@/components/event-wizard/steps/VenueStep"
 import { ScheduleStep } from "@/components/event-wizard/steps/ScheduleStep"
-import { LineupStep } from "@/components/event-wizard/steps/LineupStep"
 import { TicketsStep } from "@/components/event-wizard/steps/TicketsStep"
-import { PoliciesStep } from "@/components/event-wizard/steps/PoliciesStep"
-import { StaffStep } from "@/components/event-wizard/steps/StaffStep"
 import { PublishStep } from "@/components/event-wizard/steps/PublishStep"
 
-const steps = ["basics", "venue", "schedule", "lineup", "tickets", "policies", "staff", "publish"] as const
+// Lineup, Policies and Operations are managed post-publish on the event
+// management page — they are intentionally absent from the creation wizard.
+const steps = ["basics", "schedule", "venue", "tickets", "publish"] as const
 
 export default function EventWizardClient({ orgId, eventId }: { orgId: string; eventId: string }) {
   const router = useRouter()
@@ -91,12 +90,9 @@ export default function EventWizardClient({ orgId, eventId }: { orgId: string; e
 
         <div className="rounded-2xl border bg-background p-4 shadow-sm">
           {step === "basics" && <BasicsStep event={event} onSaving={handleSaving} onError={() => setSaveState("error")} />}
-          {step === "venue" && <VenueStep eventId={eventId} onSaving={handleSaving} />}
           {step === "schedule" && <ScheduleStep eventId={eventId} onSaving={handleSaving} />}
-          {step === "lineup" && <LineupStep eventId={eventId} onSaving={handleSaving} />}
+          {step === "venue" && <VenueStep eventId={eventId} onSaving={handleSaving} />}
           {step === "tickets" && <TicketsStep eventId={eventId} onSaving={handleSaving} />}
-          {step === "policies" && <PoliciesStep eventId={eventId} onSaving={handleSaving} />}
-          {step === "staff" && <StaffStep eventId={eventId} onSaving={handleSaving} />}
           {step === "publish" && <PublishStep event={event} onSaving={handleSaving} />}
         </div>
       </div>

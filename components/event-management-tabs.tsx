@@ -1,13 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { BarChart3, Users, CreditCard, Eye, QrCode } from 'lucide-react'
+import { BarChart3, CreditCard, Eye, FileText, ListMusic, QrCode, Users } from 'lucide-react'
 import Link from 'next/link'
+import { LineupStep } from '@/components/event-wizard/steps/LineupStep'
+import { PoliciesStep } from '@/components/event-wizard/steps/PoliciesStep'
+import { FinishSetupNudge } from '@/components/event-management/finish-setup-nudge'
 
 interface EventManagementTabsProps {
   eventId: string
@@ -21,11 +24,34 @@ interface EventManagementTabsProps {
 }
 
 export function EventManagementTabs({ eventId, orgId, event }: EventManagementTabsProps) {
-  const [staffEmail, setStaffEmail] = useState('')
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const tab = searchParams.get('tab') ?? 'overview'
+
+  const dismissKey = `ticketiv:event-setup-dismissed:${eventId}`
+  const [nudgeDismissed, setNudgeDismissed] = useState(true)
+
+  useEffect(() => {
+    setNudgeDismissed(window.localStorage.getItem(dismissKey) === '1')
+  }, [dismissKey])
+
+  const dismissNudge = useCallback(() => {
+    window.localStorage.setItem(dismissKey, '1')
+    setNudgeDismissed(true)
+  }, [dismissKey])
+
+  function changeTab(next: string) {
+    const params = new URLSearchParams(searchParams.toString())
+    if (next === 'overview') params.delete('tab')
+    else params.set('tab', next)
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }
 
   return (
-    <Tabs defaultValue="overview" className="w-full">
-      <TabsList className="grid w-full grid-cols-5">
+    <Tabs value={tab} onValueChange={changeTab} className="w-full">
+      <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7">
         <TabsTrigger value="overview" className="gap-2">
           <BarChart3 className="h-4 w-4" />
           <span className="hidden sm:inline">Overview</span>
@@ -37,6 +63,14 @@ export function EventManagementTabs({ eventId, orgId, event }: EventManagementTa
         <TabsTrigger value="tickets" className="gap-2">
           <BarChart3 className="h-4 w-4" />
           <span className="hidden sm:inline">Tickets</span>
+        </TabsTrigger>
+        <TabsTrigger value="lineup" className="gap-2">
+          <ListMusic className="h-4 w-4" />
+          <span className="hidden sm:inline">Lineup</span>
+        </TabsTrigger>
+        <TabsTrigger value="policies" className="gap-2">
+          <FileText className="h-4 w-4" />
+          <span className="hidden sm:inline">Policies</span>
         </TabsTrigger>
         <TabsTrigger value="staff" className="gap-2">
           <Users className="h-4 w-4" />
@@ -50,6 +84,8 @@ export function EventManagementTabs({ eventId, orgId, event }: EventManagementTa
 
       {/* Overview Tab */}
       <TabsContent value="overview" className="space-y-6 mt-6">
+        <FinishSetupNudge eventId={eventId} dismissed={nudgeDismissed} onDismiss={dismissNudge} />
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardHeader className="pb-3">
@@ -143,27 +179,49 @@ export function EventManagementTabs({ eventId, orgId, event }: EventManagementTa
         </Card>
       </TabsContent>
 
+      {/* Lineup Tab */}
+      <TabsContent value="lineup" className="space-y-6 mt-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Lineup</CardTitle>
+            <CardDescription>Add performers, speakers and featured guests for this event</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <LineupStep eventId={eventId} onSaving={dismissNudge} />
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      {/* Policies Tab */}
+      <TabsContent value="policies" className="space-y-6 mt-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Policies</CardTitle>
+            <CardDescription>Refund policy, attendee fields and confirmation messaging</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PoliciesStep eventId={eventId} onSaving={dismissNudge} />
+          </CardContent>
+        </Card>
+      </TabsContent>
+
       {/* Staff Tab */}
       <TabsContent value="staff" className="space-y-6 mt-6">
         <Card>
           <CardHeader>
-            <CardTitle>Event Staff</CardTitle>
-            <CardDescription>Invite team members to help manage this event</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Event Staff
+            </CardTitle>
+            <CardDescription>Manage scanners and event staff who can check in attendees</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <Input 
-                placeholder="Enter staff email address"
-                value={staffEmail}
-                onChange={(e) => setStaffEmail(e.target.value)}
-              />
-              <Button disabled={!staffEmail.trim()}>
-                Invite
-              </Button>
-            </div>
-            <div className="text-sm text-muted-foreground">
-              <p>No staff members invited yet</p>
-            </div>
+          <CardContent>
+            <Button asChild className="gap-2">
+              <Link href={`/orgs/${orgId}/events/${eventId}/staff`}>
+                <Users className="h-4 w-4" />
+                Manage staff
+              </Link>
+            </Button>
           </CardContent>
         </Card>
       </TabsContent>
