@@ -88,7 +88,7 @@ export async function getEventDetailById(id: string): Promise<EventDetailData | 
     `)
     .eq("id", id)
     .eq("status", "published")
-    .eq("visibility", "public")
+    .in("visibility", ["public", "unlisted"])
     .single()
 
   if (eventError || !event) return null
