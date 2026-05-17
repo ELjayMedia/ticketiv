@@ -10,7 +10,7 @@ export default async function OnboardingPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) redirect("/sign-in")
+  if (!user) redirect("/login")
 
   // If they already completed onboarding, middleware should have caught this,
   // but be defensive in case they navigate here directly.

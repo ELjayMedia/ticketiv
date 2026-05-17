@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
   redirectTo.search = ""
 
   if (!code) {
-    redirectTo.pathname = "/sign-in"
+    redirectTo.pathname = "/login"
     redirectTo.searchParams.set("error", "missing_auth_code")
     return NextResponse.redirect(redirectTo)
   }
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
   const { error } = await supabase.auth.exchangeCodeForSession(code)
 
   if (error) {
-    redirectTo.pathname = "/sign-in"
+    redirectTo.pathname = "/login"
     redirectTo.searchParams.set("error", "auth_callback_failed")
     return NextResponse.redirect(redirectTo)
   }
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
   try {
     await bootstrapTicketivProfile()
   } catch {
-    redirectTo.pathname = "/sign-in"
+    redirectTo.pathname = "/login"
     redirectTo.searchParams.set("error", "profile_bootstrap_failed")
     return NextResponse.redirect(redirectTo)
   }

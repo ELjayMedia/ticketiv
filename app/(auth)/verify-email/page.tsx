@@ -1,10 +1,5 @@
-import { Suspense } from "react"
-import VerifyEmailContent from "./verify-email-content"
+import { permanentRedirect } from "next/navigation"
 
 export default function VerifyEmailPage() {
-  return (
-    <Suspense fallback={null}>
-      <VerifyEmailContent />
-    </Suspense>
-  )
+  permanentRedirect("/verify")
 }

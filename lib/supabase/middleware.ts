@@ -125,7 +125,7 @@ export async function updateSession(request: NextRequest) {
     if (path.startsWith("/onboarding")) {
       if (!user) {
         const url = request.nextUrl.clone()
-        url.pathname = "/sign-in"
+        url.pathname = "/login"
         url.searchParams.set("from", path)
         return NextResponse.redirect(url)
       }
@@ -138,7 +138,7 @@ export async function updateSession(request: NextRequest) {
     // All other routes require auth
     if (!user) {
       const url = request.nextUrl.clone()
-      url.pathname = "/sign-in"
+      url.pathname = "/login"
       url.searchParams.set("from", path)
       return NextResponse.redirect(url)
     }

@@ -11,13 +11,13 @@ export default async function ScannerPage({ params }: ScannerPageProps) {
   const { orgId, eventId } = await params
   const supabase = createServerSupabaseClient()
 
-  if (!supabase) redirect("/sign-in")
+  if (!supabase) redirect("/login")
 
   const {
     data: { session },
   } = await supabase.auth.getSession()
 
-  if (!session) redirect(`/sign-in?redirectTo=${encodeURIComponent(`/orgs/${orgId}/events/${eventId}/scanner`)}`)
+  if (!session) redirect(`/login?redirectTo=${encodeURIComponent(`/orgs/${orgId}/events/${eventId}/scanner`)}`)
 
   return <ScannerClient orgId={orgId} eventId={eventId} />
 }

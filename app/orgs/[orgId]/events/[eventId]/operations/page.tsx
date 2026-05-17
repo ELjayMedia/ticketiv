@@ -11,13 +11,13 @@ export default async function EventOperationsPage({ params }: OperationsPageProp
   const { orgId, eventId } = await params
   const supabase = createServerSupabaseClient()
 
-  if (!supabase) redirect("/sign-in")
+  if (!supabase) redirect("/login")
 
   const {
     data: { session },
   } = await supabase.auth.getSession()
 
-  if (!session) redirect(`/sign-in?redirectTo=${encodeURIComponent(`/orgs/${orgId}/events/${eventId}/operations`)}`)
+  if (!session) redirect(`/login?redirectTo=${encodeURIComponent(`/orgs/${orgId}/events/${eventId}/operations`)}`)
 
   return <EventOperationsClient orgId={orgId} eventId={eventId} />
 }

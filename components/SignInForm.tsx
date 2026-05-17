@@ -65,7 +65,7 @@ function getAuthCopy(mode: AuthMode) {
       note: "Use an email you can access now. The code expires, and repeated requests may trigger Supabase rate limits.",
       alternate: "Already have a Ticketiv ID?",
       alternateCta: "Log in",
-      alternateHref: "/sign-in",
+      alternateHref: "/login",
     }
   }
 
