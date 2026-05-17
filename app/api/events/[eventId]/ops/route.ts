@@ -68,13 +68,13 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   const checkedInTickets = orderItems.filter((item) => item.status === "checked_in").length
   const onSaleTickets = tickets.filter((ticket: any) => ticket.sales_status === "on_sale")
 
+  // Lineup, policies and operations are no longer publish requirements — they
+  // are completed post-publish on the event management page.
   const baseReadiness = [
     { key: "basics", label: "Basics complete", step: "basics", complete: Boolean(event.title && event.category), hint: event.title && event.category ? "Title and category are set." : "Add an event title and category." },
     { key: "venue", label: "Venue complete", step: "venue", complete: Boolean(event.venue_id), hint: event.venue_id ? "A venue is linked." : "Select or create a reusable venue." },
     { key: "schedule", label: "Schedule complete", step: "schedule", complete: Boolean(event.starts_at && event.ends_at), hint: event.starts_at && event.ends_at ? "Start and end times are set." : "Set event start and end date/time." },
     { key: "tickets", label: "Tickets complete", step: "tickets", complete: tickets.length > 0 && onSaleTickets.length > 0, hint: tickets.length > 0 ? "At least one ticket is configured." : "Add at least one ticket type." },
-    { key: "policies", label: "Policy complete", step: "policies", complete: Boolean(event.refund_policy || event.confirmation_message), hint: event.refund_policy || event.confirmation_message ? "Policy or confirmation details exist." : "Add refund policy or confirmation message." },
-    { key: "staff", label: "Staff/scanner ready", step: "staff", complete: Number(staffCount || 0) > 0, hint: Number(staffCount || 0) > 0 ? "Scanner staff assigned." : "Assign at least one scanner or event staff member." },
     { key: "finance", label: "Finance ready", step: "tickets", complete: tickets.length > 0, hint: tickets.length > 0 ? "Revenue can be tracked from configured tickets." : "Add ticket pricing before launch." },
   ]
   const publishEligible = baseReadiness.every((item) => item.complete)
