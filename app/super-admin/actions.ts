@@ -6,11 +6,16 @@ import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { buildAdminPayload } from "@/lib/super-admin/form"
+import { allowedGenericMutationRolesForResource } from "@/lib/super-admin/permissions"
 import { getAdminResource } from "@/lib/super-admin/resources"
-import { requireSuperAdmin } from "@/lib/super-admin/auth"
+import { requireAdminRole, requireSuperAdmin } from "@/lib/super-admin/auth"
+
+async function requireGenericResourceMutationAccess(resourceKey: string) {
+  await requireAdminRole(allowedGenericMutationRolesForResource(resourceKey))
+}
 
 export async function createResourceAction(resourceKey: string, formData: FormData) {
-  await requireSuperAdmin()
+  await requireGenericResourceMutationAccess(resourceKey)
 
   const resource = getAdminResource(resourceKey)
   if (!resource) throw new Error("Unknown admin resource")
@@ -26,7 +31,7 @@ export async function createResourceAction(resourceKey: string, formData: FormDa
 }
 
 export async function updateResourceAction(resourceKey: string, recordId: string, formData: FormData) {
-  await requireSuperAdmin()
+  await requireGenericResourceMutationAccess(resourceKey)
 
   const resource = getAdminResource(resourceKey)
   if (!resource) throw new Error("Unknown admin resource")
@@ -43,7 +48,7 @@ export async function updateResourceAction(resourceKey: string, recordId: string
 }
 
 export async function removeResourceAction(resourceKey: string, recordId: string) {
-  await requireSuperAdmin()
+  await requireGenericResourceMutationAccess(resourceKey)
 
   const resource = getAdminResource(resourceKey)
   if (!resource) throw new Error("Unknown admin resource")

@@ -1,10 +1,10 @@
-import { requireSuperAdmin } from "@/lib/super-admin/auth"
+import { requireAdminRole } from "@/lib/super-admin/auth"
 import { EnvVarsClient } from "./env-vars-client"
 
 export const metadata = { title: "Environment Variables" }
 
 export default async function EnvVarsPage() {
-  const user = await requireSuperAdmin()
+  const { user } = await requireAdminRole(["super_admin"])
 
   return (
     <div className="mx-auto max-w-7xl space-y-5">
