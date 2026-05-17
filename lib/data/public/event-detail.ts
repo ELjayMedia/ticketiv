@@ -34,6 +34,7 @@ export type EventDetailData = {
   title: string
   slug: string
   status: string
+  visibility: "public" | "unlisted" | "private"
   starts_at: string | null
   ends_at: string | null
   tz: string
@@ -76,7 +77,7 @@ export async function getEventDetailById(id: string): Promise<EventDetailData | 
   const { data: event, error: eventError } = await supabase
     .from("events")
     .select(`
-      id, title, slug, status, starts_at, ends_at, tz,
+      id, title, slug, status, visibility, starts_at, ends_at, tz,
       cover_image_url, category, city, country_code, org_id, description,
       event_format, series_id,
       venue:venue_id(id, name, address, city, slug, capacity),
@@ -86,6 +87,8 @@ export async function getEventDetailById(id: string): Promise<EventDetailData | 
       event_artists(role, artist:artist_id(id, name, bio, slug, image_url))
     `)
     .eq("id", id)
+    .eq("status", "published")
+    .in("visibility", ["public", "unlisted"])
     .single()
 
   if (eventError || !event) return null
@@ -190,12 +193,14 @@ export async function getEventDetailById(id: string): Promise<EventDetailData | 
   const rawArtists = (event.event_artists as unknown as RawEventArtist[]) ?? []
   const rawSeries = (event as unknown as { series: RawSeries }).series ?? null
   const eventFormat = (event as unknown as { event_format?: string }).event_format === "multi_day" ? "multi_day" : "single_day"
+  const visibility = (event as unknown as { visibility?: "public" | "unlisted" | "private" }).visibility ?? "public"
 
   return {
     id: event.id,
     title: event.title,
     slug: event.slug,
     status: event.status,
+    visibility,
     starts_at: event.starts_at,
     ends_at: event.ends_at,
     tz: event.tz ?? "Africa/Mbabane",

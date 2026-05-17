@@ -62,6 +62,7 @@ async function getHomeEvents(limit = 24): Promise<EventCardData[]> {
       ticket_types(price_cents, currency)
     `)
     .eq("status", "published")
+    .eq("visibility", "public")
     .gte("starts_at", nowIso)
     .order("starts_at", { ascending: true, nullsFirst: false })
     .limit(120)
