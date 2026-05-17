@@ -1,5 +1,6 @@
 import "server-only"
 
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import type { OrderItemRecord, OrderRecord, TicketRecord, TicketTypeRecord, EventRecord } from "@/types"
 
@@ -106,6 +107,12 @@ function normalizeOrderError(error: unknown) {
     return ticketName ? `${ticketName} exceeds the per-order limit.` : "This order exceeds the ticket limit."
   }
 
+  if (message.includes("ticket_type_not_on_sale:")) {
+    const ticketName = message.split("ticket_type_not_on_sale:")[1]?.split("\n")[0]?.trim()
+    return ticketName ? `${ticketName} is not currently on sale.` : "This ticket type is not currently on sale."
+  }
+
+  if (message.includes("event_not_available")) return "This event is not available for checkout."
   if (message.includes("ticket_type_not_found")) return "One or more selected ticket types are no longer available."
   if (message.includes("items_required")) return "At least one order item is required."
 
@@ -117,8 +124,10 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
     throw new Error("At least one order item is required")
   }
 
-  const supabase = createServerSupabaseClient()
-  if (!supabase) throw new Error("Supabase is not configured")
+  // This RPC is intentionally service-role only. It centralizes inventory locks,
+  // quota checks, sales_status checks and pending ticket creation in Postgres,
+  // while the API route remains responsible for authenticating the buyer first.
+  const supabase = createAdminClient()
 
   const normalizedItems = input.items.map((item) => ({
     ticketTypeId: item.ticketTypeId,
@@ -257,39 +266,15 @@ export async function getOrdersForUser(userId: string): Promise<UserOrder[]> {
     .select(
       `*,
       order_items:order_items(*, ticket_type:ticket_types(*)),
-      org:organizations(*)
-    `,
+      org:organizations(*)`
     )
     .eq("buyer_id", userId)
     .order("created_at", { ascending: false })
 
   if (error) {
     console.error("Failed to load user orders", error)
-    throw new Error("Unable to load orders")
+    return []
   }
 
   return (data ?? []) as unknown as UserOrder[]
-}
-
-export async function getOrderById(orderId: string): Promise<UserOrder | null> {
-  const supabase = createServerSupabaseClient()
-  if (!supabase) return null
-
-  const { data, error } = await supabase
-    .from("orders")
-    .select(
-      `*,
-      order_items:order_items(*, ticket_type:ticket_types(*)),
-      org:organizations(*)
-    `,
-    )
-    .eq("id", orderId)
-    .maybeSingle()
-
-  if (error && error.code !== "PGRST116") {
-    console.error("Failed to load order", error)
-    throw new Error("Unable to load order")
-  }
-
-  return (data as unknown as UserOrder) ?? null
 }
