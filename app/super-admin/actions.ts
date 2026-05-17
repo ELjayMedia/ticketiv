@@ -6,31 +6,12 @@ import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { buildAdminPayload } from "@/lib/super-admin/form"
+import { allowedGenericMutationRolesForResource } from "@/lib/super-admin/permissions"
 import { getAdminResource } from "@/lib/super-admin/resources"
 import { requireAdminRole, requireSuperAdmin } from "@/lib/super-admin/auth"
 
-const FINANCE_RESOURCE_KEYS = new Set([
-  "payments",
-  "payment-attempts",
-  "payouts",
-  "payout-accounts",
-  "refunds",
-  "refund-items",
-  "ledger-entries",
-  "pricing-plans",
-])
-
 async function requireGenericResourceMutationAccess(resourceKey: string) {
-  if (FINANCE_RESOURCE_KEYS.has(resourceKey)) {
-    // Generic table CRUD on finance records is more powerful than the scoped
-    // finance review actions. Keep it super-admin-only so finance_admin users
-    // use the audited workflow buttons instead of raw table edits.
-    await requireAdminRole(["super_admin"])
-    return
-  }
-
-  // read_only_admin can view the command centre but must not submit raw table mutations.
-  await requireAdminRole(["super_admin", "finance_admin", "support_admin", "event_ops_admin"])
+  await requireAdminRole(allowedGenericMutationRolesForResource(resourceKey))
 }
 
 export async function createResourceAction(resourceKey: string, formData: FormData) {
