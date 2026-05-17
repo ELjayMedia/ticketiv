@@ -29,7 +29,8 @@ async function requireGenericResourceMutationAccess(resourceKey: string) {
     return
   }
 
-  await requireSuperAdmin()
+  // read_only_admin can view the command centre but must not submit raw table mutations.
+  await requireAdminRole(["super_admin", "finance_admin", "support_admin", "event_ops_admin"])
 }
 
 export async function createResourceAction(resourceKey: string, formData: FormData) {
