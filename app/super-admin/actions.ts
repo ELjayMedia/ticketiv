@@ -7,10 +7,33 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { buildAdminPayload } from "@/lib/super-admin/form"
 import { getAdminResource } from "@/lib/super-admin/resources"
-import { requireSuperAdmin } from "@/lib/super-admin/auth"
+import { requireAdminRole, requireSuperAdmin } from "@/lib/super-admin/auth"
+
+const FINANCE_RESOURCE_KEYS = new Set([
+  "payments",
+  "payment-attempts",
+  "payouts",
+  "payout-accounts",
+  "refunds",
+  "refund-items",
+  "ledger-entries",
+  "pricing-plans",
+])
+
+async function requireGenericResourceMutationAccess(resourceKey: string) {
+  if (FINANCE_RESOURCE_KEYS.has(resourceKey)) {
+    // Generic table CRUD on finance records is more powerful than the scoped
+    // finance review actions. Keep it super-admin-only so finance_admin users
+    // use the audited workflow buttons instead of raw table edits.
+    await requireAdminRole(["super_admin"])
+    return
+  }
+
+  await requireSuperAdmin()
+}
 
 export async function createResourceAction(resourceKey: string, formData: FormData) {
-  await requireSuperAdmin()
+  await requireGenericResourceMutationAccess(resourceKey)
 
   const resource = getAdminResource(resourceKey)
   if (!resource) throw new Error("Unknown admin resource")
@@ -26,7 +49,7 @@ export async function createResourceAction(resourceKey: string, formData: FormDa
 }
 
 export async function updateResourceAction(resourceKey: string, recordId: string, formData: FormData) {
-  await requireSuperAdmin()
+  await requireGenericResourceMutationAccess(resourceKey)
 
   const resource = getAdminResource(resourceKey)
   if (!resource) throw new Error("Unknown admin resource")
@@ -43,7 +66,7 @@ export async function updateResourceAction(resourceKey: string, recordId: string
 }
 
 export async function removeResourceAction(resourceKey: string, recordId: string) {
-  await requireSuperAdmin()
+  await requireGenericResourceMutationAccess(resourceKey)
 
   const resource = getAdminResource(resourceKey)
   if (!resource) throw new Error("Unknown admin resource")
@@ -258,114 +281,3 @@ export async function unassignDeviceFromEventAction(deviceId: string) {
 
   const { error: updateError } = await admin
     .from("devices")
-    .update({ event_id: null, device_role: "scanner_unassigned" })
-    .eq("id", deviceId)
-
-  if (updateError) throw new Error(updateError.message)
-
-  await admin.from("audit_log").insert({
-    org_id: device.org_id,
-    actor_id: user.id,
-    table_name: "devices",
-    record_id: deviceId,
-    action: "update",
-    changes: {
-      business_action: "unassign_device_from_event",
-      previous_event_id: device.event_id,
-      new_event_id: null,
-      previous_device_role: device.device_role,
-      new_device_role: "scanner_unassigned",
-    },
-  })
-
-  revalidateDeviceAdminPaths(deviceId)
-  redirect("/super-admin/devices?status=device_updated")
-}
-
-async function setTicketTypeSalesStatus(
-  ticketTypeId: string,
-  nextStatus: "on_sale" | "paused" | "sold_out" | "hidden",
-  businessAction: string,
-  reason?: string,
-) {
-  const user = await requireSuperAdmin()
-  const admin = createAdminClient()
-
-  const { data: ticketType, error: ticketTypeError } = await admin
-    .from("ticket_types")
-    .select("id, event_id, name, sales_status")
-    .eq("id", ticketTypeId)
-    .maybeSingle()
-
-  if (ticketTypeError) throw new Error(ticketTypeError.message)
-  if (!ticketType) throw new Error("Ticket type not found")
-
-  const { data: event, error: eventError } = await admin
-    .from("events")
-    .select("id, org_id")
-    .eq("id", ticketType.event_id)
-    .maybeSingle()
-
-  if (eventError) throw new Error(eventError.message)
-  if (!event) throw new Error("Related event not found")
-
-  if (ticketType.sales_status !== nextStatus) {
-    const pauseFields = nextStatus === "paused"
-      ? { sales_paused_at: new Date().toISOString(), sales_pause_reason: reason ?? null }
-      : { sales_paused_at: null, sales_pause_reason: reason ?? null }
-
-    const { error: updateError } = await admin
-      .from("ticket_types")
-      .update({
-        sales_status: nextStatus,
-        ...pauseFields,
-      })
-      .eq("id", ticketTypeId)
-
-    if (updateError) throw new Error(updateError.message)
-
-    await admin.from("audit_log").insert({
-      org_id: event.org_id,
-      actor_id: user.id,
-      table_name: "ticket_types",
-      record_id: ticketTypeId,
-      action: "update",
-      changes: {
-        business_action: businessAction,
-        previous_status: ticketType.sales_status,
-        new_status: nextStatus,
-        reason,
-      },
-    })
-  }
-
-  await admin.from("admin_action_catalog").update({ is_enabled: true }).eq("key", businessAction)
-  revalidateTicketTypeAdminPaths(ticketTypeId)
-}
-
-function revalidateEventAdminPaths(eventId: string) {
-  revalidatePath("/super-admin")
-  revalidatePath("/super-admin/workspaces/event-operations")
-  revalidatePath("/super-admin/events")
-  revalidatePath(`/super-admin/events/${eventId}`)
-}
-
-function revalidateTicketTypeAdminPaths(ticketTypeId: string) {
-  revalidatePath("/super-admin")
-  revalidatePath("/super-admin/workspaces/ticket-inventory")
-  revalidatePath("/super-admin/ticket-types")
-  revalidatePath(`/super-admin/ticket-types/${ticketTypeId}`)
-}
-
-function revalidateDeviceAdminPaths(deviceId: string) {
-  revalidatePath("/super-admin")
-  revalidatePath("/super-admin/workspaces/access-control")
-  revalidatePath("/super-admin/devices")
-  revalidatePath(`/super-admin/devices/${deviceId}`)
-}
-
-export async function signOutSuperAdminAction() {
-  const supabase = await createClient()
-  await supabase.auth.signOut()
-  redirect("/super-admin/login")
-}
