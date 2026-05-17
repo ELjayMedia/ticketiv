@@ -303,39 +303,7 @@ export async function createOrder(input: {
   return res.json()
 }
 
-export async function getOrderById(orderId: string): Promise<{
-  id: string
-  event_id: string
-  purchaser_id: string
-  purchaser_email: string
-  purchaser_first_name?: string
-  purchaser_last_name?: string
-  status: string
-  subtotal_amount: number
-  fee_amount: number
-  total_amount: number
-  currency: string
-  payment_reference: string | null
-  metadata: any | null
-  created_at: string
-  updated_at: string
-  order_items: Array<{
-    id: string
-    order_id: string
-    event_id: string
-    ticket_type_id: string
-    quantity: number
-    unit_price: number
-    subtotal_amount: number
-    fee_amount: number
-    total_amount: number
-    currency: string
-    created_at: string
-    updated_at: string
-  }>
-  order_adjustments: any[]
-  payments: any[]
-} | null> {
+export async function getOrderById(orderId: string): Promise<any | null> {
   const demoSession = await getDemoSessionFromCookie()
 
   if (demoSession) {
@@ -353,19 +321,41 @@ export async function getOrderById(orderId: string): Promise<{
   const supabase = await createServerSupabaseClient()
   if (!supabase) return null
 
+  // Orders are org-scoped; an order's event is derived from its items'
+  // ticket types. Item prices live on ticket_types (price_cents).
   const { data, error } = await supabase
     .from("orders")
     .select(`
       *,
-      order_items(*),
+      order_items(
+        *,
+        ticket_type:ticket_types(
+          id, name, price_cents, currency,
+          event:events(
+            id, title, starts_at, ends_at, cover_image_url,
+            venue:venues(name, address, city)
+          )
+        )
+      ),
       order_adjustments(*),
       payments(*)
     `)
     .eq("id", orderId)
     .single()
 
-  if (error) throw error
-  return data
+  if (error || !data) return null
+
+  const items = (data.order_items ?? []).map((item: any) => ({
+    ...item,
+    event: item.ticket_type?.event ?? null,
+    unit_price_cents: item.ticket_type?.price_cents ?? 0,
+  }))
+
+  return {
+    ...data,
+    order_items: items,
+    event_id: items[0]?.event?.id ?? null,
+  }
 }
 
 export async function getMyOrders(): Promise<

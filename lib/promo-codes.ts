@@ -1,75 +1,89 @@
 import { createServerSupabaseClient } from "./supabase-server"
-import type { PromoCodeRecord } from "@/types"
+
+// Promo codes are stored as rows in `price_rules` (a coded discount/fee rule).
+// Redemptions are tracked in `price_rule_redemptions`.
+export interface PriceRule {
+  id: string
+  org_id: string
+  event_id: string | null
+  ticket_type_id: string | null
+  code: string | null
+  type: "absolute_discount" | "percent_discount" | "abs_fee" | "percent_fee" | "tax"
+  value_numeric: number
+  applies_to: "item" | "order"
+  starts_at: string | null
+  ends_at: string | null
+  max_redemptions: number | null
+  per_user_limit: number | null
+  is_active: boolean
+  created_at: string
+}
 
 export async function validatePromoCode(
   code: string,
   eventId: string,
   purchaseAmount: number,
-): Promise<{ valid: boolean; discount: number; promoCode?: PromoCodeRecord; error?: string }> {
+): Promise<{ valid: boolean; discount: number; promoCode?: PriceRule; error?: string }> {
   const supabase = createServerSupabaseClient()
 
   if (!supabase) {
     return { valid: false, discount: 0, error: "Service unavailable" }
   }
 
-  // Fetch promo code
-  const { data: promoCode, error } = await supabase
-    .from("promo_codes")
+  const { data: priceRule, error } = await supabase
+    .from("price_rules")
     .select("*")
-    .eq("code", code.toUpperCase())
-    .eq("active", true)
+    .ilike("code", code)
+    .eq("is_active", true)
     .maybeSingle()
 
-  if (error || !promoCode) {
+  if (error || !priceRule) {
     return { valid: false, discount: 0, error: "Invalid promo code" }
   }
 
-  // Check if event-specific
-  if (promoCode.event_id && promoCode.event_id !== eventId) {
+  // Event-specific codes only apply to their event (org-wide codes have a null event_id)
+  if (priceRule.event_id && priceRule.event_id !== eventId) {
     return { valid: false, discount: 0, error: "Promo code not valid for this event" }
   }
 
-  // Check validity period
   const now = new Date()
-  if (promoCode.valid_from && new Date(promoCode.valid_from) > now) {
+  if (priceRule.starts_at && new Date(priceRule.starts_at) > now) {
     return { valid: false, discount: 0, error: "Promo code not yet valid" }
   }
-  if (promoCode.valid_until && new Date(promoCode.valid_until) < now) {
+  if (priceRule.ends_at && new Date(priceRule.ends_at) < now) {
     return { valid: false, discount: 0, error: "Promo code expired" }
   }
 
-  // Check usage limits
-  if (promoCode.max_uses && promoCode.used_count >= promoCode.max_uses) {
-    return { valid: false, discount: 0, error: "Promo code usage limit reached" }
-  }
+  if (priceRule.max_redemptions != null) {
+    const { count } = await supabase
+      .from("price_rule_redemptions")
+      .select("id", { count: "exact", head: true })
+      .eq("price_rule_id", priceRule.id)
 
-  // Check minimum purchase amount
-  if (promoCode.min_purchase_amount && purchaseAmount < promoCode.min_purchase_amount) {
-    return {
-      valid: false,
-      discount: 0,
-      error: `Minimum purchase of ${promoCode.currency} ${promoCode.min_purchase_amount} required`,
+    if ((count ?? 0) >= priceRule.max_redemptions) {
+      return { valid: false, discount: 0, error: "Promo code usage limit reached" }
     }
   }
 
-  // Calculate discount
   let discount = 0
-  if (promoCode.type === "percentage") {
-    discount = (purchaseAmount * promoCode.value) / 100
-  } else if (promoCode.type === "fixed") {
-    discount = promoCode.value
+  if (priceRule.type === "percent_discount") {
+    discount = (purchaseAmount * Number(priceRule.value_numeric)) / 100
+  } else if (priceRule.type === "absolute_discount") {
+    discount = Number(priceRule.value_numeric)
+  } else {
+    return { valid: false, discount: 0, error: "Promo code is not a discount" }
   }
 
   // Don't allow discount to exceed purchase amount
   discount = Math.min(discount, purchaseAmount)
 
-  return { valid: true, discount, promoCode }
+  return { valid: true, discount, promoCode: priceRule }
 }
 
 export async function applyPromoCode(
-  promoCodeId: string,
+  priceRuleId: string,
   orderId: string,
-  discountAmount: number,
+  userId?: string,
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = createServerSupabaseClient()
 
@@ -77,32 +91,21 @@ export async function applyPromoCode(
     return { success: false, error: "Service unavailable" }
   }
 
-  // Record usage
-  const { error: usageError } = await supabase.from("promo_code_usage").insert({
-    promo_code_id: promoCodeId,
+  const { error } = await supabase.from("price_rule_redemptions").insert({
+    price_rule_id: priceRuleId,
     order_id: orderId,
-    discount_amount: discountAmount,
-    used_at: new Date().toISOString(),
+    user_id: userId ?? null,
   })
 
-  if (usageError) {
-    console.error("[v0] Failed to record promo code usage:", usageError)
+  if (error) {
+    console.error("[v0] Failed to record promo code redemption:", error)
     return { success: false, error: "Failed to apply promo code" }
-  }
-
-  // Increment used count
-  const { error: updateError } = await supabase.rpc("increment_promo_code_usage", {
-    promo_id: promoCodeId,
-  })
-
-  if (updateError) {
-    console.error("[v0] Failed to increment promo code usage:", updateError)
   }
 
   return { success: true }
 }
 
-export async function getEventPromoCodes(eventId: string): Promise<PromoCodeRecord[]> {
+export async function getEventPromoCodes(eventId: string): Promise<PriceRule[]> {
   const supabase = createServerSupabaseClient()
 
   if (!supabase) {
@@ -110,10 +113,11 @@ export async function getEventPromoCodes(eventId: string): Promise<PromoCodeReco
   }
 
   const { data, error } = await supabase
-    .from("promo_codes")
+    .from("price_rules")
     .select("*")
     .or(`event_id.eq.${eventId},event_id.is.null`)
-    .eq("active", true)
+    .eq("is_active", true)
+    .not("code", "is", null)
     .order("created_at", { ascending: false })
 
   if (error) {

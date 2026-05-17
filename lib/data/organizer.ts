@@ -50,8 +50,7 @@ export async function getOrganizerEvents() {
     .from("events")
     .select(`
       *,
-      orders(count),
-      order_items(count)
+      ticket_types(count)
     `)
     .order("created_at", { ascending: false })
 
@@ -159,7 +158,7 @@ export async function getEventStaff(eventId: string) {
     .from("event_staff")
     .select(`
       *,
-      user:profiles(email, first_name, last_name)
+      user:profiles(display_name, name, surname)
     `)
     .eq("event_id", eventId)
 
