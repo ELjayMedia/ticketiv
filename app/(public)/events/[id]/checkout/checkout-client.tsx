@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, CreditCard, Mail } from "lucide-react"
 import { toast } from "sonner"
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { formatCurrency } from "@/lib/pricing"
 import type { EventDetailData } from "@/lib/data/public/event-detail"
+import { clearPendingCart, loadPendingCart, savePendingCart } from "@/lib/cart-persist"
 
 interface CheckoutClientProps {
   event: EventDetailData
@@ -44,7 +45,19 @@ export function CheckoutClient({ event, selectedItemsParam, legacyTicketTypeId, 
   const [phone, setPhone] = useState("")
   const [loading, setLoading] = useState(false)
 
-  const selectedItems = useMemo(() => parseSelectedItems(selectedItemsParam, legacyTicketTypeId, legacyQuantity), [legacyQuantity, legacyTicketTypeId, selectedItemsParam])
+  const [selectedItems, setSelectedItems] = useState<CheckoutItem[]>(() =>
+    parseSelectedItems(selectedItemsParam, legacyTicketTypeId, legacyQuantity),
+  )
+
+  // Restore a selection that was persisted before an auth redirect. The URL
+  // params take precedence when present; otherwise fall back to the saved cart.
+  useEffect(() => {
+    const cart = loadPendingCart()
+    if (cart && cart.eventId === event.id && cart.items.length > 0) {
+      setSelectedItems((current) => (current.length > 0 ? current : cart.items))
+    }
+    clearPendingCart()
+  }, [event.id])
 
   const lineItems = useMemo(() => {
     return selectedItems
@@ -83,8 +96,14 @@ export function CheckoutClient({ event, selectedItemsParam, legacyTicketTypeId, 
       })
 
       if (orderResponse.status === 401) {
-        const redirectTo = encodeURIComponent(window.location.pathname + window.location.search)
-        window.location.href = `/sign-in?redirectTo=${redirectTo}`
+        // Persist the selection so it can be restored after authentication.
+        savePendingCart({
+          eventId: event.id,
+          items: selectedItems,
+          returnPath: `/events/${event.id}/checkout`,
+        })
+        const redirectTo = encodeURIComponent(`/events/${event.id}/checkout`)
+        window.location.href = `/login?redirectTo=${redirectTo}`
         return
       }
 
