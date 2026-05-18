@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Trash2, UserPlus } from "lucide-react"
+import { CheckCircle2, Trash2, UserPlus } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -30,6 +30,7 @@ type GuestlistEntry = {
 type GuestlistState = {
   entries: GuestlistEntry[]
   error?: string
+  success?: string
 }
 
 type TicketTypesState = {
@@ -40,13 +41,14 @@ export function GuestlistTab({ eventId }: { eventId: string }) {
   const [state, setState] = useState<GuestlistState | null>(null)
   const [ticketTypes, setTicketTypes] = useState<TicketTypeOption[]>([])
   const [isSaving, setIsSaving] = useState(false)
+  const [fulfillingEntryId, setFulfillingEntryId] = useState<string | null>(null)
   const [form, setForm] = useState({ full_name: "", email: "", phone: "", allocation: "1", ticket_type_id: "", notes: "" })
 
   async function loadGuestlist() {
     const response = await fetch(`/api/events/${eventId}/guestlist`, { cache: "no-store" })
     const payload = await response.json().catch(() => ({}))
     if (!response.ok) setState({ entries: [], error: payload.error ?? "Unable to load guestlist" })
-    else setState({ entries: payload.entries ?? [] })
+    else setState((current) => ({ entries: payload.entries ?? [], success: current?.success }))
   }
 
   async function loadTicketTypes() {
@@ -90,6 +92,34 @@ export function GuestlistTab({ eventId }: { eventId: string }) {
     }
 
     setForm({ full_name: "", email: "", phone: "", allocation: "1", ticket_type_id: "", notes: "" })
+    setState((current) => ({ entries: current?.entries ?? [], success: "Guest added to guestlist." }))
+    await loadGuestlist()
+  }
+
+  async function fulfilGuest(entry: GuestlistEntry) {
+    if (!entry.ticket_type_id) {
+      setState((current) => ({ entries: current?.entries ?? [], error: "Select a ticket type on this guest before fulfilling." }))
+      return
+    }
+
+    const remaining = Math.max(0, entry.allocation - entry.fulfilled_count)
+    if (remaining <= 0) return
+
+    setFulfillingEntryId(entry.id)
+    const response = await fetch(`/api/events/${eventId}/guestlist/${entry.id}/fulfil`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ quantity: remaining, ticket_type_id: entry.ticket_type_id }),
+    })
+    const payload = await response.json().catch(() => ({}))
+    setFulfillingEntryId(null)
+
+    if (!response.ok) {
+      setState((current) => ({ entries: current?.entries ?? [], error: payload.error ?? "Unable to fulfil guestlist entry" }))
+      return
+    }
+
+    setState((current) => ({ entries: current?.entries ?? [], success: `Issued ${payload.tickets?.length ?? remaining} complimentary ticket${(payload.tickets?.length ?? remaining) === 1 ? "" : "s"} for ${entry.full_name}.` }))
     await loadGuestlist()
   }
 
@@ -102,6 +132,7 @@ export function GuestlistTab({ eventId }: { eventId: string }) {
       return
     }
 
+    setState((current) => ({ entries: current?.entries ?? [], success: "Guest removed from guestlist." }))
     await loadGuestlist()
   }
 
@@ -141,6 +172,7 @@ export function GuestlistTab({ eventId }: { eventId: string }) {
         </CardHeader>
         <CardContent className="space-y-4">
           {state?.error && <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{state.error}</div>}
+          {state?.success && <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700">{state.success}</div>}
           <div className="grid gap-3 sm:grid-cols-2">
             <Input value={form.full_name} onChange={(event) => setForm((current) => ({ ...current, full_name: event.target.value }))} placeholder="Full name" />
             <Input value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} placeholder="Email optional" type="email" />
@@ -170,30 +202,41 @@ export function GuestlistTab({ eventId }: { eventId: string }) {
       <Card>
         <CardHeader>
           <CardTitle>Guestlist</CardTitle>
-          <CardDescription>Guests can be removed until they have been fulfilled.</CardDescription>
+          <CardDescription>Guests can be fulfilled into complimentary tickets, then protected from deletion.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {!state && <p className="text-sm text-muted-foreground">Loading guestlist…</p>}
           {state && entries.length === 0 && <p className="text-sm text-muted-foreground">No guestlist entries yet.</p>}
-          {entries.map((entry) => (
-            <div key={entry.id} className="rounded-lg border p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-semibold">{entry.full_name}</h3>
-                    <Badge variant="outline">Allocation {entry.allocation}</Badge>
-                    {entry.fulfilled_count > 0 && <Badge>Fulfilled {entry.fulfilled_count}</Badge>}
-                    {entry.ticket_type?.name && <Badge variant="secondary">{entry.ticket_type.name}</Badge>}
+          {entries.map((entry) => {
+            const remaining = Math.max(0, entry.allocation - entry.fulfilled_count)
+            const isFullyFulfilled = remaining <= 0
+            return (
+              <div key={entry.id} className="rounded-lg border p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-semibold">{entry.full_name}</h3>
+                      <Badge variant="outline">Allocation {entry.allocation}</Badge>
+                      {entry.fulfilled_count > 0 && <Badge>Fulfilled {entry.fulfilled_count}</Badge>}
+                      {remaining > 0 && <Badge variant="secondary">Remaining {remaining}</Badge>}
+                      {entry.ticket_type?.name && <Badge variant="secondary">{entry.ticket_type.name}</Badge>}
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">{[entry.email, entry.phone].filter(Boolean).join(" · ") || "No contact details"}</p>
+                    {entry.notes && <p className="mt-2 text-sm text-muted-foreground">{entry.notes}</p>}
                   </div>
-                  <p className="mt-1 text-sm text-muted-foreground">{[entry.email, entry.phone].filter(Boolean).join(" · ") || "No contact details"}</p>
-                  {entry.notes && <p className="mt-2 text-sm text-muted-foreground">{entry.notes}</p>}
+                  <div className="flex flex-wrap gap-2 sm:justify-end">
+                    <Button variant="default" size="sm" onClick={() => fulfilGuest(entry)} disabled={fulfillingEntryId === entry.id || isFullyFulfilled || !entry.ticket_type_id} className="gap-2">
+                      <CheckCircle2 className="h-4 w-4" />
+                      {fulfillingEntryId === entry.id ? "Fulfilling..." : isFullyFulfilled ? "Fulfilled" : `Fulfil ${remaining}`}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => deleteGuest(entry.id)} disabled={entry.fulfilled_count > 0} className="gap-2">
+                      <Trash2 className="h-4 w-4" /> Remove
+                    </Button>
+                  </div>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => deleteGuest(entry.id)} disabled={entry.fulfilled_count > 0} className="gap-2">
-                  <Trash2 className="h-4 w-4" /> Remove
-                </Button>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </CardContent>
       </Card>
     </div>
