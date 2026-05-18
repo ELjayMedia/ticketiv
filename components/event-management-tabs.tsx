@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { BarChart3, CreditCard, Eye, FileText, ListMusic, QrCode, Users } from 'lucide-react'
+import { BarChart3, CreditCard, Eye, FileText, ListMusic, QrCode, Settings2, Users } from 'lucide-react'
 import Link from 'next/link'
 import { LineupStep } from '@/components/event-wizard/steps/LineupStep'
 import { PoliciesStep } from '@/components/event-wizard/steps/PoliciesStep'
@@ -21,6 +21,114 @@ interface EventManagementTabsProps {
     date: string
     status: string
   }
+}
+
+type OpsState = {
+  metrics?: {
+    staff_count?: number
+    scans_count?: number
+    guestlist_count?: number
+    issued_tickets?: number
+    checked_in_tickets?: number
+  }
+  publishEligible?: boolean
+}
+
+function OperationsTab({ orgId, eventId }: { orgId: string; eventId: string }) {
+  const [ops, setOps] = useState<OpsState | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadOps() {
+      const response = await fetch(`/api/events/${eventId}/ops`, { cache: 'no-store' })
+      const payload = await response.json().catch(() => ({}))
+      if (!cancelled && response.ok) setOps(payload)
+    }
+    loadOps()
+    return () => {
+      cancelled = true
+    }
+  }, [eventId])
+
+  const metrics = ops?.metrics
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Event staff</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{metrics?.staff_count ?? 0}</p>
+            <p className="text-xs text-muted-foreground">People assigned to run check-in</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Scans captured</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{metrics?.scans_count ?? 0}</p>
+            <p className="text-xs text-muted-foreground">Valid and invalid scan attempts logged</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Guestlist entries</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{metrics?.guestlist_count ?? 0}</p>
+            <p className="text-xs text-muted-foreground">Complimentary or controlled access entries</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Operations checklist</CardTitle>
+          <CardDescription>Prepare the event-day operating setup after publishing.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-medium">Check-in team</p>
+                  <p className="text-sm text-muted-foreground">Add scanners and gate staff for this event.</p>
+                </div>
+                <Badge variant={(metrics?.staff_count ?? 0) > 0 ? 'default' : 'secondary'}>{(metrics?.staff_count ?? 0) > 0 ? 'Ready' : 'Pending'}</Badge>
+              </div>
+              <Button asChild variant="outline" className="mt-4 w-full gap-2">
+                <Link href={`/orgs/${orgId}/events/${eventId}/staff`}>
+                  <Users className="h-4 w-4" /> Manage staff
+                </Link>
+              </Button>
+            </div>
+
+            <div className="rounded-lg border p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-medium">Scanner readiness</p>
+                  <p className="text-sm text-muted-foreground">Open the scanner and test one issued ticket before doors open.</p>
+                </div>
+                <Badge variant="outline">Manual test</Badge>
+              </div>
+              <Button asChild variant="outline" className="mt-4 w-full gap-2">
+                <Link href={`/orgs/${orgId}/events/${eventId}/scanner`}>
+                  <QrCode className="h-4 w-4" /> Open scanner
+                </Link>
+              </Button>
+            </div>
+          </div>
+
+          <div className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">
+            Operations no longer block publishing. Use this tab after the event is live to prepare staff, scanning and guestlist workflows.
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
 }
 
 export function EventManagementTabs({ eventId, orgId, event }: EventManagementTabsProps) {
@@ -51,7 +159,7 @@ export function EventManagementTabs({ eventId, orgId, event }: EventManagementTa
 
   return (
     <Tabs value={tab} onValueChange={changeTab} className="w-full">
-      <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7">
+      <TabsList className="grid w-full grid-cols-4 sm:grid-cols-8">
         <TabsTrigger value="overview" className="gap-2">
           <BarChart3 className="h-4 w-4" />
           <span className="hidden sm:inline">Overview</span>
@@ -71,6 +179,10 @@ export function EventManagementTabs({ eventId, orgId, event }: EventManagementTa
         <TabsTrigger value="policies" className="gap-2">
           <FileText className="h-4 w-4" />
           <span className="hidden sm:inline">Policies</span>
+        </TabsTrigger>
+        <TabsTrigger value="operations" className="gap-2">
+          <Settings2 className="h-4 w-4" />
+          <span className="hidden sm:inline">Operations</span>
         </TabsTrigger>
         <TabsTrigger value="staff" className="gap-2">
           <Users className="h-4 w-4" />
@@ -152,7 +264,7 @@ export function EventManagementTabs({ eventId, orgId, event }: EventManagementTa
           </CardHeader>
           <CardContent>
             <Button asChild size="lg" className="w-full gap-2">
-              <Link href={`/orgs/${orgId}/events/${eventId}/checkin`}>
+              <Link href={`/orgs/${orgId}/events/${eventId}/scanner`}>
                 <QrCode className="h-5 w-5" />
                 Open Scanner
               </Link>
@@ -203,6 +315,11 @@ export function EventManagementTabs({ eventId, orgId, event }: EventManagementTa
             <PoliciesStep eventId={eventId} onSaving={dismissNudge} />
           </CardContent>
         </Card>
+      </TabsContent>
+
+      {/* Operations Tab */}
+      <TabsContent value="operations" className="space-y-6 mt-6">
+        <OperationsTab orgId={orgId} eventId={eventId} />
       </TabsContent>
 
       {/* Staff Tab */}
