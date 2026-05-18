@@ -184,8 +184,10 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
 }
 
 export async function completePaidOrder(orderId: string, paymentReference?: string | null): Promise<CompletePaidOrderResult> {
-  const supabase = createServerSupabaseClient()
-  if (!supabase) throw new Error("Supabase is not configured")
+  // Payment completion can be called from trusted webhook/polling flows where
+  // there is no buyer browser session. Use the service-role client here after
+  // the payment provider has already been verified by the caller.
+  const supabase = createAdminClient()
 
   const { data: order, error: orderError } = await supabase
     .from("orders")
@@ -233,6 +235,7 @@ export async function completePaidOrder(orderId: string, paymentReference?: stri
     .from("orders")
     .update({ status: "paid" })
     .eq("id", order.id)
+    .eq("status", "pending")
     .select("*")
     .single<LiveOrder>()
 
