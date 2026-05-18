@@ -58,6 +58,19 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   const confirmationMessage = typeof body.confirmation_message === "string" ? body.confirmation_message.trim() : ""
   const attendeeFields = listFrom(body.attendee_fields)
 
+  const changes = {
+    before: {
+      refund_policy: event.refund_policy,
+      attendee_fields: event.attendee_fields,
+      confirmation_message: event.confirmation_message,
+    },
+    after: {
+      refund_policy: refundPolicy || null,
+      attendee_fields: attendeeFields,
+      confirmation_message: confirmationMessage || null,
+    },
+  }
+
   const { data: updatedEvent, error } = await admin
     .from("events")
     .update({ refund_policy: refundPolicy || null, attendee_fields: attendeeFields, confirmation_message: confirmationMessage || null })
@@ -66,6 +79,15 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     .maybeSingle()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+  await admin.from("audit_log").insert({
+    org_id: event.org_id,
+    actor_id: userId,
+    table_name: "events",
+    record_id: eventId,
+    action: "update",
+    changes: { section: "policies", ...changes },
+  })
 
   return NextResponse.json({ event: updatedEvent })
 }
