@@ -10,10 +10,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Textarea } from "@/components/ui/textarea"
 import { ArrowRight, Sparkles } from "lucide-react"
 
+const ORGANIZER_MANAGER_ROLES = new Set(["admin", "organizer", "organizer_owner", "organizer_admin"])
+
 export default function NewEventPage() {
   const router = useRouter()
   const params = useParams<{ orgId: string }>()
-  const { permissions, activeOrgId } = usePermissions()
+  const { permissions } = usePermissions()
 
   const orgId = params.orgId
   const [title, setTitle] = useState("")
@@ -24,7 +26,7 @@ export default function NewEventPage() {
   // Permission check
   const canCreateEvent =
     permissions &&
-    permissions.orgMemberships.some((m) => m.org_id === orgId && (m.role === "admin" || m.role === "organizer"))
+    permissions.orgMemberships.some((m) => m.org_id === orgId && ORGANIZER_MANAGER_ROLES.has(String(m.role)))
 
   async function createDraft() {
     if (!title.trim()) {
