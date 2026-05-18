@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { BarChart3, CreditCard, Eye, FileText, ListMusic, QrCode, Settings2, Users } from 'lucide-react'
+import { BarChart3, CreditCard, Eye, FileText, ListMusic, QrCode, Settings2, Ticket, Users } from 'lucide-react'
 import Link from 'next/link'
 import { LineupStep } from '@/components/event-wizard/steps/LineupStep'
 import { PoliciesStep } from '@/components/event-wizard/steps/PoliciesStep'
@@ -32,6 +32,160 @@ type OpsState = {
     checked_in_tickets?: number
   }
   publishEligible?: boolean
+}
+
+type TicketType = {
+  id: string
+  name: string
+  price_cents: number
+  currency: string
+  quota: number
+  per_user_limit: number | null
+  is_reserved_seating: boolean | null
+  sales_status: 'on_sale' | 'paused' | 'sold_out' | 'hidden'
+  sales_pause_reason: string | null
+  reserved_count: number
+  available_count: number
+  sold_out: boolean
+}
+
+type TicketTypesState = {
+  tickets?: TicketType[]
+  error?: string
+}
+
+function formatMoney(cents: number, currency: string) {
+  return new Intl.NumberFormat('en-SZ', {
+    style: 'currency',
+    currency: currency || 'SZL',
+    maximumFractionDigits: 2,
+  }).format((cents ?? 0) / 100)
+}
+
+function ticketStatusVariant(status: TicketType['sales_status'], soldOut: boolean) {
+  if (soldOut || status === 'sold_out') return 'destructive'
+  if (status === 'on_sale') return 'default'
+  if (status === 'paused') return 'secondary'
+  return 'outline'
+}
+
+function ticketStatusLabel(status: TicketType['sales_status'], soldOut: boolean) {
+  if (soldOut || status === 'sold_out') return 'Sold out'
+  return status.replaceAll('_', ' ')
+}
+
+function TicketTypesTab({ orgId, eventId }: { orgId: string; eventId: string }) {
+  const [state, setState] = useState<TicketTypesState | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadTickets() {
+      const response = await fetch(`/api/events/${eventId}/ticket-types`, { cache: 'no-store' })
+      const payload = await response.json().catch(() => ({}))
+      if (cancelled) return
+      if (!response.ok) setState({ error: payload.error ?? 'Unable to load ticket types' })
+      else setState({ tickets: payload.tickets ?? [] })
+    }
+    loadTickets()
+    return () => {
+      cancelled = true
+    }
+  }, [eventId])
+
+  const tickets = state?.tickets ?? []
+  const totalQuota = tickets.reduce((sum, ticket) => sum + (ticket.quota ?? 0), 0)
+  const totalReserved = tickets.reduce((sum, ticket) => sum + (ticket.reserved_count ?? 0), 0)
+  const totalAvailable = tickets.reduce((sum, ticket) => sum + (ticket.available_count ?? 0), 0)
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <CardTitle>Ticket Types</CardTitle>
+          <CardDescription>Review ticket tiers, quotas, availability and sales status.</CardDescription>
+        </div>
+        <Button asChild>
+          <Link href={`/orgs/${orgId}/events/${eventId}/edit?step=tickets`}>Manage tickets</Link>
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {state?.error && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+            {state.error}
+          </div>
+        )}
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-lg border p-4">
+            <p className="text-sm text-muted-foreground">Total quota</p>
+            <p className="text-2xl font-bold">{totalQuota}</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="text-sm text-muted-foreground">Reserved / sold</p>
+            <p className="text-2xl font-bold">{totalReserved}</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="text-sm text-muted-foreground">Available</p>
+            <p className="text-2xl font-bold">{totalAvailable}</p>
+          </div>
+        </div>
+
+        {!state && <p className="text-sm text-muted-foreground">Loading ticket types…</p>}
+
+        {state && tickets.length === 0 && !state.error && (
+          <div className="text-center py-8 text-muted-foreground">
+            <Ticket className="mx-auto mb-3 h-8 w-8" />
+            <p>No ticket types configured yet</p>
+            <Button asChild className="mt-4">
+              <Link href={`/orgs/${orgId}/events/${eventId}/edit?step=tickets`}>Add Tickets</Link>
+            </Button>
+          </div>
+        )}
+
+        {tickets.length > 0 && (
+          <div className="space-y-3">
+            {tickets.map((ticket) => (
+              <div key={ticket.id} className="rounded-lg border p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-semibold">{ticket.name}</h3>
+                      <Badge variant={ticketStatusVariant(ticket.sales_status, ticket.sold_out)} className="capitalize">
+                        {ticketStatusLabel(ticket.sales_status, ticket.sold_out)}
+                      </Badge>
+                      {ticket.is_reserved_seating && <Badge variant="outline">Reserved seating</Badge>}
+                    </div>
+                    {ticket.sales_pause_reason && (
+                      <p className="mt-1 text-xs text-muted-foreground">Reason: {ticket.sales_pause_reason}</p>
+                    )}
+                  </div>
+                  <div className="text-left sm:text-right">
+                    <p className="text-lg font-bold">{formatMoney(ticket.price_cents, ticket.currency)}</p>
+                    <p className="text-xs text-muted-foreground">Limit {ticket.per_user_limit ?? '—'} per buyer</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Quota</p>
+                    <p className="font-medium">{ticket.quota}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Reserved / sold</p>
+                    <p className="font-medium">{ticket.reserved_count}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Available</p>
+                    <p className="font-medium">{ticket.available_count}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
 }
 
 function OperationsTab({ orgId, eventId }: { orgId: string; eventId: string }) {
@@ -275,20 +429,7 @@ export function EventManagementTabs({ eventId, orgId, event }: EventManagementTa
 
       {/* Tickets Tab */}
       <TabsContent value="tickets" className="space-y-6 mt-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Ticket Types</CardTitle>
-            <CardDescription>Manage ticket types and availability</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-center py-8 text-muted-foreground">
-              <p>No ticket types configured yet</p>
-              <Button asChild className="mt-4">
-                <Link href={`/orgs/${orgId}/events/${eventId}/edit?step=tickets`}>Add Tickets</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <TicketTypesTab orgId={orgId} eventId={eventId} />
       </TabsContent>
 
       {/* Lineup Tab */}
