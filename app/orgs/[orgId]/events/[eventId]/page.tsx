@@ -1,10 +1,10 @@
-import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { redirect } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { cookies } from "next/headers"
+import { redirect } from "next/navigation"
 import { getDemoEventById } from "@/lib/demo-data"
 import { EventManagementTabs } from "@/components/event-management-tabs"
+import { requireOrganizerEventManager } from "@/lib/org-management"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
@@ -35,31 +35,7 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
       return redirect("/403")
     }
   } else {
-    const supabase = createServerSupabaseClient()
-    if (!supabase) {
-      return redirect("/login")
-    }
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-
-    if (!session) {
-      return redirect("/login")
-    }
-
-    const { data: eventData, error } = await supabase
-      .from("events")
-      .select("id, title, date, status, cover_image_url, description")
-      .eq("id", eventId)
-      .eq("org_id", orgId)
-      .maybeSingle()
-
-    if (error || !eventData) {
-      console.error("[v0] Error fetching event:", error)
-      return redirect("/403")
-    }
-
+    const { event: eventData } = await requireOrganizerEventManager(orgId, eventId)
     event = eventData
   }
 
