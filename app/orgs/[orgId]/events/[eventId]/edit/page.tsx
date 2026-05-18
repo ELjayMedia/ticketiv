@@ -1,7 +1,7 @@
-import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
+import { redirect } from "next/navigation"
 import { getDemoEventById } from "@/lib/demo-data"
+import { requireOrganizerEventManager } from "@/lib/org-management"
 import EventWizardClient from "./EventWizardClient"
 
 export const dynamic = "force-dynamic"
@@ -21,43 +21,16 @@ export default async function EventEditPage({ params }: { params: { orgId: strin
       }
     } catch (error) {
       console.error("[v0] Failed to load demo event:", error)
-    }
-  } else {
-    const supabase = createServerSupabaseClient()
-    if (!supabase) {
-      return redirect("/login")
-    }
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-
-    if (!session) {
-      return redirect("/login")
-    }
-
-    const { data: eventData } = await supabase
-      .from("events")
-      .select(`
-        id,
-        title,
-        description,
-        date,
-        status,
-        venue_id,
-        org_id
-      `)
-      .eq("id", eventId)
-      .eq("org_id", orgId)
-      .maybeSingle()
-
-    if (!eventData) {
       return redirect("/403")
     }
-
+  } else {
+    const { event: eventData } = await requireOrganizerEventManager(
+      orgId,
+      eventId,
+      "id, title, description, date, status, venue_id, org_id",
+    )
     event = eventData
   }
 
-  // Render client wizard component
   return <EventWizardClient orgId={orgId} eventId={eventId} initialEvent={event} />
 }

@@ -242,7 +242,7 @@ export function EventManagementTabs({ eventId, orgId, event }: EventManagementTa
                 <Link href={`/orgs/${orgId}/events/${eventId}/edit`}>Edit Event</Link>
               </Button>
               <Button asChild variant="outline" className="gap-2">
-                <Link href={`/browse/events/${eventId}`}>
+                <Link href={`/events/${eventId}`}>
                   <Eye className="h-4 w-4" />
                   View Public Page
                 </Link>
