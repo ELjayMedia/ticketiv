@@ -6,11 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { BarChart3, CreditCard, Eye, FileText, ListMusic, QrCode, Settings2, Ticket, Users } from 'lucide-react'
+import { BarChart3, CreditCard, Eye, FileText, ListMusic, QrCode, Settings2, Ticket, UserPlus, Users } from 'lucide-react'
 import Link from 'next/link'
 import { LineupStep } from '@/components/event-wizard/steps/LineupStep'
 import { PoliciesStep } from '@/components/event-wizard/steps/PoliciesStep'
 import { FinishSetupNudge } from '@/components/event-management/finish-setup-nudge'
+import { GuestlistTab } from '@/components/event-management/guestlist-tab'
 
 interface EventManagementTabsProps {
   eventId: string
@@ -313,7 +314,7 @@ export function EventManagementTabs({ eventId, orgId, event }: EventManagementTa
 
   return (
     <Tabs value={tab} onValueChange={changeTab} className="w-full">
-      <TabsList className="grid w-full grid-cols-4 sm:grid-cols-8">
+      <TabsList className="grid w-full grid-cols-3 sm:grid-cols-9">
         <TabsTrigger value="overview" className="gap-2">
           <BarChart3 className="h-4 w-4" />
           <span className="hidden sm:inline">Overview</span>
@@ -325,6 +326,10 @@ export function EventManagementTabs({ eventId, orgId, event }: EventManagementTa
         <TabsTrigger value="tickets" className="gap-2">
           <BarChart3 className="h-4 w-4" />
           <span className="hidden sm:inline">Tickets</span>
+        </TabsTrigger>
+        <TabsTrigger value="guestlist" className="gap-2">
+          <UserPlus className="h-4 w-4" />
+          <span className="hidden sm:inline">Guestlist</span>
         </TabsTrigger>
         <TabsTrigger value="lineup" className="gap-2">
           <ListMusic className="h-4 w-4" />
@@ -430,6 +435,11 @@ export function EventManagementTabs({ eventId, orgId, event }: EventManagementTa
       {/* Tickets Tab */}
       <TabsContent value="tickets" className="space-y-6 mt-6">
         <TicketTypesTab orgId={orgId} eventId={eventId} />
+      </TabsContent>
+
+      {/* Guestlist Tab */}
+      <TabsContent value="guestlist" className="space-y-6 mt-6">
+        <GuestlistTab eventId={eventId} />
       </TabsContent>
 
       {/* Lineup Tab */}
