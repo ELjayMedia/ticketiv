@@ -5,7 +5,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 type RouteContext = { params: Promise<{ eventId: string }> }
 const MANAGER_ROLES = new Set(["admin", "organizer", "organizer_owner", "organizer_admin"])
-const SCANNER_ROLES = new Set(["scanner", "organizer_staff", "organizer_admin"])
+const SCANNER_ROLES = new Set(["scanner", "organizer_staff", "organizer_admin", "event_staff", "event_admin"])
 
 async function getUserId() {
   const supabase = createServerSupabaseClient()
@@ -47,6 +47,14 @@ async function recordScan(admin: ReturnType<typeof createAdminClient>, input: { 
   })
 }
 
+function invalidTicketStateMessage(status: string) {
+  if (status === "refunded") return { outcome: "refunded", message: "Ticket has been refunded" }
+  if (status === "transferred") return { outcome: "transferred", message: "Ticket has been transferred" }
+  if (status === "revoked") return { outcome: "revoked", message: "Ticket has been revoked" }
+  if (status === "pending") return { outcome: "not_issued", message: "Ticket is not issued yet" }
+  return { outcome: "invalid", message: `Ticket cannot be used for entry while status is ${status}` }
+}
+
 export async function POST(request: NextRequest, context: RouteContext) {
   const { eventId } = await context.params
   const userId = await getUserId()
@@ -71,8 +79,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   if (itemError) return NextResponse.json({ error: itemError.message }, { status: 400 })
   if (!item) {
-    await recordScan(admin, { eventId, ticketCode, outcome: "invalid", gate, notes: "Ticket code not found" })
-    return NextResponse.json({ outcome: "invalid", message: "Ticket code not found" }, { status: 404 })
+    await recordScan(admin, { eventId, ticketCode, outcome: "unknown_ticket", gate, notes: "Ticket code not found" })
+    return NextResponse.json({ outcome: "unknown_ticket", message: "Ticket code not found" }, { status: 404 })
   }
 
   const { data: ticketType, error: ticketError } = await admin.from("ticket_types").select("id, event_id, name").eq("id", item.ticket_type_id).maybeSingle()
@@ -88,14 +96,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ outcome: "already_used", message: "Ticket has already been checked in" }, { status: 409 })
   }
 
-  if (item.status === "revoked") {
-    await recordScan(admin, { eventId, ticketCode, outcome: "revoked", orderItemId: item.id, gate })
-    return NextResponse.json({ outcome: "revoked", message: "Ticket has been revoked" }, { status: 409 })
-  }
-
   if (item.status !== "issued") {
-    await recordScan(admin, { eventId, ticketCode, outcome: "invalid", orderItemId: item.id, gate, notes: `Ticket status is ${item.status}` })
-    return NextResponse.json({ outcome: "invalid", message: "Ticket is not issued yet" }, { status: 409 })
+    const invalidState = invalidTicketStateMessage(String(item.status))
+    await recordScan(admin, {
+      eventId,
+      ticketCode,
+      outcome: invalidState.outcome,
+      orderItemId: item.id,
+      gate,
+      notes: `Ticket status is ${item.status}`,
+    })
+    return NextResponse.json(invalidState, { status: 409 })
   }
 
   const { data: checkedIn, error: updateError } = await admin
