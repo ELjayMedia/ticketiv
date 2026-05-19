@@ -1,31 +1,20 @@
-import { NextResponse } from "next/server"
-
 import { createAdminClient } from "@/lib/supabase/admin"
-import { requireSuperAdmin } from "@/lib/super-admin/auth"
+import { makeCsvResponse } from "@/lib/super-admin/exports"
+import { requireAdminRole } from "@/lib/super-admin/auth"
+import { ADMIN_ROLE_TIERS } from "@/lib/super-admin/permissions"
 
-function cell(value: unknown) {
-  if (value === null || value === undefined) return ""
-  return `"${String(value).replaceAll('"', '""')}"`
-}
+const AUDIT_EXPORT_COLUMNS = ["id", "org_id", "actor_id", "table_name", "record_id", "action", "created_at"]
 
 export async function GET() {
-  await requireSuperAdmin()
+  await requireAdminRole(ADMIN_ROLE_TIERS)
   const admin = createAdminClient()
   const { data, error } = await admin
     .from("audit_log")
-    .select("id, org_id, actor_id, table_name, record_id, action, created_at")
+    .select(AUDIT_EXPORT_COLUMNS.join(", "))
     .order("created_at", { ascending: false })
     .limit(1000)
 
   if (error) throw new Error(error.message)
 
-  const columns = ["id", "org_id", "actor_id", "table_name", "record_id", "action", "created_at"]
-  const rows = [columns.join(","), ...(data ?? []).map((row) => columns.map((column) => cell(row[column as keyof typeof row])).join(","))]
-
-  return new NextResponse(rows.join("\n"), {
-    headers: {
-      "content-type": "text/csv; charset=utf-8",
-      "content-disposition": `attachment; filename="ticketiv-audit-${new Date().toISOString().slice(0, 10)}.csv"`,
-    },
-  })
+  return makeCsvResponse("ticketiv-audit", AUDIT_EXPORT_COLUMNS, (data ?? []) as Array<Record<string, unknown>>)
 }
