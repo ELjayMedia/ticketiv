@@ -8,6 +8,42 @@ import { requireAdminRole } from "@/lib/super-admin/auth"
 
 type PayoutStatus = "requested" | "processing" | "paid" | "failed" | "cancelled"
 
+const ALLOWED_PAYOUT_TRANSITIONS: Record<PayoutStatus, PayoutStatus[]> = {
+  requested: ["processing", "cancelled", "failed"],
+  processing: ["paid", "failed", "cancelled"],
+  paid: [],
+  failed: ["processing", "cancelled"],
+  cancelled: [],
+}
+
+function assertValidPayoutTransition(currentStatus: PayoutStatus, nextStatus: PayoutStatus) {
+  if (currentStatus === nextStatus) return
+
+  const allowedNextStatuses = ALLOWED_PAYOUT_TRANSITIONS[currentStatus] ?? []
+  if (!allowedNextStatuses.includes(nextStatus)) {
+    throw new Error(`Invalid payout transition: ${currentStatus} → ${nextStatus}`)
+  }
+}
+
+function payoutPatchFor(nextStatus: PayoutStatus) {
+  const now = new Date().toISOString()
+  const patch: Record<string, unknown> = { status: nextStatus }
+
+  if (nextStatus === "processing") {
+    patch.processing_started_at = now
+  }
+
+  if (nextStatus === "paid") {
+    patch.paid_at = now
+  }
+
+  if (nextStatus !== "paid") {
+    patch.paid_at = null
+  }
+
+  return patch
+}
+
 async function setPayoutStatus(payoutId: string, nextStatus: PayoutStatus, formData?: FormData) {
   const { user } = await requireAdminRole(["super_admin", "finance_admin"])
   const admin = createAdminClient()
@@ -22,12 +58,28 @@ async function setPayoutStatus(payoutId: string, nextStatus: PayoutStatus, formD
   if (payoutError) throw new Error(payoutError.message)
   if (!payout) throw new Error("Payout not found")
 
-  const patch: Record<string, unknown> = { status: nextStatus }
-  if (nextStatus === "paid") patch.paid_at = new Date().toISOString()
-  if (nextStatus !== "paid") patch.paid_at = null
+  const currentStatus = String(payout.status) as PayoutStatus
+  assertValidPayoutTransition(currentStatus, nextStatus)
 
-  const { error: updateError } = await admin.from("payouts").update(patch).eq("id", payoutId)
+  if (currentStatus === nextStatus) {
+    revalidatePath("/super-admin")
+    revalidatePath("/super-admin/payouts")
+    revalidatePath(`/super-admin/payouts/${payoutId}`)
+    redirect("/super-admin/payouts?status=finance_updated")
+  }
+
+  const patch = payoutPatchFor(nextStatus)
+
+  const { data: updatedPayout, error: updateError } = await admin
+    .from("payouts")
+    .update(patch)
+    .eq("id", payoutId)
+    .eq("status", currentStatus)
+    .select("id, status")
+    .maybeSingle()
+
   if (updateError) throw new Error(updateError.message)
+  if (!updatedPayout) throw new Error("Payout status changed before this action completed. Refresh and try again.")
 
   await admin.from("audit_log").insert({
     org_id: payout.org_id,
@@ -37,8 +89,10 @@ async function setPayoutStatus(payoutId: string, nextStatus: PayoutStatus, formD
     action: "update",
     changes: {
       business_action: "review_payout_status",
-      previous_status: payout.status,
+      previous_status: currentStatus,
       new_status: nextStatus,
+      amount_cents: payout.amount_cents,
+      currency: payout.currency,
       note,
     },
   })
