@@ -19,6 +19,17 @@ type AuditSearchParams = {
   q?: string
 }
 
+type AuditEntry = {
+  id: string
+  org_id: string | null
+  actor_id: string | null
+  table_name: string | null
+  record_id: string | null
+  action: string | null
+  changes: unknown
+  created_at: string | null
+}
+
 function formatDate(value: string | null) {
   if (!value) return "—"
   return new Intl.DateTimeFormat("en-SZ", {
@@ -42,18 +53,6 @@ function getBusinessAction(changes: unknown) {
   return typeof value === "string" ? value : null
 }
 
-function applySearchFilters(query: ReturnType<ReturnType<typeof createAdminClient>["from"]>["select"], filters: AuditSearchParams) {
-  let scopedQuery = query
-
-  if (filters.table) scopedQuery = scopedQuery.eq("table_name", filters.table)
-  if (filters.action) scopedQuery = scopedQuery.eq("action", filters.action)
-  if (filters.actor) scopedQuery = scopedQuery.eq("actor_id", filters.actor)
-  if (filters.org) scopedQuery = scopedQuery.eq("org_id", filters.org)
-  if (filters.record) scopedQuery = scopedQuery.eq("record_id", filters.record)
-
-  return scopedQuery
-}
-
 function buildFilterHref(nextFilters: AuditSearchParams) {
   const params = new URLSearchParams()
   Object.entries(nextFilters).forEach(([key, value]) => {
@@ -68,17 +67,24 @@ export default async function SuperAdminAuditPage({ searchParams }: { searchPara
   const filters = searchParams ? await searchParams : {}
   const admin = createAdminClient()
 
-  const baseQuery = admin
+  let query = admin
     .from("audit_log")
     .select("id, org_id, actor_id, table_name, record_id, action, changes, created_at")
     .order("created_at", { ascending: false })
     .limit(150)
 
-  const { data, error } = await applySearchFilters(baseQuery, filters)
+  if (filters.table) query = query.eq("table_name", filters.table)
+  if (filters.action) query = query.eq("action", filters.action)
+  if (filters.actor) query = query.eq("actor_id", filters.actor)
+  if (filters.org) query = query.eq("org_id", filters.org)
+  if (filters.record) query = query.eq("record_id", filters.record)
+
+  const { data, error } = await query
 
   if (error) throw new Error(error.message)
 
-  const filteredData = (data ?? []).filter((entry) => {
+  const entries = (data ?? []) as AuditEntry[]
+  const filteredData = entries.filter((entry) => {
     if (!filters.q) return true
     const needle = filters.q.toLowerCase()
     const haystack = [
@@ -97,8 +103,8 @@ export default async function SuperAdminAuditPage({ searchParams }: { searchPara
   })
 
   const activeFiltersCount = Object.values(filters).filter(Boolean).length
-  const topTables = Array.from(new Set((data ?? []).map((entry) => entry.table_name).filter(Boolean))).slice(0, 8)
-  const topActions = Array.from(new Set((data ?? []).map((entry) => entry.action).filter(Boolean))).slice(0, 8)
+  const topTables = Array.from(new Set(entries.map((entry) => entry.table_name).filter(Boolean))).slice(0, 8)
+  const topActions = Array.from(new Set(entries.map((entry) => entry.action).filter(Boolean))).slice(0, 8)
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
