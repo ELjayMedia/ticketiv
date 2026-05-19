@@ -1,25 +1,23 @@
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
-import { SUPABASE_ANON_KEY, SUPABASE_URL } from "./env"
+import { getSupabasePublicConfig } from "./env"
 
 /**
- * Legacy synchronous wrapper kept for compatibility with the many existing
- * pages that call `const supabase = createServerSupabaseClient()`.
+ * Legacy synchronous wrapper kept for compatibility with existing pages that
+ * call `const supabase = createServerSupabaseClient()`.
  *
- * Next.js 16 requires `await cookies()`. We satisfy that by making the cookie
- * adapter callbacks async — @supabase/ssr awaits them when it needs cookies.
- *
- * For new code, prefer `import { createClient } from "@/lib/supabase/server"`.
+ * The helper intentionally returns null when public Supabase config is missing
+ * so public routes can render degraded empty states instead of crashing during
+ * server render.
  */
 export function createServerSupabaseClient() {
-  const url = SUPABASE_URL
-  const key = SUPABASE_ANON_KEY
+  const config = getSupabasePublicConfig()
 
-  if (!url || !key) {
+  if (!config) {
     return null
   }
 
-  return createServerClient(url, key, {
+  return createServerClient(config.url, config.anonKey, {
     cookies: {
       async getAll() {
         const cookieStore = await cookies()
