@@ -6,12 +6,19 @@ import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { buildAdminPayload } from "@/lib/super-admin/form"
-import { allowedGenericMutationRolesForResource } from "@/lib/super-admin/permissions"
+import { allowedGenericMutationRolesForResource, type AdminRoleTier } from "@/lib/super-admin/permissions"
 import { getAdminResource } from "@/lib/super-admin/resources"
-import { requireAdminRole, requireSuperAdmin } from "@/lib/super-admin/auth"
+import { requireAdminRole } from "@/lib/super-admin/auth"
+
+const EVENT_OPS_ACTION_ROLES: AdminRoleTier[] = ["super_admin", "event_ops_admin"]
 
 async function requireGenericResourceMutationAccess(resourceKey: string) {
   await requireAdminRole(allowedGenericMutationRolesForResource(resourceKey))
+}
+
+async function requireEventOpsActionAccess() {
+  const { user } = await requireAdminRole(EVENT_OPS_ACTION_ROLES)
+  return user
 }
 
 export async function createResourceAction(resourceKey: string, formData: FormData) {
@@ -63,7 +70,7 @@ export async function removeResourceAction(resourceKey: string, recordId: string
 }
 
 export async function publishEventAction(eventId: string) {
-  const user = await requireSuperAdmin()
+  const user = await requireEventOpsActionAccess()
   const admin = createAdminClient()
 
   const { data: event, error: eventError } = await admin
@@ -127,9 +134,9 @@ export async function publishEventAction(eventId: string) {
 }
 
 export async function archiveEventAction(eventId: string, formData?: FormData) {
-  const user = await requireSuperAdmin()
+  const user = await requireEventOpsActionAccess()
   const admin = createAdminClient()
-  const reason = formData?.get("reason")?.toString().trim() || "Archived by super admin"
+  const reason = formData?.get("reason")?.toString().trim() || "Archived by platform event operations"
 
   const { data: event, error: eventError } = await admin
     .from("events")
@@ -174,7 +181,7 @@ export async function archiveEventAction(eventId: string, formData?: FormData) {
 }
 
 export async function pauseTicketTypeSalesAction(ticketTypeId: string, formData?: FormData) {
-  await setTicketTypeSalesStatus(ticketTypeId, "paused", "pause_ticket_type_sales", formData?.get("reason")?.toString().trim() || "Paused by super admin")
+  await setTicketTypeSalesStatus(ticketTypeId, "paused", "pause_ticket_type_sales", formData?.get("reason")?.toString().trim() || "Paused by platform event operations")
   redirect("/super-admin/ticket-types?status=ticket_updated")
 }
 
@@ -184,17 +191,17 @@ export async function resumeTicketTypeSalesAction(ticketTypeId: string) {
 }
 
 export async function markTicketTypeSoldOutAction(ticketTypeId: string, formData?: FormData) {
-  await setTicketTypeSalesStatus(ticketTypeId, "sold_out", "mark_ticket_type_sold_out", formData?.get("reason")?.toString().trim() || "Marked sold out by super admin")
+  await setTicketTypeSalesStatus(ticketTypeId, "sold_out", "mark_ticket_type_sold_out", formData?.get("reason")?.toString().trim() || "Marked sold out by platform event operations")
   redirect("/super-admin/ticket-types?status=ticket_updated")
 }
 
 export async function hideTicketTypeAction(ticketTypeId: string, formData?: FormData) {
-  await setTicketTypeSalesStatus(ticketTypeId, "hidden", "hide_ticket_type", formData?.get("reason")?.toString().trim() || "Hidden by super admin")
+  await setTicketTypeSalesStatus(ticketTypeId, "hidden", "hide_ticket_type", formData?.get("reason")?.toString().trim() || "Hidden by platform event operations")
   redirect("/super-admin/ticket-types?status=ticket_updated")
 }
 
 export async function assignDeviceToEventAction(deviceId: string, formData: FormData) {
-  const user = await requireSuperAdmin()
+  const user = await requireEventOpsActionAccess()
   const admin = createAdminClient()
   const eventId = formData.get("event_id")?.toString().trim()
 
@@ -249,7 +256,7 @@ export async function assignDeviceToEventAction(deviceId: string, formData: Form
 }
 
 export async function unassignDeviceFromEventAction(deviceId: string) {
-  const user = await requireSuperAdmin()
+  const user = await requireEventOpsActionAccess()
   const admin = createAdminClient()
 
   const { data: device, error: deviceError } = await admin
@@ -293,7 +300,7 @@ async function setTicketTypeSalesStatus(
   businessAction: string,
   reason?: string,
 ) {
-  const user = await requireSuperAdmin()
+  const user = await requireEventOpsActionAccess()
   const admin = createAdminClient()
 
   const { data: ticketType, error: ticketTypeError } = await admin
