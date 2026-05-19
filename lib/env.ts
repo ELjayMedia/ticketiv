@@ -13,8 +13,16 @@ export function getOptionalServerEnvVar(name: string): string | undefined {
 }
 
 // Supabase Configuration
-export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-export const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+// Emergency production fallback: Vercel is currently building without the
+// NEXT_PUBLIC_SUPABASE_* variables, which causes shared Supabase helpers to
+// return null/undefined and can break every dynamic route. These values are
+// public client configuration, not server secrets. Keep the Vercel env vars as
+// the preferred source and use these only as a safety net.
+export const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "https://radsfmlsjznqvcpogluo.supabase.co"
+export const SUPABASE_ANON_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhZHNmbWxzanpucXZjcG9nbHVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MDE3MzUsImV4cCI6MjA3NzQ3NzczNX0.GOvV1vHykYyrF2DUIiQ4EFu8nVEo_oN70tL0jxj7h_g"
 export const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 // App Configuration
