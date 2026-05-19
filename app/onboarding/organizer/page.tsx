@@ -325,7 +325,7 @@ export default function OrganizerOnboardingPage() {
               <Card className="bg-muted/30 border-muted">
                 <CardContent className="pt-6">
                   <p className="text-sm text-muted-foreground">
-                    💡 <strong>Tip:</strong> After setup, you'll be taken directly to create your first event. You can
+                    <strong>Tip:</strong> After setup, you'll be taken directly to create your first event. You can
                     always edit organization details later in settings.
                   </p>
                 </CardContent>

@@ -66,12 +66,9 @@ export async function getArtistDetail(artistId: string): Promise<ArtistDetail | 
     const artist = DEMO_ARTISTS.find((a) => a.id === artistId)
     if (!artist) return null
 
-    // Find events this artist is featured in
-    const upcomingEvents = DEMO_EVENTS.filter((e) => {
-      // This is a simplified check; in real data, check event_artists table
-      const isArtistInEvent = [0, 1, 5, 6, 2, 3, 4, 7, 8, 9, 10].includes(DEMO_ARTISTS.indexOf(artist))
-      return e.status === "published" && isArtistInEvent && new Date(e.starts_at) > new Date()
-    }).length
+    const upcomingEvents = DEMO_EVENTS.filter(
+      (e) => e.status === "published" && new Date(e.starts_at) > new Date(),
+    ).length
 
     return {
       ...artist,

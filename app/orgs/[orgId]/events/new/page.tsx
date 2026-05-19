@@ -149,9 +149,8 @@ export default function NewEventPage() {
             </CardContent>
           </Card>
 
-          {/* Footer Tips */}
           <div className="mt-6 text-center text-xs text-muted-foreground">
-            <p>✨ Tip: Use clear, descriptive event names for better search results</p>
+            <p>Tip: Use clear, descriptive event names for better search results</p>
           </div>
         </div>
       </div>
