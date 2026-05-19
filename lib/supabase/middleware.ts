@@ -17,8 +17,13 @@ import { NextResponse, type NextRequest } from "next/server"
  *   /payouts, /finance, /profile, /payments, /checkout/*, /orders/*, /tickets/*, /devices
  *
  * Safety:
- *   If env vars are missing or any DB call throws, we pass through rather than 500
- *   so the rest of the app remains accessible. Auth errors are logged.
+ *   Public routes are returned before any Supabase call. This prevents a slow or
+ *   unavailable auth service from taking down the public marketplace with a
+ *   Vercel function timeout.
+ *
+ *   If env vars are missing or any DB call throws on protected routes, we pass
+ *   through rather than 500 so the rest of the app remains accessible. Auth
+ *   errors are logged.
  */
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request })
@@ -31,6 +36,36 @@ export async function updateSession(request: NextRequest) {
     path.startsWith("/api/sign-out") ||
     path.includes(".")
   ) {
+    return response
+  }
+
+  const publicPrefixes = [
+    "/sign-in",
+    "/login",
+    "/signup",
+    "/verify",
+    "/forgot-password",
+    "/reset-password",
+    "/verify-email",
+    "/auth/",
+    "/403",
+    "/maintenance",
+    "/browse",
+    "/artists",
+    "/categories",
+    "/category/",
+    "/organisers",
+    "/host",
+    "/marketplace",
+  ]
+  const isPublicBrowsing = publicPrefixes.some((p) => path.startsWith(p))
+  const isRootOrEvent =
+    path === "/" ||
+    (path.startsWith("/events") && !path.startsWith("/events/create"))
+
+  // Public browsing routes must never wait on Supabase auth. The page/API code
+  // can still load public data, but the middleware should not block rendering.
+  if (isPublicBrowsing || isRootOrEvent) {
     return response
   }
 
@@ -66,32 +101,7 @@ export async function updateSession(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
 
-    // Public browsing routes — accessible without auth
-    const publicPrefixes = [
-      "/sign-in",
-      "/login",
-      "/signup",
-      "/verify",
-      "/forgot-password",
-      "/reset-password",
-      "/verify-email",
-      "/auth/",
-      "/403",
-      "/maintenance",
-      "/browse",
-      "/artists",
-      "/categories",
-      "/category/",
-      "/organisers",
-      "/host",
-      "/marketplace",
-    ]
-    const isPublicBrowsing = publicPrefixes.some((p) => path.startsWith(p))
-    const isRootOrEvent =
-      path === "/" ||
-      (path.startsWith("/events") && !path.startsWith("/events/create"))
-
-    // Helper: check whether the user has a handle (lazy — only when needed)
+    // Authed user landing on onboarding should be moved forward only after auth.
     async function hasHandle(): Promise<boolean> {
       if (!user) return false
       try {
@@ -104,21 +114,6 @@ export async function updateSession(request: NextRequest) {
       } catch {
         return false
       }
-    }
-
-    if (isPublicBrowsing || isRootOrEvent) {
-      // Authed user landing on sign-in/verify/signup/login → push them forward
-      if (
-        user &&
-        (path.startsWith("/sign-in") ||
-          path.startsWith("/login") ||
-          path.startsWith("/signup") ||
-          path.startsWith("/verify"))
-      ) {
-        const target = (await hasHandle()) ? "/" : "/onboarding"
-        return NextResponse.redirect(new URL(target, request.url))
-      }
-      return response
     }
 
     // /onboarding — requires session, allowed without handle
