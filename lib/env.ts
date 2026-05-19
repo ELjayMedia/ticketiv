@@ -1,8 +1,18 @@
+export class MissingEnvironmentVariableError extends Error {
+  readonly variableName: string
+
+  constructor(variableName: string) {
+    super(`Missing required environment variable: ${variableName}`)
+    this.name = "MissingEnvironmentVariableError"
+    this.variableName = variableName
+  }
+}
+
 export function getRequiredServerEnvVar(name: string) {
   const value = process.env[name]
 
   if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`)
+    throw new MissingEnvironmentVariableError(name)
   }
 
   return value
@@ -12,18 +22,75 @@ export function getOptionalServerEnvVar(name: string): string | undefined {
   return process.env[name]
 }
 
+export function isMissingEnvironmentVariableError(error: unknown): error is MissingEnvironmentVariableError {
+  return error instanceof MissingEnvironmentVariableError
+}
+
 // Supabase Configuration
-// Emergency production fallback: Vercel is currently building without the
-// NEXT_PUBLIC_SUPABASE_* variables, which causes shared Supabase helpers to
-// return null/undefined and can break every dynamic route. These values are
-// public client configuration, not server secrets. Keep the Vercel env vars as
-// the preferred source and use these only as a safety net.
-export const SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "https://radsfmlsjznqvcpogluo.supabase.co"
-export const SUPABASE_ANON_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhZHNmbWxzanpucXZjcG9nbHVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MDE3MzUsImV4cCI6MjA3NzQ3NzczNX0.GOvV1vHykYyrF2DUIiQ4EFu8nVEo_oN70tL0jxj7h_g"
+// These values must be provided through the deployment environment. Do not
+// hardcode fallbacks here: this module is imported by both server and client
+// helpers, and public pages should degrade when config is absent instead of
+// silently binding to stale credentials.
+export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+export const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 export const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+export function getSupabasePublicConfig() {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return null
+  }
+
+  return {
+    url: SUPABASE_URL,
+    anonKey: SUPABASE_ANON_KEY,
+  }
+}
+
+export function getRequiredSupabasePublicConfig() {
+  const config = getSupabasePublicConfig()
+
+  if (!config) {
+    throw new MissingEnvironmentVariableError(
+      !SUPABASE_URL ? "NEXT_PUBLIC_SUPABASE_URL" : "NEXT_PUBLIC_SUPABASE_ANON_KEY"
+    )
+  }
+
+  return config
+}
+
+export function getSupabaseAdminConfig() {
+  const publicConfig = getSupabasePublicConfig()
+
+  if (!publicConfig || !SUPABASE_SERVICE_ROLE_KEY) {
+    return null
+  }
+
+  return {
+    ...publicConfig,
+    serviceRoleKey: SUPABASE_SERVICE_ROLE_KEY,
+  }
+}
+
+export function getRequiredSupabaseAdminConfig() {
+  const publicConfig = getRequiredSupabasePublicConfig()
+
+  if (!SUPABASE_SERVICE_ROLE_KEY) {
+    throw new MissingEnvironmentVariableError("SUPABASE_SERVICE_ROLE_KEY")
+  }
+
+  return {
+    ...publicConfig,
+    serviceRoleKey: SUPABASE_SERVICE_ROLE_KEY,
+  }
+}
+
+export function isSupabaseConfigured() {
+  return Boolean(getSupabasePublicConfig())
+}
+
+export function isSupabaseAdminConfigured() {
+  return Boolean(getSupabaseAdminConfig())
+}
 
 // App Configuration
 export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
