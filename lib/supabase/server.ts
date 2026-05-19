@@ -1,16 +1,17 @@
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
-import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@/lib/env"
+import { getRequiredSupabasePublicConfig } from "@/lib/env"
 
 /**
- * Supabase client for Server Components, Server Actions, and Route Handlers.
- * Cookie writes are wrapped in try/catch because Server Components are read-only;
- * middleware handles session refresh there.
+ * Supabase client for authenticated Server Components, Server Actions, and
+ * Route Handlers. Public/degraded routes should use createServerSupabaseClient()
+ * from lib/supabase-server.ts because this helper intentionally requires config.
  */
 export async function createClient() {
+  const config = getRequiredSupabasePublicConfig()
   const cookieStore = await cookies()
 
-  return createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  return createServerClient(config.url, config.anonKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll()
