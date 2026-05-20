@@ -1,6 +1,7 @@
 "use client"
 
 import React from "react"
+import { Analytics } from "@vercel/analytics/next"
 import { usePermissions } from "@/lib/providers/permissions-provider"
 import { NotificationsProvider } from "@/lib/providers/notifications-provider"
 import { Toaster } from "@/components/ui/toaster"
@@ -12,6 +13,7 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
     <NotificationsProvider userId={userId || undefined}>
       {children}
       <Toaster />
+      <Analytics />
     </NotificationsProvider>
   )
 }
