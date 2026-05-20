@@ -1,6 +1,5 @@
 import type React from "react"
 import type { Metadata, Viewport } from "next"
-import { Analytics } from "@vercel/analytics/next"
 import { PermissionsProvider } from "@/lib/providers/permissions-provider"
 import { RootLayoutClient } from "@/components/root-layout-client"
 import "./globals.css"
@@ -38,10 +37,7 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased">
         <PermissionsProvider>
-          <RootLayoutClient>
-            {children}
-            <Analytics />
-          </RootLayoutClient>
+          <RootLayoutClient>{children}</RootLayoutClient>
         </PermissionsProvider>
       </body>
     </html>
