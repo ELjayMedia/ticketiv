@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server"
 
-import { requireAdminRole } from "@/lib/super-admin/auth"
+import { isMissingEnvironmentVariableError } from "@/lib/env"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 import {
   createEnvVar,
   deleteEnvVar,
@@ -12,10 +14,72 @@ import {
 
 export const dynamic = "force-dynamic"
 
+type RouteContext =
+  | { ok: true; userId: string }
+  | { ok: false; response: NextResponse }
+
 const TARGETS: EnvTarget[] = ["production", "preview", "development"]
 
-async function requireEnvVarAdmin() {
-  await requireAdminRole(["super_admin"])
+async function requireEnvVarAdmin(): Promise<RouteContext> {
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError) {
+      console.warn("[ticketiv] env-vars auth lookup failed", userError.message)
+    }
+
+    if (!user) {
+      return {
+        ok: false,
+        response: NextResponse.json({ error: "Unauthenticated" }, { status: 401 }),
+      }
+    }
+
+    const admin = createAdminClient()
+    const { data, error } = await admin
+      .from("admin_users")
+      .select("role_tier, active")
+      .eq("user_id", user.id)
+      .eq("active", true)
+      .maybeSingle()
+
+    if (error) {
+      console.error("[ticketiv] env-vars admin lookup failed", error.message)
+      return {
+        ok: false,
+        response: NextResponse.json({ error: "Unable to verify admin role" }, { status: 500 }),
+      }
+    }
+
+    if (!data || data.role_tier !== "super_admin") {
+      return {
+        ok: false,
+        response: NextResponse.json({ error: "Unauthorized" }, { status: 403 }),
+      }
+    }
+
+    return { ok: true, userId: user.id }
+  } catch (error) {
+    if (isMissingEnvironmentVariableError(error)) {
+      return {
+        ok: false,
+        response: NextResponse.json(
+          { error: "Missing server configuration", missing: error.variableName },
+          { status: 500 }
+        ),
+      }
+    }
+
+    console.error("[ticketiv] env-vars authorization failed", error)
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "Internal server error" }, { status: 500 }),
+    }
+  }
 }
 
 function isTargetList(value: unknown): value is EnvTarget[] {
@@ -27,12 +91,22 @@ function isTargetList(value: unknown): value is EnvTarget[] {
 }
 
 function errorResponse(error: unknown) {
+  if (isMissingEnvironmentVariableError(error)) {
+    return NextResponse.json(
+      { error: "Missing server configuration", missing: error.variableName },
+      { status: 500 }
+    )
+  }
+
   const message = error instanceof Error ? error.message : "Unexpected error"
-  return NextResponse.json({ error: message }, { status: 502 })
+  console.error("[ticketiv] env-vars operation failed", error)
+  return NextResponse.json({ error: message }, { status: 500 })
 }
 
 export async function GET() {
-  await requireEnvVarAdmin()
+  const auth = await requireEnvVarAdmin()
+  if (!auth.ok) return auth.response
+
   try {
     const vars = await listEnvVars()
     // Mask all values before sending to client.
@@ -40,14 +114,15 @@ export async function GET() {
       ...rest,
       value: null,
     }))
-    return NextResponse.json({ envVars: safe })
+    return NextResponse.json({ envVars: safe }, { status: 200 })
   } catch (error) {
     return errorResponse(error)
   }
 }
 
 export async function POST(request: NextRequest) {
-  await requireEnvVarAdmin()
+  const auth = await requireEnvVarAdmin()
+  if (!auth.ok) return auth.response
 
   let body: Partial<CreateEnvVar>
   try {
@@ -78,7 +153,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  await requireEnvVarAdmin()
+  const auth = await requireEnvVarAdmin()
+  if (!auth.ok) return auth.response
 
   let body: { id?: string; value?: string; target?: unknown }
   try {
@@ -106,14 +182,15 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const updated = await updateEnvVar(id, update)
-    return NextResponse.json({ envVar: { ...updated, value: null } })
+    return NextResponse.json({ envVar: { ...updated, value: null } }, { status: 200 })
   } catch (error) {
     return errorResponse(error)
   }
 }
 
 export async function DELETE(request: NextRequest) {
-  await requireEnvVarAdmin()
+  const auth = await requireEnvVarAdmin()
+  if (!auth.ok) return auth.response
 
   let body: { id?: string }
   try {
@@ -127,7 +204,7 @@ export async function DELETE(request: NextRequest) {
 
   try {
     await deleteEnvVar(id)
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true }, { status: 200 })
   } catch (error) {
     return errorResponse(error)
   }
