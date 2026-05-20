@@ -4,6 +4,7 @@ import { OnboardingForm } from "@/components/OnboardingForm"
 import { createClient } from "@/lib/supabase/server"
 
 export const metadata = { title: "Choose your handle" }
+export const dynamic = "force-dynamic"
 
 export default async function OnboardingPage() {
   const supabase = await createClient()
