@@ -1,6 +1,7 @@
 {
-  "buildCommand": "next build",
-  "devCommand": "next dev",
+  "installCommand": "corepack enable && pnpm install --no-frozen-lockfile",
+  "buildCommand": "pnpm build",
+  "devCommand": "pnpm dev",
   "outputDirectory": ".next",
   "headers": [
     {
