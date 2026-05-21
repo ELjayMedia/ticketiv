@@ -69,11 +69,11 @@ export function Header({ user, onLogout }: HeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
+    <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
       <div className="max-w-[980px] mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2 transition hover:opacity-80">
           <Ticket className="h-6 w-6 text-primary" />
-          <span className="text-2xl font-bold text-primary">Ticketiv</span>
+          <span className="text-xl font-bold text-foreground">Ticketiv</span>
         </Link>
 
         <nav className="hidden md:flex items-center gap-8">
