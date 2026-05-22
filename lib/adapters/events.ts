@@ -113,7 +113,9 @@ export async function getPublicEventsList(params?: {
     const { data, error } = await query
 
     if (error) {
-      console.error("[v0] Error fetching public events:", error)
+      console.error(
+        `[v0] Error fetching public events from v_events_public — ${error.code ?? "no-code"}: ${error.message ?? "unknown"}${error.hint ? ` (hint: ${error.hint})` : ""}`,
+      )
       return []
     }
 
