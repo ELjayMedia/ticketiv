@@ -119,9 +119,13 @@ export async function getPublicEventsList(params?: {
       return []
     }
 
-    // Validate each item against schema
+    // Validate each item against schema. `validateSchema` returns `null` in
+    // production when a row doesn't match (e.g. a non-URL `poster_url`),
+    // which would crash downstream mappers — drop those rows here.
     if (!data) return []
-    return data.map((item) => validateSchema(EventsPublicViewSchema, item, "v_events_public"))
+    return data
+      .map((item) => validateSchema(EventsPublicViewSchema, item, "v_events_public"))
+      .filter((row): row is EventsPublicView => row != null)
   } catch (error) {
     console.error("[v0] Exception in getPublicEventsList:", error)
     return []

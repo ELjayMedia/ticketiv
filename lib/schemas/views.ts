@@ -126,16 +126,17 @@ export function validateSchema<T>(schema: z.Schema<T>, data: unknown, source: st
 
   if (!result.success) {
     const errors = result.error.issues
-    console.error(`[v0] Schema validation failed for ${source}:`, errors)
+    const summary = errors.map((e) => `${e.path.join(".") || "<root>"} - ${e.message}`).join("; ")
+    console.error(`[v0] Schema validation failed for ${source}: ${summary}`)
 
     if (process.env.NODE_ENV === "development") {
-      throw new Error(
-        `Schema validation failed for ${source}: ${errors.map((e) => `${e.path.join(".")} - ${e.message}`).join("; ")}`,
-      )
+      throw new Error(`Schema validation failed for ${source}: ${summary}`)
     }
 
-    // In production, return null to trigger graceful error UI
-    return null as any
+    // In production we prefer to render with the raw row (logged above)
+    // rather than crash downstream mappers with a `null`. Schema drift is
+    // recoverable for most display paths; a null isn't.
+    return data as T
   }
 
   return result.data
