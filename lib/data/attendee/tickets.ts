@@ -1,13 +1,16 @@
-// Tables: order_items, orders, ticket_types, events, event_dates, venues, transfers
+// Source: v_my_tickets (RLS-scoped to the current buyer via buyer_id).
+// For mutations (transfers, etc.) go through /api/tickets/* server routes so
+// ownership + status are validated server-side.
+
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { getDemoSessionFromCookie } from "@/lib/demo-auth"
 import { getDemoUserTickets, getDemoTicketDetail } from "@/lib/demo-data"
+import { MyTicketsViewSchema, validateSchema, type MyTicketsView } from "@/lib/schemas/views"
 
-export async function getMyTickets() {
+export async function getMyTickets(): Promise<MyTicketsView[]> {
   const demoSession = await getDemoSessionFromCookie()
-
   if (demoSession) {
-    return getDemoUserTickets(demoSession.id)
+    return getDemoUserTickets(demoSession.id) as unknown as MyTicketsView[]
   }
 
   const supabase = await createServerSupabaseClient()
@@ -19,84 +22,61 @@ export async function getMyTickets() {
   if (!user) return []
 
   const { data, error } = await supabase
-    .from("order_items")
-    .select(`
-      id, ticket_code, checked_in_at, holder_name, holder_email, holder_phone, seat_id, revoked_at,
-      orders:order_id (
-        id, status, currency, event_id,
-        events:event_id (
-          id, title,
-          venues:venue_id ( name ),
-          event_dates ( starts_at )
-        )
-      ),
-      ticket_types:ticket_type_id ( name, price_cents, currency )
-    `)
-    .is("revoked_at", null)
-    .order("id", { ascending: false })
+    .from("v_my_tickets")
+    .select("*")
+    .order("event_starts_at", { ascending: true, nullsFirst: false })
 
-  if (error) throw error
-  return data ?? []
+  if (error) {
+    console.error("[tickets] v_my_tickets list:", error)
+    return []
+  }
+
+  return (data ?? []).map((row) => validateSchema(MyTicketsViewSchema, row, "v_my_tickets")).filter(Boolean)
 }
 
-export async function getTicketById(orderItemId: string) {
+export async function getTicketById(orderItemId: string): Promise<MyTicketsView | null> {
   const demoSession = await getDemoSessionFromCookie()
-
   if (demoSession) {
-    return getDemoTicketDetail(orderItemId)
+    return getDemoTicketDetail(orderItemId) as unknown as MyTicketsView | null
   }
 
   const supabase = await createServerSupabaseClient()
   if (!supabase) return null
 
   const { data, error } = await supabase
-    .from("order_items")
-    .select(`
-      id, ticket_code, checked_in_at, holder_name, holder_email, holder_phone, seat_id, revoked_at,
-      orders:order_id (
-        id, status, currency, event_id,
-        events:event_id (
-          id, title, description,
-          venues:venue_id ( name, address, tz ),
-          event_dates ( starts_at, ends_at )
-        )
-      ),
-      ticket_types:ticket_type_id ( name, price_cents, currency )
-    `)
-    .eq("id", orderItemId)
-    .single()
+    .from("v_my_tickets")
+    .select("*")
+    .eq("order_item_id", orderItemId)
+    .maybeSingle()
 
-  if (error) throw error
-  return data
+  if (error) {
+    console.error("[tickets] v_my_tickets detail:", error)
+    return null
+  }
+  if (!data) return null
+
+  return validateSchema(MyTicketsViewSchema, data, "v_my_tickets")
 }
 
 export async function createTransfer(input: { orderItemId: string; toUserId?: string; toEmail?: string }) {
-  // Transfer should be server-mediated to validate ownership + status
   const res = await fetch("/api/tickets/transfer", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   })
-
   if (!res.ok) throw new Error(await res.text())
   return res.json()
 }
 
 export async function acceptTransfer(transferId: string) {
-  const res = await fetch(`/api/tickets/transfer/${transferId}/accept`, {
-    method: "POST",
-  })
-
+  const res = await fetch(`/api/tickets/transfer/${transferId}/accept`, { method: "POST" })
   if (!res.ok) throw new Error(await res.text())
   return res.json()
 }
 
 export async function listTransfers(params?: { status?: "pending" | "accepted" | "revoked" }) {
   const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    return []
-  }
+  if (demoSession) return []
 
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
@@ -111,12 +91,9 @@ export async function listTransfers(params?: { status?: "pending" | "accepted" |
       )
     `)
 
-  if (params?.status) {
-    query = query.eq("status", params.status)
-  }
+  if (params?.status) query = query.eq("status", params.status)
 
   const { data, error } = await query.order("created_at", { ascending: false })
-
   if (error) throw error
   return data ?? []
 }

@@ -4,12 +4,18 @@ import { Chip } from "@/components/quiet/ui/chip";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider } from "@/components/quiet/ui/primitives";
 import { PHOTOS } from "@/lib/photos";
+import type { DiscoverEvent } from "@/lib/mappers/discover";
 
 /* ──────────────────────────────────────────────────────────────
- * Desktop Discover · "/" on tablet+
- * Three-column grid below an editor's-pick hero, with a sticky
- * filter rail on the left. The DesktopNav lives in the layout.
+ * Desktop Discover · "/" on tablet+. Mirrors MobileDiscover.
  * ────────────────────────────────────────────────────────────── */
+
+interface DesktopDiscoverProps {
+  events?: DiscoverEvent[];
+  editorPick?: DiscoverEvent | null;
+  city?: string;
+  totalEvents?: number;
+}
 
 const CATEGORIES = [
   { icon: "music", label: "Music", count: 18 },
@@ -19,54 +25,81 @@ const CATEGORIES = [
   { icon: "spark", label: "Festivals", count: 2 },
 ] as const;
 
-const GRID_EVENTS = [
-  {
-    photo: PHOTOS.dj_neon,
-    title: "Tribal Tales · Vol 4",
-    when: "Wed 30 Aug · 15:50",
-    venue: "Cafe Natarani",
-    price: "E450",
-    chip: "5 left",
-  },
-  {
-    photo: PHOTOS.singer_red,
-    title: "Sunset Set",
-    when: "Sat 26 Aug · 18:00",
-    venue: "Riverside Park",
-    price: "E600",
-    chip: "Selling fast",
-  },
-  {
-    photo: PHOTOS.comedy_club,
-    title: "Stand-up Saturday",
-    when: "Sat 26 Aug · 21:30",
-    venue: "House of MG",
-    price: "E300",
-  },
-  {
-    photo: PHOTOS.workshop,
-    title: "Pottery & Wine",
-    when: "Sun 27 Aug · 14:00",
-    venue: "The Loft",
-    price: "E1,200",
-  },
-  {
-    photo: PHOTOS.theatre_curtain,
-    title: "Macbeth · revisited",
-    when: "Thu 31 Aug · 19:00",
-    venue: "Standard Theatre",
-    price: "E550",
-  },
-  {
-    photo: PHOTOS.food_market,
-    title: "Night Market: Mbabane",
-    when: "Fri 25 Aug · 17:00",
-    venue: "Coronation Park",
-    price: "Free",
-  },
+interface GridRow {
+  href: string;
+  photo: string;
+  title: string;
+  when: string;
+  venue: string;
+  price: string;
+  chip?: string;
+}
+
+const DEFAULT_GRID: GridRow[] = [
+  { href: "/events/tribal-tales", photo: PHOTOS.dj_neon, title: "Tribal Tales · Vol 4", when: "Wed 30 Aug · 15:50", venue: "Cafe Natarani", price: "E450", chip: "5 left" },
+  { href: "/events/sunset-set", photo: PHOTOS.singer_red, title: "Sunset Set", when: "Sat 26 Aug · 18:00", venue: "Riverside Park", price: "E600", chip: "Selling fast" },
+  { href: "/events/stand-up-saturday", photo: PHOTOS.comedy_club, title: "Stand-up Saturday", when: "Sat 26 Aug · 21:30", venue: "House of MG", price: "E300" },
+  { href: "/events/pottery-and-wine", photo: PHOTOS.workshop, title: "Pottery & Wine", when: "Sun 27 Aug · 14:00", venue: "The Loft", price: "E1,200" },
+  { href: "/events/macbeth-revisited", photo: PHOTOS.theatre_curtain, title: "Macbeth · revisited", when: "Thu 31 Aug · 19:00", venue: "Standard Theatre", price: "E550" },
+  { href: "/events/night-market-mbabane", photo: PHOTOS.food_market, title: "Night Market: Mbabane", when: "Fri 25 Aug · 17:00", venue: "Coronation Park", price: "Free" },
 ];
 
-export function DesktopDiscover() {
+interface HeroRow {
+  href: string;
+  photo: string;
+  title: string;
+  dateLabel: string;
+  venue: string;
+  priceLabel: string;
+  topChip: string;
+  subtitle: string;
+}
+
+const DEFAULT_HERO: HeroRow = {
+  href: "/events/river-sound-fest",
+  photo: PHOTOS.crowd_smoke,
+  title: "River Sound Fest",
+  dateLabel: "FRI 25 → SUN 27 JUL · RIVERSIDE PARK",
+  venue: "Riverside Park",
+  priceLabel: "E2,400",
+  topChip: "Editor's pick · 3-day festival",
+  subtitle: "22 artists across 3 stages. Camping & food vendors on-site. Day passes from E950.",
+};
+
+function toGrid(ev: DiscoverEvent): GridRow {
+  return {
+    href: ev.href,
+    photo: ev.photo || PHOTOS.dj_neon,
+    title: ev.title,
+    when: ev.whenLabel,
+    venue: ev.venue,
+    price: ev.priceLabel || (ev.fromPriceCents === 0 ? "Free" : ""),
+    chip: ev.city ?? undefined,
+  };
+}
+
+function toHero(ev: DiscoverEvent): HeroRow {
+  return {
+    href: ev.href,
+    photo: ev.photo || PHOTOS.crowd_smoke,
+    title: ev.title,
+    dateLabel: ev.whenLabel.toUpperCase() + (ev.venue ? ` · ${ev.venue.toUpperCase()}` : ""),
+    venue: ev.venue,
+    priceLabel: ev.priceLabel.replace(/^From\s+/, ""),
+    topChip: `Editor's pick · ${ev.category ?? "Featured"}`,
+    subtitle: ev.category ? `Curated for fans of ${ev.category.toLowerCase()}.` : "",
+  };
+}
+
+export function DesktopDiscover({
+  events,
+  editorPick,
+  city = "Mbabane",
+  totalEvents,
+}: DesktopDiscoverProps = {}) {
+  const GRID_EVENTS = events && events.length > 0 ? events.map(toGrid) : DEFAULT_GRID;
+  const HERO = editorPick ? toHero(editorPick) : DEFAULT_HERO;
+  const total = totalEvents ?? events?.length ?? 42;
   return (
     <div className="mx-auto max-w-[1280px] px-10 py-6">
       {/* Page header */}
@@ -74,10 +107,10 @@ export function DesktopDiscover() {
         <div>
           <div className="text-label">Showing events near</div>
           <h1 className="mt-1 inline-flex items-center gap-2 text-[40px] font-semibold leading-none tracking-[-0.025em]">
-            Mbabane <Icon name="chevD" size={28} />
+            {city} <Icon name="chevD" size={28} />
           </h1>
           <p className="mt-2 font-mono text-[12px] text-ink-3">
-            42 EVENTS · 11 VENUES · 6 LIVE TONIGHT
+            {total} EVENTS
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -94,52 +127,39 @@ export function DesktopDiscover() {
       {/* Editor's pick hero */}
       <Card className="mb-8 overflow-hidden">
         <div className="grid grid-cols-[1fr_320px]">
-          <Photo src={PHOTOS.crowd_smoke} height={380} overlay="heavy">
+          <Photo src={HERO.photo} height={380} overlay="heavy">
             <div className="flex items-start justify-between">
               <Chip variant="accent" size="sm" className="bg-white/95 text-accent">
-                <Icon name="spark" size={11} /> Editor's pick · 3-day festival
+                <Icon name="spark" size={11} /> {HERO.topChip}
               </Chip>
               <div className="text-right text-white">
-                <div className="text-label text-white/90">HEADLINER</div>
-                <div className="font-mono text-[13px] font-semibold">DJ FUN + 21 MORE</div>
+                <div className="text-label text-white/90">WHERE</div>
+                <div className="font-mono text-[13px] font-semibold">{HERO.venue.toUpperCase()}</div>
               </div>
             </div>
             <div className="mt-auto flex items-end justify-between gap-8">
               <div>
-                <div className="text-label text-white/90">FRI 25 → SUN 27 JUL · RIVERSIDE PARK</div>
-                <div className="mt-2 text-[76px] font-semibold leading-[0.85] tracking-[-0.025em] text-white">
-                  River<br />Sound<br />Fest
+                <div className="text-label text-white/90">{HERO.dateLabel}</div>
+                <div className="mt-2 text-[64px] font-semibold leading-[0.85] tracking-[-0.025em] text-white">
+                  {HERO.title}
                 </div>
               </div>
             </div>
           </Photo>
           <div className="flex flex-col p-6">
-            <div className="text-label">3-DAY PASS FROM</div>
+            <div className="text-label">FROM</div>
             <div className="mt-1 font-mono text-[44px] font-semibold leading-none">
-              E2,400
+              {HERO.priceLabel || "—"}
             </div>
-            <p className="mt-3 text-[13px] text-ink-3">
-              22 artists across 3 stages. Camping & food vendors on-site.
-              Day passes from E950.
-            </p>
+            {HERO.subtitle && (
+              <p className="mt-3 text-[13px] text-ink-3">{HERO.subtitle}</p>
+            )}
             <Divider className="my-4" />
-            <div className="text-label">YOU'D LIKE THIS BECAUSE</div>
-            <ul className="mt-2 flex flex-col gap-1.5 text-[13px]">
-              <li className="inline-flex items-center gap-1.5">
-                <Icon name="check" size={14} className="text-accent" /> You saved River Sound 2025
-              </li>
-              <li className="inline-flex items-center gap-1.5">
-                <Icon name="check" size={14} className="text-accent" /> 3 friends going
-              </li>
-              <li className="inline-flex items-center gap-1.5">
-                <Icon name="check" size={14} className="text-accent" /> DJ Fun · followed
-              </li>
-            </ul>
             <Link
-              href="/events/river-sound-fest"
+              href={HERO.href}
               className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-[var(--radius)] bg-accent px-4 py-2.5 text-[13px] font-semibold text-white hover:opacity-90"
             >
-              Get passes <Icon name="arrowR" size={14} />
+              Get tickets <Icon name="arrowR" size={14} />
             </Link>
           </div>
         </div>
@@ -194,8 +214,8 @@ export function DesktopDiscover() {
           <div className="grid grid-cols-3 gap-4">
             {GRID_EVENTS.map((e) => (
               <Link
-                key={e.title}
-                href={`/events/${e.title.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}`}
+                key={e.href}
+                href={e.href}
                 className="group"
               >
                 <Card className="overflow-hidden transition-shadow group-hover:shadow-[var(--shadow-elev)]">

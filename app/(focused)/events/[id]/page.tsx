@@ -1,18 +1,21 @@
 import { notFound } from "next/navigation";
 import { MobileEvent } from "@/components/quiet/screens/event-detail/mobile-event";
 import { DesktopEvent } from "@/components/quiet/screens/event-detail/desktop-event";
+import { getPublicEventBySlug } from "@/lib/adapters/events";
+import { mapEventDetail, mapDesktopEventDetail } from "@/lib/mappers/event-detail";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
+
+export const revalidate = 60;
 
 /**
  * `/events/[id]`
  *
- * Phase 2 wiring will swap the mock data for a Supabase fetch:
- *
- *   const event = await getEventBySlug(params.id);
- *   if (!event) notFound();
- *
- * Both viewport variants take the same data shape (`MobileEventData`
- * is extended by `DesktopEventData` with `longDescription`, `amenities`,
- * `ticketTypes`). One server query feeds both.
+ * `[id]` is the event slug (matches `v_event_public.slug`). Title, poster,
+ * venue, pricing and organizer come from `v_event_public`; ticket types are
+ * pulled directly from `ticket_types` for the desktop right-rail.
+ * Lineup, friends-going, and the fact grid still use placeholder data —
+ * those need joins on `event_artists` / `user_connections` not yet exposed
+ * as a view.
  */
 export async function generateMetadata({
   params,
@@ -20,11 +23,27 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  // In Phase 2: const event = await getEventBySlug(id);
+  const event = await getPublicEventBySlug(id);
+  if (!event) return { title: "Event" };
   return {
-    title: `${id.replace(/-/g, " ")}`,
-    description: "Get tickets for this event on Ticketiv.",
+    title: event.title,
+    description: event.description ?? "Get tickets for this event on Ticketiv.",
   };
+}
+
+async function fetchTicketTypes(eventId: string) {
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("ticket_types")
+    .select("id, name, price_cents, quota")
+    .eq("event_id", eventId)
+    .order("price_cents", { ascending: true });
+  if (error) {
+    console.error("[event-detail] ticket_types:", error);
+    return [];
+  }
+  return data ?? [];
 }
 
 export default async function EventDetailPage({
@@ -33,18 +52,20 @@ export default async function EventDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const row = await getPublicEventBySlug(id);
+  if (!row) notFound();
 
-  // Phase 2: real Supabase fetch here. For Phase 1 of the buy flow
-  // we render the default mock so the route is verifiable end-to-end.
-  if (!id) notFound();
+  const ticketTypes = await fetchTicketTypes(row.id);
+  const mobile = mapEventDetail(row);
+  const desktop = mapDesktopEventDetail(row, ticketTypes);
 
   return (
     <>
       <div className="h-dvh md:hidden">
-        <MobileEvent />
+        <MobileEvent event={mobile} />
       </div>
       <div className="hidden md:block">
-        <DesktopEvent />
+        <DesktopEvent event={desktop} />
       </div>
     </>
   );
