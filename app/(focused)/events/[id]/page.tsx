@@ -3,20 +3,11 @@ import { MobileEvent } from "@/components/quiet/screens/event-detail/mobile-even
 import { DesktopEvent } from "@/components/quiet/screens/event-detail/desktop-event";
 import { getPublicEventBySlug } from "@/lib/adapters/events";
 import { mapEventDetail, mapDesktopEventDetail } from "@/lib/mappers/event-detail";
+import type { EventLineupRow, EventFriendRow } from "@/lib/mappers/event-detail";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 export const revalidate = 60;
 
-/**
- * `/events/[id]`
- *
- * `[id]` is the event slug (matches `v_event_public.slug`). Title, poster,
- * venue, pricing and organizer come from `v_event_public`; ticket types are
- * pulled directly from `ticket_types` for the desktop right-rail.
- * Lineup, friends-going, and the fact grid still use placeholder data —
- * those need joins on `event_artists` / `user_connections` not yet exposed
- * as a view.
- */
 export async function generateMetadata({
   params,
 }: {
@@ -31,19 +22,45 @@ export async function generateMetadata({
   };
 }
 
-async function fetchTicketTypes(eventId: string) {
+async function fetchEventExtras(eventId: string) {
   const supabase = await createServerSupabaseClient();
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from("ticket_types")
-    .select("id, name, price_cents, quota")
-    .eq("event_id", eventId)
-    .order("price_cents", { ascending: true });
-  if (error) {
-    console.error("[event-detail] ticket_types:", error);
-    return [];
+  if (!supabase) {
+    return {
+      ticketTypes: [] as { id: string; name: string; price_cents: number; quota: number | null }[],
+      lineup: [] as EventLineupRow[],
+      friends: [] as EventFriendRow[],
+      refundPolicy: null as unknown,
+    };
   }
-  return data ?? [];
+
+  const [ttRes, lineupRes, friendsRes, eventRes] = await Promise.all([
+    supabase
+      .from("ticket_types")
+      .select("id, name, price_cents, quota")
+      .eq("event_id", eventId)
+      .order("price_cents", { ascending: true }),
+    supabase
+      .from("v_event_lineup_public")
+      .select("artist_id, artist_name, artist_slug, artist_image_url, role")
+      .eq("event_id", eventId),
+    supabase
+      .from("v_event_friends_going")
+      .select("friend_id, friend_name, friend_handle")
+      .eq("event_id", eventId),
+    supabase.from("events").select("refund_policy").eq("id", eventId).maybeSingle(),
+  ]);
+
+  if (ttRes.error) console.error("[event-detail] ticket_types:", ttRes.error);
+  if (lineupRes.error) console.error("[event-detail] lineup:", lineupRes.error);
+  if (friendsRes.error) console.error("[event-detail] friends:", friendsRes.error);
+  if (eventRes.error) console.error("[event-detail] refund_policy:", eventRes.error);
+
+  return {
+    ticketTypes: ttRes.data ?? [],
+    lineup: (lineupRes.data ?? []) as EventLineupRow[],
+    friends: (friendsRes.data ?? []) as EventFriendRow[],
+    refundPolicy: eventRes.data?.refund_policy ?? null,
+  };
 }
 
 export default async function EventDetailPage({
@@ -55,9 +72,10 @@ export default async function EventDetailPage({
   const row = await getPublicEventBySlug(id);
   if (!row) notFound();
 
-  const ticketTypes = await fetchTicketTypes(row.id);
-  const mobile = mapEventDetail(row);
-  const desktop = mapDesktopEventDetail(row, ticketTypes);
+  const { ticketTypes, lineup, friends, refundPolicy } = await fetchEventExtras(row.id);
+
+  const mobile = mapEventDetail(row, { lineup, friends, refundPolicy });
+  const desktop = mapDesktopEventDetail(row, ticketTypes, { lineup, friends, refundPolicy });
 
   return (
     <>

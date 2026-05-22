@@ -1,6 +1,109 @@
+import "server-only"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { getDemoSessionFromCookie } from "@/lib/demo-auth"
 import { DEMO_ORDERS, DEMO_ORDER_ITEMS } from "@/lib/demo-data"
+
+export interface BuyerOrderItem {
+  id: string
+  ticket_code: string
+  ticket_type_id: string
+  ticket_type_name: string | null
+  price_cents: number | null
+  event_id: string
+  event_title: string | null
+  event_slug: string | null
+  cover_image_url: string | null
+  event_starts_at: string | null
+  venue_name: string | null
+}
+
+export interface BuyerOrder {
+  id: string
+  status: string
+  total_cents: number
+  subtotal_cents: number | null
+  platform_fee_cents: number | null
+  currency: string
+  created_at: string
+  buyer_email: string | null
+  items: BuyerOrderItem[]
+  event_id: string | null
+  refund_policy: unknown
+}
+
+/**
+ * RLS-scoped order detail for the authenticated buyer. Joins v_my_tickets
+ * (already buyer-scoped) with the orders row for headline totals, plus the
+ * event's refund_policy column for the refund screen. Returns null when the
+ * order does not exist or does not belong to the current user.
+ */
+export async function getOrderForBuyer(orderId: string): Promise<BuyerOrder | null> {
+  const supabase = await createServerSupabaseClient()
+  if (!supabase) return null
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const [orderRes, ticketsRes] = await Promise.all([
+    supabase
+      .from("orders")
+      .select(
+        "id, status, total_cents, subtotal_cents, platform_fee_cents, currency, created_at, buyer_email",
+      )
+      .eq("id", orderId)
+      .eq("buyer_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("v_my_tickets")
+      .select(
+        "order_item_id, ticket_code, ticket_type_id, ticket_type_name, price_cents, event_id, event_title, event_slug, cover_image_url, event_starts_at, venue_name",
+      )
+      .eq("order_id", orderId),
+  ])
+
+  if (orderRes.error || !orderRes.data) return null
+
+  const items: BuyerOrderItem[] = (ticketsRes.data ?? []).map((row) => ({
+    id: row.order_item_id,
+    ticket_code: row.ticket_code,
+    ticket_type_id: row.ticket_type_id ?? "",
+    ticket_type_name: row.ticket_type_name,
+    price_cents: row.price_cents,
+    event_id: row.event_id,
+    event_title: row.event_title,
+    event_slug: row.event_slug,
+    cover_image_url: row.cover_image_url,
+    event_starts_at: row.event_starts_at,
+    venue_name: row.venue_name,
+  }))
+
+  const eventId = items[0]?.event_id ?? null
+  let refundPolicy: unknown = null
+  if (eventId) {
+    const { data } = await supabase
+      .from("events")
+      .select("refund_policy")
+      .eq("id", eventId)
+      .maybeSingle()
+    refundPolicy = data?.refund_policy ?? null
+  }
+
+  return {
+    id: orderRes.data.id,
+    status: orderRes.data.status,
+    total_cents: orderRes.data.total_cents,
+    subtotal_cents: orderRes.data.subtotal_cents,
+    platform_fee_cents: orderRes.data.platform_fee_cents,
+    currency: orderRes.data.currency,
+    created_at: orderRes.data.created_at,
+    buyer_email: orderRes.data.buyer_email,
+    items,
+    event_id: eventId,
+    refund_policy: refundPolicy,
+  }
+}
 
 export async function getUserTickets(userId: string): Promise<
   Array<{
