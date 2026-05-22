@@ -2,27 +2,29 @@
 @import "tw-animate-css";
 
 /*
-  Ticketiv UI preset — b3S8t5uYS
-  Direction: modern shadcn, polished event-commerce UI, deep ink surfaces,
-  indigo primary actions, amber event highlights, and crisp neutral cards.
-  Compact system update: tighter corners for cards/layout, pill actions for CTAs.
+  Ticketiv UI Revision — QUIET Direction
+  Clean, monochrome Linear/Vercel style with violet accent
+  Smooth rounded corners, refined typography, minimal visual clutter
 */
 @theme {
-  --color-cream: #f8fafc;
-  --color-cream-deep: #eef2ff;
-  --color-ink: #111827;
-  --color-ink-soft: #374151;
-  --color-ink-mute: #6b7280;
-  --color-saffron: #f59e0b;
-  --color-saffron-deep: #d97706;
-  --color-forest: #4f46e5;
-  --color-forest-deep: #3730a3;
-  --color-paper-line: #e5e7eb;
+  --color-bg: #fafafa;
+  --color-surface: #ffffff;
+  --color-ink: #0a0a0c;
+  --color-ink-2: #2a2a2e;
+  --color-ink-3: #6e6c70;
+  --color-ink-4: #a8a6aa;
+  --color-line: #ececea;
+  --color-line-2: #d8d6d3;
+  --color-accent: #6b3fbd;
+  --color-accent-light: #efe7fb;
 
-  --font-display: "Fraunces", ui-serif, Georgia, serif;
-  --font-body: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Inter Tight", "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
 
-  --radius-soft: 0.5rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
   --radius-pill: 999px;
 }
 
@@ -31,97 +33,97 @@
 :root {
   color-scheme: light;
 
-  --background: oklch(0.985 0.006 260);
-  --foreground: oklch(0.18 0.018 260);
+  --background: #fafafa;
+  --foreground: #0a0a0c;
 
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.018 260);
+  --card: #ffffff;
+  --card-foreground: #0a0a0c;
 
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.018 260);
+  --popover: #ffffff;
+  --popover-foreground: #0a0a0c;
 
-  --primary: oklch(0.52 0.19 276);
-  --primary-foreground: oklch(0.985 0.006 260);
+  --primary: #6b3fbd;
+  --primary-foreground: #ffffff;
 
-  --secondary: oklch(0.945 0.018 260);
-  --secondary-foreground: oklch(0.24 0.022 260);
+  --secondary: #f5f5f5;
+  --secondary-foreground: #2a2a2e;
 
-  --muted: oklch(0.95 0.012 260);
-  --muted-foreground: oklch(0.50 0.026 260);
+  --muted: #ececea;
+  --muted-foreground: #6e6c70;
 
-  --accent: oklch(0.78 0.16 72);
-  --accent-foreground: oklch(0.20 0.03 72);
+  --accent: #6b3fbd;
+  --accent-foreground: #ffffff;
 
-  --destructive: oklch(0.58 0.22 27);
-  --destructive-foreground: oklch(0.985 0.006 260);
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
 
-  --border: oklch(0.90 0.014 260);
-  --input: oklch(0.94 0.012 260);
-  --ring: oklch(0.58 0.18 276);
+  --border: #ececea;
+  --input: #f5f5f5;
+  --ring: #6b3fbd;
 
-  --chart-1: oklch(0.52 0.19 276);
-  --chart-2: oklch(0.78 0.16 72);
-  --chart-3: oklch(0.58 0.16 210);
-  --chart-4: oklch(0.62 0.14 145);
-  --chart-5: oklch(0.62 0.16 330);
+  --chart-1: #6b3fbd;
+  --chart-2: #a8a6aa;
+  --chart-3: #d8d6d3;
+  --chart-4: #ececea;
+  --chart-5: #6e6c70;
 
   --radius: 0.625rem;
 
-  --sidebar: oklch(0.97 0.008 260);
-  --sidebar-foreground: oklch(0.18 0.018 260);
-  --sidebar-primary: oklch(0.52 0.19 276);
-  --sidebar-primary-foreground: oklch(0.985 0.006 260);
-  --sidebar-accent: oklch(0.94 0.016 260);
-  --sidebar-accent-foreground: oklch(0.24 0.022 260);
-  --sidebar-border: oklch(0.90 0.014 260);
-  --sidebar-ring: oklch(0.58 0.18 276);
+  --sidebar: #fafafa;
+  --sidebar-foreground: #0a0a0c;
+  --sidebar-primary: #6b3fbd;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #efe7fb;
+  --sidebar-accent-foreground: #6b3fbd;
+  --sidebar-border: #ececea;
+  --sidebar-ring: #6b3fbd;
 }
 
 .dark {
   color-scheme: dark;
 
-  --background: oklch(0.145 0.020 260);
-  --foreground: oklch(0.94 0.010 260);
+  --background: #15151a;
+  --foreground: #f5f5f5;
 
-  --card: oklch(0.19 0.022 260);
-  --card-foreground: oklch(0.94 0.010 260);
+  --card: #1f1f24;
+  --card-foreground: #f5f5f5;
 
-  --popover: oklch(0.19 0.022 260);
-  --popover-foreground: oklch(0.94 0.010 260);
+  --popover: #1f1f24;
+  --popover-foreground: #f5f5f5;
 
-  --primary: oklch(0.68 0.16 276);
-  --primary-foreground: oklch(0.15 0.025 260);
+  --primary: #8b5cf6;
+  --primary-foreground: #0a0a0c;
 
-  --secondary: oklch(0.25 0.024 260);
-  --secondary-foreground: oklch(0.94 0.010 260);
+  --secondary: #2a2a2e;
+  --secondary-foreground: #f5f5f5;
 
-  --muted: oklch(0.25 0.024 260);
-  --muted-foreground: oklch(0.72 0.018 260);
+  --muted: #3a3a40;
+  --muted-foreground: #a8a6aa;
 
-  --accent: oklch(0.82 0.15 72);
-  --accent-foreground: oklch(0.16 0.026 72);
+  --accent: #a78bfa;
+  --accent-foreground: #0a0a0c;
 
-  --destructive: oklch(0.66 0.20 27);
-  --destructive-foreground: oklch(0.985 0.006 260);
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
 
-  --border: oklch(0.31 0.026 260);
-  --input: oklch(0.26 0.026 260);
-  --ring: oklch(0.70 0.15 276);
+  --border: #3a3a40;
+  --input: #2a2a2e;
+  --ring: #8b5cf6;
 
-  --chart-1: oklch(0.68 0.16 276);
-  --chart-2: oklch(0.82 0.15 72);
-  --chart-3: oklch(0.70 0.13 210);
-  --chart-4: oklch(0.70 0.13 145);
-  --chart-5: oklch(0.72 0.14 330);
+  --chart-1: #8b5cf6;
+  --chart-2: #a78bfa;
+  --chart-3: #ddd6fe;
+  --chart-4: #3a3a40;
+  --chart-5: #a8a6aa;
 
-  --sidebar: oklch(0.18 0.022 260);
-  --sidebar-foreground: oklch(0.94 0.010 260);
-  --sidebar-primary: oklch(0.68 0.16 276);
-  --sidebar-primary-foreground: oklch(0.15 0.025 260);
-  --sidebar-accent: oklch(0.25 0.024 260);
-  --sidebar-accent-foreground: oklch(0.94 0.010 260);
-  --sidebar-border: oklch(0.31 0.026 260);
-  --sidebar-ring: oklch(0.70 0.15 276);
+  --sidebar: #1f1f24;
+  --sidebar-foreground: #f5f5f5;
+  --sidebar-primary: #8b5cf6;
+  --sidebar-primary-foreground: #0a0a0c;
+  --sidebar-accent: #3a3a40;
+  --sidebar-accent-foreground: #f5f5f5;
+  --sidebar-border: #3a3a40;
+  --sidebar-ring: #8b5cf6;
 }
 
 @theme inline {
@@ -183,10 +185,7 @@
     @apply bg-background text-foreground;
     min-height: 100vh;
     font-feature-settings: "rlig" 1, "calt" 1;
-    background:
-      radial-gradient(circle at 12% -8%, color-mix(in oklch, var(--primary) 13%, transparent) 0, transparent 25rem),
-      radial-gradient(circle at 88% 8%, color-mix(in oklch, var(--accent) 14%, transparent) 0, transparent 22rem),
-      linear-gradient(180deg, color-mix(in oklch, var(--background) 96%, var(--primary) 4%) 0%, var(--background) 32rem);
+    background: var(--background);
   }
 
   h1,
@@ -194,25 +193,11 @@
   h3,
   .font-display {
     font-family: var(--font-display);
-    letter-spacing: -0.025em;
+    letter-spacing: -0.02em;
   }
 }
 
-/* Subtle grid grain across the product */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background-image:
-    linear-gradient(color-mix(in oklch, var(--border) 38%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in oklch, var(--border) 38%, transparent) 1px, transparent 1px);
-  background-size: 32px 32px;
-  mask-image: linear-gradient(to bottom, black, transparent 62%);
-  opacity: 0.28;
-}
-
+/* Clean, minimal background - no grain */
 body > * {
   position: relative;
   z-index: 1;

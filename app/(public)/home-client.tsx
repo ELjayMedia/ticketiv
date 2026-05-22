@@ -93,25 +93,25 @@ export default function HomeClient({ initialEvents, initialVenues, initialArtist
 
   return (
     <div className="min-h-screen bg-background">
-      <section className="border-b bg-foreground text-background">
+      <section className="border-b bg-card">
         <div className="mx-auto max-w-[1200px] px-4 py-7 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
-              <Badge className="mb-3 bg-background/10 text-background hover:bg-background/15">Ticketiv marketplace</Badge>
+              <Badge className="mb-3 bg-accent/10 text-accent hover:bg-accent/15">Ticketiv marketplace</Badge>
               <h1 className="text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">Book tickets for events happening near you.</h1>
-              <p className="mt-2 text-sm leading-6 text-background/75 sm:text-base">
+              <p className="mt-2 text-sm leading-6 text-muted-foreground sm:text-base">
                 Browse public events, choose tickets, pay online, and use QR access at the gate.
               </p>
             </div>
 
-            <form onSubmit={handleSearch} className="w-full max-w-xl rounded-full border border-background/15 bg-background p-1.5 shadow-sm lg:min-w-[480px]">
+            <form onSubmit={handleSearch} className="w-full max-w-xl rounded-full border border-border bg-card p-1.5 shadow-sm lg:min-w-[480px]">
               <div className="flex items-center gap-2">
-                <Search className="ml-3 h-5 w-5 shrink-0 text-muted-foreground" />
+                <Search className="ml-3 h-5 w-5 shrink-0 text-ink-3" />
                 <Input
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Search by event, venue, artist or city"
-                  className="h-10 flex-1 border-0 bg-transparent px-0 text-foreground shadow-none focus-visible:ring-0"
+                  className="h-10 flex-1 border-0 bg-transparent px-0 text-foreground placeholder:text-muted-foreground shadow-none focus-visible:ring-0"
                 />
                 <Button type="submit" size="sm" className="px-5">
                   Search
@@ -125,7 +125,7 @@ export default function HomeClient({ initialEvents, initialVenues, initialArtist
               <Link
                 key={category}
                 href={`/browse?q=${encodeURIComponent(category)}`}
-                className="rounded-full border border-background/15 px-3 py-1.5 text-xs font-medium text-background/85 transition hover:bg-background hover:text-foreground"
+                className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-accent hover:text-accent-foreground hover:border-accent"
               >
                 {category}
               </Link>
