@@ -15,6 +15,12 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  async rewrites() {
+    return [
+      { source: "/hifi", destination: "/hifi/index.html" },
+      { source: "/hifi/wireframes", destination: "/hifi/wireframes.html" },
+    ]
+  },
 }
 
 export default nextConfig
