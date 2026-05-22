@@ -8,7 +8,11 @@ export const metadata = {
   description: "Live events, festivals, comedy and workshops near you.",
 };
 
-export const revalidate = 60;
+// `getPublicEventsList` reads the demo-session cookie and the Supabase auth
+// cookies via @supabase/ssr, both of which force dynamic rendering. Marking
+// the page dynamic up front avoids Next's static-prerender attempt that
+// produces noisy DynamicServerError logs at build time.
+export const dynamic = "force-dynamic";
 
 /**
  * Discover · "/"

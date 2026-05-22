@@ -6,7 +6,7 @@ import { mapEventDetail, mapDesktopEventDetail } from "@/lib/mappers/event-detai
 import type { EventLineupRow, EventFriendRow } from "@/lib/mappers/event-detail";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,

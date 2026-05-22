@@ -136,7 +136,14 @@ export async function getDemoSessionFromCookie(): Promise<DemoUser | null> {
 
     return user
   } catch (error) {
-    console.error("[v0] Failed to parse demo session from cookie:", error)
+    // `cookies()` throws DynamicServerError during static prerender — that's
+    // expected for any route reading cookies and just means we can't peek at
+    // the demo session in that phase. Swallow it silently; any other error
+    // (bad JSON, etc.) is still worth logging.
+    const name = (error as { name?: string } | null)?.name
+    if (name !== "DynamicServerError") {
+      console.error("[v0] Failed to parse demo session from cookie:", error)
+    }
     return null
   }
 }
