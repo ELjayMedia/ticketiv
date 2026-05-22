@@ -1,12 +1,29 @@
+"use client"
+
 // Quiet · Super-admin · Providers + routing
+// Client-side so we can call server actions for rule CRUD.
 
 import * as React from "react"
 import { Card } from "@/components/quiet/ui/card"
 import { Button } from "@/components/quiet/ui/button"
 import { Icon } from "@/components/quiet/ui/icon"
 import type { RoutingOverview } from "@/lib/data/admin/routing"
+import { upsertRoutingRule, deleteRoutingRule, toggleRoutingRule } from "@/app/super-admin/routing/actions"
 
 export function RoutingScreen({ overview }: { overview: RoutingOverview }) {
+  const [showNew, setShowNew] = React.useState(false)
+  const [busy, setBusy] = React.useState<string | null>(null)
+
+  const toggle = async (id: string, active: boolean) => {
+    setBusy(id)
+    try { await toggleRoutingRule(id, active) } finally { setBusy(null) }
+  }
+  const remove = async (id: string, label: string) => {
+    if (!confirm(`Delete routing rule ${label}?`)) return
+    setBusy(id)
+    try { await deleteRoutingRule(id) } finally { setBusy(null) }
+  }
+
   const successRate24h =
     overview.totalAttempts24h > 0
       ? Math.round((overview.successful24h / overview.totalAttempts24h) * 1000) / 10
@@ -43,10 +60,11 @@ export function RoutingScreen({ overview }: { overview: RoutingOverview }) {
             <span className="text-h3">Routing rules · live</span>
             <div className="font-mono text-[11px] text-ink-3">evaluated by priority ascending; first match wins</div>
           </div>
-          <Button variant="default" size="xs">
+          <Button variant="default" size="xs" onClick={() => setShowNew(true)}>
             <Icon name="plus" size={12} /> Add rule
           </Button>
         </div>
+        {showNew && <NewRuleDialog providers={overview.providers.map((p) => p.provider)} onDismiss={() => setShowNew(false)} />}
         <div className="grid grid-cols-[0.5fr_0.8fr_0.8fr_1fr_1fr_0.6fr_1fr_24px] gap-2 border-b border-line bg-bg px-4 py-2.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-ink-3">
           <span>#</span><span>Country</span><span>Currency</span><span>Provider</span><span>Fallback</span><span>Active</span><span>Notes</span><span />
         </div>
@@ -75,7 +93,27 @@ export function RoutingScreen({ overview }: { overview: RoutingOverview }) {
                 {r.is_active ? "on" : "off"}
               </span>
               <span className="truncate font-mono text-[10px] text-ink-3">{r.notes ?? "—"}</span>
-              <Icon name="chevR" size={14} className="text-ink-3" />
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={busy === r.id}
+                  onClick={() => toggle(r.id, !r.is_active)}
+                  aria-label={r.is_active ? "Disable rule" : "Enable rule"}
+                  className="rounded-md p-1 text-ink-3 hover:bg-bg disabled:opacity-50"
+                  title={r.is_active ? "Disable" : "Enable"}
+                >
+                  <Icon name={r.is_active ? "minus" : "check"} size={12} />
+                </button>
+                <button
+                  type="button"
+                  disabled={busy === r.id}
+                  onClick={() => remove(r.id, `${r.country_code ?? "any"}/${r.currency ?? "any"} → ${r.provider}`)}
+                  aria-label="Delete rule"
+                  className="rounded-md p-1 text-ink-3 hover:bg-[#fdf0ec] hover:text-[#c1422b] disabled:opacity-50"
+                >
+                  <Icon name="close" size={12} />
+                </button>
+              </div>
             </div>
           ))
         )}
@@ -146,5 +184,145 @@ function KPI({ label, value, sub }: { label: string; value: string; sub?: string
       <div className="mt-1 font-mono text-2xl font-semibold tracking-tight">{value}</div>
       {sub && <div className="mt-1 font-mono text-[10px] text-ink-3">{sub}</div>}
     </Card>
+  )
+}
+
+function NewRuleDialog({ providers, onDismiss }: { providers: string[]; onDismiss: () => void }) {
+  const [priority, setPriority] = React.useState("100")
+  const [country, setCountry] = React.useState("")
+  const [currency, setCurrency] = React.useState("")
+  const [provider, setProvider] = React.useState(providers[0] ?? "")
+  const [fallback, setFallback] = React.useState("")
+  const [notes, setNotes] = React.useState("")
+  const [busy, setBusy] = React.useState(false)
+  const [err, setErr] = React.useState<string | null>(null)
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (busy) return
+    setBusy(true)
+    setErr(null)
+    try {
+      await upsertRoutingRule({
+        priority: Number(priority),
+        country_code: country.trim() || null,
+        currency: currency.trim() || null,
+        provider: provider.trim(),
+        fallback_provider: fallback.trim() || null,
+        is_active: true,
+        notes: notes.trim() || null,
+      })
+      onDismiss()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed")
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-6" onClick={onDismiss}>
+      <form
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={submit}
+        className="w-full max-w-md rounded-lg border border-line bg-surface p-5 shadow-xl"
+      >
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <div className="text-label">NEW RULE</div>
+            <div className="text-h2 mt-0.5">Payment routing rule</div>
+          </div>
+          <button type="button" onClick={onDismiss} className="text-ink-3 hover:text-ink">
+            <Icon name="close" size={18} />
+          </button>
+        </div>
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-2 gap-3">
+            <RuleField label="Priority">
+              <input
+                type="number"
+                min={0}
+                max={1000}
+                value={priority}
+                onChange={(e) => setPriority(e.target.value)}
+                className="w-full rounded-md border border-line-2 bg-surface px-3 py-2 font-mono text-sm outline-none focus:border-accent"
+              />
+            </RuleField>
+            <RuleField label="Country (ISO-2)">
+              <input
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                placeholder="SZ"
+                maxLength={2}
+                className="w-full rounded-md border border-line-2 bg-surface px-3 py-2 font-mono text-sm uppercase outline-none focus:border-accent"
+              />
+            </RuleField>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <RuleField label="Currency">
+              <input
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                placeholder="SZL"
+                maxLength={3}
+                className="w-full rounded-md border border-line-2 bg-surface px-3 py-2 font-mono text-sm uppercase outline-none focus:border-accent"
+              />
+            </RuleField>
+            <RuleField label="Provider">
+              <select
+                value={provider}
+                onChange={(e) => setProvider(e.target.value)}
+                required
+                className="w-full rounded-md border border-line-2 bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+              >
+                {providers.length === 0 && <option value="">— no providers —</option>}
+                {providers.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </RuleField>
+          </div>
+          <RuleField label="Fallback provider (optional)">
+            <select
+              value={fallback}
+              onChange={(e) => setFallback(e.target.value)}
+              className="w-full rounded-md border border-line-2 bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+            >
+              <option value="">— none —</option>
+              {providers.filter((p) => p !== provider).map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </RuleField>
+          <RuleField label="Notes">
+            <input
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="e.g. paystack primary in ZA, deltapay fallback"
+              className="w-full rounded-md border border-line-2 bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+            />
+          </RuleField>
+        </div>
+        {err && (
+          <div className="mt-3 rounded-md bg-[#fdf0ec] px-3 py-2 font-mono text-xs text-[#c1422b]">{err}</div>
+        )}
+        <div className="mt-4 flex justify-end gap-2">
+          <Button type="button" variant="default" size="xs" onClick={onDismiss}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="accent" size="xs" disabled={busy || !provider}>
+            {busy ? "Saving…" : "Create rule"}
+          </Button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+function RuleField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="text-label mb-1 block">{label}</span>
+      {children}
+    </label>
   )
 }

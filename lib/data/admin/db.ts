@@ -94,29 +94,13 @@ export async function getDBOverview(): Promise<DBOverview> {
     Object.assign(health, await fetchProjectHealth(ref, token))
   }
 
-  // Slow queries from pg_stat_statements.
-  const slowSql = `
-    select
-      regexp_replace(coalesce(query, ''), '\\s+', ' ', 'g') as query,
-      calls,
-      total_exec_time as total_exec_ms,
-      mean_exec_time as mean_exec_ms,
-      rows
-    from extensions.pg_stat_statements
-    where mean_exec_time > 5
-    order by mean_exec_time desc
-    limit 10
-  `
-
-  let slowQueries: SlowQuery[] = []
+let slowQueries: SlowQuery[] = []
   try {
-    const { data, error } = await admin.rpc("exec_sql" as never, { sql: slowSql } as never)
-    if (error || !data) throw error ?? new Error("no data")
-    slowQueries = data as SlowQuery[]
-  } catch {
-    // exec_sql RPC doesn't exist by default — fall back to a direct REST call
-    // through PostgREST is impossible for non-table queries. Leave empty;
-    // operators can view in Supabase dashboard.
+    const { data, error } = await admin.rpc("fn_db_slow_queries", { p_limit: 10, p_min_mean_ms: 5 })
+    if (error) throw error
+    slowQueries = (data ?? []) as SlowQuery[]
+  } catch (err) {
+    console.warn("[admin/db] slow queries fetch failed", err)
     slowQueries = []
   }
 

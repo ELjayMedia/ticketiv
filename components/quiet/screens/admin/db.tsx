@@ -72,7 +72,7 @@ export function DBScreen({ overview }: { overview: DBOverview }) {
         </div>
         {slowQueries.length === 0 ? (
           <div className="px-4 py-10 text-center font-mono text-xs text-ink-3">
-            No data. Slow query telemetry requires an <code className="rounded bg-[#f3f1ee] px-1">exec_sql</code> RPC; view in Supabase Studio for now.
+            No slow queries above the threshold. (pg_stat_statements may be empty on a fresh project.)
           </div>
         ) : (
           slowQueries.map((q, i, arr) => (
