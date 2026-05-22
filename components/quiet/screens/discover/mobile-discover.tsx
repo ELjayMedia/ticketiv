@@ -4,12 +4,24 @@ import { Chip } from "@/components/quiet/ui/chip";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider, Avatar, AvatarStack } from "@/components/quiet/ui/primitives";
 import { PHOTOS } from "@/lib/photos";
+import type { DiscoverEvent } from "@/lib/mappers/discover";
 
 /* ──────────────────────────────────────────────────────────────
- * Mobile Discover · "/" on phones
- * Direct port of QuietHome from the hi-fi.
- * Static demo data for now — wire to Supabase queries in Phase 2.
+ * Mobile Discover · "/" on phones.
+ *
+ * The Supabase-backed `/` route passes `tonight`, `thisWeek` and
+ * `editorPick` from `v_events_public`. When unset (no config / no
+ * data), we fall back to the static demo arrays so the screen still
+ * renders during local dev and storybook-style review.
  * ────────────────────────────────────────────────────────────── */
+
+interface MobileDiscoverProps {
+  tonight?: DiscoverEvent[];
+  thisWeek?: DiscoverEvent[];
+  editorPick?: DiscoverEvent | null;
+  city?: string;
+  eventCount?: number;
+}
 
 const FILTERS = [
   { label: "This weekend", active: true },
@@ -19,8 +31,31 @@ const FILTERS = [
   { label: "Tonight" },
 ];
 
-const TONIGHT = [
+interface TonightRow {
+  href: string;
+  photo: string;
+  title: string;
+  sub: string;
+  time: string;
+  venue: string;
+  price: string;
+  chip: string;
+  chipVariant: "muted" | "accent";
+}
+
+interface WeekRow {
+  href: string;
+  photo: string;
+  title: string;
+  sub: string;
+  date: string;
+  venue: string;
+  price: string;
+}
+
+const DEFAULT_TONIGHT: TonightRow[] = [
   {
+    href: "/events/tribal-tales",
     photo: PHOTOS.dj_neon,
     title: "Tribal Tales",
     sub: "DJ Fun + 1 opener",
@@ -28,9 +63,10 @@ const TONIGHT = [
     venue: "Cafe Natarani",
     price: "E450",
     chip: "5 left",
-    chipVariant: "muted" as const,
+    chipVariant: "muted",
   },
   {
+    href: "/events/stand-up-saturday",
     photo: PHOTOS.comedy_club,
     title: "Stand-up Saturday",
     sub: "A. Khan headlines",
@@ -38,12 +74,13 @@ const TONIGHT = [
     venue: "House of MG",
     price: "E300",
     chip: "Last 12",
-    chipVariant: "muted" as const,
+    chipVariant: "muted",
   },
 ];
 
-const THIS_WEEK = [
+const DEFAULT_THIS_WEEK: WeekRow[] = [
   {
+    href: "/events/sunset-set-vol-4",
     photo: PHOTOS.singer_red,
     title: "Sunset Set Vol 4",
     sub: "Riya M.",
@@ -52,6 +89,7 @@ const THIS_WEEK = [
     price: "From E600",
   },
   {
+    href: "/events/pottery-and-wine",
     photo: PHOTOS.workshop,
     title: "Pottery & wine",
     sub: "Hosted by Anya",
@@ -60,6 +98,7 @@ const THIS_WEEK = [
     price: "E1,200",
   },
   {
+    href: "/events/river-sound-fest",
     photo: PHOTOS.fest_river,
     title: "River Sound Fest",
     sub: "3-day pass",
@@ -69,7 +108,79 @@ const THIS_WEEK = [
   },
 ];
 
-export function MobileDiscover() {
+interface EditorPickRow {
+  href: string;
+  photo: string;
+  title: string;
+  dateLabel: string;
+  venue: string;
+  priceLabel: string;
+  topChip: string;
+  bottomChip: string;
+}
+
+const DEFAULT_EDITOR_PICK: EditorPickRow = {
+  href: "/events/river-sound-fest",
+  photo: PHOTOS.crowd_smoke,
+  title: "River Sound Fest",
+  dateLabel: "Fri 25 → Sun 27",
+  venue: "Riverside Park",
+  priceLabel: "E2,400",
+  topChip: "3-day festival",
+  bottomChip: "22 artists",
+};
+
+function toTonight(ev: DiscoverEvent): TonightRow {
+  return {
+    href: ev.href,
+    photo: ev.photo || PHOTOS.dj_neon,
+    title: ev.title,
+    sub: ev.category ?? "",
+    time: ev.timeShort,
+    venue: ev.venue,
+    price: ev.priceLabel || "",
+    chip: ev.city ?? "Tonight",
+    chipVariant: "muted",
+  };
+}
+
+function toWeek(ev: DiscoverEvent): WeekRow {
+  return {
+    href: ev.href,
+    photo: ev.photo || PHOTOS.singer_red,
+    title: ev.title,
+    sub: ev.category ?? "",
+    date: ev.dateShort,
+    venue: ev.venue,
+    price: ev.priceLabel,
+  };
+}
+
+function toEditorPick(ev: DiscoverEvent): EditorPickRow {
+  return {
+    href: ev.href,
+    photo: ev.photo || PHOTOS.crowd_smoke,
+    title: ev.title,
+    dateLabel: ev.dateShort,
+    venue: ev.venue,
+    priceLabel: ev.priceLabel.replace(/^From\s+/, ""),
+    topChip: ev.category ?? "Featured",
+    bottomChip: ev.city ?? "Live event",
+  };
+}
+
+export function MobileDiscover({
+  tonight: tonightProp,
+  thisWeek: thisWeekProp,
+  editorPick: editorPickProp,
+  city = "Mbabane",
+  eventCount,
+}: MobileDiscoverProps = {}) {
+  const TONIGHT = tonightProp && tonightProp.length > 0 ? tonightProp.map(toTonight) : DEFAULT_TONIGHT;
+  const THIS_WEEK = thisWeekProp && thisWeekProp.length > 0 ? thisWeekProp.map(toWeek) : DEFAULT_THIS_WEEK;
+  const HERO = editorPickProp ? toEditorPick(editorPickProp) : DEFAULT_EDITOR_PICK;
+  const derivedTotal = (tonightProp?.length ?? 0) + (thisWeekProp?.length ?? 0);
+  const total = eventCount ?? (derivedTotal > 0 ? derivedTotal : 42);
   return (
     <div className="flex flex-col">
       {/* status spacer */}
@@ -107,10 +218,10 @@ export function MobileDiscover() {
         <div className="text-label">Showing events near</div>
         <div className="mt-0.5 flex items-baseline gap-1">
           <h1 className="text-h1 inline-flex items-center gap-1">
-            Mbabane <Icon name="chevD" size={18} />
+            {city} <Icon name="chevD" size={18} />
           </h1>
           <span className="flex-1" />
-          <span className="font-mono text-[11px] text-ink-3">42 events</span>
+          <span className="font-mono text-[11px] text-ink-3">{total} events</span>
         </div>
       </div>
 
@@ -137,43 +248,43 @@ export function MobileDiscover() {
         </div>
 
         <Card className="overflow-hidden">
-          <Photo src={PHOTOS.crowd_smoke} height={220} overlay="dim">
+          <Photo src={HERO.photo} height={220} overlay="dim">
             <div className="mt-auto flex gap-2">
               <Chip
                 className="border-transparent bg-white/95 text-ink"
                 size="sm"
               >
-                3-day festival
+                {HERO.topChip}
               </Chip>
               <Chip
                 className="border-white/30 bg-white/15 text-white"
                 size="sm"
               >
-                22 artists
+                {HERO.bottomChip}
               </Chip>
             </div>
           </Photo>
           <div className="p-4">
-            <h2 className="text-h2">River Sound Fest</h2>
+            <h2 className="text-h2">{HERO.title}</h2>
             <div className="mt-1.5 flex items-center gap-2 text-[13px] text-ink-3">
               <span className="inline-flex items-center gap-1">
-                <Icon name="cal" size={14} /> Fri 25 → Sun 27
+                <Icon name="cal" size={14} /> {HERO.dateLabel}
               </span>
               <span>·</span>
               <span className="inline-flex items-center gap-1">
-                <Icon name="pin" size={14} /> Riverside Park
+                <Icon name="pin" size={14} /> {HERO.venue}
               </span>
             </div>
             <Divider className="my-3.5" />
             <div className="flex items-center">
               <div className="flex flex-1 flex-col">
-                <div className="text-label">3-day pass from</div>
+                <div className="text-label">From</div>
                 <div className="mt-0.5 font-mono text-[18px] font-semibold">
-                  E2,400
+                  {HERO.priceLabel}
                 </div>
               </div>
               <Link
-                href="/events/river-sound-fest"
+                href={HERO.href}
                 className="inline-flex items-center gap-1.5 rounded-[var(--radius)] bg-accent px-3 py-1.5 text-[13px] font-semibold text-white hover:opacity-90"
               >
                 Get passes <Icon name="arrowR" size={14} />
@@ -205,8 +316,8 @@ export function MobileDiscover() {
         <div className="no-scrollbar flex gap-3 overflow-x-auto px-5">
           {TONIGHT.map((e) => (
             <Link
-              key={e.title}
-              href={`/events/${e.title.toLowerCase().replace(/\s+/g, "-")}`}
+              key={e.href}
+              href={e.href}
               className="block w-[240px] shrink-0"
             >
               <Card className="overflow-hidden">
@@ -242,14 +353,14 @@ export function MobileDiscover() {
       <section className="px-5 pb-6">
         <div className="mb-3 flex items-end justify-between">
           <h3 className="text-h2 text-[18px]">This week</h3>
-          <span className="font-mono text-[11px] text-ink-3">42 EVENTS</span>
+          <span className="font-mono text-[11px] text-ink-3">{THIS_WEEK.length} EVENTS</span>
         </div>
 
         <ul className="flex flex-col gap-3">
           {THIS_WEEK.map((e) => (
-            <li key={e.title}>
+            <li key={e.href}>
               <Link
-                href={`/events/${e.title.toLowerCase().replace(/\s+/g, "-")}`}
+                href={e.href}
                 className="block"
               >
                 <Card flat className="flex gap-3 p-3">

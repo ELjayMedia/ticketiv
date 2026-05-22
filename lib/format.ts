@@ -1,13 +1,13 @@
 /**
  * Money + date formatting.
  *
- * All amounts are stored as minor units (cents) in Supabase
- * — `order_items.unit_price_minor` etc. — so callers always
- * pass an integer, never a float. This avoids the classic
- * "1.10 * 100 = 110.00000001" trap.
+ * All amounts are stored as integer cents in Supabase — `ticket_types.price_cents`,
+ * `orders.total_cents`, `order_financials.subtotal_cents`, etc. Callers pass the
+ * integer directly; never multiply a float by 100 (avoids "1.10 * 100 = 110.0000…").
  *
- * Currency is parametric so the SA expansion (ZAR) doesn't
- * require a sweep through every screen.
+ * Currency is parametric so SA expansion (ZAR) doesn't require a screen sweep.
+ * Default falls back to SZL when a row has no currency; resolve an active org's
+ * preferred currency with `getOrgCurrency()` from lib/currency.ts.
  */
 
 export type Currency = "SZL" | "ZAR" | "USD" | "EUR" | "GBP";

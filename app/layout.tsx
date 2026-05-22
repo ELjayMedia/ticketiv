@@ -25,6 +25,14 @@ export const metadata: Metadata = {
     "Discover, book and manage tickets for events across Southern Africa.",
   applicationName: "Ticketiv",
   formatDetection: { telephone: false },
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "32x32" },
+    ],
+    apple: "/apple-icon.png",
+    shortcut: "/favicon.ico",
+  },
 };
 
 export const viewport = {

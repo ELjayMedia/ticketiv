@@ -76,44 +76,46 @@ export const ArtistEventsPublicViewSchema = z.array(EventsPublicViewSchema)
 
 export type ArtistEventsPublicView = z.infer<typeof ArtistEventsPublicViewSchema>
 
-// v_my_tickets: Authenticated user tickets
+// v_my_tickets: Authenticated user tickets (RLS-scoped to current user via buyer_id)
 export const MyTicketsViewSchema = z.object({
-  user_id: z.string().uuid(),
   order_id: z.string().uuid(),
+  buyer_id: z.string().uuid(),
+  order_status: z.string(),
+  ordered_at: z.string().datetime({ offset: true }).nullable(),
   order_item_id: z.string().uuid(),
+  ticket_code: z.string(),
+  checked_in_at: z.string().datetime({ offset: true }).nullable(),
+  revoked_at: z.string().datetime({ offset: true }).nullable(),
+  ticket_type_id: z.string().uuid().nullable(),
+  ticket_type_name: z.string().nullable(),
+  price_cents: z.number().int().nonnegative().nullable(),
+  currency: z.string().nullable(),
   event_id: z.string().uuid(),
   event_title: z.string(),
   event_slug: z.string(),
-  starts_at: z.string().datetime({ offset: true }),
-  ends_at: z.string().datetime({ offset: true }).nullable(),
+  city: z.string().nullable(),
+  cover_image_url: z.string().nullable(),
   venue_name: z.string().nullable(),
   venue_address: z.string().nullable(),
-  ticket_type_name: z.string(),
-  qr_token: z.string(),
-  checked_in_at: z.string().datetime({ offset: true }).nullable(),
-  revoked_at: z.string().datetime({ offset: true }).nullable(),
-  transferred_at: z.string().datetime({ offset: true }).nullable(),
-  status: z.enum(["active", "checked_in", "revoked", "transferred"]),
+  event_starts_at: z.string().datetime({ offset: true }).nullable(),
 })
 
 export type MyTicketsView = z.infer<typeof MyTicketsViewSchema>
 
-// v_event_kpis: Key performance indicators for an event
+// v_event_kpis: Per-event KPI aggregates for the organizer dashboard
 export const EventKPIsViewSchema = z.object({
+  org_id: z.string().uuid(),
   event_id: z.string().uuid(),
-  event_title: z.string(),
-  event_date: z.string().datetime({ offset: true }),
-  total_tickets_sold: z.number().int().nonnegative(),
-  total_revenue_cents: z.number().int().nonnegative(),
-  total_checked_in: z.number().int().nonnegative(),
-  capacity: z.number().int().nonnegative().nullable(),
-  attendance_rate: z.number().min(0).max(1),
-  avg_ticket_price_cents: z.number().int().nonnegative(),
+  title: z.string(),
+  slug: z.string(),
+  paid_orders: z.number().int().nonnegative(),
+  tickets_issued: z.number().int().nonnegative(),
+  tickets_checked_in: z.number().int().nonnegative(),
+  revenue_cents: z.number().int().nonnegative(),
+  currency: z.string().nullable(),
 })
 
 export type EventKPIsView = z.infer<typeof EventKPIsViewSchema>
-
-export type MyTicketsView = z.infer<typeof MyTicketsViewSchema>
 
 /**
  * Utility function to validate and log schema mismatches
