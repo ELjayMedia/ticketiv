@@ -23,9 +23,10 @@ export interface DiscoverEvent {
   priceLabel: string;
   fromPriceCents: number | null;
   category: string | null;
+  featuredPriority: number | null;
 }
 
-export function mapDiscoverEvent(row: EventsPublicView): DiscoverEvent {
+export function mapDiscoverEvent(row: EventsPublicView & { featured_priority?: number | null }): DiscoverEvent {
   const start = row.starts_at ? new Date(row.starts_at) : null;
   const minPrice = row.min_price_cents ?? null;
   const currency = asCurrency(row.currency);
@@ -45,6 +46,7 @@ export function mapDiscoverEvent(row: EventsPublicView): DiscoverEvent {
     priceLabel: minPrice === null ? "" : minPrice === 0 ? "Free" : `From ${formatPrice(minPrice, currency)}`,
     fromPriceCents: minPrice,
     category: row.category,
+    featuredPriority: row.featured_priority ?? null,
   };
 }
 
@@ -54,7 +56,10 @@ export function partitionDiscover(events: DiscoverEvent[]) {
   const sevenDays = 7 * 24 * 60 * 60 * 1000;
   const tonight: DiscoverEvent[] = [];
   const thisWeek: DiscoverEvent[] = [];
+
+  // Editor's pick: highest featured_priority wins; fallback to first upcoming.
   let editorPick: DiscoverEvent | null = null;
+  let bestPriority = -1;
 
   for (const ev of events) {
     if (ev.startsAtMs === null) continue;
@@ -62,7 +67,13 @@ export function partitionDiscover(events: DiscoverEvent[]) {
     if (delta < 0) continue;
     if (delta <= sixHours) tonight.push(ev);
     else if (delta <= sevenDays) thisWeek.push(ev);
-    if (!editorPick) editorPick = ev;
+
+    if (ev.featuredPriority !== null && ev.featuredPriority > bestPriority) {
+      editorPick = ev;
+      bestPriority = ev.featuredPriority;
+    } else if (bestPriority < 0 && !editorPick) {
+      editorPick = ev;
+    }
   }
   return { tonight, thisWeek, editorPick };
 }
