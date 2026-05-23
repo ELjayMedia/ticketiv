@@ -30,11 +30,19 @@ function accountName(provider: string, details: string | null): string {
   return last4 ? `${provider} ••${last4}` : provider
 }
 
+function paymentStatusLabel(hasRouting: boolean, hasProvider: boolean, hasPayoutAccount: boolean): "ready" | "needs_setup" {
+  return hasRouting && hasProvider && hasPayoutAccount ? "ready" : "needs_setup"
+}
+
 export function mapPayouts(o: OrgPayoutsOverview): PayoutsLedgerProps {
   const primary = o.accounts[0]
   const primaryAccountLabel = primary
     ? accountName(primary.provider, primary.details_encrypted)
     : null
+
+  const hasRouting = o.paymentReadiness.activeRoutingRules.length > 0
+  const hasProvider = o.paymentReadiness.enabledProviders.length > 0
+  const hasPayoutAccount = o.accounts.length > 0
 
   // Compute running balance for ledger from newest → oldest using the
   // current available balance as the anchor (Σ amount_cents).
@@ -62,6 +70,37 @@ export function mapPayouts(o: OrgPayoutsOverview): PayoutsLedgerProps {
     onHoldMinor: o.onHoldCents,
     lifetimeGrossMinor: o.lifetimeGrossCents,
     primaryAccountLabel,
+    paymentReadiness: {
+      status: paymentStatusLabel(hasRouting, hasProvider, hasPayoutAccount),
+      currency: o.paymentReadiness.currency,
+      hasRouting,
+      hasProvider,
+      hasPayoutAccount,
+      primaryProvider: o.paymentReadiness.activeRoutingRules[0]?.provider ?? o.paymentReadiness.enabledProviders[0]?.provider ?? null,
+      fallbackProvider: o.paymentReadiness.activeRoutingRules[0]?.fallback_provider ?? null,
+      activeRoutes: o.paymentReadiness.activeRoutingRules.map((rule) => ({
+        id: rule.id,
+        priority: rule.priority ?? 0,
+        countryCode: rule.country_code ?? "Any",
+        currency: rule.currency ?? o.currency,
+        provider: rule.provider,
+        fallbackProvider: rule.fallback_provider,
+        active: rule.is_active !== false,
+      })),
+      providers: o.paymentReadiness.enabledProviders.map((provider) => ({
+        provider: provider.provider,
+        mode: provider.mode ?? "unknown",
+        callbackConfigured: Boolean(provider.callback_url),
+        updatedAt: provider.updated_at,
+      })),
+      recentFailedAttempts: o.paymentReadiness.recentFailedAttempts.map((attempt) => ({
+        id: attempt.id,
+        provider: attempt.provider ?? "unknown",
+        status: attempt.status ?? "failed",
+        createdAt: attempt.created_at,
+        orderRef: attempt.order_id?.slice(0, 8).toUpperCase() ?? "—",
+      })),
+    },
     payouts: o.payouts.map((row) => ({
       id: row.id,
       dateLabel: DATE_FMT.format(new Date(row.created_at)),
