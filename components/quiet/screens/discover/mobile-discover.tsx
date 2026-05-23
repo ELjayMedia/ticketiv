@@ -3,6 +3,7 @@ import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider, Avatar, AvatarStack } from "@/components/quiet/ui/primitives";
+import { SearchTrigger } from "@/components/quiet/search/search-overlay";
 import { PHOTOS } from "@/lib/photos";
 import type { DiscoverEvent } from "@/lib/mappers/discover";
 
@@ -198,13 +199,12 @@ export function MobileDiscover({
           BETA
         </span>
         <span className="flex-1" />
-        <Link
-          href="/search"
+        <SearchTrigger
           className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"
           aria-label="Search"
         >
           <Icon name="search" size={20} />
-        </Link>
+        </SearchTrigger>
         <Link
           href="/notifications"
           className="relative inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"
