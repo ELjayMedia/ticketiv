@@ -3,9 +3,9 @@ import { LiveEventShell } from "@/components/quiet/screens/event-detail/live-eve
 import { getPublicEventBySlug } from "@/lib/adapters/events";
 import { mapEventDetail, mapDesktopEventDetail } from "@/lib/mappers/event-detail";
 import type { EventLineupRow, EventFriendRow } from "@/lib/mappers/event-detail";
-import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { createPublicSupabaseClient } from "@/lib/supabase-public";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export async function generateMetadata({
   params,
@@ -22,7 +22,7 @@ export async function generateMetadata({
 }
 
 async function fetchEventExtras(eventId: string, organizerId: string | null) {
-  const supabase = await createServerSupabaseClient();
+  const supabase = createPublicSupabaseClient();
   if (!supabase) {
     return {
       ticketTypes: [] as { id: string; name: string; price_cents: number; quota: number | null }[],
@@ -37,7 +37,7 @@ async function fetchEventExtras(eventId: string, organizerId: string | null) {
     };
   }
 
-  const [ttRes, lineupRes, friendsRes, eventRes, liveStatsRes, orgEventsRes] = await Promise.all([
+  const [ttRes, lineupRes, eventRes, liveStatsRes, orgEventsRes] = await Promise.all([
     supabase
       .from("ticket_types")
       .select("id, name, price_cents, quota")
@@ -46,10 +46,6 @@ async function fetchEventExtras(eventId: string, organizerId: string | null) {
     supabase
       .from("v_event_lineup_public")
       .select("artist_id, artist_name, artist_slug, artist_image_url, role")
-      .eq("event_id", eventId),
-    supabase
-      .from("v_event_friends_going")
-      .select("friend_id, friend_name, friend_handle")
       .eq("event_id", eventId),
     supabase.from("events").select("refund_policy").eq("id", eventId).maybeSingle(),
     supabase
@@ -70,13 +66,14 @@ async function fetchEventExtras(eventId: string, organizerId: string | null) {
 
   if (ttRes.error) console.error("[event-detail] ticket_types:", ttRes.error);
   if (lineupRes.error) console.error("[event-detail] lineup:", lineupRes.error);
-  if (friendsRes.error) console.error("[event-detail] friends:", friendsRes.error);
   if (eventRes.error) console.error("[event-detail] refund_policy:", eventRes.error);
 
   return {
     ticketTypes: ttRes.data ?? [],
     lineup: (lineupRes.data ?? []) as EventLineupRow[],
-    friends: (friendsRes.data ?? []) as EventFriendRow[],
+    // Friends-going is user-scoped, so keep it out of the cached public RSC
+    // payload. A client/user-scoped enhancement can hydrate this later.
+    friends: [] as EventFriendRow[],
     refundPolicy: eventRes.data?.refund_policy ?? null,
     organizerEventsHosted: orgEventsRes && "error" in orgEventsRes && orgEventsRes.error
       ? null

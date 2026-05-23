@@ -12,6 +12,7 @@ import { mapConfirmation } from "@/lib/mappers/confirmation";
  */
 export const metadata = { title: "You're going" };
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 export default async function ConfirmationPage({
   params,

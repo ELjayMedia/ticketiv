@@ -21,6 +21,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
  */
 export const metadata = { title: "Checkout" };
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 async function fetchCheckoutExtras(eventId: string) {
   const supabase = await createServerSupabaseClient();
