@@ -9,6 +9,7 @@ import {
   formatTimeRange,
   formatPriceLabel,
   formatVenueLabel,
+  formatSoldCount,
 } from "@/lib/format";
 import { asCurrency } from "@/lib/currency";
 import type { EventsPublicView } from "@/lib/schemas/views";
@@ -29,12 +30,16 @@ export interface DiscoverEvent {
   fromPriceCents: number | null;
   category: string | null;
   featuredPriority: number | null;
+  ticketsSold: number | null;
+  /** "1.2k sold" or null when below the safe-display threshold. */
+  soldLabel: string | null;
 }
 
 export function mapDiscoverEvent(row: EventsPublicView & { featured_priority?: number | null }): DiscoverEvent {
   const start = row.starts_at ? new Date(row.starts_at) : null;
   const minPrice = row.min_price_cents ?? null;
   const currency = asCurrency(row.currency);
+  const ticketsSold = typeof row.tickets_sold === "number" ? row.tickets_sold : null;
 
   return {
     id: row.id,
@@ -52,6 +57,8 @@ export function mapDiscoverEvent(row: EventsPublicView & { featured_priority?: n
     fromPriceCents: minPrice,
     category: row.category,
     featuredPriority: row.featured_priority ?? null,
+    ticketsSold,
+    soldLabel: formatSoldCount(ticketsSold),
   };
 }
 
