@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
 import type { AttendeeTicketListing } from "@/lib/data/attendee/ticket-listings";
+import { ListingStartForm } from "@/components/quiet/screens/resale/listing-start-form";
 
 interface TicketListingsCentreProps {
   listings: AttendeeTicketListing[];
@@ -50,7 +51,6 @@ function statusTone(status: string): { label: string; className: string } {
 export function TicketListingsCentre({ listings, ticketId, eventId }: TicketListingsCentreProps) {
   const hasListings = listings.length > 0;
   const activeCount = listings.filter((listing) => ["active", "listed", "available"].includes(listing.status.toLowerCase())).length;
-  const showStartListing = Boolean(ticketId);
   const showBuyerContext = Boolean(eventId) && !ticketId;
 
   return (
@@ -79,34 +79,7 @@ export function TicketListingsCentre({ listings, ticketId, eventId }: TicketList
         </p>
       </header>
 
-      {showStartListing && (
-        <section className="px-5 pb-4">
-          <Card className="border-accent p-4">
-            <div className="flex items-start gap-3">
-              <div className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
-                <Icon name="ticket" size={18} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[14px] font-semibold">Prepare this ticket for listing</div>
-                <p className="mt-1 font-mono text-[11px] leading-relaxed text-ink-3">
-                  This is the owner-side entry point. The next patch should add eligibility checks and price review before publishing.
-                </p>
-              </div>
-            </div>
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <Link
-                href={`/tickets/${encodeURIComponent(ticketId!)}`}
-                className="inline-flex items-center justify-center rounded-[var(--radius)] border border-line-2 px-3 py-2 text-[12px] font-semibold hover:bg-bg"
-              >
-                View ticket
-              </Link>
-              <span className="inline-flex items-center justify-center rounded-[var(--radius)] bg-surface-2 px-3 py-2 text-[12px] font-semibold text-ink-3">
-                Listing form next
-              </span>
-            </div>
-          </Card>
-        </section>
-      )}
+      {ticketId && <ListingStartForm ticketId={ticketId} />}
 
       {showBuyerContext && (
         <section className="px-5 pb-4">
