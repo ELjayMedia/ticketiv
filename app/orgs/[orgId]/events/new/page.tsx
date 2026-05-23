@@ -2,15 +2,18 @@
 
 import { useState } from "react"
 import { useRouter, useParams } from "next/navigation"
+
+import { Button } from "@/components/quiet/ui/button"
+import { Card, CardBody } from "@/components/quiet/ui/card"
+import { FormField } from "@/components/quiet/ui/form"
+import { Icon } from "@/components/quiet/ui/icon"
 import { createClientSupabaseClient } from "@/lib/supabase-client"
 import { usePermissions } from "@/lib/providers/permissions-provider"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
-import { ArrowRight, Sparkles } from "lucide-react"
 
 const ORGANIZER_MANAGER_ROLES = new Set(["admin", "organizer", "organizer_owner", "organizer_admin"])
+
+const textareaClass =
+  "min-h-24 resize-none rounded-md border border-line-2 bg-surface px-3 py-2.5 text-[14px] font-medium text-ink placeholder:text-ink-4 outline-none transition-shadow duration-100 focus:border-accent focus:ring-[3px] focus:ring-accent-soft"
 
 export default function NewEventPage() {
   const router = useRouter()
@@ -23,7 +26,6 @@ export default function NewEventPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
-  // Permission check
   const canCreateEvent =
     permissions &&
     permissions.orgMemberships.some((m) => m.org_id === orgId && ORGANIZER_MANAGER_ROLES.has(String(m.role)))
@@ -39,19 +41,14 @@ export default function NewEventPage() {
 
     try {
       const supabase = createClientSupabaseClient()
-
-      const { data, error: rpcError } = await supabase.rpc("create_event_draft", {
+      const { data, error: rpcError } = await supabase!.rpc("create_event_draft", {
         p_org_id: orgId,
         p_title: title.trim(),
         p_visibility: "private",
       })
-
       if (rpcError) throw rpcError
-
-      const eventId = data
-      router.push(`/orgs/${orgId}/events/${eventId}/edit?step=basics`)
+      router.push(`/orgs/${orgId}/events/${data}/edit?step=basics`)
     } catch (err: any) {
-      console.error("[v0] Error creating event:", err)
       setError(err?.message || "Failed to create event. Please try again.")
       setLoading(false)
     }
@@ -60,99 +57,79 @@ export default function NewEventPage() {
   if (!canCreateEvent) {
     return (
       <div className="mx-auto max-w-md p-6">
-        <Card className="border-destructive/50">
-          <CardHeader>
-            <CardTitle>Permission Denied</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">You need to be an organizer or admin to create events.</p>
-          </CardContent>
+        <Card className="border-danger/50">
+          <CardBody className="flex flex-col gap-2 p-5">
+            <h2 className="text-h2">Permission denied</h2>
+            <p className="text-[13px] text-ink-3">
+              You need to be an organizer or admin to create events.
+            </p>
+          </CardBody>
         </Card>
       </div>
     )
   }
 
   return (
-    <main className="flex-1 overflow-auto bg-background">
-      <div className="flex items-center justify-center min-h-screen p-4">
-        <div className="w-full max-w-md">
-          {/* Welcome Section */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-4">
-              <Sparkles className="h-6 w-6 text-primary" />
-            </div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">Create Event</h1>
-            <p className="text-muted-foreground">
-              Start by giving your event a name and description. You'll add more details in the next steps.
+    <main className="flex-1 overflow-auto">
+      <div className="flex min-h-dvh items-center justify-center p-4">
+        <div className="flex w-full max-w-md flex-col gap-6">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-accent-soft text-accent">
+              <Icon name="spark" size={22} />
+            </span>
+            <h1 className="text-h1">Create event</h1>
+            <p className="text-[13px] text-ink-3">
+              Start by giving your event a name and description. You’ll add more details in the next steps.
             </p>
           </div>
 
-          {/* Form Card */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Event Details</CardTitle>
-              <CardDescription>Basic information about your event</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Event Name */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Event Name *</label>
-                <Input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Tech Conference 2026"
-                  onKeyDown={(e) => e.key === "Enter" && createDraft()}
-                  disabled={loading}
-                  autoFocus
-                  className="h-10"
-                />
+            <CardBody className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1">
+                <p className="text-h3">Event details</p>
+                <p className="text-[13px] text-ink-3">Basic information about your event.</p>
               </div>
 
-              {/* Event Description */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Description</label>
-                <Textarea
+              <FormField
+                label="Event name *"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. Tech Conference 2026"
+                onKeyDown={(e) => e.key === "Enter" && createDraft()}
+                disabled={loading}
+                autoFocus
+              />
+
+              <label className="flex flex-col gap-1">
+                <span className="text-label">Description</span>
+                <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Describe your event in a few words..."
+                  placeholder="Describe your event in a few words…"
                   disabled={loading}
-                  className="min-h-24 resize-none"
+                  className={textareaClass}
                 />
-              </div>
+              </label>
 
-              {/* Error Message */}
               {error && (
-                <div className="p-3 rounded-md bg-destructive/10 border border-destructive/20">
-                  <p className="text-sm text-destructive">{error}</p>
+                <div role="alert" className="rounded-[var(--radius-md)] border border-danger/30 bg-danger-soft px-3 py-2.5 text-[12px] text-danger">
+                  {error}
                 </div>
               )}
 
-              {/* Helper Text */}
-              <p className="text-xs text-muted-foreground">
-                Don't worry, you can edit all these details later. Our wizard will guide you through tickets, dates, venue, and more.
+              <p className="text-[12px] text-ink-3">
+                Don’t worry, you can edit all these details later. Our wizard will guide you through tickets, dates, venue, and more.
               </p>
 
-              {/* Submit Button */}
-              <Button 
-                onClick={createDraft} 
-                disabled={loading || !title.trim()} 
-                className="w-full gap-2 h-10"
-                size="lg"
-              >
-                {loading ? "Creating..." : (
-                  <>
-                    Continue
-                    <ArrowRight className="h-4 w-4" />
-                  </>
-                )}
+              <Button onClick={createDraft} disabled={loading || !title.trim()} variant="primary" size="md" block>
+                {loading ? "Creating…" : <>Continue <Icon name="arrowR" size={14} /></>}
               </Button>
-            </CardContent>
+            </CardBody>
           </Card>
 
-          {/* Footer Tips */}
-          <div className="mt-6 text-center text-xs text-muted-foreground">
-            <p>✨ Tip: Use clear, descriptive event names for better search results</p>
-          </div>
+          <p className="text-center font-mono text-[11px] uppercase tracking-wider text-ink-3">
+            Tip · use clear, descriptive event names for better search results.
+          </p>
         </div>
       </div>
     </main>

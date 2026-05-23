@@ -1,10 +1,9 @@
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft } from "lucide-react"
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { Button } from "@/components/ui/button"
+import { Icon } from "@/components/quiet/ui/icon"
 import { EventStaffClient, type StaffMember } from "./staff-client"
 
 export const dynamic = "force-dynamic"
@@ -38,9 +37,6 @@ export default async function EventStaffPage({ params }: { params: { orgId: stri
     .maybeSingle()
   const canManage = Boolean(member?.role && MANAGER_ROLES.has(String(member.role)))
 
-  // The staff API resolves emails via the auth admin API, so the initial list
-  // is loaded server-side with the admin client for parity (and so scanners
-  // can still see the roster read-only).
   const admin = createAdminClient()
   const { data: rows } = await admin
     .from("event_staff")
@@ -61,17 +57,19 @@ export default async function EventStaffPage({ params }: { params: { orgId: stri
   )
 
   return (
-    <main className="flex-1 overflow-auto bg-background">
-      <div className="container mx-auto p-6 space-y-6">
-        <div className="flex items-center gap-4">
-          <Button asChild variant="ghost" size="icon">
-            <Link href={`/orgs/${orgId}/events/${eventId}`}>
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Event staff</h1>
-            <p className="text-muted-foreground mt-1">{event.title}</p>
+    <main className="flex-1 overflow-auto">
+      <div className="container mx-auto flex flex-col gap-6 p-6">
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/orgs/${orgId}/events/${eventId}`}
+            aria-label="Back to event"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink hover:bg-bg"
+          >
+            <Icon name="chevL" size={16} />
+          </Link>
+          <div className="flex flex-col gap-1">
+            <h1 className="text-h1">Event staff</h1>
+            <p className="text-[13px] text-ink-3">{event.title}</p>
           </div>
         </div>
 

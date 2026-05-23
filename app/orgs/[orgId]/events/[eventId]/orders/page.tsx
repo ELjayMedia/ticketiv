@@ -1,15 +1,26 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import Link from "next/link"
 import { cookies } from "next/headers"
+import Link from "next/link"
+
+import { Button } from "@/components/quiet/ui/button"
+import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
+import { Chip } from "@/components/quiet/ui/chip"
+import { Icon } from "@/components/quiet/ui/icon"
 import { getDemoEventById, getDemoEventOrders } from "@/lib/demo-data"
-import { ArrowLeft, Download, Eye } from "lucide-react"
 
 export const dynamic = "force-dynamic"
+
+function StatTile({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <Card>
+      <CardBody className="flex flex-col gap-1 p-4">
+        <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">{label}</p>
+        <p className="font-mono text-[22px] font-semibold tabular-nums text-ink">{value}</p>
+      </CardBody>
+    </Card>
+  )
+}
 
 export default async function OrdersPage({ params }: { params: { orgId: string; eventId: string } }) {
   const { orgId, eventId } = params
@@ -23,29 +34,21 @@ export default async function OrdersPage({ params }: { params: { orgId: string; 
   if (demoSessionCookie) {
     try {
       event = getDemoEventById(eventId)
-      if (!event) {
-        return redirect("/403")
-      }
+      if (!event) return redirect("/403")
       orders = getDemoEventOrders(eventId)
       totalRevenue = orders.reduce((sum, order) => sum + order.total_amount_cents, 0)
-    } catch (error) {
-      console.error("[v0] Failed to load demo data:", error)
+    } catch {
+      /* fall through */
     }
   } else {
     const supabase = createServerSupabaseClient()
-    if (!supabase) {
-      return redirect("/login")
-    }
+    if (!supabase) return redirect("/login")
 
     const {
       data: { session },
     } = await supabase.auth.getSession()
+    if (!session) return redirect("/login")
 
-    if (!session) {
-      return redirect("/login")
-    }
-
-    // Fetch event
     const { data: eventData } = await supabase
       .from("events")
       .select("id, title")
@@ -53,133 +56,111 @@ export default async function OrdersPage({ params }: { params: { orgId: string; 
       .eq("org_id", orgId)
       .maybeSingle()
 
-    if (!eventData) {
-      return redirect("/403")
-    }
-
+    if (!eventData) return redirect("/403")
     event = eventData
 
-    // Fetch orders
     const { data: ordersData = [] } = await supabase
       .from("orders")
       .select(`
-        id,
-        status,
-        total_amount_cents,
-        created_at,
-        buyer_email,
+        id, status, total_amount_cents, created_at, buyer_email,
         order_items(count)
       `)
       .eq("event_id", eventId)
       .order("created_at", { ascending: false })
 
-    orders = ordersData
-    totalRevenue = ordersData.reduce((sum, order) => sum + order.total_amount_cents, 0)
+    orders = ordersData ?? []
+    totalRevenue = orders.reduce((sum, order) => sum + order.total_amount_cents, 0)
   }
 
+  const ticketsSold = orders.reduce((sum, order) => sum + (order.order_items?.[0]?.count || 0), 0)
+
   return (
-    <main className="flex-1 overflow-auto bg-background">
-      <div className="container mx-auto p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button asChild variant="ghost" size="icon">
-              <Link href={`/orgs/${orgId}/events/${eventId}/edit`}>
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">Orders</h1>
-              <p className="text-muted-foreground mt-1">{event?.title}</p>
+    <main className="flex-1 overflow-auto">
+      <div className="container mx-auto flex flex-col gap-6 p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/orgs/${orgId}/events/${eventId}/edit`}
+              aria-label="Back to event"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink hover:bg-bg"
+            >
+              <Icon name="chevL" size={16} />
+            </Link>
+            <div className="flex flex-col gap-1">
+              <h1 className="text-h1">Orders</h1>
+              <p className="text-[13px] text-ink-3">{event?.title}</p>
             </div>
           </div>
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
+          <Button variant="outline" size="md">
+            <Icon name="download" size={14} />
             Export CSV
           </Button>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Total Orders</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{orders.length}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Total Revenue</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">${(totalRevenue / 100).toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Tickets Sold</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {orders.reduce((sum, order) => sum + (order.order_items?.[0]?.count || 0), 0)}
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid gap-4 md:grid-cols-3">
+          <StatTile label="Total orders" value={orders.length} />
+          <StatTile
+            label="Total revenue"
+            value={`$${(totalRevenue / 100).toLocaleString("en-US", { maximumFractionDigits: 2 })}`}
+          />
+          <StatTile label="Tickets sold" value={ticketsSold} />
         </div>
 
-        {/* Orders Table */}
         <Card>
-          <CardHeader>
-            <CardTitle>Recent Orders</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {orders.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No orders yet</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Order ID</TableHead>
-                      <TableHead>Buyer Email</TableHead>
-                      <TableHead>Tickets</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {orders.map((order) => (
-                      <TableRow key={order.id}>
-                        <TableCell className="font-mono text-sm">{order.id.substring(0, 8)}...</TableCell>
-                        <TableCell>{order.buyer_email}</TableCell>
-                        <TableCell>{order.order_items?.[0]?.count || 0}</TableCell>
-                        <TableCell className="font-medium">
-                          ${(order.total_amount_cents / 100).toFixed(2)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={order.status === "completed" ? "default" : "outline"}>
-                            {order.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{order.created_at}</TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="sm">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
+          <CardBody className="px-5 py-4">
+            <p className="text-label">Recent orders</p>
+          </CardBody>
+          <CardDivider />
+          {orders.length === 0 ? (
+            <CardBody className="px-5 py-10 text-center">
+              <p className="text-[13px] text-ink-3">No orders yet.</p>
+            </CardBody>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-line">
+                    <th className="px-5 py-3 text-left text-label">Order ID</th>
+                    <th className="px-5 py-3 text-left text-label">Buyer email</th>
+                    <th className="px-5 py-3 text-left text-label">Tickets</th>
+                    <th className="px-5 py-3 text-left text-label">Amount</th>
+                    <th className="px-5 py-3 text-left text-label">Status</th>
+                    <th className="px-5 py-3 text-left text-label">Date</th>
+                    <th className="px-5 py-3 text-right text-label">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.map((order, i) => (
+                    <tr key={order.id} className={i > 0 ? "border-t border-line" : ""}>
+                      <td className="px-5 py-3 font-mono text-[12px] text-ink">{order.id.substring(0, 8)}…</td>
+                      <td className="px-5 py-3 text-[13px] text-ink-3">{order.buyer_email}</td>
+                      <td className="px-5 py-3 font-mono text-[13px] tabular-nums text-ink">
+                        {order.order_items?.[0]?.count || 0}
+                      </td>
+                      <td className="px-5 py-3 font-mono text-[13px] font-semibold tabular-nums text-ink">
+                        ${(order.total_amount_cents / 100).toFixed(2)}
+                      </td>
+                      <td className="px-5 py-3">
+                        <Chip size="sm" variant={order.status === "completed" ? "active" : "default"}>
+                          {order.status}
+                        </Chip>
+                      </td>
+                      <td className="px-5 py-3 font-mono text-[12px] text-ink-3">{order.created_at}</td>
+                      <td className="px-5 py-3 text-right">
+                        <button
+                          type="button"
+                          aria-label="View order"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-3 transition-colors hover:bg-bg hover:text-ink"
+                        >
+                          <Icon name="search" size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       </div>
     </main>

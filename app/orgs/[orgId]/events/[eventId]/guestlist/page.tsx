@@ -1,17 +1,26 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import Link from "next/link"
 import { cookies } from "next/headers"
+import Link from "next/link"
+
+import { Button } from "@/components/quiet/ui/button"
+import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
+import { Chip } from "@/components/quiet/ui/chip"
+import { Icon } from "@/components/quiet/ui/icon"
 import { getDemoEventById } from "@/lib/demo-data"
-import { ArrowLeft, Plus, Download, CheckCircle, Trash2 } from "lucide-react"
 
 export const dynamic = "force-dynamic"
+
+function StatTile({ label, value }: { label: string; value: number }) {
+  return (
+    <Card>
+      <CardBody className="flex flex-col gap-1 p-4">
+        <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">{label}</p>
+        <p className="font-mono text-[22px] font-semibold tabular-nums text-ink">{value}</p>
+      </CardBody>
+    </Card>
+  )
+}
 
 export default async function GuestlistPage({ params }: { params: { orgId: string; eventId: string } }) {
   const { orgId, eventId } = params
@@ -24,33 +33,24 @@ export default async function GuestlistPage({ params }: { params: { orgId: strin
   if (demoSessionCookie) {
     try {
       event = getDemoEventById(eventId)
-      if (!event) {
-        return redirect("/403")
-      }
-      // Demo guestlist entries
+      if (!event) return redirect("/403")
       guestlistEntries = [
         { id: "1", name: "John Doe", email: "john@example.com", status: "fulfilled", created_at: "2024-01-15" },
         { id: "2", name: "Jane Smith", email: "jane@example.com", status: "pending", created_at: "2024-01-14" },
         { id: "3", name: "Bob Johnson", email: "bob@example.com", status: "fulfilled", created_at: "2024-01-13" },
       ]
-    } catch (error) {
-      console.error("[v0] Failed to load demo data:", error)
+    } catch {
+      /* fall through to redirect */
     }
   } else {
     const supabase = createServerSupabaseClient()
-    if (!supabase) {
-      return redirect("/login")
-    }
+    if (!supabase) return redirect("/login")
 
     const {
       data: { session },
     } = await supabase.auth.getSession()
+    if (!session) return redirect("/login")
 
-    if (!session) {
-      return redirect("/login")
-    }
-
-    // Fetch event
     const { data: eventData } = await supabase
       .from("events")
       .select("id, title")
@@ -58,132 +58,105 @@ export default async function GuestlistPage({ params }: { params: { orgId: strin
       .eq("org_id", orgId)
       .maybeSingle()
 
-    if (!eventData) {
-      return redirect("/403")
-    }
-
+    if (!eventData) return redirect("/403")
     event = eventData
 
-    // Fetch guestlist entries
     const { data: entries = [] } = await supabase
       .from("guestlist_entries")
       .select("id, name, email, status, created_at")
       .eq("event_id", eventId)
-
-    guestlistEntries = entries
+    guestlistEntries = entries ?? []
   }
 
+  const fulfilled = guestlistEntries.filter((g) => g.status === "fulfilled").length
+  const pending = guestlistEntries.filter((g) => g.status === "pending").length
+
   return (
-    <main className="flex-1 overflow-auto bg-background">
-      <div className="container mx-auto p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button asChild variant="ghost" size="icon">
-              <Link href={`/orgs/${orgId}/events/${eventId}/edit`}>
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">Guestlist</h1>
-              <p className="text-muted-foreground mt-1">{event?.title}</p>
+    <main className="flex-1 overflow-auto">
+      <div className="container mx-auto flex flex-col gap-6 p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/orgs/${orgId}/events/${eventId}/edit`}
+              aria-label="Back to event"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink hover:bg-bg"
+            >
+              <Icon name="chevL" size={16} />
+            </Link>
+            <div className="flex flex-col gap-1">
+              <h1 className="text-h1">Guestlist</h1>
+              <p className="text-[13px] text-ink-3">{event?.title}</p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline">
-              <Download className="h-4 w-4 mr-2" />
-              Export CSV
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="md">
+              <Icon name="download" size={14} /> Export CSV
             </Button>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Guest
+            <Button variant="primary" size="md">
+              <Icon name="plus" size={14} /> Add guest
             </Button>
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Total Guests</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{guestlistEntries.length}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Fulfilled</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {guestlistEntries.filter((g) => g.status === "fulfilled").length}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Pending</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {guestlistEntries.filter((g) => g.status === "pending").length}
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid gap-4 md:grid-cols-3">
+          <StatTile label="Total guests" value={guestlistEntries.length} />
+          <StatTile label="Fulfilled" value={fulfilled} />
+          <StatTile label="Pending" value={pending} />
         </div>
 
-        {/* Guestlist Table */}
         <Card>
-          <CardHeader>
-            <CardTitle>Guests</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {guestlistEntries.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No guests yet</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Added</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {guestlistEntries.map((entry) => (
-                      <TableRow key={entry.id}>
-                        <TableCell className="font-medium">{entry.name}</TableCell>
-                        <TableCell>{entry.email}</TableCell>
-                        <TableCell>
-                          <Badge variant={entry.status === "fulfilled" ? "default" : "outline"}>
-                            {entry.status === "fulfilled" ? (
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                            ) : null}
-                            {entry.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{entry.created_at}</TableCell>
-                        <TableCell className="text-right">
+          <CardBody className="px-5 py-4">
+            <p className="text-label">Guests</p>
+          </CardBody>
+          <CardDivider />
+          {guestlistEntries.length === 0 ? (
+            <CardBody className="px-5 py-10 text-center">
+              <p className="text-[13px] text-ink-3">No guests yet.</p>
+            </CardBody>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-line">
+                    <th className="px-5 py-3 text-left text-label">Name</th>
+                    <th className="px-5 py-3 text-left text-label">Email</th>
+                    <th className="px-5 py-3 text-left text-label">Status</th>
+                    <th className="px-5 py-3 text-left text-label">Added</th>
+                    <th className="px-5 py-3 text-right text-label">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {guestlistEntries.map((entry, i) => (
+                    <tr key={entry.id} className={i > 0 ? "border-t border-line" : ""}>
+                      <td className="px-5 py-3 text-[14px] font-semibold text-ink">{entry.name}</td>
+                      <td className="px-5 py-3 text-[13px] text-ink-3">{entry.email}</td>
+                      <td className="px-5 py-3">
+                        <Chip size="sm" variant={entry.status === "fulfilled" ? "active" : "default"}>
+                          {entry.status === "fulfilled" && <Icon name="check" size={12} />}
+                          {entry.status}
+                        </Chip>
+                      </td>
+                      <td className="px-5 py-3 font-mono text-[12px] text-ink-3">{entry.created_at}</td>
+                      <td className="px-5 py-3 text-right">
+                        <div className="inline-flex gap-1">
                           <Button variant="ghost" size="sm">
                             {entry.status === "pending" ? "Fulfill" : "Unfulfill"}
                           </Button>
-                          <Button variant="ghost" size="sm" className="text-destructive">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
+                          <button
+                            type="button"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-danger transition-colors hover:bg-danger-soft"
+                            aria-label="Delete"
+                          >
+                            <Icon name="trash" size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       </div>
     </main>

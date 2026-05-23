@@ -2,13 +2,13 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { AlertTriangle, ArrowLeft, CheckCircle2, RotateCcw, ScanLine, XCircle } from "lucide-react"
 
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Button } from "@/components/quiet/ui/button"
+import { Card, CardBody } from "@/components/quiet/ui/card"
+import { Chip } from "@/components/quiet/ui/chip"
+import { FormField } from "@/components/quiet/ui/form"
+import { Icon } from "@/components/quiet/ui/icon"
+import { cn } from "@/lib/cn"
 
 type ScanOutcome =
   | "valid"
@@ -42,23 +42,16 @@ function outcomeTitle(outcome: string) {
   return "Check failed"
 }
 
-function outcomeBadgeVariant(outcome: string): "default" | "secondary" | "destructive" | "outline" {
-  if (outcome === "valid") return "default"
-  if (WARNING_OUTCOMES.has(outcome)) return "secondary"
-  if (DANGER_OUTCOMES.has(outcome)) return "destructive"
-  return "outline"
-}
-
 function outcomeCardClass(outcome: string) {
-  if (outcome === "valid") return "border-primary/40 bg-primary/5"
-  if (WARNING_OUTCOMES.has(outcome)) return "border-amber-500/40 bg-amber-500/5"
-  return "border-destructive/40 bg-destructive/5"
+  if (outcome === "valid") return "border-accent/40 bg-accent-soft"
+  if (WARNING_OUTCOMES.has(outcome)) return "border-warning/40 bg-warning/5"
+  return "border-danger/40 bg-danger-soft"
 }
 
-function outcomeIcon(outcome: string) {
-  if (outcome === "valid") return <CheckCircle2 className="mt-0.5 h-6 w-6 text-primary" />
-  if (WARNING_OUTCOMES.has(outcome)) return <AlertTriangle className="mt-0.5 h-6 w-6 text-amber-600" />
-  return <XCircle className="mt-0.5 h-6 w-6 text-destructive" />
+function OutcomeIcon({ outcome }: { outcome: string }) {
+  if (outcome === "valid") return <Icon name="check" size={22} className="mt-0.5 text-accent" />
+  if (WARNING_OUTCOMES.has(outcome)) return <Icon name="bell" size={22} className="mt-0.5 text-warning" />
+  return <Icon name="close" size={22} className="mt-0.5 text-danger" />
 }
 
 export function ScannerClient({ orgId, eventId }: { orgId: string; eventId: string }) {
@@ -94,66 +87,94 @@ export function ScannerClient({ orgId, eventId }: { orgId: string; eventId: stri
   }
 
   return (
-    <main className="min-h-screen bg-background px-4 py-6">
-      <div className="mx-auto max-w-xl space-y-5">
+    <main className="min-h-dvh px-4 py-6">
+      <div className="mx-auto flex max-w-xl flex-col gap-5">
         <div className="flex items-center gap-3">
-          <Button asChild variant="ghost" size="icon">
-            <Link href={`/orgs/${orgId}/events/${eventId}/staff`}>
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-xl font-bold">Event scanner</h1>
-            <p className="text-sm text-muted-foreground">Manual ticket-code check-in</p>
+          <Link
+            href={`/orgs/${orgId}/events/${eventId}/staff`}
+            aria-label="Back to staff"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink hover:bg-bg"
+          >
+            <Icon name="chevL" size={18} />
+          </Link>
+          <div className="flex flex-col gap-0.5">
+            <h1 className="text-h2">Event scanner</h1>
+            <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+              Manual ticket-code check-in
+            </p>
           </div>
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><ScanLine className="h-5 w-5" /> Scan ticket</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={scanTicket} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="ticketCode">Ticket code</Label>
-                <Input id="ticketCode" autoFocus placeholder="TIV-..." value={ticketCode} onChange={(event) => setTicketCode(event.target.value)} disabled={loading} className="h-12 text-base" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="gate">Gate optional</Label>
-                <Input id="gate" placeholder="Main gate" value={gate} onChange={(event) => setGate(event.target.value)} disabled={loading} />
-              </div>
-              <Button type="submit" disabled={loading || !ticketCode.trim()} className="h-12 w-full gap-2">
-                <ScanLine className="h-4 w-4" />
-                {loading ? "Checking..." : "Check in ticket"}
+          <CardBody className="flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+              <Icon name="qr" size={18} className="text-ink-3" />
+              <p className="text-h3">Scan ticket</p>
+            </div>
+            <form onSubmit={scanTicket} className="flex flex-col gap-4">
+              <FormField
+                label="Ticket code"
+                autoFocus
+                placeholder="TIV-…"
+                value={ticketCode}
+                onChange={(event) => setTicketCode(event.target.value)}
+                disabled={loading}
+              />
+              <FormField
+                label="Gate (optional)"
+                placeholder="Main gate"
+                value={gate}
+                onChange={(event) => setGate(event.target.value)}
+                disabled={loading}
+              />
+              <Button
+                type="submit"
+                disabled={loading || !ticketCode.trim()}
+                variant="primary"
+                size="md"
+                block
+                className="h-12"
+              >
+                <Icon name="qr" size={14} />
+                {loading ? "Checking…" : "Check in ticket"}
               </Button>
             </form>
-          </CardContent>
+          </CardBody>
         </Card>
 
         {result && (
-          <Card className={outcomeCardClass(result.outcome)}>
-            <CardContent className="space-y-4 p-5">
+          <Card className={cn(outcomeCardClass(result.outcome))}>
+            <CardBody className="flex flex-col gap-4 p-5">
               <div className="flex items-start gap-3">
-                {outcomeIcon(result.outcome)}
-                <div className="flex-1">
+                <OutcomeIcon outcome={result.outcome} />
+                <div className="flex flex-1 flex-col gap-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="font-semibold">{outcomeTitle(result.outcome)}</h2>
-                    <Badge variant={outcomeBadgeVariant(result.outcome)}>{result.outcome}</Badge>
+                    <h2 className="text-[16px] font-semibold text-ink">{outcomeTitle(result.outcome)}</h2>
+                    <Chip size="sm" variant="muted">{result.outcome}</Chip>
                   </div>
-                  <p className="mt-1 text-sm text-muted-foreground">{result.message}</p>
+                  <p className="text-[13px] text-ink-3">{result.message}</p>
                   {result.ticket && (
-                    <div className="mt-3 rounded-lg bg-background p-3 text-sm">
-                      <p><span className="text-muted-foreground">Type:</span> {result.ticket.type}</p>
-                      <p><span className="text-muted-foreground">Code:</span> {result.ticket.code}</p>
-                      <p><span className="text-muted-foreground">Checked in:</span> {new Date(result.ticket.checked_in_at).toLocaleString()}</p>
+                    <div className="mt-2 flex flex-col gap-1 rounded-[var(--radius-md)] bg-surface p-3 text-[12px]">
+                      <p><span className="text-ink-3">Type:</span> {result.ticket.type}</p>
+                      <p><span className="text-ink-3">Code:</span> <span className="font-mono">{result.ticket.code}</span></p>
+                      <p>
+                        <span className="text-ink-3">Checked in:</span>{" "}
+                        {new Date(result.ticket.checked_in_at).toLocaleString()}
+                      </p>
                     </div>
                   )}
                 </div>
               </div>
-              <Button variant="outline" onClick={() => { setResult(null); setTicketCode("") }} className="w-full gap-2">
-                <RotateCcw className="h-4 w-4" /> Next scan
+              <Button
+                variant="outline"
+                size="md"
+                onClick={() => { setResult(null); setTicketCode("") }}
+                block
+              >
+                <Icon name="arrowR" size={14} />
+                Next scan
               </Button>
-            </CardContent>
+            </CardBody>
           </Card>
         )}
       </div>
