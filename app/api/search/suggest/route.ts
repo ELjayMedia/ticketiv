@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { searchEvents } from "@/lib/data/public/search";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**

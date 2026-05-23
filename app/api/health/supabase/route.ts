@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { getSupabaseAdminConfig, getSupabasePublicConfig } from "@/lib/env"
 import { createAdminClient } from "@/lib/supabase/admin"
 
+export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function GET() {
