@@ -6,7 +6,7 @@ import { z } from "zod"
  * All frontend data queries should validate against these schemas.
  */
 
-// v_events_public: List of public events with aggregated pricing/venue info
+// v_public_event_cards / v_events_public: List of public events with aggregated pricing/venue/live stats info
 export const EventsPublicViewSchema = z.object({
   id: z.string().uuid(),
   title: z.string(),
@@ -26,6 +26,13 @@ export const EventsPublicViewSchema = z.object({
   organizer_id: z.string().uuid().nullable(),
   organizer_name: z.string().nullable(),
   organizer_logo_url: z.string().url().nullable(),
+  featured_priority: z.number().int().nullable().optional(),
+  tickets_sold: z.number().int().nonnegative().optional(),
+  tickets_available: z.number().int().nonnegative().optional(),
+  checked_in_count: z.number().int().nonnegative().optional(),
+  last_order_at: z.string().datetime({ offset: true }).nullable().optional(),
+  last_scan_at: z.string().datetime({ offset: true }).nullable().optional(),
+  live_stats_updated_at: z.string().datetime({ offset: true }).nullable().optional(),
 })
 
 export type EventsPublicView = z.infer<typeof EventsPublicViewSchema>

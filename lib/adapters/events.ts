@@ -43,6 +43,13 @@ export async function getPublicEventsList(params?: {
         organizer_id: event.organizer_id || null,
         organizer_name: null,
         organizer_logo_url: null,
+        featured_priority: null,
+        tickets_sold: 0,
+        tickets_available: 0,
+        checked_in_count: 0,
+        last_order_at: null,
+        last_scan_at: null,
+        live_stats_updated_at: null,
       }
     })
 
@@ -83,7 +90,7 @@ export async function getPublicEventsList(params?: {
   }
 
   try {
-    let query = supabase.from("v_events_public").select("*")
+    let query = supabase.from("v_public_event_cards").select("*")
 
     if (params?.city) {
       query = query.ilike("city", `%${params.city}%`)
@@ -114,7 +121,7 @@ export async function getPublicEventsList(params?: {
 
     if (error) {
       console.error(
-        `[v0] Error fetching public events from v_events_public — ${error.code ?? "no-code"}: ${error.message ?? "unknown"}${error.hint ? ` (hint: ${error.hint})` : ""}`,
+        `[v0] Error fetching public events from v_public_event_cards — ${error.code ?? "no-code"}: ${error.message ?? "unknown"}${error.hint ? ` (hint: ${error.hint})` : ""}`,
       )
       return []
     }
@@ -124,7 +131,7 @@ export async function getPublicEventsList(params?: {
     // which would crash downstream mappers — drop those rows here.
     if (!data) return []
     return data
-      .map((item) => validateSchema(EventsPublicViewSchema, item, "v_events_public"))
+      .map((item) => validateSchema(EventsPublicViewSchema, item, "v_public_event_cards"))
       .filter((row): row is EventsPublicView => row != null)
   } catch (error) {
     console.error("[v0] Exception in getPublicEventsList:", error)
@@ -162,6 +169,13 @@ export async function getPublicEventBySlug(slug: string): Promise<EventPublicVie
       organizer_id: event.organizer_id || null,
       organizer_name: null,
       organizer_logo_url: null,
+      featured_priority: null,
+      tickets_sold: 0,
+      tickets_available: 0,
+      checked_in_count: 0,
+      last_order_at: null,
+      last_scan_at: null,
+      live_stats_updated_at: null,
     }
   }
 
