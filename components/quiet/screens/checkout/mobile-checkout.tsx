@@ -9,8 +9,10 @@ import {
   RadioCard,
   QuantityStepper,
 } from "@/components/quiet/ui/form";
+import { useRouter } from "next/navigation";
 import { PHOTOS } from "@/lib/photos";
 import { formatPrice, formatHoldTimer, formatScarcityLabel } from "@/lib/format";
+import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
 
 /* ──────────────────────────────────────────────────────────────
  * Mobile checkout · `/events/[id]/checkout` on phones.
@@ -70,6 +72,17 @@ export function MobileCheckout({
   bookingFeeMinor = 10000,
   vatRate = 0.15,
 }: MobileCheckoutProps) {
+  const router = useRouter();
+  const { stats: liveStats } = useEventLiveStats(eventId);
+  const lastStatsAtRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!liveStats?.updated_at) return;
+    if (lastStatsAtRef.current && lastStatsAtRef.current !== liveStats.updated_at) {
+      router.refresh();
+    }
+    lastStatsAtRef.current = liveStats.updated_at ?? null;
+  }, [liveStats?.updated_at, router]);
+
   const firstAvailable = ticketTypes.find((t) => t.remaining !== 0);
   const [ticketTypeId, setTicketTypeId] = React.useState(
     firstAvailable?.id ?? ticketTypes[0]?.id

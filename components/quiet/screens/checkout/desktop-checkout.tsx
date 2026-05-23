@@ -7,8 +7,10 @@ import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider } from "@/components/quiet/ui/primitives";
 import { Button } from "@/components/quiet/ui/button";
 import { FormField, Stepper } from "@/components/quiet/ui/form";
+import { useRouter } from "next/navigation";
 import { PHOTOS } from "@/lib/photos";
 import { formatPrice, formatHoldTimer } from "@/lib/format";
+import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
 
 /* ──────────────────────────────────────────────────────────────
  * Desktop checkout · `/events/[id]/checkout` on md+
@@ -62,6 +64,17 @@ export function DesktopCheckout({
 }: DesktopCheckoutProps) {
   const [holdRemaining, setHoldRemaining] = React.useState(holdSeconds);
   const [guaranteeOpen, setGuaranteeOpen] = React.useState(false);
+
+  const router = useRouter();
+  const { stats: liveStats } = useEventLiveStats(eventId);
+  const lastStatsAtRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!liveStats?.updated_at) return;
+    if (lastStatsAtRef.current && lastStatsAtRef.current !== liveStats.updated_at) {
+      router.refresh();
+    }
+    lastStatsAtRef.current = liveStats.updated_at ?? null;
+  }, [liveStats?.updated_at, router]);
 
   useHoldExtension(holdRemaining, setHoldRemaining, holdSeconds);
 
