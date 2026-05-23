@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useMemo } from "react"
 import { MobileEvent, type MobileEventData } from "@/components/quiet/screens/event-detail/mobile-event"
 import { DesktopEvent, type DesktopEventData } from "@/components/quiet/screens/event-detail/desktop-event"
@@ -52,8 +53,23 @@ export function LiveEventShell({ eventId, mobile, desktop, initialStats = null }
     return baseDesktop
   }, [desktop, stats])
 
+  const allTicketTypesSoldOut =
+    mergedDesktop.ticketTypes.length > 0 &&
+    mergedDesktop.ticketTypes.every((ticket) => ticket.remaining === 0)
+
+  const liveSoldOut =
+    typeof stats?.tickets_available === "number" &&
+    Number.isFinite(stats.tickets_available) &&
+    stats.tickets_available <= 0
+
+  const showWaitlistEntry = liveSoldOut || allTicketTypesSoldOut
+  const waitlistHref = `/waitlist?eventId=${encodeURIComponent(eventId)}`
+
   return (
     <>
+      {showWaitlistEntry && (
+        <SoldOutWaitlistBanner href={waitlistHref} />
+      )}
       <div className="h-dvh md:hidden">
         <MobileEvent event={mergedMobile} />
       </div>
@@ -61,5 +77,26 @@ export function LiveEventShell({ eventId, mobile, desktop, initialStats = null }
         <DesktopEvent event={mergedDesktop} />
       </div>
     </>
+  )
+}
+
+function SoldOutWaitlistBanner({ href }: { href: string }) {
+  return (
+    <div className="border-b border-line bg-accent-soft px-5 py-3 md:px-10">
+      <div className="mx-auto flex max-w-[1280px] flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div>
+          <div className="text-[13px] font-semibold text-accent">Primary tickets are sold out</div>
+          <div className="mt-0.5 font-mono text-[11px] text-ink-3">
+            Join the waitlist so Ticketiv can notify you if more tickets become available.
+          </div>
+        </div>
+        <Link
+          href={href}
+          className="inline-flex items-center justify-center rounded-[var(--radius)] bg-accent px-3 py-2 text-[12px] font-semibold text-white hover:opacity-90"
+        >
+          Join waitlist
+        </Link>
+      </div>
+    </div>
   )
 }
