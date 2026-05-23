@@ -1,23 +1,10 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import {
-  Archive,
-  ArrowLeft,
-  BadgeDollarSign,
-  EyeOff,
-  PauseCircle,
-  PlayCircle,
-  QrCode,
-  Rocket,
-  ShieldAlert,
-  TicketX,
-  Unlink,
-} from "lucide-react"
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Button } from "@/components/quiet/ui/button"
+import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
+import { FormField } from "@/components/quiet/ui/form"
+import { Icon, type IconName } from "@/components/quiet/ui/icon"
 import { ResourceForm } from "@/components/super-admin/ResourceForm"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getAdminResource } from "@/lib/super-admin/resources"
@@ -59,7 +46,34 @@ function canMutateResource(resourceKey: string, roleTier: string) {
   return true
 }
 
-export default async function SuperAdminEditResourcePage({ params }: { params: Promise<{ resource: string; id: string }> }) {
+function ActionTile({
+  icon,
+  title,
+  description,
+  children,
+}: {
+  icon: IconName
+  title: string
+  description: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded-[var(--radius-lg)] border border-line p-4">
+      <p className="inline-flex items-center gap-2 text-[14px] font-semibold text-ink">
+        <Icon name={icon} size={14} className="text-ink-3" />
+        {title}
+      </p>
+      <p className="text-[12px] text-ink-3">{description}</p>
+      {children}
+    </div>
+  )
+}
+
+export default async function SuperAdminEditResourcePage({
+  params,
+}: {
+  params: Promise<{ resource: string; id: string }>
+}) {
   const { roleTier } = await requireAdminRole([...ADMIN_ROLE_TIERS])
   const { resource: resourceKey, id } = await params
   const resource = getAdminResource(resourceKey)
@@ -67,7 +81,11 @@ export default async function SuperAdminEditResourcePage({ params }: { params: P
   if (!resource) notFound()
 
   const admin = createAdminClient()
-  const { data, error } = await admin.from(resource.table).select("*").eq(resource.primaryKey, id).maybeSingle()
+  const { data, error } = await admin
+    .from(resource.table)
+    .select("*")
+    .eq(resource.primaryKey, id)
+    .maybeSingle()
 
   if (error) throw new Error(error.message)
   if (!data) notFound()
@@ -76,66 +94,18 @@ export default async function SuperAdminEditResourcePage({ params }: { params: P
     "use server"
     await updateResourceAction(resource.key, id, formData)
   }
-
-  async function publishEvent() {
-    "use server"
-    await publishEventAction(id)
-  }
-
-  async function archiveEvent(formData: FormData) {
-    "use server"
-    await archiveEventAction(id, formData)
-  }
-
-  async function pauseSales(formData: FormData) {
-    "use server"
-    await pauseTicketTypeSalesAction(id, formData)
-  }
-
-  async function resumeSales() {
-    "use server"
-    await resumeTicketTypeSalesAction(id)
-  }
-
-  async function markSoldOut(formData: FormData) {
-    "use server"
-    await markTicketTypeSoldOutAction(id, formData)
-  }
-
-  async function hideTicketType(formData: FormData) {
-    "use server"
-    await hideTicketTypeAction(id, formData)
-  }
-
-  async function assignDevice(formData: FormData) {
-    "use server"
-    await assignDeviceToEventAction(id, formData)
-  }
-
-  async function unassignDevice() {
-    "use server"
-    await unassignDeviceFromEventAction(id)
-  }
-
-  async function markPayoutProcessing(formData: FormData) {
-    "use server"
-    await markPayoutProcessingAction(id, formData)
-  }
-
-  async function markPayoutPaid(formData: FormData) {
-    "use server"
-    await markPayoutPaidAction(id, formData)
-  }
-
-  async function markPayoutFailed(formData: FormData) {
-    "use server"
-    await markPayoutFailedAction(id, formData)
-  }
-
-  async function cancelPayout(formData: FormData) {
-    "use server"
-    await cancelPayoutAction(id, formData)
-  }
+  async function publishEvent() { "use server"; await publishEventAction(id) }
+  async function archiveEvent(formData: FormData) { "use server"; await archiveEventAction(id, formData) }
+  async function pauseSales(formData: FormData) { "use server"; await pauseTicketTypeSalesAction(id, formData) }
+  async function resumeSales() { "use server"; await resumeTicketTypeSalesAction(id) }
+  async function markSoldOut(formData: FormData) { "use server"; await markTicketTypeSoldOutAction(id, formData) }
+  async function hideTicketType(formData: FormData) { "use server"; await hideTicketTypeAction(id, formData) }
+  async function assignDevice(formData: FormData) { "use server"; await assignDeviceToEventAction(id, formData) }
+  async function unassignDevice() { "use server"; await unassignDeviceFromEventAction(id) }
+  async function markPayoutProcessing(formData: FormData) { "use server"; await markPayoutProcessingAction(id, formData) }
+  async function markPayoutPaid(formData: FormData) { "use server"; await markPayoutPaidAction(id, formData) }
+  async function markPayoutFailed(formData: FormData) { "use server"; await markPayoutFailedAction(id, formData) }
+  async function cancelPayout(formData: FormData) { "use server"; await cancelPayoutAction(id, formData) }
 
   const canMutate = canMutateResource(resource.key, roleTier)
   const canUseBusinessActions = roleTier !== "read_only_admin"
@@ -161,16 +131,20 @@ export default async function SuperAdminEditResourcePage({ params }: { params: P
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
-      <Button asChild variant="ghost" className="mb-4 rounded-full px-0 hover:bg-transparent">
-        <Link href={`/super-admin/${resource.key}`}><ArrowLeft className="mr-2 h-4 w-4" /> Back to {resource.label}</Link>
-      </Button>
+      <Link
+        href={`/super-admin/${resource.key}`}
+        className="mb-4 inline-flex items-center gap-1.5 text-[13px] text-ink-3 underline-offset-4 hover:underline"
+      >
+        <Icon name="chevL" size={14} />
+        Back to {resource.label}
+      </Link>
 
       {!canMutate ? (
-        <div className="mb-5 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
-          <div>
-            <p className="font-medium">Raw edit access is disabled for this resource.</p>
-            <p className="mt-1 text-amber-800">
+        <div className="mb-5 flex items-start gap-3 rounded-[var(--radius-md)] border border-warning/30 bg-warning/10 px-4 py-3 text-[13px] text-ink-2">
+          <Icon name="bell" size={14} className="mt-0.5 shrink-0 text-warning" />
+          <div className="flex flex-col gap-1">
+            <p className="font-semibold text-ink">Raw edit access is disabled for this resource.</p>
+            <p>
               This record can be reviewed, but direct table edits are reserved for higher admin tiers. Finance users should use audited finance workflow actions where available.
             </p>
           </div>
@@ -178,123 +152,196 @@ export default async function SuperAdminEditResourcePage({ params }: { params: P
       ) : null}
 
       {showEventActions ? (
-        <Card className="mb-5 rounded-3xl border-primary/30">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Rocket className="h-5 w-5" /> Event business actions</CardTitle>
-            <CardDescription>
+        <Card className="mb-5 border-accent/30">
+          <CardBody className="flex flex-col gap-1 px-5 py-4">
+            <p className="inline-flex items-center gap-2 text-h3">
+              <Icon name="zap" size={16} className="text-ink-3" />
+              Event business actions
+            </p>
+            <p className="text-[12px] text-ink-3">
               Publish validates required event readiness. Archive removes the event from active operations and records the reason.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <form action={publishEvent} className="rounded-3xl border p-4">
-              <p className="font-medium">Publish event</p>
-              <p className="mt-1 text-sm text-muted-foreground">Runs readiness checks, updates status and writes an audit entry.</p>
-              <Button type="submit" disabled={isPublished || isArchived} className="mt-4 rounded-full">
-                {isPublished ? "Already published" : isArchived ? "Archived" : "Publish event"}
-              </Button>
+            </p>
+          </CardBody>
+          <CardDivider />
+          <CardBody className="grid gap-4 p-5 md:grid-cols-2">
+            <form action={publishEvent}>
+              <ActionTile icon="zap" title="Publish event" description="Runs readiness checks, updates status and writes an audit entry.">
+                <Button type="submit" disabled={isPublished || isArchived} variant="primary" size="md" block>
+                  {isPublished ? "Already published" : isArchived ? "Archived" : "Publish event"}
+                </Button>
+              </ActionTile>
             </form>
 
-            <form action={archiveEvent} className="rounded-3xl border p-4">
-              <p className="flex items-center gap-2 font-medium"><Archive className="h-4 w-4" /> Archive event</p>
-              <p className="mt-1 text-sm text-muted-foreground">Moves this event out of active circulation and captures an audit reason.</p>
-              <div className="mt-4 space-y-2">
-                <Label htmlFor="reason">Reason</Label>
-                <Input id="reason" name="reason" placeholder="e.g. Event completed or cancelled" disabled={isArchived} />
-              </div>
-              <Button type="submit" variant="outline" disabled={isArchived} className="mt-4 rounded-full">
-                {isArchived ? "Already archived" : "Archive event"}
-              </Button>
+            <form action={archiveEvent}>
+              <ActionTile icon="trash" title="Archive event" description="Moves this event out of active circulation and captures an audit reason.">
+                <FormField label="Reason" name="reason" placeholder="e.g. Event completed or cancelled" disabled={isArchived} />
+                <Button type="submit" disabled={isArchived} variant="outline" size="md" block>
+                  {isArchived ? "Already archived" : "Archive event"}
+                </Button>
+              </ActionTile>
             </form>
-          </CardContent>
+          </CardBody>
         </Card>
       ) : null}
 
       {showTicketTypeActions ? (
-        <Card className="mb-5 rounded-3xl border-primary/30">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><PauseCircle className="h-5 w-5" /> Ticket sales actions</CardTitle>
-            <CardDescription>
-              Current status: <span className="font-medium">{salesStatus}</span>. These actions preserve price, quota, issued tickets and historical orders.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <form action={pauseSales} className="rounded-3xl border p-4">
-              <p className="flex items-center gap-2 font-medium"><PauseCircle className="h-4 w-4" /> Pause sales</p>
-              <p className="mt-1 text-sm text-muted-foreground">Temporarily stops new sales while keeping the ticket tier visible to admins.</p>
-              <div className="mt-4 space-y-2"><Label htmlFor="pause-reason">Reason</Label><Input id="pause-reason" name="reason" placeholder="e.g. Pricing review or sponsor hold" disabled={isPaused} /></div>
-              <Button type="submit" variant="outline" disabled={isPaused} className="mt-4 rounded-full">{isPaused ? "Sales paused" : "Pause sales"}</Button>
+        <Card className="mb-5 border-accent/30">
+          <CardBody className="flex flex-col gap-1 px-5 py-4">
+            <p className="inline-flex items-center gap-2 text-h3">
+              <Icon name="ticket" size={16} className="text-ink-3" />
+              Ticket sales actions
+            </p>
+            <p className="text-[12px] text-ink-3">
+              Current status · <span className="font-semibold text-ink">{salesStatus}</span>. These actions preserve price, quota, issued tickets and historical orders.
+            </p>
+          </CardBody>
+          <CardDivider />
+          <CardBody className="grid gap-4 p-5 md:grid-cols-2">
+            <form action={pauseSales}>
+              <ActionTile icon="minus" title="Pause sales" description="Temporarily stops new sales while keeping the ticket tier visible to admins.">
+                <FormField label="Reason" name="reason" placeholder="e.g. Pricing review or sponsor hold" disabled={isPaused} />
+                <Button type="submit" disabled={isPaused} variant="outline" size="md" block>
+                  {isPaused ? "Sales paused" : "Pause sales"}
+                </Button>
+              </ActionTile>
             </form>
 
-            <form action={markSoldOut} className="rounded-3xl border p-4">
-              <p className="flex items-center gap-2 font-medium"><TicketX className="h-4 w-4" /> Set sold out</p>
-              <p className="mt-1 text-sm text-muted-foreground">Marks the tier as sold out without changing its original quota.</p>
-              <div className="mt-4 space-y-2"><Label htmlFor="sold-out-reason">Reason</Label><Input id="sold-out-reason" name="reason" placeholder="e.g. Offline allocation exhausted" disabled={isSoldOut} /></div>
-              <Button type="submit" variant="outline" disabled={isSoldOut} className="mt-4 rounded-full">{isSoldOut ? "Already sold out" : "Set sold out"}</Button>
+            <form action={markSoldOut}>
+              <ActionTile icon="close" title="Set sold out" description="Marks the tier as sold out without changing its original quota.">
+                <FormField label="Reason" name="reason" placeholder="e.g. Offline allocation exhausted" disabled={isSoldOut} />
+                <Button type="submit" disabled={isSoldOut} variant="outline" size="md" block>
+                  {isSoldOut ? "Already sold out" : "Set sold out"}
+                </Button>
+              </ActionTile>
             </form>
 
-            <form action={hideTicketType} className="rounded-3xl border p-4">
-              <p className="flex items-center gap-2 font-medium"><EyeOff className="h-4 w-4" /> Hide ticket type</p>
-              <p className="mt-1 text-sm text-muted-foreground">Removes this tier from buyer-facing purchase flows without deleting it.</p>
-              <div className="mt-4 space-y-2"><Label htmlFor="hide-reason">Reason</Label><Input id="hide-reason" name="reason" placeholder="e.g. Internal allocation or invite-only tier" disabled={isHidden} /></div>
-              <Button type="submit" variant="outline" disabled={isHidden} className="mt-4 rounded-full">{isHidden ? "Already hidden" : "Hide ticket type"}</Button>
+            <form action={hideTicketType}>
+              <ActionTile icon="close" title="Hide ticket type" description="Removes this tier from buyer-facing purchase flows without deleting it.">
+                <FormField label="Reason" name="reason" placeholder="e.g. Internal allocation or invite-only tier" disabled={isHidden} />
+                <Button type="submit" disabled={isHidden} variant="outline" size="md" block>
+                  {isHidden ? "Already hidden" : "Hide ticket type"}
+                </Button>
+              </ActionTile>
             </form>
 
-            <form action={resumeSales} className="rounded-3xl border p-4">
-              <p className="flex items-center gap-2 font-medium"><PlayCircle className="h-4 w-4" /> Return to on sale</p>
-              <p className="mt-1 text-sm text-muted-foreground">Makes the ticket tier available for sale again and clears temporary pause data.</p>
-              <Button type="submit" disabled={isOnSale} className="mt-4 rounded-full">{isOnSale ? "Already on sale" : "Return to on sale"}</Button>
+            <form action={resumeSales}>
+              <ActionTile icon="check" title="Return to on sale" description="Makes the ticket tier available for sale again and clears temporary pause data.">
+                <Button type="submit" disabled={isOnSale} variant="primary" size="md" block>
+                  {isOnSale ? "Already on sale" : "Return to on sale"}
+                </Button>
+              </ActionTile>
             </form>
-          </CardContent>
+          </CardBody>
         </Card>
       ) : null}
 
       {showDeviceActions ? (
-        <Card className="mb-5 rounded-3xl border-primary/30">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><QrCode className="h-5 w-5" /> Scanner assignment</CardTitle>
-            <CardDescription>Current role: <span className="font-medium">{deviceRole ?? "unknown"}</span>. Assigned event: <span className="font-medium">{assignedEventId ?? "none"}</span>.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <form action={assignDevice} className="rounded-3xl border p-4">
-              <p className="flex items-center gap-2 font-medium"><QrCode className="h-4 w-4" /> Assign to event</p>
-              <p className="mt-1 text-sm text-muted-foreground">Attach this device to an event for scanner operations. The event must belong to the same organization.</p>
-              <div className="mt-4 space-y-2"><Label htmlFor="event_id">Event ID</Label><Input id="event_id" name="event_id" placeholder="Paste event UUID" defaultValue={assignedEventId ?? ""} /></div>
-              <Button type="submit" className="mt-4 rounded-full">Assign scanner</Button>
+        <Card className="mb-5 border-accent/30">
+          <CardBody className="flex flex-col gap-1 px-5 py-4">
+            <p className="inline-flex items-center gap-2 text-h3">
+              <Icon name="qr" size={16} className="text-ink-3" />
+              Scanner assignment
+            </p>
+            <p className="text-[12px] text-ink-3">
+              Current role · <span className="font-semibold text-ink">{deviceRole ?? "unknown"}</span>. Assigned event · <span className="font-semibold text-ink">{assignedEventId ?? "none"}</span>.
+            </p>
+          </CardBody>
+          <CardDivider />
+          <CardBody className="grid gap-4 p-5 md:grid-cols-2">
+            <form action={assignDevice}>
+              <ActionTile icon="qr" title="Assign to event" description="Attach this device to an event for scanner operations. The event must belong to the same organization.">
+                <FormField label="Event ID" name="event_id" placeholder="Paste event UUID" defaultValue={assignedEventId ?? ""} />
+                <Button type="submit" variant="primary" size="md" block>Assign scanner</Button>
+              </ActionTile>
             </form>
 
-            <form action={unassignDevice} className="rounded-3xl border p-4">
-              <p className="flex items-center gap-2 font-medium"><Unlink className="h-4 w-4" /> Unassign from event</p>
-              <p className="mt-1 text-sm text-muted-foreground">Detach this scanner from the current event and return it to unassigned scanner state.</p>
-              <Button type="submit" variant="outline" disabled={!assignedEventId} className="mt-4 rounded-full">{assignedEventId ? "Unassign scanner" : "No event assigned"}</Button>
+            <form action={unassignDevice}>
+              <ActionTile icon="close" title="Unassign from event" description="Detach this scanner from the current event and return it to unassigned scanner state.">
+                <Button type="submit" disabled={!assignedEventId} variant="outline" size="md" block>
+                  {assignedEventId ? "Unassign scanner" : "No event assigned"}
+                </Button>
+              </ActionTile>
             </form>
-          </CardContent>
+          </CardBody>
         </Card>
       ) : null}
 
       {showPayoutActions ? (
-        <Card className="mb-5 rounded-3xl border-primary/30">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><BadgeDollarSign className="h-5 w-5" /> Payout review</CardTitle>
-            <CardDescription>Current status: <span className="font-medium">{payoutStatus ?? "unknown"}</span>. These controls update internal review status only.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <form action={markPayoutProcessing} className="rounded-3xl border p-4"><p className="font-medium">Mark processing</p><p className="mt-1 text-sm text-muted-foreground">Use when finance has started reviewing or preparing the payout.</p><Input name="note" placeholder="Optional finance note" className="mt-4" disabled={isPayoutProcessing || isPayoutPaid} /><Button type="submit" variant="outline" disabled={isPayoutProcessing || isPayoutPaid} className="mt-4 rounded-full">{isPayoutProcessing ? "Already processing" : "Mark processing"}</Button></form>
-            <form action={markPayoutPaid} className="rounded-3xl border p-4"><p className="font-medium">Mark paid</p><p className="mt-1 text-sm text-muted-foreground">Confirms internal status after payout settlement has been verified.</p><Input name="note" placeholder="Optional settlement reference" className="mt-4" disabled={isPayoutPaid} /><Button type="submit" disabled={isPayoutPaid} className="mt-4 rounded-full">{isPayoutPaid ? "Already paid" : "Mark paid"}</Button></form>
-            <form action={markPayoutFailed} className="rounded-3xl border p-4"><p className="font-medium">Mark failed</p><p className="mt-1 text-sm text-muted-foreground">Use when finance or the provider reports that settlement failed.</p><Input name="note" placeholder="Failure reason" className="mt-4" disabled={isPayoutFailed || isPayoutPaid} /><Button type="submit" variant="outline" disabled={isPayoutFailed || isPayoutPaid} className="mt-4 rounded-full">{isPayoutFailed ? "Already failed" : "Mark failed"}</Button></form>
-            <form action={cancelPayout} className="rounded-3xl border p-4"><p className="font-medium">Cancel payout</p><p className="mt-1 text-sm text-muted-foreground">Stops this payout request from active finance processing.</p><Input name="note" placeholder="Cancellation reason" className="mt-4" disabled={isPayoutCancelled || isPayoutPaid} /><Button type="submit" variant="outline" disabled={isPayoutCancelled || isPayoutPaid} className="mt-4 rounded-full">{isPayoutCancelled ? "Already cancelled" : "Cancel payout"}</Button></form>
-          </CardContent>
+        <Card className="mb-5 border-accent/30">
+          <CardBody className="flex flex-col gap-1 px-5 py-4">
+            <p className="inline-flex items-center gap-2 text-h3">
+              <Icon name="wallet" size={16} className="text-ink-3" />
+              Payout review
+            </p>
+            <p className="text-[12px] text-ink-3">
+              Current status · <span className="font-semibold text-ink">{payoutStatus ?? "unknown"}</span>. These controls update internal review status only.
+            </p>
+          </CardBody>
+          <CardDivider />
+          <CardBody className="grid gap-4 p-5 md:grid-cols-2">
+            <form action={markPayoutProcessing}>
+              <ActionTile icon="clock" title="Mark processing" description="Use when finance has started reviewing or preparing the payout.">
+                <FormField label="Note" name="note" placeholder="Optional finance note" disabled={isPayoutProcessing || isPayoutPaid} />
+                <Button type="submit" disabled={isPayoutProcessing || isPayoutPaid} variant="outline" size="md" block>
+                  {isPayoutProcessing ? "Already processing" : "Mark processing"}
+                </Button>
+              </ActionTile>
+            </form>
+            <form action={markPayoutPaid}>
+              <ActionTile icon="check" title="Mark paid" description="Confirms internal status after payout settlement has been verified.">
+                <FormField label="Note" name="note" placeholder="Optional settlement reference" disabled={isPayoutPaid} />
+                <Button type="submit" disabled={isPayoutPaid} variant="primary" size="md" block>
+                  {isPayoutPaid ? "Already paid" : "Mark paid"}
+                </Button>
+              </ActionTile>
+            </form>
+            <form action={markPayoutFailed}>
+              <ActionTile icon="close" title="Mark failed" description="Use when finance or the provider reports that settlement failed.">
+                <FormField label="Note" name="note" placeholder="Failure reason" disabled={isPayoutFailed || isPayoutPaid} />
+                <Button type="submit" disabled={isPayoutFailed || isPayoutPaid} variant="outline" size="md" block>
+                  {isPayoutFailed ? "Already failed" : "Mark failed"}
+                </Button>
+              </ActionTile>
+            </form>
+            <form action={cancelPayout}>
+              <ActionTile icon="close" title="Cancel payout" description="Stops this payout request from active finance processing.">
+                <FormField label="Note" name="note" placeholder="Cancellation reason" disabled={isPayoutCancelled || isPayoutPaid} />
+                <Button type="submit" disabled={isPayoutCancelled || isPayoutPaid} variant="outline" size="md" block>
+                  {isPayoutCancelled ? "Already cancelled" : "Cancel payout"}
+                </Button>
+              </ActionTile>
+            </form>
+          </CardBody>
         </Card>
       ) : null}
 
       {canMutate ? (
-        <Card className="rounded-3xl">
-          <CardHeader><CardTitle>Edit {resource.label}</CardTitle></CardHeader>
-          <CardContent><ResourceForm resource={resource} record={data} action={updateRecord} submitLabel="Save changes" /></CardContent>
+        <Card>
+          <CardBody className="px-5 py-4">
+            <p className="text-h3">Edit {resource.label}</p>
+          </CardBody>
+          <CardDivider />
+          <CardBody className="p-5">
+            <ResourceForm
+              resource={resource}
+              record={data}
+              action={updateRecord}
+              submitLabel="Save changes"
+            />
+          </CardBody>
         </Card>
       ) : (
-        <Card className="rounded-3xl">
-          <CardHeader><CardTitle>{resource.label} record</CardTitle><CardDescription>Direct editing is hidden for your admin tier.</CardDescription></CardHeader>
-          <CardContent><pre className="overflow-x-auto rounded-2xl bg-muted p-4 text-xs text-muted-foreground">{JSON.stringify(data, null, 2)}</pre></CardContent>
+        <Card>
+          <CardBody className="flex flex-col gap-1 px-5 py-4">
+            <p className="text-h3">{resource.label} record</p>
+            <p className="text-[12px] text-ink-3">Direct editing is hidden for your admin tier.</p>
+          </CardBody>
+          <CardDivider />
+          <CardBody className="p-5">
+            <pre className="overflow-x-auto rounded-[var(--radius-md)] bg-bg p-4 font-mono text-[11px] text-ink-3">
+              {JSON.stringify(data, null, 2)}
+            </pre>
+          </CardBody>
         </Card>
       )}
     </main>

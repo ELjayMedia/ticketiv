@@ -1,11 +1,10 @@
 import Link from "next/link"
-import { ArrowLeft, Download, Filter, Search, ShieldCheck } from "lucide-react"
 
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Button } from "@/components/quiet/ui/button"
+import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
+import { Chip } from "@/components/quiet/ui/chip"
+import { FormField } from "@/components/quiet/ui/form"
+import { Icon } from "@/components/quiet/ui/icon"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { requireAdminRole } from "@/lib/super-admin/auth"
 import { ADMIN_ROLE_TIERS } from "@/lib/super-admin/permissions"
@@ -62,7 +61,11 @@ function buildFilterHref(nextFilters: AuditSearchParams) {
   return query ? `/super-admin/audit?${query}` : "/super-admin/audit"
 }
 
-export default async function SuperAdminAuditPage({ searchParams }: { searchParams?: Promise<AuditSearchParams> }) {
+export default async function SuperAdminAuditPage({
+  searchParams,
+}: {
+  searchParams?: Promise<AuditSearchParams>
+}) {
   await requireAdminRole(ADMIN_ROLE_TIERS)
   const filters = searchParams ? await searchParams : {}
   const admin = createAdminClient()
@@ -80,7 +83,6 @@ export default async function SuperAdminAuditPage({ searchParams }: { searchPara
   if (filters.record) query = query.eq("record_id", filters.record)
 
   const { data, error } = await query
-
   if (error) throw new Error(error.message)
 
   const entries = (data ?? []) as AuditEntry[]
@@ -109,86 +111,142 @@ export default async function SuperAdminAuditPage({ searchParams }: { searchPara
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <Button asChild variant="ghost" className="mb-3 rounded-full px-0 hover:bg-transparent">
-            <Link href="/super-admin"><ArrowLeft className="mr-2 h-4 w-4" /> Back to Command Centre</Link>
-          </Button>
+        <div className="flex flex-col gap-2">
+          <Link
+            href="/super-admin"
+            className="inline-flex w-fit items-center gap-1.5 text-[13px] text-ink-3 underline-offset-4 hover:underline"
+          >
+            <Icon name="chevL" size={14} />
+            Back to Command Centre
+          </Link>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight">Audit Log</h1>
-            <Badge variant="secondary" className="gap-1"><ShieldCheck className="h-3 w-3" /> {filteredData.length} shown</Badge>
-            {activeFiltersCount ? <Badge variant="outline">{activeFiltersCount} active filter{activeFiltersCount === 1 ? "" : "s"}</Badge> : null}
+            <h1 className="text-h1">Audit log</h1>
+            <Chip size="sm" variant="muted">
+              <Icon name="settings" size={12} /> {filteredData.length} shown
+            </Chip>
+            {activeFiltersCount ? (
+              <Chip size="sm" variant="default">
+                {activeFiltersCount} active filter{activeFiltersCount === 1 ? "" : "s"}
+              </Chip>
+            ) : null}
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">Search and review admin, finance, organizer and system-level changes across Ticketiv.</p>
+          <p className="text-[13px] text-ink-3">
+            Search and review admin, finance, organizer and system-level changes across Ticketiv.
+          </p>
         </div>
-        <Button asChild variant="outline" className="rounded-full">
-          <Link href="/super-admin/exports/audit"><Download className="mr-2 h-4 w-4" /> Export audit CSV</Link>
-        </Button>
+        <Link
+          href="/super-admin/exports/audit"
+          className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-transparent px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-bg"
+        >
+          <Icon name="download" size={14} />
+          Export audit CSV
+        </Link>
       </div>
 
-      <Card className="mb-5 rounded-3xl">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base"><Filter className="h-4 w-4" /> Filters</CardTitle>
-          <CardDescription>Use exact identifiers for actor, org or record when investigating a specific issue.</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <Card className="mb-5">
+        <CardBody className="flex flex-col gap-1 px-5 py-4">
+          <p className="inline-flex items-center gap-2 text-h3">
+            <Icon name="filter" size={16} className="text-ink-3" />
+            Filters
+          </p>
+          <p className="text-[12px] text-ink-3">
+            Use exact identifiers for actor, org or record when investigating a specific issue.
+          </p>
+        </CardBody>
+        <CardDivider />
+        <CardBody className="p-5">
           <form className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-            <div className="space-y-2">
-              <Label htmlFor="q">Search</Label>
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input id="q" name="q" defaultValue={filters.q ?? ""} placeholder="business action, JSON, ID" className="pl-9" />
-              </div>
-            </div>
-            <div className="space-y-2"><Label htmlFor="table">Table/entity</Label><Input id="table" name="table" defaultValue={filters.table ?? ""} placeholder="events" /></div>
-            <div className="space-y-2"><Label htmlFor="action">Action</Label><Input id="action" name="action" defaultValue={filters.action ?? ""} placeholder="update" /></div>
-            <div className="space-y-2"><Label htmlFor="record">Record ID</Label><Input id="record" name="record" defaultValue={filters.record ?? ""} placeholder="uuid or text id" /></div>
-            <div className="space-y-2"><Label htmlFor="actor">Actor ID</Label><Input id="actor" name="actor" defaultValue={filters.actor ?? ""} placeholder="user uuid" /></div>
-            <div className="space-y-2"><Label htmlFor="org">Org ID</Label><Input id="org" name="org" defaultValue={filters.org ?? ""} placeholder="org uuid" /></div>
+            <FormField label="Search" name="q" defaultValue={filters.q ?? ""} placeholder="business action, JSON, ID" />
+            <FormField label="Table/entity" name="table" defaultValue={filters.table ?? ""} placeholder="events" />
+            <FormField label="Action" name="action" defaultValue={filters.action ?? ""} placeholder="update" />
+            <FormField label="Record ID" name="record" defaultValue={filters.record ?? ""} placeholder="uuid or text id" />
+            <FormField label="Actor ID" name="actor" defaultValue={filters.actor ?? ""} placeholder="user uuid" />
+            <FormField label="Org ID" name="org" defaultValue={filters.org ?? ""} placeholder="org uuid" />
             <div className="flex gap-2 md:col-span-3 xl:col-span-6">
-              <Button type="submit" className="rounded-full">Apply filters</Button>
-              <Button asChild type="button" variant="outline" className="rounded-full"><Link href="/super-admin/audit">Clear</Link></Button>
+              <Button type="submit" variant="primary" size="md">
+                Apply filters
+              </Button>
+              <Link
+                href="/super-admin/audit"
+                className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-transparent px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-bg"
+              >
+                Clear
+              </Link>
             </div>
           </form>
 
           <div className="mt-4 flex flex-wrap gap-2">
-            {topTables.map((table) => <Button key={table} asChild size="sm" variant="outline" className="rounded-full"><Link href={buildFilterHref({ ...filters, table })}>{table}</Link></Button>)}
-            {topActions.map((action) => <Button key={action} asChild size="sm" variant="secondary" className="rounded-full"><Link href={buildFilterHref({ ...filters, action })}>{action}</Link></Button>)}
+            {topTables.map((table) => (
+              <Link
+                key={table}
+                href={buildFilterHref({ ...filters, table: table ?? undefined })}
+                className="inline-flex items-center rounded-full border border-line-2 bg-surface px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-ink transition hover:bg-bg"
+              >
+                {table}
+              </Link>
+            ))}
+            {topActions.map((action) => (
+              <Link
+                key={action}
+                href={buildFilterHref({ ...filters, action: action ?? undefined })}
+                className="inline-flex items-center rounded-full bg-surface-2 px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-ink-3 transition hover:bg-bg hover:text-ink"
+              >
+                {action}
+              </Link>
+            ))}
           </div>
-        </CardContent>
+        </CardBody>
       </Card>
 
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         {filteredData.map((entry) => {
           const businessAction = getBusinessAction(entry.changes)
           return (
-            <Card key={entry.id} className="rounded-3xl">
-              <CardHeader className="pb-3">
+            <Card key={entry.id}>
+              <CardBody className="flex flex-col gap-3 px-5 py-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  <div>
+                  <div className="flex flex-col gap-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <CardTitle className="text-base">{entry.table_name} · {entry.action}</CardTitle>
-                      {businessAction ? <Badge>{businessAction.replaceAll("_", " ")}</Badge> : null}
+                      <p className="text-h3">{entry.table_name} · {entry.action}</p>
+                      {businessAction ? (
+                        <Chip size="sm" variant="active">{businessAction.replaceAll("_", " ")}</Chip>
+                      ) : null}
                     </div>
-                    <CardDescription className="mt-1">{formatDate(entry.created_at)} · Record {entry.record_id ?? "—"}</CardDescription>
+                    <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+                      {formatDate(entry.created_at)} · Record {entry.record_id ?? "—"}
+                    </p>
                   </div>
-                  <div className="flex flex-col gap-1 text-xs text-muted-foreground md:text-right">
-                    <Link href={buildFilterHref({ ...filters, actor: entry.actor_id ?? undefined })} className="hover:text-foreground">Actor: {entry.actor_id ?? "system"}</Link>
-                    <Link href={buildFilterHref({ ...filters, org: entry.org_id ?? undefined })} className="hover:text-foreground">Org: {entry.org_id ?? "platform"}</Link>
+                  <div className="flex flex-col gap-1 font-mono text-[11px] uppercase tracking-wider text-ink-3 md:text-right">
+                    <Link
+                      href={buildFilterHref({ ...filters, actor: entry.actor_id ?? undefined })}
+                      className="hover:text-ink"
+                    >
+                      Actor · {entry.actor_id ?? "system"}
+                    </Link>
+                    <Link
+                      href={buildFilterHref({ ...filters, org: entry.org_id ?? undefined })}
+                      className="hover:text-ink"
+                    >
+                      Org · {entry.org_id ?? "platform"}
+                    </Link>
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <pre className="max-h-72 overflow-auto rounded-2xl bg-muted p-4 text-xs leading-relaxed">
+              </CardBody>
+              <CardDivider />
+              <CardBody className="p-5">
+                <pre className="max-h-72 overflow-auto rounded-[var(--radius-md)] bg-bg p-4 font-mono text-[11px] leading-relaxed text-ink-2">
                   {formatChanges(entry.changes)}
                 </pre>
-              </CardContent>
+              </CardBody>
             </Card>
           )
         })}
 
         {!filteredData.length ? (
-          <Card className="rounded-3xl">
-            <CardContent className="py-10 text-center text-sm text-muted-foreground">No audit entries found for the current filters.</CardContent>
+          <Card>
+            <CardBody className="py-10 text-center text-[13px] text-ink-3">
+              No audit entries found for the current filters.
+            </CardBody>
           </Card>
         ) : null}
       </div>
