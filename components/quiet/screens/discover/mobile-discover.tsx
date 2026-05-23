@@ -42,6 +42,7 @@ interface TonightRow {
   price: string;
   chip: string;
   chipVariant: "muted" | "accent";
+  trustLabel: string | null;
 }
 
 interface WeekRow {
@@ -52,6 +53,7 @@ interface WeekRow {
   date: string;
   venue: string;
   price: string;
+  trustLabel: string | null;
 }
 
 const DEFAULT_TONIGHT: TonightRow[] = [
@@ -65,6 +67,7 @@ const DEFAULT_TONIGHT: TonightRow[] = [
     price: "E450",
     chip: "5 left",
     chipVariant: "muted",
+    trustLabel: null,
   },
   {
     href: "/events/stand-up-saturday",
@@ -76,6 +79,7 @@ const DEFAULT_TONIGHT: TonightRow[] = [
     price: "E300",
     chip: "Last 12",
     chipVariant: "muted",
+    trustLabel: null,
   },
 ];
 
@@ -88,6 +92,7 @@ const DEFAULT_THIS_WEEK: WeekRow[] = [
     date: "Sat 26",
     venue: "Riverside Park",
     price: "From E600",
+    trustLabel: null,
   },
   {
     href: "/events/pottery-and-wine",
@@ -97,6 +102,7 @@ const DEFAULT_THIS_WEEK: WeekRow[] = [
     date: "Sun 27",
     venue: "The Loft",
     price: "E1,200",
+    trustLabel: null,
   },
   {
     href: "/events/river-sound-fest",
@@ -106,6 +112,7 @@ const DEFAULT_THIS_WEEK: WeekRow[] = [
     date: "Fri 25 → Sun 27",
     venue: "Riverside Park",
     price: "From E2,400",
+    trustLabel: null,
   },
 ];
 
@@ -118,6 +125,7 @@ interface EditorPickRow {
   priceLabel: string;
   topChip: string;
   bottomChip: string;
+  trustLabel: string | null;
 }
 
 const DEFAULT_EDITOR_PICK: EditorPickRow = {
@@ -129,6 +137,7 @@ const DEFAULT_EDITOR_PICK: EditorPickRow = {
   priceLabel: "E2,400",
   topChip: "3-day festival",
   bottomChip: "22 artists",
+  trustLabel: null,
 };
 
 function toTonight(ev: DiscoverEvent): TonightRow {
@@ -142,6 +151,7 @@ function toTonight(ev: DiscoverEvent): TonightRow {
     price: ev.priceLabel,
     chip: ev.city ?? "Tonight",
     chipVariant: "muted",
+    trustLabel: ev.soldLabel,
   };
 }
 
@@ -154,6 +164,7 @@ function toWeek(ev: DiscoverEvent): WeekRow {
     date: ev.dateShort,
     venue: ev.venue,
     price: ev.priceLabel,
+    trustLabel: ev.soldLabel,
   };
 }
 
@@ -167,6 +178,7 @@ function toEditorPick(ev: DiscoverEvent): EditorPickRow {
     priceLabel: ev.priceLabel.replace(/^From\s+/, ""),
     topChip: ev.category ?? "Featured",
     bottomChip: ev.city ?? "Live event",
+    trustLabel: ev.soldLabel,
   };
 }
 
@@ -278,6 +290,12 @@ export function MobileDiscover({
               <span className="inline-flex items-center gap-1">
                 <Icon name="pin" size={14} /> {HERO.venue}
               </span>
+              {HERO.trustLabel && (
+                <>
+                  <span>·</span>
+                  <span className="font-mono text-[11px]">{HERO.trustLabel}</span>
+                </>
+              )}
             </div>
             <Divider className="my-3.5" />
             <div className="flex items-center">
@@ -343,8 +361,15 @@ export function MobileDiscover({
                   <div className="mt-0.5 truncate text-[12px] text-ink-3">
                     {e.sub} · {e.venue}
                   </div>
-                  <div className="mt-2 font-mono text-[13px] font-semibold">
-                    {e.price}
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <span className="font-mono text-[13px] font-semibold">
+                      {e.price}
+                    </span>
+                    {e.trustLabel && (
+                      <span className="font-mono text-[11px] text-ink-3">
+                        {e.trustLabel}
+                      </span>
+                    )}
                   </div>
                 </div>
               </Card>
@@ -382,6 +407,14 @@ export function MobileDiscover({
                       <Icon name="cal" size={12} /> {e.date}
                       <span>·</span>
                       <span className="truncate">{e.venue}</span>
+                      {e.trustLabel && (
+                        <>
+                          <span>·</span>
+                          <span className="truncate font-mono text-[11px]">
+                            {e.trustLabel}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="flex flex-col items-end justify-between">

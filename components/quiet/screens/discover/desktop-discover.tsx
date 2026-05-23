@@ -33,15 +33,16 @@ interface GridRow {
   venue: string;
   price: string;
   chip?: string;
+  trustLabel: string | null;
 }
 
 const DEFAULT_GRID: GridRow[] = [
-  { href: "/events/tribal-tales", photo: PHOTOS.dj_neon, title: "Tribal Tales · Vol 4", when: "Wed 30 Aug · 15:50", venue: "Cafe Natarani", price: "E450", chip: "5 left" },
-  { href: "/events/sunset-set", photo: PHOTOS.singer_red, title: "Sunset Set", when: "Sat 26 Aug · 18:00", venue: "Riverside Park", price: "E600", chip: "Selling fast" },
-  { href: "/events/stand-up-saturday", photo: PHOTOS.comedy_club, title: "Stand-up Saturday", when: "Sat 26 Aug · 21:30", venue: "House of MG", price: "E300" },
-  { href: "/events/pottery-and-wine", photo: PHOTOS.workshop, title: "Pottery & Wine", when: "Sun 27 Aug · 14:00", venue: "The Loft", price: "E1,200" },
-  { href: "/events/macbeth-revisited", photo: PHOTOS.theatre_curtain, title: "Macbeth · revisited", when: "Thu 31 Aug · 19:00", venue: "Standard Theatre", price: "E550" },
-  { href: "/events/night-market-mbabane", photo: PHOTOS.food_market, title: "Night Market: Mbabane", when: "Fri 25 Aug · 17:00", venue: "Coronation Park", price: "Free" },
+  { href: "/events/tribal-tales", photo: PHOTOS.dj_neon, title: "Tribal Tales · Vol 4", when: "Wed 30 Aug · 15:50", venue: "Cafe Natarani", price: "E450", chip: "5 left", trustLabel: null },
+  { href: "/events/sunset-set", photo: PHOTOS.singer_red, title: "Sunset Set", when: "Sat 26 Aug · 18:00", venue: "Riverside Park", price: "E600", chip: "Selling fast", trustLabel: null },
+  { href: "/events/stand-up-saturday", photo: PHOTOS.comedy_club, title: "Stand-up Saturday", when: "Sat 26 Aug · 21:30", venue: "House of MG", price: "E300", trustLabel: null },
+  { href: "/events/pottery-and-wine", photo: PHOTOS.workshop, title: "Pottery & Wine", when: "Sun 27 Aug · 14:00", venue: "The Loft", price: "E1,200", trustLabel: null },
+  { href: "/events/macbeth-revisited", photo: PHOTOS.theatre_curtain, title: "Macbeth · revisited", when: "Thu 31 Aug · 19:00", venue: "Standard Theatre", price: "E550", trustLabel: null },
+  { href: "/events/night-market-mbabane", photo: PHOTOS.food_market, title: "Night Market: Mbabane", when: "Fri 25 Aug · 17:00", venue: "Coronation Park", price: "Free", trustLabel: null },
 ];
 
 interface HeroRow {
@@ -53,6 +54,7 @@ interface HeroRow {
   priceLabel: string;
   topChip: string;
   subtitle: string;
+  trustLabel: string | null;
 }
 
 const DEFAULT_HERO: HeroRow = {
@@ -64,6 +66,7 @@ const DEFAULT_HERO: HeroRow = {
   priceLabel: "E2,400",
   topChip: "Editor's pick · 3-day festival",
   subtitle: "22 artists across 3 stages. Camping & food vendors on-site. Day passes from E950.",
+  trustLabel: null,
 };
 
 function toGrid(ev: DiscoverEvent): GridRow {
@@ -75,6 +78,7 @@ function toGrid(ev: DiscoverEvent): GridRow {
     venue: ev.venue,
     price: ev.priceLabel,
     chip: ev.city ?? undefined,
+    trustLabel: ev.soldLabel,
   };
 }
 
@@ -88,6 +92,7 @@ function toHero(ev: DiscoverEvent): HeroRow {
     priceLabel: ev.priceLabel.replace(/^From\s+/, ""),
     topChip: `Editor's pick · ${ev.category ?? "Featured"}`,
     subtitle: ev.category ? `Curated for fans of ${ev.category.toLowerCase()}.` : "",
+    trustLabel: ev.soldLabel,
   };
 }
 
@@ -230,6 +235,11 @@ export function DesktopDiscover({
             {HERO.subtitle && (
               <p className="mt-3 text-[13px] text-ink-3">{HERO.subtitle}</p>
             )}
+            {HERO.trustLabel && (
+              <p className="mt-2 font-mono text-[11px] text-ink-3">
+                {HERO.trustLabel}
+              </p>
+            )}
             <Divider className="my-4" />
             <Link
               href={HERO.href}
@@ -323,9 +333,15 @@ export function DesktopDiscover({
                       <span className="font-mono text-[14px] font-semibold">
                         {e.price}
                       </span>
-                      <span className="text-[12px] text-accent group-hover:underline">
-                        Details →
-                      </span>
+                      {e.trustLabel ? (
+                        <span className="font-mono text-[11px] text-ink-3">
+                          {e.trustLabel}
+                        </span>
+                      ) : (
+                        <span className="text-[12px] text-accent group-hover:underline">
+                          Details →
+                        </span>
+                      )}
                     </div>
                   </div>
                 </Card>
