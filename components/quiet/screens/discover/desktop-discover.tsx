@@ -102,6 +102,76 @@ export function DesktopDiscover({
   const total = totalEvents ?? events?.length ?? 42;
   return (
     <div className="mx-auto max-w-[1280px] px-10 py-6">
+      {/* Inline search bar — desktop discover's prominent entry point.
+          Plain HTML GET form so we stay a server component. */}
+      <form
+        action="/search"
+        method="get"
+        role="search"
+        className="mb-4 flex items-center gap-2 rounded-[var(--radius-md)] border border-line bg-surface px-4 py-3 focus-within:border-line-2"
+      >
+        <Icon name="search" size={16} className="text-ink-3" />
+        <input
+          type="text"
+          name="q"
+          placeholder="Search events, artists, venues…"
+          aria-label="Search events"
+          className="flex-1 bg-transparent text-[14px] font-medium outline-none placeholder:text-ink-3"
+        />
+        <div className="hidden items-center gap-1 md:flex">
+          <Link
+            href="/search?category=Music"
+            className="rounded-full border border-line bg-bg px-2.5 py-1 text-[11px] font-semibold text-ink-3 hover:text-ink"
+          >
+            Music
+          </Link>
+          <Link
+            href="/search?category=Comedy"
+            className="rounded-full border border-line bg-bg px-2.5 py-1 text-[11px] font-semibold text-ink-3 hover:text-ink"
+          >
+            Comedy
+          </Link>
+          <Link
+            href="/search?onlyFree=1"
+            className="rounded-full border border-line bg-bg px-2.5 py-1 text-[11px] font-semibold text-ink-3 hover:text-ink"
+          >
+            Free
+          </Link>
+          <Link
+            href="/search?when=weekend"
+            className="rounded-full border border-line bg-bg px-2.5 py-1 text-[11px] font-semibold text-ink-3 hover:text-ink"
+          >
+            Weekend
+          </Link>
+        </div>
+        <button
+          type="submit"
+          className="inline-flex items-center gap-1 rounded-[var(--radius)] bg-ink px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-ink-2"
+        >
+          Search
+        </button>
+      </form>
+
+      {/* Trust rail */}
+      <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-1.5 rounded-[var(--radius-md)] border border-line bg-surface px-4 py-2.5 text-[12px] text-ink-2">
+        <span className="inline-flex items-center gap-1.5">
+          <Icon name="check" size={12} className="text-success" />
+          Verified organizers only
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <Icon name="check" size={12} className="text-success" />
+          Secure checkout · cards &amp; mobile money
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <Icon name="check" size={12} className="text-success" />
+          Free transfers · refund per organizer policy
+        </span>
+        <span className="flex-1" />
+        <Link href="/help" className="font-mono text-[11px] text-accent hover:underline">
+          How it works ›
+        </Link>
+      </div>
+
       {/* Page header */}
       <div className="flex items-end justify-between pb-6">
         <div>

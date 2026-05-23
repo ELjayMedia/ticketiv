@@ -252,13 +252,49 @@ export function MobileEvent({ event = DEFAULT_EVENT }: MobileEventProps) {
                 )}
               </div>
               <span className="font-mono text-[11px] text-ink-3">
-                @{event.organizer.handle} · {event.organizer.eventsHosted} events · ★{" "}
-                {event.organizer.rating.toFixed(1)}
+                {formatOrganizerStats(event.organizer)}
               </span>
             </div>
             <Button variant="default" size="xs">
               Follow
             </Button>
+          </Card>
+        </section>
+
+        {/* Accepted payment methods + assurance card */}
+        <section className="px-5 pt-3">
+          <Card className="p-3.5" flat>
+            <div className="text-label mb-2">Accepted here</div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <PaymentTile label="Visa" tone="navy" />
+              <PaymentTile label="Mcard" tone="navy" />
+              <PaymentTile label="MTN" tone="amber" />
+              <PaymentTile label="EFT" tone="warm" />
+            </div>
+            <Divider className="my-3" />
+            <ul className="flex flex-col gap-1.5 text-[12px]">
+              <li className="flex items-start gap-2">
+                <Icon name="check" size={14} className="mt-0.5 shrink-0 text-success" />
+                <span>
+                  <span className="font-semibold">Refund window</span>{" "}
+                  <span className="text-ink-3">per organizer policy</span>
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Icon name="check" size={14} className="mt-0.5 shrink-0 text-success" />
+                <span>
+                  <span className="font-semibold">Free transfer</span>{" "}
+                  <span className="text-ink-3">to friends anytime before doors</span>
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Icon name="check" size={14} className="mt-0.5 shrink-0 text-success" />
+                <span>
+                  <span className="font-semibold">QR + wallet entry</span>{" "}
+                  <span className="text-ink-3">offline-ready scan</span>
+                </span>
+              </li>
+            </ul>
           </Card>
         </section>
 
@@ -328,6 +364,40 @@ export function MobileEvent({ event = DEFAULT_EVENT }: MobileEventProps) {
         </Link>
       </div>
     </div>
+  );
+}
+
+function formatOrganizerStats(o: MobileEventData["organizer"]): string {
+  const parts = [`@${o.handle}`];
+  if (o.eventsHosted > 0) {
+    parts.push(`${o.eventsHosted} event${o.eventsHosted === 1 ? "" : "s"}`);
+  }
+  if (o.rating > 0) parts.push(`★ ${o.rating.toFixed(1)}`);
+  return parts.join(" · ");
+}
+
+function PaymentTile({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: "navy" | "amber" | "warm";
+}) {
+  const cls =
+    tone === "navy"
+      ? "bg-[#1a1f71] text-white"
+      : tone === "amber"
+      ? "bg-[#ffcc00] text-ink"
+      : "bg-gradient-to-br from-[#ff5f00] to-[#f79e1b] text-white";
+  return (
+    <span
+      className={
+        "inline-flex h-[24px] min-w-[44px] items-center justify-center rounded px-2 font-mono text-[10px] font-bold tracking-wider " +
+        cls
+      }
+    >
+      {label}
+    </span>
   );
 }
 

@@ -22,7 +22,7 @@ export async function generateMetadata({
   };
 }
 
-async function fetchEventExtras(eventId: string) {
+async function fetchEventExtras(eventId: string, organizerId: string | null) {
   const supabase = await createServerSupabaseClient();
   if (!supabase) {
     return {
@@ -33,10 +33,11 @@ async function fetchEventExtras(eventId: string) {
       soldCount: null as number | null,
       attendeeCount: null as number | null,
       recentSoldCount: null as number | null,
+      organizerEventsHosted: null as number | null,
     };
   }
 
-  const [ttRes, lineupRes, friendsRes, eventRes, trustRes] = await Promise.all([
+  const [ttRes, lineupRes, friendsRes, eventRes, trustRes, orgEventsRes] = await Promise.all([
     supabase
       .from("ticket_types")
       .select("id, name, price_cents, quota")
@@ -52,6 +53,13 @@ async function fetchEventExtras(eventId: string) {
       .eq("event_id", eventId),
     supabase.from("events").select("refund_policy").eq("id", eventId).maybeSingle(),
     fetchTrustSignals(supabase, eventId),
+    organizerId
+      ? supabase
+          .from("events")
+          .select("id", { count: "exact", head: true })
+          .eq("org_id", organizerId)
+          .eq("status", "published")
+      : Promise.resolve({ count: null as number | null, error: null }),
   ]);
 
   if (ttRes.error) console.error("[event-detail] ticket_types:", ttRes.error);
@@ -64,6 +72,9 @@ async function fetchEventExtras(eventId: string) {
     lineup: (lineupRes.data ?? []) as EventLineupRow[],
     friends: (friendsRes.data ?? []) as EventFriendRow[],
     refundPolicy: eventRes.data?.refund_policy ?? null,
+    organizerEventsHosted: orgEventsRes && "error" in orgEventsRes && orgEventsRes.error
+      ? null
+      : orgEventsRes?.count ?? null,
     ...trustRes,
   };
 }
@@ -115,7 +126,8 @@ export default async function EventDetailPage({
     soldCount,
     attendeeCount,
     recentSoldCount,
-  } = await fetchEventExtras(row.id);
+    organizerEventsHosted,
+  } = await fetchEventExtras(row.id, row.organizer_id ?? null);
 
   const trust = {
     soldCount,
@@ -123,6 +135,7 @@ export default async function EventDetailPage({
     recentSoldCount,
     recentSoldWindow: "today" as const,
     supportUrl: "/help",
+    organizerEventsHosted,
   };
 
   const mobile = mapEventDetail(row, { lineup, friends, refundPolicy, ...trust });

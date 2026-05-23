@@ -38,6 +38,8 @@ interface MapInput {
   recentSoldCount?: number | null;
   recentSoldWindow?: string;
   supportUrl?: string;
+  /** Total events published by this organizer — drives the "23 events hosted" line. */
+  organizerEventsHosted?: number | null;
 }
 
 function durationLabel(start: Date | null, end: Date | null): string | null {
@@ -101,7 +103,7 @@ export function mapEventDetail(row: EventPublicView, input: MapInput = {}): Mobi
     organizer: {
       name: row.organizer_name ?? "Ticketiv",
       handle: row.organizer_id ? row.organizer_id.slice(0, 8) : "ticketiv",
-      eventsHosted: 0,
+      eventsHosted: input.organizerEventsHosted ?? 0,
       rating: 0,
       verified: Boolean(row.organizer_logo_url),
       photo: row.organizer_logo_url ?? PHOTOS.face_6,

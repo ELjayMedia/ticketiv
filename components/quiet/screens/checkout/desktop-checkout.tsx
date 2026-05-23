@@ -61,6 +61,9 @@ export function DesktopCheckout({
   holdSeconds = 522,
 }: DesktopCheckoutProps) {
   const [holdRemaining, setHoldRemaining] = React.useState(holdSeconds);
+  const [guaranteeOpen, setGuaranteeOpen] = React.useState(false);
+
+  useHoldExtension(holdRemaining, setHoldRemaining, holdSeconds);
 
   React.useEffect(() => {
     if (holdRemaining <= 0) return;
@@ -93,15 +96,7 @@ export function DesktopCheckout({
           <span className="flex-1" />
           <Stepper steps={STEPS} currentIndex={1} />
           <span className="h-4 w-px bg-line" />
-          <span
-            className={
-              "font-mono text-[11px] font-semibold " +
-              (holdRemaining < 60 ? "text-danger" : "text-accent")
-            }
-            aria-live="polite"
-          >
-            HOLDS FOR {formatHoldTimer(holdRemaining)}
-          </span>
+          <DesktopHoldTimerLabel remaining={holdRemaining} />
         </div>
       </div>
 
@@ -291,9 +286,18 @@ export function DesktopCheckout({
           </div>
 
           <div className="mt-3 rounded-md bg-bg p-3">
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-accent">
+            <div
+              className={
+                "flex items-center gap-1.5 text-[11px] font-semibold " +
+                (holdRemaining < 60 ? "text-danger animate-pulse" : "text-accent")
+              }
+            >
               <Icon name="zap" size={12} />
-              <span>Your seats are held for {formatHoldTimer(holdRemaining)}</span>
+              <span>
+                {holdRemaining <= 0
+                  ? "Your hold has expired. Restart checkout to continue."
+                  : `Your seats are held for ${formatHoldTimer(holdRemaining)}`}
+              </span>
             </div>
           </div>
 
@@ -309,14 +313,162 @@ export function DesktopCheckout({
             <p className="font-mono text-[10px] leading-relaxed text-ink-3">
               Encrypted payment · refund policy per organizer · contact us anytime.
             </p>
-            <Link
-              href="/help"
-              className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-accent"
-            >
-              Need help? <Icon name="chevR" size={10} />
-            </Link>
+            <div className="mt-1.5 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setGuaranteeOpen(true)}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent"
+              >
+                Buyer guarantee <Icon name="chevR" size={10} />
+              </button>
+              <Link
+                href="/help"
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent"
+              >
+                Need help? <Icon name="chevR" size={10} />
+              </Link>
+            </div>
           </div>
         </Card>
+      </div>
+      {guaranteeOpen && (
+        <DesktopBuyerGuaranteeModal onClose={() => setGuaranteeOpen(false)} />
+      )}
+    </div>
+  );
+}
+
+function DesktopHoldTimerLabel({ remaining }: { remaining: number }) {
+  const critical = remaining <= 0;
+  const low = remaining > 0 && remaining < 60;
+  return (
+    <span
+      className={
+        "inline-flex items-center gap-1 font-mono text-[11px] font-semibold uppercase " +
+        (critical
+          ? "text-danger"
+          : low
+          ? "text-danger animate-pulse"
+          : "text-accent")
+      }
+      aria-live="polite"
+    >
+      {low && !critical && (
+        <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-danger" />
+      )}
+      {critical ? "Hold expired" : `Holds for ${formatHoldTimer(remaining)}`}
+    </span>
+  );
+}
+
+function useHoldExtension(
+  remaining: number,
+  setRemaining: React.Dispatch<React.SetStateAction<number>>,
+  maxSeconds: number,
+) {
+  const bumpedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (remaining >= 60) {
+      bumpedRef.current = false;
+      return;
+    }
+    if (remaining <= 0 || bumpedRef.current) return;
+    const bump = () => {
+      if (bumpedRef.current) return;
+      bumpedRef.current = true;
+      setRemaining((s) => Math.min(maxSeconds, Math.max(s, 120)));
+    };
+    const opts: AddEventListenerOptions = { passive: true, once: true };
+    window.addEventListener("scroll", bump, opts);
+    window.addEventListener("pointerdown", bump, opts);
+    window.addEventListener("keydown", bump, opts);
+    return () => {
+      window.removeEventListener("scroll", bump, opts);
+      window.removeEventListener("pointerdown", bump, opts);
+      window.removeEventListener("keydown", bump, opts);
+    };
+  }, [remaining, setRemaining, maxSeconds]);
+}
+
+function DesktopBuyerGuaranteeModal({ onClose }: { onClose: () => void }) {
+  React.useEffect(() => {
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onEsc);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onEsc);
+      document.body.style.overflow = "";
+    };
+  }, [onClose]);
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="ticketiv-guarantee-desktop-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[520px] rounded-[var(--radius-lg)] bg-surface p-6 shadow-[var(--shadow-elev)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start">
+          <div className="flex-1">
+            <h2
+              id="ticketiv-guarantee-desktop-title"
+              className="text-[20px] font-semibold tracking-[-0.02em]"
+            >
+              Ticketiv buyer guarantee
+            </h2>
+            <p className="mt-1 text-[12px] text-ink-3">
+              Every booking is backed by a clear set of promises.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-line/60"
+          >
+            <Icon name="close" size={16} />
+          </button>
+        </div>
+        <ul className="mt-5 grid grid-cols-2 gap-3 text-[13px]">
+          {[
+            ["Authentic tickets", "Issued by the organizer — no resellers."],
+            ["Cancelled? Refunded.", "Full refund, automatic, within 7 days."],
+            ["Refund window honored", "We enforce the organizer's published policy."],
+            ["Encrypted payment", "Cards & mobile money, certified providers."],
+          ].map(([title, body]) => (
+            <li
+              key={title}
+              className="flex items-start gap-2.5 rounded-[var(--radius)] border border-line bg-bg p-3"
+            >
+              <Icon name="check" size={14} className="mt-0.5 shrink-0 text-success" />
+              <div>
+                <div className="font-semibold">{title}</div>
+                <div className="mt-0.5 text-[12px] text-ink-3">{body}</div>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-5 flex items-center gap-2">
+          <Link
+            href="/help"
+            className="flex-1 rounded-[var(--radius)] border border-line-2 px-3 py-2 text-center text-[13px] font-semibold hover:bg-bg"
+          >
+            Read full policy
+          </Link>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-[var(--radius)] bg-ink px-3 py-2 text-[13px] font-semibold text-white hover:bg-ink-2"
+          >
+            Got it
+          </button>
+        </div>
       </div>
     </div>
   );

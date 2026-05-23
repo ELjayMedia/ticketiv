@@ -296,8 +296,7 @@ export function DesktopEvent({ event = DEFAULT_EVENT }: DesktopEventProps) {
                 )}
               </div>
               <span className="font-mono text-[11px] text-ink-3">
-                @{event.organizer.handle} · {event.organizer.eventsHosted} events hosted · ★{" "}
-                {event.organizer.rating.toFixed(1)}
+                {formatDesktopOrganizerStats(event.organizer)}
               </span>
             </div>
             <Button variant="default" size="sm">
@@ -399,9 +398,85 @@ export function DesktopEvent({ event = DEFAULT_EVENT }: DesktopEventProps) {
             <button className="text-[12px] font-medium text-accent">View</button>
           </Card>
           )}
+
+          {/* Accepted payment methods */}
+          <Card className="mt-3 p-3.5" flat>
+            <div className="text-label mb-2">Accepted here</div>
+            <div className="flex items-center gap-1.5">
+              <DesktopPaymentTile label="Visa" tone="navy" />
+              <DesktopPaymentTile label="Mcard" tone="navy" />
+              <DesktopPaymentTile label="MTN" tone="amber" />
+              <DesktopPaymentTile label="EFT" tone="warm" />
+            </div>
+          </Card>
+
+          {/* Refund + transfer assurance */}
+          <Card className="mt-3 p-3.5" flat>
+            <div className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold">
+              <Icon name="check" size={14} className="text-success" />
+              Buyer assurance
+            </div>
+            <ul className="flex flex-col gap-1.5 text-[12px]">
+              <li className="flex items-start gap-2">
+                <Icon name="check" size={12} className="mt-1 shrink-0 text-success" />
+                <span>
+                  <span className="font-semibold">Refund window</span>{" "}
+                  <span className="text-ink-3">per organizer policy</span>
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Icon name="check" size={12} className="mt-1 shrink-0 text-success" />
+                <span>
+                  <span className="font-semibold">Free transfer</span>{" "}
+                  <span className="text-ink-3">to friends before doors</span>
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Icon name="check" size={12} className="mt-1 shrink-0 text-success" />
+                <span>
+                  <span className="font-semibold">QR + wallet entry</span>{" "}
+                  <span className="text-ink-3">offline-ready</span>
+                </span>
+              </li>
+            </ul>
+          </Card>
         </aside>
       </div>
     </div>
+  );
+}
+
+function formatDesktopOrganizerStats(o: DesktopEventData["organizer"]): string {
+  const parts = [`@${o.handle}`];
+  if (o.eventsHosted > 0) {
+    parts.push(`${o.eventsHosted} event${o.eventsHosted === 1 ? "" : "s"} hosted`);
+  }
+  if (o.rating > 0) parts.push(`★ ${o.rating.toFixed(1)}`);
+  return parts.join(" · ");
+}
+
+function DesktopPaymentTile({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: "navy" | "amber" | "warm";
+}) {
+  const cls =
+    tone === "navy"
+      ? "bg-[#1a1f71] text-white"
+      : tone === "amber"
+      ? "bg-[#ffcc00] text-ink"
+      : "bg-gradient-to-br from-[#ff5f00] to-[#f79e1b] text-white";
+  return (
+    <span
+      className={
+        "inline-flex h-[26px] min-w-[44px] items-center justify-center rounded px-2 font-mono text-[10px] font-bold tracking-wider " +
+        cls
+      }
+    >
+      {label}
+    </span>
   );
 }
 
