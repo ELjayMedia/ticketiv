@@ -3,19 +3,21 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { CheckCircle2, Loader2, AlertCircle, Building2, User } from "lucide-react"
+
+import { Button } from "@/components/quiet/ui/button"
+import { Card, CardBody } from "@/components/quiet/ui/card"
+import { FormField } from "@/components/quiet/ui/form"
+import { Icon } from "@/components/quiet/ui/icon"
+import { Segmented } from "@/components/quiet/ui/primitives"
+import { Logo } from "@/components/Logo"
+import { cn } from "@/lib/cn"
 import { getDemoSession, setDemoSession } from "@/lib/demo-auth"
+
+type Step = "org" | "profile"
 
 export default function OrganizerOnboardingPage() {
   const router = useRouter()
-  const [step, setStep] = useState<"org" | "profile">("org")
+  const [step, setStep] = useState<Step>("org")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
@@ -45,16 +47,13 @@ export default function OrganizerOnboardingPage() {
     { code: "AUD", symbol: "A$" },
   ]
 
-  const handleOrgNext = async (e: React.FormEvent) => {
+  const handleOrgNext = (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
-
     if (!orgName.trim()) {
       setError("Organization name is required")
       return
     }
-
-    // Move to profile step
     setStep("profile")
   }
 
@@ -69,271 +68,238 @@ export default function OrganizerOnboardingPage() {
         setError("Display name is required")
         return
       }
-
       if (!contactEmail.trim()) {
         setError("Contact email is required")
         return
       }
 
-      // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 1500))
 
-      // Generate orgId for demo
       const orgId = `org-${Date.now()}`
-
-      // Get current demo session and update it
       const currentSession = getDemoSession()
       if (currentSession) {
-        setDemoSession({
-          ...currentSession,
-          role: "organizer",
-          org_id: orgId,
-        })
+        setDemoSession({ ...currentSession, role: "organizer", org_id: orgId })
       }
 
-      // In production:
-      // 1. Create organization in Supabase
-      // 2. Add user as admin member
-      // 3. Create default settings
-      // 4. Redirect to event wizard
-
       setSuccess(true)
-
-      setTimeout(() => {
-        // Redirect to event creation with the new orgId
-        router.push(`/orgs/${orgId}/events/new`)
-      }, 1500)
+      setTimeout(() => router.push(`/orgs/${orgId}/events/new`), 1500)
     } catch (err: any) {
       setError(err.message || "An error occurred. Please try again.")
-      console.error("[v0] Onboarding error:", err)
     } finally {
       setLoading(false)
     }
   }
 
+  const selectClass =
+    "rounded-md border border-line-2 bg-surface px-3 py-2.5 text-[14px] font-medium text-ink outline-none transition-shadow duration-100 focus:border-accent focus:ring-[3px] focus:ring-accent-soft"
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted/50">
-      <div className="max-w-2xl mx-auto px-4 py-12">
-        {/* Header */}
-        <div className="mb-12 text-center">
-          <Link href="/" className="inline-flex items-center gap-2 mb-6 text-primary hover:opacity-80 transition-opacity">
-            <span className="text-sm font-medium">← Back to Home</span>
-          </Link>
-          <h1 className="text-3xl font-bold mb-2">Set Up Your Organization</h1>
-          <p className="text-muted-foreground">Just a couple of steps to start hosting events on Ticketiv</p>
+    <main className="mx-auto flex min-h-dvh max-w-2xl flex-col px-6 py-10">
+      <header className="flex items-center justify-between">
+        <Logo />
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 text-[13px] text-ink-3 underline-offset-4 hover:underline"
+        >
+          <Icon name="chevL" size={14} />
+          Back to home
+        </Link>
+      </header>
+
+      <section className="mt-12 flex flex-col gap-8">
+        <div>
+          <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Set up your organisation</p>
+          <h1 className="mt-3 text-[32px] font-semibold leading-[1.05] tracking-tight text-ink">
+            Two quick steps to start hosting.
+          </h1>
         </div>
 
-        {/* Stepper */}
-        <div className="mb-8">
-          <Tabs value={step} onValueChange={(v: any) => setStep(v)} className="w-full" disabled={loading}>
-            <TabsList className="grid w-full grid-cols-2 mb-8">
-              <TabsTrigger value="org" disabled={loading} className="gap-2">
-                <Building2 className="h-4 w-4" />
-                <span className="hidden sm:inline">Organization</span>
-              </TabsTrigger>
-              <TabsTrigger value="profile" disabled={loading || step === "org"} className="gap-2">
-                <User className="h-4 w-4" />
-                <span className="hidden sm:inline">Profile</span>
-              </TabsTrigger>
-            </TabsList>
+        <Segmented
+          options={[
+            { value: "org", label: "Organisation" },
+            { value: "profile", label: "Profile" },
+          ]}
+          value={step}
+          onChange={(next) => {
+            if (loading) return
+            if (next === "profile" && step === "org") return
+            setStep(next)
+          }}
+        />
 
-            {/* Step 1: Organization */}
-            <TabsContent value="org" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Organization Details</CardTitle>
-                  <CardDescription>Tell us about your organization</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleOrgNext} className="space-y-4">
-                    {error && step === "org" && (
-                      <Alert variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>{error}</AlertDescription>
-                      </Alert>
-                    )}
+        {step === "org" && (
+          <Card>
+            <CardBody className="flex flex-col gap-5">
+              <div className="flex flex-col gap-1">
+                <h2 className="text-h2">Organisation details</h2>
+                <p className="text-[13px] text-ink-3">Tell us about your organisation.</p>
+              </div>
 
-                    <div className="grid gap-2">
-                      <Label htmlFor="orgName">Organization Name *</Label>
-                      <Input
-                        id="orgName"
-                        placeholder="e.g., Sunset Festival Productions"
-                        value={orgName}
-                        onChange={(e) => setOrgName(e.target.value)}
-                        disabled={loading}
-                        required
-                      />
-                      <p className="text-xs text-muted-foreground">Your organization name will appear on event pages</p>
-                    </div>
+              <form onSubmit={handleOrgNext} className="flex flex-col gap-4">
+                {error && (
+                  <div role="alert" className="flex items-start gap-2 rounded-[var(--radius-md)] border border-danger/30 bg-danger-soft px-3 py-2.5 text-[12px] text-danger">
+                    <Icon name="close" size={14} className="mt-0.5" />
+                    <span>{error}</span>
+                  </div>
+                )}
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="country">Country</Label>
-                        <Select value={country} onValueChange={setCountry} disabled={loading}>
-                          <SelectTrigger id="country">
-                            <SelectValue placeholder="Select country" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {countries.map((c) => (
-                              <SelectItem key={c.code} value={c.code}>
-                                {c.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                <FormField
+                  label="Organisation name *"
+                  placeholder="e.g., Sunset Festival Productions"
+                  value={orgName}
+                  onChange={(e) => setOrgName(e.target.value)}
+                  disabled={loading}
+                  required
+                  hint="Your organisation name will appear on event pages."
+                />
 
-                      <div className="grid gap-2">
-                        <Label htmlFor="currency">Currency</Label>
-                        <Select value={currency} onValueChange={setCurrency} disabled={loading}>
-                          <SelectTrigger id="currency">
-                            <SelectValue placeholder="Select currency" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {currencies.map((c) => (
-                              <SelectItem key={c.code} value={c.code}>
-                                {c.symbol} {c.code}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <label className="flex flex-col gap-1">
+                    <span className="text-label">Country</span>
+                    <select
+                      value={country}
+                      onChange={(e) => setCountry(e.target.value)}
+                      disabled={loading}
+                      className={selectClass}
+                    >
+                      {countries.map((c) => (
+                        <option key={c.code} value={c.code}>{c.name}</option>
+                      ))}
+                    </select>
+                  </label>
 
-                    <div className="grid gap-2">
-                      <Label htmlFor="logo">Logo URL (optional)</Label>
-                      <Input
-                        id="logo"
-                        type="url"
-                        placeholder="https://example.com/logo.png"
-                        value={logoUrl}
-                        onChange={(e) => setLogoUrl(e.target.value)}
-                        disabled={loading}
-                      />
-                      <p className="text-xs text-muted-foreground">We'll display this on your event pages</p>
-                    </div>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-label">Currency</span>
+                    <select
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                      disabled={loading}
+                      className={selectClass}
+                    >
+                      {currencies.map((c) => (
+                        <option key={c.code} value={c.code}>{c.symbol} {c.code}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
 
-                    <div className="pt-4">
-                      <Button type="submit" className="w-full" disabled={loading}>
-                        Next: Profile Setup
-                      </Button>
-                    </div>
-                  </form>
-                </CardContent>
-              </Card>
-            </TabsContent>
+                <FormField
+                  label="Logo URL (optional)"
+                  type="url"
+                  placeholder="https://example.com/logo.png"
+                  value={logoUrl}
+                  onChange={(e) => setLogoUrl(e.target.value)}
+                  disabled={loading}
+                  hint="We’ll display this on your event pages."
+                />
 
-            {/* Step 2: Profile */}
-            <TabsContent value="profile" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Organizer Profile</CardTitle>
-                  <CardDescription>How should we contact you?</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleProfileSubmit} className="space-y-4">
-                    {error && step === "profile" && (
-                      <Alert variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>{error}</AlertDescription>
-                      </Alert>
-                    )}
+                <Button type="submit" variant="primary" size="md" disabled={loading} block>
+                  Next: profile setup
+                </Button>
+              </form>
+            </CardBody>
+          </Card>
+        )}
 
-                    {success && (
-                      <Alert className="border-green-500 bg-green-50 text-green-900">
-                        <CheckCircle2 className="h-4 w-4 text-green-600" />
-                        <AlertDescription>Organization created! Redirecting to event creation...</AlertDescription>
-                      </Alert>
-                    )}
+        {step === "profile" && (
+          <Card>
+            <CardBody className="flex flex-col gap-5">
+              <div className="flex flex-col gap-1">
+                <h2 className="text-h2">Organiser profile</h2>
+                <p className="text-[13px] text-ink-3">How should we contact you?</p>
+              </div>
 
-                    <div className="grid gap-2">
-                      <Label htmlFor="displayName">Display Name *</Label>
-                      <Input
-                        id="displayName"
-                        placeholder="Your name"
-                        value={displayName}
-                        onChange={(e) => setDisplayName(e.target.value)}
-                        disabled={loading || success}
-                        required
-                      />
-                      <p className="text-xs text-muted-foreground">How you'll be shown as the organizer</p>
-                    </div>
+              <form onSubmit={handleProfileSubmit} className="flex flex-col gap-4">
+                {error && (
+                  <div role="alert" className="flex items-start gap-2 rounded-[var(--radius-md)] border border-danger/30 bg-danger-soft px-3 py-2.5 text-[12px] text-danger">
+                    <Icon name="close" size={14} className="mt-0.5" />
+                    <span>{error}</span>
+                  </div>
+                )}
 
-                    <div className="grid gap-2">
-                      <Label htmlFor="contactEmail">Contact Email *</Label>
-                      <Input
-                        id="contactEmail"
-                        type="email"
-                        placeholder="contact@organizer.com"
-                        value={contactEmail}
-                        onChange={(e) => setContactEmail(e.target.value)}
-                        disabled={loading || success}
-                        required
-                      />
-                      <p className="text-xs text-muted-foreground">Attendees may contact you at this email</p>
-                    </div>
+                {success && (
+                  <div className="flex items-start gap-2 rounded-[var(--radius-md)] border border-line bg-bg px-3 py-2.5 text-[12px] text-ink-2">
+                    <Icon name="check" size={14} className="mt-0.5 text-success" />
+                    <span>Organisation created. Redirecting to event creation…</span>
+                  </div>
+                )}
 
-                    <div className="bg-muted/50 rounded-lg p-4 border border-muted">
-                      <div className="flex items-start gap-3">
-                        <input
-                          type="checkbox"
-                          id="skipPayouts"
-                          checked={skipPayouts}
-                          onChange={(e) => setSkipPayouts(e.target.checked)}
-                          disabled={loading || success}
-                          className="mt-1"
-                        />
-                        <label htmlFor="skipPayouts" className="flex-1">
-                          <p className="text-sm font-medium">Skip payout setup for now</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Payout setup can be completed later. You can add your bank details and complete payout configuration in your settings whenever you're ready.
-                          </p>
-                        </label>
-                      </div>
-                    </div>
+                <FormField
+                  label="Display name *"
+                  placeholder="Your name"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  disabled={loading || success}
+                  required
+                  hint="How you’ll be shown as the organiser."
+                />
 
-                    <div className="flex gap-3 pt-4">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setStep("org")}
-                        disabled={loading || success}
-                        className="flex-1"
-                      >
-                        Back
-                      </Button>
-                      <Button type="submit" disabled={loading || success} className="flex-1">
-                        {loading ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Creating...
-                          </>
-                        ) : success ? (
-                          <>
-                            <CheckCircle2 className="mr-2 h-4 w-4" />
-                            Done!
-                          </>
-                        ) : (
-                          "Complete Setup"
-                        )}
-                      </Button>
-                    </div>
-                  </form>
-                </CardContent>
-              </Card>
+                <FormField
+                  label="Contact email *"
+                  type="email"
+                  placeholder="contact@organizer.com"
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                  disabled={loading || success}
+                  required
+                  hint="Attendees may contact you at this email."
+                />
 
-              <Card className="bg-muted/30 border-muted">
-                <CardContent className="pt-6">
-                  <p className="text-sm text-muted-foreground">
-                    💡 <strong>Tip:</strong> After setup, you'll be taken directly to create your first event. You can
-                    always edit organization details later in settings.
-                  </p>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </div>
-    </div>
+                <label
+                  className={cn(
+                    "flex items-start gap-3 rounded-[var(--radius-md)] border border-line bg-bg p-3",
+                    (loading || success) && "opacity-60"
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={skipPayouts}
+                    onChange={(e) => setSkipPayouts(e.target.checked)}
+                    disabled={loading || success}
+                    className="mt-1 h-4 w-4 accent-[var(--color-accent)]"
+                  />
+                  <span className="flex flex-col gap-1">
+                    <span className="text-[13px] font-semibold text-ink">Skip payout setup for now</span>
+                    <span className="text-[12px] text-ink-3">
+                      Payout setup can be completed later. You can add your bank details and complete payout configuration in settings whenever you’re ready.
+                    </span>
+                  </span>
+                </label>
+
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="md"
+                    onClick={() => setStep("org")}
+                    disabled={loading || success}
+                    className="flex-1"
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="md"
+                    disabled={loading || success}
+                    className="flex-1"
+                  >
+                    {loading ? "Creating…" : success ? "Done" : "Complete setup"}
+                  </Button>
+                </div>
+              </form>
+            </CardBody>
+          </Card>
+        )}
+
+        <Card flat className="bg-bg">
+          <CardBody>
+            <p className="text-[12px] text-ink-3">
+              After setup, you’ll go directly to creating your first event. Organisation details remain editable in settings.
+            </p>
+          </CardBody>
+        </Card>
+      </section>
+    </main>
   )
 }

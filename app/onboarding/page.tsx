@@ -13,8 +13,6 @@ export default async function OnboardingPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect("/login")
 
-  // If they already completed onboarding, middleware should have caught this,
-  // but be defensive in case they navigate here directly.
   const { data: existing } = await supabase
     .from("user_handles")
     .select("handle")
@@ -22,7 +20,6 @@ export default async function OnboardingPage() {
     .maybeSingle()
   if (existing) redirect("/")
 
-  // Try both profile schema versions (user_id FK and id PK)
   const { data: profile } = await supabase
     .from("profiles")
     .select("display_name")
@@ -34,22 +31,17 @@ export default async function OnboardingPage() {
     })
 
   return (
-    <main className="relative z-10 mx-auto flex min-h-dvh max-w-md flex-col px-6 py-10">
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col px-6 py-10">
       <header>
         <Logo />
       </header>
 
-      <section data-reveal className="flex flex-1 flex-col justify-center pb-24 pt-12">
-        <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-ink-mute)]">
-          Last step
-        </p>
-        <h1
-          className="mt-3 font-[family-name:var(--font-display)] text-[2rem] leading-[1.1] tracking-tight text-[var(--color-ink)]"
-          style={{ fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}
-        >
+      <section className="flex flex-1 flex-col justify-center pb-24 pt-12">
+        <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Last step</p>
+        <h1 className="mt-3 text-[32px] font-semibold leading-[1.05] tracking-tight text-ink">
           Pick your handle.
         </h1>
-        <p className="mt-2 max-w-sm text-sm text-[var(--color-ink-soft)]">
+        <p className="mt-3 max-w-sm text-[14px] leading-6 text-ink-3">
           This is how friends will find you when sharing tickets and RSVPs.
         </p>
 

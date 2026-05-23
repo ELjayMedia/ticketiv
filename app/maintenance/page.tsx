@@ -1,56 +1,60 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Wrench, Clock, Twitter, Mail } from "lucide-react"
 import Link from "next/link"
+import { Card, CardBody } from "@/components/quiet/ui/card"
+import { Icon } from "@/components/quiet/ui/icon"
 
 export default function MaintenancePage() {
   return (
-    <div className="flex items-center justify-center min-h-screen p-4 bg-background">
+    <main className="flex min-h-dvh items-center justify-center p-6">
       <Card className="w-full max-w-lg">
-        <CardHeader className="text-center pb-4">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4 mx-auto">
-            <Wrench className="h-10 w-10 text-primary" />
-          </div>
-          <CardTitle className="text-2xl">We'll Be Right Back</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="text-center space-y-3">
-            <p className="text-muted-foreground">
+        <CardBody className="flex flex-col items-center gap-6 px-8 py-10 text-center">
+          <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-accent-soft text-accent">
+            <Icon name="settings" size={28} />
+          </span>
+
+          <div className="flex flex-col gap-2">
+            <h1 className="text-h1">We’ll be right back</h1>
+            <p className="text-[14px] text-ink-3">
               Ticketiv is currently undergoing scheduled maintenance to improve your experience.
             </p>
-            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>Expected downtime: 2 hours</span>
-            </div>
+            <p className="inline-flex items-center justify-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-3">
+              <Icon name="clock" size={14} />
+              Expected downtime · 2 hours
+            </p>
           </div>
 
-          <div className="bg-muted/50 p-4 rounded-lg space-y-3">
-            <h3 className="font-semibold text-sm">What's happening?</h3>
-            <ul className="text-sm text-muted-foreground space-y-2">
-              <li>• System upgrades and optimizations</li>
-              <li>• Database maintenance</li>
-              <li>• Performance improvements</li>
+          <div className="w-full rounded-[var(--radius-md)] border border-line bg-bg p-4 text-left">
+            <p className="text-h3">What’s happening?</p>
+            <ul className="mt-2 flex flex-col gap-1.5 text-[12px] text-ink-3">
+              <li>· System upgrades and optimisations</li>
+              <li>· Database maintenance</li>
+              <li>· Performance improvements</li>
             </ul>
           </div>
 
-          <div className="space-y-3 pt-2">
-            <Button variant="outline" asChild className="w-full bg-transparent">
-              <Link href="https://twitter.com/ticketiv" target="_blank">
-                <Twitter className="h-4 w-4 mr-2" />
-                Follow for Updates
-              </Link>
-            </Button>
-            <Button variant="ghost" asChild className="w-full">
-              <Link href="mailto:support@ticketiv.com">
-                <Mail className="h-4 w-4 mr-2" />
-                Contact Support
-              </Link>
-            </Button>
+          <div className="flex w-full flex-col gap-2">
+            <Link
+              href="https://twitter.com/ticketiv"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-transparent px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-bg"
+            >
+              <Icon name="globe" size={14} />
+              Follow for updates
+            </Link>
+            <Link
+              href="mailto:support@ticketiv.com"
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-[var(--radius)] border border-transparent bg-transparent px-4 py-2.5 text-sm font-semibold text-ink-2 transition-colors hover:bg-line/60"
+            >
+              <Icon name="fileText" size={14} />
+              Contact support
+            </Link>
           </div>
 
-          <p className="text-center text-xs text-muted-foreground pt-2">Thank you for your patience!</p>
-        </CardContent>
+          <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+            Thank you for your patience.
+          </p>
+        </CardBody>
       </Card>
-    </div>
+    </main>
   )
 }
