@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
-import { MobileEvent } from "@/components/quiet/screens/event-detail/mobile-event";
-import { DesktopEvent } from "@/components/quiet/screens/event-detail/desktop-event";
+import { LiveEventShell } from "@/components/quiet/screens/event-detail/live-event-shell";
 import { getPublicEventBySlug } from "@/lib/adapters/events";
 import { mapEventDetail, mapDesktopEventDetail } from "@/lib/mappers/event-detail";
 import type { EventLineupRow, EventFriendRow } from "@/lib/mappers/event-detail";
@@ -34,10 +33,11 @@ async function fetchEventExtras(eventId: string, organizerId: string | null) {
       attendeeCount: null as number | null,
       recentSoldCount: null as number | null,
       organizerEventsHosted: null as number | null,
+      liveStats: null as Record<string, unknown> | null,
     };
   }
 
-  const [ttRes, lineupRes, friendsRes, eventRes, trustRes, orgEventsRes] = await Promise.all([
+  const [ttRes, lineupRes, friendsRes, eventRes, liveStatsRes, orgEventsRes] = await Promise.all([
     supabase
       .from("ticket_types")
       .select("id, name, price_cents, quota")
@@ -52,7 +52,13 @@ async function fetchEventExtras(eventId: string, organizerId: string | null) {
       .select("friend_id, friend_name, friend_handle")
       .eq("event_id", eventId),
     supabase.from("events").select("refund_policy").eq("id", eventId).maybeSingle(),
-    fetchTrustSignals(supabase, eventId),
+    supabase
+      .from("event_live_stats")
+      .select(
+        "event_id,tickets_sold,tickets_available,gross_sales_cents,successful_payments,failed_payments,checked_in_count,last_order_at,last_scan_at,updated_at",
+      )
+      .eq("event_id", eventId)
+      .maybeSingle(),
     organizerId
       ? supabase
           .from("events")
@@ -75,37 +81,10 @@ async function fetchEventExtras(eventId: string, organizerId: string | null) {
     organizerEventsHosted: orgEventsRes && "error" in orgEventsRes && orgEventsRes.error
       ? null
       : orgEventsRes?.count ?? null,
-    ...trustRes,
-  };
-}
-
-type SupabaseLike = NonNullable<Awaited<ReturnType<typeof createServerSupabaseClient>>>;
-
-/**
- * Best-effort fetch of public trust signals. We don't fail the page when the
- * orders/order_items tables are out of RLS reach — the UI simply hides any
- * count we can't compute.
- */
-async function fetchTrustSignals(supabase: SupabaseLike, eventId: string) {
-  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const [soldRes, recentRes] = await Promise.all([
-    supabase
-      .from("order_items")
-      .select("id, order:order_id!inner(buyer_id, status, event_id)", { count: "exact", head: true })
-      .eq("order.event_id", eventId)
-      .eq("order.status", "paid"),
-    supabase
-      .from("order_items")
-      .select("id, order:order_id!inner(status, event_id, created_at)", { count: "exact", head: true })
-      .eq("order.event_id", eventId)
-      .eq("order.status", "paid")
-      .gte("order.created_at", dayAgo),
-  ]);
-
-  return {
-    soldCount: soldRes.error ? null : soldRes.count ?? null,
-    attendeeCount: soldRes.error ? null : soldRes.count ?? null,
-    recentSoldCount: recentRes.error ? null : recentRes.count ?? null,
+    soldCount: liveStatsRes.data?.tickets_sold ?? null,
+    attendeeCount: liveStatsRes.data?.tickets_sold ?? null,
+    recentSoldCount: null as number | null,
+    liveStats: liveStatsRes.data ?? null,
   };
 }
 
@@ -127,6 +106,7 @@ export default async function EventDetailPage({
     attendeeCount,
     recentSoldCount,
     organizerEventsHosted,
+    liveStats,
   } = await fetchEventExtras(row.id, row.organizer_id ?? null);
 
   const trust = {
@@ -147,13 +127,6 @@ export default async function EventDetailPage({
   });
 
   return (
-    <>
-      <div className="h-dvh md:hidden">
-        <MobileEvent event={mobile} />
-      </div>
-      <div className="hidden md:block">
-        <DesktopEvent event={desktop} />
-      </div>
-    </>
+    <LiveEventShell eventId={row.id} mobile={mobile} desktop={desktop} initialStats={liveStats} />
   );
 }
