@@ -5,11 +5,10 @@ import type React from "react"
 import { useState } from "react"
 import Link from "next/link"
 
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Label } from "@/components/ui/label"
-import { Ticket, AlertCircle, CheckCircle2, Loader2, ArrowLeft } from "lucide-react"
+import { Button } from "@/components/quiet/ui/button"
+import { FormField } from "@/components/quiet/ui/form"
+import { Icon } from "@/components/quiet/ui/icon"
+import { Logo } from "@/components/Logo"
 import { createClient } from "@/lib/supabase"
 
 export default function ForgotPasswordPage() {
@@ -49,13 +48,11 @@ export default function ForgotPasswordPage() {
 
       if (resetError) {
         setError(resetError.message || "Failed to send reset email")
-        console.error("[v0] Password reset error:", resetError)
         return
       }
 
       setSuccess(true)
     } catch (err: any) {
-      console.error("[v0] Password reset exception:", err)
       setError(err.message || "An unexpected error occurred")
     } finally {
       setLoading(false)
@@ -63,88 +60,66 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="container relative min-h-screen flex-col items-center justify-center grid lg:max-w-none lg:grid-cols-2 lg:px-0">
-      {/* Left side - Brand/Image section */}
-      <div className="relative hidden h-full flex-col bg-muted p-10 text-white lg:flex dark:border-r">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/90 to-primary/80" />
-        <div className="relative z-20 flex items-center text-lg font-medium">
-          <Ticket className="mr-2 h-6 w-6" />
-          Ticketiv
-        </div>
-        <div className="relative z-20 mt-auto">
-          <blockquote className="space-y-2">
-            <p className="text-lg">
-              "We'll help you get back into your account. Enter your email address and we'll send you a secure reset
-              link."
-            </p>
-            <footer className="text-sm">Account Recovery</footer>
-          </blockquote>
-        </div>
-      </div>
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col px-6 py-10">
+      <header className="flex items-center justify-between">
+        <Link href="/" aria-label="Back to home">
+          <Logo />
+        </Link>
+      </header>
 
-      {/* Right side - Reset form */}
-      <div className="lg:p-8">
-        <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
-          <div className="flex flex-col space-y-2 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight">Reset password</h1>
-            <p className="text-sm text-muted-foreground">Enter your email and we'll send you a reset link</p>
-          </div>
+      <section className="flex flex-1 flex-col justify-center pb-24 pt-12">
+        <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Account recovery</p>
+        <h1 className="mt-3 text-[32px] font-semibold leading-[1.05] tracking-tight text-ink">
+          Reset your password.
+        </h1>
+        <p className="mt-3 text-[14px] leading-6 text-ink-3">
+          Enter the email on your account and we’ll send a secure reset link.
+        </p>
 
-          <div className="grid gap-6">
-            {!success ? (
-              <form onSubmit={handleSubmit}>
-                <div className="grid gap-4">
-                  {error && (
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                  )}
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="name@example.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      disabled={loading}
-                      autoComplete="email"
-                      required
-                    />
-                  </div>
-
-                  <Button type="submit" disabled={loading}>
-                    {loading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Sending reset link...
-                      </>
-                    ) : (
-                      "Send reset link"
-                    )}
-                  </Button>
-                </div>
-              </form>
-            ) : (
-              <Alert className="border-green-500 bg-green-50 text-green-900">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <AlertDescription>
-                  Password reset link sent! Check your email inbox and follow the instructions.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <div className="text-center text-sm">
-              <Link href="/login" className="underline underline-offset-4 hover:text-primary inline-flex items-center">
-                <ArrowLeft className="mr-1 h-4 w-4" />
-                Back to login
-              </Link>
+        {success ? (
+          <div className="mt-8 flex items-start gap-3 rounded-[var(--radius-md)] border border-line bg-bg p-4">
+            <Icon name="check" size={16} className="mt-0.5 text-success" />
+            <div className="flex flex-col gap-1">
+              <p className="text-[14px] font-semibold text-ink">Reset link sent.</p>
+              <p className="text-[13px] text-ink-3">
+                Check your inbox and follow the instructions. The link expires shortly — open it on the same device.
+              </p>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">
+            {error && (
+              <div role="alert" className="flex items-start gap-2 rounded-[var(--radius-md)] border border-danger/30 bg-danger-soft px-3 py-2.5 text-[12px] text-danger">
+                <Icon name="close" size={14} className="mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <FormField
+              label="Email"
+              type="email"
+              placeholder="name@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={loading}
+              autoComplete="email"
+              required
+            />
+
+            <Button type="submit" variant="primary" size="md" disabled={loading} block>
+              {loading ? "Sending reset link…" : "Send reset link"}
+            </Button>
+          </form>
+        )}
+
+        <Link
+          href="/login"
+          className="mt-8 inline-flex items-center gap-1.5 self-start text-[13px] text-ink-3 underline-offset-4 hover:underline"
+        >
+          <Icon name="chevL" size={14} />
+          Back to login
+        </Link>
+      </section>
+    </main>
   )
 }

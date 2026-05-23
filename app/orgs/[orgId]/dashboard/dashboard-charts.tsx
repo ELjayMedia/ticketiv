@@ -4,7 +4,8 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+
+import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 
 interface KpiRow {
   event_title: string
@@ -15,6 +16,34 @@ interface KpiRow {
 
 interface DashboardChartsProps {
   kpis: KpiRow[]
+}
+
+function ChartCard({
+  title,
+  description,
+  children,
+}: {
+  title: string
+  description: string
+  children: React.ReactNode
+}) {
+  return (
+    <Card>
+      <CardBody className="flex flex-col gap-1 px-5 py-4">
+        <p className="text-h3">{title}</p>
+        <p className="text-[12px] text-ink-3">{description}</p>
+      </CardBody>
+      <CardDivider />
+      <CardBody>{children}</CardBody>
+    </Card>
+  )
+}
+
+const tooltipStyle = {
+  backgroundColor: "var(--color-surface)",
+  border: "1px solid var(--color-line-2)",
+  borderRadius: "var(--radius-md)",
+  fontSize: 12,
 }
 
 export default function DashboardCharts({ kpis }: DashboardChartsProps) {
@@ -32,65 +61,47 @@ export default function DashboardCharts({ kpis }: DashboardChartsProps) {
   }))
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Tickets Sold by Event</CardTitle>
-          <CardDescription>Top events by ticket sales</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis dataKey="name" className="text-xs" />
-              <YAxis className="text-xs" />
-              <Tooltip contentStyle={{ backgroundColor: "var(--background)", border: "1px solid var(--border)" }} />
-              <Bar dataKey="tickets" fill="#3b82f6" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <ChartCard title="Tickets sold by event" description="Top events by ticket sales">
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-line)" />
+            <XAxis dataKey="name" tick={{ fontSize: 11, fill: "var(--color-ink-3)" }} />
+            <YAxis tick={{ fontSize: 11, fill: "var(--color-ink-3)" }} />
+            <Tooltip contentStyle={tooltipStyle} />
+            <Bar dataKey="tickets" fill="var(--color-accent)" radius={[8, 8, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCard>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Revenue by Event</CardTitle>
-          <CardDescription>Total revenue per event</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis dataKey="name" className="text-xs" />
-              <YAxis className="text-xs" />
-              <Tooltip
-                contentStyle={{ backgroundColor: "var(--background)", border: "1px solid var(--border)" }}
-                formatter={(value: number) => `$${value.toLocaleString()}`}
-              />
-              <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+      <ChartCard title="Revenue by event" description="Total revenue per event">
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-line)" />
+            <XAxis dataKey="name" tick={{ fontSize: 11, fill: "var(--color-ink-3)" }} />
+            <YAxis tick={{ fontSize: 11, fill: "var(--color-ink-3)" }} />
+            <Tooltip
+              contentStyle={tooltipStyle}
+              formatter={(value: number) => `$${value.toLocaleString()}`}
+            />
+            <Line type="monotone" dataKey="revenue" stroke="var(--color-success)" strokeWidth={2} />
+          </LineChart>
+        </ResponsiveContainer>
+      </ChartCard>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Attendance by Event</CardTitle>
-          <CardDescription>Check-in vs No Show</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={attendanceData}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis dataKey="name" className="text-xs" />
-              <YAxis className="text-xs" />
-              <Tooltip contentStyle={{ backgroundColor: "var(--background)", border: "1px solid var(--border)" }} />
-              <Legend />
-              <Bar dataKey="attended" fill="#10b981" name="Checked In" radius={[8, 8, 0, 0]} />
-              <Bar dataKey="notAttended" fill="#f3f4f6" name="No Show" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+      <ChartCard title="Attendance by event" description="Check-in vs no-show">
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={attendanceData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-line)" />
+            <XAxis dataKey="name" tick={{ fontSize: 11, fill: "var(--color-ink-3)" }} />
+            <YAxis tick={{ fontSize: 11, fill: "var(--color-ink-3)" }} />
+            <Tooltip contentStyle={tooltipStyle} />
+            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Bar dataKey="attended" fill="var(--color-success)" name="Checked in" radius={[8, 8, 0, 0]} />
+            <Bar dataKey="notAttended" fill="var(--color-line-2)" name="No show" radius={[8, 8, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCard>
     </div>
   )
 }

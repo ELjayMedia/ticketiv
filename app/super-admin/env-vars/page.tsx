@@ -7,17 +7,16 @@ export default async function EnvVarsPage() {
   const { user } = await requireAdminRole(["super_admin"])
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5">
-      <section className="rounded-2xl border bg-card p-5 shadow-sm md:flex md:items-end md:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Super admin control</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight">Environment Variables</h1>
-          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Read, create, update and delete the Vercel environment variables for the Ticketiv project.
-            Secret values are never shown.
+    <div className="mx-auto flex max-w-7xl flex-col gap-5">
+      <section className="flex flex-col gap-3 rounded-[var(--radius-xl)] border border-line bg-surface p-5 shadow-[var(--shadow-card)] md:flex-row md:items-end md:justify-between">
+        <div className="flex flex-col gap-2">
+          <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Super admin control</p>
+          <h1 className="text-h1">Environment variables</h1>
+          <p className="max-w-2xl text-[13px] text-ink-3">
+            Read, create, update and delete the Vercel environment variables for the Ticketiv project. Secret values are never shown.
           </p>
         </div>
-        <p className="mt-4 rounded-full border px-3 py-1.5 text-xs text-muted-foreground md:mt-0">
+        <p className="w-fit rounded-full border border-line bg-bg px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-3">
           Signed in as {user.email ?? "Super Admin"}
         </p>
       </section>

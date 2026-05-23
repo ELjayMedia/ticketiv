@@ -3,13 +3,11 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { AlertCircle, ArrowRight, CheckCircle2, Mail, ShieldCheck } from "lucide-react"
 
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Button } from "@/components/quiet/ui/button"
+import { Card, CardBody } from "@/components/quiet/ui/card"
+import { FormField } from "@/components/quiet/ui/form"
+import { Icon } from "@/components/quiet/ui/icon"
 import { createClient } from "@/lib/supabase/client"
 
 type AuthMode = "login" | "signup"
@@ -123,83 +121,79 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border bg-card/70 p-4 text-sm text-muted-foreground">
-        <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">
-          <ShieldCheck className="h-3.5 w-3.5" />
-          {copy.badge}
-        </div>
-        <ol className="grid gap-2 text-xs leading-5 sm:grid-cols-3">
-          <li><span className="font-medium text-foreground">1.</span> Enter email</li>
-          <li><span className="font-medium text-foreground">2.</span> Get code</li>
-          <li><span className="font-medium text-foreground">3.</span> Verify ID</li>
-        </ol>
-      </div>
+    <div className="flex flex-col gap-6">
+      <Card flat className="bg-bg">
+        <CardBody className="flex flex-col gap-3">
+          <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 font-mono text-[11px] font-medium uppercase tracking-wider text-ink-3">
+            {copy.badge}
+          </span>
+          <ol className="grid gap-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-3 sm:grid-cols-3">
+            <li><span className="font-semibold text-ink">1.</span> Enter email</li>
+            <li><span className="font-semibold text-ink">2.</span> Get code</li>
+            <li><span className="font-semibold text-ink">3.</span> Verify ID</li>
+          </ol>
+        </CardBody>
+      </Card>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-5">
-        <div className="space-y-2">
-          <Label htmlFor="email-input">Email address</Label>
-          <div className="relative">
-            <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              id="email-input"
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => { setEmail(e.target.value); setError(null) }}
-              required
-              className="h-12 rounded-xl pl-10"
-            />
-          </div>
-          <p className="text-xs text-muted-foreground">We’ll send a 6-digit code to this inbox.</p>
-        </div>
+        <FormField
+          label="Email address"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          placeholder="you@example.com"
+          value={email}
+          onChange={(e) => { setEmail(e.target.value); setError(null) }}
+          required
+          hint="We’ll send a 6-digit code to this inbox."
+        />
 
-        <div className="space-y-2 text-xs leading-5 text-muted-foreground">
+        <div className="flex flex-col gap-1.5 text-[12px] leading-5 text-ink-3">
           <p>{copy.help}</p>
           <p>{copy.note}</p>
         </div>
 
         {mode === "signup" && (
-          <Alert className="rounded-xl">
-            <CheckCircle2 className="h-4 w-4" />
-            <AlertDescription>
-              No password needed for now. Your email becomes the first identity attached to your Ticketiv profile.
-            </AlertDescription>
-          </Alert>
+          <div className="flex items-start gap-2 rounded-[var(--radius-md)] border border-line bg-bg px-3 py-2.5 text-[12px] text-ink-2">
+            <Icon name="check" size={14} className="mt-0.5 text-accent" />
+            <span>No password needed for now. Your email becomes the first identity attached to your Ticketiv profile.</span>
+          </div>
         )}
 
         {error && (
-          <Alert variant="destructive" className="rounded-xl">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
+          <div role="alert" className="flex items-start gap-2 rounded-[var(--radius-md)] border border-danger/30 bg-danger-soft px-3 py-2.5 text-[12px] text-danger">
+            <Icon name="close" size={14} className="mt-0.5" />
+            <span>{error}</span>
+          </div>
         )}
 
-        <Button type="submit" disabled={busy || !email} className="h-12 w-full rounded-xl" size="lg">
-          {busy ? copy.busy : copy.submit} <ArrowRight className="ml-2 h-4 w-4" />
+        <Button type="submit" variant="primary" size="md" disabled={busy || !email} block>
+          {busy ? copy.busy : copy.submit}
+          <Icon name="arrowR" size={14} />
         </Button>
       </form>
 
       {mode === "signup" && (
-        <Card className="rounded-2xl bg-muted/40">
-          <CardContent className="space-y-3 p-4">
-            <p className="text-sm font-semibold">What your Ticketiv ID can unlock</p>
+        <Card flat className="bg-bg">
+          <CardBody className="flex flex-col gap-3">
+            <p className="text-h3">What your Ticketiv ID can unlock</p>
             <div className="grid gap-2">
               {ROLE_CARDS.map((role) => (
-                <div key={role.label} className="rounded-xl bg-background/80 p-3">
-                  <p className="text-sm font-medium">{role.label}</p>
-                  <p className="text-xs text-muted-foreground">{role.description}</p>
+                <div key={role.label} className="rounded-[var(--radius-md)] border border-line bg-surface p-3">
+                  <p className="text-[13px] font-semibold text-ink">{role.label}</p>
+                  <p className="text-[12px] text-ink-3">{role.description}</p>
                 </div>
               ))}
             </div>
-          </CardContent>
+          </CardBody>
         </Card>
       )}
 
-      <p className="text-center text-sm text-muted-foreground">
-        {copy.alternate} <Link href={copy.alternateHref} className="font-medium text-primary underline-offset-4 hover:underline">{copy.alternateCta}</Link>
+      <p className="text-center text-[13px] text-ink-3">
+        {copy.alternate}{" "}
+        <Link href={copy.alternateHref} className="font-semibold text-ink underline-offset-4 hover:underline">
+          {copy.alternateCta}
+        </Link>
       </p>
     </div>
   )

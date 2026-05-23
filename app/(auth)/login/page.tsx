@@ -7,15 +7,17 @@ export const metadata = { title: "Log in" }
 
 export default function LoginPage() {
   return (
-    <main className="relative z-10 mx-auto grid min-h-dvh max-w-[1100px] gap-8 px-6 py-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:py-12">
-      <section className="hidden rounded-[2rem] border bg-card/80 p-10 shadow-sm backdrop-blur lg:block">
+    <main className="mx-auto grid min-h-dvh max-w-[1100px] gap-8 px-6 py-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:py-12">
+      <section className="hidden rounded-[var(--radius-xl)] border border-line bg-surface p-10 shadow-[var(--shadow-card)] lg:block">
         <Link href="/" aria-label="Back to home" className="inline-flex">
           <Logo />
         </Link>
         <div className="mt-16">
-          <p className="text-sm font-medium uppercase tracking-[0.2em] text-primary">Welcome back</p>
-          <h1 className="mt-4 text-5xl font-bold leading-tight tracking-tight">Log in to your Ticketiv ID.</h1>
-          <p className="mt-5 max-w-md text-muted-foreground">
+          <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Welcome back</p>
+          <h1 className="mt-3 text-[40px] font-semibold leading-[1.05] tracking-tight text-ink">
+            Log in to your Ticketiv ID.
+          </h1>
+          <p className="mt-5 max-w-md text-[14px] leading-6 text-ink-3">
             Access your tickets, event tools, scanning permissions and talent profiles through the same Supabase Auth UUID.
           </p>
         </div>
@@ -28,10 +30,12 @@ export default function LoginPage() {
           </Link>
         </header>
 
-        <div data-reveal>
-          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Log in</p>
-          <h1 className="mt-3 text-[2.35rem] font-bold leading-[1.05] tracking-tight">Let’s get you in.</h1>
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+        <div>
+          <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Log in</p>
+          <h1 className="mt-3 text-[32px] font-semibold leading-[1.05] tracking-tight text-ink">
+            Let’s get you in.
+          </h1>
+          <p className="mt-3 text-[14px] leading-6 text-ink-3">
             Use your email address. Login will not create a new account.
           </p>
 

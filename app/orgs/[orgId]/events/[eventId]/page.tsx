@@ -1,12 +1,12 @@
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
-import { getDemoEventById } from "@/lib/demo-data"
-import { EventManagementTabs } from "@/components/event-management-tabs"
-import { requireOrganizerEventManager } from "@/lib/org-management"
-import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
+
+import { Card } from "@/components/quiet/ui/card"
+import { Icon } from "@/components/quiet/ui/icon"
+import { EventManagementTabs } from "@/components/event-management-tabs"
+import { getDemoEventById } from "@/lib/demo-data"
+import { requireOrganizerEventManager } from "@/lib/org-management"
 
 export const dynamic = "force-dynamic"
 
@@ -27,11 +27,8 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
   if (demoSessionCookie) {
     try {
       event = getDemoEventById(eventId)
-      if (!event) {
-        return redirect("/403")
-      }
-    } catch (error) {
-      console.error("[v0] Failed to load demo event:", error)
+      if (!event) return redirect("/403")
+    } catch {
       return redirect("/403")
     }
   } else {
@@ -40,38 +37,35 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
   }
 
   return (
-    <main className="flex-1 overflow-auto bg-background">
-      <div className="container mx-auto p-6 space-y-6">
-        {/* Header with back button */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <Button variant="ghost" asChild className="mb-4 -ml-2">
-              <Link href={`/orgs/${orgId}/events`} className="gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                Back to Events
-              </Link>
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-foreground">{event.title}</h1>
-              <p className="text-muted-foreground mt-1">{event.description}</p>
-            </div>
-          </div>
+    <main className="flex-1 overflow-auto">
+      <div className="container mx-auto flex flex-col gap-6 p-6">
+        <div>
+          <Link
+            href={`/orgs/${orgId}/events`}
+            className="inline-flex items-center gap-1.5 text-[13px] text-ink-3 underline-offset-4 hover:underline"
+          >
+            <Icon name="chevL" size={14} />
+            Back to events
+          </Link>
+          <h1 className="mt-4 text-h1">{event.title}</h1>
+          {event.description && (
+            <p className="mt-1 text-[14px] text-ink-3">{event.description}</p>
+          )}
         </div>
 
-        {/* Event Image Preview */}
         {event.cover_image_url && (
           <Card className="overflow-hidden">
-            <div className="w-full h-64 bg-gradient-to-br from-primary/20 to-accent/20 overflow-hidden">
+            <div className="h-64 w-full overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={event.cover_image_url}
                 alt={event.title}
-                className="w-full h-full object-cover"
+                className="h-full w-full object-cover"
               />
             </div>
           </Card>
         )}
 
-        {/* Management Tabs */}
         <EventManagementTabs eventId={eventId} orgId={orgId} event={event} />
       </div>
     </main>

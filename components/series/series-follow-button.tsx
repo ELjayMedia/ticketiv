@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Bell, Check } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
+
+import { Button } from "@/components/quiet/ui/button"
+import { Icon } from "@/components/quiet/ui/icon"
 import { toggleSeriesFollow } from "@/app/(public)/series/[slug]/actions"
 
 interface SeriesFollowButtonProps {
@@ -45,23 +46,14 @@ export function SeriesFollowButton({
   return (
     <Button
       type="button"
-      variant={following ? "secondary" : "default"}
+      variant={following ? "outline" : "primary"}
       size="sm"
       onClick={handleClick}
       disabled={isPending}
       aria-pressed={following}
     >
-      {following ? (
-        <>
-          <Check className="mr-1.5 h-4 w-4" aria-hidden="true" />
-          Following
-        </>
-      ) : (
-        <>
-          <Bell className="mr-1.5 h-4 w-4" aria-hidden="true" />
-          Follow
-        </>
-      )}
+      <Icon name={following ? "check" : "bell"} size={14} />
+      {following ? "Following" : "Follow"}
     </Button>
   )
 }

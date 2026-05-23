@@ -1,15 +1,18 @@
 import { revalidatePath } from "next/cache"
-import { CheckCircle2, Plus } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import { Button } from "@/components/quiet/ui/button"
+import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
+import { FormField } from "@/components/quiet/ui/form"
+import { Icon } from "@/components/quiet/ui/icon"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { requireSuperAdmin } from "@/lib/super-admin/auth"
 
 export const metadata = { title: "Event Categories" }
 
 type SearchParams = Promise<{ status?: string }>
+
+const textareaClass =
+  "min-h-20 w-full resize-none rounded-md border border-line-2 bg-surface px-3 py-2.5 text-[14px] font-medium text-ink placeholder:text-ink-4 outline-none transition-shadow duration-100 focus:border-accent focus:ring-[3px] focus:ring-accent-soft"
 
 function slugify(value: string) {
   return value
@@ -75,7 +78,11 @@ async function updateCategoryAction(formData: FormData) {
   revalidatePath("/browse")
 }
 
-export default async function EventCategoriesPage({ searchParams }: { searchParams?: SearchParams }) {
+export default async function EventCategoriesPage({
+  searchParams,
+}: {
+  searchParams?: SearchParams
+}) {
   const user = await requireSuperAdmin()
   const query = searchParams ? await searchParams : {}
   const admin = createAdminClient()
@@ -89,91 +96,106 @@ export default async function EventCategoriesPage({ searchParams }: { searchPara
   if (error) throw new Error(error.message)
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5">
-      <section className="rounded-2xl border bg-card p-5 shadow-sm md:flex md:items-end md:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Super admin control</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight">Event Categories</h1>
-          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+    <div className="mx-auto flex max-w-7xl flex-col gap-5">
+      <section className="flex flex-col gap-3 rounded-[var(--radius-xl)] border border-line bg-surface p-5 shadow-[var(--shadow-card)] md:flex-row md:items-end md:justify-between">
+        <div className="flex flex-col gap-2">
+          <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Super admin control</p>
+          <h1 className="text-h1">Event categories</h1>
+          <p className="max-w-2xl text-[13px] text-ink-3">
             Manage the official category list used by organizers when creating events and by attendees when browsing.
           </p>
         </div>
-        <p className="mt-4 rounded-full border px-3 py-1.5 text-xs text-muted-foreground md:mt-0">
+        <p className="w-fit rounded-full border border-line bg-bg px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-3">
           Signed in as {user.email ?? "Super Admin"}
         </p>
       </section>
 
       {query.status === "saved" ? (
-        <div className="flex items-center gap-2 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          <CheckCircle2 className="h-4 w-4" /> Category saved successfully.
+        <div className="flex items-center gap-2 rounded-[var(--radius-md)] border border-success/30 bg-success/10 px-4 py-3 text-[13px] text-success">
+          <Icon name="check" size={14} /> Category saved successfully.
         </div>
       ) : null}
 
       <section className="grid gap-6 xl:grid-cols-[0.85fr_1.5fr]">
-        <Card className="rounded-2xl">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base"><Plus className="h-4 w-4" /> Create category</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <Card>
+          <CardBody className="px-5 py-4">
+            <p className="inline-flex items-center gap-2 text-h3">
+              <Icon name="plus" size={16} className="text-ink-3" />
+              Create category
+            </p>
+          </CardBody>
+          <CardDivider />
+          <CardBody className="p-5">
             <form action={createCategoryAction} className="grid gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="new-name">Name</label>
-                <Input id="new-name" name="name" placeholder="Music" required className="h-11 rounded-full" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="new-slug">Slug</label>
-                <Input id="new-slug" name="slug" placeholder="music" className="h-11 rounded-full" />
-                <p className="text-xs text-muted-foreground">Leave blank to generate from the name.</p>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="new-description">Description</label>
-                <textarea id="new-description" name="description" className="min-h-24 w-full rounded-2xl border bg-background px-4 py-3 text-sm" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="new-sort-order">Sort order</label>
-                <Input id="new-sort-order" name="sort_order" type="number" defaultValue={100} className="h-11 rounded-full" />
-              </div>
-              <label className="flex items-center gap-3 rounded-full border px-4 py-3 text-sm">
-                <input name="is_active" type="checkbox" defaultChecked /> Active
+              <FormField label="Name" name="name" placeholder="Music" required />
+              <FormField
+                label="Slug"
+                name="slug"
+                placeholder="music"
+                hint="Leave blank to generate from the name."
+              />
+              <label className="flex flex-col gap-1">
+                <span className="text-label">Description</span>
+                <textarea name="description" className={`${textareaClass} min-h-24`} />
               </label>
-              <Button type="submit" className="rounded-full">Create category</Button>
+              <FormField label="Sort order" name="sort_order" type="number" defaultValue={100} />
+              <label className="flex cursor-pointer items-center gap-3 rounded-full border border-line-2 bg-surface px-4 py-2.5 text-[13px] font-medium text-ink">
+                <input
+                  name="is_active"
+                  type="checkbox"
+                  defaultChecked
+                  className="h-4 w-4 accent-[var(--color-accent)]"
+                />
+                Active
+              </label>
+              <Button type="submit" variant="primary" size="md">
+                Create category
+              </Button>
             </form>
-          </CardContent>
+          </CardBody>
         </Card>
 
-        <Card className="rounded-2xl">
-          <CardHeader>
-            <CardTitle className="text-base">Managed categories</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+        <Card>
+          <CardBody className="px-5 py-4">
+            <p className="text-h3">Managed categories</p>
+          </CardBody>
+          <CardDivider />
+          <CardBody className="flex flex-col gap-3 p-5">
             {(data ?? []).map((category) => (
-              <form key={category.id} action={updateCategoryAction} className="grid gap-3 rounded-2xl border p-4 lg:grid-cols-[1fr_1fr_0.45fr_auto] lg:items-end">
+              <form
+                key={category.id}
+                action={updateCategoryAction}
+                className="grid gap-3 rounded-[var(--radius-md)] border border-line p-4 lg:grid-cols-[1fr_1fr_0.45fr_auto] lg:items-end"
+              >
                 <input type="hidden" name="id" value={category.id} />
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-muted-foreground">Name</label>
-                  <Input name="name" defaultValue={category.name} className="h-10 rounded-full" required />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-muted-foreground">Slug</label>
-                  <Input name="slug" defaultValue={category.slug} className="h-10 rounded-full" required />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-muted-foreground">Sort</label>
-                  <Input name="sort_order" type="number" defaultValue={category.sort_order} className="h-10 rounded-full" />
-                </div>
-                <label className="flex h-10 items-center gap-2 rounded-full border px-3 text-sm">
-                  <input name="is_active" type="checkbox" defaultChecked={category.is_active} /> Active
+                <FormField label="Name" name="name" defaultValue={category.name} required />
+                <FormField label="Slug" name="slug" defaultValue={category.slug} required />
+                <FormField label="Sort" name="sort_order" type="number" defaultValue={category.sort_order} />
+                <label className="flex h-10 cursor-pointer items-center gap-2 self-end rounded-full border border-line-2 bg-surface px-3 text-[13px] font-medium text-ink">
+                  <input
+                    name="is_active"
+                    type="checkbox"
+                    defaultChecked={category.is_active}
+                    className="h-4 w-4 accent-[var(--color-accent)]"
+                  />
+                  Active
                 </label>
-                <div className="space-y-2 lg:col-span-4">
-                  <label className="text-xs font-medium text-muted-foreground">Description</label>
-                  <textarea name="description" defaultValue={category.description ?? ""} className="min-h-20 w-full rounded-2xl border bg-background px-4 py-3 text-sm" />
-                </div>
+                <label className="flex flex-col gap-1 lg:col-span-4">
+                  <span className="text-label">Description</span>
+                  <textarea
+                    name="description"
+                    defaultValue={category.description ?? ""}
+                    className={textareaClass}
+                  />
+                </label>
                 <div className="flex justify-end lg:col-span-4">
-                  <Button type="submit" variant="outline" className="rounded-full">Save changes</Button>
+                  <Button type="submit" variant="outline" size="md">
+                    Save changes
+                  </Button>
                 </div>
               </form>
             ))}
-          </CardContent>
+          </CardBody>
         </Card>
       </section>
     </div>

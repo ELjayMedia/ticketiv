@@ -1,9 +1,9 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { CheckCircle2, Plus, ShieldAlert } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
+import { Chip } from "@/components/quiet/ui/chip"
+import { Icon } from "@/components/quiet/ui/icon"
 import { FieldHelpTooltip } from "@/components/super-admin/FieldHelpTooltip"
 import { ResourceForm } from "@/components/super-admin/ResourceForm"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -64,12 +64,12 @@ async function getLookupMaps(): Promise<LookupMaps> {
 
 function StatusBadge({ value }: { value: unknown }) {
   const label = String(value ?? "unknown")
-  return <span className="inline-flex rounded-full border bg-muted/50 px-2 py-1 text-xs font-medium capitalize">{label.replaceAll("_", " ")}</span>
+  return <Chip size="sm" variant="muted">{label.replaceAll("_", " ")}</Chip>
 }
 
 function HeaderCell({ column }: { column: string }) {
   return (
-    <th className="px-3 py-3 font-medium">
+    <th className="px-3 py-3 text-left text-label">
       <span className="inline-flex items-center gap-1.5">
         {getFieldLabel(column)}
         <FieldHelpTooltip text={getFieldHelp(column)} />
@@ -113,25 +113,25 @@ export default async function SuperAdminResourcePage({
   return (
     <div className="mx-auto max-w-7xl">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Super admin resource</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight">{friendlyName}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{resource.description}</p>
+        <div className="flex flex-col gap-2">
+          <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Super admin resource</p>
+          <h1 className="text-h1">{friendlyName}</h1>
+          <p className="text-[13px] text-ink-3">{resource.description}</p>
         </div>
       </div>
 
       {statusMessage ? (
-        <div className="mb-5 flex items-center gap-2 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          <CheckCircle2 className="h-4 w-4" /> {statusMessage}
+        <div className="mb-5 flex items-center gap-2 rounded-[var(--radius-md)] border border-success/30 bg-success/10 px-4 py-3 text-[13px] text-success">
+          <Icon name="check" size={14} /> {statusMessage}
         </div>
       ) : null}
 
       {!canMutate ? (
-        <div className="mb-5 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
-          <div>
-            <p className="font-medium">Read-only access for this resource.</p>
-            <p className="mt-1 text-amber-800">
+        <div className="mb-5 flex items-start gap-3 rounded-[var(--radius-md)] border border-warning/30 bg-warning/10 px-4 py-3 text-[13px] text-ink-2">
+          <Icon name="bell" size={14} className="mt-0.5 shrink-0 text-warning" />
+          <div className="flex flex-col gap-1">
+            <p className="font-semibold text-ink">Read-only access for this resource.</p>
+            <p>
               Raw create/edit controls are hidden for your admin tier. Use the appropriate audited workflow actions where available.
             </p>
           </div>
@@ -140,52 +140,71 @@ export default async function SuperAdminResourcePage({
 
       <section className={`grid gap-6 ${createColumnClass}`}>
         {canMutate ? (
-          <Card className="rounded-2xl">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base"><Plus className="h-4 w-4" /> Create {friendlyName}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResourceForm resource={resource} action={createRecord} submitLabel={`Create ${friendlyName}`} lookups={lookups} />
-            </CardContent>
+          <Card>
+            <CardBody className="px-5 py-4">
+              <p className="inline-flex items-center gap-2 text-h3">
+                <Icon name="plus" size={16} className="text-ink-3" />
+                Create {friendlyName}
+              </p>
+            </CardBody>
+            <CardDivider />
+            <CardBody className="p-5">
+              <ResourceForm
+                resource={resource}
+                action={createRecord}
+                submitLabel={`Create ${friendlyName}`}
+                lookups={lookups}
+              />
+            </CardBody>
           </Card>
         ) : null}
 
-        <Card className="rounded-2xl">
-          <CardHeader>
-            <CardTitle className="text-base">Latest {friendlyName}</CardTitle>
-          </CardHeader>
-          <CardContent className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-sm">
+        <Card>
+          <CardBody className="px-5 py-4">
+            <p className="text-h3">Latest {friendlyName}</p>
+          </CardBody>
+          <CardDivider />
+          <CardBody className="overflow-x-auto p-0">
+            <table className="w-full min-w-[760px] text-[13px]">
               <thead>
-                <tr className="border-b text-left text-muted-foreground">
-                  {resource.listColumns.map((column) => <HeaderCell key={column} column={column} />)}
-                  <th className="px-3 py-3 font-medium">Actions</th>
+                <tr className="border-b border-line">
+                  {resource.listColumns.map((column) => (
+                    <HeaderCell key={column} column={column} />
+                  ))}
+                  <th className="px-3 py-3 text-left text-label">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {(data ?? []).map((row) => {
                   const recordId = String(row[resource.primaryKey])
                   return (
-                    <tr key={recordId} className="border-b last:border-0">
+                    <tr key={recordId} className="border-b border-line last:border-0">
                       {resource.listColumns.map((column) => {
                         const value = row[column]
                         return (
-                          <td key={column} className="max-w-[240px] truncate px-3 py-3">
-                            {column === "status" || column === "sales_status" ? <StatusBadge value={value} /> : formatAdminCell(column, value, lookups)}
+                          <td key={column} className="max-w-[240px] truncate px-3 py-3 text-ink">
+                            {column === "status" || column === "sales_status" ? (
+                              <StatusBadge value={value} />
+                            ) : (
+                              formatAdminCell(column, value, lookups)
+                            )}
                           </td>
                         )
                       })}
                       <td className="px-3 py-3">
-                        <Button asChild variant="outline" size="sm" className="rounded-full">
-                          <Link href={`/super-admin/${resource.key}/${recordId}`}>Open</Link>
-                        </Button>
+                        <Link
+                          href={`/super-admin/${resource.key}/${recordId}`}
+                          className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-transparent px-3 py-1.5 text-[13px] font-semibold text-ink transition-colors hover:bg-bg"
+                        >
+                          Open
+                        </Link>
                       </td>
                     </tr>
                   )
                 })}
               </tbody>
             </table>
-          </CardContent>
+          </CardBody>
         </Card>
       </section>
     </div>

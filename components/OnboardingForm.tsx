@@ -2,6 +2,10 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+
+import { Button } from "@/components/quiet/ui/button"
+import { Icon } from "@/components/quiet/ui/icon"
+import { cn } from "@/lib/cn"
 import { createClient } from "@/lib/supabase/client"
 
 const HANDLE_RE = /^[a-z0-9][a-z0-9_]{2,29}$/
@@ -62,7 +66,6 @@ export function OnboardingForm({ initialDisplayName }: { initialDisplayName: str
       .update({ display_name: displayName.trim() })
       .eq("user_id", user.id)
     if (profileErr) {
-      // profiles may use 'id' as PK depending on schema version
       await supabase.from("profiles").update({ display_name: displayName.trim() }).eq("id", user.id)
     }
 
@@ -102,16 +105,16 @@ export function OnboardingForm({ initialDisplayName }: { initialDisplayName: str
   })()
 
   const helperTone =
-    availability === "available" ? "text-[var(--color-forest)]" :
-    ["taken", "invalid", "reserved"].includes(availability) ? "text-[var(--color-saffron-deep)]" :
-    "text-[var(--color-ink-mute)]"
+    availability === "available" ? "text-success" :
+    ["taken", "invalid", "reserved"].includes(availability) ? "text-danger" :
+    "text-ink-3"
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-6">
-      <label className="flex flex-col gap-2">
-        <span className="text-xs uppercase tracking-[0.16em] text-[var(--color-ink-mute)]">Handle</span>
-        <div className="flex items-stretch rounded-[var(--radius-soft)] border border-[var(--color-paper-line)] bg-white/40 focus-within:border-[var(--color-saffron)]">
-          <span className="flex items-center border-r border-[var(--color-paper-line)] px-3 text-sm font-[family-name:var(--font-display)] text-[var(--color-ink-soft)]">
+    <form onSubmit={onSubmit} className="flex flex-col gap-5">
+      <label className="flex flex-col gap-1">
+        <span className="text-label">Handle</span>
+        <div className="flex items-stretch overflow-hidden rounded-md border border-line-2 bg-surface focus-within:border-accent focus-within:ring-[3px] focus-within:ring-accent-soft">
+          <span className="flex items-center border-r border-line bg-bg px-3 font-mono text-[13px] font-semibold text-ink-3">
             @
           </span>
           <input
@@ -122,15 +125,15 @@ export function OnboardingForm({ initialDisplayName }: { initialDisplayName: str
             value={handle}
             onChange={(e) => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
             maxLength={30}
-            className="w-full bg-transparent px-3 py-3 text-base text-[var(--color-ink)] placeholder:text-[var(--color-ink-mute)] focus:outline-none"
+            className="w-full bg-transparent px-3 py-2.5 text-[14px] font-medium text-ink placeholder:text-ink-4 focus:outline-none"
             required
           />
         </div>
-        <span className={`text-xs ${helperTone}`}>{helperText}</span>
+        <span className={cn("font-mono text-[11px]", helperTone)}>{helperText}</span>
       </label>
 
-      <label className="flex flex-col gap-2">
-        <span className="text-xs uppercase tracking-[0.16em] text-[var(--color-ink-mute)]">Display name</span>
+      <label className="flex flex-col gap-1">
+        <span className="text-label">Display name</span>
         <input
           type="text"
           autoComplete="name"
@@ -138,27 +141,30 @@ export function OnboardingForm({ initialDisplayName }: { initialDisplayName: str
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
           maxLength={80}
-          className="w-full rounded-[var(--radius-soft)] border border-[var(--color-paper-line)] bg-white/40 px-3 py-3 text-base text-[var(--color-ink)] placeholder:text-[var(--color-ink-mute)] focus:border-[var(--color-saffron)] focus:outline-none"
+          className="rounded-md border border-line-2 bg-surface px-3 py-2.5 text-[14px] font-medium text-ink placeholder:text-ink-4 outline-none transition-shadow duration-100 focus:border-accent focus:ring-[3px] focus:ring-accent-soft"
           required
         />
-        <span className="text-xs text-[var(--color-ink-mute)]">
+        <span className="font-mono text-[11px] text-ink-3">
           What friends see when you share tickets or RSVP.
         </span>
       </label>
 
       {error && (
-        <p role="alert" className="rounded-[var(--radius-soft)] border border-[var(--color-saffron)] bg-[var(--color-saffron)]/10 px-3 py-2 text-sm text-[var(--color-ink)]">
-          {error}
-        </p>
+        <div role="alert" className="flex items-start gap-2 rounded-[var(--radius-md)] border border-danger/30 bg-danger-soft px-3 py-2.5 text-[12px] text-danger">
+          <Icon name="close" size={14} className="mt-0.5" />
+          <span>{error}</span>
+        </div>
       )}
 
-      <button
+      <Button
         type="submit"
+        variant="primary"
+        size="md"
         disabled={busy || availability !== "available" || !displayName.trim()}
-        className="inline-flex h-12 items-center justify-center rounded-[var(--radius-pill)] bg-[var(--color-ink)] px-6 text-[15px] font-medium text-[var(--color-cream)] transition-colors hover:bg-[var(--color-forest-deep)] disabled:cursor-not-allowed disabled:bg-[var(--color-ink-mute)]"
+        block
       >
         {busy ? "Saving…" : "Continue"}
-      </button>
+      </Button>
     </form>
   )
 }

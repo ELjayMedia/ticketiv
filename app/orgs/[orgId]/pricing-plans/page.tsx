@@ -1,12 +1,12 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import Link from "next/link"
 import { cookies } from "next/headers"
+import Link from "next/link"
+
+import { Button } from "@/components/quiet/ui/button"
+import { Card, CardBody } from "@/components/quiet/ui/card"
+import { Icon } from "@/components/quiet/ui/icon"
 import { getDemoOrganization } from "@/lib/demo-data"
-import { ArrowLeft, Check, DollarSign } from "lucide-react"
 
 export const dynamic = "force-dynamic"
 
@@ -29,146 +29,110 @@ export default async function PricingPlansPage({ params }: { params: { orgId: st
   if (demoSessionCookie) {
     try {
       org = getDemoOrganization(orgId)
-      if (!org) {
-        return redirect("/403")
-      }
-      // Demo pricing plans
+      if (!org) return redirect("/403")
       pricingPlans = [
-        {
-          id: "starter",
-          name: "Starter",
-          monthly_fee_cents: 0,
-          transaction_fee_percent: 5,
-          features: ["Up to 5 events/month", "Basic analytics", "Community support"],
-        },
-        {
-          id: "pro",
-          name: "Pro",
-          monthly_fee_cents: 9999,
-          transaction_fee_percent: 2.5,
-          features: ["Unlimited events", "Advanced analytics", "Priority support", "Custom branding"],
-        },
-        {
-          id: "enterprise",
-          name: "Enterprise",
-          monthly_fee_cents: 29999,
-          transaction_fee_percent: 1.5,
-          features: ["Everything in Pro", "Dedicated account manager", "Custom integrations", "SLA guarantee"],
-        },
+        { id: "starter", name: "Starter", monthly_fee_cents: 0, transaction_fee_percent: 5, features: ["Up to 5 events/month", "Basic analytics", "Community support"] },
+        { id: "pro", name: "Pro", monthly_fee_cents: 9999, transaction_fee_percent: 2.5, features: ["Unlimited events", "Advanced analytics", "Priority support", "Custom branding"] },
+        { id: "enterprise", name: "Enterprise", monthly_fee_cents: 29999, transaction_fee_percent: 1.5, features: ["Everything in Pro", "Dedicated account manager", "Custom integrations", "SLA guarantee"] },
       ]
-    } catch (error) {
-      console.error("[v0] Failed to load demo data:", error)
+    } catch {
+      /* fall through */
     }
   } else {
     const supabase = createServerSupabaseClient()
-    if (!supabase) {
-      return redirect("/login")
-    }
+    if (!supabase) return redirect("/login")
 
     const {
       data: { session },
     } = await supabase.auth.getSession()
+    if (!session) return redirect("/login")
 
-    if (!session) {
-      return redirect("/login")
-    }
-
-    // Fetch org
     const { data: orgData } = await supabase
       .from("organizations")
       .select("id, name")
       .eq("id", orgId)
       .maybeSingle()
-
-    if (!orgData) {
-      return redirect("/403")
-    }
-
+    if (!orgData) return redirect("/403")
     org = orgData
 
-    // Fetch pricing plans
     const { data: plans = [] } = await supabase
       .from("pricing_plans")
       .select("id, name, monthly_fee_cents, transaction_fee_percent, features")
       .eq("org_id", orgId)
-
-    pricingPlans = plans as PricingPlan[]
+    pricingPlans = (plans ?? []) as PricingPlan[]
   }
 
   return (
-    <main className="flex-1 overflow-auto bg-background">
-      <div className="container mx-auto p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button asChild variant="ghost" size="icon">
-            <Link href={`/orgs/${orgId}/dashboard`}>
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Pricing Plans</h1>
-            <p className="text-muted-foreground mt-1">{org?.name}</p>
+    <main className="flex-1 overflow-auto">
+      <div className="container mx-auto flex flex-col gap-6 p-6">
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/orgs/${orgId}/dashboard`}
+            aria-label="Back"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink hover:bg-bg"
+          >
+            <Icon name="chevL" size={16} />
+          </Link>
+          <div className="flex flex-col gap-1">
+            <h1 className="text-h1">Pricing plans</h1>
+            <p className="text-[13px] text-ink-3">{org?.name}</p>
           </div>
         </div>
 
-        {/* Plans Grid */}
         {pricingPlans.length === 0 ? (
           <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <p className="text-muted-foreground mb-4">No pricing plans configured</p>
-            </CardContent>
+            <CardBody className="flex flex-col items-center gap-3 py-12 text-center">
+              <p className="text-[13px] text-ink-3">No pricing plans configured.</p>
+            </CardBody>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             {pricingPlans.map((plan) => (
               <Card key={plan.id} className="flex flex-col">
-                <CardHeader>
-                  <CardTitle>{plan.name}</CardTitle>
-                  <CardDescription>Current plan for this organization</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1 space-y-6">
-                  {/* Pricing */}
-                  <div className="space-y-2">
+                <CardBody className="flex flex-1 flex-col gap-5">
+                  <div className="flex flex-col gap-1">
+                    <p className="text-h3">{plan.name}</p>
+                    <p className="text-[12px] text-ink-3">Current plan for this organisation.</p>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
                     <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-bold">
+                      <span className="font-mono text-[32px] font-semibold tabular-nums text-ink">
                         ${(plan.monthly_fee_cents / 100).toFixed(0)}
                       </span>
-                      <span className="text-muted-foreground">/month</span>
+                      <span className="text-[13px] text-ink-3">/month</span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <DollarSign className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">{plan.transaction_fee_percent}% per transaction</span>
-                    </div>
+                    <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-3">
+                      <Icon name="wallet" size={12} />
+                      {plan.transaction_fee_percent}% per transaction
+                    </p>
                   </div>
 
-                  {/* Features */}
-                  <div className="space-y-3">
+                  <ul className="flex flex-col gap-2">
                     {plan.features?.map((feature, idx) => (
-                      <div key={idx} className="flex items-start gap-2">
-                        <Check className="h-4 w-4 text-green-600 mt-0.5" />
-                        <span className="text-sm">{feature}</span>
-                      </div>
+                      <li key={idx} className="flex items-start gap-2 text-[13px] text-ink">
+                        <Icon name="check" size={14} className="mt-0.5 text-accent" />
+                        <span>{feature}</span>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
 
-                  {/* Action */}
-                  <Button className="w-full mt-auto">View Details</Button>
-                </CardContent>
+                  <Button variant="primary" size="md" block className="mt-auto">
+                    View details
+                  </Button>
+                </CardBody>
               </Card>
             ))}
           </div>
         )}
 
-        {/* Info Card */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">About Pricing</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>
+          <CardBody className="flex flex-col gap-2 p-5">
+            <p className="text-h3">About pricing</p>
+            <p className="text-[13px] text-ink-3">
               Pricing plans are managed by your account administrator. Contact support if you need to change your plan.
             </p>
-          </CardContent>
+          </CardBody>
         </Card>
       </div>
     </main>

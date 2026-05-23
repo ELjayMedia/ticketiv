@@ -1,16 +1,12 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Pencil, Plus, Trash2, X } from "lucide-react"
 
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Textarea } from "@/components/ui/textarea"
+import { Button } from "@/components/quiet/ui/button"
+import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
+import { Chip } from "@/components/quiet/ui/chip"
+import { Icon } from "@/components/quiet/ui/icon"
+import { cn } from "@/lib/cn"
 import { useToast } from "@/hooks/use-toast"
 
 type EnvTarget = "production" | "preview" | "development"
@@ -27,11 +23,17 @@ interface ClientEnvVar {
   gitBranch?: string
 }
 
-const TARGETS: { value: EnvTarget; label: string; short: string }[] = [
-  { value: "production", label: "Production", short: "P" },
-  { value: "preview", label: "Preview", short: "Prev" },
-  { value: "development", label: "Development", short: "D" },
+const TARGETS: { value: EnvTarget; label: string }[] = [
+  { value: "production", label: "Production" },
+  { value: "preview", label: "Preview" },
+  { value: "development", label: "Development" },
 ]
+
+const inputClass =
+  "rounded-md border border-line-2 bg-surface px-3 py-2.5 text-[14px] font-medium text-ink placeholder:text-ink-4 outline-none transition-shadow duration-100 focus:border-accent focus:ring-[3px] focus:ring-accent-soft"
+
+const selectClass =
+  "rounded-md border border-line-2 bg-surface px-3 py-2.5 text-[14px] font-medium text-ink outline-none transition-shadow duration-100 focus:border-accent focus:ring-[3px] focus:ring-accent-soft"
 
 function relativeTime(ms: number) {
   if (!ms) return "—"
@@ -57,8 +59,8 @@ function TargetPills({ target }: { target: EnvTarget[] }) {
             title={`${t.label}: ${active ? "active" : "not set"}`}
             className={
               active
-                ? "h-2.5 w-2.5 rounded-full bg-primary"
-                : "h-2.5 w-2.5 rounded-full border border-muted-foreground/40 bg-transparent"
+                ? "h-2.5 w-2.5 rounded-full bg-accent"
+                : "h-2.5 w-2.5 rounded-full border border-line-2 bg-transparent"
             }
           />
         )
@@ -165,18 +167,9 @@ export function EnvVarsClient() {
 
     if (form.mode === "create") {
       const key = form.key.trim()
-      if (!key) {
-        showError("Key is required.")
-        return
-      }
-      if (/\s/.test(key)) {
-        showError("Key cannot contain spaces.")
-        return
-      }
-      if (!form.value) {
-        showError("Value is required.")
-        return
-      }
+      if (!key) { showError("Key is required."); return }
+      if (/\s/.test(key)) { showError("Key cannot contain spaces."); return }
+      if (!form.value) { showError("Value is required."); return }
     }
 
     setSubmitting(true)
@@ -244,28 +237,27 @@ export function EnvVarsClient() {
   }
 
   return (
-    <div className="space-y-5">
-      <Card className="rounded-2xl">
-        <CardHeader className="border-b pb-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <CardTitle className="text-base">Variables</CardTitle>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {loading ? "Loading…" : `${envVars.length} variables · production / preview / development`}
-              </p>
-            </div>
-            <Button className="rounded-full" onClick={openCreate}>
-              <Plus className="mr-2 h-4 w-4" /> Add new
-            </Button>
+    <div className="flex flex-col gap-5">
+      <Card>
+        <CardBody className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+          <div className="flex flex-col gap-1">
+            <p className="text-h3">Variables</p>
+            <p className="text-[12px] text-ink-3">
+              {loading ? "Loading…" : `${envVars.length} variables · production / preview / development`}
+            </p>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4 p-4">
+          <Button variant="primary" size="md" onClick={openCreate}>
+            <Icon name="plus" size={14} /> Add new
+          </Button>
+        </CardBody>
+        <CardDivider />
+        <CardBody className="flex flex-col gap-4 p-4">
           <div className="flex flex-wrap items-center gap-3">
-            <Input
+            <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Filter by key name…"
-              className="h-10 max-w-xs rounded-full"
+              className={cn(inputClass, "h-10 max-w-xs")}
             />
             <div className="flex items-center gap-1.5">
               <FilterButton active={envFilter === "all"} onClick={() => setEnvFilter("all")}>
@@ -284,137 +276,124 @@ export function EnvVarsClient() {
           </div>
 
           {loading ? (
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               {Array.from({ length: 6 }).map((_, index) => (
-                <Skeleton key={index} className="h-12 w-full rounded-xl" />
+                <div key={index} className="h-12 w-full animate-pulse rounded-[var(--radius-md)] bg-line/60" />
               ))}
             </div>
           ) : visible.length === 0 ? (
-            <div className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
+            <div className="rounded-[var(--radius-md)] border border-dashed border-line-2 p-6 text-[13px] text-ink-3">
               {envVars.length === 0
                 ? "No environment variables found."
                 : "No variables match the current filters."}
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Key</TableHead>
-                    <TableHead>Targets</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Updated</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {visible.map((envVar) => (
-                    <TableRow key={envVar.id}>
-                      <TableCell className="font-mono text-xs font-medium">{envVar.key}</TableCell>
-                      <TableCell>
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-line">
+                    <th className="px-4 py-3 text-left text-label">Key</th>
+                    <th className="px-4 py-3 text-left text-label">Targets</th>
+                    <th className="px-4 py-3 text-left text-label">Type</th>
+                    <th className="px-4 py-3 text-left text-label">Updated</th>
+                    <th className="px-4 py-3 text-right text-label">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visible.map((envVar, i) => (
+                    <tr key={envVar.id} className={i > 0 ? "border-t border-line" : ""}>
+                      <td className="px-4 py-3 font-mono text-[12px] font-medium text-ink">{envVar.key}</td>
+                      <td className="px-4 py-3">
                         <TargetPills target={envVar.target} />
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{envVar.type}</Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {relativeTime(envVar.updatedAt)}
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Chip size="sm" variant="default">{envVar.type}</Chip>
+                      </td>
+                      <td className="px-4 py-3 text-[13px] text-ink-3">{relativeTime(envVar.updatedAt)}</td>
+                      <td className="px-4 py-3">
                         <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="rounded-full"
-                            onClick={() => openEdit(envVar)}
-                          >
-                            <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
+                          <Button variant="outline" size="sm" onClick={() => openEdit(envVar)}>
+                            <Icon name="settings" size={12} /> Edit
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
-                            className="rounded-full text-destructive"
+                            className="text-danger hover:bg-danger-soft"
                             onClick={() => setPendingDelete(envVar)}
                           >
-                            <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete
+                            <Icon name="trash" size={12} /> Delete
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </div>
           )}
 
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="flex items-center gap-4 font-mono text-[11px] uppercase tracking-wider text-ink-3">
             <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-primary" /> Active
+              <span className="h-2.5 w-2.5 rounded-full bg-accent" /> Active
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full border border-muted-foreground/40" /> Not set
+              <span className="h-2.5 w-2.5 rounded-full border border-line-2" /> Not set
             </span>
             <span>Order: Production · Preview · Development</span>
           </div>
-        </CardContent>
+        </CardBody>
       </Card>
 
       {form ? (
-        <Card className="rounded-2xl">
-          <CardHeader className="border-b pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">
-                {form.mode === "create" ? "Add environment variable" : `Edit ${form.key}`}
-              </CardTitle>
-              <Button variant="outline" size="icon" className="rounded-full" onClick={() => setForm(null)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4 p-4">
+        <Card>
+          <CardBody className="flex items-center justify-between px-5 py-4">
+            <p className="text-h3">
+              {form.mode === "create" ? "Add environment variable" : `Edit ${form.key}`}
+            </p>
+            <button
+              type="button"
+              aria-label="Close form"
+              onClick={() => setForm(null)}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-3 transition-colors hover:bg-bg hover:text-ink"
+            >
+              <Icon name="close" size={14} />
+            </button>
+          </CardBody>
+          <CardDivider />
+          <CardBody className="flex flex-col gap-4 p-4">
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="env-key">
-                  Key
-                </label>
-                <Input
+              <label className="flex flex-col gap-1">
+                <span className="text-label">Key</span>
+                <input
                   id="env-key"
                   value={form.key}
                   disabled={form.mode === "edit"}
                   onChange={(event) => setForm({ ...form, key: event.target.value })}
                   onBlur={(event) => setForm({ ...form, key: event.target.value.toUpperCase() })}
                   placeholder="MY_API_KEY"
-                  className="h-11 rounded-full font-mono"
+                  className={cn(inputClass, "h-11 font-mono disabled:opacity-60")}
                 />
-                {form.mode === "edit" ? (
-                  <p className="text-xs text-muted-foreground">Key names cannot be changed.</p>
-                ) : null}
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="env-type">
-                  Type
-                </label>
-                <Select
+                {form.mode === "edit" && (
+                  <span className="font-mono text-[11px] text-ink-3">Key names cannot be changed.</span>
+                )}
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-label">Type</span>
+                <select
                   value={form.type}
-                  onValueChange={(value) => setForm({ ...form, type: value as "plain" | "encrypted" })}
+                  onChange={(e) => setForm({ ...form, type: e.target.value as "plain" | "encrypted" })}
+                  className={cn(selectClass, "h-11")}
                 >
-                  <SelectTrigger id="env-type" className="h-11 rounded-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="encrypted">encrypted</SelectItem>
-                    <SelectItem value="plain">plain</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                  <option value="encrypted">encrypted</option>
+                  <option value="plain">plain</option>
+                </select>
+              </label>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="env-value">
-                Value
-              </label>
-              <Textarea
-                id="env-value"
+            <label className="flex flex-col gap-1">
+              <span className="text-label">Value</span>
+              <textarea
                 value={form.value}
                 onChange={(event) => setForm({ ...form, value: event.target.value })}
                 placeholder={
@@ -422,22 +401,23 @@ export function EnvVarsClient() {
                     ? "Enter new value to update (leave blank to keep current)"
                     : "Variable value"
                 }
-                className="min-h-24 rounded-2xl"
+                className={cn(inputClass, "min-h-24 resize-none")}
               />
-            </div>
+            </label>
 
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Targets</p>
+            <div className="flex flex-col gap-2">
+              <span className="text-label">Targets</span>
               <div className="flex flex-wrap gap-3">
                 {TARGETS.map((t) => (
                   <label
                     key={t.value}
-                    className="flex items-center gap-2 rounded-full border px-4 py-2 text-sm"
+                    className="flex cursor-pointer items-center gap-2 rounded-full border border-line-2 bg-surface px-4 py-2 text-[13px] font-medium text-ink"
                   >
                     <input
                       type="checkbox"
                       checked={form.target.includes(t.value)}
                       onChange={() => toggleFormTarget(t.value)}
+                      className="h-4 w-4 accent-[var(--color-accent)]"
                     />
                     {t.label}
                   </label>
@@ -446,10 +426,10 @@ export function EnvVarsClient() {
             </div>
 
             <div className="flex justify-end gap-2">
-              <Button variant="outline" className="rounded-full" onClick={() => setForm(null)}>
+              <Button variant="outline" size="md" onClick={() => setForm(null)}>
                 Cancel
               </Button>
-              <Button className="rounded-full" onClick={submitForm} disabled={submitting}>
+              <Button variant="primary" size="md" onClick={submitForm} disabled={submitting}>
                 {submitting
                   ? "Saving…"
                   : form.mode === "create"
@@ -457,39 +437,34 @@ export function EnvVarsClient() {
                     : "Save changes"}
               </Button>
             </div>
-          </CardContent>
+          </CardBody>
         </Card>
       ) : null}
 
       {pendingDelete ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <Card className="w-full max-w-md rounded-2xl">
-            <CardHeader>
-              <CardTitle className="text-base">Delete environment variable</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Delete <span className="font-mono font-medium text-foreground">{pendingDelete.key}</span>?
+          <Card className="w-full max-w-md">
+            <CardBody className="flex flex-col gap-4 p-5">
+              <p className="text-h3">Delete environment variable</p>
+              <p className="text-[13px] text-ink-3">
+                Delete <span className="font-mono font-semibold text-ink">{pendingDelete.key}</span>?
                 This cannot be undone.
               </p>
               <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  className="rounded-full"
-                  onClick={() => setPendingDelete(null)}
-                  disabled={deleting}
-                >
+                <Button variant="outline" size="md" onClick={() => setPendingDelete(null)} disabled={deleting}>
                   Cancel
                 </Button>
                 <Button
-                  className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  variant="primary"
+                  size="md"
                   onClick={confirmDelete}
                   disabled={deleting}
+                  className="bg-danger border-danger hover:bg-danger/90"
                 >
                   {deleting ? "Deleting…" : "Delete"}
                 </Button>
               </div>
-            </CardContent>
+            </CardBody>
           </Card>
         </div>
       ) : null}
@@ -512,8 +487,8 @@ function FilterButton({
       onClick={onClick}
       className={
         active
-          ? "rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
-          : "rounded-full border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-muted"
+          ? "rounded-full bg-ink px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-surface"
+          : "rounded-full border border-line-2 bg-surface px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-ink-3 transition hover:bg-bg hover:text-ink"
       }
     >
       {children}

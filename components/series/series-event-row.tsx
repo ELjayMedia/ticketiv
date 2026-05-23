@@ -1,8 +1,9 @@
 import Link from "next/link"
 import { format } from "date-fns"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Calendar, MapPin } from "lucide-react"
+
+import { Card } from "@/components/quiet/ui/card"
+import { Icon } from "@/components/quiet/ui/icon"
+import { cn } from "@/lib/cn"
 import { formatCurrency } from "@/lib/pricing"
 import { formatMultiDayPill } from "@/lib/series/date-range"
 import type { SeriesDetailEvent } from "@/lib/data/public/series"
@@ -30,30 +31,37 @@ export function SeriesEventRow({ event, past = false }: SeriesEventRowProps) {
     : event.venue?.name ?? event.city ?? "Location TBA"
 
   return (
-    <Card className={past ? "opacity-60" : "transition-colors hover:border-primary/50"}>
-      <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex-1 min-w-0 space-y-1">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Calendar className="h-3 w-3" aria-hidden="true" />
+    <Card className={cn(past ? "opacity-60" : "transition-colors hover:border-line-2")}>
+      <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-3">
+            <Icon name="cal" size={12} />
             <span>{formatDate(event)}</span>
           </div>
-          <h3 className="font-display text-base font-semibold leading-tight">{event.title}</h3>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <MapPin className="h-3 w-3" aria-hidden="true" />
+          <h3 className="text-[16px] font-semibold leading-tight text-ink">{event.title}</h3>
+          <div className="flex items-center gap-1.5 text-[12px] text-ink-3">
+            <Icon name="pin" size={12} />
             <span className="line-clamp-1">{venueLine}</span>
           </div>
           {event.min_price_cents != null && !past && (
-            <p className="text-sm font-medium">From {formatCurrency(event.min_price_cents, event.currency)}</p>
+            <p className="text-[13px] font-semibold text-ink">
+              From {formatCurrency(event.min_price_cents, event.currency)}
+            </p>
           )}
         </div>
         {past ? (
-          <span className="text-xs font-medium text-muted-foreground">Past event</span>
+          <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-ink-3">
+            Past event
+          </span>
         ) : (
-          <Button asChild variant="default" size="sm" className="shrink-0">
-            <Link href={`/events/${event.slug}`}>Tickets →</Link>
-          </Button>
+          <Link
+            href={`/events/${event.slug}`}
+            className="inline-flex w-fit shrink-0 items-center gap-1.5 rounded-[var(--radius)] border border-ink bg-ink px-3 py-1.5 text-[13px] font-semibold text-surface transition-colors hover:bg-ink-2"
+          >
+            Tickets <Icon name="arrowR" size={12} />
+          </Link>
         )}
-      </CardContent>
+      </div>
     </Card>
   )
 }

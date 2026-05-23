@@ -1,7 +1,7 @@
 import Link from "next/link"
-import { ArrowLeft } from "lucide-react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+
+import { Card, CardBody } from "@/components/quiet/ui/card"
+import { Icon } from "@/components/quiet/ui/icon"
 import { SeriesForm } from "@/components/series/series-form"
 
 export const dynamic = "force-dynamic"
@@ -13,25 +13,26 @@ export default async function NewSeriesPage({
 }) {
   const { orgId } = params
   return (
-    <main className="flex-1 overflow-auto bg-background">
-      <div className="container mx-auto max-w-2xl space-y-6 p-6">
+    <main className="flex-1 overflow-auto">
+      <div className="container mx-auto flex max-w-2xl flex-col gap-6 p-6">
         <div>
-          <Button asChild variant="ghost" size="sm" className="-ml-2">
-            <Link href={`/orgs/${orgId}/series`}>
-              <ArrowLeft className="mr-1 h-3 w-3" aria-hidden="true" />
-              Back to series
-            </Link>
-          </Button>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight">New series</h1>
-          <p className="mt-1 text-muted-foreground">
+          <Link
+            href={`/orgs/${orgId}/series`}
+            className="inline-flex items-center gap-1.5 text-[13px] text-ink-3 underline-offset-4 hover:underline"
+          >
+            <Icon name="chevL" size={14} />
+            Back to series
+          </Link>
+          <h1 className="mt-4 text-h1">New series</h1>
+          <p className="mt-1 text-[13px] text-ink-3">
             Spin up a tour, recurring night or season.
           </p>
         </div>
 
         <Card>
-          <CardContent className="p-6">
+          <CardBody className="p-6">
             <SeriesForm orgId={orgId} mode="create" />
-          </CardContent>
+          </CardBody>
         </Card>
       </div>
     </main>

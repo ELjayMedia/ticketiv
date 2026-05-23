@@ -1,8 +1,9 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+
+import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
+import { Chip } from "@/components/quiet/ui/chip"
 
 export const dynamic = "force-dynamic"
 
@@ -11,7 +12,6 @@ export default async function PaymentsPage() {
   const demoSessionCookie = cookieStore.get("demo_session")
   const demoSession = demoSessionCookie ? JSON.parse(demoSessionCookie.value) : null
 
-  // Mock payments for demo mode
   const mockPayments = [
     {
       id: "payment_1",
@@ -19,10 +19,7 @@ export default async function PaymentsPage() {
       currency: "ZAR",
       status: "completed",
       created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      order: {
-        id: "order_1",
-        event_title: "Vodacom Bulls Championship Match",
-      },
+      order: { id: "order_1", event_title: "Vodacom Bulls Championship Match" },
     },
     {
       id: "payment_2",
@@ -30,33 +27,23 @@ export default async function PaymentsPage() {
       currency: "ZAR",
       status: "completed",
       created_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-      order: {
-        id: "order_2",
-        event_title: "Betway SA20 Season 4",
-      },
+      order: { id: "order_2", event_title: "Betway SA20 Season 4" },
     },
   ]
 
-  let payments = []
+  let payments: any[] = []
 
   if (demoSession) {
-    console.log("[v0] Using demo payments data")
     payments = mockPayments
   } else {
     const supabase = await createServerSupabaseClient()
 
     if (!supabase) {
-      console.log("[v0] Supabase not configured, using mock data")
       payments = mockPayments
     } else {
-      // Only try to get session if supabase exists
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
+      const { data: { session } } = await supabase.auth.getSession()
       if (!session) redirect("/login")
 
-      // Fetch payments with order relationship only (no nested events join)
       const { data: paymentsData, error: paymentsError } = await supabase
         .from("payments")
         .select(`
@@ -71,82 +58,74 @@ export default async function PaymentsPage() {
         .order("created_at", { ascending: false })
 
       if (paymentsError) {
-        console.error("[v0] Error fetching payments:", paymentsError)
         payments = mockPayments
       } else if (paymentsData) {
-        // For each payment, fetch the event title separately
-        const paymentWithEvents = await Promise.all(
+        payments = await Promise.all(
           paymentsData.map(async (payment: any) => {
             if (!payment.order?.event_id) {
-              return {
-                ...payment,
-                order: {
-                  ...payment.order,
-                  event_title: "Unknown Event",
-                },
-              }
+              return { ...payment, order: { ...payment.order, event_title: "Unknown Event" } }
             }
-
             const { data: eventData } = await supabase
               .from("events")
               .select("title")
               .eq("id", payment.order.event_id)
               .single()
-
             return {
               ...payment,
-              order: {
-                ...payment.order,
-                event_title: eventData?.title || "Unknown Event",
-              },
+              order: { ...payment.order, event_title: eventData?.title || "Unknown Event" },
             }
           })
         )
-
-        payments = paymentWithEvents
       }
     }
   }
 
   return (
-    <div className="mx-auto max-w-[980px] space-y-6 px-4 py-10 sm:px-6 lg:px-8">
-      <div>
-        <h1 className="text-3xl font-bold">Payment History</h1>
-        <p className="text-muted-foreground">View all your payments and transactions</p>
+    <main className="mx-auto flex w-full max-w-[980px] flex-col gap-6 px-4 py-8 lg:px-6 lg:py-10">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-h1">Payment history</h1>
+        <p className="text-[13px] text-ink-3">View all your payments and transactions.</p>
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Transactions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {payments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No payment history</p>
-          ) : (
-            <div className="space-y-4">
-              {payments.map((payment: any) => (
-                <div
-                  key={payment.id}
-                  className="flex items-center justify-between border-b pb-4 last:border-b-0"
-                >
-                  <div>
-                    <p className="font-medium">{payment.order?.event_title || "Unknown Event"}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {new Date(payment.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold">R{(payment.amount / 100).toFixed(2)}</p>
-                    <Badge variant={payment.status === "completed" ? "default" : "secondary"}>
-                      {payment.status}
-                    </Badge>
-                  </div>
+        <CardBody className="px-5 py-4">
+          <p className="text-label">Transactions</p>
+        </CardBody>
+        <CardDivider />
+
+        {payments.length === 0 ? (
+          <CardBody className="px-5 py-10 text-center">
+            <p className="text-[13px] text-ink-3">No payment history.</p>
+          </CardBody>
+        ) : (
+          payments.map((payment, i) => (
+            <div key={payment.id}>
+              {i > 0 && <CardDivider />}
+              <div className="flex items-center justify-between gap-4 px-5 py-4">
+                <div className="flex flex-col gap-0.5">
+                  <p className="text-[14px] font-semibold text-ink">
+                    {payment.order?.event_title || "Unknown event"}
+                  </p>
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+                    {new Date(payment.created_at).toLocaleDateString()}
+                  </p>
                 </div>
-              ))}
+                <div className="flex flex-col items-end gap-1">
+                  <p className="font-mono text-[14px] font-semibold tabular-nums text-ink">
+                    R{(payment.amount / 100).toFixed(2)}
+                  </p>
+                  <Chip
+                    size="sm"
+                    variant={payment.status === "completed" ? "accent" : "muted"}
+                  >
+                    {payment.status}
+                  </Chip>
+                </div>
+              </div>
             </div>
-          )}
-        </CardContent>
+          ))
+        )}
       </Card>
-    </div>
+    </main>
   )
 }

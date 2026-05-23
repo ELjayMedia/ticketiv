@@ -1,8 +1,7 @@
 import Link from "next/link"
-import { ArrowLeft, MapPin, Users } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardBody } from "@/components/quiet/ui/card"
+import { Icon } from "@/components/quiet/ui/icon"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export const dynamic = "force-dynamic"
@@ -24,11 +23,7 @@ async function getVenues(): Promise<Venue[]> {
     .select("id, name, city, address, capacity")
     .order("name", { ascending: true })
 
-  if (error) {
-    console.error("Failed to load venues", error)
-    return []
-  }
-
+  if (error) return []
   return (data ?? []) as Venue[]
 }
 
@@ -36,50 +31,57 @@ export default async function VenuesPage() {
   const venues = await getVenues()
 
   return (
-    <main className="min-h-screen bg-background px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-[1200px] space-y-8">
-        <div>
-          <Button asChild variant="ghost" className="mb-4 rounded-xl px-0 hover:bg-transparent">
-            <Link href="/">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Back home
-            </Link>
-          </Button>
-          <p className="text-sm font-medium uppercase tracking-[0.2em] text-primary">Places</p>
-          <h1 className="mt-2 text-4xl font-bold tracking-tight sm:text-5xl">Venues</h1>
-          <p className="mt-3 max-w-2xl text-muted-foreground">
-            Explore venues hosting events, culture, business, entertainment and community experiences on Ticketiv.
-          </p>
-        </div>
-
-        {venues.length > 0 ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {venues.map((venue) => (
-              <Card key={venue.id} className="rounded-2xl bg-card/90 transition hover:border-primary/50 hover:shadow-sm">
-                <CardContent className="p-5">
-                  <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                    <MapPin className="h-6 w-6" />
-                  </div>
-                  <h2 className="text-xl font-semibold">{venue.name}</h2>
-                  <p className="mt-2 text-sm text-muted-foreground">{venue.city || venue.address || "Location TBA"}</p>
-                  {venue.capacity != null && (
-                    <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
-                      <Users className="h-3.5 w-3.5" /> Capacity {venue.capacity.toLocaleString("en-SZ")}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <Card className="rounded-2xl border-dashed">
-            <CardContent className="flex flex-col items-center justify-center p-12 text-center">
-              <MapPin className="mb-4 h-10 w-10 text-muted-foreground" />
-              <h2 className="text-lg font-semibold">No venues yet</h2>
-              <p className="mt-2 max-w-md text-sm text-muted-foreground">Venues will appear here once organisers start listing their event locations.</p>
-            </CardContent>
-          </Card>
-        )}
+    <main className="mx-auto flex w-full max-w-[1200px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="flex flex-col gap-3">
+        <Link
+          href="/"
+          className="inline-flex w-fit items-center gap-1.5 text-[13px] text-ink-3 underline-offset-4 hover:underline"
+        >
+          <Icon name="chevL" size={14} />
+          Back home
+        </Link>
+        <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Places</p>
+        <h1 className="text-h1 sm:text-[32px]">Venues</h1>
+        <p className="max-w-2xl text-[14px] leading-6 text-ink-3">
+          Explore venues hosting events, culture, business, entertainment and community experiences on Ticketiv.
+        </p>
       </div>
+
+      {venues.length > 0 ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {venues.map((venue) => (
+            <Card key={venue.id} className="transition-colors hover:border-line-2">
+              <CardBody className="flex flex-col gap-4 p-5">
+                <span className="inline-flex h-12 w-12 items-center justify-center rounded-[var(--radius-md)] bg-accent-soft text-accent">
+                  <Icon name="pin" size={20} />
+                </span>
+                <div className="flex flex-col gap-1">
+                  <h2 className="text-[16px] font-semibold text-ink">{venue.name}</h2>
+                  <p className="text-[13px] text-ink-3">
+                    {venue.city || venue.address || "Location TBA"}
+                  </p>
+                </div>
+                {venue.capacity != null && (
+                  <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-bg px-2.5 py-1 font-mono text-[11px] uppercase tracking-wider text-ink-3">
+                    <Icon name="users" size={12} />
+                    Capacity {venue.capacity.toLocaleString("en-SZ")}
+                  </span>
+                )}
+              </CardBody>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card flat className="border-dashed">
+          <CardBody className="flex flex-col items-center gap-3 px-6 py-12 text-center">
+            <Icon name="pin" size={32} className="text-ink-4" />
+            <h2 className="text-h3">No venues yet</h2>
+            <p className="max-w-md text-[13px] text-ink-3">
+              Venues will appear here once organisers start listing their event locations.
+            </p>
+          </CardBody>
+        </Card>
+      )}
     </main>
   )
 }

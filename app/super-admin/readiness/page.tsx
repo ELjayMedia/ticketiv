@@ -1,8 +1,7 @@
 import Link from "next/link"
-import { ArrowLeft, CheckCircle2, Download, XCircle } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardBody } from "@/components/quiet/ui/card"
+import { Icon } from "@/components/quiet/ui/icon"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { requireSuperAdmin } from "@/lib/super-admin/auth"
 
@@ -54,16 +53,26 @@ export default async function SuperAdminReadinessPage() {
   return (
     <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
       <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <Button asChild variant="ghost" className="mb-3 rounded-full px-0 hover:bg-transparent">
-            <Link href="/super-admin"><ArrowLeft className="mr-2 h-4 w-4" /> Back to Command Centre</Link>
-          </Button>
-          <h1 className="text-2xl font-semibold tracking-tight">Event Readiness</h1>
-          <p className="text-sm text-muted-foreground">Checklist view for events before publishing or campaign launch.</p>
+        <div className="flex flex-col gap-2">
+          <Link
+            href="/super-admin"
+            className="inline-flex w-fit items-center gap-1.5 text-[13px] text-ink-3 underline-offset-4 hover:underline"
+          >
+            <Icon name="chevL" size={14} />
+            Back to Command Centre
+          </Link>
+          <h1 className="text-h1">Event readiness</h1>
+          <p className="text-[13px] text-ink-3">
+            Checklist view for events before publishing or campaign launch.
+          </p>
         </div>
-        <Button asChild variant="outline" className="rounded-full">
-          <Link href="/super-admin/exports/orders"><Download className="mr-2 h-4 w-4" /> Export orders CSV</Link>
-        </Button>
+        <Link
+          href="/super-admin/exports/orders"
+          className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-transparent px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-bg"
+        >
+          <Icon name="download" size={14} />
+          Export orders CSV
+        </Link>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -71,39 +80,54 @@ export default async function SuperAdminReadinessPage() {
           const score = readinessScore(event.checks ?? {})
           const ready = score.passed === score.total
           return (
-            <Card key={event.event_id} className="rounded-3xl">
-              <CardHeader>
+            <Card key={event.event_id}>
+              <CardBody className="flex flex-col gap-3 p-5">
                 <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <CardTitle className="text-base">{event.title ?? "Untitled event"}</CardTitle>
-                    <CardDescription>{event.status} · {event.visibility} · {score.passed}/{score.total} checks passed</CardDescription>
+                  <div className="flex flex-col gap-1">
+                    <p className="text-[16px] font-semibold text-ink">{event.title ?? "Untitled event"}</p>
+                    <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+                      {event.status} · {event.visibility} · {score.passed}/{score.total} checks passed
+                    </p>
                   </div>
-                  <div className={ready ? "text-green-600" : "text-muted-foreground"}>
-                    {ready ? <CheckCircle2 className="h-5 w-5" /> : <XCircle className="h-5 w-5" />}
-                  </div>
+                  <Icon
+                    name={ready ? "check" : "close"}
+                    size={20}
+                    className={ready ? "text-success" : "text-ink-3"}
+                  />
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-2 text-sm">
+
+                <div className="grid gap-2 text-[13px]">
                   {Object.entries(CHECK_LABELS).map(([key, label]) => {
                     const passed = Boolean(event.checks?.[key])
                     return (
-                      <div key={key} className="flex items-center justify-between rounded-2xl border px-3 py-2">
-                        <span>{label}</span>
-                        <span className={passed ? "text-green-600" : "text-muted-foreground"}>{passed ? "Pass" : "Missing"}</span>
+                      <div
+                        key={key}
+                        className="flex items-center justify-between rounded-[var(--radius-md)] border border-line px-3 py-2"
+                      >
+                        <span className="text-ink">{label}</span>
+                        <span className={passed ? "font-mono text-[11px] uppercase tracking-wider text-success" : "font-mono text-[11px] uppercase tracking-wider text-ink-3"}>
+                          {passed ? "Pass" : "Missing"}
+                        </span>
                       </div>
                     )
                   })}
                 </div>
-                <div className="mt-4 flex gap-2">
-                  <Button asChild size="sm" className="rounded-full">
-                    <Link href={`/super-admin/events/${event.event_id}`}>Open event</Link>
-                  </Button>
-                  <Button asChild size="sm" variant="outline" className="rounded-full">
-                    <Link href="/super-admin/ticket-types">Ticket tiers</Link>
-                  </Button>
+
+                <div className="flex gap-2 pt-1">
+                  <Link
+                    href={`/super-admin/events/${event.event_id}`}
+                    className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-ink bg-ink px-3 py-1.5 text-[13px] font-semibold text-surface transition-colors hover:bg-ink-2"
+                  >
+                    Open event
+                  </Link>
+                  <Link
+                    href="/super-admin/ticket-types"
+                    className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-transparent px-3 py-1.5 text-[13px] font-semibold text-ink transition-colors hover:bg-bg"
+                  >
+                    Ticket tiers
+                  </Link>
                 </div>
-              </CardContent>
+              </CardBody>
             </Card>
           )
         })}
