@@ -1,12 +1,11 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Card } from "@/components/quiet/ui/card"
+import { Chip } from "@/components/quiet/ui/chip"
+import { Photo } from "@/components/quiet/ui/primitives"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import type { ArtistRecord } from "@/types"
-import { getPublicEvents } from "@/lib/data/events"
 import { DEMO_ARTISTS } from "@/lib/demo-data"
 
 interface ArtistPageProps {
@@ -28,20 +27,17 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
   let artist: ArtistRecord | null = null
 
   if (supabase) {
-    const { data, error } = await supabase.from("artists").select("*").eq("id", params.id).maybeSingle<ArtistRecord>()
-
-    if (!error && data) {
-      artist = data
-    }
+    const { data, error } = await supabase
+      .from("artists")
+      .select("*")
+      .eq("id", params.id)
+      .maybeSingle<ArtistRecord>()
+    if (!error && data) artist = data
   }
 
   if (!artist) {
     const demoArtist = DEMO_ARTISTS.find((a) => a.id === params.id)
-    if (!demoArtist) {
-      notFound()
-    }
-
-    // Map demo artist to ArtistRecord shape
+    if (!demoArtist) notFound()
     artist = {
       id: demoArtist.id,
       name: demoArtist.name,
@@ -56,25 +52,21 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
       created_at: demoArtist.created_at,
       updated_at: demoArtist.created_at,
     }
-    console.log("[v0] Using demo artist data for:", params.id)
   }
 
   let tourDates: TourDateEvent[] = []
 
   if (supabase) {
-    // Fetch artist's events with display_order and dates
     const { data: eventRelations } = await supabase
       .from("event_artists")
-      .select(
-        `
+      .select(`
         display_order,
         events:events (
-          id, title, slug, 
+          id, title, slug,
           event_dates(starts_at),
           venues:venue_id(name)
         )
-      `
-      )
+      `)
       .eq("artist_id", params.id)
       .eq("events.visibility", "public")
       .eq("events.status", "published")
@@ -84,7 +76,6 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
         .map((relation: any) => {
           const event = relation.events
           if (!event) return null
-
           const eventDate = event.event_dates?.[0]?.starts_at
           return {
             id: event.id,
@@ -98,7 +89,6 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
         })
         .filter(Boolean) as TourDateEvent[]
 
-      // Sort by date ascending (soonest first), then by display_order
       tourDates.sort((a, b) => {
         const dateA = new Date(a.starts_at).getTime()
         const dateB = new Date(b.starts_at).getTime()
@@ -109,109 +99,132 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
   }
 
   return (
-    <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-6 sm:space-y-8">
-      {/* Artist Header Card */}
+    <main className="mx-auto flex w-full max-w-[1200px] flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
       <Card className="overflow-hidden">
-        <div className="relative h-48 sm:h-64 bg-muted">
-          <img
-            src={artist.banner_url || "/placeholder.svg?height=400&width=1200"}
-            alt={artist.name}
-            className="h-full w-full object-cover"
-          />
-        </div>
-        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start">
-          <div className="h-20 w-20 sm:h-24 sm:w-24 overflow-hidden rounded-full border-4 border-background -mt-12 sm:-mt-16">
+        <Photo
+          src={(artist as any).banner_url || "/placeholder.svg?height=400&width=1200"}
+          alt={artist.name}
+          height={240}
+          overlay="dim"
+        />
+        <div className="flex flex-col gap-4 px-5 pb-5 sm:flex-row sm:items-start sm:px-6 sm:pb-6">
+          <div className="-mt-12 h-20 w-20 overflow-hidden rounded-full border-4 border-surface bg-surface sm:-mt-16 sm:h-24 sm:w-24">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={artist.avatar_url || "/placeholder.svg?height=200&width=200"}
+              src={(artist as any).avatar_url || "/placeholder.svg?height=200&width=200"}
               alt={artist.name}
               className="h-full w-full object-cover"
             />
           </div>
-          <div className="flex-1 space-y-2 sm:space-y-3">
-            <CardTitle className="text-2xl sm:text-3xl">{artist.name}</CardTitle>
-            {artist.role && <Badge className="w-fit">{artist.role}</Badge>}
-            {artist.bio && <CardDescription className="text-sm sm:text-base">{artist.bio}</CardDescription>}
+          <div className="flex flex-1 flex-col gap-2 pt-2">
+            <h1 className="text-h1 sm:text-[28px]">{artist.name}</h1>
+            {(artist as any).role && (
+              <Chip size="sm" variant="default" className="w-fit">
+                {(artist as any).role}
+              </Chip>
+            )}
+            {artist.bio && (
+              <p className="text-[14px] leading-relaxed text-ink-3">{artist.bio}</p>
+            )}
           </div>
-        </CardHeader>
+        </div>
       </Card>
 
-      {/* Tour Dates Section */}
-      <div>
-        <h2 className="text-xl sm:text-2xl font-bold mb-6">Tour Dates</h2>
+      <section className="flex flex-col gap-6">
+        <h2 className="text-h2">Tour dates</h2>
 
         {tourDates.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground text-sm sm:text-base">No scheduled tour dates at the moment. Check back soon!</p>
-          </div>
+          <Card flat className="border-dashed">
+            <div className="px-6 py-10 text-center">
+              <p className="text-[13px] text-ink-3">
+                No scheduled tour dates at the moment. Check back soon.
+              </p>
+            </div>
+          </Card>
         ) : (
-          <div className="space-y-3 sm:space-y-4">
+          <div className="flex flex-col gap-3">
             {tourDates.map((date) => {
               const eventDate = new Date(date.starts_at)
               const isHeadlining = date.display_order === 1
-
               return (
-                <Link key={date.id} href={`/events/${date.slug}`}>
-                  <div className="flex items-center gap-3 sm:gap-6 p-4 rounded-lg border hover:bg-muted transition-colors cursor-pointer">
-                    {/* Left: Date */}
-                    <div className="flex-shrink-0 min-w-24">
-                      <div className="text-sm font-semibold text-muted-foreground">
-                        {eventDate.toLocaleDateString("en-US", { month: "short" })}
+                <Link key={date.id} href={`/events/${date.slug}`} className="block">
+                  <Card className="transition-colors hover:bg-bg">
+                    <div className="flex items-center gap-4 p-4 sm:gap-6 sm:p-5">
+                      <div className="flex w-20 flex-shrink-0 flex-col items-start">
+                        <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-ink-3">
+                          {eventDate.toLocaleDateString("en-US", { month: "short" })}
+                        </span>
+                        <span className="font-mono text-[28px] font-semibold tabular-nums text-ink">
+                          {eventDate.getDate()}
+                        </span>
                       </div>
-                      <div className="text-2xl font-bold">{eventDate.getDate()}</div>
-                    </div>
 
-                    {/* Center: Event Title + Venue */}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-base sm:text-lg font-semibold truncate">{date.title}</h3>
-                      <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                        {date.venue_name && <span>{date.venue_name}</span>}
-                        {date.city && <span>•</span>}
-                        {date.city && <span>{date.city}</span>}
+                      <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <h3 className="truncate text-[16px] font-semibold text-ink">{date.title}</h3>
+                        <div className="flex items-center gap-2 text-[13px] text-ink-3">
+                          {date.venue_name && <span>{date.venue_name}</span>}
+                          {date.city && <span>·</span>}
+                          {date.city && <span>{date.city}</span>}
+                        </div>
+                        {isHeadlining && (
+                          <Chip size="sm" variant="accent" className="mt-1 w-fit">Headlining</Chip>
+                        )}
                       </div>
-                      {isHeadlining && (
-                        <Badge variant="secondary" className="mt-2 text-xs">
-                          Headlining
-                        </Badge>
-                      )}
-                    </div>
 
-                    {/* Right: Get Tickets Button */}
-                    <div className="flex-shrink-0">
-                      <Button variant="default" size="sm">
-                        Get Tickets
-                      </Button>
+                      <span className="hidden shrink-0 items-center gap-1 rounded-[var(--radius)] border border-ink bg-ink px-3 py-1.5 text-[13px] font-semibold text-surface sm:inline-flex">
+                        Get tickets
+                      </span>
                     </div>
-                  </div>
+                  </Card>
                 </Link>
               )
             })}
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Social Links */}
-      <div className="flex flex-wrap gap-3 sm:gap-4 pt-6 border-t">
-        {artist.website_url && (
-          <Link href={artist.website_url} className="text-primary hover:underline text-sm sm:text-base" target="_blank" rel="noreferrer">
+      <div className="flex flex-wrap gap-4 border-t border-line pt-6">
+        {(artist as any).website_url && (
+          <Link
+            href={(artist as any).website_url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-[13px] font-semibold text-ink underline-offset-4 hover:underline"
+          >
             Website
           </Link>
         )}
-        {artist.twitter && (
-          <Link href={artist.twitter} className="text-primary hover:underline text-sm sm:text-base" target="_blank" rel="noreferrer">
+        {(artist as any).twitter && (
+          <Link
+            href={(artist as any).twitter}
+            target="_blank"
+            rel="noreferrer"
+            className="text-[13px] font-semibold text-ink underline-offset-4 hover:underline"
+          >
             Twitter
           </Link>
         )}
-        {artist.instagram && (
-          <Link href={artist.instagram} className="text-primary hover:underline text-sm sm:text-base" target="_blank" rel="noreferrer">
+        {(artist as any).instagram && (
+          <Link
+            href={(artist as any).instagram}
+            target="_blank"
+            rel="noreferrer"
+            className="text-[13px] font-semibold text-ink underline-offset-4 hover:underline"
+          >
             Instagram
           </Link>
         )}
-        {artist.youtube && (
-          <Link href={artist.youtube} className="text-primary hover:underline text-sm sm:text-base" target="_blank" rel="noreferrer">
+        {(artist as any).youtube && (
+          <Link
+            href={(artist as any).youtube}
+            target="_blank"
+            rel="noreferrer"
+            className="text-[13px] font-semibold text-ink underline-offset-4 hover:underline"
+          >
             YouTube
           </Link>
         )}
       </div>
-    </div>
+    </main>
   )
 }

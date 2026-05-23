@@ -1,12 +1,12 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
-import { QrCode, WifiOff, CheckCircle2, XCircle, Clock } from "lucide-react"
+
+import { Button } from "@/components/quiet/ui/button"
+import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
+import { Chip } from "@/components/quiet/ui/chip"
+import { Icon } from "@/components/quiet/ui/icon"
+import { cn } from "@/lib/cn"
 
 interface ScanResponse {
   valid: boolean
@@ -26,37 +26,31 @@ interface OfflineScanPayload {
 }
 
 function loadDeviceId() {
-  if (typeof window === "undefined") {
-    return "web"
-  }
+  if (typeof window === "undefined") return "web"
   const existing = window.localStorage.getItem("ticketiv_scanner_device")
-  if (existing) {
-    return existing
-  }
+  if (existing) return existing
   const generated = `device-${crypto.randomUUID()}`
   window.localStorage.setItem("ticketiv_scanner_device", generated)
   return generated
 }
 
 function loadOfflineQueue(): OfflineScanPayload[] {
-  if (typeof window === "undefined") {
-    return []
-  }
+  if (typeof window === "undefined") return []
   try {
     const raw = window.localStorage.getItem("ticketiv_offline_scans")
     return raw ? (JSON.parse(raw) as OfflineScanPayload[]) : []
-  } catch (error) {
-    console.warn("Failed to parse offline scans", error)
+  } catch {
     return []
   }
 }
 
 function persistOfflineQueue(queue: OfflineScanPayload[]) {
-  if (typeof window === "undefined") {
-    return
-  }
+  if (typeof window === "undefined") return
   window.localStorage.setItem("ticketiv_offline_scans", JSON.stringify(queue))
 }
+
+const fieldClass =
+  "rounded-md border border-line-2 bg-surface px-3 py-2.5 text-[14px] font-medium text-ink placeholder:text-ink-4 outline-none transition-shadow duration-100 focus:border-accent focus:ring-[3px] focus:ring-accent-soft"
 
 export default function ScannerPage() {
   const [code, setCode] = useState("")
@@ -67,21 +61,12 @@ export default function ScannerPage() {
   const [offlineQueue, setOfflineQueue] = useState<OfflineScanPayload[]>([])
   const deviceId = useMemo(() => loadDeviceId(), [])
 
-  useEffect(() => {
-    setOfflineQueue(loadOfflineQueue())
-  }, [])
+  useEffect(() => { setOfflineQueue(loadOfflineQueue()) }, [])
+  useEffect(() => { persistOfflineQueue(offlineQueue) }, [offlineQueue])
 
   useEffect(() => {
-    persistOfflineQueue(offlineQueue)
-  }, [offlineQueue])
-
-  useEffect(() => {
-    if (!eventId || sessionId) {
-      return
-    }
-
+    if (!eventId || sessionId) return
     let cancelled = false
-
     async function createSession() {
       try {
         const response = await fetch("/api/scanner/session", {
@@ -89,37 +74,25 @@ export default function ScannerPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ deviceId, eventId }),
         })
-
-        if (!response.ok) {
-          throw new Error("Unable to start session")
-        }
-
+        if (!response.ok) throw new Error("Unable to start session")
         const data = await response.json()
-        if (!cancelled) {
-          setSessionId(data.id)
-        }
+        if (!cancelled) setSessionId(data.id)
       } catch (error) {
         console.error(error)
       }
     }
-
     createSession()
-
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [deviceId, eventId, sessionId])
 
   useEffect(() => {
     return () => {
-      if (!sessionId) {
-        return
-      }
+      if (!sessionId) return
       fetch("/api/scanner/session", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId }),
-      }).catch((error) => console.error("Failed to close session", error))
+      }).catch(() => undefined)
     }
   }, [sessionId])
 
@@ -137,270 +110,196 @@ export default function ScannerPage() {
     setLoading(true)
     setResult(null)
 
-    const payload = {
-      code,
-      deviceId,
-      sessionId,
-    }
+    const payload = { code, deviceId, sessionId }
 
     try {
       const response = await fetch("/api/scanner/validate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...payload, eventId }),
       })
-
       const data: ScanResponse = await response.json()
       setResult(data)
-
-      if (!response.ok && data.status === "offline") {
-        queueOfflineScan()
-      }
-    } catch (error) {
-      console.error("Scan failed", error)
+      if (!response.ok && data.status === "offline") queueOfflineScan()
+    } catch {
       queueOfflineScan()
-      setResult({
-        valid: true,
-        status: "offline",
-        message: "Network unavailable. Scan stored offline.",
-      })
+      setResult({ valid: true, status: "offline", message: "Network unavailable. Scan stored offline." })
     } finally {
       setLoading(false)
     }
   }
 
   const handleSync = async () => {
-    if (offlineQueue.length === 0) {
-      return
-    }
-
+    if (offlineQueue.length === 0) return
     try {
       const response = await fetch("/api/scanner/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scans: offlineQueue }),
       })
-
-      if (!response.ok) {
-        throw new Error("Sync failed")
-      }
-
+      if (!response.ok) throw new Error("Sync failed")
       setOfflineQueue([])
       setResult({ valid: true, status: "validated", message: "Offline scans synced" })
-    } catch (error) {
-      console.error("Failed to sync offline scans", error)
+    } catch {
       setResult({ valid: false, status: "error", message: "Unable to sync offline scans" })
     }
   }
 
-  return (
-    <>
-      {/* Mobile View */}
-      <div className="lg:hidden flex-1 flex flex-col">
-        <div className="p-4 space-y-4 flex-1">
-          <div className="space-y-2">
-            <h1 className="text-2xl font-bold">Scanner</h1>
-            <p className="text-sm text-muted-foreground">Scan tickets to validate entry</p>
+  const sessionCard = (
+    <Card>
+      <CardBody className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <p className="text-h3">Session</p>
+          <Chip size="sm" variant={sessionId ? "active" : "muted"}>
+            {sessionId ? "Active" : "Setup"}
+          </Chip>
+        </div>
+        <label className="flex flex-col gap-1">
+          <span className="text-label">Event ID</span>
+          <input
+            value={eventId}
+            onChange={(event) => setEventId(event.target.value)}
+            placeholder="Enter event ID to start session"
+            className={fieldClass}
+          />
+        </label>
+        <div className="flex flex-col gap-2 text-[12px]">
+          <div className="flex items-center justify-between rounded-[var(--radius-md)] border border-line bg-bg px-3 py-2">
+            <span className="text-ink-3">Device</span>
+            <span className="font-mono text-ink">{deviceId.substring(0, 16)}…</span>
           </div>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">Session</CardTitle>
-                <Badge variant={sessionId ? "default" : "secondary"}>{sessionId ? "Active" : "Setup"}</Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Input
-                value={eventId}
-                onChange={(event) => setEventId(event.target.value)}
-                placeholder="Enter Event ID"
-                className="h-11"
-              />
-              <div className="flex items-center justify-between text-xs bg-muted p-3 rounded-lg">
-                <span className="text-muted-foreground">Device</span>
-                <span className="font-mono truncate ml-2">{deviceId.substring(0, 12)}...</span>
-              </div>
-              {offlineQueue.length > 0 && (
-                <Button onClick={handleSync} variant="outline" className="w-full bg-transparent" size="sm">
-                  <WifiOff className="h-4 w-4 mr-2" />
-                  Sync {offlineQueue.length} Offline Scans
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-
-          {result && (
-            <Alert
-              variant={result.valid ? "default" : "destructive"}
-              className={result.valid ? "border-green-500 bg-green-50" : ""}
-            >
-              <div className="flex items-start gap-3">
-                {result.valid ? (
-                  <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
-                ) : (
-                  <XCircle className="h-5 w-5 shrink-0 mt-0.5" />
-                )}
-                <AlertDescription className="flex-1">
-                  <p className="font-semibold mb-1">{result.message}</p>
-                  {result.scan?.scanned_at && (
-                    <p className="text-xs flex items-center gap-1 mt-2">
-                      <Clock className="h-3 w-3" />
-                      {new Date(result.scan.scanned_at).toLocaleString()}
-                    </p>
-                  )}
-                  {result.previousScan?.scanned_at && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Previous: {new Date(result.previousScan.scanned_at).toLocaleString()}
-                    </p>
-                  )}
-                </AlertDescription>
-              </div>
-            </Alert>
+          {sessionId && (
+            <div className="flex items-center justify-between rounded-[var(--radius-md)] border border-line bg-bg px-3 py-2">
+              <span className="text-ink-3">Session</span>
+              <span className="font-mono text-ink">{sessionId.substring(0, 16)}…</span>
+            </div>
           )}
         </div>
+        {offlineQueue.length > 0 && (
+          <Button onClick={handleSync} variant="outline" size="sm" block>
+            <Icon name="globe" size={14} />
+            Sync {offlineQueue.length} offline scan{offlineQueue.length === 1 ? "" : "s"}
+          </Button>
+        )}
+      </CardBody>
+    </Card>
+  )
 
-        <div className="p-4 border-t bg-card sticky bottom-0">
+  const resultBlock = result && (
+    <div
+      role="status"
+      className={cn(
+        "flex items-start gap-3 rounded-[var(--radius-md)] border px-4 py-3",
+        result.valid
+          ? "border-accent/30 bg-accent-soft text-ink"
+          : "border-danger/30 bg-danger-soft text-danger"
+      )}
+    >
+      <Icon name={result.valid ? "check" : "close"} size={18} className="mt-0.5" />
+      <div className="flex flex-1 flex-col gap-1">
+        <p className="text-[14px] font-semibold">{result.message}</p>
+        {result.scan?.scanned_at && (
+          <p className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-wider text-ink-3">
+            <Icon name="clock" size={12} />
+            {new Date(result.scan.scanned_at).toLocaleString()}
+          </p>
+        )}
+        {result.previousScan?.scanned_at && (
+          <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+            Previous · {new Date(result.previousScan.scanned_at).toLocaleString()}
+          </p>
+        )}
+      </div>
+    </div>
+  )
+
+  return (
+    <>
+      {/* Mobile */}
+      <div className="flex min-h-dvh flex-1 flex-col lg:hidden">
+        <div className="flex flex-1 flex-col gap-4 p-4">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-h1">Scanner</h1>
+            <p className="text-[13px] text-ink-3">Scan tickets to validate entry.</p>
+          </div>
+          {sessionCard}
+          {resultBlock}
+        </div>
+
+        <div className="sticky bottom-0 border-t border-line bg-surface p-4">
           <Card className="mb-4">
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                <QrCode className="h-4 w-4" />
-                <span>Ticket Code</span>
+            <CardBody className="flex flex-col gap-3">
+              <div className="flex items-center gap-2 text-ink-3">
+                <Icon name="qr" size={16} />
+                <span className="text-label">Ticket code</span>
               </div>
-              <Input
+              <input
                 value={code}
                 onChange={(event) => setCode(event.target.value)}
                 placeholder="Scan or enter code"
-                className="h-12 text-base"
+                className={cn(fieldClass, "h-12 text-[16px]")}
                 autoFocus
               />
-            </CardContent>
+            </CardBody>
           </Card>
           <Button
             onClick={handleScan}
             disabled={loading || !code.trim()}
-            className="w-full h-14 text-lg font-semibold"
-            size="lg"
+            variant="primary"
+            size="md"
+            block
+            className="h-14 text-[16px]"
           >
-            {loading ? "Validating..." : "Validate Ticket"}
+            {loading ? "Validating…" : "Validate ticket"}
           </Button>
         </div>
       </div>
 
-      {/* Desktop View */}
-      <div className="hidden lg:block mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold">Scan Tickets</h1>
-            <p className="text-muted-foreground mt-2">
+      {/* Desktop */}
+      <div className="mx-auto hidden max-w-4xl px-4 py-10 sm:px-6 lg:block lg:px-8">
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-h1">Scan tickets</h1>
+            <p className="text-[14px] text-ink-3">
               Validate attendee QR codes or ticket numbers to monitor entry at your event.
             </p>
           </div>
 
           <div className="grid gap-6 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Scanner Session</CardTitle>
-                  <Badge variant={sessionId ? "default" : "secondary"} className="ml-2">
-                    {sessionId ? "Active" : "Setup Required"}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Event ID</label>
-                  <Input
-                    value={eventId}
-                    onChange={(event) => setEventId(event.target.value)}
-                    placeholder="Enter Event ID to start session"
-                  />
-                </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                    <span className="text-muted-foreground">Device ID</span>
-                    <span className="font-mono text-xs">{deviceId}</span>
-                  </div>
-                  {sessionId && (
-                    <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                      <span className="text-muted-foreground">Session ID</span>
-                      <span className="font-mono text-xs">{sessionId.substring(0, 16)}...</span>
-                    </div>
-                  )}
-                </div>
-                {offlineQueue.length > 0 && (
-                  <Button onClick={handleSync} variant="outline" className="w-full bg-transparent">
-                    <WifiOff className="h-4 w-4 mr-2" />
-                    Sync {offlineQueue.length} Offline Scans
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
+            {sessionCard}
 
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <QrCode className="h-5 w-5" />
-                  Manual Entry
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Ticket Code</label>
-                  <Input
+              <CardBody className="flex flex-col gap-4">
+                <div className="flex items-center gap-2">
+                  <Icon name="qr" size={18} className="text-ink-3" />
+                  <p className="text-h3">Manual entry</p>
+                </div>
+                <label className="flex flex-col gap-1">
+                  <span className="text-label">Ticket code</span>
+                  <input
                     value={code}
                     onChange={(event) => setCode(event.target.value)}
                     placeholder="Scan or paste ticket code"
-                    className="font-mono"
+                    className={cn(fieldClass, "font-mono")}
                   />
-                </div>
-                <Button onClick={handleScan} disabled={loading || !code.trim()} className="w-full" size="lg">
-                  {loading ? "Validating..." : "Validate Ticket"}
+                </label>
+                <Button onClick={handleScan} disabled={loading || !code.trim()} variant="primary" size="md" block>
+                  {loading ? "Validating…" : "Validate ticket"}
                 </Button>
-              </CardContent>
+              </CardBody>
             </Card>
           </div>
 
-          {result && (
-            <Alert
-              variant={result.valid ? "default" : "destructive"}
-              className={result.valid ? "border-green-500 bg-green-50" : ""}
-            >
-              <div className="flex items-start gap-4">
-                {result.valid ? (
-                  <CheckCircle2 className="h-6 w-6 text-green-600 shrink-0" />
-                ) : (
-                  <XCircle className="h-6 w-6 shrink-0" />
-                )}
-                <AlertDescription className="flex-1">
-                  <p className="font-semibold text-lg mb-2">{result.message}</p>
-                  <div className="space-y-1 text-sm">
-                    {result.scan?.scanned_at && (
-                      <p className="flex items-center gap-2">
-                        <Clock className="h-4 w-4" />
-                        Scanned at: {new Date(result.scan.scanned_at).toLocaleString()}
-                      </p>
-                    )}
-                    {result.previousScan?.scanned_at && (
-                      <p className="text-muted-foreground">
-                        Previous scan: {new Date(result.previousScan.scanned_at).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
-                </AlertDescription>
-              </div>
-            </Alert>
-          )}
+          {resultBlock}
 
           <Card>
-            <CardHeader>
-              <CardTitle>Recent Scans</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-center text-muted-foreground py-8">No scans yet in this session</p>
-            </CardContent>
+            <CardBody className="px-5 py-4">
+              <p className="text-label">Recent scans</p>
+            </CardBody>
+            <CardDivider />
+            <CardBody className="px-5 py-10 text-center">
+              <p className="text-[13px] text-ink-3">No scans yet in this session.</p>
+            </CardBody>
           </Card>
         </div>
       </div>

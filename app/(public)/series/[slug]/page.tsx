@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation"
 import Link from "next/link"
-import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
+
+import { Chip } from "@/components/quiet/ui/chip"
+import { Divider } from "@/components/quiet/ui/primitives"
 import { getSeriesBySlug, getSeriesFollowState, type SeriesDetailEvent } from "@/lib/data/public/series"
 import { describeRecurrence, type RecurrencePattern } from "@/lib/series/recurrence"
 import { formatSeriesDateRange } from "@/lib/series/date-range"
@@ -47,8 +48,7 @@ export default async function SeriesPage({ params }: SeriesPageProps) {
 
   return (
     <main className="pb-16">
-      {/* Hero */}
-      <div className="relative w-full overflow-hidden bg-muted">
+      <div className="relative w-full overflow-hidden bg-bg">
         <div className="relative aspect-[16/9] max-h-[420px] w-full">
           {series.cover_image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -61,19 +61,19 @@ export default async function SeriesPage({ params }: SeriesPageProps) {
             <div
               className="h-full w-full"
               style={{
-                background: "linear-gradient(135deg, oklch(0.13 0.02 264) 0%, oklch(0.42 0.25 291) 100%)",
+                background: "linear-gradient(135deg, var(--color-ink) 0%, var(--color-accent) 100%)",
               }}
               role="img"
               aria-label={series.title}
             />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
-          <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
-            <Badge className="mb-2 bg-primary/90 text-primary-foreground backdrop-blur-sm">
+          <div className="absolute inset-x-0 bottom-0 p-4 sm:p-6">
+            <Chip size="sm" variant="accent" className="mb-2 backdrop-blur-sm">
               {SERIES_TYPE_LABELS[series.series_type]}
-            </Badge>
+            </Chip>
             <h1
-              className="font-display text-2xl font-bold leading-tight text-white sm:text-3xl md:text-4xl"
+              className="text-[24px] font-semibold leading-tight tracking-tight text-white sm:text-[32px] md:text-[40px]"
               style={{ textShadow: "0 1px 4px rgba(0,0,0,0.5)" }}
             >
               {series.title}
@@ -83,12 +83,11 @@ export default async function SeriesPage({ params }: SeriesPageProps) {
       </div>
 
       <div className="mx-auto max-w-3xl px-4 pt-6 sm:px-6">
-        {/* Organizer attribution + follow */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           {series.organization ? (
             <Link
               href={`/organisers/${series.organization.slug}`}
-              className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent/50"
+              className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-ink transition-colors hover:bg-bg"
             >
               {series.organization.logo && (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -105,7 +104,7 @@ export default async function SeriesPage({ params }: SeriesPageProps) {
           )}
           <div className="flex items-center gap-3">
             {followState.followerCount > 0 && (
-              <span className="text-xs text-muted-foreground">
+              <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
                 {followState.followerCount} follower{followState.followerCount === 1 ? "" : "s"}
               </span>
             )}
@@ -118,14 +117,13 @@ export default async function SeriesPage({ params }: SeriesPageProps) {
           </div>
         </div>
 
-        {/* Description */}
         {series.description && (
-          <p className="mt-6 whitespace-pre-line text-base leading-relaxed text-muted-foreground">
+          <p className="mt-6 whitespace-pre-line text-[14px] leading-relaxed text-ink-3">
             {series.description}
           </p>
         )}
 
-        <Separator className="my-8" />
+        <Divider className="my-8" />
 
         {series.series_type === "tour" && (
           <TourSection upcoming={upcoming} past={past} />
@@ -150,6 +148,14 @@ export default async function SeriesPage({ params }: SeriesPageProps) {
   )
 }
 
+function EmptyTile({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="rounded-[var(--radius-md)] border border-dashed border-line-2 bg-surface px-4 py-8 text-center text-[13px] text-ink-3">
+      {children}
+    </p>
+  )
+}
+
 function TourSection({
   upcoming,
   past,
@@ -158,16 +164,12 @@ function TourSection({
   past: SeriesDetailEvent[]
 }) {
   return (
-    <section aria-labelledby="tour-dates-heading" className="space-y-6">
-      <h2 id="tour-dates-heading" className="font-display text-2xl font-bold">
-        Tour dates
-      </h2>
+    <section aria-labelledby="tour-dates-heading" className="flex flex-col gap-6">
+      <h2 id="tour-dates-heading" className="text-h1">Tour dates</h2>
       {upcoming.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border/60 bg-card px-4 py-8 text-center text-sm text-muted-foreground">
-          Dates coming soon
-        </p>
+        <EmptyTile>Dates coming soon</EmptyTile>
       ) : (
-        <div className="space-y-3">
+        <div className="flex flex-col gap-3">
           {upcoming.map((event) => (
             <SeriesEventRow key={event.id} event={event} />
           ))}
@@ -192,30 +194,26 @@ function RecurringSection({
   const hasMore = upcoming.length > 6
 
   return (
-    <section aria-labelledby="upcoming-dates-heading" className="space-y-6">
-      <div className="space-y-1">
-        <h2 id="upcoming-dates-heading" className="font-display text-2xl font-bold">
-          Upcoming dates
-        </h2>
-        {recurrenceText && <p className="text-sm text-muted-foreground">{recurrenceText}</p>}
+    <section aria-labelledby="upcoming-dates-heading" className="flex flex-col gap-6">
+      <div className="flex flex-col gap-1">
+        <h2 id="upcoming-dates-heading" className="text-h1">Upcoming dates</h2>
+        {recurrenceText && <p className="text-[13px] text-ink-3">{recurrenceText}</p>}
       </div>
       {upcoming.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border/60 bg-card px-4 py-8 text-center text-sm text-muted-foreground">
-          Next dates coming soon — follow this series for updates
-        </p>
+        <EmptyTile>Next dates coming soon — follow this series for updates</EmptyTile>
       ) : (
         <>
-          <div className="space-y-3">
+          <div className="flex flex-col gap-3">
             {visible.map((event) => (
               <SeriesEventRow key={event.id} event={event} />
             ))}
           </div>
           {hasMore && (
-            <details className="rounded-xl border border-border/50 bg-card">
-              <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">
+            <details className="overflow-hidden rounded-[var(--radius-lg)] border border-line bg-surface">
+              <summary className="cursor-pointer px-4 py-3 text-[14px] font-semibold text-ink">
                 View all upcoming dates ({upcoming.length}) →
               </summary>
-              <div className="space-y-3 border-t border-border/40 px-4 py-4">
+              <div className="flex flex-col gap-3 border-t border-line px-4 py-4">
                 {upcoming.slice(6).map((event) => (
                   <SeriesEventRow key={event.id} event={event} />
                 ))}
@@ -244,17 +242,13 @@ function SeasonSection({
   const all = [...past.slice().reverse(), ...upcoming]
 
   return (
-    <section aria-labelledby="season-schedule-heading" className="space-y-6">
-      <div className="space-y-1">
-        <h2 id="season-schedule-heading" className="font-display text-2xl font-bold">
-          Season schedule
-        </h2>
-        {dateRange && <p className="text-sm text-muted-foreground">{dateRange}</p>}
+    <section aria-labelledby="season-schedule-heading" className="flex flex-col gap-6">
+      <div className="flex flex-col gap-1">
+        <h2 id="season-schedule-heading" className="text-h1">Season schedule</h2>
+        {dateRange && <p className="text-[13px] text-ink-3">{dateRange}</p>}
       </div>
       {all.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border/60 bg-card px-4 py-8 text-center text-sm text-muted-foreground">
-          Next dates coming soon — follow this series for updates
-        </p>
+        <EmptyTile>Next dates coming soon — follow this series for updates</EmptyTile>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {all.map((event) => {

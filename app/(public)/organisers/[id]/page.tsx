@@ -1,11 +1,9 @@
-import { CardDescription } from "@/components/ui/card"
 import { notFound } from "next/navigation"
-import { EventCardStandard as EventCard } from "@/components/standardized/event-card-standard"
-import type { EventCardData } from "@/components/standardized/event-card-standard"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+
+import { EventCardStandard as EventCard, type EventCardData } from "@/components/standardized/event-card-standard"
+import { Card } from "@/components/quiet/ui/card"
+import { Chip } from "@/components/quiet/ui/chip"
 import { getOrganiserDetail, getOrganiserEvents } from "@/lib/data/public"
-import EventCardStandard from "@/components/standardized/event-card-standard" // Import EventCardStandard
 
 interface OrganizerPageProps {
   params: { id: string }
@@ -13,6 +11,8 @@ interface OrganizerPageProps {
 
 export default async function OrganizerPage({ params }: OrganizerPageProps) {
   const organizer = await getOrganiserDetail(params.id)
+  if (!organizer) notFound()
+
   const events = await getOrganiserEvents(params.id)
 
   const organizerEvents: EventCardData[] = events.map((event) => ({
@@ -31,65 +31,54 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
     tickets_remaining: event.tickets_remaining,
   }))
 
-  if (!organizer) {
-    notFound()
-  }
-
   return (
-    <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-6 sm:space-y-8">
-      {/* Organizer Header */}
+    <main className="mx-auto flex w-full max-w-[1200px] flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
       <Card className="overflow-hidden">
-        <div className="relative h-48 sm:h-64 bg-gradient-to-br from-primary/10 to-primary/5" />
-        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start">
-          <div className="h-20 w-20 sm:h-24 sm:w-24 overflow-hidden rounded-lg border-4 border-background -mt-12 sm:-mt-16 bg-muted flex items-center justify-center">
+        <div className="h-40 w-full bg-gradient-to-br from-accent-soft to-bg sm:h-56" />
+        <div className="flex flex-col gap-4 px-5 pb-5 sm:flex-row sm:items-start sm:px-6 sm:pb-6">
+          <div className="-mt-12 flex h-20 w-20 items-center justify-center overflow-hidden rounded-[var(--radius-md)] border-4 border-surface bg-bg sm:-mt-16 sm:h-24 sm:w-24">
             {organizer.logo_url ? (
-              <img
-                src={organizer.logo_url || "/placeholder.svg"}
-                alt={organizer.name}
-                className="h-full w-full object-cover"
-              />
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={organizer.logo_url} alt={organizer.name} className="h-full w-full object-cover" />
             ) : (
-              <div className="text-2xl font-bold text-muted-foreground">
+              <div className="font-mono text-[22px] font-semibold text-ink-3">
                 {organizer.name.substring(0, 2).toUpperCase()}
               </div>
             )}
           </div>
-          <div className="flex-1 space-y-2 sm:space-y-3">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-xs">Event Organiser</Badge>
-            </div>
-            <CardTitle className="text-2xl sm:text-3xl">{organizer.name}</CardTitle>
+          <div className="flex flex-1 flex-col gap-2 pt-2">
+            <Chip size="sm" variant="default" className="w-fit">Event organiser</Chip>
+            <h1 className="text-h1 sm:text-[28px]">{organizer.name}</h1>
             {organizer.city && (
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary">{organizer.city}</Badge>
-              </div>
+              <Chip size="sm" variant="muted" className="w-fit">{organizer.city}</Chip>
             )}
             {organizer.description && (
-              <CardDescription className="text-sm sm:text-base line-clamp-2">{organizer.description}</CardDescription>
+              <p className="line-clamp-2 text-[14px] leading-relaxed text-ink-3">{organizer.description}</p>
             )}
           </div>
-        </CardHeader>
+        </div>
       </Card>
 
-      {/* Events Section */}
-      <div>
-        <h2 className="text-xl sm:text-2xl font-bold mb-4">
+      <section className="flex flex-col gap-4">
+        <h2 className="text-h2">
           {organizerEvents.length > 0 ? "Events by this organiser" : "No events yet"}
         </h2>
         {organizerEvents.length === 0 ? (
-          <div className="text-center py-8 sm:py-12">
-            <p className="text-muted-foreground text-sm sm:text-base">
-              No events published yet. Check back soon for announcements!
-            </p>
-          </div>
+          <Card flat className="border-dashed">
+            <div className="px-6 py-10 text-center">
+              <p className="text-[13px] text-ink-3">
+                No events published yet. Check back soon for announcements.
+              </p>
+            </div>
+          </Card>
         ) : (
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {organizerEvents.map((event) => (
-              <EventCard key={event.id} event={event} /> // Use EventCard instead of EventCardStandard
+              <EventCard key={event.id} event={event} />
             ))}
           </div>
         )}
-      </div>
-    </div>
+      </section>
+    </main>
   )
 }

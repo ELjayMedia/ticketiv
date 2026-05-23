@@ -2,9 +2,10 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
-import { SearchInput } from "@/components/ui/search-input"
+
+import { Card, CardBody } from "@/components/quiet/ui/card"
+import { Chip } from "@/components/quiet/ui/chip"
+import { Icon } from "@/components/quiet/ui/icon"
 import type { OrganiserSummary } from "@/lib/data/public"
 
 interface OrganisersClientProps {
@@ -19,43 +20,52 @@ export default function OrganisersClient({ initialOrganisers }: OrganisersClient
     : initialOrganisers
 
   return (
-    <div className="max-w-[980px] mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8">
-      <h1 className="text-4xl md:text-5xl font-bold text-balance">Organisers</h1>
+    <main className="mx-auto flex w-full max-w-[980px] flex-col gap-6 px-4 py-10 sm:px-6 lg:px-8">
+      <h1 className="text-h1 sm:text-[32px]">Organisers</h1>
 
-      <SearchInput
-        placeholder="Search organisers…"
-        value={searchQuery}
-        onChange={setSearchQuery}
-        className="max-w-md"
-      />
+      <label className="flex w-full max-w-md items-stretch overflow-hidden rounded-md border border-line-2 bg-surface focus-within:border-accent focus-within:ring-[3px] focus-within:ring-accent-soft">
+        <span className="flex items-center px-3 text-ink-3">
+          <Icon name="search" size={16} />
+        </span>
+        <input
+          type="search"
+          placeholder="Search organisers…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full bg-transparent py-2.5 pr-3 text-[14px] font-medium text-ink placeholder:text-ink-4 focus:outline-none"
+        />
+      </label>
 
       {filteredOrganisers.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filteredOrganisers.map((organiser) => (
-            <Link key={organiser.id} href={`/organisers/${organiser.id}`}>
-              <Card className="h-full hover:shadow-lg transition-shadow duration-300 cursor-pointer overflow-hidden">
-                <div className="aspect-square bg-muted overflow-hidden relative group">
+            <Link key={organiser.id} href={`/organisers/${organiser.id}`} className="block">
+              <Card className="h-full overflow-hidden transition-colors hover:border-line-2">
+                <div className="aspect-square overflow-hidden bg-bg">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={organiser.logo_url || "/placeholder.svg"}
                     alt={organiser.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
                   />
                 </div>
-                <CardContent className="pt-4 space-y-2">
-                  <h3 className="font-semibold line-clamp-2">{organiser.name}</h3>
-                  <Badge className="w-fit text-xs">Organiser</Badge>
-                </CardContent>
+                <CardBody className="flex flex-col gap-2 px-4 py-3">
+                  <h3 className="line-clamp-2 text-[14px] font-semibold text-ink">{organiser.name}</h3>
+                  <Chip size="sm" variant="default" className="w-fit">Organiser</Chip>
+                </CardBody>
               </Card>
             </Link>
           ))}
         </div>
       ) : (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">
-            {searchQuery ? "No organisers found matching your search" : "No organisers available"}
-          </p>
-        </div>
+        <Card flat className="border-dashed">
+          <CardBody className="px-6 py-12 text-center">
+            <p className="text-[13px] text-ink-3">
+              {searchQuery ? "No organisers found matching your search." : "No organisers available."}
+            </p>
+          </CardBody>
+        </Card>
       )}
-    </div>
+    </main>
   )
 }

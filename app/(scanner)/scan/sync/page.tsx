@@ -1,12 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { ArrowLeft, WifiOff, RefreshCcw, Clock, AlertCircle } from "lucide-react"
 import Link from "next/link"
+
+import { Button } from "@/components/quiet/ui/button"
+import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
+import { Chip } from "@/components/quiet/ui/chip"
+import { Icon } from "@/components/quiet/ui/icon"
 
 export default function SyncQueuePage() {
   const [syncing, setSyncing] = useState(false)
@@ -18,7 +18,6 @@ export default function SyncQueuePage() {
   const handleSync = async () => {
     setSyncing(true)
     setProgress(0)
-
     const interval = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 100) {
@@ -31,206 +30,140 @@ export default function SyncQueuePage() {
     }, 200)
   }
 
+  const statusCard = (
+    <Card>
+      <CardBody className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="inline-block h-2 w-2 rounded-full bg-warning" aria-hidden />
+            <span className="text-[14px] font-semibold text-ink">Offline mode active</span>
+          </div>
+          <Chip size="sm" variant="muted">
+            <Icon name="globe" size={12} />
+            No connection
+          </Chip>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-1">
+            <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Pending scans</p>
+            <p className="font-mono text-[28px] font-semibold tabular-nums text-ink">{pendingScans}</p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Last sync</p>
+            <p className="text-[16px] font-semibold text-ink">{lastSync}</p>
+          </div>
+        </div>
+      </CardBody>
+    </Card>
+  )
+
+  const syncCard = (
+    <Card>
+      <CardBody className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <p className="text-h3">Sync queue</p>
+          <p className="text-[13px] text-ink-3">Scans waiting to be uploaded.</p>
+        </div>
+        {syncing ? (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between text-[13px]">
+              <span className="text-ink-3">Syncing…</span>
+              <span className="font-mono font-semibold text-ink">{progress}%</span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-line">
+              <div
+                className="h-full rounded-full bg-accent transition-[width] duration-200"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-start gap-3 rounded-[var(--radius-md)] border border-line bg-bg p-3">
+              <Icon name="settings" size={16} className="mt-0.5 text-ink-3" />
+              <div className="flex flex-col gap-1 text-[13px]">
+                <p className="font-semibold text-ink">Offline scanning is active</p>
+                <p className="text-ink-3">
+                  Your scans are stored locally and will sync when you’re back online.
+                </p>
+              </div>
+            </div>
+            <Button onClick={handleSync} disabled={pendingScans === 0} variant="primary" size="md" block>
+              <Icon name="arrowR" size={14} />
+              Sync now
+            </Button>
+          </>
+        )}
+      </CardBody>
+    </Card>
+  )
+
+  const pendingCard = (
+    <Card>
+      <CardBody className="px-5 py-4">
+        <p className="text-label">Pending items ({pendingScans})</p>
+      </CardBody>
+      <CardDivider />
+      {[1, 2, 3].map((i, idx) => (
+        <div key={i}>
+          {idx > 0 && <CardDivider />}
+          <div className="flex items-center justify-between gap-3 px-5 py-3">
+            <div className="flex items-center gap-3">
+              <Icon name="clock" size={16} className="text-ink-3" />
+              <div className="flex flex-col gap-0.5">
+                <p className="font-mono text-[13px] font-semibold text-ink">
+                  TKT-{String(i).padStart(6, "0")}
+                </p>
+                <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+                  Valid scan · 2 minutes ago
+                </p>
+              </div>
+            </div>
+            <Chip size="sm" variant="default">Pending upload</Chip>
+          </div>
+        </div>
+      ))}
+    </Card>
+  )
+
   return (
     <>
-      {/* Mobile View */}
-      <div className="lg:hidden min-h-screen bg-background">
-        <div className="sticky top-0 z-10 bg-background border-b px-4 py-3 flex items-center gap-3">
-          <Link href="/scan">
-            <Button variant="ghost" size="icon" className="h-9 w-9">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
+      {/* Mobile */}
+      <div className="flex min-h-dvh flex-col lg:hidden">
+        <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-line bg-surface px-4 py-3">
+          <Link
+            href="/scan"
+            aria-label="Back to scanner"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink hover:bg-bg"
+          >
+            <Icon name="chevL" size={18} />
           </Link>
-          <h1 className="font-semibold">Offline Sync</h1>
-        </div>
+          <h1 className="text-h3">Offline sync</h1>
+        </header>
 
-        <div className="p-4 space-y-4">
-          {/* Status Card */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-orange-500" />
-                  <span className="font-medium">Offline Mode</span>
-                </div>
-                <Badge variant="outline">
-                  <WifiOff className="h-3 w-3 mr-1" />
-                  No Connection
-                </Badge>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Pending Scans</span>
-                  <span className="font-semibold">{pendingScans}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Last Sync</span>
-                  <span className="font-medium">{lastSync}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Sync Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Sync Queue</CardTitle>
-              <CardDescription>Scans waiting to be uploaded</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {syncing ? (
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Syncing...</span>
-                    <span className="font-medium">{progress}%</span>
-                  </div>
-                  <Progress value={progress} />
-                </div>
-              ) : (
-                <>
-                  <div className="bg-muted/50 p-4 rounded-lg flex gap-3">
-                    <AlertCircle className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
-                    <div className="text-sm text-muted-foreground">
-                      <p className="font-medium mb-1">Offline scanning is active</p>
-                      <p>Your scans are stored locally and will sync when you're back online.</p>
-                    </div>
-                  </div>
-
-                  <Button className="w-full" onClick={handleSync} disabled={pendingScans === 0}>
-                    <RefreshCcw className="h-4 w-4 mr-2" />
-                    Sync Now
-                  </Button>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Pending Items */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Pending Items</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="font-mono text-sm font-medium">TKT-{String(i).padStart(6, "0")}</p>
-                      <p className="text-xs text-muted-foreground">2 minutes ago</p>
-                    </div>
-                  </div>
-                  <Badge variant="outline">Pending</Badge>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+        <div className="flex flex-col gap-4 p-4">
+          {statusCard}
+          {syncCard}
+          {pendingCard}
         </div>
       </div>
 
-      {/* Desktop View */}
-      <div className="hidden lg:block min-h-screen bg-background">
-        <div className="mx-auto max-w-[800px] px-4 py-8">
-          <div className="mb-8">
-            <Link href="/scan">
-              <Button variant="ghost" size="sm" className="mb-4">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Scanner
-              </Button>
-            </Link>
-            <h1 className="text-3xl font-bold">Offline Sync</h1>
-          </div>
-
-          <div className="grid gap-6">
-            {/* Status Card */}
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 rounded-full bg-orange-500" />
-                    <span className="text-lg font-medium">Offline Mode Active</span>
-                  </div>
-                  <Badge variant="outline" className="text-base">
-                    <WifiOff className="h-4 w-4 mr-2" />
-                    No Connection
-                  </Badge>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Pending Scans</p>
-                    <p className="text-3xl font-bold">{pendingScans}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Last Sync</p>
-                    <p className="text-xl font-semibold">{lastSync}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Sync Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Sync Queue</CardTitle>
-                <CardDescription>Scans waiting to be uploaded to the server</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {syncing ? (
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Syncing scans...</span>
-                      <span className="font-medium">{progress}%</span>
-                    </div>
-                    <Progress value={progress} className="h-2" />
-                  </div>
-                ) : (
-                  <>
-                    <div className="bg-muted/50 p-4 rounded-lg flex gap-4">
-                      <AlertCircle className="h-6 w-6 text-muted-foreground shrink-0 mt-0.5" />
-                      <div className="text-sm text-muted-foreground">
-                        <p className="font-medium mb-1">Offline scanning is active</p>
-                        <p>
-                          Your scans are stored locally on this device and will automatically sync when you're back
-                          online. You can also manually sync anytime.
-                        </p>
-                      </div>
-                    </div>
-
-                    <Button size="lg" className="w-full" onClick={handleSync} disabled={pendingScans === 0}>
-                      <RefreshCcw className="h-5 w-5 mr-2" />
-                      Sync Now
-                    </Button>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Pending Items */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Pending Items ({pendingScans})</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <Clock className="h-5 w-5 text-muted-foreground" />
-                      <div>
-                        <p className="font-mono font-medium">TKT-{String(i).padStart(6, "0")}</p>
-                        <p className="text-sm text-muted-foreground">Valid scan • 2 minutes ago</p>
-                      </div>
-                    </div>
-                    <Badge variant="outline">Pending Upload</Badge>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
+      {/* Desktop */}
+      <div className="mx-auto hidden max-w-[800px] px-4 py-8 lg:block">
+        <div className="mb-8 flex flex-col gap-3">
+          <Link
+            href="/scan"
+            className="inline-flex w-fit items-center gap-1.5 text-[13px] text-ink-3 underline-offset-4 hover:underline"
+          >
+            <Icon name="chevL" size={14} />
+            Back to scanner
+          </Link>
+          <h1 className="text-h1">Offline sync</h1>
+        </div>
+        <div className="flex flex-col gap-6">
+          {statusCard}
+          {syncCard}
+          {pendingCard}
         </div>
       </div>
     </>
