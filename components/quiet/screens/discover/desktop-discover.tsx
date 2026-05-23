@@ -18,11 +18,11 @@ interface DesktopDiscoverProps {
 }
 
 const CATEGORIES = [
-  { icon: "music", label: "Music", count: 18 },
-  { icon: "fire", label: "Comedy", count: 6 },
-  { icon: "users", label: "Workshops", count: 4 },
-  { icon: "ticket", label: "Theatre", count: 3 },
-  { icon: "spark", label: "Festivals", count: 2 },
+  { icon: "music", label: "Music", href: "/search?category=Music" },
+  { icon: "fire", label: "Comedy", href: "/search?category=Comedy" },
+  { icon: "users", label: "Workshops", href: "/search?category=Workshop" },
+  { icon: "ticket", label: "Theatre", href: "/search?category=Theatre" },
+  { icon: "spark", label: "Festivals", href: "/search?category=Festival" },
 ] as const;
 
 interface GridRow {
@@ -73,7 +73,7 @@ function toGrid(ev: DiscoverEvent): GridRow {
     title: ev.title,
     when: ev.whenLabel,
     venue: ev.venue,
-    price: ev.priceLabel || (ev.fromPriceCents === 0 ? "Free" : ""),
+    price: ev.priceLabel,
     chip: ev.city ?? undefined,
   };
 }
@@ -114,13 +114,19 @@ export function DesktopDiscover({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-1.5 text-[13px] font-medium hover:bg-bg">
+          <Link
+            href="/search?when=week"
+            className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-1.5 text-[13px] font-medium hover:bg-bg"
+          >
             <Icon name="cal" size={14} /> This week
             <Icon name="chevD" size={12} />
-          </button>
-          <button className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-1.5 text-[13px] font-medium hover:bg-bg">
+          </Link>
+          <Link
+            href="/search"
+            className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-1.5 text-[13px] font-medium hover:bg-bg"
+          >
             <Icon name="filter" size={14} /> Filters
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -149,7 +155,7 @@ export function DesktopDiscover({
           <div className="flex flex-col p-6">
             <div className="text-label">FROM</div>
             <div className="mt-1 font-mono text-[44px] font-semibold leading-none">
-              {HERO.priceLabel || "—"}
+              {HERO.priceLabel}
             </div>
             {HERO.subtitle && (
               <p className="mt-3 text-[13px] text-ink-3">{HERO.subtitle}</p>
@@ -173,29 +179,32 @@ export function DesktopDiscover({
           <ul className="flex flex-col">
             {CATEGORIES.map((c) => (
               <li key={c.label}>
-                <button className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-[13px] hover:bg-bg">
+                <Link
+                  href={c.href}
+                  className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-[13px] hover:bg-bg"
+                >
                   <Icon name={c.icon} size={16} className="text-ink-3" />
                   <span className="flex-1 text-left">{c.label}</span>
-                  <span className="font-mono text-[11px] text-ink-3">{c.count}</span>
-                </button>
+                  <Icon name="chevR" size={12} className="text-ink-3" />
+                </Link>
               </li>
             ))}
           </ul>
           <Divider className="my-4" />
           <div className="text-label mb-3">Price</div>
-          <div className="flex flex-col gap-2 text-[13px]">
-            <label className="inline-flex items-center gap-2">
-              <input type="checkbox" className="accent-accent" /> Free
-            </label>
-            <label className="inline-flex items-center gap-2">
-              <input type="checkbox" className="accent-accent" /> Under E500
-            </label>
-            <label className="inline-flex items-center gap-2">
-              <input type="checkbox" className="accent-accent" /> E500 – E1,500
-            </label>
-            <label className="inline-flex items-center gap-2">
-              <input type="checkbox" className="accent-accent" /> E1,500+
-            </label>
+          <div className="flex flex-col gap-1 text-[13px]">
+            <Link href="/search?onlyFree=1" className="rounded-md px-2 py-1.5 hover:bg-bg">
+              Free
+            </Link>
+            <Link href="/search?maxPriceCents=50000" className="rounded-md px-2 py-1.5 hover:bg-bg">
+              Under E500
+            </Link>
+            <Link href="/search?maxPriceCents=150000" className="rounded-md px-2 py-1.5 hover:bg-bg">
+              E500 – E1,500
+            </Link>
+            <Link href="/search" className="rounded-md px-2 py-1.5 hover:bg-bg">
+              E1,500+
+            </Link>
           </div>
         </aside>
 

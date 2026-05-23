@@ -30,10 +30,13 @@ async function fetchEventExtras(eventId: string) {
       lineup: [] as EventLineupRow[],
       friends: [] as EventFriendRow[],
       refundPolicy: null as unknown,
+      soldCount: null as number | null,
+      attendeeCount: null as number | null,
+      recentSoldCount: null as number | null,
     };
   }
 
-  const [ttRes, lineupRes, friendsRes, eventRes] = await Promise.all([
+  const [ttRes, lineupRes, friendsRes, eventRes, trustRes] = await Promise.all([
     supabase
       .from("ticket_types")
       .select("id, name, price_cents, quota")
@@ -48,6 +51,7 @@ async function fetchEventExtras(eventId: string) {
       .select("friend_id, friend_name, friend_handle")
       .eq("event_id", eventId),
     supabase.from("events").select("refund_policy").eq("id", eventId).maybeSingle(),
+    fetchTrustSignals(supabase, eventId),
   ]);
 
   if (ttRes.error) console.error("[event-detail] ticket_types:", ttRes.error);
@@ -60,6 +64,37 @@ async function fetchEventExtras(eventId: string) {
     lineup: (lineupRes.data ?? []) as EventLineupRow[],
     friends: (friendsRes.data ?? []) as EventFriendRow[],
     refundPolicy: eventRes.data?.refund_policy ?? null,
+    ...trustRes,
+  };
+}
+
+type SupabaseLike = NonNullable<Awaited<ReturnType<typeof createServerSupabaseClient>>>;
+
+/**
+ * Best-effort fetch of public trust signals. We don't fail the page when the
+ * orders/order_items tables are out of RLS reach — the UI simply hides any
+ * count we can't compute.
+ */
+async function fetchTrustSignals(supabase: SupabaseLike, eventId: string) {
+  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const [soldRes, recentRes] = await Promise.all([
+    supabase
+      .from("order_items")
+      .select("id, order:order_id!inner(buyer_id, status, event_id)", { count: "exact", head: true })
+      .eq("order.event_id", eventId)
+      .eq("order.status", "paid"),
+    supabase
+      .from("order_items")
+      .select("id, order:order_id!inner(status, event_id, created_at)", { count: "exact", head: true })
+      .eq("order.event_id", eventId)
+      .eq("order.status", "paid")
+      .gte("order.created_at", dayAgo),
+  ]);
+
+  return {
+    soldCount: soldRes.error ? null : soldRes.count ?? null,
+    attendeeCount: soldRes.error ? null : soldRes.count ?? null,
+    recentSoldCount: recentRes.error ? null : recentRes.count ?? null,
   };
 }
 
@@ -72,10 +107,31 @@ export default async function EventDetailPage({
   const row = await getPublicEventBySlug(id);
   if (!row) notFound();
 
-  const { ticketTypes, lineup, friends, refundPolicy } = await fetchEventExtras(row.id);
+  const {
+    ticketTypes,
+    lineup,
+    friends,
+    refundPolicy,
+    soldCount,
+    attendeeCount,
+    recentSoldCount,
+  } = await fetchEventExtras(row.id);
 
-  const mobile = mapEventDetail(row, { lineup, friends, refundPolicy });
-  const desktop = mapDesktopEventDetail(row, ticketTypes, { lineup, friends, refundPolicy });
+  const trust = {
+    soldCount,
+    attendeeCount,
+    recentSoldCount,
+    recentSoldWindow: "today" as const,
+    supportUrl: "/help",
+  };
+
+  const mobile = mapEventDetail(row, { lineup, friends, refundPolicy, ...trust });
+  const desktop = mapDesktopEventDetail(row, ticketTypes, {
+    lineup,
+    friends,
+    refundPolicy,
+    ...trust,
+  });
 
   return (
     <>

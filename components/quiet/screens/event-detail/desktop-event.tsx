@@ -5,7 +5,14 @@ import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider, Avatar } from "@/components/quiet/ui/primitives";
 import { Button } from "@/components/quiet/ui/button";
 import { PHOTOS } from "@/lib/photos";
-import { formatPrice } from "@/lib/format";
+import {
+  formatPrice,
+  formatGoingCount,
+  formatSoldCount,
+  formatRecentSoldLabel,
+  formatLineupLabel,
+  formatScarcityLabel,
+} from "@/lib/format";
 import type { MobileEventData } from "./mobile-event";
 
 /* ──────────────────────────────────────────────────────────────
@@ -139,7 +146,7 @@ export function DesktopEvent({ event = DEFAULT_EVENT }: DesktopEventProps) {
               {event.title}
             </h1>
             <div className="mt-1.5 font-mono text-[14px] uppercase text-white/85">
-              SUNSET SET BY {event.lineup.map((a) => a.name.toUpperCase()).join(" + ")} · 4TH EDITION
+              {formatLineupLabel(event.lineup.map((a) => a.name)).toUpperCase()}
             </div>
           </div>
         </Photo>
@@ -149,6 +156,9 @@ export function DesktopEvent({ event = DEFAULT_EVENT }: DesktopEventProps) {
       <div className="grid grid-cols-[1fr_380px] items-start gap-8 pt-8 pb-12">
         {/* ── Left column ─────────────────────────────────── */}
         <div className="flex flex-col gap-7">
+          {/* Trust signal chip row */}
+          <DesktopTrustRow event={event} />
+
           {/* Meta strip (4 facts) */}
           <Card className="grid grid-cols-4 p-0">
             {[
@@ -313,6 +323,7 @@ export function DesktopEvent({ event = DEFAULT_EVENT }: DesktopEventProps) {
             <ul className="flex flex-col gap-2">
               {event.ticketTypes.map((t) => {
                 const soldOut = t.remaining === 0;
+                const scarcity = soldOut ? null : formatScarcityLabel(t.remaining);
                 return (
                   <li key={t.id}>
                     <button
@@ -326,9 +337,21 @@ export function DesktopEvent({ event = DEFAULT_EVENT }: DesktopEventProps) {
                     >
                       <div className="flex min-w-0 flex-1 flex-col">
                         <span className="text-[14px] font-semibold">{t.name}</span>
-                        <span className="font-mono text-[11px] text-ink-3">
-                          {t.description}
-                        </span>
+                        {t.description && (
+                          <span className="font-mono text-[11px] text-ink-3">
+                            {t.description}
+                          </span>
+                        )}
+                        {scarcity && (
+                          <span className="mt-0.5 font-mono text-[10px] font-semibold uppercase text-accent">
+                            {scarcity}
+                          </span>
+                        )}
+                        {soldOut && (
+                          <span className="mt-0.5 font-mono text-[10px] font-semibold uppercase text-ink-3">
+                            Sold out
+                          </span>
+                        )}
                       </div>
                       <span
                         className={
@@ -355,9 +378,16 @@ export function DesktopEvent({ event = DEFAULT_EVENT }: DesktopEventProps) {
               <Icon name="check" size={12} className="text-success" />
               Free transfer · partial refund · QR + wallet
             </div>
+            <Link
+              href={event.supportUrl ?? "/help"}
+              className="mt-1 inline-flex items-center gap-1 font-mono text-[10px] text-ink-3 hover:text-ink"
+            >
+              Need help? Contact support →
+            </Link>
           </Card>
 
           {/* Friends going - lightweight */}
+          {event.goingFriends.count > 0 && (
           <Card className="mt-3 flex items-center gap-3 p-3.5" flat>
             <Avatar src={event.goingFriends.photos[0]} size={28} />
             <Avatar src={event.goingFriends.photos[1]} size={28} className="-ml-3" />
@@ -368,8 +398,35 @@ export function DesktopEvent({ event = DEFAULT_EVENT }: DesktopEventProps) {
             </span>
             <button className="text-[12px] font-medium text-accent">View</button>
           </Card>
+          )}
         </aside>
       </div>
+    </div>
+  );
+}
+
+function DesktopTrustRow({ event }: { event: DesktopEventData }) {
+  const goingLabel = formatGoingCount(event.attendeeCount ?? event.goingFriends.count);
+  const soldLabel = formatSoldCount(event.soldCount);
+  const recent = formatRecentSoldLabel(event.recentSoldCount, {
+    windowLabel: event.recentSoldWindow,
+  });
+  const verified = event.organizer.verified;
+  if (!goingLabel && !soldLabel && !recent && !verified) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {verified && (
+        <Chip variant="accent" size="sm">
+          <Icon name="check" size={11} strokeWidth={3} /> Verified organizer
+        </Chip>
+      )}
+      {goingLabel && <Chip size="sm">{goingLabel}</Chip>}
+      {soldLabel && <Chip size="sm">{soldLabel}</Chip>}
+      {recent && (
+        <span className="font-mono text-[11px] text-ink-3">
+          <span className="text-accent">●</span> {recent}
+        </span>
+      )}
     </div>
   );
 }

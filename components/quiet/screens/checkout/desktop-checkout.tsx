@@ -301,6 +301,21 @@ export function DesktopCheckout({
             <Icon name="check" size={12} className="text-success" />
             <span>Free transfer · partial refund · QR + wallet</span>
           </div>
+          <div className="mt-3 rounded-md border border-line bg-bg p-3">
+            <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold">
+              <Icon name="check" size={12} className="text-success" />
+              Secure checkout
+            </div>
+            <p className="font-mono text-[10px] leading-relaxed text-ink-3">
+              Encrypted payment · refund policy per organizer · contact us anytime.
+            </p>
+            <Link
+              href="/help"
+              className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-accent"
+            >
+              Need help? <Icon name="chevR" size={10} />
+            </Link>
+          </div>
         </Card>
       </div>
     </div>

@@ -30,6 +30,14 @@ interface MapInput {
   lineup?: EventLineupRow[];
   friends?: EventFriendRow[];
   refundPolicy?: unknown;
+  /** Aggregate paid tickets sold across all ticket types for this event. */
+  soldCount?: number | null;
+  /** Distinct attendees (buyer_count) — surfaces "234 going" on detail. */
+  attendeeCount?: number | null;
+  /** Recent purchases within a short window, e.g. 24h. */
+  recentSoldCount?: number | null;
+  recentSoldWindow?: string;
+  supportUrl?: string;
 }
 
 function durationLabel(start: Date | null, end: Date | null): string | null {
@@ -100,6 +108,11 @@ export function mapEventDetail(row: EventPublicView, input: MapInput = {}): Mobi
     },
     goingFriends: mapFriends(input.friends),
     fromPriceMinor: row.min_price_cents ?? 0,
+    attendeeCount: input.attendeeCount ?? null,
+    soldCount: input.soldCount ?? null,
+    recentSoldCount: input.recentSoldCount ?? null,
+    recentSoldWindow: input.recentSoldWindow,
+    supportUrl: input.supportUrl,
   };
 }
 

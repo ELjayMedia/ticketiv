@@ -129,16 +129,39 @@ export function SearchResults({ query, filters, results, totalCount }: SearchRes
       {/* Results */}
       <div className="px-5">
         {results.length === 0 ? (
-          <Card className="py-10 text-center">
-            <div className="text-label mb-2">No matches</div>
-            <p className="px-6 text-[13px] text-ink-3">
-              Try a different keyword, remove a filter, or browse{" "}
-              <Link href="/" className="font-semibold text-accent">
-                what's on
-              </Link>
-              .
-            </p>
-          </Card>
+          <>
+            <Card className="py-10 text-center">
+              <div className="text-label mb-2">No matches</div>
+              <p className="px-6 text-[13px] text-ink-3">
+                Try a different keyword, remove a filter, or browse{" "}
+                <Link href="/" className="font-semibold text-accent">
+                  what's on
+                </Link>
+                .
+              </p>
+            </Card>
+            <div className="mt-5">
+              <div className="text-label mb-2">Suggested for you</div>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { label: "Music", href: "/search?category=Music" },
+                  { label: "Comedy", href: "/search?category=Comedy" },
+                  { label: "Free", href: "/search?onlyFree=1" },
+                  { label: "Tonight", href: "/search?when=tonight" },
+                  { label: "This weekend", href: "/search?when=weekend" },
+                  { label: "Workshops", href: "/search?category=Workshop" },
+                ].map((c) => (
+                  <Link
+                    key={c.label}
+                    href={c.href}
+                    className="inline-flex items-center gap-1 rounded-full border border-line-2 bg-surface px-3 py-1.5 text-xs font-semibold hover:border-line"
+                  >
+                    {c.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </>
         ) : (
           results.map((r, i, arr) => (
             <Link

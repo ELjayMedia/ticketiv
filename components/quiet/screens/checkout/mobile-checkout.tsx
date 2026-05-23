@@ -10,7 +10,7 @@ import {
   QuantityStepper,
 } from "@/components/quiet/ui/form";
 import { PHOTOS } from "@/lib/photos";
-import { formatPrice, formatHoldTimer } from "@/lib/format";
+import { formatPrice, formatHoldTimer, formatScarcityLabel } from "@/lib/format";
 
 /* ──────────────────────────────────────────────────────────────
  * Mobile checkout · `/events/[id]/checkout` on phones.
@@ -118,8 +118,16 @@ export function MobileCheckout({
               HOLDS FOR {formatHoldTimer(holdRemaining)}
             </span>
           </div>
-          <span className="font-mono text-[10px] text-ink-3">1/1</span>
+          <Link
+            href="/help"
+            className="font-mono text-[10px] font-semibold uppercase text-ink-3 hover:text-ink"
+          >
+            Help
+          </Link>
         </header>
+
+        {/* Progress indicator: Tickets → Details → Payment → Done */}
+        <MobileCheckoutProgress currentIndex={1} />
 
         {/* Event ribbon */}
         <div className="mx-5 mb-4 flex items-center gap-2.5 rounded-xl bg-ink p-3">
@@ -141,6 +149,7 @@ export function MobileCheckout({
           <div className="flex flex-col gap-1.5">
             {ticketTypes.map((t) => {
               const soldOut = t.remaining === 0;
+              const scarcity = soldOut ? null : formatScarcityLabel(t.remaining);
               return (
                 <RadioCard
                   key={t.id}
@@ -153,9 +162,7 @@ export function MobileCheckout({
                   subtitle={
                     soldOut
                       ? "Sold out"
-                      : t.remaining !== null
-                      ? t.sublabel ?? `${t.remaining} left at this price`
-                      : t.sublabel
+                      : scarcity ?? t.sublabel
                   }
                   trailing={
                     <span
@@ -260,6 +267,27 @@ export function MobileCheckout({
           </Card>
         </section>
 
+        {/* Reassurance block */}
+        <section className="px-5 pb-4">
+          <Card className="bg-bg p-3.5" flat>
+            <div className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold">
+              <Icon name="check" size={14} className="text-success" />
+              Secure checkout
+            </div>
+            <ul className="flex flex-col gap-1 font-mono text-[11px] text-ink-3">
+              <li>Encrypted payment · cards & mobile money</li>
+              <li>Refund window per organizer policy</li>
+              <li>Free transfer to friends, anytime before doors</li>
+            </ul>
+            <Link
+              href="/help"
+              className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-accent"
+            >
+              Need help? Contact support →
+            </Link>
+          </Card>
+        </section>
+
         {/* Terms */}
         <label className="flex items-center gap-2 px-5 pb-4 text-[11px] text-ink-3">
           <input
@@ -315,6 +343,54 @@ function SummaryRow({
       >
         {value}
       </span>
+    </div>
+  );
+}
+
+const CHECKOUT_STEPS = ["Tickets", "Details", "Payment", "Confirmation"] as const;
+
+function MobileCheckoutProgress({ currentIndex }: { currentIndex: number }) {
+  return (
+    <div className="px-5 pb-3">
+      <div className="flex items-center gap-1.5" aria-label="Checkout progress">
+        {CHECKOUT_STEPS.map((label, i) => {
+          const done = i < currentIndex;
+          const active = i === currentIndex;
+          return (
+            <React.Fragment key={label}>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={
+                    "inline-flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold " +
+                    (active
+                      ? "bg-accent text-white"
+                      : done
+                      ? "bg-ink text-white"
+                      : "bg-line text-ink-3")
+                  }
+                >
+                  {done ? "✓" : i + 1}
+                </span>
+                <span
+                  className={
+                    "font-mono text-[10px] font-semibold uppercase " +
+                    (active ? "text-ink" : "text-ink-3")
+                  }
+                >
+                  {label}
+                </span>
+              </div>
+              {i < CHECKOUT_STEPS.length - 1 && (
+                <span
+                  className={
+                    "h-px flex-1 " + (done ? "bg-ink" : "bg-line")
+                  }
+                />
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
     </div>
   );
 }
