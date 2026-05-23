@@ -1,4 +1,5 @@
-// Source: payouts + payout_accounts + ledger_entries (org-scoped).
+// Source: payouts + payout_accounts + ledger_entries (org-scoped), plus
+// non-sensitive payment provider/routing status for organizer readiness.
 // Balance is derived from the ledger: sum(amount_cents) per direction.
 
 import "server-only"
@@ -35,6 +36,41 @@ export interface OrgPayoutAccount {
   created_at: string
 }
 
+export interface PaymentProviderStatus {
+  provider: string
+  is_enabled: boolean | null
+  mode: string | null
+  callback_url: string | null
+  updated_at: string | null
+}
+
+export interface PaymentRoutingRuleStatus {
+  id: string
+  priority: number | null
+  country_code: string | null
+  currency: string | null
+  provider: string
+  fallback_provider: string | null
+  is_active: boolean | null
+  notes: string | null
+  updated_at: string | null
+}
+
+export interface RecentPaymentAttemptStatus {
+  id: string
+  provider: string | null
+  status: string | null
+  created_at: string | null
+  order_id: string | null
+}
+
+export interface OrgPaymentReadiness {
+  currency: string
+  activeRoutingRules: PaymentRoutingRuleStatus[]
+  enabledProviders: PaymentProviderStatus[]
+  recentFailedAttempts: RecentPaymentAttemptStatus[]
+}
+
 export interface OrgPayoutsOverview {
   orgName: string
   currency: string
@@ -44,6 +80,7 @@ export interface OrgPayoutsOverview {
   payouts: OrgPayoutRow[]
   ledger: OrgLedgerEntry[]
   accounts: OrgPayoutAccount[]
+  paymentReadiness: OrgPaymentReadiness
 }
 
 export async function getOrgPayoutsOverview(orgId: string): Promise<OrgPayoutsOverview | null> {
@@ -77,6 +114,32 @@ export async function getOrgPayoutsOverview(orgId: string): Promise<OrgPayoutsOv
 
   if (!orgRes.data) return null
 
+  const currency = orgRes.data.default_currency ?? "SZL"
+
+  const [routingRes, providersRes, failedAttemptsRes] = await Promise.all([
+    supabase
+      .from("payment_routing_rules")
+      .select("id, priority, country_code, currency, provider, fallback_provider, is_active, notes, updated_at")
+      .eq("currency", currency)
+      .order("priority", { ascending: true })
+      .limit(10),
+    supabase
+      .from("payment_provider_settings")
+      .select("provider, is_enabled, mode, callback_url, updated_at")
+      .order("provider", { ascending: true }),
+    supabase
+      .from("payment_attempts")
+      .select("id, provider, status, created_at, order_id, orders!inner(org_id)")
+      .eq("orders.org_id", orgId)
+      .in("status", ["failed", "error", "declined", "cancelled"])
+      .order("created_at", { ascending: false })
+      .limit(5),
+  ])
+
+  if (routingRes.error) console.error("[payouts] payment_routing_rules:", routingRes.error)
+  if (providersRes.error) console.error("[payouts] payment_provider_settings:", providersRes.error)
+  if (failedAttemptsRes.error) console.error("[payouts] payment_attempts:", failedAttemptsRes.error)
+
   const ledger = (ledgerRes.data ?? []) as OrgLedgerEntry[]
   let availableBalanceCents = 0
   let onHoldCents = 0
@@ -91,14 +154,28 @@ export async function getOrgPayoutsOverview(orgId: string): Promise<OrgPayoutsOv
     }
   }
 
+  const recentFailedAttempts = (failedAttemptsRes.data ?? []).map((row) => ({
+    id: row.id,
+    provider: row.provider,
+    status: row.status,
+    created_at: row.created_at,
+    order_id: row.order_id,
+  })) as RecentPaymentAttemptStatus[]
+
   return {
     orgName: orgRes.data.name,
-    currency: orgRes.data.default_currency ?? "SZL",
+    currency,
     availableBalanceCents,
     onHoldCents: Math.max(0, onHoldCents),
     lifetimeGrossCents,
     payouts: payoutsRes.data ?? [],
     ledger,
     accounts: accountsRes.data ?? [],
+    paymentReadiness: {
+      currency,
+      activeRoutingRules: ((routingRes.data ?? []) as PaymentRoutingRuleStatus[]).filter((rule) => rule.is_active !== false),
+      enabledProviders: ((providersRes.data ?? []) as PaymentProviderStatus[]).filter((provider) => provider.is_enabled !== false),
+      recentFailedAttempts,
+    },
   }
 }
