@@ -1,5 +1,5 @@
 // Source: payouts + payout_accounts + ledger_entries (org-scoped), plus
-// non-secret payment provider/routing status for organizer readiness.
+// non-sensitive payment provider/routing status for organizer readiness.
 // Balance is derived from the ledger: sum(amount_cents) per direction.
 
 import "server-only"
@@ -129,7 +129,8 @@ export async function getOrgPayoutsOverview(orgId: string): Promise<OrgPayoutsOv
       .order("provider", { ascending: true }),
     supabase
       .from("payment_attempts")
-      .select("id, provider, status, created_at, order_id")
+      .select("id, provider, status, created_at, order_id, orders!inner(org_id)")
+      .eq("orders.org_id", orgId)
       .in("status", ["failed", "error", "declined", "cancelled"])
       .order("created_at", { ascending: false })
       .limit(5),
@@ -153,6 +154,14 @@ export async function getOrgPayoutsOverview(orgId: string): Promise<OrgPayoutsOv
     }
   }
 
+  const recentFailedAttempts = (failedAttemptsRes.data ?? []).map((row) => ({
+    id: row.id,
+    provider: row.provider,
+    status: row.status,
+    created_at: row.created_at,
+    order_id: row.order_id,
+  })) as RecentPaymentAttemptStatus[]
+
   return {
     orgName: orgRes.data.name,
     currency,
@@ -166,7 +175,7 @@ export async function getOrgPayoutsOverview(orgId: string): Promise<OrgPayoutsOv
       currency,
       activeRoutingRules: ((routingRes.data ?? []) as PaymentRoutingRuleStatus[]).filter((rule) => rule.is_active !== false),
       enabledProviders: ((providersRes.data ?? []) as PaymentProviderStatus[]).filter((provider) => provider.is_enabled !== false),
-      recentFailedAttempts: (failedAttemptsRes.data ?? []) as RecentPaymentAttemptStatus[],
+      recentFailedAttempts,
     },
   }
 }
