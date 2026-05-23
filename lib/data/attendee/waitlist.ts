@@ -57,7 +57,7 @@ function mapRow(row: WaitlistRow): AttendeeWaitlistEntry {
 }
 
 export async function getMyWaitlistEntries(): Promise<AttendeeWaitlistEntry[]> {
-  const supabase = await createServerSupabaseClient()
+  const supabase = createServerSupabaseClient()
   if (!supabase) return []
 
   const {

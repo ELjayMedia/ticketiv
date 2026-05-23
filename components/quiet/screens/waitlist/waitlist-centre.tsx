@@ -2,9 +2,13 @@ import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
 import type { AttendeeWaitlistEntry } from "@/lib/data/attendee/waitlist";
+import { WaitlistJoinForm } from "@/components/quiet/screens/waitlist/waitlist-join-form";
 
 interface WaitlistCentreProps {
   entries: AttendeeWaitlistEntry[];
+  joinEventId?: string | null;
+  joinTicketTypeId?: string | null;
+  joined?: boolean;
 }
 
 function statusTone(status: string): { label: string; className: string } {
@@ -37,7 +41,7 @@ function formatExpiry(iso: string | null): string | null {
   return `Offer expires in ${days}d`;
 }
 
-export function WaitlistCentre({ entries }: WaitlistCentreProps) {
+export function WaitlistCentre({ entries, joinEventId, joinTicketTypeId, joined }: WaitlistCentreProps) {
   const hasEntries = entries.length > 0;
   const activeCount = entries.filter((entry) => ["active", "pending", "offered", "offer_available", "notified"].includes(entry.status.toLowerCase())).length;
 
@@ -66,6 +70,24 @@ export function WaitlistCentre({ entries }: WaitlistCentreProps) {
           Track sold-out ticket requests, offer windows and fulfilled waitlist entries from one place.
         </p>
       </header>
+
+      {joined && (
+        <section className="px-5 pb-4">
+          <Card className="border-accent bg-accent-soft p-3.5">
+            <div className="flex items-start gap-3">
+              <Icon name="check" size={16} className="mt-0.5 text-accent" />
+              <div>
+                <div className="text-[13px] font-semibold text-accent">You’re on the waitlist</div>
+                <p className="mt-1 font-mono text-[11px] leading-relaxed text-ink-3">
+                  We’ll show updates here if tickets become available.
+                </p>
+              </div>
+            </div>
+          </Card>
+        </section>
+      )}
+
+      {joinEventId && <WaitlistJoinForm eventId={joinEventId} ticketTypeId={joinTicketTypeId} />}
 
       {!hasEntries ? (
         <section className="px-5">
