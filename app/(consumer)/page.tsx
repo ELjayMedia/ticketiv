@@ -8,18 +8,17 @@ export const metadata = {
   description: "Live events, festivals, comedy and workshops near you.",
 };
 
-// `getPublicEventsList` reads the demo-session cookie and the Supabase auth
-// cookies via @supabase/ssr, both of which force dynamic rendering. Marking
-// the page dynamic up front avoids Next's static-prerender attempt that
-// produces noisy DynamicServerError logs at build time.
-export const dynamic = "force-dynamic";
+// Public discovery reads the anonymous `v_public_event_cards` read model via a
+// cookie-free Supabase client. Keep this route cacheable and periodically
+// revalidated; do not subscribe it directly to orders/payments/scans.
+export const revalidate = 60;
 
 /**
  * Discover · "/"
  *
  * Both viewports are rendered as siblings and toggled with Tailwind so the
  * page stays a pure RSC (no useMediaQuery hydration mismatch). Data comes
- * from `v_events_public` via lib/adapters/events.ts, mapped into a
+ * from `v_public_event_cards` via lib/adapters/events.ts, mapped into a
  * UI-friendly shape and partitioned client-side into Tonight / This week.
  */
 export default async function DiscoverPage() {
