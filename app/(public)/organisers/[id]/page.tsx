@@ -28,7 +28,9 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
     currency: event.currency,
     is_promoted: event.is_promoted,
     organizer_name: organizer.name,
+    organizer_logo_url: organizer.logo_url ?? null,
     tickets_remaining: event.tickets_remaining,
+    tickets_sold: event.tickets_sold ?? null,
   }))
 
   return (
