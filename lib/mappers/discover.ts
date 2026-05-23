@@ -33,6 +33,10 @@ export interface DiscoverEvent {
   ticketsSold: number | null;
   /** "1.2k sold" or null when below the safe-display threshold. */
   soldLabel: string | null;
+  organizerName: string | null;
+  /** Derived from organizer_logo_url presence — matches the rule used by
+   *  the event-detail mapper so cards and detail agree. */
+  organizerVerified: boolean;
 }
 
 export function mapDiscoverEvent(row: EventsPublicView & { featured_priority?: number | null }): DiscoverEvent {
@@ -59,6 +63,8 @@ export function mapDiscoverEvent(row: EventsPublicView & { featured_priority?: n
     featuredPriority: row.featured_priority ?? null,
     ticketsSold,
     soldLabel: formatSoldCount(ticketsSold),
+    organizerName: row.organizer_name ?? null,
+    organizerVerified: Boolean(row.organizer_logo_url),
   };
 }
 

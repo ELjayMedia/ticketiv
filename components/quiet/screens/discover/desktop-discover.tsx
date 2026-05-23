@@ -34,15 +34,16 @@ interface GridRow {
   price: string;
   chip?: string;
   trustLabel: string | null;
+  verified: boolean;
 }
 
 const DEFAULT_GRID: GridRow[] = [
-  { href: "/events/tribal-tales", photo: PHOTOS.dj_neon, title: "Tribal Tales · Vol 4", when: "Wed 30 Aug · 15:50", venue: "Cafe Natarani", price: "E450", chip: "5 left", trustLabel: null },
-  { href: "/events/sunset-set", photo: PHOTOS.singer_red, title: "Sunset Set", when: "Sat 26 Aug · 18:00", venue: "Riverside Park", price: "E600", chip: "Selling fast", trustLabel: null },
-  { href: "/events/stand-up-saturday", photo: PHOTOS.comedy_club, title: "Stand-up Saturday", when: "Sat 26 Aug · 21:30", venue: "House of MG", price: "E300", trustLabel: null },
-  { href: "/events/pottery-and-wine", photo: PHOTOS.workshop, title: "Pottery & Wine", when: "Sun 27 Aug · 14:00", venue: "The Loft", price: "E1,200", trustLabel: null },
-  { href: "/events/macbeth-revisited", photo: PHOTOS.theatre_curtain, title: "Macbeth · revisited", when: "Thu 31 Aug · 19:00", venue: "Standard Theatre", price: "E550", trustLabel: null },
-  { href: "/events/night-market-mbabane", photo: PHOTOS.food_market, title: "Night Market: Mbabane", when: "Fri 25 Aug · 17:00", venue: "Coronation Park", price: "Free", trustLabel: null },
+  { href: "/events/tribal-tales", photo: PHOTOS.dj_neon, title: "Tribal Tales · Vol 4", when: "Wed 30 Aug · 15:50", venue: "Cafe Natarani", price: "E450", chip: "5 left", trustLabel: null, verified: false },
+  { href: "/events/sunset-set", photo: PHOTOS.singer_red, title: "Sunset Set", when: "Sat 26 Aug · 18:00", venue: "Riverside Park", price: "E600", chip: "Selling fast", trustLabel: null, verified: false },
+  { href: "/events/stand-up-saturday", photo: PHOTOS.comedy_club, title: "Stand-up Saturday", when: "Sat 26 Aug · 21:30", venue: "House of MG", price: "E300", trustLabel: null, verified: false },
+  { href: "/events/pottery-and-wine", photo: PHOTOS.workshop, title: "Pottery & Wine", when: "Sun 27 Aug · 14:00", venue: "The Loft", price: "E1,200", trustLabel: null, verified: false },
+  { href: "/events/macbeth-revisited", photo: PHOTOS.theatre_curtain, title: "Macbeth · revisited", when: "Thu 31 Aug · 19:00", venue: "Standard Theatre", price: "E550", trustLabel: null, verified: false },
+  { href: "/events/night-market-mbabane", photo: PHOTOS.food_market, title: "Night Market: Mbabane", when: "Fri 25 Aug · 17:00", venue: "Coronation Park", price: "Free", trustLabel: null, verified: false },
 ];
 
 interface HeroRow {
@@ -55,6 +56,7 @@ interface HeroRow {
   topChip: string;
   subtitle: string;
   trustLabel: string | null;
+  verified: boolean;
 }
 
 const DEFAULT_HERO: HeroRow = {
@@ -67,6 +69,7 @@ const DEFAULT_HERO: HeroRow = {
   topChip: "Editor's pick · 3-day festival",
   subtitle: "22 artists across 3 stages. Camping & food vendors on-site. Day passes from E950.",
   trustLabel: null,
+  verified: false,
 };
 
 function toGrid(ev: DiscoverEvent): GridRow {
@@ -79,6 +82,7 @@ function toGrid(ev: DiscoverEvent): GridRow {
     price: ev.priceLabel,
     chip: ev.city ?? undefined,
     trustLabel: ev.soldLabel,
+    verified: ev.organizerVerified,
   };
 }
 
@@ -93,6 +97,7 @@ function toHero(ev: DiscoverEvent): HeroRow {
     topChip: `Editor's pick · ${ev.category ?? "Featured"}`,
     subtitle: ev.category ? `Curated for fans of ${ev.category.toLowerCase()}.` : "",
     trustLabel: ev.soldLabel,
+    verified: ev.organizerVerified,
   };
 }
 
@@ -221,8 +226,11 @@ export function DesktopDiscover({
             <div className="mt-auto flex items-end justify-between gap-8">
               <div>
                 <div className="text-label text-white/90">{HERO.dateLabel}</div>
-                <div className="mt-2 text-[64px] font-semibold leading-[0.85] tracking-[-0.025em] text-white">
-                  {HERO.title}
+                <div className="mt-2 inline-flex items-center gap-3 text-[64px] font-semibold leading-[0.85] tracking-[-0.025em] text-white">
+                  <span>{HERO.title}</span>
+                  {HERO.verified && (
+                    <VerifiedMark size={24} title="Verified organizer" />
+                  )}
                 </div>
               </div>
             </div>
@@ -319,7 +327,10 @@ export function DesktopDiscover({
                     )}
                   </Photo>
                   <div className="p-3.5">
-                    <div className="text-h3 truncate">{e.title}</div>
+                    <div className="text-h3 flex items-center gap-1.5 truncate">
+                      <span className="truncate">{e.title}</span>
+                      {e.verified && <VerifiedMark size={14} title="Verified organizer" />}
+                    </div>
                     <div className="mt-1 flex items-center gap-1.5 text-[12px] text-ink-3">
                       <Icon name="cal" size={12} />
                       <span className="truncate">{e.when}</span>
@@ -357,5 +368,19 @@ export function DesktopDiscover({
         </div>
       </div>
     </div>
+  );
+}
+
+function VerifiedMark({ size = 14, title }: { size?: number; title?: string }) {
+  return (
+    <span
+      role="img"
+      aria-label={title ?? "Verified organizer"}
+      title={title ?? "Verified organizer"}
+      className="inline-flex shrink-0 items-center justify-center rounded-full bg-accent text-white"
+      style={{ width: size, height: size }}
+    >
+      <Icon name="check" size={Math.round(size * 0.7)} strokeWidth={3} />
+    </span>
   );
 }

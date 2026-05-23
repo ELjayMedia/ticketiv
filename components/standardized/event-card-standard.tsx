@@ -2,16 +2,24 @@
 
 import type React from "react"
 import Link from "next/link"
-import { MapPin, Heart } from "lucide-react"
+import { MapPin, Heart, CheckCircle2 } from "lucide-react"
 import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { formatCurrency } from "@/lib/pricing"
+import {
+  formatPriceLabel,
+  formatVenueLabel,
+  formatSoldCount,
+  type Currency,
+} from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 /**
- * Standardized EventCard data contract (from v_events_public)
+ * Standardized EventCard data contract (from v_events_public).
+ *
+ * All nullable display fields run through the shared `lib/format` helpers
+ * so a missing venue / price / sold count never renders as a blank label.
  */
 export interface EventCardData {
   id: string
@@ -26,7 +34,14 @@ export interface EventCardData {
   currency?: string
   is_promoted?: boolean
   organizer_name?: string | null
+  /** Presence of a logo URL is the verified-organizer signal — matches the
+   *  rule used by the event-detail mapper so cards and detail agree. */
+  organizer_logo_url?: string | null
   tickets_remaining?: number
+  /** Aggregated sold count, surfaced as "1.2k sold" when above the safe
+   *  display threshold (5). Below threshold we hide rather than fake
+   *  momentum. */
+  tickets_sold?: number | null
   /** When set, this card represents a collapsed series and links to /series/[slug] */
   series_slug?: string | null
   /** Number of additional upcoming events under the series (rendered as "+N more dates" badge) */
@@ -36,6 +51,19 @@ export interface EventCardData {
 interface EventCardProps {
   event: EventCardData
   onSave?: (eventId: string, saved: boolean) => void
+}
+
+const ALLOWED_CURRENCIES: ReadonlySet<Currency> = new Set<Currency>([
+  "SZL",
+  "ZAR",
+  "USD",
+  "EUR",
+  "GBP",
+])
+
+function toCurrency(raw: string | null | undefined): Currency {
+  if (raw && ALLOWED_CURRENCIES.has(raw as Currency)) return raw as Currency
+  return "SZL"
 }
 
 function formatDateShort(date: string) {
@@ -56,12 +84,26 @@ function formatDateShort(date: string) {
 export function EventCardStandard({ event, onSave }: EventCardProps) {
   const [isSaved, setIsSaved] = useState(false)
 
-  const priceLabel =
-    event.min_price_cents != null
-      ? `From ${formatCurrency(event.min_price_cents, event.currency || "USD")}`
-      : "Free"
+  const priceLabel = formatPriceLabel(
+    event.min_price_cents,
+    toCurrency(event.currency),
+    { prefix: "From" }
+  )
 
-  const location = event.venue_name && event.city ? `${event.venue_name}, ${event.city}` : event.city || "Location TBA"
+  // Prefer "Venue, City" when both are present; fall back to whichever side
+  // is filled in and only show the calm "Venue to be announced" copy when
+  // both are missing.
+  const venueLabel =
+    event.venue_name && event.city
+      ? `${event.venue_name}, ${event.city}`
+      : event.venue_name
+        ? formatVenueLabel(event.venue_name)
+        : event.city
+          ? event.city
+          : formatVenueLabel(null)
+
+  const soldLabel = formatSoldCount(event.tickets_sold)
+  const verified = Boolean(event.organizer_logo_url)
 
   const showSellingFast = event.tickets_remaining != null && event.tickets_remaining < 20 && event.tickets_remaining > 0
   const hasExtraDates = event.series_extra_dates != null && event.series_extra_dates > 0
@@ -101,9 +143,16 @@ export function EventCardStandard({ event, onSave }: EventCardProps) {
         <div className="flex-1 min-w-0 space-y-1">
           <h3 className="font-semibold text-sm leading-tight line-clamp-2">{event.title}</h3>
           <p className="text-xs text-muted-foreground">
-            {formatDateShort(event.starts_at)} • {location}
+            {formatDateShort(event.starts_at)} • {venueLabel}
           </p>
-          <p className="text-xs font-medium">{priceLabel}</p>
+          <div className="flex items-center gap-2 text-xs">
+            <span className="font-medium">{priceLabel}</span>
+            {soldLabel && (
+              <span className="font-mono text-[10px] text-muted-foreground">
+                · {soldLabel}
+              </span>
+            )}
+          </div>
           {badgeText && (
             <Badge
               variant={event.is_promoted ? "default" : "secondary"}
@@ -112,7 +161,17 @@ export function EventCardStandard({ event, onSave }: EventCardProps) {
               {badgeText}
             </Badge>
           )}
-          {event.organizer_name && <p className="text-[10px] text-muted-foreground">by {event.organizer_name}</p>}
+          {event.organizer_name && (
+            <p className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+              <span>by {event.organizer_name}</span>
+              {verified && (
+                <CheckCircle2
+                  className="h-3 w-3 text-primary"
+                  aria-label="Verified organizer"
+                />
+              )}
+            </p>
+          )}
         </div>
 
         <Button
@@ -164,14 +223,31 @@ export function EventCardStandard({ event, onSave }: EventCardProps) {
 
             <h3 className="line-clamp-2 font-semibold leading-snug text-foreground text-base">{event.title}</h3>
 
-            {event.organizer_name && <p className="text-xs text-muted-foreground">by {event.organizer_name}</p>}
+            {event.organizer_name && (
+              <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <span>by {event.organizer_name}</span>
+                {verified && (
+                  <CheckCircle2
+                    className="h-3 w-3 text-primary"
+                    aria-label="Verified organizer"
+                  />
+                )}
+              </p>
+            )}
 
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <MapPin className="h-4 w-4" />
-              <span className="line-clamp-1 text-xs">{location}</span>
+              <span className="line-clamp-1 text-xs">{venueLabel}</span>
             </div>
 
-            <div className="pt-1 font-medium text-foreground text-sm">{priceLabel}</div>
+            <div className="flex items-center justify-between pt-1 text-sm">
+              <span className="font-medium text-foreground">{priceLabel}</span>
+              {soldLabel && (
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  {soldLabel}
+                </span>
+              )}
+            </div>
           </div>
         </Card>
       </Link>

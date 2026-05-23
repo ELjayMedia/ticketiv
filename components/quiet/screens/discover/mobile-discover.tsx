@@ -43,6 +43,7 @@ interface TonightRow {
   chip: string;
   chipVariant: "muted" | "accent";
   trustLabel: string | null;
+  verified: boolean;
 }
 
 interface WeekRow {
@@ -54,6 +55,7 @@ interface WeekRow {
   venue: string;
   price: string;
   trustLabel: string | null;
+  verified: boolean;
 }
 
 const DEFAULT_TONIGHT: TonightRow[] = [
@@ -68,6 +70,7 @@ const DEFAULT_TONIGHT: TonightRow[] = [
     chip: "5 left",
     chipVariant: "muted",
     trustLabel: null,
+    verified: false,
   },
   {
     href: "/events/stand-up-saturday",
@@ -80,6 +83,7 @@ const DEFAULT_TONIGHT: TonightRow[] = [
     chip: "Last 12",
     chipVariant: "muted",
     trustLabel: null,
+    verified: false,
   },
 ];
 
@@ -93,6 +97,7 @@ const DEFAULT_THIS_WEEK: WeekRow[] = [
     venue: "Riverside Park",
     price: "From E600",
     trustLabel: null,
+    verified: false,
   },
   {
     href: "/events/pottery-and-wine",
@@ -103,6 +108,7 @@ const DEFAULT_THIS_WEEK: WeekRow[] = [
     venue: "The Loft",
     price: "E1,200",
     trustLabel: null,
+    verified: false,
   },
   {
     href: "/events/river-sound-fest",
@@ -113,6 +119,7 @@ const DEFAULT_THIS_WEEK: WeekRow[] = [
     venue: "Riverside Park",
     price: "From E2,400",
     trustLabel: null,
+    verified: false,
   },
 ];
 
@@ -126,6 +133,7 @@ interface EditorPickRow {
   topChip: string;
   bottomChip: string;
   trustLabel: string | null;
+  verified: boolean;
 }
 
 const DEFAULT_EDITOR_PICK: EditorPickRow = {
@@ -138,6 +146,7 @@ const DEFAULT_EDITOR_PICK: EditorPickRow = {
   topChip: "3-day festival",
   bottomChip: "22 artists",
   trustLabel: null,
+  verified: false,
 };
 
 function toTonight(ev: DiscoverEvent): TonightRow {
@@ -152,6 +161,7 @@ function toTonight(ev: DiscoverEvent): TonightRow {
     chip: ev.city ?? "Tonight",
     chipVariant: "muted",
     trustLabel: ev.soldLabel,
+    verified: ev.organizerVerified,
   };
 }
 
@@ -165,6 +175,7 @@ function toWeek(ev: DiscoverEvent): WeekRow {
     venue: ev.venue,
     price: ev.priceLabel,
     trustLabel: ev.soldLabel,
+    verified: ev.organizerVerified,
   };
 }
 
@@ -179,6 +190,7 @@ function toEditorPick(ev: DiscoverEvent): EditorPickRow {
     topChip: ev.category ?? "Featured",
     bottomChip: ev.city ?? "Live event",
     trustLabel: ev.soldLabel,
+    verified: ev.organizerVerified,
   };
 }
 
@@ -281,7 +293,10 @@ export function MobileDiscover({
             </div>
           </Photo>
           <div className="p-4">
-            <h2 className="text-h2">{HERO.title}</h2>
+            <h2 className="text-h2 inline-flex items-center gap-1.5">
+              {HERO.title}
+              {HERO.verified && <VerifiedMark size={14} title="Verified organizer" />}
+            </h2>
             <div className="mt-1.5 flex items-center gap-2 text-[13px] text-ink-3">
               <span className="inline-flex items-center gap-1">
                 <Icon name="cal" size={14} /> {HERO.dateLabel}
@@ -357,7 +372,10 @@ export function MobileDiscover({
                   </div>
                 </Photo>
                 <div className="p-3">
-                  <div className="text-h3 truncate">{e.title}</div>
+                  <div className="text-h3 flex items-center gap-1 truncate">
+                    <span className="truncate">{e.title}</span>
+                    {e.verified && <VerifiedMark size={12} title="Verified organizer" />}
+                  </div>
                   <div className="mt-0.5 truncate text-[12px] text-ink-3">
                     {e.sub} · {e.venue}
                   </div>
@@ -398,7 +416,10 @@ export function MobileDiscover({
                   </div>
                   <div className="flex min-w-0 flex-1 flex-col justify-between py-0.5">
                     <div>
-                      <div className="text-h3 truncate">{e.title}</div>
+                      <div className="text-h3 flex items-center gap-1 truncate">
+                        <span className="truncate">{e.title}</span>
+                        {e.verified && <VerifiedMark size={12} title="Verified organizer" />}
+                      </div>
                       <div className="mt-0.5 truncate text-[12px] text-ink-3">
                         {e.sub}
                       </div>
@@ -457,5 +478,19 @@ export function MobileDiscover({
         </Card>
       </section>
     </div>
+  );
+}
+
+function VerifiedMark({ size = 12, title }: { size?: number; title?: string }) {
+  return (
+    <span
+      role="img"
+      aria-label={title ?? "Verified organizer"}
+      title={title ?? "Verified organizer"}
+      className="inline-flex shrink-0 items-center justify-center rounded-full bg-accent text-white"
+      style={{ width: size, height: size }}
+    >
+      <Icon name="check" size={Math.round(size * 0.7)} strokeWidth={3} />
+    </span>
   );
 }
