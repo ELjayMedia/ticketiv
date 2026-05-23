@@ -76,6 +76,7 @@ const NAV_GROUPS: Array<{
       { label: "Webhooks", href: "/super-admin/webhooks", icon: Webhook },
       { label: "Env Vars", href: "/super-admin/env-vars", icon: KeyRound },
       { label: "Jobs", href: "/super-admin/jobs", icon: Settings },
+      { label: "Realtime Health", href: "/super-admin/realtime-health", icon: Activity },
     ],
   },
 ]
