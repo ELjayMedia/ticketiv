@@ -4,15 +4,11 @@ import { Card } from "@/components/quiet/ui/card";
 import { Avatar } from "@/components/quiet/ui/primitives";
 
 /* ──────────────────────────────────────────────────────────────
- * /me · port of QuietProfile
+ * /me · account hub
  *
- * The "You" tab. Header has the avatar + 3 stats (events / friends
- * / following). Below: Account list, Activity list, Organizer-mode
- * prompt card (CTA to upgrade), Settings list, version footer.
- *
- * This is a server component — no interactive state. Each list
- * item links to a settings sub-route which Phase 5 (governance)
- * will scaffold.
+ * The "You" tab now acts as the attendee account hub. It links the
+ * post-purchase journeys introduced in UX Phase 2: tickets, saved events,
+ * transfers, waitlist, resale/listings, notifications and order history.
  * ────────────────────────────────────────────────────────────── */
 
 interface ProfileScreenProps {
@@ -56,6 +52,7 @@ interface SettingRow {
   value?: string;
   href?: string;
   accent?: boolean;
+  description?: string;
 }
 
 export function ProfileScreen({
@@ -91,20 +88,15 @@ export function ProfileScreen({
       value: `${user.upcomingTickets} upcoming`,
       href: "/tickets",
       accent: true,
+      description: "QR tickets, past tickets and event-day access",
     },
     {
       icon: "heart",
       label: "Favourites",
       value: String(user.favouritesCount),
-      href: "/me/favourites",
+      href: "/favourites",
       accent: true,
-    },
-    {
-      icon: "users",
-      label: "Friends",
-      value: String(user.stats.friends),
-      href: "/friends",
-      accent: true,
+      description: "Saved events and followed series",
     },
     {
       icon: "arrowUR",
@@ -113,8 +105,32 @@ export function ProfileScreen({
         user.pendingTransfers > 0
           ? `${user.pendingTransfers} pending`
           : "none",
-      href: "/me/transfers",
+      href: "/transfers",
       accent: user.pendingTransfers > 0,
+      description: "Incoming and outgoing ticket transfers",
+    },
+    {
+      icon: "clock",
+      label: "Waitlist",
+      value: "offers",
+      href: "/waitlist",
+      accent: true,
+      description: "Sold-out ticket requests and offer expiry",
+    },
+    {
+      icon: "ticket",
+      label: "Resale",
+      value: "listings",
+      href: "/resale",
+      accent: true,
+      description: "Tickets listed by you or bought from another fan",
+    },
+    {
+      icon: "fileText",
+      label: "Orders",
+      value: "receipts",
+      href: "/orders",
+      description: "Purchase history, receipts and refund updates",
     },
   ];
 
@@ -125,6 +141,13 @@ export function ProfileScreen({
       {/* Top action bar */}
       <header className="flex items-center gap-2.5 px-5 pb-2 pt-2">
         <span className="flex-1" />
+        <Link
+          href="/notifications"
+          aria-label="Notifications"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"
+        >
+          <Icon name="bell" size={20} />
+        </Link>
         <button
           aria-label="Share profile"
           className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"
@@ -179,29 +202,31 @@ export function ProfileScreen({
 
       {/* Organizer mode prompt */}
       <section className="px-5 pb-4">
-        <Card className="border-ink bg-ink p-3.5 text-white">
-          <div className="flex items-center gap-3">
-            <div className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-white">
-              <Icon name="spark" size={18} />
+        <Link href="/onboarding/organizer">
+          <Card className="border-ink bg-ink p-3.5 text-white">
+            <div className="flex items-center gap-3">
+              <div className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-white">
+                <Icon name="spark" size={18} />
+              </div>
+              <div className="flex flex-1 flex-col gap-0.5">
+                <span className="text-[13px] font-semibold">
+                  Organize your own event
+                </span>
+                <span className="font-mono text-[11px] text-white/60">
+                  set up in 5 min · 0% commission first event
+                </span>
+              </div>
+              <Icon name="chevR" size={16} className="text-white/60" />
             </div>
-            <div className="flex flex-1 flex-col gap-0.5">
-              <span className="text-[13px] font-semibold">
-                Organize your own event
-              </span>
-              <span className="font-mono text-[11px] text-white/60">
-                set up in 5 min · 0% commission first event
-              </span>
-            </div>
-            <Icon name="chevR" size={16} className="text-white/60" />
-          </div>
-        </Card>
+          </Card>
+        </Link>
       </section>
 
       {/* More */}
       <SettingsList
         title="More"
         rows={[
-          { icon: "bell" as IconName, label: "Notifications" },
+          { icon: "bell" as IconName, label: "Notifications", href: "/notifications" },
           { icon: "settings" as IconName, label: "Privacy & data" },
           { icon: "fileText" as IconName, label: "Help center" },
           { icon: "share" as IconName, label: "Send feedback" },
@@ -253,14 +278,21 @@ function SettingsList({
                   <Icon name={r.icon} size={14} />
                 </div>
               )}
-              <span
-                className={
-                  "flex-1 text-[14px] font-medium " +
-                  (r.accent && plain ? "text-accent" : "")
-                }
-              >
-                {r.label}
-              </span>
+              <div className="flex flex-1 flex-col gap-0.5">
+                <span
+                  className={
+                    "text-[14px] font-medium " +
+                    (r.accent && plain ? "text-accent" : "")
+                  }
+                >
+                  {r.label}
+                </span>
+                {r.description && (
+                  <span className="font-mono text-[10px] leading-relaxed text-ink-3">
+                    {r.description}
+                  </span>
+                )}
+              </div>
               {r.value && (
                 <span
                   className={
