@@ -13,6 +13,37 @@ export interface PayoutsLedgerProps {
   onHoldMinor: number
   lifetimeGrossMinor: number
   primaryAccountLabel: string | null
+  paymentReadiness: {
+    status: "ready" | "needs_setup"
+    currency: string
+    hasRouting: boolean
+    hasProvider: boolean
+    hasPayoutAccount: boolean
+    primaryProvider: string | null
+    fallbackProvider: string | null
+    activeRoutes: Array<{
+      id: string
+      priority: number
+      countryCode: string
+      currency: string
+      provider: string
+      fallbackProvider: string | null
+      active: boolean
+    }>
+    providers: Array<{
+      provider: string
+      mode: string
+      callbackConfigured: boolean
+      updatedAt: string | null
+    }>
+    recentFailedAttempts: Array<{
+      id: string
+      provider: string
+      status: string
+      createdAt: string | null
+      orderRef: string
+    }>
+  }
   payouts: Array<{
     id: string
     dateLabel: string
@@ -44,12 +75,19 @@ function formatMoney(minor: number, currency: string): string {
   return `${sign}${currency} ${formatted}`
 }
 
+function formatDate(iso: string | null): string {
+  if (!iso) return "—"
+  return new Date(iso).toLocaleDateString("en", { month: "short", day: "numeric" })
+}
+
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { bg: string; fg: string }> = {
     paid: { bg: "bg-accent-soft", fg: "text-accent" },
     verified: { bg: "bg-accent-soft", fg: "text-accent" },
+    ready: { bg: "bg-accent-soft", fg: "text-accent" },
     pending: { bg: "bg-[#fdf6ed]", fg: "text-[#c1841c]" },
     processing: { bg: "bg-[#fdf6ed]", fg: "text-[#c1841c]" },
+    needs_setup: { bg: "bg-[#fdf6ed]", fg: "text-[#c1841c]" },
     failed: { bg: "bg-[#fdf0ec]", fg: "text-[#c1422b]" },
   }
   const s = map[status] ?? map.pending
@@ -57,7 +95,7 @@ function StatusBadge({ status }: { status: string }) {
     <span
       className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider font-mono ${s.bg} ${s.fg}`}
     >
-      {status}
+      {status.replaceAll("_", " ")}
     </span>
   )
 }
@@ -111,6 +149,8 @@ export function PayoutsLedger(p: PayoutsLedgerProps) {
           sub={p.primaryAccountLabel ? "Verified · primary" : "Add one to receive funds"}
         />
       </div>
+
+      <PaymentReadinessCard readiness={p.paymentReadiness} />
 
       <div className="grid grid-cols-2 gap-3.5">
         {/* Recent payouts */}
@@ -219,5 +259,91 @@ export function PayoutsLedger(p: PayoutsLedgerProps) {
         )}
       </Card>
     </div>
+  )
+}
+
+function PaymentReadinessCard({ readiness }: { readiness: PayoutsLedgerProps["paymentReadiness"] }) {
+  const checks = [
+    { label: "Payment provider", ready: readiness.hasProvider, value: readiness.primaryProvider ?? "Not configured" },
+    { label: "Routing rule", ready: readiness.hasRouting, value: readiness.currency },
+    { label: "Payout account", ready: readiness.hasPayoutAccount, value: readiness.hasPayoutAccount ? "Added" : "Missing" },
+  ]
+
+  return (
+    <Card className="p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-h2">Payment setup</span>
+            <StatusBadge status={readiness.status} />
+          </div>
+          <p className="mt-1 max-w-[620px] font-mono text-[11px] leading-relaxed text-ink-3">
+            This shows whether this organisation can safely accept payments and receive payouts. Only non-secret provider status is shown here.
+          </p>
+        </div>
+        <div className="grid min-w-[360px] grid-cols-3 gap-2">
+          {checks.map((check) => (
+            <div key={check.label} className="rounded-[var(--radius)] border border-line p-3">
+              <div className="text-label">{check.label}</div>
+              <div className="mt-1 flex items-center gap-1.5 font-mono text-[11px]">
+                <span className={check.ready ? "text-accent" : "text-[#c1841c]"}>●</span>
+                <span className="truncate">{check.value}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-3">
+        <div className="rounded-[var(--radius)] border border-line p-3">
+          <div className="text-label mb-2">Active routes</div>
+          {readiness.activeRoutes.length === 0 ? (
+            <p className="font-mono text-[11px] text-ink-3">No active routing rule for {readiness.currency}.</p>
+          ) : (
+            <div className="space-y-2">
+              {readiness.activeRoutes.slice(0, 3).map((route) => (
+                <div key={route.id} className="font-mono text-[11px] text-ink-3">
+                  <span className="font-semibold text-ink">{route.countryCode}/{route.currency}</span>{" "}
+                  → {route.provider}
+                  {route.fallbackProvider ? ` · fallback ${route.fallbackProvider}` : ""}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-[var(--radius)] border border-line p-3">
+          <div className="text-label mb-2">Enabled providers</div>
+          {readiness.providers.length === 0 ? (
+            <p className="font-mono text-[11px] text-ink-3">No enabled providers found.</p>
+          ) : (
+            <div className="space-y-2">
+              {readiness.providers.slice(0, 3).map((provider) => (
+                <div key={provider.provider} className="font-mono text-[11px] text-ink-3">
+                  <span className="font-semibold text-ink">{provider.provider}</span>{" "}
+                  · {provider.mode} · callback {provider.callbackConfigured ? "set" : "missing"}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-[var(--radius)] border border-line p-3">
+          <div className="text-label mb-2">Recent failures</div>
+          {readiness.recentFailedAttempts.length === 0 ? (
+            <p className="font-mono text-[11px] text-ink-3">No recent failed attempts.</p>
+          ) : (
+            <div className="space-y-2">
+              {readiness.recentFailedAttempts.slice(0, 3).map((attempt) => (
+                <div key={attempt.id} className="font-mono text-[11px] text-ink-3">
+                  <span className="font-semibold text-ink">{attempt.provider}</span>{" "}
+                  · {attempt.status} · {attempt.orderRef} · {formatDate(attempt.createdAt)}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </Card>
   )
 }
