@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useRef } from "react"
 import { useParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { createClientSupabaseClient } from "@/lib/supabase-client"
+import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats"
 import { CheckCircle2, AlertCircle, Zap, QrCode } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -34,60 +34,12 @@ export function CheckinScanner() {
 
   const [qrInput, setQrInput] = useState("")
   const [history, setHistory] = useState<CheckinHistory[]>([])
-  const [totalCheckedIn, setTotalCheckedIn] = useState(0)
   const [isProcessing, setIsProcessing] = useState(false)
   const [lastResult, setLastResult] = useState<CheckinResult | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Subscribe to realtime updates for check-ins
-  useEffect(() => {
-    const supabase = createClientSupabaseClient()
-    if (!supabase) return
-
-    // Subscribe to order_items changes for this event
-    const channel = supabase
-      .channel(`event-${eventId}-checkins`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "order_items",
-          filter: `event_id=eq.${eventId}`,
-        },
-        (payload) => {
-          if (payload.new.checked_in_at && !payload.old.checked_in_at) {
-            console.log("[v0] Realtime check-in received:", payload.new.ticket_code)
-            setTotalCheckedIn((prev) => prev + 1)
-          }
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [eventId])
-
-  // Fetch initial check-in count
-  useEffect(() => {
-    const fetchCheckInCount = async () => {
-      const supabase = createClientSupabaseClient()
-      if (!supabase) return
-
-      const { count, error } = await supabase
-        .from("order_items")
-        .select("*", { count: "exact", head: true })
-        .eq("event_id", eventId)
-        .not("checked_in_at", "is", null)
-
-      if (!error && count !== null) {
-        setTotalCheckedIn(count)
-      }
-    }
-
-    fetchCheckInCount()
-  }, [eventId])
+  const { stats } = useEventLiveStats(eventId)
+  const totalCheckedIn = stats?.checked_in_count ?? 0
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

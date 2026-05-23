@@ -12,6 +12,7 @@ import { LineupStep } from '@/components/event-wizard/steps/LineupStep'
 import { PoliciesStep } from '@/components/event-wizard/steps/PoliciesStep'
 import { FinishSetupNudge } from '@/components/event-management/finish-setup-nudge'
 import { GuestlistTab } from '@/components/event-management/guestlist-tab'
+import { useEventLiveStats } from '@/lib/hooks/use-event-live-stats'
 
 interface EventManagementTabsProps {
   eventId: string
@@ -295,6 +296,8 @@ export function EventManagementTabs({ eventId, orgId, event }: EventManagementTa
   const dismissKey = `ticketiv:event-setup-dismissed:${eventId}`
   const [nudgeDismissed, setNudgeDismissed] = useState(true)
 
+  const { stats: liveStats } = useEventLiveStats(eventId)
+
   useEffect(() => {
     setNudgeDismissed(window.localStorage.getItem(dismissKey) === '1')
   }, [dismissKey])
@@ -381,7 +384,7 @@ export function EventManagementTabs({ eventId, orgId, event }: EventManagementTa
               <CardTitle className="text-sm font-medium text-muted-foreground">Tickets Sold</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-lg font-semibold">0</p>
+              <p className="text-lg font-semibold">{liveStats?.tickets_sold ?? 0}</p>
             </CardContent>
           </Card>
         </div>
