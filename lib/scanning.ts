@@ -406,6 +406,46 @@ export async function validateQrCode(input: ValidateQrCodeInput): Promise<Valida
   }
 }
 
+export interface ScannerManifestItem {
+  ticket_code: string
+  order_item_id: string
+  ticket_type_id: string
+  status: "issued" | "transferred" | "checked_in" | "revoked" | "refunded"
+  already_checked_in: boolean
+}
+
+export async function loadScannerManifest(eventId: string, userId: string): Promise<ScannerManifestItem[]> {
+  const supabase = createServerSupabaseClient()
+  if (!supabase) throw new Error("Supabase is not configured")
+  if (!isUuid(eventId)) throw new Error("A valid eventId is required")
+  if (!userId) throw new Error("Scanner login required")
+
+  const authorized = await ensureScannerAuthorized(supabase, userId, eventId)
+  if (!authorized) throw new Error("You are not authorized to scan tickets for this event")
+
+  const { data, error } = await supabase
+    .from("order_items")
+    .select(
+      "id, ticket_code, ticket_type_id, status, checked_in_at, ticket_types!inner(event_id), orders!inner(status)",
+    )
+    .eq("ticket_types.event_id", eventId)
+    .eq("orders.status", "paid")
+    .not("status", "in", "(revoked,refunded)")
+
+  if (error) {
+    console.error("Failed to load scanner manifest", error)
+    throw new Error("Unable to load scanner manifest")
+  }
+
+  return (data ?? []).map((row: any) => ({
+    ticket_code: row.ticket_code,
+    order_item_id: row.id,
+    ticket_type_id: row.ticket_type_id,
+    status: row.status,
+    already_checked_in: Boolean(row.checked_in_at) || row.status === "checked_in",
+  }))
+}
+
 export async function syncOfflineScans(scans: OfflineScanPayload[], userId: string) {
   if (!scans || scans.length === 0) {
     return { inserted: 0 }
