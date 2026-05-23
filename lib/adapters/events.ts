@@ -162,7 +162,7 @@ export async function getPublicEventsList(params?: {
       console.error(
         `[v0] Error fetching public events from v_public_event_cards — ${error.code ?? "no-code"}: ${error.message ?? "unknown"}${error.hint ? ` (hint: ${error.hint})` : ""}`,
       )
-      return getDemoPublicEvents(params)
+      return []
     }
 
     if (!data) return []
@@ -171,7 +171,7 @@ export async function getPublicEventsList(params?: {
       .filter((row): row is EventsPublicView => row != null)
   } catch (error) {
     console.error("[v0] Exception in getPublicEventsList:", error)
-    return getDemoPublicEvents(params)
+    return []
   }
 }
 
@@ -191,13 +191,13 @@ export async function getPublicEventBySlug(slug: string): Promise<EventPublicVie
 
     if (error) {
       console.error("[v0] Error fetching event by slug:", error)
-      return getDemoPublicEventBySlug(slug)
+      return null
     }
 
     if (!data) return null
     return validateSchema(EventPublicViewSchema, data, "v_event_public")
   } catch (error) {
     console.error("[v0] Exception in getPublicEventBySlug:", error)
-    return getDemoPublicEventBySlug(slug)
+    return null
   }
 }
