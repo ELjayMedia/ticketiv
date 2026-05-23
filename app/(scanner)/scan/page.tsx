@@ -7,6 +7,15 @@ import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
 import { cn } from "@/lib/cn"
+import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats"
+import {
+  findInManifest,
+  isLocallyUsed,
+  loadManifest,
+  markLocallyUsed,
+  refreshManifest,
+  type ScannerManifest,
+} from "@/lib/scanner/manifest-store"
 
 interface ScanResponse {
   valid: boolean
@@ -59,10 +68,39 @@ export default function ScannerPage() {
   const [loading, setLoading] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [offlineQueue, setOfflineQueue] = useState<OfflineScanPayload[]>([])
+  const [manifest, setManifest] = useState<ScannerManifest | null>(null)
+  const [manifestLoading, setManifestLoading] = useState(false)
   const deviceId = useMemo(() => loadDeviceId(), [])
+
+  const { stats: liveStats } = useEventLiveStats(eventId || null)
 
   useEffect(() => { setOfflineQueue(loadOfflineQueue()) }, [])
   useEffect(() => { persistOfflineQueue(offlineQueue) }, [offlineQueue])
+
+  useEffect(() => {
+    if (!eventId) {
+      setManifest(null)
+      return
+    }
+    setManifest(loadManifest(eventId))
+  }, [eventId])
+
+  useEffect(() => {
+    if (!eventId || !sessionId) return
+    let cancelled = false
+    setManifestLoading(true)
+    refreshManifest(eventId)
+      .then((fresh) => {
+        if (cancelled || !fresh) return
+        setManifest(fresh)
+      })
+      .finally(() => {
+        if (!cancelled) setManifestLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [eventId, sessionId])
 
   useEffect(() => {
     if (!eventId || sessionId) return
@@ -110,7 +148,52 @@ export default function ScannerPage() {
     setLoading(true)
     setResult(null)
 
-    const payload = { code, deviceId, sessionId }
+    const trimmedCode = code.trim()
+    const scannedAt = new Date().toISOString()
+
+    // Local-first: if we have a manifest, validate against it before hitting
+    // the network. This gives a sub-50ms response at the gate and lets the
+    // scanner keep working when connectivity drops mid-event.
+    const manifestHit = findInManifest(manifest, trimmedCode)
+    if (manifestHit) {
+      if (manifestHit.already_checked_in || isLocallyUsed(eventId, trimmedCode)) {
+        setResult({
+          valid: false,
+          status: "duplicate",
+          message: "Already checked in",
+          previousScan: { scanned_at: scannedAt },
+        })
+        setLoading(false)
+        return
+      }
+
+      markLocallyUsed(eventId, trimmedCode)
+      const localScan: OfflineScanPayload = {
+        code: trimmedCode,
+        deviceId,
+        sessionId: sessionId ?? `offline-${deviceId}`,
+        scannedAt,
+      }
+      setOfflineQueue((current) => [...current, localScan])
+
+      // Optimistic UI; the server is the source of truth and will catch
+      // anything the manifest missed when we sync.
+      setResult({
+        valid: true,
+        status: "validated",
+        message: "Validated locally — queued to sync",
+        ticket: {
+          id: manifestHit.order_item_id,
+          event_id: eventId,
+          ticket_type_id: manifestHit.ticket_type_id,
+        },
+        scan: { scanned_at: scannedAt },
+      })
+      setLoading(false)
+      return
+    }
+
+    const payload = { code: trimmedCode, deviceId, sessionId }
 
     try {
       const response = await fetch("/api/scanner/validate", {
@@ -120,6 +203,7 @@ export default function ScannerPage() {
       })
       const data: ScanResponse = await response.json()
       setResult(data)
+      if (data.valid) markLocallyUsed(eventId, trimmedCode)
       if (!response.ok && data.status === "offline") queueOfflineScan()
     } catch {
       queueOfflineScan()
@@ -172,6 +256,24 @@ export default function ScannerPage() {
             <div className="flex items-center justify-between rounded-[var(--radius-md)] border border-line bg-bg px-3 py-2">
               <span className="text-ink-3">Session</span>
               <span className="font-mono text-ink">{sessionId.substring(0, 16)}…</span>
+            </div>
+          )}
+          {eventId && (
+            <div className="flex items-center justify-between rounded-[var(--radius-md)] border border-line bg-bg px-3 py-2">
+              <span className="text-ink-3">Checked in</span>
+              <span className="font-mono text-ink">{liveStats?.checked_in_count ?? 0}</span>
+            </div>
+          )}
+          {eventId && (
+            <div className="flex items-center justify-between rounded-[var(--radius-md)] border border-line bg-bg px-3 py-2">
+              <span className="text-ink-3">Manifest</span>
+              <span className="font-mono text-ink">
+                {manifestLoading
+                  ? "loading…"
+                  : manifest
+                    ? `${manifest.items.length} tickets`
+                    : "offline only"}
+              </span>
             </div>
           )}
         </div>
