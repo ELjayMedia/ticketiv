@@ -1,24 +1,26 @@
-import { AccountEmptyPage } from "@/components/quiet/screens/account/account-empty-page";
+import { WaitlistCentre } from "@/components/quiet/screens/waitlist/waitlist-centre";
+import { getMyWaitlistEntries } from "@/lib/data/attendee/waitlist";
 
 export const metadata = { title: "Waitlist" };
 export const dynamic = "force-dynamic";
 
-export default function WaitlistPage() {
+export default async function WaitlistPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = (await searchParams) ?? {};
+  const eventId = typeof params.eventId === "string" ? params.eventId : null;
+  const ticketTypeId = typeof params.ticketTypeId === "string" ? params.ticketTypeId : null;
+  const joined = params.joined === "1";
+  const entries = await getMyWaitlistEntries();
+
   return (
-    <AccountEmptyPage
-      eyebrow="Sold-out events"
-      title="Waitlist"
-      description="Events and ticket tiers you join a waitlist for will appear here with offer status and expiry times."
-      icon="clock"
-      primaryHref="/"
-      primaryLabel="Find events"
-      secondaryHref="/me"
-      secondaryLabel="Account"
-      bullets={[
-        "Pending waitlist requests",
-        "Available offers with expiry countdowns",
-        "Expired, fulfilled and cancelled waitlist entries",
-      ]}
+    <WaitlistCentre
+      entries={entries}
+      joinEventId={eventId}
+      joinTicketTypeId={ticketTypeId}
+      joined={joined}
     />
   );
 }
