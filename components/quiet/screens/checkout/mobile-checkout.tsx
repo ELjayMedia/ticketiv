@@ -10,7 +10,7 @@ import {
   QuantityStepper,
 } from "@/components/quiet/ui/form";
 import { PHOTOS } from "@/lib/photos";
-import { formatPrice, formatHoldTimer } from "@/lib/format";
+import { formatPrice, formatHoldTimer, formatScarcityLabel } from "@/lib/format";
 
 /* ──────────────────────────────────────────────────────────────
  * Mobile checkout · `/events/[id]/checkout` on phones.
@@ -78,6 +78,13 @@ export function MobileCheckout({
   const [paymentId, setPaymentId] = React.useState(paymentMethods[0]?.id);
   const [holdRemaining, setHoldRemaining] = React.useState(holdSeconds);
   const [accepted, setAccepted] = React.useState(false);
+  const [guaranteeOpen, setGuaranteeOpen] = React.useState(false);
+
+  // Activity-based hold extension: real users who scroll/tap/type during
+  // checkout shouldn't get punished by an unresponsive timer. When the
+  // timer drops below 60s, any interaction tops it back up to 120s — but
+  // never higher than the initial hold so we don't lie to the server.
+  useHoldExtension(holdRemaining, setHoldRemaining, holdSeconds);
 
   React.useEffect(() => {
     if (holdRemaining <= 0) return;
@@ -108,18 +115,18 @@ export function MobileCheckout({
           </Link>
           <div className="flex flex-1 flex-col leading-tight">
             <span className="text-[15px] font-semibold">Checkout</span>
-            <span
-              className={
-                "font-mono text-[10px] font-semibold uppercase " +
-                (holdRemaining < 60 ? "text-danger" : "text-accent")
-              }
-              aria-live="polite"
-            >
-              HOLDS FOR {formatHoldTimer(holdRemaining)}
-            </span>
+            <HoldTimerLabel remaining={holdRemaining} />
           </div>
-          <span className="font-mono text-[10px] text-ink-3">1/1</span>
+          <Link
+            href="/help"
+            className="font-mono text-[10px] font-semibold uppercase text-ink-3 hover:text-ink"
+          >
+            Help
+          </Link>
         </header>
+
+        {/* Progress indicator: Tickets → Details → Payment → Done */}
+        <MobileCheckoutProgress currentIndex={1} />
 
         {/* Event ribbon */}
         <div className="mx-5 mb-4 flex items-center gap-2.5 rounded-xl bg-ink p-3">
@@ -141,6 +148,7 @@ export function MobileCheckout({
           <div className="flex flex-col gap-1.5">
             {ticketTypes.map((t) => {
               const soldOut = t.remaining === 0;
+              const scarcity = soldOut ? null : formatScarcityLabel(t.remaining);
               return (
                 <RadioCard
                   key={t.id}
@@ -153,9 +161,7 @@ export function MobileCheckout({
                   subtitle={
                     soldOut
                       ? "Sold out"
-                      : t.remaining !== null
-                      ? t.sublabel ?? `${t.remaining} left at this price`
-                      : t.sublabel
+                      : scarcity ?? t.sublabel
                   }
                   trailing={
                     <span
@@ -260,6 +266,38 @@ export function MobileCheckout({
           </Card>
         </section>
 
+        {/* Reassurance block */}
+        <section className="px-5 pb-4">
+          <Card className="bg-bg p-3.5" flat>
+            <div className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold">
+              <Icon name="check" size={14} className="text-success" />
+              Secure checkout
+            </div>
+            <ul className="flex flex-col gap-1 font-mono text-[11px] text-ink-3">
+              <li>Encrypted payment · cards & mobile money</li>
+              <li>Refund window per organizer policy</li>
+              <li>Free transfer to friends, anytime before doors</li>
+            </ul>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <button
+                type="button"
+                onClick={() => setGuaranteeOpen(true)}
+                className="text-[12px] font-semibold text-accent"
+              >
+                Buyer guarantee
+              </button>
+              <span className="text-ink-3">·</span>
+              <Link href="/help" className="text-[12px] font-semibold text-accent">
+                Contact support
+              </Link>
+            </div>
+          </Card>
+        </section>
+
+        {guaranteeOpen && (
+          <BuyerGuaranteeModal onClose={() => setGuaranteeOpen(false)} />
+        )}
+
         {/* Terms */}
         <label className="flex items-center gap-2 px-5 pb-4 text-[11px] text-ink-3">
           <input
@@ -315,6 +353,215 @@ function SummaryRow({
       >
         {value}
       </span>
+    </div>
+  );
+}
+
+function HoldTimerLabel({ remaining }: { remaining: number }) {
+  const critical = remaining <= 0;
+  const low = remaining > 0 && remaining < 60;
+  return (
+    <span
+      className={
+        "inline-flex items-center gap-1 font-mono text-[10px] font-semibold uppercase " +
+        (critical
+          ? "text-danger"
+          : low
+          ? "text-danger animate-pulse"
+          : "text-accent")
+      }
+      aria-live="polite"
+    >
+      {low && !critical && (
+        <span
+          aria-hidden
+          className="h-1.5 w-1.5 rounded-full bg-danger"
+        />
+      )}
+      {critical ? "Hold expired" : `Holds for ${formatHoldTimer(remaining)}`}
+    </span>
+  );
+}
+
+function useHoldExtension(
+  remaining: number,
+  setRemaining: React.Dispatch<React.SetStateAction<number>>,
+  maxSeconds: number,
+) {
+  // We deliberately keep this conservative: a single bump back to 120s (or
+  // the original hold, whichever is smaller) per low-time window. Buyers
+  // who walk away still time out — we only protect honest scrolls/taps.
+  const bumpedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (remaining >= 60) {
+      bumpedRef.current = false;
+      return;
+    }
+    if (remaining <= 0 || bumpedRef.current) return;
+    const bump = () => {
+      if (bumpedRef.current) return;
+      bumpedRef.current = true;
+      setRemaining((s) => Math.min(maxSeconds, Math.max(s, 120)));
+    };
+    const opts: AddEventListenerOptions = { passive: true, once: true };
+    window.addEventListener("scroll", bump, opts);
+    window.addEventListener("pointerdown", bump, opts);
+    window.addEventListener("keydown", bump, opts);
+    return () => {
+      window.removeEventListener("scroll", bump, opts);
+      window.removeEventListener("pointerdown", bump, opts);
+      window.removeEventListener("keydown", bump, opts);
+    };
+  }, [remaining, setRemaining, maxSeconds]);
+}
+
+function BuyerGuaranteeModal({ onClose }: { onClose: () => void }) {
+  React.useEffect(() => {
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onEsc);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onEsc);
+      document.body.style.overflow = "";
+    };
+  }, [onClose]);
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="ticketiv-guarantee-title"
+      className="fixed inset-0 z-50 flex items-end bg-ink/40 px-5 pb-5 sm:items-center sm:justify-center"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[480px] rounded-[var(--radius-lg)] bg-surface p-5 shadow-[var(--shadow-elev)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start">
+          <div className="flex-1">
+            <h2
+              id="ticketiv-guarantee-title"
+              className="text-[18px] font-semibold tracking-[-0.02em]"
+            >
+              Ticketiv buyer guarantee
+            </h2>
+            <p className="mt-1 text-[12px] text-ink-3">
+              Every booking is backed by a clear set of promises.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-line/60"
+          >
+            <Icon name="close" size={16} />
+          </button>
+        </div>
+        <ul className="mt-4 flex flex-col gap-3 text-[13px]">
+          <li className="flex items-start gap-2.5">
+            <Icon name="check" size={14} className="mt-0.5 shrink-0 text-success" />
+            <div>
+              <span className="font-semibold">Authentic tickets, every time.</span>{" "}
+              <span className="text-ink-3">
+                Issued directly by the organizer. No resellers in the loop.
+              </span>
+            </div>
+          </li>
+          <li className="flex items-start gap-2.5">
+            <Icon name="check" size={14} className="mt-0.5 shrink-0 text-success" />
+            <div>
+              <span className="font-semibold">Refunded if the event is cancelled.</span>{" "}
+              <span className="text-ink-3">
+                Full refund, automatically, within 7 days.
+              </span>
+            </div>
+          </li>
+          <li className="flex items-start gap-2.5">
+            <Icon name="check" size={14} className="mt-0.5 shrink-0 text-success" />
+            <div>
+              <span className="font-semibold">Refund window honored.</span>{" "}
+              <span className="text-ink-3">
+                We enforce the organizer's published policy on your behalf.
+              </span>
+            </div>
+          </li>
+          <li className="flex items-start gap-2.5">
+            <Icon name="check" size={14} className="mt-0.5 shrink-0 text-success" />
+            <div>
+              <span className="font-semibold">Encrypted payment.</span>{" "}
+              <span className="text-ink-3">
+                Cards & mobile money, processed by certified providers.
+              </span>
+            </div>
+          </li>
+        </ul>
+        <div className="mt-5 flex items-center gap-2">
+          <Link
+            href="/help"
+            className="flex-1 rounded-[var(--radius)] border border-line-2 px-3 py-2 text-center text-[13px] font-semibold hover:bg-bg"
+          >
+            Read full policy
+          </Link>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-[var(--radius)] bg-ink px-3 py-2 text-[13px] font-semibold text-white hover:bg-ink-2"
+          >
+            Got it
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const CHECKOUT_STEPS = ["Tickets", "Details", "Payment", "Confirmation"] as const;
+
+function MobileCheckoutProgress({ currentIndex }: { currentIndex: number }) {
+  return (
+    <div className="px-5 pb-3">
+      <div className="flex items-center gap-1.5" aria-label="Checkout progress">
+        {CHECKOUT_STEPS.map((label, i) => {
+          const done = i < currentIndex;
+          const active = i === currentIndex;
+          return (
+            <React.Fragment key={label}>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={
+                    "inline-flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold " +
+                    (active
+                      ? "bg-accent text-white"
+                      : done
+                      ? "bg-ink text-white"
+                      : "bg-line text-ink-3")
+                  }
+                >
+                  {done ? "✓" : i + 1}
+                </span>
+                <span
+                  className={
+                    "font-mono text-[10px] font-semibold uppercase " +
+                    (active ? "text-ink" : "text-ink-3")
+                  }
+                >
+                  {label}
+                </span>
+              </div>
+              {i < CHECKOUT_STEPS.length - 1 && (
+                <span
+                  className={
+                    "h-px flex-1 " + (done ? "bg-ink" : "bg-line")
+                  }
+                />
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
     </div>
   );
 }

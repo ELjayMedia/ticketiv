@@ -5,7 +5,13 @@ import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider, Avatar, AvatarStack } from "@/components/quiet/ui/primitives";
 import { Button } from "@/components/quiet/ui/button";
 import { PHOTOS } from "@/lib/photos";
-import { formatPrice } from "@/lib/format";
+import {
+  formatPrice,
+  formatGoingCount,
+  formatSoldCount,
+  formatRecentSoldLabel,
+  formatLineupLabel,
+} from "@/lib/format";
 
 /* ──────────────────────────────────────────────────────────────
  * Mobile event detail · `/events/[id]` on phones.
@@ -36,6 +42,13 @@ export interface MobileEventData {
   organizer: { name: string; handle: string; eventsHosted: number; rating: number; verified: boolean; photo: string };
   goingFriends: { count: number; names: string[]; photos: string[] };
   fromPriceMinor: number;
+  /** Optional trust signals — hide gracefully when missing. */
+  attendeeCount?: number | null;
+  soldCount?: number | null;
+  recentSoldCount?: number | null;
+  /** "12h" / "this week" — windowing for the recent-sold ribbon. */
+  recentSoldWindow?: string;
+  supportUrl?: string;
 }
 
 const DEFAULT_EVENT: MobileEventData = {
@@ -119,7 +132,7 @@ export function MobileEvent({ event = DEFAULT_EVENT }: MobileEventProps) {
                 {event.title}
               </h1>
               <div className="mt-1 font-mono text-[12px] uppercase text-white/85">
-                {event.lineup.map((a) => a.name).join(" + ")}
+                {formatLineupLabel(event.lineup.map((a) => a.name))}
               </div>
             </div>
           </Photo>
@@ -131,28 +144,36 @@ export function MobileEvent({ event = DEFAULT_EVENT }: MobileEventProps) {
             <Card className="p-3" flat>
               <div className="text-label">When</div>
               <div className="mt-1 text-[15px] font-semibold">{event.dateLabel}</div>
-              <div className="mt-0.5 font-mono text-[11px] text-ink-3">{event.timeLabel}</div>
+              {event.timeLabel && (
+                <div className="mt-0.5 font-mono text-[11px] text-ink-3">{event.timeLabel}</div>
+              )}
             </Card>
             <Card className="p-3" flat>
               <div className="text-label">Where</div>
               <div className="mt-1 text-[15px] font-semibold">{event.venue.name}</div>
-              <button className="mt-0.5 font-mono text-[11px] text-accent">
-                {event.venue.distanceKm} km · directions ↗
-              </button>
+              {event.venue.distanceKm > 0 && (
+                <button className="mt-0.5 font-mono text-[11px] text-accent">
+                  {event.venue.distanceKm} km · directions ↗
+                </button>
+              )}
             </Card>
           </div>
         </section>
 
+        {/* Trust signals — sold/going + verified-organizer ribbon */}
+        <TrustSignalsRow event={event} />
+
         {/* Lineup */}
-        <section className="px-5 pt-5">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-h3">Lineup</h2>
-            <span className="font-mono text-[11px] text-ink-3">
-              {event.lineup.length} artist{event.lineup.length === 1 ? "" : "s"}
-            </span>
-          </div>
-          <ul className="flex flex-col gap-2">
-            {event.lineup.map((a) => (
+        {event.lineup.length > 0 ? (
+          <section className="px-5 pt-5">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-h3">Lineup</h2>
+              <span className="font-mono text-[11px] text-ink-3">
+                {event.lineup.length} artist{event.lineup.length === 1 ? "" : "s"}
+              </span>
+            </div>
+            <ul className="flex flex-col gap-2">
+              {event.lineup.map((a) => (
               <li key={a.name}>
                 <Card className="flex items-center gap-3 p-2.5" flat>
                   <Avatar src={a.photo} size={40} />
@@ -173,17 +194,29 @@ export function MobileEvent({ event = DEFAULT_EVENT }: MobileEventProps) {
                 </Card>
               </li>
             ))}
-          </ul>
-        </section>
+            </ul>
+          </section>
+        ) : (
+          <section className="px-5 pt-5">
+            <h2 className="text-h3 mb-2">Lineup</h2>
+            <Card className="px-3.5 py-3" flat>
+              <span className="text-[13px] text-ink-3">
+                {formatLineupLabel([])}
+              </span>
+            </Card>
+          </section>
+        )}
 
         {/* About */}
-        <section className="px-5 pt-5">
-          <h2 className="text-h3 mb-2.5">About</h2>
-          <p className="text-[14px] leading-relaxed text-ink-2">
-            {event.description}{" "}
-            <button className="font-semibold text-accent">read more</button>
-          </p>
-        </section>
+        {event.description && (
+          <section className="px-5 pt-5">
+            <h2 className="text-h3 mb-2.5">About</h2>
+            <p className="text-[14px] leading-relaxed text-ink-2">
+              {event.description}{" "}
+              <button className="font-semibold text-accent">read more</button>
+            </p>
+          </section>
+        )}
 
         {/* Fact card */}
         <section className="px-5 pt-5">
@@ -219,8 +252,7 @@ export function MobileEvent({ event = DEFAULT_EVENT }: MobileEventProps) {
                 )}
               </div>
               <span className="font-mono text-[11px] text-ink-3">
-                @{event.organizer.handle} · {event.organizer.eventsHosted} events · ★{" "}
-                {event.organizer.rating.toFixed(1)}
+                {formatOrganizerStats(event.organizer)}
               </span>
             </div>
             <Button variant="default" size="xs">
@@ -229,7 +261,45 @@ export function MobileEvent({ event = DEFAULT_EVENT }: MobileEventProps) {
           </Card>
         </section>
 
+        {/* Accepted payment methods + assurance card */}
+        <section className="px-5 pt-3">
+          <Card className="p-3.5" flat>
+            <div className="text-label mb-2">Accepted here</div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <PaymentTile label="Visa" tone="navy" />
+              <PaymentTile label="Mcard" tone="navy" />
+              <PaymentTile label="MTN" tone="amber" />
+              <PaymentTile label="EFT" tone="warm" />
+            </div>
+            <Divider className="my-3" />
+            <ul className="flex flex-col gap-1.5 text-[12px]">
+              <li className="flex items-start gap-2">
+                <Icon name="check" size={14} className="mt-0.5 shrink-0 text-success" />
+                <span>
+                  <span className="font-semibold">Refund window</span>{" "}
+                  <span className="text-ink-3">per organizer policy</span>
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Icon name="check" size={14} className="mt-0.5 shrink-0 text-success" />
+                <span>
+                  <span className="font-semibold">Free transfer</span>{" "}
+                  <span className="text-ink-3">to friends anytime before doors</span>
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Icon name="check" size={14} className="mt-0.5 shrink-0 text-success" />
+                <span>
+                  <span className="font-semibold">QR + wallet entry</span>{" "}
+                  <span className="text-ink-3">offline-ready scan</span>
+                </span>
+              </li>
+            </ul>
+          </Card>
+        </section>
+
         {/* Friends going */}
+        {event.goingFriends.count > 0 && (
         <section className="px-5 pb-6 pt-3">
           <Card className="flex items-center gap-3 p-3.5">
             <AvatarStack>
@@ -252,6 +322,28 @@ export function MobileEvent({ event = DEFAULT_EVENT }: MobileEventProps) {
             </Button>
           </Card>
         </section>
+        )}
+
+        {/* Need help? */}
+        <section className="px-5 pb-6 pt-1">
+          <Card className="flex items-center gap-3 p-3.5" flat>
+            <div className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
+              <Icon name="check" size={16} />
+            </div>
+            <div className="flex flex-1 flex-col">
+              <span className="text-[13px] font-semibold">Need help?</span>
+              <span className="font-mono text-[11px] text-ink-3">
+                Secure checkout · refund policy · contact support
+              </span>
+            </div>
+            <Link
+              href={event.supportUrl ?? "/help"}
+              className="inline-flex items-center gap-1 text-[12px] font-semibold text-accent"
+            >
+              Help <Icon name="chevR" size={12} />
+            </Link>
+          </Card>
+        </section>
 
         <div className="h-24" />
       </div>
@@ -272,5 +364,69 @@ export function MobileEvent({ event = DEFAULT_EVENT }: MobileEventProps) {
         </Link>
       </div>
     </div>
+  );
+}
+
+function formatOrganizerStats(o: MobileEventData["organizer"]): string {
+  const parts = [`@${o.handle}`];
+  if (o.eventsHosted > 0) {
+    parts.push(`${o.eventsHosted} event${o.eventsHosted === 1 ? "" : "s"}`);
+  }
+  if (o.rating > 0) parts.push(`★ ${o.rating.toFixed(1)}`);
+  return parts.join(" · ");
+}
+
+function PaymentTile({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: "navy" | "amber" | "warm";
+}) {
+  const cls =
+    tone === "navy"
+      ? "bg-[#1a1f71] text-white"
+      : tone === "amber"
+      ? "bg-[#ffcc00] text-ink"
+      : "bg-gradient-to-br from-[#ff5f00] to-[#f79e1b] text-white";
+  return (
+    <span
+      className={
+        "inline-flex h-[24px] min-w-[44px] items-center justify-center rounded px-2 font-mono text-[10px] font-bold tracking-wider " +
+        cls
+      }
+    >
+      {label}
+    </span>
+  );
+}
+
+function TrustSignalsRow({ event }: { event: MobileEventData }) {
+  const goingLabel = formatGoingCount(event.attendeeCount ?? event.goingFriends.count);
+  const soldLabel = formatSoldCount(event.soldCount);
+  const recent = formatRecentSoldLabel(event.recentSoldCount, {
+    windowLabel: event.recentSoldWindow,
+  });
+  const verified = event.organizer.verified;
+
+  if (!goingLabel && !soldLabel && !recent && !verified) return null;
+
+  return (
+    <section className="px-5 pt-4">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {verified && (
+          <Chip variant="accent" size="sm">
+            <Icon name="check" size={11} strokeWidth={3} /> Verified organizer
+          </Chip>
+        )}
+        {goingLabel && <Chip size="sm">{goingLabel}</Chip>}
+        {soldLabel && <Chip size="sm">{soldLabel}</Chip>}
+      </div>
+      {recent && (
+        <p className="mt-2 font-mono text-[11px] text-ink-3">
+          <span className="text-accent">●</span> {recent}
+        </p>
+      )}
+    </section>
   );
 }

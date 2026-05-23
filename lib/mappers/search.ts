@@ -1,6 +1,8 @@
 // Shape fn_search_events rows → SearchResults screen props.
 
 import { PHOTOS } from "@/lib/photos"
+import { formatPriceLabel, formatVenueLabel } from "@/lib/format"
+import { asCurrency } from "@/lib/currency"
 import type { SearchResults, SearchFilters } from "@/lib/data/public/search"
 import type { ActiveFilter, SearchResultProp, SearchResultsProps } from "@/components/quiet/screens/search/search-results"
 
@@ -21,12 +23,6 @@ function coverFor(url: string | null, seed: string): string {
   return COVER_POOL[Math.abs(h) % COVER_POOL.length]
 }
 
-function priceLabel(minor: number | null, currency: string | null): string {
-  if (minor === null) return "TBA"
-  if (minor === 0) return "Free"
-  const cur = currency ?? "SZL"
-  return `${cur} ${(minor / 100).toLocaleString()}`
-}
 
 export function mapSearch(results: SearchResults, filters: SearchFilters): SearchResultsProps {
   const active: ActiveFilter[] = []
@@ -52,10 +48,10 @@ export function mapSearch(results: SearchResults, filters: SearchFilters): Searc
       title: r.title,
       slug: r.slug,
       cover: coverFor(r.cover_image_url, r.id),
-      whenLabel: start ? WHEN_FMT.format(start) : "Date TBA",
-      venue: r.venue_name ?? r.city ?? "TBA",
+      whenLabel: start ? WHEN_FMT.format(start) : "Date coming soon",
+      venue: formatVenueLabel(r.venue_name ?? r.city),
       city: r.city,
-      priceLabel: priceLabel(r.min_price_cents, r.currency),
+      priceLabel: formatPriceLabel(r.min_price_cents, asCurrency(r.currency)),
       isFree: r.min_price_cents === 0,
       category: r.category,
     }

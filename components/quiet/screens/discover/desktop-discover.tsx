@@ -18,11 +18,11 @@ interface DesktopDiscoverProps {
 }
 
 const CATEGORIES = [
-  { icon: "music", label: "Music", count: 18 },
-  { icon: "fire", label: "Comedy", count: 6 },
-  { icon: "users", label: "Workshops", count: 4 },
-  { icon: "ticket", label: "Theatre", count: 3 },
-  { icon: "spark", label: "Festivals", count: 2 },
+  { icon: "music", label: "Music", href: "/search?category=Music" },
+  { icon: "fire", label: "Comedy", href: "/search?category=Comedy" },
+  { icon: "users", label: "Workshops", href: "/search?category=Workshop" },
+  { icon: "ticket", label: "Theatre", href: "/search?category=Theatre" },
+  { icon: "spark", label: "Festivals", href: "/search?category=Festival" },
 ] as const;
 
 interface GridRow {
@@ -73,7 +73,7 @@ function toGrid(ev: DiscoverEvent): GridRow {
     title: ev.title,
     when: ev.whenLabel,
     venue: ev.venue,
-    price: ev.priceLabel || (ev.fromPriceCents === 0 ? "Free" : ""),
+    price: ev.priceLabel,
     chip: ev.city ?? undefined,
   };
 }
@@ -102,6 +102,76 @@ export function DesktopDiscover({
   const total = totalEvents ?? events?.length ?? 42;
   return (
     <div className="mx-auto max-w-[1280px] px-10 py-6">
+      {/* Inline search bar — desktop discover's prominent entry point.
+          Plain HTML GET form so we stay a server component. */}
+      <form
+        action="/search"
+        method="get"
+        role="search"
+        className="mb-4 flex items-center gap-2 rounded-[var(--radius-md)] border border-line bg-surface px-4 py-3 focus-within:border-line-2"
+      >
+        <Icon name="search" size={16} className="text-ink-3" />
+        <input
+          type="text"
+          name="q"
+          placeholder="Search events, artists, venues…"
+          aria-label="Search events"
+          className="flex-1 bg-transparent text-[14px] font-medium outline-none placeholder:text-ink-3"
+        />
+        <div className="hidden items-center gap-1 md:flex">
+          <Link
+            href="/search?category=Music"
+            className="rounded-full border border-line bg-bg px-2.5 py-1 text-[11px] font-semibold text-ink-3 hover:text-ink"
+          >
+            Music
+          </Link>
+          <Link
+            href="/search?category=Comedy"
+            className="rounded-full border border-line bg-bg px-2.5 py-1 text-[11px] font-semibold text-ink-3 hover:text-ink"
+          >
+            Comedy
+          </Link>
+          <Link
+            href="/search?onlyFree=1"
+            className="rounded-full border border-line bg-bg px-2.5 py-1 text-[11px] font-semibold text-ink-3 hover:text-ink"
+          >
+            Free
+          </Link>
+          <Link
+            href="/search?when=weekend"
+            className="rounded-full border border-line bg-bg px-2.5 py-1 text-[11px] font-semibold text-ink-3 hover:text-ink"
+          >
+            Weekend
+          </Link>
+        </div>
+        <button
+          type="submit"
+          className="inline-flex items-center gap-1 rounded-[var(--radius)] bg-ink px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-ink-2"
+        >
+          Search
+        </button>
+      </form>
+
+      {/* Trust rail */}
+      <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-1.5 rounded-[var(--radius-md)] border border-line bg-surface px-4 py-2.5 text-[12px] text-ink-2">
+        <span className="inline-flex items-center gap-1.5">
+          <Icon name="check" size={12} className="text-success" />
+          Verified organizers only
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <Icon name="check" size={12} className="text-success" />
+          Secure checkout · cards &amp; mobile money
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <Icon name="check" size={12} className="text-success" />
+          Free transfers · refund per organizer policy
+        </span>
+        <span className="flex-1" />
+        <Link href="/help" className="font-mono text-[11px] text-accent hover:underline">
+          How it works ›
+        </Link>
+      </div>
+
       {/* Page header */}
       <div className="flex items-end justify-between pb-6">
         <div>
@@ -114,13 +184,19 @@ export function DesktopDiscover({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-1.5 text-[13px] font-medium hover:bg-bg">
+          <Link
+            href="/search?when=week"
+            className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-1.5 text-[13px] font-medium hover:bg-bg"
+          >
             <Icon name="cal" size={14} /> This week
             <Icon name="chevD" size={12} />
-          </button>
-          <button className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-1.5 text-[13px] font-medium hover:bg-bg">
+          </Link>
+          <Link
+            href="/search"
+            className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-1.5 text-[13px] font-medium hover:bg-bg"
+          >
             <Icon name="filter" size={14} /> Filters
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -149,7 +225,7 @@ export function DesktopDiscover({
           <div className="flex flex-col p-6">
             <div className="text-label">FROM</div>
             <div className="mt-1 font-mono text-[44px] font-semibold leading-none">
-              {HERO.priceLabel || "—"}
+              {HERO.priceLabel}
             </div>
             {HERO.subtitle && (
               <p className="mt-3 text-[13px] text-ink-3">{HERO.subtitle}</p>
@@ -173,29 +249,32 @@ export function DesktopDiscover({
           <ul className="flex flex-col">
             {CATEGORIES.map((c) => (
               <li key={c.label}>
-                <button className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-[13px] hover:bg-bg">
+                <Link
+                  href={c.href}
+                  className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-[13px] hover:bg-bg"
+                >
                   <Icon name={c.icon} size={16} className="text-ink-3" />
                   <span className="flex-1 text-left">{c.label}</span>
-                  <span className="font-mono text-[11px] text-ink-3">{c.count}</span>
-                </button>
+                  <Icon name="chevR" size={12} className="text-ink-3" />
+                </Link>
               </li>
             ))}
           </ul>
           <Divider className="my-4" />
           <div className="text-label mb-3">Price</div>
-          <div className="flex flex-col gap-2 text-[13px]">
-            <label className="inline-flex items-center gap-2">
-              <input type="checkbox" className="accent-accent" /> Free
-            </label>
-            <label className="inline-flex items-center gap-2">
-              <input type="checkbox" className="accent-accent" /> Under E500
-            </label>
-            <label className="inline-flex items-center gap-2">
-              <input type="checkbox" className="accent-accent" /> E500 – E1,500
-            </label>
-            <label className="inline-flex items-center gap-2">
-              <input type="checkbox" className="accent-accent" /> E1,500+
-            </label>
+          <div className="flex flex-col gap-1 text-[13px]">
+            <Link href="/search?onlyFree=1" className="rounded-md px-2 py-1.5 hover:bg-bg">
+              Free
+            </Link>
+            <Link href="/search?maxPriceCents=50000" className="rounded-md px-2 py-1.5 hover:bg-bg">
+              Under E500
+            </Link>
+            <Link href="/search?maxPriceCents=150000" className="rounded-md px-2 py-1.5 hover:bg-bg">
+              E500 – E1,500
+            </Link>
+            <Link href="/search" className="rounded-md px-2 py-1.5 hover:bg-bg">
+              E1,500+
+            </Link>
           </div>
         </aside>
 

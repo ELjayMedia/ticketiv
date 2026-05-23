@@ -114,12 +114,24 @@ const DEFAULT_INBOUND: InboundTransfer = {
 };
 
 export function MyTickets({
-  featured = DEFAULT_FEATURED,
-  upcoming = DEFAULT_UPCOMING,
-  inboundTransfer = DEFAULT_INBOUND,
-  counts = { upcoming: 4, past: 12, transfers: 1 },
+  featured,
+  upcoming,
+  inboundTransfer,
+  counts,
 }: MyTicketsProps) {
   const [seg, setSeg] = React.useState<Segment>("upcoming");
+
+  // When the page is given no data at all (e.g. /dev/preview), fall back to
+  // the demo arrays so the screen still renders. For real authenticated users
+  // we receive `upcoming: []` — that path renders an honest empty state.
+  const isDemo =
+    featured === undefined && upcoming === undefined && counts === undefined;
+  const _featured = featured ?? (isDemo ? DEFAULT_FEATURED : undefined);
+  const _upcoming = upcoming ?? (isDemo ? DEFAULT_UPCOMING : []);
+  const _inbound =
+    inboundTransfer === undefined && isDemo ? DEFAULT_INBOUND : inboundTransfer;
+  const _counts = counts ?? { upcoming: _upcoming.length, past: 0, transfers: 0 };
+  const hasUpcoming = Boolean(_featured) || _upcoming.length > 0;
 
   return (
     <div className="bg-bg pb-24">
@@ -130,7 +142,7 @@ export function MyTickets({
         <div className="flex flex-1 flex-col">
           <span className="text-label">My tickets</span>
           <span className="text-h1 mt-0.5">
-            Upcoming · {counts.upcoming}
+            Upcoming · {_counts.upcoming}
           </span>
         </div>
         <button
@@ -154,51 +166,60 @@ export function MyTickets({
           onChange={setSeg}
           options={[
             { value: "upcoming", label: "Upcoming" },
-            { value: "past", label: `Past · ${counts.past}` },
+            { value: "past", label: `Past · ${_counts.past}` },
             {
               value: "transfers",
-              label: `Transfers · ${counts.transfers}`,
+              label: `Transfers · ${_counts.transfers}`,
             },
           ]}
         />
       </div>
 
-      {seg === "upcoming" && (
+      {seg === "upcoming" && !hasUpcoming && (
+        <EmptyState
+          icon="ticket"
+          title="No upcoming tickets yet"
+          subtitle="When you buy or receive a ticket it'll show up here."
+        />
+      )}
+
+      {seg === "upcoming" && hasUpcoming && (
         <>
           {/* Featured ticket card */}
+          {_featured && (
           <section className="px-5 pb-4">
             <Card className="overflow-hidden border-accent">
               <div className="flex items-center gap-1.5 bg-accent-soft px-3.5 py-2">
                 <LiveDot />
                 <span className="font-mono text-[11px] font-semibold uppercase text-accent">
-                  In {featured.daysUntil} days
+                  In {_featured.daysUntil} days
                 </span>
                 <span className="flex-1" />
                 <span className="font-mono text-[10px] text-ink-3">
-                  #{featured.orderNumber}
+                  #{_featured.orderNumber}
                 </span>
               </div>
               <div className="p-3.5">
                 <div className="flex items-center gap-3">
                   <div className="h-14 w-14 shrink-0 overflow-hidden rounded-[var(--radius-md)]">
-                    <Photo src={featured.eventPhoto} height={56} />
+                    <Photo src={_featured.eventPhoto} height={56} />
                   </div>
                   <div className="flex flex-1 flex-col">
                     <span className="text-[16px] font-semibold tracking-[-0.01em]">
-                      {featured.eventTitle}
+                      {_featured.eventTitle}
                     </span>
                     <span className="font-mono text-[11px] uppercase text-ink-3">
-                      {featured.whenLabel}
+                      {_featured.whenLabel}
                     </span>
                     <span className="font-mono text-[11px] text-ink-3">
-                      {featured.venueLabel} · {featured.seatLabel}
+                      {_featured.venueLabel} · {_featured.seatLabel}
                     </span>
                   </div>
                 </div>
                 <Divider className="my-3" />
                 <div className="flex gap-1.5">
                   <Link
-                    href={`/tickets/${featured.ticketId}`}
+                    href={`/tickets/${_featured.ticketId}`}
                     className="flex flex-1 items-center justify-center gap-1.5 rounded-[var(--radius)] bg-ink px-3 py-2 text-[12px] font-medium text-white hover:bg-ink-2"
                   >
                     <Icon name="qr" size={14} /> Show QR
@@ -225,10 +246,11 @@ export function MyTickets({
               </div>
             </Card>
           </section>
+          )}
 
           {/* Other upcoming */}
           <ul className="flex flex-col gap-2 px-5">
-            {upcoming.map((t) => (
+            {_upcoming.map((t) => (
               <li key={t.ticketId}>
                 <Link href={`/tickets/${t.ticketId}`}>
                   <Card
@@ -268,7 +290,7 @@ export function MyTickets({
           </ul>
 
           {/* Inbound transfer */}
-          {inboundTransfer && (
+          {_inbound && (
             <section className="px-5 pt-4">
               <div className="text-label mb-2">Action needed</div>
               <Card
@@ -276,14 +298,14 @@ export function MyTickets({
                 flat
               >
                 <div className="flex items-center gap-3">
-                  <Avatar src={inboundTransfer.fromPhoto} size={36} />
+                  <Avatar src={_inbound.fromPhoto} size={36} />
                   <div className="flex flex-1 flex-col">
                     <span className="text-[13px] font-semibold">
-                      {inboundTransfer.fromName} sent you a ticket
+                      {_inbound.fromName} sent you a ticket
                     </span>
                     <span className="font-mono text-[11px] text-ink-3">
-                      {inboundTransfer.eventTitle} ·{" "}
-                      {inboundTransfer.expiresInLabel}
+                      {_inbound.eventTitle} ·{" "}
+                      {_inbound.expiresInLabel}
                     </span>
                   </div>
                 </div>
@@ -304,8 +326,12 @@ export function MyTickets({
       {seg === "past" && (
         <EmptyState
           icon="ticket"
-          title="Past tickets"
-          subtitle={`${counts.past} events you've been to. The list will land here in Phase 3 wiring.`}
+          title={_counts.past === 0 ? "No past tickets" : "Past tickets"}
+          subtitle={
+            _counts.past === 0
+              ? "Events you've attended will show up here once they're done."
+              : `${_counts.past} events you've been to.`
+          }
         />
       )}
 

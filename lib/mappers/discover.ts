@@ -4,7 +4,12 @@
  * ever gains/loses a column we update only the mapper.
  */
 
-import { formatEventDate, formatTimeRange, formatPrice } from "@/lib/format";
+import {
+  formatEventDate,
+  formatTimeRange,
+  formatPriceLabel,
+  formatVenueLabel,
+} from "@/lib/format";
 import { asCurrency } from "@/lib/currency";
 import type { EventsPublicView } from "@/lib/schemas/views";
 
@@ -38,12 +43,12 @@ export function mapDiscoverEvent(row: EventsPublicView & { featured_priority?: n
     title: row.title,
     photo: row.poster_url ?? "",
     startsAtMs: start ? start.getTime() : null,
-    whenLabel: start ? `${formatEventDate(start)} · ${formatTimeRange(start)}` : "",
-    dateShort: start ? formatEventDate(start) : "",
+    whenLabel: start ? `${formatEventDate(start)} · ${formatTimeRange(start)}` : "Date coming soon",
+    dateShort: start ? formatEventDate(start) : "Date TBA",
     timeShort: start ? formatTimeRange(start) : "",
-    venue: row.venue_name ?? "",
+    venue: formatVenueLabel(row.venue_name),
     city: row.city,
-    priceLabel: minPrice === null ? "" : minPrice === 0 ? "Free" : `From ${formatPrice(minPrice, currency)}`,
+    priceLabel: formatPriceLabel(minPrice, currency, { prefix: "From" }),
     fromPriceCents: minPrice,
     category: row.category,
     featuredPriority: row.featured_priority ?? null,

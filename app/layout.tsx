@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter_Tight, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { SearchOverlayProvider } from "@/components/quiet/search/search-overlay";
 
 const interTight = Inter_Tight({
   subsets: ["latin"],
@@ -48,7 +49,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${interTight.variable} ${jetbrainsMono.variable}`}>
-      <body className="bg-bg text-ink antialiased">{children}</body>
+      <body className="bg-bg text-ink antialiased">
+        <SearchOverlayProvider>{children}</SearchOverlayProvider>
+      </body>
     </html>
   );
 }

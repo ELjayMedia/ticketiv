@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Button } from "@/components/quiet/ui/button";
 import { Avatar } from "@/components/quiet/ui/primitives";
+import { SearchTrigger } from "@/components/quiet/search/search-overlay";
 import { cn } from "@/lib/cn";
 
 const NAV_ITEMS = [
@@ -70,13 +71,20 @@ export function DesktopNav({
         <span className="flex-1" />
 
         {/* Universal search */}
-        <button className="hidden items-center gap-2 rounded-md border border-line-2 bg-bg px-3 py-1.5 text-[12px] text-ink-3 hover:border-line lg:flex">
+        <SearchTrigger className="hidden items-center gap-2 rounded-md border border-line-2 bg-bg px-3 py-1.5 text-[12px] text-ink-3 hover:border-line hover:text-ink md:flex">
           <Icon name="search" size={14} />
-          <span>Search events, artists, venues</span>
-          <span className="ml-6 rounded border border-line bg-surface px-1.5 font-mono text-[10px]">
+          <span className="hidden lg:inline">Search events, artists, venues</span>
+          <span className="lg:hidden">Search</span>
+          <span className="ml-6 hidden rounded border border-line bg-surface px-1.5 font-mono text-[10px] lg:inline">
             ⌘K
           </span>
-        </button>
+        </SearchTrigger>
+        <SearchTrigger
+          aria-label="Search"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60 md:hidden"
+        >
+          <Icon name="search" size={18} />
+        </SearchTrigger>
 
         {signedIn ? (
           <>

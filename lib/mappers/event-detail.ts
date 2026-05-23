@@ -30,6 +30,16 @@ interface MapInput {
   lineup?: EventLineupRow[];
   friends?: EventFriendRow[];
   refundPolicy?: unknown;
+  /** Aggregate paid tickets sold across all ticket types for this event. */
+  soldCount?: number | null;
+  /** Distinct attendees (buyer_count) — surfaces "234 going" on detail. */
+  attendeeCount?: number | null;
+  /** Recent purchases within a short window, e.g. 24h. */
+  recentSoldCount?: number | null;
+  recentSoldWindow?: string;
+  supportUrl?: string;
+  /** Total events published by this organizer — drives the "23 events hosted" line. */
+  organizerEventsHosted?: number | null;
 }
 
 function durationLabel(start: Date | null, end: Date | null): string | null {
@@ -93,13 +103,18 @@ export function mapEventDetail(row: EventPublicView, input: MapInput = {}): Mobi
     organizer: {
       name: row.organizer_name ?? "Ticketiv",
       handle: row.organizer_id ? row.organizer_id.slice(0, 8) : "ticketiv",
-      eventsHosted: 0,
+      eventsHosted: input.organizerEventsHosted ?? 0,
       rating: 0,
       verified: Boolean(row.organizer_logo_url),
       photo: row.organizer_logo_url ?? PHOTOS.face_6,
     },
     goingFriends: mapFriends(input.friends),
     fromPriceMinor: row.min_price_cents ?? 0,
+    attendeeCount: input.attendeeCount ?? null,
+    soldCount: input.soldCount ?? null,
+    recentSoldCount: input.recentSoldCount ?? null,
+    recentSoldWindow: input.recentSoldWindow,
+    supportUrl: input.supportUrl,
   };
 }
 

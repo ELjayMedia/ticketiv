@@ -3,6 +3,7 @@ import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider, Avatar, AvatarStack } from "@/components/quiet/ui/primitives";
+import { SearchTrigger } from "@/components/quiet/search/search-overlay";
 import { PHOTOS } from "@/lib/photos";
 import type { DiscoverEvent } from "@/lib/mappers/discover";
 
@@ -23,12 +24,12 @@ interface MobileDiscoverProps {
   eventCount?: number;
 }
 
-const FILTERS = [
-  { label: "This weekend", active: true },
-  { label: "Music" },
-  { label: "Comedy" },
-  { label: "Free" },
-  { label: "Tonight" },
+const FILTERS: ReadonlyArray<{ label: string; href: string; active?: boolean }> = [
+  { label: "This weekend", href: "/search?when=weekend", active: true },
+  { label: "Music", href: "/search?category=Music" },
+  { label: "Comedy", href: "/search?category=Comedy" },
+  { label: "Free", href: "/search?onlyFree=1" },
+  { label: "Tonight", href: "/search?when=tonight" },
 ];
 
 interface TonightRow {
@@ -135,10 +136,10 @@ function toTonight(ev: DiscoverEvent): TonightRow {
     href: ev.href,
     photo: ev.photo || PHOTOS.dj_neon,
     title: ev.title,
-    sub: ev.category ?? "",
-    time: ev.timeShort,
+    sub: ev.category ?? "Live event",
+    time: ev.timeShort || "Time TBA",
     venue: ev.venue,
-    price: ev.priceLabel || "",
+    price: ev.priceLabel,
     chip: ev.city ?? "Tonight",
     chipVariant: "muted",
   };
@@ -149,7 +150,7 @@ function toWeek(ev: DiscoverEvent): WeekRow {
     href: ev.href,
     photo: ev.photo || PHOTOS.singer_red,
     title: ev.title,
-    sub: ev.category ?? "",
+    sub: ev.category ?? "Live event",
     date: ev.dateShort,
     venue: ev.venue,
     price: ev.priceLabel,
@@ -198,19 +199,20 @@ export function MobileDiscover({
           BETA
         </span>
         <span className="flex-1" />
-        <button
+        <SearchTrigger
           className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"
           aria-label="Search"
         >
           <Icon name="search" size={20} />
-        </button>
-        <button
+        </SearchTrigger>
+        <Link
+          href="/notifications"
           className="relative inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"
           aria-label="Notifications"
         >
           <Icon name="bell" size={20} />
           <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-accent" />
-        </button>
+        </Link>
       </header>
 
       {/* Location header */}
@@ -228,13 +230,15 @@ export function MobileDiscover({
       {/* Filter rail */}
       <div className="no-scrollbar flex gap-1.5 overflow-x-auto px-5 pb-4">
         {FILTERS.map((f) => (
-          <Chip key={f.label} variant={f.active ? "active" : "default"}>
-            {f.label}
-          </Chip>
+          <Link key={f.label} href={f.href}>
+            <Chip variant={f.active ? "active" : "default"}>{f.label}</Chip>
+          </Link>
         ))}
-        <Chip>
-          <Icon name="filter" size={12} /> Filters
-        </Chip>
+        <Link href="/search">
+          <Chip>
+            <Icon name="filter" size={12} /> Filters
+          </Chip>
+        </Link>
       </div>
 
       {/* Editor's pick hero */}
@@ -308,7 +312,7 @@ export function MobileDiscover({
               EVENTS STARTING IN THE NEXT 6 HOURS
             </p>
           </div>
-          <Link href="/?when=tonight" className="text-[13px] text-accent">
+          <Link href="/search?when=tonight" className="text-[13px] text-accent">
             See all
           </Link>
         </div>
