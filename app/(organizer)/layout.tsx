@@ -1,6 +1,6 @@
 import type React from "react"
 import { redirect } from "next/navigation"
-import { WorkspaceShell } from "@/components/ui/workspace-shell"
+import { WorkspaceShell } from "@/components/quiet/shell/workspace-shell"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { getDemoSession } from "@/lib/demo-auth"
 
