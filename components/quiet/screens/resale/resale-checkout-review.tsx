@@ -2,9 +2,12 @@ import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
 import type { PublicEventTicketListing } from "@/lib/data/attendee/ticket-listings";
+import { ResaleCheckoutAction } from "@/components/quiet/screens/resale/resale-checkout-action";
 
 interface ResaleCheckoutReviewProps {
   listing: PublicEventTicketListing | null;
+  pendingOrderId?: string | null;
+  pendingPaymentId?: string | null;
 }
 
 function formatMoney(cents: number, currency: string): string {
@@ -26,7 +29,7 @@ function formatExpiry(iso: string | null): string | null {
   return `Listing expires in ${days}d`;
 }
 
-export function ResaleCheckoutReview({ listing }: ResaleCheckoutReviewProps) {
+export function ResaleCheckoutReview({ listing, pendingOrderId, pendingPaymentId }: ResaleCheckoutReviewProps) {
   if (!listing) {
     return (
       <div className="mx-auto max-w-[480px] bg-bg pb-24">
@@ -91,7 +94,7 @@ export function ResaleCheckoutReview({ listing }: ResaleCheckoutReviewProps) {
         <div className="text-label">Resale checkout</div>
         <h1 className="text-h1 mt-1">Review ticket</h1>
         <p className="mt-2 font-mono text-[12px] leading-relaxed text-ink-3">
-          Review the resale listing before payment and ticket transfer are enabled.
+          Review the resale listing before the payment provider handoff and ticket transfer are connected.
         </p>
       </header>
 
@@ -134,15 +137,15 @@ export function ResaleCheckoutReview({ listing }: ResaleCheckoutReviewProps) {
           <div className="space-y-3 font-mono text-[11px] leading-relaxed text-ink-3">
             <div className="flex gap-2">
               <span className="font-semibold text-accent">1.</span>
-              <span>Buyer confirms this listing and completes payment.</span>
+              <span>Create a pending resale checkout order.</span>
             </div>
             <div className="flex gap-2">
               <span className="font-semibold text-accent">2.</span>
-              <span>Ticketiv marks the listing as sold and starts the ticket transfer.</span>
+              <span>Complete payment through the configured payment provider.</span>
             </div>
             <div className="flex gap-2">
               <span className="font-semibold text-accent">3.</span>
-              <span>The ticket appears in the buyer’s My Tickets area after transfer completion.</span>
+              <span>After payment succeeds, Ticketiv marks the listing sold and moves the ticket into the buyer’s My Tickets area.</span>
             </div>
           </div>
         </Card>
@@ -151,7 +154,7 @@ export function ResaleCheckoutReview({ listing }: ResaleCheckoutReviewProps) {
           <div className="flex items-start gap-3">
             <Icon name="clock" size={16} className="mt-0.5 text-[#8a5f08]" />
             <p className="font-mono text-[11px] leading-relaxed text-[#8a5f08]">
-              Payment and ownership transfer are intentionally disabled in this review patch. Next step: connect payment, mark the listing sold, and complete the transfer in one safe server-side flow.
+              This step creates the pending resale checkout only. Ticket ownership transfer remains blocked until a real payment is marked as succeeded.
             </p>
           </div>
         </Card>
@@ -163,13 +166,11 @@ export function ResaleCheckoutReview({ listing }: ResaleCheckoutReviewProps) {
           >
             View event
           </Link>
-          <button
-            type="button"
-            disabled
-            className="inline-flex h-10 items-center justify-center rounded-[var(--radius)] bg-surface-2 px-3 text-[12px] font-semibold text-ink-3"
-          >
-            Payment next
-          </button>
+          <ResaleCheckoutAction
+            listingId={listing.id}
+            pendingOrderId={pendingOrderId}
+            pendingPaymentId={pendingPaymentId}
+          />
         </div>
       </section>
     </div>
