@@ -2,9 +2,12 @@ import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
 import type { AttendeeWaitlistEntry } from "@/lib/data/attendee/waitlist";
+import { WaitlistCheckoutAction } from "@/components/quiet/screens/waitlist/waitlist-checkout-action";
 
 interface WaitlistOfferCheckoutProps {
   offer: AttendeeWaitlistEntry | null;
+  pendingOrderId?: string | null;
+  pendingPaymentId?: string | null;
 }
 
 function formatMoney(cents: number | null, currency: string | null): string {
@@ -30,7 +33,7 @@ function isOfferStatus(status: string): boolean {
   return ["offered", "offer_available", "notified"].includes(status.toLowerCase());
 }
 
-export function WaitlistOfferCheckout({ offer }: WaitlistOfferCheckoutProps) {
+export function WaitlistOfferCheckout({ offer, pendingOrderId, pendingPaymentId }: WaitlistOfferCheckoutProps) {
   if (!offer) {
     return (
       <div className="mx-auto max-w-[480px] bg-bg pb-24">
@@ -83,7 +86,7 @@ export function WaitlistOfferCheckout({ offer }: WaitlistOfferCheckoutProps) {
         <div className="text-label">Waitlist checkout</div>
         <h1 className="text-h1 mt-1">Review offer</h1>
         <p className="mt-2 font-mono text-[12px] leading-relaxed text-ink-3">
-          Confirm the offer details before payment and ticket reservation are enabled.
+          Confirm the offer details before the payment provider handoff and ticket issuing are connected.
         </p>
       </header>
 
@@ -130,7 +133,7 @@ export function WaitlistOfferCheckout({ offer }: WaitlistOfferCheckoutProps) {
           <div className="space-y-3 font-mono text-[11px] leading-relaxed text-ink-3">
             <div className="flex gap-2">
               <span className="font-semibold text-accent">1.</span>
-              <span>Ticketiv confirms the waitlist offer is still active.</span>
+              <span>Ticketiv creates a pending waitlist checkout order.</span>
             </div>
             <div className="flex gap-2">
               <span className="font-semibold text-accent">2.</span>
@@ -138,7 +141,7 @@ export function WaitlistOfferCheckout({ offer }: WaitlistOfferCheckoutProps) {
             </div>
             <div className="flex gap-2">
               <span className="font-semibold text-accent">3.</span>
-              <span>After payment succeeds, the ticket is issued and appears in My Tickets.</span>
+              <span>After payment succeeds, Ticketiv issues the ticket and shows it in My Tickets.</span>
             </div>
           </div>
         </Card>
@@ -147,7 +150,7 @@ export function WaitlistOfferCheckout({ offer }: WaitlistOfferCheckoutProps) {
           <div className="flex items-start gap-3">
             <Icon name="clock" size={16} className="mt-0.5 text-[#8a5f08]" />
             <p className="font-mono text-[11px] leading-relaxed text-[#8a5f08]">
-              Payment and ticket reservation are intentionally disabled in this review patch. Next step: add a backend reservation/payment flow for waitlist offers.
+              This step creates the pending waitlist checkout only. Tickets are still issued only after a linked payment succeeds.
             </p>
           </div>
         </Card>
@@ -156,13 +159,12 @@ export function WaitlistOfferCheckout({ offer }: WaitlistOfferCheckoutProps) {
           <Link href={eventHref} className="inline-flex h-10 items-center justify-center rounded-[var(--radius)] border border-line-2 px-3 text-[12px] font-semibold hover:bg-bg">
             View event
           </Link>
-          <button
-            type="button"
-            disabled
-            className={`inline-flex h-10 items-center justify-center rounded-[var(--radius)] px-3 text-[12px] font-semibold ${canProceed ? "bg-surface-2 text-ink-3" : "bg-surface-2 text-ink-3"}`}
-          >
-            {canProceed ? "Payment next" : "Offer unavailable"}
-          </button>
+          <WaitlistCheckoutAction
+            waitlistId={offer.id}
+            pendingOrderId={pendingOrderId}
+            pendingPaymentId={pendingPaymentId}
+            canProceed={canProceed}
+          />
         </div>
       </section>
     </div>
