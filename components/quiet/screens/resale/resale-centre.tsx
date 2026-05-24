@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
-import type { AttendeeTicketListing } from "@/lib/data/attendee/ticket-listings";
+import type { AttendeeTicketListing, PublicEventTicketListing } from "@/lib/data/attendee/ticket-listings";
 import { ListingStartForm } from "@/components/quiet/screens/resale/listing-start-form";
 
 interface TicketListingsCentreProps {
   listings: AttendeeTicketListing[];
+  publicListings?: PublicEventTicketListing[];
   ticketId?: string | null;
   eventId?: string | null;
 }
@@ -48,8 +49,9 @@ function statusTone(status: string): { label: string; className: string } {
   return { label: normalized.replaceAll("_", " ") || "Pending", className: "bg-[#fdf6ed] text-[#c1841c]" };
 }
 
-export function TicketListingsCentre({ listings, ticketId, eventId }: TicketListingsCentreProps) {
+export function TicketListingsCentre({ listings, publicListings = [], ticketId, eventId }: TicketListingsCentreProps) {
   const hasListings = listings.length > 0;
+  const hasPublicListings = publicListings.length > 0;
   const activeCount = listings.filter((listing) => ["active", "listed", "available"].includes(listing.status.toLowerCase())).length;
   const showBuyerContext = Boolean(eventId) && !ticketId;
 
@@ -75,7 +77,7 @@ export function TicketListingsCentre({ listings, ticketId, eventId }: TicketList
           )}
         </div>
         <p className="mt-2 font-mono text-[12px] leading-relaxed text-ink-3">
-          Track tickets you list for another buyer, including active, completed, expired and cancelled listings.
+          Track tickets you list for another buyer, or browse active listings for sold-out events.
         </p>
       </header>
 
@@ -84,11 +86,79 @@ export function TicketListingsCentre({ listings, ticketId, eventId }: TicketList
       {showBuyerContext && (
         <section className="px-5 pb-4">
           <Card className="border-line-2 p-4">
-            <div className="text-[14px] font-semibold">Looking for resale tickets?</div>
-            <p className="mt-1 font-mono text-[11px] leading-relaxed text-ink-3">
-              Active public listings for this event will appear here once buyer-side listing discovery is wired.
-            </p>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[14px] font-semibold">Available resale tickets</div>
+                <p className="mt-1 font-mono text-[11px] leading-relaxed text-ink-3">
+                  {hasPublicListings
+                    ? "Choose from active listings. Checkout and transfer completion will be connected in the next step."
+                    : "No active public listings are available for this event yet."}
+                </p>
+              </div>
+              {hasPublicListings && (
+                <span className="rounded bg-accent-soft px-2 py-1 font-mono text-[10px] font-semibold uppercase text-accent">
+                  {publicListings.length} found
+                </span>
+              )}
+            </div>
           </Card>
+        </section>
+      )}
+
+      {showBuyerContext && hasPublicListings && (
+        <section className="px-5 pb-4">
+          <ul className="flex flex-col gap-2">
+            {publicListings.map((listing) => {
+              const expiry = formatExpiry(listing.listingExpiresAt);
+              const fee = listing.transferFeeCents ? formatMoney(listing.transferFeeCents, listing.currency) : null;
+              return (
+                <li key={listing.id}>
+                  <Card className="p-3.5" flat>
+                    <div className="flex items-start gap-3">
+                      <div className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
+                        <Icon name="ticket" size={16} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start gap-2">
+                          <span className="min-w-0 flex-1 text-[13px] font-semibold">
+                            {listing.ticketTypeName ?? "Resale ticket"}
+                          </span>
+                          <span className="shrink-0 text-[13px] font-semibold text-accent">
+                            {formatMoney(listing.priceCents, listing.currency)}
+                          </span>
+                        </div>
+                        <p className="mt-1 font-mono text-[11px] leading-relaxed text-ink-3">
+                          {listing.eventTitle ?? "Event"}{fee ? ` · transfer fee ${fee}` : ""}
+                        </p>
+                        {expiry && (
+                          <p className="mt-1 font-mono text-[11px] font-semibold text-accent">
+                            {expiry}
+                          </p>
+                        )}
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          {listing.eventSlug ? (
+                            <Link
+                              href={`/events/${listing.eventSlug}`}
+                              className="inline-flex items-center justify-center rounded-[var(--radius)] border border-line-2 px-3 py-2 text-[12px] font-semibold hover:bg-bg"
+                            >
+                              View event
+                            </Link>
+                          ) : (
+                            <span className="inline-flex items-center justify-center rounded-[var(--radius)] border border-line-2 px-3 py-2 text-[12px] font-semibold text-ink-3">
+                              Event
+                            </span>
+                          )}
+                          <span className="inline-flex items-center justify-center rounded-[var(--radius)] bg-surface-2 px-3 py-2 text-[12px] font-semibold text-ink-3">
+                            Checkout next
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                </li>
+              );
+            })}
+          </ul>
         </section>
       )}
 
