@@ -1,6 +1,6 @@
 import type React from "react"
 
-import { WorkspaceShell } from "@/components/ui/workspace-shell"
+import { WorkspaceShell } from "@/components/quiet/shell/workspace-shell"
 
 export const dynamic = "force-dynamic"
 export const fetchCache = "force-no-store"

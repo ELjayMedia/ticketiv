@@ -1,59 +1,67 @@
-"use client"
+"use client";
 
-import { useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { AlertTriangle, RefreshCcw, Home } from "lucide-react"
-import Link from "next/link"
+import { useEffect } from "react";
+import Link from "next/link";
+import { Button } from "@/components/quiet/ui/button";
+import { Icon } from "@/components/quiet/ui/icon";
 
-export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function Error({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
   useEffect(() => {
-    console.error("[v0] Error boundary caught:", error)
-  }, [error])
+    console.error("[ticketiv] Error boundary caught:", error);
+  }, [error]);
 
   return (
-    <div className="flex items-center justify-center min-h-screen p-4 bg-background">
-      <Card className="w-full max-w-lg">
-        <CardHeader className="text-center pb-4">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-destructive/10 mb-4 mx-auto">
-            <AlertTriangle className="h-10 w-10 text-destructive" />
-          </div>
-          <CardTitle className="text-2xl">Something Went Wrong</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-center text-muted-foreground">
-            We encountered an unexpected error. This has been logged and we'll look into it.
+    <div className="flex min-h-dvh items-center justify-center bg-bg p-4 text-ink">
+      <div className="w-full max-w-md rounded-[var(--radius-lg)] border border-line bg-surface p-8 shadow-[var(--shadow-card)]">
+        <div className="flex flex-col items-center text-center">
+          <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-danger-soft text-danger">
+            <Icon name="close" size={24} />
+          </span>
+          <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.02em] text-ink-3">
+            Unexpected error
+          </p>
+          <h1 className="mt-2 text-h2 text-ink">Something went wrong</h1>
+          <p className="mt-3 text-[14px] leading-relaxed text-ink-3">
+            We hit a snag rendering this page. The issue has been logged and we&apos;ll take a look.
           </p>
 
           {error.digest && (
-            <div className="bg-muted/50 p-3 rounded-lg">
-              <p className="text-xs text-muted-foreground text-center">
-                Error ID: <span className="font-mono">{error.digest}</span>
+            <div className="mt-4 w-full rounded-md border border-line bg-bg px-3 py-2">
+              <p className="font-mono text-[11px] text-ink-3">
+                Error ID: <span className="text-ink">{error.digest}</span>
               </p>
             </div>
           )}
 
-          <div className="flex flex-col gap-2 pt-2">
-            <Button onClick={reset} className="w-full">
-              <RefreshCcw className="h-4 w-4 mr-2" />
-              Try Again
+          <div className="mt-6 flex w-full flex-col gap-2">
+            <Button variant="accent" size="md" block onClick={reset}>
+              <Icon name="arrowR" size={14} />
+              Try again
             </Button>
-            <Button variant="outline" asChild className="w-full bg-transparent">
-              <Link href="/">
-                <Home className="h-4 w-4 mr-2" />
-                Go Home
-              </Link>
-            </Button>
+            <Link href="/" className="w-full">
+              <Button variant="outline" size="md" block>
+                Go home
+              </Button>
+            </Link>
           </div>
 
-          <p className="text-center text-xs text-muted-foreground pt-2">
-            If this problem persists, please{" "}
-            <Link href="/help" className="text-primary hover:underline">
-              contact support
+          <p className="mt-6 text-[13px] text-ink-3">
+            Still stuck?{" "}
+            <Link
+              href="/help"
+              className="text-ink underline decoration-line-2 underline-offset-4 hover:decoration-accent"
+            >
+              Contact support
             </Link>
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
-  )
+  );
 }
