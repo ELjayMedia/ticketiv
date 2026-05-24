@@ -1,10 +1,14 @@
 // Shape fn_search_events rows → SearchResults screen props.
 
 import { PHOTOS } from "@/lib/photos"
-import { formatPriceLabel, formatVenueLabel } from "@/lib/format"
+import { formatPriceLabel, formatVenueLabel, formatSoldCount } from "@/lib/format"
 import { asCurrency } from "@/lib/currency"
-import type { SearchResults, SearchFilters } from "@/lib/data/public/search"
-import type { ActiveFilter, SearchResultProp, SearchResultsProps } from "@/components/quiet/screens/search/search-results"
+import type { SearchResults, SearchFilters, SearchFacets } from "@/lib/data/public/search"
+import type {
+  ActiveFilter,
+  SearchResultProp,
+  SearchResultsProps,
+} from "@/components/quiet/screens/search/search-results"
 
 const WHEN_FMT = new Intl.DateTimeFormat("en-GB", {
   weekday: "short",
@@ -23,17 +27,34 @@ function coverFor(url: string | null, seed: string): string {
   return COVER_POOL[Math.abs(h) % COVER_POOL.length]
 }
 
+function titleCase(value: string): string {
+  return value.replace(/\b\w/g, (c) => c.toUpperCase())
+}
 
-export function mapSearch(results: SearchResults, filters: SearchFilters): SearchResultsProps {
+const WHEN_LABEL: Record<string, string> = {
+  tonight: "Tonight",
+  weekend: "This weekend",
+  week: "This week",
+  month: "This month",
+}
+
+export function mapSearch(
+  results: SearchResults,
+  filters: SearchFilters & { when?: string },
+  facets: SearchFacets = { categories: [], cities: [] },
+): SearchResultsProps {
   const active: ActiveFilter[] = []
-  if (filters.category) active.push({ key: "category", label: filters.category })
+  if (filters.category) active.push({ key: "category", label: titleCase(filters.category) })
   if (filters.city) active.push({ key: "city", label: filters.city })
+  if (filters.when && WHEN_LABEL[filters.when]) {
+    active.push({ key: "when", label: WHEN_LABEL[filters.when] })
+  }
   if (filters.onlyFree) active.push({ key: "onlyFree", label: "Free only" })
-  if (filters.startsAfter) {
+  if (filters.startsAfter && !filters.when) {
     const d = new Date(filters.startsAfter)
     active.push({ key: "startsAfter", label: `From ${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` })
   }
-  if (filters.startsBefore) {
+  if (filters.startsBefore && !filters.when) {
     const d = new Date(filters.startsBefore)
     active.push({ key: "startsBefore", label: `Until ${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` })
   }
@@ -54,6 +75,9 @@ export function mapSearch(results: SearchResults, filters: SearchFilters): Searc
       priceLabel: formatPriceLabel(r.min_price_cents, asCurrency(r.currency)),
       isFree: r.min_price_cents === 0,
       category: r.category,
+      organizerName: r.organizer_name ?? null,
+      organizerVerified: Boolean(r.organizer_logo_url),
+      soldLabel: formatSoldCount(r.tickets_sold),
     }
   })
 
@@ -62,5 +86,12 @@ export function mapSearch(results: SearchResults, filters: SearchFilters): Searc
     filters: active,
     results: rows,
     totalCount: results.totalReturned,
+    facets,
+    selected: {
+      category: filters.category ?? null,
+      city: filters.city ?? null,
+      when: filters.when ?? null,
+      onlyFree: Boolean(filters.onlyFree),
+    },
   }
 }

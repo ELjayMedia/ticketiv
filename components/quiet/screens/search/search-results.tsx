@@ -9,7 +9,8 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Icon } from "@/components/quiet/ui/icon"
 import { Card } from "@/components/quiet/ui/card"
-import { PHOTOS } from "@/lib/photos"
+import { SearchFilterBar, type SelectedFilters } from "./search-filter-bar"
+import type { SearchFacets } from "@/lib/data/public/search"
 
 export interface SearchResultProp {
   id: string
@@ -22,6 +23,13 @@ export interface SearchResultProp {
   priceLabel: string // "₹500" / "Free"
   isFree: boolean
   category: string | null
+  /** Public organizer name, surfaced beneath the title for trust. */
+  organizerName?: string | null
+  /** Derived from organizer logo presence — same rule as event-card-standard. */
+  organizerVerified?: boolean
+  /** "1.2k sold" / null. Hidden by the formatter below the safe-display
+   *  threshold so we never manufacture momentum. */
+  soldLabel?: string | null
 }
 
 export interface ActiveFilter {
@@ -34,13 +42,22 @@ export interface SearchResultsProps {
   filters: ActiveFilter[]
   results: SearchResultProp[]
   totalCount: number
+  facets: SearchFacets
+  selected: SelectedFilters
 }
 
 function eventHref(r: SearchResultProp): string {
   return `/events/${r.slug ?? r.id}`
 }
 
-export function SearchResults({ query, filters, results, totalCount }: SearchResultsProps) {
+export function SearchResults({
+  query,
+  filters,
+  results,
+  totalCount,
+  facets,
+  selected,
+}: SearchResultsProps) {
   const router = useRouter()
   const sp = useSearchParams()
   const [draft, setDraft] = React.useState(query)
@@ -57,6 +74,7 @@ export function SearchResults({ query, filters, results, totalCount }: SearchRes
   const removeFilter = (key: string) => {
     const params = new URLSearchParams(sp?.toString() ?? "")
     params.delete(key)
+    params.delete("offset")
     router.replace(`/search?${params.toString()}`)
   }
 
@@ -102,6 +120,13 @@ export function SearchResults({ query, filters, results, totalCount }: SearchRes
         </form>
       </div>
 
+      {/* Visible filter controls — populated from real category/city facets. */}
+      <SearchFilterBar
+        categories={facets.categories}
+        cities={facets.cities}
+        selected={selected}
+      />
+
       {/* Active filters */}
       {filters.length > 0 && (
         <div className="flex gap-1.5 overflow-x-auto px-5 pb-3.5">
@@ -131,9 +156,18 @@ export function SearchResults({ query, filters, results, totalCount }: SearchRes
         {results.length === 0 ? (
           <>
             <Card className="py-10 text-center">
-              <div className="text-label mb-2">No matches</div>
+              <div className="text-label mb-2">No events match</div>
               <p className="px-6 text-[13px] text-ink-3">
-                Try a different keyword, remove a filter, or browse{" "}
+                {filters.length > 0 ? (
+                  <>
+                    Try removing a filter
+                    {query ? " or changing your search" : ""}, or browse{" "}
+                  </>
+                ) : query ? (
+                  <>Try a different keyword or browse </>
+                ) : (
+                  <>Nothing's listed yet — check </>
+                )}
                 <Link href="/" className="font-semibold text-accent">
                   what's on
                 </Link>
@@ -176,6 +210,14 @@ export function SearchResults({ query, filters, results, totalCount }: SearchRes
                 <div className="flex items-center gap-1.5">
                   <span className="truncate text-sm font-semibold tracking-tight">{r.title}</span>
                 </div>
+                {r.organizerName && (
+                  <div className="inline-flex items-center gap-1 truncate text-[11px] text-ink-3">
+                    <span className="truncate">by {r.organizerName}</span>
+                    {r.organizerVerified && (
+                      <VerifiedMark size={10} title="Verified organizer" />
+                    )}
+                  </div>
+                )}
                 {r.category && (
                   <div className="font-mono text-[11px] text-ink-3">{r.category}</div>
                 )}
@@ -189,6 +231,9 @@ export function SearchResults({ query, filters, results, totalCount }: SearchRes
                 <span className="font-mono text-sm font-semibold">
                   {r.isFree ? "Free" : r.priceLabel}
                 </span>
+                {r.soldLabel && (
+                  <span className="font-mono text-[11px] text-ink-3">{r.soldLabel}</span>
+                )}
                 <span className="inline-flex items-center rounded-md border border-ink bg-ink px-2.5 py-1 text-[12px] font-semibold text-white">
                   Book
                 </span>
@@ -198,5 +243,19 @@ export function SearchResults({ query, filters, results, totalCount }: SearchRes
         )}
       </div>
     </div>
+  )
+}
+
+function VerifiedMark({ size = 10, title }: { size?: number; title?: string }) {
+  return (
+    <span
+      role="img"
+      aria-label={title ?? "Verified organizer"}
+      title={title ?? "Verified organizer"}
+      className="inline-flex shrink-0 items-center justify-center rounded-full bg-accent text-white"
+      style={{ width: size, height: size }}
+    >
+      <Icon name="check" size={Math.round(size * 0.7)} strokeWidth={3} />
+    </span>
   )
 }
