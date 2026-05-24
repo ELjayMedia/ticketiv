@@ -15,13 +15,14 @@ export interface MyProfile {
   friendsCount: number
   followingCount: number
   pendingTransfers: number
+  unreadNotifications: number
   savedPaymentMethods: number
   remindersEnabled: boolean
   language: string
 }
 
 export async function getMyProfile(): Promise<MyProfile | null> {
-  const supabase = await createServerSupabaseClient()
+  const supabase = createServerSupabaseClient()
   if (!supabase) return null
 
   const {
@@ -37,6 +38,7 @@ export async function getMyProfile(): Promise<MyProfile | null> {
     friendsRes,
     followingRes,
     transfersRes,
+    notificationsRes,
     paymentsRes,
     prefsRes,
   ] = await Promise.all([
@@ -72,6 +74,11 @@ export async function getMyProfile(): Promise<MyProfile | null> {
       .eq("to_user_id", user.id)
       .eq("status", "pending"),
     supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .is("read_at", null),
+    supabase
       .from("payment_methods")
       .select("id", { count: "exact", head: true })
       .eq("user_id", user.id)
@@ -106,6 +113,7 @@ export async function getMyProfile(): Promise<MyProfile | null> {
     friendsCount: friendsRes.count ?? 0,
     followingCount: followingRes.count ?? 0,
     pendingTransfers: transfersRes.count ?? 0,
+    unreadNotifications: notificationsRes.count ?? 0,
     savedPaymentMethods: paymentsRes.count ?? 0,
     remindersEnabled: Boolean(remindersEnabled),
     language: "English",
