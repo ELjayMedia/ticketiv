@@ -9,6 +9,11 @@ type CreateWaitlistCheckoutState = {
   message: string
 }
 
+type CompleteWaitlistCheckoutState = {
+  ok: false
+  message: string
+}
+
 export async function createWaitlistCheckout(
   _prevState: CreateWaitlistCheckoutState | null,
   formData: FormData,
@@ -46,4 +51,45 @@ export async function createWaitlistCheckout(
 
   revalidatePath(`/checkout/waitlist/${waitlistId}`)
   redirect(`/checkout/waitlist/${waitlistId}?orderId=${encodeURIComponent(orderId)}&paymentId=${encodeURIComponent(paymentId)}&pending=1`)
+}
+
+export async function completeWaitlistCheckout(
+  _prevState: CompleteWaitlistCheckoutState | null,
+  formData: FormData,
+): Promise<CompleteWaitlistCheckoutState> {
+  const waitlistId = String(formData.get("waitlistId") ?? "").trim()
+  const paymentId = String(formData.get("paymentId") ?? "").trim()
+
+  if (!waitlistId || !paymentId) {
+    return { ok: false, message: "Missing waitlist checkout details. Please refresh and try again." }
+  }
+
+  const supabase = createServerSupabaseClient()
+  if (!supabase) return { ok: false, message: "Ticketiv could not connect. Please try again." }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { ok: false, message: "Please sign in before completing this waitlist checkout." }
+  }
+
+  const { data, error } = await supabase.rpc("fn_complete_waitlist_after_payment", {
+    p_waitlist_id: waitlistId,
+    p_payment_id: paymentId,
+  })
+
+  if (error) {
+    console.error("[waitlist-checkout] complete after payment:", error)
+    return { ok: false, message: "Payment is not confirmed yet. Once the provider marks it successful, your tickets can be issued." }
+  }
+
+  const row = Array.isArray(data) ? data[0] : data
+  const orderId = row?.order_id
+
+  revalidatePath(`/checkout/waitlist/${waitlistId}`)
+  revalidatePath("/tickets")
+  revalidatePath("/waitlist")
+  redirect(orderId ? `/tickets?waitlist=fulfilled&orderId=${encodeURIComponent(orderId)}` : "/tickets?waitlist=fulfilled")
 }
