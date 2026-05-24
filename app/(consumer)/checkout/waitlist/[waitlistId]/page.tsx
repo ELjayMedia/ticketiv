@@ -1,5 +1,6 @@
 import { WaitlistOfferCheckout } from "@/components/quiet/screens/waitlist/waitlist-offer-checkout";
 import { getMyWaitlistOffer } from "@/lib/data/attendee/waitlist";
+import { getWaitlistCheckoutPaymentStatus } from "@/lib/data/attendee/waitlist-checkout";
 
 export const metadata = { title: "Waitlist checkout" };
 export const dynamic = "force-dynamic";
@@ -16,12 +17,14 @@ export default async function WaitlistOfferCheckoutPage({
   const offer = await getMyWaitlistOffer(waitlistId);
   const orderId = typeof query.orderId === "string" ? query.orderId : null;
   const paymentId = typeof query.paymentId === "string" ? query.paymentId : null;
+  const paymentStatus = await getWaitlistCheckoutPaymentStatus(paymentId);
 
   return (
     <WaitlistOfferCheckout
       offer={offer}
       pendingOrderId={orderId}
       pendingPaymentId={paymentId}
+      paymentStatus={paymentStatus}
     />
   );
 }
