@@ -17,6 +17,8 @@ export interface AttendeeWaitlistEntry {
   eventTitle: string | null
   eventSlug: string | null
   ticketTypeName: string | null
+  ticketPriceCents: number | null
+  ticketCurrency: string | null
 }
 
 type WaitlistRow = {
@@ -33,7 +35,7 @@ type WaitlistRow = {
   notified_at: string | null
   joined_at: string
   events?: { title: string | null; slug: string | null } | null
-  ticket_types?: { name: string | null } | null
+  ticket_types?: { name: string | null; price_cents: number | null; currency: string | null } | null
 }
 
 function mapRow(row: WaitlistRow): AttendeeWaitlistEntry {
@@ -53,8 +55,27 @@ function mapRow(row: WaitlistRow): AttendeeWaitlistEntry {
     eventTitle: row.events?.title ?? null,
     eventSlug: row.events?.slug ?? null,
     ticketTypeName: row.ticket_types?.name ?? null,
+    ticketPriceCents: row.ticket_types?.price_cents ?? null,
+    ticketCurrency: row.ticket_types?.currency ?? null,
   }
 }
+
+const WAITLIST_SELECT = `
+  id,
+  event_id,
+  ticket_type_id,
+  user_id,
+  email,
+  first_name,
+  last_name,
+  quantity_requested,
+  status,
+  offer_expires_at,
+  notified_at,
+  joined_at,
+  events:event_id(title, slug),
+  ticket_types:ticket_type_id(name, price_cents, currency)
+`
 
 export async function getMyWaitlistEntries(): Promise<AttendeeWaitlistEntry[]> {
   const supabase = createServerSupabaseClient()
@@ -67,22 +88,7 @@ export async function getMyWaitlistEntries(): Promise<AttendeeWaitlistEntry[]> {
 
   const { data, error } = await supabase
     .from("waitlists")
-    .select(`
-      id,
-      event_id,
-      ticket_type_id,
-      user_id,
-      email,
-      first_name,
-      last_name,
-      quantity_requested,
-      status,
-      offer_expires_at,
-      notified_at,
-      joined_at,
-      events:event_id(title, slug),
-      ticket_types:ticket_type_id(name)
-    `)
+    .select(WAITLIST_SELECT)
     .eq("user_id", user.id)
     .order("joined_at", { ascending: false })
     .limit(50)
@@ -93,4 +99,28 @@ export async function getMyWaitlistEntries(): Promise<AttendeeWaitlistEntry[]> {
   }
 
   return ((data ?? []) as WaitlistRow[]).map(mapRow)
+}
+
+export async function getMyWaitlistOffer(waitlistId: string): Promise<AttendeeWaitlistEntry | null> {
+  const supabase = createServerSupabaseClient()
+  if (!supabase) return null
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data, error } = await supabase
+    .from("waitlists")
+    .select(WAITLIST_SELECT)
+    .eq("id", waitlistId)
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  if (error) {
+    console.error("[waitlist] offer detail:", error)
+    return null
+  }
+
+  return data ? mapRow(data as WaitlistRow) : null
 }
