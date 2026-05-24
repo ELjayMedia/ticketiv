@@ -41,7 +41,7 @@ export interface MobileEventData {
   lineup: ReadonlyArray<{ name: string; role: string; photo: string; headliner?: boolean }>;
   organizer: { name: string; handle: string; eventsHosted: number; rating: number; verified: boolean; photo: string };
   goingFriends: { count: number; names: string[]; photos: string[] };
-  fromPriceMinor: number;
+  fromPriceMinor: number | null;
   /** Optional trust signals — hide gracefully when missing. */
   attendeeCount?: number | null;
   soldCount?: number | null;
@@ -349,20 +349,37 @@ export function MobileEvent({ event = DEFAULT_EVENT }: MobileEventProps) {
       </div>
 
       {/* Sticky bottom CTA */}
-      <div className="sticky bottom-0 flex items-center gap-3 border-t border-line bg-surface px-5 py-3.5 pb-7">
-        <div className="flex flex-col">
-          <span className="text-label">From</span>
-          <span className="font-mono text-[20px] font-semibold leading-none">
-            {formatPrice(event.fromPriceMinor)}
-          </span>
+      {event.fromPriceMinor == null ? (
+        <div className="sticky bottom-0 flex items-center gap-3 border-t border-line bg-surface px-5 py-3.5 pb-7">
+          <div className="flex flex-1 flex-col">
+            <span className="text-[13px] font-semibold">Tickets not yet on sale</span>
+            <span className="font-mono text-[11px] text-ink-3">
+              Get a heads-up the moment they go live.
+            </span>
+          </div>
+          <Link
+            href={`/waitlist?eventId=${encodeURIComponent(event.id)}`}
+            className="flex items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90"
+          >
+            Notify me <Icon name="arrowR" size={16} />
+          </Link>
         </div>
-        <Link
-          href={`/events/${event.id}/checkout`}
-          className="flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90"
-        >
-          Get tickets <Icon name="arrowR" size={16} />
-        </Link>
-      </div>
+      ) : (
+        <div className="sticky bottom-0 flex items-center gap-3 border-t border-line bg-surface px-5 py-3.5 pb-7">
+          <div className="flex flex-col">
+            <span className="text-label">From</span>
+            <span className="font-mono text-[20px] font-semibold leading-none">
+              {formatPrice(event.fromPriceMinor)}
+            </span>
+          </div>
+          <Link
+            href={`/events/${event.id}/checkout`}
+            className="flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90"
+          >
+            Get tickets <Icon name="arrowR" size={16} />
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

@@ -109,7 +109,7 @@ export function mapEventDetail(row: EventPublicView, input: MapInput = {}): Mobi
       photo: row.organizer_logo_url ?? PHOTOS.face_6,
     },
     goingFriends: mapFriends(input.friends),
-    fromPriceMinor: row.min_price_cents ?? 0,
+    fromPriceMinor: row.min_price_cents ?? null,
     attendeeCount: input.attendeeCount ?? null,
     soldCount: input.soldCount ?? null,
     recentSoldCount: input.recentSoldCount ?? null,
@@ -133,6 +133,9 @@ export function mapDesktopEventDetail(
   const base = mapEventDetail(row, input);
   return {
     ...base,
+    // When the picker is empty, suppress the headline price so the panel
+    // renders the "not yet on sale" state instead of "From Free".
+    fromPriceMinor: ticketTypes.length === 0 ? null : base.fromPriceMinor,
     longDescription: row.description ?? "",
     amenities: [],
     ticketTypes: ticketTypes.map((t) => ({

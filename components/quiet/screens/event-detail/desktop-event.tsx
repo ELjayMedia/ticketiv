@@ -285,11 +285,33 @@ export function DesktopEvent({ event = DEFAULT_EVENT }: DesktopEventProps) {
 
         {/* ── Right column: sticky checkout panel ─────────── */}
         <aside className="sticky top-6 self-start">
+          {event.ticketTypes.length === 0 ? (
+            <Card className="p-5">
+              <div className="text-label">TICKETS</div>
+              <div className="mt-2 text-[15px] font-semibold">Not yet on sale</div>
+              <div className="mt-1 font-mono text-[11px] text-ink-3">
+                The organizer hasn&apos;t opened sales for this event yet. Join the waitlist
+                to be notified the moment tickets go live.
+              </div>
+              <Link
+                href={`/waitlist?eventId=${encodeURIComponent(event.id)}`}
+                className="mt-5 flex items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3 text-[14px] font-semibold text-white hover:opacity-90"
+              >
+                Notify me <Icon name="arrowR" size={14} />
+              </Link>
+              <Link
+                href={event.supportUrl ?? "/help"}
+                className="mt-3 inline-flex items-center gap-1 font-mono text-[10px] text-ink-3 hover:text-ink"
+              >
+                Need help? Contact support →
+              </Link>
+            </Card>
+          ) : (
           <Card className="p-5">
             <div className="text-label">FROM</div>
             <div className="mt-0.5 flex items-baseline gap-1">
               <span className="font-mono text-[36px] font-semibold leading-none">
-                {formatPrice(event.fromPriceMinor)}
+                {event.fromPriceMinor == null ? "—" : formatPrice(event.fromPriceMinor)}
               </span>
               <span className="font-mono text-[12px] text-ink-3">/ ticket</span>
             </div>
@@ -362,6 +384,7 @@ export function DesktopEvent({ event = DEFAULT_EVENT }: DesktopEventProps) {
               Need help? Contact support →
             </Link>
           </Card>
+          )}
 
           {/* Friends going - lightweight */}
           {event.goingFriends.count > 0 && (
