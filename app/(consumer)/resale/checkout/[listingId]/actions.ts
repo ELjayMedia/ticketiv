@@ -9,6 +9,11 @@ type CreateResaleCheckoutState = {
   message: string
 }
 
+type CompleteResaleCheckoutState = {
+  ok: false
+  message: string
+}
+
 export async function createResaleCheckout(
   _prevState: CreateResaleCheckoutState | null,
   formData: FormData,
@@ -46,4 +51,44 @@ export async function createResaleCheckout(
 
   revalidatePath(`/resale/checkout/${listingId}`)
   redirect(`/resale/checkout/${listingId}?orderId=${encodeURIComponent(orderId)}&paymentId=${encodeURIComponent(paymentId)}&pending=1`)
+}
+
+export async function completeResaleCheckout(
+  _prevState: CompleteResaleCheckoutState | null,
+  formData: FormData,
+): Promise<CompleteResaleCheckoutState> {
+  const listingId = String(formData.get("listingId") ?? "").trim()
+  const paymentId = String(formData.get("paymentId") ?? "").trim()
+
+  if (!listingId || !paymentId) {
+    return { ok: false, message: "Missing resale checkout details. Please refresh and try again." }
+  }
+
+  const supabase = createServerSupabaseClient()
+  if (!supabase) return { ok: false, message: "Ticketiv could not connect. Please try again." }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { ok: false, message: "Please sign in before completing this resale checkout." }
+  }
+
+  const { data, error } = await supabase.rpc("fn_complete_resale_after_payment", {
+    p_listing_id: listingId,
+    p_payment_id: paymentId,
+  })
+
+  if (error) {
+    console.error("[resale-checkout] complete after payment:", error)
+    return { ok: false, message: "Payment is not confirmed yet. Once the provider marks it successful, your ticket transfer can be completed." }
+  }
+
+  const row = Array.isArray(data) ? data[0] : data
+  const ticketId = row?.buyer_order_item_id
+
+  revalidatePath(`/resale/checkout/${listingId}`)
+  revalidatePath("/tickets")
+  redirect(ticketId ? `/tickets/${encodeURIComponent(ticketId)}?resale=completed` : "/tickets?resale=completed")
 }
