@@ -159,30 +159,8 @@ export function DesktopEvent({ event = DEFAULT_EVENT }: DesktopEventProps) {
           {/* Trust signal chip row */}
           <DesktopTrustRow event={event} />
 
-          {/* Meta strip (4 facts) */}
-          <Card className="grid grid-cols-4 p-0">
-            {[
-              ["cal", "When", event.dateLabel, event.timeLabel],
-              ["pin", "Where", event.venue.name, `${event.venue.distanceKm} km`],
-              ["clock", "Duration", event.facts[0]?.[1] ?? "—", `Doors at ${event.facts[1]?.[1] ?? "—"}`],
-              ["globe", "Language", event.facts[2]?.[1] ?? "—", event.facts[3]?.[1] ?? "—"],
-            ].map(([iconName, label, value, sub], i, arr) => (
-              <div
-                key={label}
-                className={
-                  "p-4 " +
-                  (i < arr.length - 1 ? "border-r border-line" : "")
-                }
-              >
-                <div className="mb-1.5 flex items-center gap-1.5 text-ink-3">
-                  <Icon name={iconName} size={14} />
-                  <span className="text-label">{label}</span>
-                </div>
-                <div className="text-[15px] font-semibold">{value}</div>
-                <div className="mt-0.5 font-mono text-[11px] text-ink-3">{sub}</div>
-              </div>
-            ))}
-          </Card>
+          {/* Meta strip: When + Where + dynamic facts (capped at 6 cols total) */}
+          <DesktopMetaGrid event={event} />
 
           {/* Tabs */}
           <div>
@@ -443,6 +421,51 @@ export function DesktopEvent({ event = DEFAULT_EVENT }: DesktopEventProps) {
         </aside>
       </div>
     </div>
+  );
+}
+
+const META_GRID_COLS: Record<number, string> = {
+  2: "grid-cols-2",
+  3: "grid-cols-3",
+  4: "grid-cols-4",
+  5: "grid-cols-5",
+  6: "grid-cols-6",
+};
+
+function DesktopMetaGrid({ event }: { event: DesktopEventData }) {
+  const factsToShow = event.facts.slice(0, 4);
+  const colCount = Math.min(2 + factsToShow.length, 6);
+  const gridCls = META_GRID_COLS[colCount];
+  const cellCls = "p-4 border-r border-line last:border-r-0";
+  return (
+    <Card className={`grid ${gridCls} p-0`}>
+      <div className={cellCls}>
+        <div className="mb-1.5 flex items-center gap-1.5 text-ink-3">
+          <Icon name="cal" size={14} />
+          <span className="text-label">When</span>
+        </div>
+        <div className="text-[15px] font-semibold">{event.dateLabel}</div>
+        <div className="mt-0.5 font-mono text-[11px] text-ink-3">{event.timeLabel}</div>
+      </div>
+      <div className={cellCls}>
+        <div className="mb-1.5 flex items-center gap-1.5 text-ink-3">
+          <Icon name="pin" size={14} />
+          <span className="text-label">Where</span>
+        </div>
+        <div className="text-[15px] font-semibold">{event.venue.name}</div>
+        <div className="mt-0.5 font-mono text-[11px] text-ink-3">
+          {event.venue.distanceKm} km
+        </div>
+      </div>
+      {factsToShow.map(([label, value]) => (
+        <div key={label} className={cellCls}>
+          <div className="mb-1.5 flex items-center gap-1.5 text-ink-3">
+            <span className="text-label">{label}</span>
+          </div>
+          <div className="text-[15px] font-semibold">{value}</div>
+        </div>
+      ))}
+    </Card>
   );
 }
 
