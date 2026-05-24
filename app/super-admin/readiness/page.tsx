@@ -29,6 +29,10 @@ const CHECK_LABELS: Record<string, string> = {
   has_cover_image: "Cover image added",
   has_description: "Description added",
   has_on_sale_ticket_type: "On-sale ticket tier available",
+  has_online_sales_channel: "Online sales channel enabled",
+  has_refund_or_support: "Refund or support policy set",
+  has_active_staff: "Check-in staff assigned",
+  has_live_stats_row: "Live stats initialized",
   has_active_pricing_plan: "Active pricing plan",
   has_payout_account: "Payout account present",
 }

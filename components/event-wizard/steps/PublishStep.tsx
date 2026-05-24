@@ -7,7 +7,7 @@ import { CheckCircle2, Circle, AlertCircle } from "lucide-react"
 
 export function PublishStep({ event, onSaving }: { event: any; onSaving: () => void }) {
   const [currentEvent, setCurrentEvent] = useState(event)
-  const [readiness, setReadiness] = useState<{ ready: boolean; checks: Array<{ key: string; label: string; complete: boolean; recommended?: boolean }> } | null>(null)
+  const [readiness, setReadiness] = useState<{ ready: boolean; checks: Array<{ key: string; label: string; complete: boolean; recommended?: boolean; hint?: string; step?: string }> } | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
@@ -94,21 +94,20 @@ export function PublishStep({ event, onSaving }: { event: any; onSaving: () => v
 
         <div className="space-y-2">
           {(readiness?.checks ?? []).map((check) => (
-            <div key={check.key} className="flex items-center justify-between rounded-lg border p-3 text-sm">
-              <span>{check.label}</span>
-              <span className={check.complete ? "inline-flex items-center gap-2 font-medium" : "inline-flex items-center gap-2 text-muted-foreground"}>
-                {check.complete ? <CheckCircle2 className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
-                {check.complete ? "Complete" : check.recommended ? "Recommended" : "Missing"}
-              </span>
+            <div key={check.key} className="rounded-lg border p-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-medium">{check.label}</span>
+                <span className={check.complete ? "inline-flex items-center gap-2 font-medium" : "inline-flex items-center gap-2 text-muted-foreground"}>
+                  {check.complete ? <CheckCircle2 className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
+                  {check.complete ? "Complete" : check.recommended ? "Recommended" : "Required"}
+                </span>
+              </div>
+              {!check.complete && check.hint && (
+                <p className="mt-1.5 text-xs text-muted-foreground">{check.hint}</p>
+              )}
             </div>
           ))}
         </div>
-
-        {!ready && (
-          <p className="text-sm text-muted-foreground">
-            Complete the missing items in the previous steps before publishing.
-          </p>
-        )}
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
