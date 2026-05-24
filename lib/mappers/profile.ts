@@ -16,6 +16,7 @@ export interface ProfileUserProp {
   upcomingTickets: number
   favouritesCount: number
   pendingTransfers: number
+  unreadNotifications: number
 }
 
 const JOINED_FMT = new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric" })
@@ -39,5 +40,6 @@ export function mapProfile(p: MyProfile): ProfileUserProp {
     upcomingTickets: p.upcomingTickets,
     favouritesCount: p.favouritesCount,
     pendingTransfers: p.pendingTransfers,
+    unreadNotifications: p.unreadNotifications,
   }
 }

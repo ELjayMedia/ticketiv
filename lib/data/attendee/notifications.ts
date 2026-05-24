@@ -17,6 +17,8 @@ export interface AttendeeNotification {
   title: string
   message: string
   createdAt: string
+  readAt: string | null
+  isUnread: boolean
   actionHref: string
   actionLabel: string
   actionKind: NotificationActionKind
@@ -33,6 +35,7 @@ type RawNotificationRow = {
   created_at: string | null
   sent_at: string | null
   delivered_at: string | null
+  read_at: string | null
 }
 
 function asText(value: unknown): string | null {
@@ -47,6 +50,13 @@ function titleCaseType(type: string): string {
     .replace(/\b\w/g, (m) => m.toUpperCase())
 }
 
+function baseFields(row: RawNotificationRow) {
+  return {
+    readAt: row.read_at,
+    isUnread: row.read_at == null,
+  }
+}
+
 function mapNotification(row: RawNotificationRow): AttendeeNotification {
   const type = row.type ?? "generic"
   const payload = row.payload ?? {}
@@ -59,6 +69,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
   const eventId = asText(payload.eventId) ?? asText(payload.event_id) ?? asText(payload.eventSlug) ?? asText(payload.event_slug)
   const explicitTitle = asText(payload.title)
   const explicitMessage = asText(payload.message) ?? asText(payload.body)
+  const base = baseFields(row)
 
   if (type.includes("transfer")) {
     return {
@@ -69,6 +80,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
       title: explicitTitle ?? "Ticket transfer update",
       message: explicitMessage ?? (eventTitle ? `There is a transfer update for ${eventTitle}.` : "You have a ticket transfer update."),
       createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
+      ...base,
       actionHref: transferId ? `/transfers?transferId=${encodeURIComponent(transferId)}` : "/transfers",
       actionLabel: "View transfer",
       actionKind: "transfer",
@@ -84,6 +96,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
       title: explicitTitle ?? "Waitlist update",
       message: explicitMessage ?? (eventTitle ? `There is a waitlist update for ${eventTitle}.` : "Your waitlist status has changed."),
       createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
+      ...base,
       actionHref: waitlistId ? `/waitlist?waitlistId=${encodeURIComponent(waitlistId)}` : "/waitlist",
       actionLabel: "View waitlist",
       actionKind: "waitlist",
@@ -99,6 +112,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
       title: explicitTitle ?? "Ticket listing update",
       message: explicitMessage ?? (eventTitle ? `There is a listing update for ${eventTitle}.` : "Your ticket listing has an update."),
       createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
+      ...base,
       actionHref: resaleId ? `/resale?listingId=${encodeURIComponent(resaleId)}` : "/resale",
       actionLabel: "View listing",
       actionKind: "resale",
@@ -114,6 +128,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
       title: explicitTitle ?? "Refund update",
       message: explicitMessage ?? (eventTitle ? `There is a refund update for ${eventTitle}.` : "Your refund status has changed."),
       createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
+      ...base,
       actionHref: refundId ? `/orders?refundId=${encodeURIComponent(refundId)}` : "/orders",
       actionLabel: "View order",
       actionKind: "refund",
@@ -129,6 +144,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
       title: explicitTitle ?? "Event update",
       message: explicitMessage ?? (eventTitle ? `${eventTitle} has an update.` : "An event you follow has an update."),
       createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
+      ...base,
       actionHref: eventId ? `/events/${encodeURIComponent(eventId)}` : "/",
       actionLabel: "View event",
       actionKind: "event",
@@ -144,6 +160,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
       title: explicitTitle ?? "Ticket update",
       message: explicitMessage ?? (eventTitle ? `Your ticket for ${eventTitle} has an update.` : "Your ticket has an update."),
       createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
+      ...base,
       actionHref: ticketId ? `/tickets/${encodeURIComponent(ticketId)}` : "/tickets",
       actionLabel: "View ticket",
       actionKind: "ticket",
@@ -158,6 +175,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
     title: explicitTitle ?? titleCaseType(type),
     message: explicitMessage ?? "You have a Ticketiv update.",
     createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
+    ...base,
     actionHref: "/me",
     actionLabel: "View account",
     actionKind: "generic",
@@ -165,7 +183,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
 }
 
 export async function getMyNotifications(): Promise<AttendeeNotification[]> {
-  const supabase = await createServerSupabaseClient()
+  const supabase = createServerSupabaseClient()
   if (!supabase) return []
 
   const {
@@ -175,7 +193,7 @@ export async function getMyNotifications(): Promise<AttendeeNotification[]> {
 
   const { data, error } = await supabase
     .from("notifications")
-    .select("id,type,payload,status,channel,created_at,sent_at,delivered_at")
+    .select("id,type,payload,status,channel,created_at,sent_at,delivered_at,read_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(50)
@@ -186,4 +204,27 @@ export async function getMyNotifications(): Promise<AttendeeNotification[]> {
   }
 
   return ((data ?? []) as RawNotificationRow[]).map(mapNotification)
+}
+
+export async function getUnreadNotificationCount(): Promise<number> {
+  const supabase = createServerSupabaseClient()
+  if (!supabase) return 0
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return 0
+
+  const { count, error } = await supabase
+    .from("notifications")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .is("read_at", null)
+
+  if (error) {
+    console.error("[notifications] unread count:", error)
+    return 0
+  }
+
+  return count ?? 0
 }

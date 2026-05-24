@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { markAllNotificationsRead, markNotificationRead } from "@/app/(consumer)/notifications/actions";
 import { Icon, type IconName } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
 import type { AttendeeNotification, NotificationActionKind } from "@/lib/data/attendee/notifications";
@@ -37,6 +38,7 @@ function statusLabel(status: string | null): string {
 
 export function NotificationsCentre({ notifications }: NotificationsCentreProps) {
   const hasNotifications = notifications.length > 0;
+  const unreadCount = notifications.filter((n) => n.isUnread).length;
 
   return (
     <div className="mx-auto max-w-[480px] bg-bg pb-24">
@@ -55,13 +57,23 @@ export function NotificationsCentre({ notifications }: NotificationsCentreProps)
           <h1 className="text-h1">Notifications</h1>
           {hasNotifications && (
             <span className="rounded bg-accent-soft px-2 py-1 font-mono text-[10px] font-semibold uppercase text-accent">
-              {notifications.length} recent
+              {unreadCount > 0 ? `${unreadCount} unread` : `${notifications.length} recent`}
             </span>
           )}
         </div>
         <p className="mt-2 font-mono text-[12px] leading-relaxed text-ink-3">
           Ticket, transfer, waitlist, listing, refund and event updates appear here with direct actions.
         </p>
+        {unreadCount > 0 && (
+          <form action={markAllNotificationsRead} className="mt-3">
+            <button
+              type="submit"
+              className="inline-flex h-8 items-center justify-center rounded-[var(--radius)] border border-line-2 px-3 text-[11px] font-semibold hover:bg-bg"
+            >
+              Mark all as read
+            </button>
+          </form>
+        )}
       </header>
 
       {!hasNotifications ? (
@@ -95,40 +107,61 @@ export function NotificationsCentre({ notifications }: NotificationsCentreProps)
           <ul className="flex flex-col gap-2">
             {notifications.map((n) => (
               <li key={n.id}>
-                <Link href={n.actionHref}>
-                  <Card className="flex items-start gap-3 p-3.5 transition-colors hover:bg-bg" flat>
-                    <div className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
-                      <Icon name={ICON_BY_KIND[n.actionKind]} size={16} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start gap-2">
-                        <span className="min-w-0 flex-1 text-[13px] font-semibold">
+                <Card
+                  className={`flex items-start gap-3 p-3.5 transition-colors ${
+                    n.isUnread ? "border-accent bg-accent-soft/30" : "hover:bg-bg"
+                  }`}
+                  flat
+                >
+                  <div className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
+                    <Icon name={ICON_BY_KIND[n.actionKind]} size={16} />
+                    {n.isUnread && (
+                      <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-surface" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start gap-2">
+                      <Link href={n.actionHref} className="min-w-0 flex-1">
+                        <span className="text-[13px] font-semibold">
                           {n.title}
                         </span>
-                        <span className="shrink-0 font-mono text-[10px] text-ink-3">
-                          {timeAgo(n.createdAt)}
-                        </span>
-                      </div>
-                      <p className="mt-1 font-mono text-[11px] leading-relaxed text-ink-3">
-                        {n.message}
-                      </p>
-                      <div className="mt-2 flex items-center gap-2">
-                        <span className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] uppercase text-ink-3">
-                          {statusLabel(n.status)}
-                        </span>
-                        {n.channel && (
-                          <span className="font-mono text-[10px] uppercase text-ink-3">
-                            {n.channel}
-                          </span>
-                        )}
-                        <span className="ml-auto text-[11px] font-semibold text-accent">
-                          {n.actionLabel}
-                        </span>
-                      </div>
+                      </Link>
+                      <span className="shrink-0 font-mono text-[10px] text-ink-3">
+                        {timeAgo(n.createdAt)}
+                      </span>
                     </div>
+                    <p className="mt-1 font-mono text-[11px] leading-relaxed text-ink-3">
+                      {n.message}
+                    </p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] uppercase text-ink-3">
+                        {n.isUnread ? "unread" : statusLabel(n.status)}
+                      </span>
+                      {n.channel && (
+                        <span className="font-mono text-[10px] uppercase text-ink-3">
+                          {n.channel}
+                        </span>
+                      )}
+                      <Link href={n.actionHref} className="ml-auto text-[11px] font-semibold text-accent">
+                        {n.actionLabel}
+                      </Link>
+                    </div>
+                    {n.isUnread && (
+                      <form action={markNotificationRead} className="mt-2">
+                        <input type="hidden" name="notificationId" value={n.id} />
+                        <button
+                          type="submit"
+                          className="font-mono text-[10px] font-semibold uppercase text-ink-3 hover:text-ink"
+                        >
+                          Mark read
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                  <Link href={n.actionHref} aria-label={n.actionLabel}>
                     <Icon name="chevR" size={14} className="mt-1 text-ink-3" />
-                  </Card>
-                </Link>
+                  </Link>
+                </Card>
               </li>
             ))}
           </ul>
