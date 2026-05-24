@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useActionState } from "react";
 import Link from "next/link";
+import { publishResaleListing } from "@/app/(consumer)/resale/actions";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
 
@@ -18,6 +19,7 @@ function formatMoney(cents: number, currency = "SZL"): string {
 }
 
 export function ListingStartForm({ ticketId }: ListingStartFormProps) {
+  const [state, action, pending] = useActionState(publishResaleListing, null);
   const [price, setPrice] = useState("250");
   const [expiresIn, setExpiresIn] = useState("24");
   const parsedPrice = Number.parseFloat(price || "0");
@@ -33,19 +35,22 @@ export function ListingStartForm({ ticketId }: ListingStartFormProps) {
             <Icon name="ticket" size={18} />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-[14px] font-semibold">Prepare this ticket for listing</div>
+            <div className="text-[14px] font-semibold">List this ticket for resale</div>
             <p className="mt-1 font-mono text-[11px] leading-relaxed text-ink-3">
-              Review the basic listing details before publishing. The final publish action will be enabled once listing write rules are confirmed.
+              Set a price and expiry. Ticketiv will only publish the listing if this ticket is eligible and belongs to your account.
             </p>
           </div>
         </div>
 
-        <div className="mt-4 space-y-3">
+        <form action={action} className="mt-4 space-y-3">
+          <input type="hidden" name="ticketId" value={ticketId} />
+
           <label className="flex flex-col gap-1">
             <span className="text-label">Listing price</span>
             <div className="flex h-10 overflow-hidden rounded-[var(--radius)] border border-line bg-surface">
               <span className="inline-flex items-center border-r border-line px-3 font-mono text-[12px] text-ink-3">SZL</span>
               <input
+                name="price"
                 value={price}
                 onChange={(event) => setPrice(event.target.value)}
                 inputMode="decimal"
@@ -58,6 +63,7 @@ export function ListingStartForm({ ticketId }: ListingStartFormProps) {
           <label className="flex flex-col gap-1">
             <span className="text-label">Listing expiry</span>
             <select
+              name="expiresIn"
               value={expiresIn}
               onChange={(event) => setExpiresIn(event.target.value)}
               className="h-10 rounded-[var(--radius)] border border-line bg-surface px-3 text-[13px] outline-none focus:border-accent"
@@ -87,9 +93,15 @@ export function ListingStartForm({ ticketId }: ListingStartFormProps) {
             </div>
           </div>
 
-          <div className="rounded-[var(--radius)] border border-[#f3dfb7] bg-[#fdf6ed] px-3 py-2 font-mono text-[11px] leading-relaxed text-[#8a5f08]">
-            Publishing is intentionally disabled in this patch. Next step: confirm listing insert/update policy, then connect this form to a server action.
+          <div className="rounded-[var(--radius)] border border-line bg-bg px-3 py-2 font-mono text-[11px] leading-relaxed text-ink-3">
+            Eligible tickets must be issued, unused, not refunded, not revoked, not checked in, and not already listed.
           </div>
+
+          {state?.message && (
+            <div className="rounded-[var(--radius)] border border-[#f1d0c8] bg-[#fdf0ec] px-3 py-2 font-mono text-[11px] text-[#c1422b]">
+              {state.message}
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-2">
             <Link
@@ -99,14 +111,14 @@ export function ListingStartForm({ ticketId }: ListingStartFormProps) {
               View ticket
             </Link>
             <button
-              type="button"
-              disabled
-              className="inline-flex h-10 items-center justify-center rounded-[var(--radius)] bg-surface-2 px-3 text-[12px] font-semibold text-ink-3"
+              type="submit"
+              disabled={pending || priceCents <= 0}
+              className="inline-flex h-10 items-center justify-center rounded-[var(--radius)] bg-accent px-3 text-[12px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Publish next
+              {pending ? "Publishing…" : "Publish listing"}
             </button>
           </div>
-        </div>
+        </form>
       </Card>
     </section>
   );
