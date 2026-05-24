@@ -82,7 +82,7 @@ export function ResaleCheckoutReview({ listing }: ResaleCheckoutReviewProps) {
 
       <header className="px-5 pb-4 pt-2">
         <Link
-          href={listing.eventSlug ? `/resale?eventId=${encodeURIComponent(listing.orderItemId ?? "")}` : "/resale"}
+          href="/resale"
           className="mb-5 inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"
           aria-label="Back to resale"
         >
