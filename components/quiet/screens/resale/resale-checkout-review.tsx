@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
+import type { ResaleCheckoutPaymentStatus } from "@/lib/data/attendee/resale-checkout";
 import type { PublicEventTicketListing } from "@/lib/data/attendee/ticket-listings";
 import { ResaleCheckoutAction } from "@/components/quiet/screens/resale/resale-checkout-action";
 
@@ -8,6 +9,7 @@ interface ResaleCheckoutReviewProps {
   listing: PublicEventTicketListing | null;
   pendingOrderId?: string | null;
   pendingPaymentId?: string | null;
+  paymentStatus?: ResaleCheckoutPaymentStatus | null;
 }
 
 function formatMoney(cents: number, currency: string): string {
@@ -29,7 +31,7 @@ function formatExpiry(iso: string | null): string | null {
   return `Listing expires in ${days}d`;
 }
 
-export function ResaleCheckoutReview({ listing, pendingOrderId, pendingPaymentId }: ResaleCheckoutReviewProps) {
+export function ResaleCheckoutReview({ listing, pendingOrderId, pendingPaymentId, paymentStatus }: ResaleCheckoutReviewProps) {
   if (!listing) {
     return (
       <div className="mx-auto max-w-[480px] bg-bg pb-24">
@@ -170,6 +172,7 @@ export function ResaleCheckoutReview({ listing, pendingOrderId, pendingPaymentId
             listingId={listing.id}
             pendingOrderId={pendingOrderId}
             pendingPaymentId={pendingPaymentId}
+            paymentStatus={paymentStatus}
           />
         </div>
       </section>
