@@ -29,6 +29,7 @@ interface ProfileUser {
   upcomingTickets: number;
   favouritesCount: number;
   pendingTransfers: number;
+  unreadNotifications: number;
 }
 
 const DEFAULT_USER: ProfileUser = {
@@ -44,6 +45,7 @@ const DEFAULT_USER: ProfileUser = {
   upcomingTickets: 4,
   favouritesCount: 12,
   pendingTransfers: 1,
+  unreadNotifications: 0,
 };
 
 interface SettingRow {
@@ -144,9 +146,14 @@ export function ProfileScreen({
         <Link
           href="/notifications"
           aria-label="Notifications"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"
+          className="relative inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"
         >
           <Icon name="bell" size={20} />
+          {user.unreadNotifications > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 font-mono text-[9px] font-semibold text-white ring-2 ring-surface">
+              {user.unreadNotifications > 9 ? "9+" : user.unreadNotifications}
+            </span>
+          )}
         </Link>
         <button
           aria-label="Share profile"
@@ -226,7 +233,13 @@ export function ProfileScreen({
       <SettingsList
         title="More"
         rows={[
-          { icon: "bell" as IconName, label: "Notifications", href: "/notifications" },
+          {
+            icon: "bell" as IconName,
+            label: "Notifications",
+            value: user.unreadNotifications > 0 ? `${user.unreadNotifications} unread` : undefined,
+            href: "/notifications",
+            accent: user.unreadNotifications > 0,
+          },
           { icon: "settings" as IconName, label: "Privacy & data" },
           { icon: "fileText" as IconName, label: "Help center" },
           { icon: "share" as IconName, label: "Send feedback" },
