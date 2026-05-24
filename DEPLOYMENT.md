@@ -81,6 +81,18 @@ For each Supabase project, navigate to **Authentication → URL Configuration** 
 
 ## Step 6 – Smoke Test the Deployment
 
+- Run the automated health smoke check against the deployed URL — it hits the public homepage and the unauthenticated JSON health endpoints so we can distinguish a healthy app from an auth-redirect intercept:
+
+  ```bash
+  scripts/smoke-deployment.sh https://<deployment-domain>
+  ```
+
+  The script verifies:
+
+  - `GET /` returns `200 text/html`
+  - `GET /api/health` returns `200 application/json` (e.g. `{ "ok": true, "service": "ticketiv" }`)
+  - `GET /api/health/supabase` returns `200 application/json` showing Supabase connectivity without exposing keys
+
 - Run through attendee checkout flows using test payment keys.
 - Validate that Supabase receives new `tickets` records and that `/scanner/scan` verifies the generated codes.
 - Confirm organiser dashboards display up-to-date payout and order data.

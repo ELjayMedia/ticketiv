@@ -29,11 +29,14 @@ export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request })
   const path = request.nextUrl.pathname
 
-  // Allow static assets, Next internals, and the sign-out API
+  // Allow static assets, Next internals, the sign-out API, and the unauthenticated
+  // health endpoints used by Vercel/uptime monitoring.
   if (
     path.startsWith("/_next") ||
     path.startsWith("/favicon") ||
     path.startsWith("/api/sign-out") ||
+    path === "/api/health" ||
+    path.startsWith("/api/health/") ||
     path.includes(".")
   ) {
     return response

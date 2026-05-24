@@ -6,5 +6,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)"],
+  // Health endpoints must be reachable by uptime monitors without an auth
+  // session, so they are excluded from the matcher.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/health|.*\\..*).*)"],
 }
