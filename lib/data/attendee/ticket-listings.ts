@@ -92,6 +92,28 @@ export async function getMyTicketListings(): Promise<AttendeeTicketListing[]> {
   return ((data ?? []) as TicketListingRow[]).map(mapRow)
 }
 
+const PUBLIC_LISTING_SELECT = `
+  id,
+  order_item_id,
+  seller_id,
+  org_id,
+  price_cents,
+  currency,
+  status,
+  listing_expires_at,
+  transfer_fee_cents,
+  transfer_id,
+  created_at,
+  order_items:order_item_id(
+    ticket_type_id,
+    ticket_types:ticket_type_id(name),
+    orders:order_id(
+      event_id,
+      events:event_id(title, slug)
+    )
+  )
+`
+
 export async function getPublicEventTicketListings(eventId: string | null): Promise<PublicEventTicketListing[]> {
   if (!eventId) return []
 
@@ -100,27 +122,7 @@ export async function getPublicEventTicketListings(eventId: string | null): Prom
 
   const { data, error } = await supabase
     .from("resale_listings")
-    .select(`
-      id,
-      order_item_id,
-      seller_id,
-      org_id,
-      price_cents,
-      currency,
-      status,
-      listing_expires_at,
-      transfer_fee_cents,
-      transfer_id,
-      created_at,
-      order_items:order_item_id(
-        ticket_type_id,
-        ticket_types:ticket_type_id(name),
-        orders:order_id(
-          event_id,
-          events:event_id(title, slug)
-        )
-      )
-    `)
+    .select(PUBLIC_LISTING_SELECT)
     .eq("status", "active")
     .eq("order_items.orders.event_id", eventId)
     .order("price_cents", { ascending: true })
@@ -132,4 +134,23 @@ export async function getPublicEventTicketListings(eventId: string | null): Prom
   }
 
   return ((data ?? []) as PublicTicketListingRow[]).map(mapPublicRow)
+}
+
+export async function getPublicTicketListing(listingId: string): Promise<PublicEventTicketListing | null> {
+  const supabase = createServerSupabaseClient()
+  if (!supabase) return null
+
+  const { data, error } = await supabase
+    .from("resale_listings")
+    .select(PUBLIC_LISTING_SELECT)
+    .eq("id", listingId)
+    .eq("status", "active")
+    .maybeSingle()
+
+  if (error) {
+    console.error("[ticket-listings] public listing detail:", error)
+    return null
+  }
+
+  return data ? mapPublicRow(data as PublicTicketListingRow) : null
 }

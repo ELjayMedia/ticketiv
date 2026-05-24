@@ -148,9 +148,12 @@ export function TicketListingsCentre({ listings, publicListings = [], ticketId, 
                               Event
                             </span>
                           )}
-                          <span className="inline-flex items-center justify-center rounded-[var(--radius)] bg-surface-2 px-3 py-2 text-[12px] font-semibold text-ink-3">
-                            Checkout next
-                          </span>
+                          <Link
+                            href={`/resale/checkout/${listing.id}`}
+                            className="inline-flex items-center justify-center rounded-[var(--radius)] bg-ink px-3 py-2 text-[12px] font-semibold text-white hover:bg-ink-2"
+                          >
+                            Review checkout
+                          </Link>
                         </div>
                       </div>
                     </div>
