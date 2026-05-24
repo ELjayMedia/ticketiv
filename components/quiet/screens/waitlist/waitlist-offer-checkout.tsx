@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
+import type { WaitlistCheckoutPaymentStatus } from "@/lib/data/attendee/waitlist-checkout";
 import type { AttendeeWaitlistEntry } from "@/lib/data/attendee/waitlist";
 import { WaitlistCheckoutAction } from "@/components/quiet/screens/waitlist/waitlist-checkout-action";
 
@@ -8,6 +9,7 @@ interface WaitlistOfferCheckoutProps {
   offer: AttendeeWaitlistEntry | null;
   pendingOrderId?: string | null;
   pendingPaymentId?: string | null;
+  paymentStatus?: WaitlistCheckoutPaymentStatus | null;
 }
 
 function formatMoney(cents: number | null, currency: string | null): string {
@@ -30,10 +32,10 @@ function formatExpiry(iso: string | null): { label: string; expired: boolean } |
 }
 
 function isOfferStatus(status: string): boolean {
-  return ["offered", "offer_available", "notified"].includes(status.toLowerCase());
+  return ["offered", "offer_available", "notified", "checkout_pending"].includes(status.toLowerCase());
 }
 
-export function WaitlistOfferCheckout({ offer, pendingOrderId, pendingPaymentId }: WaitlistOfferCheckoutProps) {
+export function WaitlistOfferCheckout({ offer, pendingOrderId, pendingPaymentId, paymentStatus }: WaitlistOfferCheckoutProps) {
   if (!offer) {
     return (
       <div className="mx-auto max-w-[480px] bg-bg pb-24">
@@ -69,7 +71,7 @@ export function WaitlistOfferCheckout({ offer, pendingOrderId, pendingPaymentId 
   }
 
   const expiry = formatExpiry(offer.offerExpiresAt);
-  const canProceed = isOfferStatus(offer.status) && expiry?.expired === false;
+  const canProceed = isOfferStatus(offer.status) && (expiry?.expired === false || offer.status.toLowerCase() === "checkout_pending");
   const unitPrice = offer.ticketPriceCents ?? 0;
   const quantity = Math.max(1, offer.quantityRequested);
   const total = unitPrice * quantity;
@@ -150,7 +152,7 @@ export function WaitlistOfferCheckout({ offer, pendingOrderId, pendingPaymentId 
           <div className="flex items-start gap-3">
             <Icon name="clock" size={16} className="mt-0.5 text-[#8a5f08]" />
             <p className="font-mono text-[11px] leading-relaxed text-[#8a5f08]">
-              This step creates the pending waitlist checkout only. Tickets are still issued only after a linked payment succeeds.
+              Tickets are issued only after the linked payment succeeds. Until then, this offer remains in checkout pending state.
             </p>
           </div>
         </Card>
@@ -164,6 +166,7 @@ export function WaitlistOfferCheckout({ offer, pendingOrderId, pendingPaymentId 
             pendingOrderId={pendingOrderId}
             pendingPaymentId={pendingPaymentId}
             canProceed={canProceed}
+            paymentStatus={paymentStatus}
           />
         </div>
       </section>
