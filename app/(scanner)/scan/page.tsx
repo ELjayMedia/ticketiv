@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/quiet/ui/button"
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
@@ -16,10 +17,23 @@ import {
   refreshManifest,
   type ScannerManifest,
 } from "@/lib/scanner/manifest-store"
+import {
+  copyForScannerStatus,
+  statusForScanOutcome,
+  type ScannerOutcomeStatus,
+  type ScannerOutcomeTone,
+} from "@/lib/scanner/outcome-copy"
+import {
+  clearSelectedEvent,
+  loadDeviceId,
+  loadDeviceName,
+  loadSelectedEvent,
+  type SelectedScannerEvent,
+} from "@/lib/scanner/session-store"
 
 interface ScanResponse {
   valid: boolean
-  status: "validated" | "duplicate" | "not_found" | "offline" | "error"
+  status: ScannerOutcomeStatus
   message: string
   ticket?: { id: string; event_id: string; ticket_type_id: string } | null
   scan?: { scanned_at: string } | null
@@ -34,13 +48,11 @@ interface OfflineScanPayload {
   location?: string
 }
 
-function loadDeviceId() {
-  if (typeof window === "undefined") return "web"
-  const existing = window.localStorage.getItem("ticketiv_scanner_device")
-  if (existing) return existing
-  const generated = `device-${crypto.randomUUID()}`
-  window.localStorage.setItem("ticketiv_scanner_device", generated)
-  return generated
+interface RecentScan {
+  id: string
+  ticketCode: string
+  status: ScannerOutcomeStatus
+  scannedAt: string
 }
 
 function loadOfflineQueue(): OfflineScanPayload[] {
@@ -61,21 +73,51 @@ function persistOfflineQueue(queue: OfflineScanPayload[]) {
 const fieldClass =
   "rounded-md border border-line-2 bg-surface px-3 py-2.5 text-[14px] font-medium text-ink placeholder:text-ink-4 outline-none transition-shadow duration-100 focus:border-accent focus:ring-[3px] focus:ring-accent-soft"
 
+const TONE_STYLES: Record<ScannerOutcomeTone, { border: string; icon: string }> = {
+  success: { border: "border-accent/40 bg-accent-soft text-ink", icon: "check" },
+  warning: { border: "border-warning/40 bg-warning/10 text-ink", icon: "bell" },
+  danger: { border: "border-danger/40 bg-danger/5 text-danger", icon: "close" },
+  muted: { border: "border-line bg-bg text-ink-3", icon: "clock" },
+}
+
 export default function ScannerPage() {
+  const router = useRouter()
+  const [hydrated, setHydrated] = useState(false)
+  const [selectedEvent, setSelectedEvent] = useState<SelectedScannerEvent | null>(null)
+  const [deviceName, setDeviceName] = useState<string | null>(null)
   const [code, setCode] = useState("")
-  const [eventId, setEventId] = useState("")
   const [result, setResult] = useState<ScanResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [offlineQueue, setOfflineQueue] = useState<OfflineScanPayload[]>([])
   const [manifest, setManifest] = useState<ScannerManifest | null>(null)
   const [manifestLoading, setManifestLoading] = useState(false)
+  const [recentScans, setRecentScans] = useState<RecentScan[]>([])
   const deviceId = useMemo(() => loadDeviceId(), [])
 
+  const eventId = selectedEvent?.id ?? ""
   const { stats: liveStats } = useEventLiveStats(eventId || null)
 
-  useEffect(() => { setOfflineQueue(loadOfflineQueue()) }, [])
-  useEffect(() => { persistOfflineQueue(offlineQueue) }, [offlineQueue])
+  // Setup the session only after hydration so we can redirect to /scan/setup
+  // when the device hasn't picked an event yet, without breaking SSR.
+  useEffect(() => {
+    setHydrated(true)
+    const ev = loadSelectedEvent()
+    const name = loadDeviceName()
+    setSelectedEvent(ev)
+    setDeviceName(name)
+    if (!ev) {
+      router.replace("/scan/setup")
+    }
+  }, [router])
+
+  useEffect(() => {
+    setOfflineQueue(loadOfflineQueue())
+  }, [])
+
+  useEffect(() => {
+    persistOfflineQueue(offlineQueue)
+  }, [offlineQueue])
 
   useEffect(() => {
     if (!eventId) {
@@ -120,9 +162,13 @@ export default function ScannerPage() {
       }
     }
     createSession()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [deviceId, eventId, sessionId])
 
+  // Best-effort session close on unmount. Explicit "End session" CTA below
+  // is the canonical end-of-shift path.
   useEffect(() => {
     return () => {
       if (!sessionId) return
@@ -133,6 +179,33 @@ export default function ScannerPage() {
       }).catch(() => undefined)
     }
   }, [sessionId])
+
+  const refreshRecentScans = useCallback(async () => {
+    if (!eventId) return
+    try {
+      const response = await fetch(`/api/scanner/scans?eventId=${encodeURIComponent(eventId)}&limit=10`, {
+        cache: "no-store",
+      })
+      if (!response.ok) return
+      const data = (await response.json()) as {
+        scans: Array<{ id: string; ticket_code: string; outcome: string; scanned_at: string }>
+      }
+      setRecentScans(
+        (data.scans ?? []).map((row) => ({
+          id: row.id,
+          ticketCode: row.ticket_code,
+          scannedAt: row.scanned_at,
+          status: statusForScanOutcome(row.outcome),
+        })),
+      )
+    } catch (error) {
+      console.error("Failed to load recent scans", error)
+    }
+  }, [eventId])
+
+  useEffect(() => {
+    refreshRecentScans()
+  }, [refreshRecentScans, sessionId, liveStats?.checked_in_count])
 
   const queueOfflineScan = () => {
     const scan: OfflineScanPayload = {
@@ -151,16 +224,16 @@ export default function ScannerPage() {
     const trimmedCode = code.trim()
     const scannedAt = new Date().toISOString()
 
-    // Local-first: if we have a manifest, validate against it before hitting
-    // the network. This gives a sub-50ms response at the gate and lets the
-    // scanner keep working when connectivity drops mid-event.
+    // Local-first: if we have a manifest, validate against it before
+    // hitting the network. Gives sub-50ms response at the gate and keeps
+    // the scanner working when connectivity drops mid-event.
     const manifestHit = findInManifest(manifest, trimmedCode)
     if (manifestHit) {
       if (manifestHit.already_checked_in || isLocallyUsed(eventId, trimmedCode)) {
         setResult({
           valid: false,
           status: "duplicate",
-          message: "Already checked in",
+          message: "Already used",
           previousScan: { scanned_at: scannedAt },
         })
         setLoading(false)
@@ -176,8 +249,6 @@ export default function ScannerPage() {
       }
       setOfflineQueue((current) => [...current, localScan])
 
-      // Optimistic UI; the server is the source of truth and will catch
-      // anything the manifest missed when we sync.
       setResult({
         valid: true,
         status: "validated",
@@ -190,6 +261,7 @@ export default function ScannerPage() {
         scan: { scanned_at: scannedAt },
       })
       setLoading(false)
+      setCode("")
       return
     }
 
@@ -205,11 +277,13 @@ export default function ScannerPage() {
       setResult(data)
       if (data.valid) markLocallyUsed(eventId, trimmedCode)
       if (!response.ok && data.status === "offline") queueOfflineScan()
+      refreshRecentScans()
     } catch {
       queueOfflineScan()
       setResult({ valid: true, status: "offline", message: "Network unavailable. Scan stored offline." })
     } finally {
       setLoading(false)
+      setCode("")
     }
   }
 
@@ -224,95 +298,145 @@ export default function ScannerPage() {
       if (!response.ok) throw new Error("Sync failed")
       setOfflineQueue([])
       setResult({ valid: true, status: "validated", message: "Offline scans synced" })
+      refreshRecentScans()
     } catch {
       setResult({ valid: false, status: "error", message: "Unable to sync offline scans" })
     }
   }
 
-  const sessionCard = (
+  const handleEndSession = async () => {
+    if (sessionId) {
+      try {
+        await fetch("/api/scanner/session", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId }),
+        })
+      } catch {
+        // Best-effort. Session will time out on the server side regardless.
+      }
+    }
+    clearSelectedEvent()
+    setSessionId(null)
+    setSelectedEvent(null)
+    router.push("/scan/setup")
+  }
+
+  // Block UI until we know whether to redirect. Avoids a one-frame flash
+  // of the "no event" empty state for staff who already set up.
+  if (!hydrated || !selectedEvent) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center p-6 text-[13px] text-ink-3">
+        Loading scanner…
+      </div>
+    )
+  }
+
+  const eventStartsLabel = selectedEvent.startsAt
+    ? new Date(selectedEvent.startsAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+    : null
+
+  const eventCard = (
     <Card>
-      <CardBody className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <p className="text-h3">Session</p>
+      <CardBody className="flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-label">Scanning event</span>
+            <p className="text-h3">{selectedEvent.title}</p>
+            {selectedEvent.venueName && (
+              <span className="font-mono text-[11px] text-ink-3">{selectedEvent.venueName}</span>
+            )}
+            {eventStartsLabel && (
+              <span className="font-mono text-[11px] text-ink-3">{eventStartsLabel}</span>
+            )}
+          </div>
           <Chip size="sm" variant={sessionId ? "active" : "muted"}>
-            {sessionId ? "Active" : "Setup"}
+            {sessionId ? "Active" : "Connecting…"}
           </Chip>
         </div>
-        <label className="flex flex-col gap-1">
-          <span className="text-label">Event ID</span>
-          <input
-            value={eventId}
-            onChange={(event) => setEventId(event.target.value)}
-            placeholder="Enter event ID to start session"
-            className={fieldClass}
-          />
-        </label>
-        <div className="flex flex-col gap-2 text-[12px]">
-          <div className="flex items-center justify-between rounded-[var(--radius-md)] border border-line bg-bg px-3 py-2">
-            <span className="text-ink-3">Device</span>
-            <span className="font-mono text-ink">{deviceId.substring(0, 16)}…</span>
+        <div className="grid grid-cols-2 gap-2 text-[12px]">
+          <div className="flex flex-col gap-0.5 rounded-[var(--radius-md)] border border-line bg-bg px-3 py-2">
+            <span className="text-ink-3">Checked in</span>
+            <span className="font-mono text-[18px] font-semibold text-ink">{liveStats?.checked_in_count ?? 0}</span>
           </div>
-          {sessionId && (
-            <div className="flex items-center justify-between rounded-[var(--radius-md)] border border-line bg-bg px-3 py-2">
-              <span className="text-ink-3">Session</span>
-              <span className="font-mono text-ink">{sessionId.substring(0, 16)}…</span>
-            </div>
-          )}
-          {eventId && (
-            <div className="flex items-center justify-between rounded-[var(--radius-md)] border border-line bg-bg px-3 py-2">
-              <span className="text-ink-3">Checked in</span>
-              <span className="font-mono text-ink">{liveStats?.checked_in_count ?? 0}</span>
-            </div>
-          )}
-          {eventId && (
-            <div className="flex items-center justify-between rounded-[var(--radius-md)] border border-line bg-bg px-3 py-2">
-              <span className="text-ink-3">Manifest</span>
-              <span className="font-mono text-ink">
-                {manifestLoading
-                  ? "loading…"
-                  : manifest
-                    ? `${manifest.items.length} tickets`
-                    : "offline only"}
-              </span>
-            </div>
-          )}
+          <div className="flex flex-col gap-0.5 rounded-[var(--radius-md)] border border-line bg-bg px-3 py-2">
+            <span className="text-ink-3">Manifest</span>
+            <span className="font-mono text-[18px] font-semibold text-ink">
+              {manifestLoading ? "…" : manifest?.items.length ?? 0}
+            </span>
+          </div>
         </div>
-        {offlineQueue.length > 0 && (
-          <Button onClick={handleSync} variant="outline" size="sm" block>
-            <Icon name="globe" size={14} />
-            Sync {offlineQueue.length} offline scan{offlineQueue.length === 1 ? "" : "s"}
-          </Button>
+        {(deviceName || offlineQueue.length > 0) && (
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-ink-3">
+            {deviceName && (
+              <span className="font-mono uppercase tracking-wide">{deviceName}</span>
+            )}
+            {offlineQueue.length > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-warning/10 px-2 py-0.5 font-mono uppercase tracking-wide text-warning">
+                <Icon name="clock" size={10} /> {offlineQueue.length} queued
+              </span>
+            )}
+          </div>
         )}
+        <div className="flex flex-wrap gap-2">
+          {offlineQueue.length > 0 && (
+            <Button onClick={handleSync} variant="outline" size="sm">
+              <Icon name="globe" size={14} />
+              Sync {offlineQueue.length}
+            </Button>
+          )}
+          <Button onClick={handleEndSession} variant="outline" size="sm">
+            <Icon name="close" size={14} />
+            End session
+          </Button>
+        </div>
       </CardBody>
     </Card>
   )
 
-  const resultBlock = result && (
-    <div
-      role="status"
-      className={cn(
-        "flex items-start gap-3 rounded-[var(--radius-md)] border px-4 py-3",
-        result.valid
-          ? "border-accent/30 bg-accent-soft text-ink"
-          : "border-danger/30 bg-danger-soft text-danger"
+  const resultBlock = result && <ResultCard result={result} />
+
+  const recentScansBlock = (
+    <Card>
+      <CardBody className="flex items-center justify-between px-5 py-4">
+        <p className="text-label">Recent scans</p>
+        <span className="font-mono text-[11px] text-ink-3">last {recentScans.length}</span>
+      </CardBody>
+      <CardDivider />
+      {recentScans.length === 0 ? (
+        <CardBody className="px-5 py-8 text-center">
+          <p className="text-[13px] text-ink-3">No scans yet in this session.</p>
+        </CardBody>
+      ) : (
+        <ul className="divide-y divide-line">
+          {recentScans.map((scan) => {
+            const copy = copyForScannerStatus(scan.status)
+            return (
+              <li key={scan.id} className="flex items-center gap-3 px-5 py-3">
+                <span
+                  className={cn(
+                    "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
+                    copy.tone === "success" && "bg-accent-soft text-accent",
+                    copy.tone === "warning" && "bg-warning/10 text-warning",
+                    copy.tone === "danger" && "bg-danger/10 text-danger",
+                    copy.tone === "muted" && "bg-line/40 text-ink-3",
+                  )}
+                >
+                  <Icon name={TONE_STYLES[copy.tone].icon} size={14} />
+                </span>
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-[13px] font-semibold">{copy.title}</span>
+                  <span className="truncate font-mono text-[11px] text-ink-3">{scan.ticketCode}</span>
+                </div>
+                <span className="font-mono text-[11px] text-ink-3">
+                  {new Date(scan.scannedAt).toLocaleTimeString()}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
       )}
-    >
-      <Icon name={result.valid ? "check" : "close"} size={18} className="mt-0.5" />
-      <div className="flex flex-1 flex-col gap-1">
-        <p className="text-[14px] font-semibold">{result.message}</p>
-        {result.scan?.scanned_at && (
-          <p className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-wider text-ink-3">
-            <Icon name="clock" size={12} />
-            {new Date(result.scan.scanned_at).toLocaleString()}
-          </p>
-        )}
-        {result.previousScan?.scanned_at && (
-          <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
-            Previous · {new Date(result.previousScan.scanned_at).toLocaleString()}
-          </p>
-        )}
-      </div>
-    </div>
+    </Card>
   )
 
   return (
@@ -320,12 +444,12 @@ export default function ScannerPage() {
       {/* Mobile */}
       <div className="flex min-h-dvh flex-1 flex-col lg:hidden">
         <div className="flex flex-1 flex-col gap-4 p-4">
-          <div className="flex flex-col gap-1">
+          <div className="flex items-center justify-between">
             <h1 className="text-h1">Scanner</h1>
-            <p className="text-[13px] text-ink-3">Scan tickets to validate entry.</p>
           </div>
-          {sessionCard}
+          {eventCard}
           {resultBlock}
+          {recentScansBlock}
         </div>
 
         <div className="sticky bottom-0 border-t border-line bg-surface p-4">
@@ -360,15 +484,17 @@ export default function ScannerPage() {
       {/* Desktop */}
       <div className="mx-auto hidden max-w-4xl px-4 py-10 sm:px-6 lg:block lg:px-8">
         <div className="flex flex-col gap-6">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-h1">Scan tickets</h1>
-            <p className="text-[14px] text-ink-3">
-              Validate attendee QR codes or ticket numbers to monitor entry at your event.
-            </p>
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-1">
+              <h1 className="text-h1">Scan tickets</h1>
+              <p className="text-[14px] text-ink-3">
+                Validate attendee QR codes or ticket numbers to monitor entry at your event.
+              </p>
+            </div>
           </div>
 
           <div className="grid gap-6 md:grid-cols-2">
-            {sessionCard}
+            {eventCard}
 
             <Card>
               <CardBody className="flex flex-col gap-4">
@@ -394,17 +520,38 @@ export default function ScannerPage() {
 
           {resultBlock}
 
-          <Card>
-            <CardBody className="px-5 py-4">
-              <p className="text-label">Recent scans</p>
-            </CardBody>
-            <CardDivider />
-            <CardBody className="px-5 py-10 text-center">
-              <p className="text-[13px] text-ink-3">No scans yet in this session.</p>
-            </CardBody>
-          </Card>
+          {recentScansBlock}
         </div>
       </div>
     </>
+  )
+}
+
+function ResultCard({ result }: { result: ScanResponse }) {
+  const copy = copyForScannerStatus(result.status)
+  const tone = TONE_STYLES[copy.tone]
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={cn("flex items-start gap-3 rounded-[var(--radius-md)] border px-4 py-3", tone.border)}
+    >
+      <Icon name={tone.icon} size={18} className="mt-0.5" />
+      <div className="flex flex-1 flex-col gap-1">
+        <p className="text-[14px] font-semibold">{copy.title}</p>
+        <p className="text-[12px]">{result.message || copy.detail}</p>
+        {result.scan?.scanned_at && (
+          <p className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-wider opacity-70">
+            <Icon name="clock" size={12} />
+            {new Date(result.scan.scanned_at).toLocaleString()}
+          </p>
+        )}
+        {result.previousScan?.scanned_at && (
+          <p className="font-mono text-[11px] uppercase tracking-wider opacity-70">
+            Previous · {new Date(result.previousScan.scanned_at).toLocaleString()}
+          </p>
+        )}
+      </div>
+    </div>
   )
 }
