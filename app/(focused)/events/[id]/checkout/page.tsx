@@ -45,6 +45,9 @@ async function fetchCheckoutExtras(eventId: string) {
       .from("ticket_types")
       .select("id, name, price_cents, quota, sales_status")
       .eq("event_id", eventId)
+      // Hidden ticket types are organizer-only (comp / employee / unpublished).
+      // They should never appear in the public listing or be reachable by URL.
+      .neq("sales_status", "hidden")
       .order("price_cents", { ascending: true }),
     orgId
       ? supabase

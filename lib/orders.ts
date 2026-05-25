@@ -104,7 +104,22 @@ function normalizeOrderError(error: unknown) {
 
   if (message.includes("per_user_limit_exceeded:")) {
     const ticketName = message.split("per_user_limit_exceeded:")[1]?.split("\n")[0]?.trim()
-    return ticketName ? `${ticketName} exceeds the per-order limit.` : "This order exceeds the ticket limit."
+    return ticketName ? `${ticketName} exceeds your per-buyer ticket limit.` : "This order exceeds your per-buyer ticket limit."
+  }
+
+  if (message.includes("channel_per_order_limit_exceeded:")) {
+    const ticketName = message.split("channel_per_order_limit_exceeded:")[1]?.split("\n")[0]?.trim()
+    return ticketName ? `${ticketName} exceeds the per-order limit for online checkout.` : "This order exceeds the online checkout limit."
+  }
+
+  if (message.includes("channel_sold_out:")) {
+    const ticketName = message.split("channel_sold_out:")[1]?.split("\n")[0]?.trim()
+    return ticketName ? `${ticketName} is sold out for online checkout.` : "This ticket type is sold out for online checkout."
+  }
+
+  if (message.includes("channel_not_available:")) {
+    const ticketName = message.split("channel_not_available:")[1]?.split("\n")[0]?.trim()
+    return ticketName ? `${ticketName} isn't available for online checkout.` : "This ticket type isn't available for online checkout."
   }
 
   if (message.includes("ticket_type_not_on_sale:")) {

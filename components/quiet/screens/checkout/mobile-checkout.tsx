@@ -14,6 +14,7 @@ import { PHOTOS } from "@/lib/photos";
 import { formatPrice, formatHoldTimer, formatScarcityLabel } from "@/lib/format";
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
 import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/actions";
+import { describePromoFailure } from "@/lib/checkout/promo-copy";
 
 /* ──────────────────────────────────────────────────────────────
  * Mobile checkout · `/events/[id]/checkout` on phones.
@@ -98,6 +99,10 @@ export function MobileCheckout({
   const [guaranteeOpen, setGuaranteeOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const [promoInput, setPromoInput] = React.useState("");
+  const [promoFeedback, setPromoFeedback] = React.useState<
+    { ok: true; label: string; savedMinor: number } | { ok: false; message: string } | null
+  >(null);
 
   async function handlePay() {
     setSubmitError(null);
@@ -106,15 +111,21 @@ export function MobileCheckout({
       return;
     }
     setSubmitting(true);
-    // Buyer email comes from the authenticated session server-side; the
-    // checkout UI doesn't capture it yet (TICK-46 will add the form).
     const result = await startCheckoutAction({
       eventId: eventUuid,
       buyerEmail: "",
       items: [{ ticketTypeId, quantity }],
+      promoCode: promoInput.trim() || null,
     });
     if (!result.ok) {
       setSubmitError(result.error);
+      setSubmitting(false);
+      return;
+    }
+    // Surface promo-apply failure but proceed — the order itself was created.
+    // Buyer can choose not to follow the Paystack redirect and retry.
+    if (result.promo && !result.promo.applied) {
+      setPromoFeedback({ ok: false, message: describePromoFailure(result.promo.reason) });
       setSubmitting(false);
       return;
     }
@@ -263,6 +274,39 @@ export function MobileCheckout({
             </Card>
           </section>
         )}
+
+        {/* Promo code entry */}
+        <section className="px-5 pb-4">
+          <label htmlFor="promo-code" className="text-label mb-1.5 block">
+            Promo code
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              id="promo-code"
+              type="text"
+              autoCapitalize="characters"
+              inputMode="text"
+              value={promoInput}
+              onChange={(event) => {
+                setPromoInput(event.target.value);
+                if (promoFeedback) setPromoFeedback(null);
+              }}
+              placeholder="Add a code"
+              className="h-9 flex-1 rounded-[var(--radius-md)] border border-line bg-surface px-3 font-mono text-[13px] uppercase tracking-wide placeholder:normal-case placeholder:text-ink-3 focus:border-accent focus:outline-none"
+              disabled={submitting}
+            />
+          </div>
+          {promoFeedback?.ok === true && (
+            <p className="mt-1.5 text-[12px] text-accent">
+              {promoFeedback.label} applied · saved {formatPrice(Math.abs(promoFeedback.savedMinor))}
+            </p>
+          )}
+          {promoFeedback?.ok === false && (
+            <p role="alert" className="mt-1.5 text-[12px] text-danger">
+              {promoFeedback.message}
+            </p>
+          )}
+        </section>
 
         {/* Payment */}
         <section className="px-5 pb-4">
