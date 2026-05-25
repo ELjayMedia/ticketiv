@@ -12,6 +12,7 @@ import { PHOTOS } from "@/lib/photos";
 import { formatPrice, formatHoldTimer } from "@/lib/format";
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
 import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/actions";
+import { describePromoFailure } from "@/lib/checkout/promo-copy";
 
 /* ──────────────────────────────────────────────────────────────
  * Desktop checkout · `/events/[id]/checkout` on md+
@@ -72,6 +73,8 @@ export function DesktopCheckout({
   const [guaranteeOpen, setGuaranteeOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const [promoInput, setPromoInput] = React.useState("");
+  const [promoFeedback, setPromoFeedback] = React.useState<string | null>(null);
 
   async function handleContinueToPayment() {
     setSubmitError(null);
@@ -84,9 +87,15 @@ export function DesktopCheckout({
       eventId: eventUuid,
       buyerEmail: "",
       items: [{ ticketTypeId, quantity }],
+      promoCode: promoInput.trim() || null,
     });
     if (!result.ok) {
       setSubmitError(result.error);
+      setSubmitting(false);
+      return;
+    }
+    if (result.promo && !result.promo.applied) {
+      setPromoFeedback(describePromoFailure(result.promo.reason));
       setSubmitting(false);
       return;
     }
@@ -244,12 +253,23 @@ export function DesktopCheckout({
                 <FormField
                   label=""
                   placeholder="Enter code"
-                  defaultValue={appliedPromo?.code ?? ""}
+                  value={promoInput}
+                  onChange={(event) => {
+                    setPromoInput(event.target.value);
+                    if (promoFeedback) setPromoFeedback(null);
+                  }}
                   className="!gap-0"
                 />
               </div>
-              <Button variant="default">Apply</Button>
+              <Button variant="default" type="button">
+                Apply
+              </Button>
             </div>
+            {promoFeedback && (
+              <p role="alert" className="mt-2 text-[12px] text-danger">
+                {promoFeedback}
+              </p>
+            )}
             {appliedPromo && (
               <div className="mt-3 flex items-center gap-2.5 rounded-md border border-accent bg-accent-soft p-3">
                 <div className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-white">

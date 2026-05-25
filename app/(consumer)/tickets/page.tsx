@@ -46,6 +46,7 @@ export default async function TicketsPage() {
       <MyTickets
         featured={props.featured}
         upcoming={props.upcoming}
+        past={props.past}
         inboundTransfer={inboundTransfer}
         counts={{
           ...props.counts,
