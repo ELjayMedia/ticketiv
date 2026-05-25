@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { PHOTOS } from "@/lib/photos";
 import { formatPrice, formatHoldTimer, formatScarcityLabel } from "@/lib/format";
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
+import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/actions";
 
 /* ──────────────────────────────────────────────────────────────
  * Mobile checkout · `/events/[id]/checkout` on phones.
@@ -27,6 +28,8 @@ import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
 
 export interface MobileCheckoutProps {
   eventId: string;
+  /** Event UUID for server-side order creation (eventId is the slug used in URLs). */
+  eventUuid: string;
   eventTitle: string;
   eventPhoto: string;
   eventWhenLabel: string;
@@ -61,6 +64,7 @@ const DEFAULT_PAYMENTS = [
 
 export function MobileCheckout({
   eventId,
+  eventUuid,
   eventTitle,
   eventPhoto,
   eventWhenLabel,
@@ -92,6 +96,34 @@ export function MobileCheckout({
   const [holdRemaining, setHoldRemaining] = React.useState(holdSeconds);
   const [accepted, setAccepted] = React.useState(false);
   const [guaranteeOpen, setGuaranteeOpen] = React.useState(false);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
+
+  async function handlePay() {
+    setSubmitError(null);
+    if (!ticketTypeId) {
+      setSubmitError("Select a ticket type before paying.");
+      return;
+    }
+    setSubmitting(true);
+    // Buyer email comes from the authenticated session server-side; the
+    // checkout UI doesn't capture it yet (TICK-46 will add the form).
+    const result = await startCheckoutAction({
+      eventId: eventUuid,
+      buyerEmail: "",
+      items: [{ ticketTypeId, quantity }],
+    });
+    if (!result.ok) {
+      setSubmitError(result.error);
+      setSubmitting(false);
+      return;
+    }
+    if (result.checkoutUrl) {
+      window.location.href = result.checkoutUrl;
+    } else {
+      router.push(`/orders/${result.orderId}/confirmation`);
+    }
+  }
 
   // Activity-based hold extension: real users who scroll/tap/type during
   // checkout shouldn't get punished by an unresponsive timer. When the
@@ -335,12 +367,23 @@ export function MobileCheckout({
           </span>
         </div>
         <button
-          disabled={!accepted || holdRemaining <= 0}
+          type="button"
+          onClick={handlePay}
+          disabled={!accepted || holdRemaining <= 0 || submitting}
           className="flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Pay {formatPrice(total)} <Icon name="arrowR" size={16} />
+          {submitting ? "Starting payment…" : `Pay ${formatPrice(total)}`}
+          {!submitting && <Icon name="arrowR" size={16} />}
         </button>
       </div>
+      {submitError && (
+        <div
+          role="alert"
+          className="border-t border-danger/40 bg-danger/5 px-5 py-2 text-[12px] text-danger"
+        >
+          {submitError}
+        </div>
+      )}
     </div>
   );
 }
