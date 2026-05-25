@@ -105,6 +105,9 @@ export const MyTicketsViewSchema = z.object({
   venue_name: z.string().nullable(),
   venue_address: z.string().nullable(),
   event_starts_at: z.string().datetime({ offset: true }).nullable(),
+  order_item_status: z.enum(["pending", "issued", "transferred", "checked_in", "revoked", "refunded"]),
+  refunded_at: z.string().datetime({ offset: true }).nullable(),
+  transferred_from_order_item_id: z.string().uuid().nullable(),
 })
 
 export type MyTicketsView = z.infer<typeof MyTicketsViewSchema>

@@ -22,6 +22,13 @@ import { PHOTOS } from "@/lib/photos";
  * and Resell (→ /tickets/[id]/resale).
  * ────────────────────────────────────────────────────────────── */
 
+type TicketDisplayStatus =
+  | "issued"
+  | "checked_in"
+  | "transferred"
+  | "refunded"
+  | "revoked";
+
 interface TicketViewProps {
   ticket?: TicketData;
 }
@@ -44,6 +51,7 @@ interface TicketData {
   venueDistanceKm: number;
   qrCode: string;
   isValid: boolean;
+  status?: TicketDisplayStatus;
 }
 
 const DEFAULT_TICKET: TicketData = {
@@ -64,9 +72,47 @@ const DEFAULT_TICKET: TicketData = {
   venueDistanceKm: 12,
   qrCode: "TKT-9X2K-LM4P",
   isValid: true,
+  status: "issued",
+};
+
+const STATUS_BADGE: Record<
+  TicketDisplayStatus,
+  { chip: { label: string; variant?: "accent"; className?: string }; headline: string; copy: string }
+> = {
+  issued: {
+    chip: { label: "Valid", variant: "accent" },
+    headline: "Valid for entry",
+    copy: "Show this QR at the gate.",
+  },
+  checked_in: {
+    chip: { label: "Checked in", className: "border-transparent bg-line/40 text-ink-3" },
+    headline: "Already checked in",
+    copy: "This ticket has been scanned and used.",
+  },
+  transferred: {
+    chip: {
+      label: "↗ Transferred",
+      className: "border-transparent bg-[#fdf0ec] text-[#c1422b]",
+    },
+    headline: "Transferred to someone else",
+    copy: "You no longer own this ticket. The QR is hidden.",
+  },
+  refunded: {
+    chip: { label: "Refunded", className: "border-transparent bg-line/40 text-ink-3" },
+    headline: "Refunded",
+    copy: "This ticket has been refunded and is no longer valid.",
+  },
+  revoked: {
+    chip: { label: "Revoked", className: "border-transparent bg-danger/10 text-danger" },
+    headline: "Revoked",
+    copy: "This ticket was revoked by the organizer and won't scan at the gate.",
+  },
 };
 
 export function TicketView({ ticket = DEFAULT_TICKET }: TicketViewProps) {
+  const status: TicketDisplayStatus = ticket.status ?? (ticket.isValid ? "issued" : "checked_in");
+  const badge = STATUS_BADGE[status];
+  const canTransferOrResell = status === "issued";
   return (
     <div className="min-h-dvh bg-ink text-white">
       <div className="h-14" />
@@ -110,11 +156,9 @@ export function TicketView({ ticket = DEFAULT_TICKET }: TicketViewProps) {
                 </span>
               </div>
               <span className="flex-1" />
-              {ticket.isValid && (
-                <Chip variant="accent" size="sm">
-                  Valid
-                </Chip>
-              )}
+              <Chip variant={badge.chip.variant} size="sm" className={badge.chip.className}>
+                {badge.chip.label}
+              </Chip>
             </div>
 
             <Divider />
@@ -153,42 +197,56 @@ export function TicketView({ ticket = DEFAULT_TICKET }: TicketViewProps) {
             <span className="absolute inset-x-6 top-[10px] border-t-2 border-dashed border-line-2" />
           </div>
 
-          {/* QR half */}
-          <div className="p-4 text-center">
-            <div className="text-label mb-3.5">Scan at gate</div>
-            <div className="inline-block rounded-xl border border-line bg-bg p-2.5 text-ink">
-              <QRPattern size={150} seed={ticket.qrCode} />
+          {/* QR half — only valid tickets render the scannable QR. */}
+          {ticket.isValid ? (
+            <div className="p-4 text-center">
+              <div className="text-label mb-3.5">Scan at gate</div>
+              <div className="inline-block rounded-xl border border-line bg-bg p-2.5 text-ink">
+                <QRPattern size={150} seed={ticket.qrCode} />
+              </div>
+              <div className="mt-3 font-mono text-[11px] tracking-[0.04em] text-ink-3">
+                {ticket.qrCode}
+              </div>
+              <div className="mt-3 flex items-center justify-center gap-3.5">
+                <Button variant="default" size="xs">
+                  <Icon name="wallet" size={14} /> Wallet
+                </Button>
+                <Button variant="default" size="xs">
+                  <Icon name="download" size={14} /> Save
+                </Button>
+              </div>
             </div>
-            <div className="mt-3 font-mono text-[11px] tracking-[0.04em] text-ink-3">
-              {ticket.qrCode}
+          ) : (
+            <div className="p-4 text-center" role="status">
+              <div className="text-label mb-2">No QR</div>
+              <p className="mx-auto max-w-[280px] text-[14px] font-semibold text-ink">
+                {badge.headline}
+              </p>
+              <p className="mx-auto mt-1.5 max-w-[280px] text-[12px] text-ink-3">
+                {badge.copy}
+              </p>
             </div>
-            <div className="mt-3 flex items-center justify-center gap-3.5">
-              <Button variant="default" size="xs">
-                <Icon name="wallet" size={14} /> Wallet
-              </Button>
-              <Button variant="default" size="xs">
-                <Icon name="download" size={14} /> Save
-              </Button>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Quick actions */}
-      <div className="grid grid-cols-2 gap-2 px-5 pb-6 pt-3">
-        <Link
-          href={`/tickets/${ticket.id}/transfer`}
-          className="inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] border border-white/15 bg-white/[0.08] px-3 py-3 text-[13px] font-medium text-white hover:bg-white/15"
-        >
-          <Icon name="arrowUR" size={16} /> Transfer
-        </Link>
-        <Link
-          href={`/tickets/${ticket.id}/resale`}
-          className="inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] border border-white/15 bg-white/[0.08] px-3 py-3 text-[13px] font-medium text-white hover:bg-white/15"
-        >
-          <Icon name="copy" size={16} /> Resell
-        </Link>
-      </div>
+      {/* Quick actions — only available while the ticket is valid. */}
+      {canTransferOrResell && (
+        <div className="grid grid-cols-2 gap-2 px-5 pb-6 pt-3">
+          <Link
+            href={`/tickets/${ticket.id}/transfer`}
+            className="inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] border border-white/15 bg-white/[0.08] px-3 py-3 text-[13px] font-medium text-white hover:bg-white/15"
+          >
+            <Icon name="arrowUR" size={16} /> Transfer
+          </Link>
+          <Link
+            href={`/tickets/${ticket.id}/resale`}
+            className="inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] border border-white/15 bg-white/[0.08] px-3 py-3 text-[13px] font-medium text-white hover:bg-white/15"
+          >
+            <Icon name="copy" size={16} /> Resell
+          </Link>
+        </div>
+      )}
 
       {/* Pagination dots */}
       {ticket.totalInOrder > 1 && (

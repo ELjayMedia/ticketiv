@@ -27,9 +27,17 @@ import { PHOTOS } from "@/lib/photos";
 
 type Segment = "upcoming" | "past" | "transfers";
 
+type TicketDisplayStatus =
+  | "issued"
+  | "checked_in"
+  | "transferred"
+  | "refunded"
+  | "revoked";
+
 interface MyTicketsProps {
   featured?: FeaturedTicket;
   upcoming?: TicketListItem[];
+  past?: TicketListItem[];
   inboundTransfer?: InboundTransfer | null;
   counts?: { upcoming: number; past: number; transfers: number };
 }
@@ -43,6 +51,8 @@ interface FeaturedTicket {
   venueLabel: string;
   seatLabel: string;
   daysUntil: number;
+  urgencyLabel: string;
+  isEventDay: boolean;
 }
 
 interface TicketListItem {
@@ -52,8 +62,31 @@ interface TicketListItem {
   whenLabel: string;
   venueLabel: string;
   count: number;
-  status: "issued" | "transferred";
+  status: TicketDisplayStatus;
 }
+
+const STATUS_CHIP: Record<
+  TicketDisplayStatus,
+  { label: string; className?: string; variant?: "accent" }
+> = {
+  issued: { label: "Issued", variant: "accent" },
+  checked_in: {
+    label: "Checked in",
+    className: "border-transparent bg-line/40 text-ink-3",
+  },
+  transferred: {
+    label: "↗ Transferred",
+    className: "border-transparent bg-[#fdf0ec] text-[#c1422b]",
+  },
+  refunded: {
+    label: "Refunded",
+    className: "border-transparent bg-line/40 text-ink-3 line-through",
+  },
+  revoked: {
+    label: "Revoked",
+    className: "border-transparent bg-danger/10 text-danger",
+  },
+};
 
 interface InboundTransfer {
   fromName: string;
@@ -71,6 +104,8 @@ const DEFAULT_FEATURED: FeaturedTicket = {
   venueLabel: "Cafe Natarani",
   seatLabel: "seats C-4, C-5",
   daysUntil: 4,
+  urgencyLabel: "IN 4 DAYS",
+  isEventDay: false,
 };
 
 const DEFAULT_UPCOMING: TicketListItem[] = [
@@ -113,6 +148,7 @@ const DEFAULT_INBOUND: InboundTransfer = {
 export function MyTickets({
   featured,
   upcoming,
+  past,
   inboundTransfer,
   counts,
 }: MyTicketsProps) {
@@ -125,9 +161,10 @@ export function MyTickets({
     featured === undefined && upcoming === undefined && counts === undefined;
   const _featured = featured ?? (isDemo ? DEFAULT_FEATURED : undefined);
   const _upcoming = upcoming ?? (isDemo ? DEFAULT_UPCOMING : []);
+  const _past = past ?? [];
   const _inbound =
     inboundTransfer === undefined && isDemo ? DEFAULT_INBOUND : inboundTransfer;
-  const _counts = counts ?? { upcoming: _upcoming.length, past: 0, transfers: 0 };
+  const _counts = counts ?? { upcoming: _upcoming.length, past: _past.length, transfers: 0 };
   const hasUpcoming = Boolean(_featured) || _upcoming.length > 0;
 
   return (
@@ -186,13 +223,28 @@ export function MyTickets({
           {_featured && (
           <section className="px-5 pb-4">
             <Card className="overflow-hidden border-accent">
-              <div className="flex items-center gap-1.5 bg-accent-soft px-3.5 py-2">
+              <div
+                className={
+                  "flex items-center gap-1.5 px-3.5 py-2 " +
+                  (_featured.isEventDay ? "bg-accent text-white" : "bg-accent-soft")
+                }
+              >
                 <LiveDot />
-                <span className="font-mono text-[11px] font-semibold uppercase text-accent">
-                  In {_featured.daysUntil} days
+                <span
+                  className={
+                    "font-mono text-[11px] font-semibold uppercase " +
+                    (_featured.isEventDay ? "text-white" : "text-accent")
+                  }
+                >
+                  {_featured.urgencyLabel}
                 </span>
                 <span className="flex-1" />
-                <span className="font-mono text-[10px] text-ink-3">
+                <span
+                  className={
+                    "font-mono text-[10px] " +
+                    (_featured.isEventDay ? "text-white/85" : "text-ink-3")
+                  }
+                >
                   #{_featured.orderNumber}
                 </span>
               </div>
@@ -278,18 +330,7 @@ export function MyTickets({
                         {t.whenLabel} · {t.venueLabel}
                       </span>
                       <div className="mt-1 flex gap-1">
-                        {t.status === "transferred" ? (
-                          <Chip
-                            size="sm"
-                            className="border-transparent bg-[#fdf0ec] text-[#c1422b]"
-                          >
-                            ↗ Transferred
-                          </Chip>
-                        ) : (
-                          <Chip variant="accent" size="sm">
-                            {t.count} ticket{t.count > 1 ? "s" : ""}
-                          </Chip>
-                        )}
+                        <StatusChip status={t.status} count={t.count} />
                       </div>
                     </div>
                   </Link>
@@ -302,7 +343,12 @@ export function MyTickets({
                       <Icon name="ticket" size={14} />
                     </Link>
                   ) : (
-                    <Icon name="chevR" size={16} className="text-ink-3" />
+                    <Icon
+                      name="chevR"
+                      size={16}
+                      className="text-ink-3"
+                      aria-hidden
+                    />
                   )}
                 </Card>
               </li>
@@ -364,15 +410,40 @@ export function MyTickets({
       )}
 
       {seg === "past" && (
-        <EmptyState
-          icon="ticket"
-          title={_counts.past === 0 ? "No past tickets" : "Past tickets"}
-          subtitle={
-            _counts.past === 0
-              ? "Events you've attended will show up here once they're done."
-              : `${_counts.past} events you've been to.`
-          }
-        />
+        _past.length === 0 ? (
+          <EmptyState
+            icon="ticket"
+            title="No past tickets"
+            subtitle="Events you've attended will show up here once they're done."
+          />
+        ) : (
+          <ul className="flex flex-col gap-2 px-5">
+            {_past.map((t) => (
+              <li key={t.ticketId}>
+                <Link
+                  href={`/tickets/${t.ticketId}`}
+                  className="flex items-center gap-3 rounded-[var(--radius-md)] border border-line bg-surface p-3 transition-colors hover:bg-bg"
+                >
+                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-[var(--radius)] opacity-80">
+                    <Photo src={t.photo} height={48} />
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-[14px] font-semibold">
+                      {t.title}
+                    </span>
+                    <span className="truncate font-mono text-[11px] text-ink-3">
+                      {t.whenLabel} · {t.venueLabel}
+                    </span>
+                    <div className="mt-1 flex gap-1">
+                      <StatusChip status={t.status} count={t.count} />
+                    </div>
+                  </div>
+                  <Icon name="chevR" size={16} className="text-ink-3" aria-hidden />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )
       )}
 
       {seg === "transfers" && (
@@ -383,6 +454,22 @@ export function MyTickets({
         />
       )}
     </div>
+  );
+}
+
+function StatusChip({ status, count }: { status: TicketDisplayStatus; count: number }) {
+  const config = STATUS_CHIP[status];
+  if (status === "issued") {
+    return (
+      <Chip variant="accent" size="sm">
+        {count} ticket{count > 1 ? "s" : ""}
+      </Chip>
+    );
+  }
+  return (
+    <Chip size="sm" className={config.className}>
+      {config.label}
+    </Chip>
   );
 }
 
