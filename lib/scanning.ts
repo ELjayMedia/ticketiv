@@ -26,7 +26,17 @@ export interface ValidateQrCodeInput {
 
 export interface ValidateQrCodeResult {
   valid: boolean
-  status: "validated" | "duplicate" | "not_found" | "wrong_event" | "revoked" | "unauthorized" | "offline" | "error"
+  status:
+    | "validated"
+    | "duplicate"
+    | "not_found"
+    | "wrong_event"
+    | "revoked"
+    | "refunded"
+    | "not_paid"
+    | "unauthorized"
+    | "offline"
+    | "error"
   message: string
   orderItem?: TicketLikeOrderItem | null
   scan?: Record<string, any> | null
@@ -317,10 +327,11 @@ export async function validateQrCode(input: ValidateQrCodeInput): Promise<Valida
       notes: `Order status is ${order?.status ?? "unknown"}`,
     })
 
-    return { valid: false, status: "error", message: "Ticket has not been paid for", orderItem, scan }
+    return { valid: false, status: "not_paid", message: "Order has not been paid", orderItem, scan }
   }
 
-  if (["revoked", "refunded"].includes(orderItem.status)) {
+  // Split refunded and revoked so the scanner UI can show distinct copy.
+  if (orderItem.status === "refunded") {
     const scan = await recordScan(supabase, {
       eventId: input.eventId,
       orderItemId: orderItem.id,
@@ -330,10 +341,26 @@ export async function validateQrCode(input: ValidateQrCodeInput): Promise<Valida
       gate: input.gate,
       outcome: "revoked",
       scannedAt,
-      notes: `Ticket status is ${orderItem.status}`,
+      notes: "Ticket has been refunded",
     })
 
-    return { valid: false, status: "revoked", message: "Ticket is no longer valid", orderItem, scan }
+    return { valid: false, status: "refunded", message: "Ticket has been refunded", orderItem, scan }
+  }
+
+  if (orderItem.status === "revoked") {
+    const scan = await recordScan(supabase, {
+      eventId: input.eventId,
+      orderItemId: orderItem.id,
+      code: input.code,
+      deviceId: input.deviceId,
+      sessionId: input.sessionId,
+      gate: input.gate,
+      outcome: "revoked",
+      scannedAt,
+      notes: "Ticket has been revoked",
+    })
+
+    return { valid: false, status: "revoked", message: "Ticket has been revoked", orderItem, scan }
   }
 
   const { data: previousScan } = await supabase

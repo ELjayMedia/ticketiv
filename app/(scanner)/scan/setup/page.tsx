@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
@@ -9,6 +9,21 @@ import { Card, CardBody } from "@/components/quiet/ui/card"
 import { FormField } from "@/components/quiet/ui/form"
 import { Icon } from "@/components/quiet/ui/icon"
 import { cn } from "@/lib/cn"
+import {
+  loadDeviceId,
+  loadDeviceName,
+  loadSelectedEvent,
+  saveDeviceName,
+  saveSelectedEvent,
+  type SelectedScannerEvent,
+} from "@/lib/scanner/session-store"
+
+interface AssignedEvent {
+  id: string
+  title: string
+  starts_at: string | null
+  venue_name: string | null
+}
 
 const selectClass =
   "rounded-md border border-line-2 bg-surface px-3 py-2.5 text-[14px] font-medium text-ink outline-none transition-shadow duration-100 focus:border-accent focus:ring-[3px] focus:ring-accent-soft"
@@ -24,7 +39,7 @@ function ProgressDots({ step }: { step: number }) {
             <span
               className={cn(
                 "inline-flex h-8 w-8 items-center justify-center rounded-full font-mono text-[12px] font-bold",
-                complete || current ? "bg-accent text-white" : "border border-line-2 text-ink-3"
+                complete || current ? "bg-accent text-white" : "border border-line-2 text-ink-3",
               )}
             >
               {complete ? <Icon name="check" size={14} /> : s}
@@ -46,13 +61,66 @@ function StepHeader({ title, description }: { title: string; description: string
   )
 }
 
+function formatStarts(value: string | null): string {
+  if (!value) return ""
+  try {
+    return new Date(value).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+  } catch {
+    return value
+  }
+}
+
 export default function ScannerSetupPage() {
   const router = useRouter()
   const [step, setStep] = useState(1)
   const [deviceName, setDeviceName] = useState("")
   const [eventId, setEventId] = useState("")
+  const [events, setEvents] = useState<AssignedEvent[] | null>(null)
+  const [eventsError, setEventsError] = useState<string | null>(null)
+  const [deviceId, setDeviceId] = useState("device-…")
+
+  // Restore any previously-persisted setup so the staff member doesn't
+  // have to retype things between shift breaks or page reloads.
+  useEffect(() => {
+    setDeviceId(loadDeviceId())
+    const existingName = loadDeviceName()
+    if (existingName) setDeviceName(existingName)
+    const existingEvent = loadSelectedEvent()
+    if (existingEvent) setEventId(existingEvent.id)
+  }, [])
+
+  // Lazy-load the events list when the user advances past step 1 — keeps
+  // the initial paint cheap when the device is being unboxed.
+  useEffect(() => {
+    if (step < 2 || events !== null) return
+    let cancelled = false
+    fetch("/api/scanner/events", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Unable to load events")
+        const data = (await response.json()) as { events: AssignedEvent[] }
+        if (!cancelled) setEvents(data.events ?? [])
+      })
+      .catch((error) => {
+        if (!cancelled) setEventsError(error?.message ?? "Unable to load events")
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [step, events])
+
+  const selectedEvent = events?.find((event) => event.id === eventId) ?? null
 
   const handleComplete = () => {
+    saveDeviceName(deviceName.trim())
+    if (selectedEvent) {
+      const payload: SelectedScannerEvent = {
+        id: selectedEvent.id,
+        title: selectedEvent.title,
+        venueName: selectedEvent.venue_name,
+        startsAt: selectedEvent.starts_at,
+      }
+      saveSelectedEvent(payload)
+    }
     router.push("/scan")
   }
 
@@ -66,7 +134,7 @@ export default function ScannerSetupPage() {
           value={deviceName}
           onChange={(e) => setDeviceName(e.target.value)}
         />
-        <Button variant="primary" size="md" onClick={() => setStep(2)} disabled={!deviceName} block>
+        <Button variant="primary" size="md" onClick={() => setStep(2)} disabled={!deviceName.trim()} block>
           Continue
         </Button>
       </CardBody>
@@ -76,21 +144,48 @@ export default function ScannerSetupPage() {
   const stepTwo = (
     <Card>
       <CardBody className="flex flex-col gap-5">
-        <StepHeader title="Select event" description="Choose which event you’ll be scanning tickets for." />
-        <label className="flex flex-col gap-1">
-          <span className="text-label">Event</span>
-          <select value={eventId} onChange={(e) => setEventId(e.target.value)} className={selectClass}>
-            <option value="">Select event…</option>
-            <option value="event1">AfroFest 2025</option>
-            <option value="event2">Tech Summit</option>
-            <option value="event3">Jazz Night</option>
-          </select>
-        </label>
+        <StepHeader
+          title="Select event"
+          description="Only events you've been assigned as scanner staff will appear here."
+        />
+        {eventsError ? (
+          <p role="alert" className="rounded-md border border-danger/40 bg-danger/5 px-3 py-2 text-[13px] text-danger">
+            {eventsError}
+          </p>
+        ) : events === null ? (
+          <p className="text-[13px] text-ink-3">Loading events…</p>
+        ) : events.length === 0 ? (
+          <p className="rounded-md border border-line bg-bg px-3 py-3 text-[13px] text-ink-3">
+            You aren't on the scanner staff for any active event. Ask the organizer to add you to <em>Event staff</em>.
+          </p>
+        ) : (
+          <label className="flex flex-col gap-1">
+            <span className="text-label">Event</span>
+            <select value={eventId} onChange={(e) => setEventId(e.target.value)} className={selectClass}>
+              <option value="">Select event…</option>
+              {events.map((event) => (
+                <option key={event.id} value={event.id}>
+                  {event.title}
+                  {event.starts_at ? ` · ${formatStarts(event.starts_at)}` : ""}
+                </option>
+              ))}
+            </select>
+            {selectedEvent?.venue_name && (
+              <span className="font-mono text-[11px] uppercase tracking-wide text-ink-3">{selectedEvent.venue_name}</span>
+            )}
+          </label>
+        )}
         <div className="flex gap-3">
           <Button variant="outline" size="md" onClick={() => setStep(1)} className="flex-1">
             Back
           </Button>
-          <Button variant="primary" size="md" onClick={() => setStep(3)} disabled={!eventId} className="flex-1">
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => setStep(3)}
+            disabled={!eventId || !selectedEvent}
+            className="flex-1"
+          >
             Continue
           </Button>
         </div>
@@ -111,14 +206,20 @@ export default function ScannerSetupPage() {
         </div>
 
         <div className="flex flex-col gap-2 rounded-[var(--radius-md)] border border-line bg-bg p-3 text-[12px]">
-          <div className="flex justify-between">
+          <div className="flex justify-between gap-2">
             <span className="text-ink-3">Device ID</span>
-            <span className="font-mono text-ink">DEV-{Math.random().toString(36).substring(7).toUpperCase()}</span>
+            <span className="font-mono text-ink truncate">{deviceId}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex justify-between gap-2">
             <span className="text-ink-3">Event</span>
-            <span className="font-semibold text-ink">AfroFest 2025</span>
+            <span className="font-semibold text-ink truncate">{selectedEvent?.title ?? ""}</span>
           </div>
+          {selectedEvent?.venue_name && (
+            <div className="flex justify-between gap-2">
+              <span className="text-ink-3">Venue</span>
+              <span className="text-ink truncate">{selectedEvent.venue_name}</span>
+            </div>
+          )}
         </div>
 
         <Button variant="primary" size="md" onClick={handleComplete} block>
