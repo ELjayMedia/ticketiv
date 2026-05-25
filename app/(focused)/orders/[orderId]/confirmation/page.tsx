@@ -6,13 +6,19 @@ import { mapConfirmation } from "@/lib/mappers/confirmation";
 /**
  * `/orders/[orderId]/confirmation`
  *
- * Reached after the payment-gateway callback writes the order to Supabase
- * and webhook-issues the ticket records. RLS keeps the data scoped to the
- * authenticated buyer; non-owners hit notFound().
+ * Reached after the payment-gateway callback. The webhook (separate request
+ * from the buyer's redirect) is what flips `orders.status` to "paid" and
+ * issues the order_items. The page derives its UX state from the order row
+ * so a refresh after webhook arrival "just works".
+ *
+ * When the order is still "pending" we set a short meta-refresh so the
+ * buyer doesn't have to manually reload while we wait for the webhook.
  */
 export const metadata = { title: "You're going" };
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
+
+const PENDING_REFRESH_SECONDS = 4;
 
 export default async function ConfirmationPage({
   params,
@@ -23,9 +29,14 @@ export default async function ConfirmationPage({
   const order = await getOrderForBuyer(orderId);
   if (!order) notFound();
 
+  const props = mapConfirmation(order);
+
   return (
     <div className="h-dvh">
-      <OrderConfirmation order={mapConfirmation(order)} />
+      {props.state === "pending" && (
+        <meta httpEquiv="refresh" content={String(PENDING_REFRESH_SECONDS)} />
+      )}
+      <OrderConfirmation order={props} />
     </div>
   );
 }

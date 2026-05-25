@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { PHOTOS } from "@/lib/photos";
 import { formatPrice, formatHoldTimer } from "@/lib/format";
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
+import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/actions";
 
 /* ──────────────────────────────────────────────────────────────
  * Desktop checkout · `/events/[id]/checkout` on md+
@@ -27,11 +28,14 @@ import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
 
 interface DesktopCheckoutProps {
   eventId: string;
+  /** Event UUID for server-side order creation (eventId is the slug). */
+  eventUuid: string;
   eventTitle: string;
   eventPhoto: string;
   eventWhenLabel: string;
   /** Seats already picked, e.g. ["C-4", "C-5"]; empty for GA */
   seats?: string[];
+  ticketTypeId: string;
   ticketTypeName: string;
   quantity: number;
   subtotalMinor: number;
@@ -50,10 +54,12 @@ const STEPS = [
 
 export function DesktopCheckout({
   eventId,
+  eventUuid,
   eventTitle,
   eventPhoto,
   eventWhenLabel,
   seats = ["C-4", "C-5"],
+  ticketTypeId,
   ticketTypeName,
   quantity,
   subtotalMinor,
@@ -64,6 +70,32 @@ export function DesktopCheckout({
 }: DesktopCheckoutProps) {
   const [holdRemaining, setHoldRemaining] = React.useState(holdSeconds);
   const [guaranteeOpen, setGuaranteeOpen] = React.useState(false);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
+
+  async function handleContinueToPayment() {
+    setSubmitError(null);
+    if (!ticketTypeId) {
+      setSubmitError("Select a ticket type before continuing.");
+      return;
+    }
+    setSubmitting(true);
+    const result = await startCheckoutAction({
+      eventId: eventUuid,
+      buyerEmail: "",
+      items: [{ ticketTypeId, quantity }],
+    });
+    if (!result.ok) {
+      setSubmitError(result.error);
+      setSubmitting(false);
+      return;
+    }
+    if (result.checkoutUrl) {
+      window.location.href = result.checkoutUrl;
+    } else {
+      router.push(`/orders/${result.orderId}/confirmation`);
+    }
+  }
 
   const router = useRouter();
   const { stats: liveStats } = useEventLiveStats(eventId);
@@ -239,13 +271,26 @@ export function DesktopCheckout({
             )}
           </Card>
 
-          <div className="flex items-center gap-2">
-            <Button variant="default" className="flex-1">
-              Back
-            </Button>
-            <button className="flex flex-[2] items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-2.5 text-[14px] font-semibold text-white hover:opacity-90">
-              Continue to payment <Icon name="arrowR" size={14} />
-            </button>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Button variant="default" className="flex-1">
+                Back
+              </Button>
+              <button
+                type="button"
+                onClick={handleContinueToPayment}
+                disabled={submitting}
+                className="flex flex-[2] items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-2.5 text-[14px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {submitting ? "Starting payment…" : "Continue to payment"}
+                {!submitting && <Icon name="arrowR" size={14} />}
+              </button>
+            </div>
+            {submitError && (
+              <div role="alert" className="rounded-md border border-danger/40 bg-danger/5 px-3 py-2 text-[12px] text-danger">
+                {submitError}
+              </div>
+            )}
           </div>
         </div>
 

@@ -90,6 +90,7 @@ export default async function CheckoutPage({
       <div className="h-dvh md:hidden">
         <MobileCheckout
           {...sharedProps}
+          eventUuid={row.id}
           ticketTypes={mappedTypes}
           bookingFeeMinor={bookingFee}
         />
@@ -97,6 +98,8 @@ export default async function CheckoutPage({
       <div className="hidden md:block">
         <DesktopCheckout
           {...sharedProps}
+          eventUuid={row.id}
+          ticketTypeId={firstSellable?.id ?? ""}
           ticketTypeName={firstSellable?.name ?? "General"}
           quantity={1}
           subtotalMinor={subtotalForFirst}

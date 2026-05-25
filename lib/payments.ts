@@ -93,7 +93,10 @@ function getBuyerEmail(order: LiveOrder) {
 
 async function initializePaystackTransaction(order: LiveOrder, reference: string, returnUrl?: string | null) {
   const settings = await getPaystackSettings()
-  const callbackUrl = returnUrl ?? settings.callbackUrl ?? `${APP_URL}/orders/${order.id}`
+  // The buyer is sent here by Paystack after the hosted page. The webhook
+  // is what actually moves the order to "paid"; this URL just lands them
+  // on the confirmation page which polls until the webhook completes.
+  const callbackUrl = returnUrl ?? settings.callbackUrl ?? `${APP_URL}/orders/${order.id}/confirmation`
 
   const response = await fetch("https://api.paystack.co/transaction/initialize", {
     method: "POST",

@@ -36,6 +36,9 @@ const DEMO_PROMO = {
 const DEMO_ORDER = {
   id: "ord_demo_001",
   orderNumber: "RG7352",
+  state: "paid" as const,
+  headline: "You're going.",
+  statusNote: "Tickets issued",
   eventTitle: "Tribal Tales",
   eventSubtitle: "SUNSET SET BY DJ FUN",
   eventPhoto: PHOTOS.dj_set,
@@ -47,6 +50,7 @@ const DEMO_ORDER = {
   totalMinor: 101800,
   paymentDescription: "Visa ••42",
   receiptEmail: "you@example.com",
+  eventSlug: "tribal-tales",
   firstTicketId: "tkt_demo_001",
 };
 
@@ -121,6 +125,7 @@ export default function PreviewIndexPage() {
             <PhoneShell>
               <MobileCheckout
                 eventId="tribal-tales"
+                eventUuid="00000000-0000-0000-0000-000000000000"
                 eventTitle="Tribal Tales"
                 eventPhoto={PHOTOS.dj_set}
                 eventWhenLabel="Wed 30 Aug · 15:50"
@@ -138,9 +143,11 @@ export default function PreviewIndexPage() {
             >
               <DesktopCheckout
                 eventId="tribal-tales"
+                eventUuid="00000000-0000-0000-0000-000000000000"
                 eventTitle="Tribal Tales"
                 eventPhoto={PHOTOS.dj_set}
                 eventWhenLabel="Wed 30 Aug · 15:50"
+                ticketTypeId="00000000-0000-0000-0000-000000000000"
                 ticketTypeName="Regular"
                 quantity={2}
                 subtotalMinor={100000}
