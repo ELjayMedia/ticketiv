@@ -1,4 +1,5 @@
 import { ResaleCheckoutReview } from "@/components/quiet/screens/resale/resale-checkout-review";
+import { CheckoutStatusPoller } from "@/components/quiet/screens/checkout/checkout-status-poller";
 import { getResaleCheckoutPaymentStatus } from "@/lib/data/attendee/resale-checkout";
 import { getPublicTicketListing } from "@/lib/data/attendee/ticket-listings";
 
@@ -20,11 +21,14 @@ export default async function ResaleCheckoutPage({
   const paymentStatus = await getResaleCheckoutPaymentStatus(paymentId);
 
   return (
-    <ResaleCheckoutReview
-      listing={listing}
-      pendingOrderId={orderId}
-      pendingPaymentId={paymentId}
-      paymentStatus={paymentStatus}
-    />
+    <>
+      <CheckoutStatusPoller active={Boolean(paymentId) && paymentStatus?.isSucceeded !== true} />
+      <ResaleCheckoutReview
+        listing={listing}
+        pendingOrderId={orderId}
+        pendingPaymentId={paymentId}
+        paymentStatus={paymentStatus}
+      />
+    </>
   );
 }

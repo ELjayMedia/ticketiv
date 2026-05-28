@@ -244,6 +244,64 @@ export async function completeVerifiedPayment(input: CompleteVerifiedPaymentInpu
   return { payment, order: completed.order, items: completed.items }
 }
 
+/**
+ * Resale and waitlist checkouts create their `payments` row up front (tagged
+ * with payload.kind), unlike the primary flow which inserts the payment on
+ * success. When a verified webhook arrives for one of these orders we update
+ * that existing row to succeeded and hand off to the matching idempotent
+ * service-role completion function — never the primary completePaidOrder path.
+ *
+ * Returns { handled: false } when the order is a normal primary checkout so
+ * the caller can fall through.
+ */
+async function completeProviderCheckoutByKind(orderId: string, reference: string, payload: Record<string, any>) {
+  const admin = createAdminClient()
+
+  const { data: payments, error } = await admin
+    .from("payments")
+    .select("id, status, payload")
+    .eq("order_id", orderId)
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("[webhook] lookup resale/waitlist payment failed", error)
+    return { handled: false as const }
+  }
+
+  const payment = (payments ?? []).find((p) => {
+    const k = (p.payload as Record<string, any>)?.kind
+    return k === "resale_checkout" || k === "waitlist_checkout"
+  })
+  if (!payment) return { handled: false as const }
+
+  const kind = (payment.payload as Record<string, any>)?.kind as string
+
+  // Mark the existing payment succeeded (idempotent — already-succeeded is fine).
+  const mergedPayload = { ...(payment.payload as Record<string, any>), provider_reference: reference, webhook: payload }
+  const { error: updateError } = await admin
+    .from("payments")
+    .update({ status: "succeeded", ext_payment_id: reference, payload: mergedPayload })
+    .eq("id", payment.id)
+
+  if (updateError) {
+    console.error("[webhook] mark resale/waitlist payment succeeded failed", updateError)
+    throw new Error("Unable to update payment")
+  }
+
+  const rpc = kind === "resale_checkout" ? "fn_complete_resale_after_payment_webhook" : "fn_complete_waitlist_after_payment_webhook"
+  const { data: result, error: rpcError } = await admin.rpc(rpc, { p_payment_id: payment.id })
+
+  if (rpcError) {
+    // Leave the payment marked succeeded so a retry can re-attempt completion,
+    // but surface the failure so the webhook returns non-2xx and the provider
+    // redelivers.
+    console.error(`[webhook] ${rpc} failed`, rpcError)
+    throw new Error(`Completion failed: ${rpcError.message}`)
+  }
+
+  return { handled: true as const, kind, paymentId: payment.id, result }
+}
+
 export async function completePaystackPaymentFromWebhook(payload: Record<string, any>) {
   const data = payload?.data ?? {}
   const metadata = data?.metadata ?? {}
@@ -257,6 +315,12 @@ export async function completePaystackPaymentFromWebhook(payload: Record<string,
   if (status !== "success") {
     await failPaymentAttempt(orderId, "paystack", reference, payload)
     return { ok: true, status }
+  }
+
+  // Resale / waitlist orders complete through their dedicated idempotent path.
+  const kindResult = await completeProviderCheckoutByKind(orderId, reference, payload)
+  if (kindResult.handled) {
+    return { ok: true, kind: kindResult.kind, result: kindResult.result }
   }
 
   return completeVerifiedPayment({ orderId, provider: "paystack", extPaymentId: reference, payload })

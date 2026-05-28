@@ -81,6 +81,12 @@ export async function completeWaitlistCheckout(
   })
 
   if (error) {
+    // The provider webhook may have already fulfilled the offer. Treat that
+    // as success and send the buyer to their tickets.
+    if (error.message?.includes("not eligible for completion")) {
+      revalidatePath("/tickets")
+      redirect("/tickets?waitlist=fulfilled")
+    }
     console.error("[waitlist-checkout] complete after payment:", error)
     return { ok: false, message: "Payment is not confirmed yet. Once the provider marks it successful, your tickets can be issued." }
   }
