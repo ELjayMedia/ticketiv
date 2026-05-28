@@ -67,7 +67,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
-  const entries = (data ?? []) as GuestlistEntryRow[]
+  const entries = (data ?? []) as unknown as GuestlistEntryRow[]
   const fulfilmentCounts = await Promise.all(
     entries.map(async (entry) => {
       const { count } = await admin
@@ -144,7 +144,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     changes: { event_id: eventId, full_name: fullName, ticket_type_id: ticketTypeId, allocation },
   })
 
-  return NextResponse.json({ entry: { ...(entry as GuestlistEntryRow), fulfilled_count: 0 } }, { status: 201 })
+  return NextResponse.json({ entry: { ...(entry as unknown as GuestlistEntryRow), fulfilled_count: 0 } }, { status: 201 })
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
