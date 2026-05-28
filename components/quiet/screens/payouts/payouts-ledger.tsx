@@ -5,13 +5,24 @@ import * as React from "react"
 import { Card } from "@/components/quiet/ui/card"
 import { Button } from "@/components/quiet/ui/button"
 import { Icon } from "@/components/quiet/ui/icon"
+import { RequestPayoutButton } from "@/components/quiet/screens/payouts/request-payout-button"
 
 export interface PayoutsLedgerProps {
+  orgId: string
   orgName: string
   currency: string
   availableBalanceMinor: number
   onHoldMinor: number
   lifetimeGrossMinor: number
+  finance: {
+    grossMinor: number
+    feesMinor: number
+    netMinor: number
+    refundsMinor: number
+    paidOutMinor: number
+    pendingPayoutMinor: number
+    availableMinor: number
+  }
   primaryAccountLabel: string | null
   paymentReadiness: {
     status: "ready" | "needs_setup"
@@ -121,10 +132,30 @@ export function PayoutsLedger(p: PayoutsLedgerProps) {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="default" size="xs">Statements</Button>
-          <Button variant="accent" size="xs">
-            <Icon name="arrowUR" size={12} /> Request payout
-          </Button>
+          <RequestPayoutButton
+            orgId={p.orgId}
+            availableMinor={p.finance.availableMinor}
+            currency={p.currency}
+            eligible={p.finance.availableMinor > 0 && Boolean(p.primaryAccountLabel) && p.finance.pendingPayoutMinor === 0}
+            blockedReason={
+              !p.primaryAccountLabel
+                ? "Add a payout account first"
+                : p.finance.pendingPayoutMinor > 0
+                  ? "A payout is already in progress"
+                  : p.finance.availableMinor <= 0
+                    ? "No balance available to withdraw"
+                    : null
+            }
+          />
         </div>
+      </div>
+
+      {/* Finance breakdown */}
+      <div className="grid grid-cols-4 gap-3.5">
+        <KPI label="Gross sales" value={formatMoney(p.finance.grossMinor, p.currency)} sub="Ticket face value" />
+        <KPI label="Fees" value={formatMoney(p.finance.feesMinor, p.currency)} sub="Platform + processor" />
+        <KPI label="Refunds" value={formatMoney(p.finance.refundsMinor, p.currency)} sub="Returned to buyers" />
+        <KPI label="Net earned" value={formatMoney(p.finance.netMinor, p.currency)} sub="After fees" />
       </div>
 
       {/* KPIs */}
@@ -132,16 +163,17 @@ export function PayoutsLedger(p: PayoutsLedgerProps) {
         <KPI
           label="Available balance"
           value={formatMoney(p.availableBalanceMinor, p.currency)}
-          sub="Withdraw any time"
+          sub="Ready to withdraw"
         />
         <KPI
-          label="On hold"
-          value={formatMoney(p.onHoldMinor, p.currency)}
-          sub="Releases per ticket scan"
+          label="Pending payout"
+          value={formatMoney(p.finance.pendingPayoutMinor, p.currency)}
+          sub="Requested or processing"
         />
         <KPI
-          label="Lifetime gross"
-          value={formatMoney(p.lifetimeGrossMinor, p.currency)}
+          label="Paid out"
+          value={formatMoney(p.finance.paidOutMinor, p.currency)}
+          sub="Lifetime settled"
         />
         <KPI
           label="Payout account"

@@ -29,17 +29,9 @@ function payoutPatchFor(nextStatus: PayoutStatus) {
   const now = new Date().toISOString()
   const patch: Record<string, unknown> = { status: nextStatus }
 
-  if (nextStatus === "processing") {
-    patch.processing_started_at = now
-  }
-
-  if (nextStatus === "paid") {
-    patch.paid_at = now
-  }
-
-  if (nextStatus !== "paid") {
-    patch.paid_at = null
-  }
+  // `payouts` only carries `paid_at` for lifecycle timestamps. Stamp it on
+  // settlement, clear it otherwise so a re-opened payout doesn't look paid.
+  patch.paid_at = nextStatus === "paid" ? now : null
 
   return patch
 }
