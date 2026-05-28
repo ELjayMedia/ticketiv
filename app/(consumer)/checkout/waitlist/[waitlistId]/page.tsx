@@ -1,4 +1,5 @@
 import { WaitlistOfferCheckout } from "@/components/quiet/screens/waitlist/waitlist-offer-checkout";
+import { CheckoutStatusPoller } from "@/components/quiet/screens/checkout/checkout-status-poller";
 import { getMyWaitlistOffer } from "@/lib/data/attendee/waitlist";
 import { getWaitlistCheckoutPaymentStatus } from "@/lib/data/attendee/waitlist-checkout";
 
@@ -20,11 +21,14 @@ export default async function WaitlistOfferCheckoutPage({
   const paymentStatus = await getWaitlistCheckoutPaymentStatus(paymentId);
 
   return (
-    <WaitlistOfferCheckout
-      offer={offer}
-      pendingOrderId={orderId}
-      pendingPaymentId={paymentId}
-      paymentStatus={paymentStatus}
-    />
+    <>
+      <CheckoutStatusPoller active={Boolean(paymentId) && paymentStatus?.isSucceeded !== true} />
+      <WaitlistOfferCheckout
+        offer={offer}
+        pendingOrderId={orderId}
+        pendingPaymentId={paymentId}
+        paymentStatus={paymentStatus}
+      />
+    </>
   );
 }

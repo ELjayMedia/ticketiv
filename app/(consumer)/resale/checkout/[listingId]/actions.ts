@@ -81,6 +81,12 @@ export async function completeResaleCheckout(
   })
 
   if (error) {
+    // The provider webhook may have already completed the transfer (listing
+    // sold). Treat that as success and send the buyer to their tickets.
+    if (error.message?.includes("listing is not active")) {
+      revalidatePath("/tickets")
+      redirect("/tickets?resale=completed")
+    }
     console.error("[resale-checkout] complete after payment:", error)
     return { ok: false, message: "Payment is not confirmed yet. Once the provider marks it successful, your ticket transfer can be completed." }
   }
