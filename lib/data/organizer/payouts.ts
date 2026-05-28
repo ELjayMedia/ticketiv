@@ -71,12 +71,24 @@ export interface OrgPaymentReadiness {
   recentFailedAttempts: RecentPaymentAttemptStatus[]
 }
 
+export interface OrgFinanceSummary {
+  grossCents: number
+  feesCents: number
+  netCents: number
+  refundsCents: number
+  paidOutCents: number
+  pendingPayoutCents: number
+  availableCents: number
+}
+
 export interface OrgPayoutsOverview {
+  orgId: string
   orgName: string
   currency: string
   availableBalanceCents: number
   onHoldCents: number
   lifetimeGrossCents: number
+  finance: OrgFinanceSummary
   payouts: OrgPayoutRow[]
   ledger: OrgLedgerEntry[]
   accounts: OrgPayoutAccount[]
@@ -141,18 +153,29 @@ export async function getOrgPayoutsOverview(orgId: string): Promise<OrgPayoutsOv
   if (failedAttemptsRes.error) console.error("[payouts] payment_attempts:", failedAttemptsRes.error)
 
   const ledger = (ledgerRes.data ?? []) as OrgLedgerEntry[]
-  let availableBalanceCents = 0
-  let onHoldCents = 0
-  let lifetimeGrossCents = 0
 
-  for (const e of ledger) {
-    const amt = e.amount_cents ?? 0
-    availableBalanceCents += amt
-    if (e.type === "order_gross") {
-      lifetimeGrossCents += amt
-      if (e.payout_id === null) onHoldCents += amt
-    }
+  // Balance figures come from the SECURITY DEFINER summary RPC so the
+  // dashboard number and the payout-eligibility check share one source of
+  // truth (see fn_org_finance_summary). Falls back to zeroes on error.
+  const { data: summaryRaw, error: summaryError } = await supabase.rpc("fn_org_finance_summary", {
+    p_org_id: orgId,
+  })
+  if (summaryError) console.error("[payouts] fn_org_finance_summary:", summaryError)
+
+  const summary = (summaryRaw ?? {}) as Record<string, number>
+  const finance: OrgFinanceSummary = {
+    grossCents: summary.gross_cents ?? 0,
+    feesCents: summary.fees_cents ?? 0,
+    netCents: summary.net_cents ?? 0,
+    refundsCents: summary.refunds_cents ?? 0,
+    paidOutCents: summary.paid_out_cents ?? 0,
+    pendingPayoutCents: summary.pending_payout_cents ?? 0,
+    availableCents: summary.available_cents ?? 0,
   }
+
+  const availableBalanceCents = finance.availableCents
+  const onHoldCents = finance.pendingPayoutCents
+  const lifetimeGrossCents = finance.grossCents
 
   const recentFailedAttempts = (failedAttemptsRes.data ?? []).map((row) => ({
     id: row.id,
@@ -163,11 +186,13 @@ export async function getOrgPayoutsOverview(orgId: string): Promise<OrgPayoutsOv
   })) as RecentPaymentAttemptStatus[]
 
   return {
+    orgId,
     orgName: orgRes.data.name,
     currency,
     availableBalanceCents,
     onHoldCents: Math.max(0, onHoldCents),
     lifetimeGrossCents,
+    finance,
     payouts: payoutsRes.data ?? [],
     ledger,
     accounts: accountsRes.data ?? [],

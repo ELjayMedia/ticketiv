@@ -64,11 +64,21 @@ export function mapPayouts(o: OrgPayoutsOverview): PayoutsLedgerProps {
   })
 
   return {
+    orgId: o.orgId,
     orgName: o.orgName,
     currency: o.currency,
     availableBalanceMinor: o.availableBalanceCents,
     onHoldMinor: o.onHoldCents,
     lifetimeGrossMinor: o.lifetimeGrossCents,
+    finance: {
+      grossMinor: o.finance.grossCents,
+      feesMinor: o.finance.feesCents,
+      netMinor: o.finance.netCents,
+      refundsMinor: o.finance.refundsCents,
+      paidOutMinor: o.finance.paidOutCents,
+      pendingPayoutMinor: o.finance.pendingPayoutCents,
+      availableMinor: o.finance.availableCents,
+    },
     primaryAccountLabel,
     paymentReadiness: {
       status: paymentStatusLabel(hasRouting, hasProvider, hasPayoutAccount),
