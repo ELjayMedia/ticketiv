@@ -64,17 +64,27 @@ export default async function SuperAdminPage() {
       </section>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard title="Gross sales" value={formatMoneyFromCents(metrics.gross_revenue_cents)} detail={`${formatNumber(metrics.paid_orders)} paid orders`} icon="wallet" />
-        <MetricCard title="Platform fees" value={formatMoneyFromCents(metrics.platform_fee_cents)} detail="Tracked from paid orders" icon="wallet" />
-        <MetricCard title="Tickets issued" value={formatNumber(metrics.tickets_issued)} detail={`${checkInRate}% checked in`} icon="qr" />
-        <MetricCard title="System alerts" value={formatNumber(systemAlerts)} detail="Payments, jobs and webhooks" icon="bell" tone={systemAlerts ? "warning" : "normal"} />
+        <MetricCard title="Gross sales" value={formatMoneyFromCents(metrics.gross_revenue_cents)} detail={`${formatNumber(metrics.paid_orders)} paid orders`} icon="wallet" href="/super-admin/orders" />
+        <MetricCard title="Platform fees" value={formatMoneyFromCents(metrics.platform_fee_cents)} detail="Tracked from paid orders" icon="wallet" href="/super-admin/ledger-entries" />
+        <MetricCard title="Tickets issued" value={formatNumber(metrics.tickets_issued)} detail={`${checkInRate}% checked in`} icon="qr" href="/super-admin/order-items" />
+        <MetricCard title="System alerts" value={formatNumber(systemAlerts)} detail="Payments, jobs and webhooks" icon="bell" tone={systemAlerts ? "warning" : "normal"} href="/super-admin/payments" />
       </section>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <CompactStat title="Organizations" value={metrics.total_organizations} icon="users" />
         <CompactStat title="Events" value={metrics.total_events} helper={`${eventPublishRate}% published`} icon="cal" />
         <CompactStat title="Upcoming events" value={metrics.upcoming_events} helper={`${metrics.draft_events} drafts`} icon="trending" />
-        <CompactStat title="Pending payouts" value={metrics.pending_payouts} helper={formatMoneyFromCents(metrics.pending_payout_cents)} icon="wallet" />
+        <CompactStat title="Pending payouts" value={metrics.pending_payouts} helper={formatMoneyFromCents(metrics.pending_payout_cents)} icon="wallet" href="/super-admin/payouts" />
+      </section>
+
+      {/* Operational signals — each links to its detail view; failed/pending
+          states turn the card border to warning when non-zero. */}
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <CompactStat title="Failed payments" value={failedPaymentSignals} helper="Payments + attempts" icon="wallet" href="/super-admin/payments" tone="warning" />
+        <CompactStat title="Open refunds" value={metrics.open_refunds} helper={formatMoneyFromCents(metrics.open_refund_cents)} icon="fileText" href="/super-admin/refunds" tone="warning" />
+        <CompactStat title="Unprocessed webhooks" value={metrics.unprocessed_webhooks} helper="Awaiting delivery" icon="globe" href="/super-admin/webhooks" tone="warning" />
+        <CompactStat title="Failed jobs" value={metrics.failed_jobs} helper="Background queue" icon="settings" href="/super-admin/jobs" tone="warning" />
+        <CompactStat title="Scans · 24h" value={metrics.scans_last_24h} helper={`${formatNumber(metrics.tickets_checked_in)} checked in`} icon="qr" href="/super-admin/scans" />
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
@@ -294,25 +304,34 @@ function MetricCard({
   detail,
   icon,
   tone = "normal",
+  href,
 }: {
   title: string
   value: string
   detail: string
   icon: IconName
   tone?: "normal" | "warning"
+  href?: string
 }) {
-  return (
-    <Card className={cn(tone === "warning" && "border-warning/50")}>
-      <CardBody className="flex flex-col gap-1 p-5">
-        <div className="flex items-center justify-between">
-          <span className="text-label">{title}</span>
-          <Icon name={icon} size={14} className="text-ink-3" />
-        </div>
-        <p className="font-mono text-[22px] font-semibold tabular-nums text-ink">{value}</p>
-        <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">{detail}</p>
-      </CardBody>
-    </Card>
+  const inner = (
+    <CardBody className="flex flex-col gap-1 p-5">
+      <div className="flex items-center justify-between">
+        <span className="text-label">{title}</span>
+        <Icon name={icon} size={14} className="text-ink-3" />
+      </div>
+      <p className="font-mono text-[22px] font-semibold tabular-nums text-ink">{value}</p>
+      <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">{detail}</p>
+    </CardBody>
   )
+  const className = cn("h-full", tone === "warning" && "border-warning/50", href && "transition hover:bg-bg")
+  if (href) {
+    return (
+      <Link href={href} className="block">
+        <Card className={className}>{inner}</Card>
+      </Link>
+    )
+  }
+  return <Card className={className}>{inner}</Card>
 }
 
 function CompactStat({
@@ -320,28 +339,39 @@ function CompactStat({
   value,
   helper,
   icon,
+  href,
+  tone = "normal",
 }: {
   title: string
   value: number
   helper?: string
   icon: IconName
+  href?: string
+  tone?: "normal" | "warning"
 }) {
-  return (
-    <Card>
-      <CardBody className="flex items-center justify-between gap-3 p-4">
-        <div className="flex flex-col gap-1">
-          <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">{title}</p>
-          <p className="font-mono text-[22px] font-semibold tabular-nums text-ink">
-            {formatNumber(value)}
-          </p>
-          {helper ? <p className="font-mono text-[11px] text-ink-3">{helper}</p> : null}
-        </div>
-        <span className="rounded-[var(--radius-md)] border border-line bg-bg p-2 text-ink">
-          <Icon name={icon} size={16} />
-        </span>
-      </CardBody>
-    </Card>
+  const inner = (
+    <CardBody className="flex items-center justify-between gap-3 p-4">
+      <div className="flex flex-col gap-1">
+        <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">{title}</p>
+        <p className="font-mono text-[22px] font-semibold tabular-nums text-ink">
+          {formatNumber(value)}
+        </p>
+        {helper ? <p className="font-mono text-[11px] text-ink-3">{helper}</p> : null}
+      </div>
+      <span className="rounded-[var(--radius-md)] border border-line bg-bg p-2 text-ink">
+        <Icon name={icon} size={16} />
+      </span>
+    </CardBody>
   )
+  const className = cn("h-full", tone === "warning" && value > 0 && "border-warning/50", href && "transition hover:bg-bg")
+  if (href) {
+    return (
+      <Link href={href} className="block">
+        <Card className={className}>{inner}</Card>
+      </Link>
+    )
+  }
+  return <Card className={className}>{inner}</Card>
 }
 
 function CompactCategoryStat({
