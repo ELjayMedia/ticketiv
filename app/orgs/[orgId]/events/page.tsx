@@ -88,7 +88,6 @@ export default async function OrgEventsPage({ params }: { params: { orgId: strin
                 <Card className="flex h-full flex-col overflow-hidden transition-all duration-200 group-hover:border-line-2">
                   <div className="relative h-48 w-full overflow-hidden bg-bg">
                     {event.cover_image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={event.cover_image_url}
                         alt={event.title}

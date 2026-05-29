@@ -525,7 +525,6 @@ function ResultsList({
           >
             <div className="h-11 w-11 shrink-0 overflow-hidden rounded-[var(--radius)] bg-line">
               {r.cover && (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={r.cover}
                   alt=""

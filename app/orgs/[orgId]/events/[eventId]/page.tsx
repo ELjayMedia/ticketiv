@@ -56,7 +56,7 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
         {event.cover_image_url && (
           <Card className="overflow-hidden">
             <div className="h-64 w-full overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+              { }
               <img
                 src={event.cover_image_url}
                 alt={event.title}

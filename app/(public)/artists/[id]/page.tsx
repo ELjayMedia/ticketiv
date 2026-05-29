@@ -109,7 +109,7 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
         />
         <div className="flex flex-col gap-4 px-5 pb-5 sm:flex-row sm:items-start sm:px-6 sm:pb-6">
           <div className="-mt-12 h-20 w-20 overflow-hidden rounded-full border-4 border-surface bg-surface sm:-mt-16 sm:h-24 sm:w-24">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
+            { }
             <img
               src={(artist as any).avatar_url || "/placeholder.svg?height=200&width=200"}
               alt={artist.name}
