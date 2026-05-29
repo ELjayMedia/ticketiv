@@ -25,7 +25,10 @@ const EXPORTS: Record<string, ExportConfig> = {
   },
   payments: {
     table: "payments",
-    columns: ["id", "order_id", "provider", "status", "amount_cents", "currency", "ext_payment_id", "payload", "created_at"],
+    // `ext_payment_id` is the provider transaction reference (needed to match
+    // Paystack settlement lines). The raw `payload` is intentionally excluded
+    // — it's the full provider response and may carry authorization/card data.
+    columns: ["id", "order_id", "provider", "status", "amount_cents", "currency", "ext_payment_id", "created_at"],
     dateColumn: "created_at",
     moneyColumns: ["amount_cents"],
   },
