@@ -44,6 +44,8 @@ interface DesktopCheckoutProps {
   vatRate: number;
   appliedPromo?: { code: string; description: string; savedMinor: number };
   holdSeconds?: number;
+  /** Buyer's email; prefilled for signed-in users, empty for guests. */
+  defaultBuyerEmail?: string;
 }
 
 const STEPS = [
@@ -68,11 +70,13 @@ export function DesktopCheckout({
   vatRate,
   appliedPromo,
   holdSeconds = 522,
+  defaultBuyerEmail = "",
 }: DesktopCheckoutProps) {
   const [holdRemaining, setHoldRemaining] = React.useState(holdSeconds);
   const [guaranteeOpen, setGuaranteeOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const [buyerEmail, setBuyerEmail] = React.useState(defaultBuyerEmail);
   const [promoInput, setPromoInput] = React.useState("");
   const [promoFeedback, setPromoFeedback] = React.useState<string | null>(null);
 
@@ -85,7 +89,7 @@ export function DesktopCheckout({
     setSubmitting(true);
     const result = await startCheckoutAction({
       eventId: eventUuid,
-      buyerEmail: "",
+      buyerEmail: buyerEmail.trim(),
       items: [{ ticketTypeId, quantity }],
       promoCode: promoInput.trim() || null,
     });
@@ -168,7 +172,15 @@ export function DesktopCheckout({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <FormField label="Full name" defaultValue="" placeholder="Your full name" autoFocus />
-              <FormField label="Email" type="email" defaultValue="" placeholder="you@example.com" />
+              <FormField
+                label="Email"
+                type="email"
+                value={buyerEmail}
+                onChange={(e) => setBuyerEmail(e.target.value)}
+                placeholder="you@example.com"
+                autoComplete="email"
+                disabled={submitting}
+              />
               <FormField label="Phone (+268)" type="tel" defaultValue="" placeholder="76 123 4567" />
               <FormField label="Country" defaultValue="Eswatini" readOnly />
             </div>
@@ -299,7 +311,7 @@ export function DesktopCheckout({
               <button
                 type="button"
                 onClick={handleContinueToPayment}
-                disabled={submitting}
+                disabled={submitting || !buyerEmail.trim()}
                 className="flex flex-[2] items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-2.5 text-[14px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {submitting ? "Starting payment…" : "Continue to payment"}

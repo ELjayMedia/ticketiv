@@ -83,6 +83,15 @@ export default async function CheckoutPage({
   const sharedProps = mapCheckoutEvent(row);
   const { ticketTypes, plan } = await fetchCheckoutExtras(row.id);
 
+  // Prefill the buyer-email field when the buyer is already signed in (and
+  // their account carries a real address — not an anonymous guest from a
+  // previous visit). Empty otherwise; the UI collects it from guests.
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = supabase ? await supabase.auth.getUser() : { data: { user: null } };
+  const defaultBuyerEmail = user?.email ?? "";
+
   const mappedTypes = ticketTypes.map(mapCheckoutTicketType);
   const firstSellable = mappedTypes.find((t) => t.remaining !== 0) ?? mappedTypes[0];
   const subtotalForFirst = firstSellable ? firstSellable.priceMinor : 0;
@@ -96,6 +105,7 @@ export default async function CheckoutPage({
           eventUuid={row.id}
           ticketTypes={mappedTypes}
           bookingFeeMinor={bookingFee}
+          defaultBuyerEmail={defaultBuyerEmail}
         />
       </div>
       <div className="hidden md:block">
@@ -108,6 +118,7 @@ export default async function CheckoutPage({
           subtotalMinor={subtotalForFirst}
           bookingFeeMinor={bookingFee}
           vatRate={0.15}
+          defaultBuyerEmail={defaultBuyerEmail}
         />
       </div>
     </>
