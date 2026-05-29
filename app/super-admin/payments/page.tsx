@@ -5,6 +5,7 @@ import { Icon } from "@/components/quiet/ui/icon"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { requireAdminRole } from "@/lib/super-admin/auth"
 import { ADMIN_ROLE_TIERS } from "@/lib/super-admin/permissions"
+import { redactedJson } from "@/lib/super-admin/redact"
 
 export const metadata = { title: "Payment failures | Super Admin" }
 export const dynamic = "force-dynamic"
@@ -99,6 +100,27 @@ export default async function SuperAdminPaymentFailuresPage({
 
   const providers = Array.from(new Set((data ?? []).map((r: any) => r.provider).filter(Boolean)))
 
+  // Reconciliation signal: a succeeded payment whose order isn't marked paid
+  // means money was captured but the order didn't complete (tickets may not
+  // be issued). This is the highest-severity order/payment inconsistency.
+  const { data: mismatchData } = await admin
+    .from("payments")
+    .select("id, order_id, amount_cents, currency, status, created_at, orders!inner(status, buyer_email)")
+    .eq("status", "succeeded")
+    .neq("orders.status", "paid")
+    .order("created_at", { ascending: false })
+    .limit(50)
+
+  const inconsistencies = (mismatchData ?? []).map((p: any) => ({
+    id: p.id,
+    orderId: p.order_id,
+    amountCents: p.amount_cents as number,
+    currency: (p.currency as string) ?? "SZL",
+    orderStatus: (p.orders?.status as string) ?? "unknown",
+    buyerEmail: (p.orders?.buyer_email as string | null) ?? null,
+    createdAt: p.created_at as string,
+  }))
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
       <div className="mb-6 flex flex-col gap-2">
@@ -157,6 +179,48 @@ export default async function SuperAdminPaymentFailuresPage({
           </form>
         </CardBody>
       </Card>
+
+      {/* Order/payment inconsistencies */}
+      {inconsistencies.length > 0 && (
+        <Card className="border-warning/50">
+          <CardBody className="flex items-center justify-between gap-3 px-5 py-4">
+            <p className="inline-flex items-center gap-2 text-h3">
+              <Icon name="bell" size={16} className="text-warning" />
+              Order/payment inconsistencies
+            </p>
+            <Chip size="sm" variant="muted">{inconsistencies.length} found</Chip>
+          </CardBody>
+          <CardDivider />
+          <CardBody className="px-5 py-3 text-[12px] text-ink-3">
+            Payments marked <span className="font-semibold text-ink">succeeded</span> whose order isn&apos;t{" "}
+            <span className="font-semibold text-ink">paid</span> — money captured but the order didn&apos;t complete.
+            Investigate the order and re-run completion or escalate.
+          </CardBody>
+          <CardDivider />
+          {inconsistencies.map((m, i) => (
+            <div
+              key={m.id}
+              className={`flex flex-wrap items-center justify-between gap-3 px-5 py-3 ${i > 0 ? "border-t border-line" : ""}`}
+            >
+              <div className="flex min-w-0 flex-col">
+                <span className="font-mono text-[12px] text-ink">{m.buyerEmail ?? m.orderId.slice(0, 8)}</span>
+                <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+                  Order {m.orderId.slice(0, 8)} · order status: {m.orderStatus}
+                </span>
+              </div>
+              <span className="font-mono text-[13px] font-semibold tabular-nums text-ink">
+                {m.currency} {(m.amountCents / 100).toLocaleString("en-SZ", { minimumFractionDigits: 2 })}
+              </span>
+              <Link
+                href={`/super-admin/orders/${m.orderId}`}
+                className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 px-3 py-1.5 text-[12px] font-semibold text-ink transition hover:bg-bg"
+              >
+                Investigate <Icon name="arrowR" size={12} />
+              </Link>
+            </div>
+          ))}
+        </Card>
+      )}
 
       {rows.length === 0 ? (
         <Card>
@@ -226,16 +290,16 @@ export default async function SuperAdminPaymentFailuresPage({
                 )}
               </CardBody>
 
-              {row.payload && (
+              {Boolean(row.payload) && (
                 <>
                   <CardDivider />
                   <CardBody className="px-5 py-3">
                     <details className="group">
                       <summary className="cursor-pointer font-mono text-[11px] uppercase tracking-wider text-ink-3 hover:text-ink">
-                        Provider payload
+                        Provider payload · sensitive fields redacted
                       </summary>
                       <pre className="mt-2 max-h-48 overflow-auto rounded-[var(--radius-md)] bg-bg p-3 font-mono text-[10px] leading-relaxed text-ink-3">
-                        {JSON.stringify(row.payload, null, 2)}
+                        {redactedJson(row.payload)}
                       </pre>
                     </details>
                   </CardBody>
