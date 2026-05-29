@@ -224,7 +224,7 @@ export function WebhooksScreen({ overview }: { overview: WebhooksOverview }) {
                 <span className="font-mono font-semibold">{w.provider}</span>
                 <span className="font-mono text-ink-3">{w.provider_event_id ?? "—"}</span>
                 <span className="truncate font-mono text-[10px] text-ink-3">
-                  {w.signature ? `${w.signature.slice(0, 24)}…` : "—"}
+                  {w.signature ? "present" : "—"}
                 </span>
                 <span className="font-mono text-[11px] text-ink-3">{relative(w.received_at)}</span>
                 <span

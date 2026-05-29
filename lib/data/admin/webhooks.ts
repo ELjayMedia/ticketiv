@@ -90,7 +90,12 @@ export async function getWebhooksOverview(): Promise<WebhooksOverview> {
 
   return {
     outbound,
-    inbound: (inboundRes.data ?? []) as InboundWebhook[],
+    // Never ship the raw inbound signature to the client — collapse it to a
+    // presence marker so the UI can show "present" without exposing the HMAC.
+    inbound: ((inboundRes.data ?? []) as InboundWebhook[]).map((w) => ({
+      ...w,
+      signature: w.signature ? "present" : null,
+    })),
     tail,
   }
 }
