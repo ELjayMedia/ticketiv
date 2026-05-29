@@ -1,0 +1,95 @@
+import "server-only"
+
+import { APP_URL } from "@/lib/env"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { sendTransactionalNotification } from "@/lib/notifications/transactional"
+
+// TICK-65 / TICK-72 — transactional ticket delivery entry point.
+//
+// After an order's tickets are issued, build the `ticket_issued` payload and
+// hand off to the provider-agnostic notification layer (email live via Resend;
+// WhatsApp + SMS provider-ready). The actual QR is never sent — recipients get
+// a secure link to the live ticket page (which reflects transfer/refund/
+// revoke/check-in status). In-app My Tickets remains the source of truth.
+//
+// Best-effort: never throws into the caller (payment completion must not fail
+// because a notification didn't go out).
+
+const SHORT_DATE = new Intl.DateTimeFormat("en-SZ", { dateStyle: "medium", timeStyle: "short" })
+
+// Public ticket links prefer an explicit base (lets links point at the live
+// domain even from preview/runtime contexts) and fall back to APP_URL.
+const TICKET_BASE_URL = process.env.NEXT_PUBLIC_TICKET_BASE_URL ?? APP_URL
+
+function moneySzl(cents: number, currency: string) {
+  return `${currency} ${(cents / 100).toLocaleString("en-SZ", { minimumFractionDigits: 2 })}`
+}
+
+export async function deliverTicketsForOrder(orderId: string): Promise<void> {
+  try {
+    const admin = createAdminClient()
+
+    const { data: order } = await admin
+      .from("orders")
+      .select("id, buyer_id, buyer_email, email, total_cents, currency")
+      .eq("id", orderId)
+      .maybeSingle()
+
+    if (!order) return
+
+    const { data: items } = await admin
+      .from("order_items")
+      .select("id, ticket_type_id, status, ticket_types(name, event_id, events(title, starts_at))")
+      .eq("order_id", orderId)
+      .in("status", ["issued", "checked_in", "transferred"])
+
+    const issued = items ?? []
+    if (issued.length === 0) return
+
+    const first: any = issued[0]
+    const ticketType = first.ticket_types
+    const event = ticketType?.events
+    const eventId: string | null = ticketType?.event_id ?? null
+    const start = event?.starts_at ? new Date(event.starts_at) : null
+
+    // Resolve recipient + opt-in. WhatsApp/SMS need a phone; email opt-in is
+    // honoured (defaults to on when no preference row exists).
+    const recipientEmail = order.buyer_email ?? order.email ?? null
+    let emailOptIn = true
+    let phone: string | null = null
+    if (order.buyer_id) {
+      const { data: prefs } = await admin
+        .from("user_notification_preferences")
+        .select("email_opt_in")
+        .eq("user_id", order.buyer_id)
+        .maybeSingle()
+      if (prefs && prefs.email_opt_in === false) emailOptIn = false
+
+      const { data: profile } = await admin
+        .from("profiles")
+        .select("phone")
+        .eq("user_id", order.buyer_id)
+        .maybeSingle()
+      phone = (profile?.phone as string | null) ?? null
+    }
+
+    await sendTransactionalNotification({
+      userId: order.buyer_id,
+      orderId: order.id,
+      eventId,
+      template: "ticket_issued",
+      payload: {
+        eventName: event?.title ?? "your event",
+        eventDate: start ? SHORT_DATE.format(start) : "",
+        ticketType: ticketType?.name ?? "General",
+        ticketCount: issued.length,
+        totalLabel: moneySzl(order.total_cents ?? 0, order.currency ?? "SZL"),
+        ticketUrl: `${TICKET_BASE_URL}/tickets/${first.id}`,
+        receiptUrl: `${TICKET_BASE_URL}/orders/${order.id}/confirmation`,
+      },
+      recipient: { email: recipientEmail, phone, emailOptIn },
+    })
+  } catch (error) {
+    console.error("[ticket-delivery] failed for order", orderId, error)
+  }
+}

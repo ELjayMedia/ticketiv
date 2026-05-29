@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { deliverTicketsForOrder } from "@/lib/notifications/ticket-delivery"
 
 type CreateWaitlistCheckoutState = {
   ok: false
@@ -93,6 +94,9 @@ export async function completeWaitlistCheckout(
 
   const row = Array.isArray(data) ? data[0] : data
   const orderId = row?.order_id
+
+  // Deliver the ticket (best-effort, idempotent vs. the provider webhook).
+  if (orderId) await deliverTicketsForOrder(String(orderId))
 
   revalidatePath(`/checkout/waitlist/${waitlistId}`)
   revalidatePath("/tickets")

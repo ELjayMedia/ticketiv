@@ -5,6 +5,7 @@ import crypto, { randomUUID } from "crypto"
 import { APP_URL, PAYSTACK_SECRET_KEY } from "@/lib/env"
 import { completePaidOrder } from "@/lib/orders"
 import { notifyPaymentFailed, notifyPaymentSucceeded, notifyTicketPurchaseSucceeded } from "@/lib/notifications"
+import { deliverTicketsForOrder } from "@/lib/notifications/ticket-delivery"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
@@ -241,6 +242,10 @@ export async function completeVerifiedPayment(input: CompleteVerifiedPaymentInpu
     notifyTicketPurchaseSucceeded({ userId: order.buyer_id, orderId: order.id, orgId: order.org_id, amountCents: order.total_cents, currency: order.currency, ticketCount: completed.items?.length ?? undefined }),
   ])
 
+  // Transactional ticket delivery (email now, WhatsApp stub). Best-effort —
+  // never blocks payment completion.
+  await deliverTicketsForOrder(order.id)
+
   return { payment, order: completed.order, items: completed.items }
 }
 
@@ -298,6 +303,13 @@ async function completeProviderCheckoutByKind(orderId: string, reference: string
     console.error(`[webhook] ${rpc} failed`, rpcError)
     throw new Error(`Completion failed: ${rpcError.message}`)
   }
+
+  // Deliver the ticket (email now, WhatsApp/SMS-ready). Best-effort and
+  // idempotent — safe across webhook redeliveries and the buyer-facing
+  // completion action. resale → buyer_order_id, waitlist → order_id.
+  const row = Array.isArray(result) ? result[0] : result
+  const deliverOrderId = kind === "resale_checkout" ? row?.buyer_order_id : row?.order_id
+  if (deliverOrderId) await deliverTicketsForOrder(String(deliverOrderId))
 
   return { handled: true as const, kind, paymentId: payment.id, result }
 }

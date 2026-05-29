@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { deliverTicketsForOrder } from "@/lib/notifications/ticket-delivery"
 
 type CreateResaleCheckoutState = {
   ok: false
@@ -93,6 +94,9 @@ export async function completeResaleCheckout(
 
   const row = Array.isArray(data) ? data[0] : data
   const ticketId = row?.buyer_order_item_id
+
+  // Deliver the ticket (best-effort, idempotent vs. the provider webhook).
+  if (row?.buyer_order_id) await deliverTicketsForOrder(String(row.buyer_order_id))
 
   revalidatePath(`/resale/checkout/${listingId}`)
   revalidatePath("/tickets")
