@@ -78,6 +78,47 @@ export default async function EventStaffPage({ params }: { params: { orgId: stri
     last_seen_at: d.last_seen_at ?? null,
   }))
 
+  // Active/recent device sessions for this event's devices (AC: gate staff
+  // visibility). A session is "active" while ended_at is null.
+  const deviceLabelById = new Map((devicesRes.data ?? []).map((d) => [d.id, d.label ?? "Device"]))
+  const deviceIds = (devicesRes.data ?? []).map((d) => d.id)
+  type SessionRow = {
+    id: string
+    deviceLabel: string
+    userEmail: string | null
+    startedAt: string | null
+    endedAt: string | null
+  }
+  let sessions: SessionRow[] = []
+  if (deviceIds.length > 0) {
+    const { data: sessionRows } = await admin
+      .from("device_sessions")
+      .select("id, device_id, user_id, started_at, ended_at")
+      .in("device_id", deviceIds)
+      .order("started_at", { ascending: false })
+      .limit(20)
+
+    const userIds = Array.from(new Set((sessionRows ?? []).map((s) => s.user_id).filter(Boolean)))
+    const emailById = new Map<string, string | null>()
+    await Promise.all(
+      userIds.map(async (uid) => {
+        const { data: authUser } = await admin.auth.admin.getUserById(uid)
+        emailById.set(uid, authUser?.user?.email ?? null)
+      }),
+    )
+
+    sessions = (sessionRows ?? []).map((s) => ({
+      id: s.id,
+      deviceLabel: deviceLabelById.get(s.device_id) ?? "Device",
+      userEmail: s.user_id ? emailById.get(s.user_id) ?? null : null,
+      startedAt: s.started_at,
+      endedAt: s.ended_at,
+    }))
+  }
+
+  const fmtSession = (value: string | null) =>
+    value ? new Intl.DateTimeFormat("en-SZ", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "—"
+
   return (
     <main className="flex-1 overflow-auto">
       <div className="container mx-auto flex flex-col gap-6 p-6">
@@ -121,6 +162,61 @@ export default async function EventStaffPage({ params }: { params: { orgId: stri
             />
           </section>
         </div>
+
+        {/* Device sessions — who has scanned on which device, and which
+            sessions are still open. */}
+        <section className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-h2">Device sessions</h2>
+            <p className="text-[13px] text-ink-3">
+              Active and recent gate scanning sessions across this event&apos;s devices.
+            </p>
+          </div>
+          <Card>
+            <CardBody className="px-5 py-4">
+              <p className="text-label">Recent sessions{sessions.length ? ` (${sessions.length})` : ""}</p>
+            </CardBody>
+            <CardDivider />
+            {sessions.length === 0 ? (
+              <CardBody className="py-10 text-center text-[13px] text-ink-3">
+                No device sessions yet. Sessions appear once staff start scanning on a registered device.
+              </CardBody>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-line">
+                      <th className="px-5 py-3 text-left text-label">Device</th>
+                      <th className="px-5 py-3 text-left text-label">Operator</th>
+                      <th className="px-5 py-3 text-left text-label">Started</th>
+                      <th className="px-5 py-3 text-left text-label">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sessions.map((s, i) => (
+                      <tr key={s.id} className={i > 0 ? "border-t border-line" : ""}>
+                        <td className="px-5 py-3 text-[13px] font-semibold text-ink">{s.deviceLabel}</td>
+                        <td className="px-5 py-3 font-mono text-[12px] text-ink-3">{s.userEmail ?? "—"}</td>
+                        <td className="px-5 py-3 font-mono text-[12px] text-ink-3">{fmtSession(s.startedAt)}</td>
+                        <td className="px-5 py-3">
+                          {s.endedAt ? (
+                            <span className="inline-flex items-center rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-ink-3">
+                              Ended {fmtSession(s.endedAt)}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded bg-accent-soft px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-accent">
+                              <span className="h-1.5 w-1.5 rounded-full bg-accent" /> Active
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        </section>
       </div>
     </main>
   )
