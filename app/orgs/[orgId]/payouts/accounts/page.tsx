@@ -5,6 +5,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
+import { maskedAccountFromStored } from "@/lib/payout-crypto"
 import { PayoutAccountForm } from "./payout-account-form"
 
 export const dynamic = "force-dynamic"
@@ -43,23 +44,14 @@ export default async function PayoutAccountsPage({
     .eq("org_id", orgId)
     .order("created_at", { ascending: true })
 
-  // Mask account numbers — never render more than last 4 chars of numeric details
-  const maskedAccounts = (accounts ?? []).map((a) => {
-    let display = "••••"
-    try {
-      const parsed = JSON.parse(a.details_encrypted ?? "{}")
-      const raw = parsed.account_number ?? parsed.iban ?? parsed.ref ?? ""
-      display = raw.length > 4 ? `••••${String(raw).slice(-4)}` : "••••"
-    } catch {
-      display = "••••"
-    }
-    return {
-      id: a.id,
-      provider: a.provider,
-      maskedRef: display,
-      addedAt: a.created_at,
-    }
-  })
+  // Mask account numbers — decrypt server-side and never render more than the
+  // last 4 chars. The raw/encrypted value never reaches the client.
+  const maskedAccounts = (accounts ?? []).map((a) => ({
+    id: a.id,
+    provider: a.provider,
+    maskedRef: maskedAccountFromStored(a.details_encrypted),
+    addedAt: a.created_at,
+  }))
 
   return (
     <main className="flex-1 overflow-auto">

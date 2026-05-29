@@ -4,6 +4,7 @@
 
 import "server-only"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { maskedAccountFromStored } from "@/lib/payout-crypto"
 
 export interface OrgPayoutRow {
   id: string
@@ -195,7 +196,12 @@ export async function getOrgPayoutsOverview(orgId: string): Promise<OrgPayoutsOv
     finance,
     payouts: payoutsRes.data ?? [],
     ledger,
-    accounts: accountsRes.data ?? [],
+    // Replace the encrypted blob with a masked label server-side so neither
+    // ciphertext nor plaintext bank details flow to the mapper/client.
+    accounts: (accountsRes.data ?? []).map((a) => ({
+      ...a,
+      details_encrypted: maskedAccountFromStored(a.details_encrypted),
+    })),
     paymentReadiness: {
       currency,
       activeRoutingRules: ((routingRes.data ?? []) as PaymentRoutingRuleStatus[]).filter((rule) => rule.is_active !== false),
