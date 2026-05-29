@@ -55,6 +55,8 @@ export interface MobileCheckoutProps {
   /** Fixed booking fee in minor units */
   bookingFeeMinor?: number;
   vatRate?: number;
+  /** Buyer's email; prefilled for signed-in users, empty for guests. */
+  defaultBuyerEmail?: string;
 }
 
 const DEFAULT_PAYMENTS = [
@@ -76,6 +78,7 @@ export function MobileCheckout({
   appliedPromo,
   bookingFeeMinor = 10000,
   vatRate = 0.15,
+  defaultBuyerEmail = "",
 }: MobileCheckoutProps) {
   const router = useRouter();
   const { stats: liveStats } = useEventLiveStats(eventId);
@@ -99,6 +102,7 @@ export function MobileCheckout({
   const [guaranteeOpen, setGuaranteeOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const [buyerEmail, setBuyerEmail] = React.useState(defaultBuyerEmail);
   const [promoInput, setPromoInput] = React.useState("");
   const [promoFeedback, setPromoFeedback] = React.useState<
     { ok: true; label: string; savedMinor: number } | { ok: false; message: string } | null
@@ -113,7 +117,7 @@ export function MobileCheckout({
     setSubmitting(true);
     const result = await startCheckoutAction({
       eventId: eventUuid,
-      buyerEmail: "",
+      buyerEmail: buyerEmail.trim(),
       items: [{ ticketTypeId, quantity }],
       promoCode: promoInput.trim() || null,
     });
@@ -308,6 +312,23 @@ export function MobileCheckout({
           )}
         </section>
 
+        {/* Buyer email — required so the ticket can be delivered. Prefilled
+            for signed-in buyers, collected from guests. */}
+        <section className="px-5 pb-4">
+          <label htmlFor="buyer-email" className="text-label mb-2 block">Send ticket to</label>
+          <input
+            id="buyer-email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            value={buyerEmail}
+            onChange={(e) => setBuyerEmail(e.target.value)}
+            placeholder="you@example.com"
+            className="h-10 w-full rounded-[var(--radius-md)] border border-line bg-surface px-3 text-[14px] placeholder:text-ink-3 focus:border-accent focus:outline-none"
+            disabled={submitting}
+          />
+        </section>
+
         {/* Payment */}
         <section className="px-5 pb-4">
           <div className="text-label mb-2">Pay with</div>
@@ -413,7 +434,7 @@ export function MobileCheckout({
         <button
           type="button"
           onClick={handlePay}
-          disabled={!accepted || holdRemaining <= 0 || submitting}
+          disabled={!accepted || holdRemaining <= 0 || submitting || !buyerEmail.trim()}
           className="flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting ? "Starting payment…" : `Pay ${formatPrice(total)}`}

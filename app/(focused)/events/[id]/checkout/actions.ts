@@ -4,6 +4,7 @@ import { createOrder } from "@/lib/orders"
 import { createPaymentAttempt, type PaymentProvider } from "@/lib/payments"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { ensureCheckoutIdentity } from "@/lib/auth/checkout-identity"
 import { APP_URL } from "@/lib/env"
 
 export interface StartCheckoutInput {
@@ -27,16 +28,13 @@ export type StartCheckoutResult =
   | { ok: false; error: string }
 
 export async function startCheckoutAction(input: StartCheckoutInput): Promise<StartCheckoutResult> {
-  const supabase = createServerSupabaseClient()
-  if (!supabase) return { ok: false, error: "Supabase is not configured" }
+  // Guest checkout: mint an anonymous Supabase user when there's no session
+  // so orders.buyer_id always references a real auth.uid() and RLS holds.
+  // Authenticated buyers fall through unchanged.
+  const identity = await ensureCheckoutIdentity()
+  if (!identity) return { ok: false, error: "Sign-in is unavailable right now. Please try again." }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) return { ok: false, error: "Please sign in to complete your purchase." }
-
-  const buyerEmail = (input.buyerEmail || user.email || "").trim()
+  const buyerEmail = (input.buyerEmail || identity.email || "").trim()
   if (!buyerEmail) return { ok: false, error: "Add an email address to receive your tickets." }
 
   const items = (input.items ?? []).filter((i) => i.ticketTypeId && i.quantity > 0)
@@ -48,7 +46,7 @@ export async function startCheckoutAction(input: StartCheckoutInput): Promise<St
   try {
     const order = await createOrder({
       eventId: input.eventId,
-      purchaserId: user.id,
+      purchaserId: identity.userId,
       purchaserEmail: buyerEmail,
       items,
     })
@@ -59,13 +57,13 @@ export async function startCheckoutAction(input: StartCheckoutInput): Promise<St
     // buyer can choose to abandon and retry with a corrected code.
     let promo: PromoApplyResult | null = null
     if (promoCode) {
-      promo = await runApplyPromoCode(order.order.id, promoCode, user.id)
+      promo = await runApplyPromoCode(order.order.id, promoCode, identity.userId)
     }
 
     const attempt = await createPaymentAttempt({
       orderId: order.order.id,
       provider,
-      userId: user.id,
+      userId: identity.userId,
       returnUrl: `${APP_URL}/orders/${order.order.id}/confirmation`,
     })
 
