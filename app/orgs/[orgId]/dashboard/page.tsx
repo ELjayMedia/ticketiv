@@ -284,7 +284,7 @@ export default async function OrgDashboardPage({ params }: { params: { orgId: st
       key: "payout",
       label: "Add a payout account",
       description: "Connect your bank so you can receive ticket sales proceeds.",
-      href: `/orgs/${orgId}/payouts`,
+      href: `/orgs/${orgId}/payouts/accounts`,
       done: hasPayoutAccount,
     },
     {
@@ -310,19 +310,26 @@ export default async function OrgDashboardPage({ params }: { params: { orgId: st
                 : "Let's get your first event live."}
             </p>
           </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
             <Link
-              href={`/orgs/${orgId}/series`}
-              className="inline-flex w-full items-center justify-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-transparent px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-bg sm:w-auto"
+              href={`/orgs/${orgId}/finance`}
+              className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-transparent px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-bg"
             >
-              Series
+              <Icon name="wallet" size={14} />
+              Finance
+            </Link>
+            <Link
+              href={`/orgs/${orgId}/payouts`}
+              className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-transparent px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-bg"
+            >
+              Payouts
             </Link>
             <Link
               href={`/orgs/${orgId}/events/new`}
-              className="inline-flex w-full items-center justify-center gap-1.5 rounded-[var(--radius)] border border-ink bg-ink px-4 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-2 sm:w-auto"
+              className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-ink bg-ink px-4 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-2"
             >
               <Icon name="plus" size={14} />
-              Create event
+              New event
             </Link>
           </div>
         </div>
