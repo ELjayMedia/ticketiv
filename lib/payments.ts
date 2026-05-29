@@ -304,6 +304,13 @@ async function completeProviderCheckoutByKind(orderId: string, reference: string
     throw new Error(`Completion failed: ${rpcError.message}`)
   }
 
+  // Deliver the ticket (email now, WhatsApp/SMS-ready). Best-effort and
+  // idempotent — safe across webhook redeliveries and the buyer-facing
+  // completion action. resale → buyer_order_id, waitlist → order_id.
+  const row = Array.isArray(result) ? result[0] : result
+  const deliverOrderId = kind === "resale_checkout" ? row?.buyer_order_id : row?.order_id
+  if (deliverOrderId) await deliverTicketsForOrder(String(deliverOrderId))
+
   return { handled: true as const, kind, paymentId: payment.id, result }
 }
 
