@@ -7,7 +7,7 @@ export const metadata = { title: "Providers & routing | Super Admin" }
 export const dynamic = "force-dynamic"
 
 export default async function SuperAdminRoutingPage() {
-  await requireAdminRole(ADMIN_ROLE_TIERS)
+  const { roleTier } = await requireAdminRole(ADMIN_ROLE_TIERS)
   const overview = await getRoutingOverview()
-  return <RoutingScreen overview={overview} />
+  return <RoutingScreen overview={overview} canAct={roleTier !== "read_only_admin"} />
 }

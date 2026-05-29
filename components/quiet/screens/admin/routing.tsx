@@ -10,7 +10,7 @@ import { Icon } from "@/components/quiet/ui/icon"
 import type { RoutingOverview } from "@/lib/data/admin/routing"
 import { upsertRoutingRule, deleteRoutingRule, toggleRoutingRule } from "@/app/super-admin/routing/actions"
 
-export function RoutingScreen({ overview }: { overview: RoutingOverview }) {
+export function RoutingScreen({ overview, canAct = true }: { overview: RoutingOverview; canAct?: boolean }) {
   const [showNew, setShowNew] = React.useState(false)
   const [busy, setBusy] = React.useState<string | null>(null)
 
@@ -36,9 +36,11 @@ export function RoutingScreen({ overview }: { overview: RoutingOverview }) {
           <div className="font-mono text-[10px] uppercase tracking-wider text-ink-3">PLATFORM / PROVIDERS</div>
           <h1 className="text-h1 mt-1">Providers &amp; routing</h1>
         </div>
-        <Button variant="accent" size="xs">
-          <Icon name="plus" size={12} /> Add provider
-        </Button>
+        {canAct && (
+          <Button variant="accent" size="xs">
+            <Icon name="plus" size={12} /> Add provider
+          </Button>
+        )}
       </div>
 
       {/* KPIs */}
@@ -60,9 +62,11 @@ export function RoutingScreen({ overview }: { overview: RoutingOverview }) {
             <span className="text-h3">Routing rules · live</span>
             <div className="font-mono text-[11px] text-ink-3">evaluated by priority ascending; first match wins</div>
           </div>
-          <Button variant="default" size="xs" onClick={() => setShowNew(true)}>
-            <Icon name="plus" size={12} /> Add rule
-          </Button>
+          {canAct && (
+            <Button variant="default" size="xs" onClick={() => setShowNew(true)}>
+              <Icon name="plus" size={12} /> Add rule
+            </Button>
+          )}
         </div>
         {showNew && <NewRuleDialog providers={overview.providers.map((p) => p.provider)} onDismiss={() => setShowNew(false)} />}
         <div className="grid grid-cols-[0.5fr_0.8fr_0.8fr_1fr_1fr_0.6fr_1fr_24px] gap-2 border-b border-line bg-bg px-4 py-2.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-ink-3">
@@ -93,27 +97,29 @@ export function RoutingScreen({ overview }: { overview: RoutingOverview }) {
                 {r.is_active ? "on" : "off"}
               </span>
               <span className="truncate font-mono text-[10px] text-ink-3">{r.notes ?? "—"}</span>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  disabled={busy === r.id}
-                  onClick={() => toggle(r.id, !r.is_active)}
-                  aria-label={r.is_active ? "Disable rule" : "Enable rule"}
-                  className="rounded-md p-1 text-ink-3 hover:bg-bg disabled:opacity-50"
-                  title={r.is_active ? "Disable" : "Enable"}
-                >
-                  <Icon name={r.is_active ? "minus" : "check"} size={12} />
-                </button>
-                <button
-                  type="button"
-                  disabled={busy === r.id}
-                  onClick={() => remove(r.id, `${r.country_code ?? "any"}/${r.currency ?? "any"} → ${r.provider}`)}
-                  aria-label="Delete rule"
-                  className="rounded-md p-1 text-ink-3 hover:bg-[#fdf0ec] hover:text-[#c1422b] disabled:opacity-50"
-                >
-                  <Icon name="close" size={12} />
-                </button>
-              </div>
+              {canAct ? (
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={busy === r.id}
+                    onClick={() => toggle(r.id, !r.is_active)}
+                    aria-label={r.is_active ? "Disable rule" : "Enable rule"}
+                    className="rounded-md p-1 text-ink-3 hover:bg-bg disabled:opacity-50"
+                    title={r.is_active ? "Disable" : "Enable"}
+                  >
+                    <Icon name={r.is_active ? "minus" : "check"} size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy === r.id}
+                    onClick={() => remove(r.id, `${r.country_code ?? "any"}/${r.currency ?? "any"} → ${r.provider}`)}
+                    aria-label="Delete rule"
+                    className="rounded-md p-1 text-ink-3 hover:bg-[#fdf0ec] hover:text-[#c1422b] disabled:opacity-50"
+                  >
+                    <Icon name="close" size={12} />
+                  </button>
+                </div>
+              ) : null}
             </div>
           ))
         )}

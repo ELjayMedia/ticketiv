@@ -11,6 +11,10 @@ import {
   getCommandCentreData,
   percentage,
 } from "@/lib/super-admin/command-centre"
+import { requireAdminRole } from "@/lib/super-admin/auth"
+import { ADMIN_ROLE_TIERS } from "@/lib/super-admin/permissions"
+
+// TICK-50 — Command centre overview with role-tier awareness
 
 const RESOURCE_ICONS: IconName[] = ["users", "pin", "cal", "ticket", "wallet", "wallet", "spark"]
 
@@ -19,13 +23,15 @@ const WORKSPACES: Array<{ title: string; description: string; href: string; icon
   { title: "Organizer Operations", description: "Manage promoters, companies, venues and organizer access.", href: "/super-admin/organizations", icon: "users" },
   { title: "Ticket Inventory", description: "Control ticket tiers, quotas, channels, seating and guest allocation.", href: "/super-admin/ticket-types", icon: "ticket" },
   { title: "Sales & Orders", description: "Review order state, buyer details, issued tickets and checkout problems.", href: "/super-admin/orders", icon: "fileText" },
-  { title: "Payments & Finance", description: "Track settlements, payouts, refunds, provider failures and reconciliation.", href: "/super-admin/payouts", icon: "wallet" },
+  { title: "Payments & Finance", description: "Track settlements, payouts, refunds, provider failures and reconciliation.", href: "/super-admin/payments", icon: "wallet" },
   { title: "Promotions & Controls", description: "Manage feature flags, promo codes, vouchers, fees and discounts.", href: "/super-admin/price-rules", icon: "spark" },
 ]
 
 export const metadata = { title: "Super Admin Command Centre" }
 
 export default async function SuperAdminPage() {
+  const { roleTier } = await requireAdminRole(ADMIN_ROLE_TIERS)
+  const canAct = roleTier !== "read_only_admin"
   const { metrics, attention, operations, categories } = await getCommandCentreData()
 
   const checkInRate = percentage(metrics.tickets_checked_in, metrics.tickets_issued)
@@ -44,10 +50,16 @@ export default async function SuperAdminPage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {!canAct && (
+            <Chip size="sm" variant="muted">Read only</Chip>
+          )}
           <Link href="/super-admin/audit" className={navButtonClass}>Audit</Link>
-          <Link href="/super-admin/exports/orders" className={navButtonClass}>Exports</Link>
-          <Link href="/super-admin/payouts" className={navButtonClass}>Review payouts</Link>
+          <Link href="/super-admin/exports" className={navButtonClass}>Exports</Link>
+          {canAct && (
+            <Link href="/super-admin/payouts" className={navButtonClass}>Review payouts</Link>
+          )}
+          <Link href="/super-admin/payments" className={navButtonClass}>Payment failures</Link>
         </div>
       </section>
 

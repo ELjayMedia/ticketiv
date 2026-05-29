@@ -3,10 +3,14 @@ import Link from "next/link"
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Icon } from "@/components/quiet/ui/icon"
 import { EventStaffClient, type StaffMember } from "./staff-client"
+import { DevicesClient, type DeviceRow } from "./devices-client"
 
 export const dynamic = "force-dynamic"
+
+// TICK-56 — Staff + device & scanner assignment management
 
 const MANAGER_ROLES = new Set(["admin", "organizer", "organizer_owner", "organizer_admin"])
 
@@ -38,15 +42,25 @@ export default async function EventStaffPage({ params }: { params: { orgId: stri
   const canManage = Boolean(member?.role && MANAGER_ROLES.has(String(member.role)))
 
   const admin = createAdminClient()
-  const { data: rows } = await admin
-    .from("event_staff")
-    .select("user_id, role, active, created_at")
-    .eq("event_id", eventId)
-    .eq("active", true)
-    .order("created_at", { ascending: true })
+
+  // Load event staff + devices in parallel
+  const [staffRes, devicesRes] = await Promise.all([
+    admin
+      .from("event_staff")
+      .select("user_id, role, active, created_at")
+      .eq("event_id", eventId)
+      .eq("active", true)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("devices")
+      .select("id, label, device_role, max_scans_per_minute, last_seen_at, created_at")
+      .eq("event_id", eventId)
+      .eq("org_id", orgId)
+      .order("created_at", { ascending: true }),
+  ])
 
   const initialStaff: StaffMember[] = await Promise.all(
-    (rows ?? []).map(async (row) => {
+    (staffRes.data ?? []).map(async (row) => {
       const { data: authUser } = await admin.auth.admin.getUserById(row.user_id)
       return {
         user_id: row.user_id,
@@ -55,6 +69,14 @@ export default async function EventStaffPage({ params }: { params: { orgId: stri
       }
     }),
   )
+
+  const initialDevices: DeviceRow[] = (devicesRes.data ?? []).map((d) => ({
+    id: d.id,
+    label: d.label ?? "",
+    device_role: d.device_role,
+    max_scans_per_minute: d.max_scans_per_minute ?? null,
+    last_seen_at: d.last_seen_at ?? null,
+  }))
 
   return (
     <main className="flex-1 overflow-auto">
@@ -68,12 +90,37 @@ export default async function EventStaffPage({ params }: { params: { orgId: stri
             <Icon name="chevL" size={16} />
           </Link>
           <div className="flex flex-col gap-1">
-            <h1 className="text-h1">Event staff</h1>
+            <h1 className="text-h1">Staff & devices</h1>
             <p className="text-[13px] text-ink-3">{event.title}</p>
           </div>
         </div>
 
-        <EventStaffClient eventId={eventId} canManage={canManage} initialStaff={initialStaff} />
+        <div className="grid gap-6 lg:grid-cols-2">
+          <section className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-h2">Event staff</h2>
+              <p className="text-[13px] text-ink-3">
+                Assign staff roles — scanners, event admins and general staff. Assigned users see this event in their scanner picker.
+              </p>
+            </div>
+            <EventStaffClient eventId={eventId} canManage={canManage} initialStaff={initialStaff} />
+          </section>
+
+          <section className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-h2">Devices</h2>
+              <p className="text-[13px] text-ink-3">
+                Register and label devices for gate scanning. A registered device produces a usable scanner setup for this event.
+              </p>
+            </div>
+            <DevicesClient
+              orgId={orgId}
+              eventId={eventId}
+              canManage={canManage}
+              initialDevices={initialDevices}
+            />
+          </section>
+        </div>
       </div>
     </main>
   )
