@@ -1,9 +1,10 @@
 "use server"
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { encryptPayoutDetails } from "@/lib/payout-crypto"
 
 // TICK-54 — Payout account management (organizer side)
-// details_encrypted stores a JSON blob — full account number never returned to browser
+// Bank details are encrypted at rest (AES-256-GCM) and never returned to the browser.
 
 export async function addPayoutAccountAction(
   orgId: string,
@@ -32,10 +33,9 @@ export async function addPayoutAccountAction(
     throw new Error("Forbidden: org admin role required")
   }
 
-  // Encode details as JSON; in production this would be AES-encrypted with a
-  // server-managed key before storage. The column name 'details_encrypted'
-  // signals that callers must never pass this value back to the client.
-  const details = JSON.stringify({
+  // Encrypt the bank details before storage (AES-256-GCM via
+  // PAYOUT_ENCRYPTION_KEY). The value is never returned to the client.
+  const details = encryptPayoutDetails({
     account_name: accountName,
     account_number: accountNumber,
     branch_code: branchCode || null,
