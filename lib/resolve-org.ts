@@ -31,7 +31,9 @@ export async function redirectToOrgScopedRoute(
 
   if (orgIds.length === 0) redirect("/onboarding/organizer")
 
-  // No org picker route exists yet, so a user in multiple orgs lands in their
-  // first org. Replace with an org picker once one is built.
-  redirect(buildPath(orgIds[0]))
+  // A single membership goes straight to the target. Multiple memberships
+  // route through the org picker (/orgs), which lets the user choose context.
+  if (orgIds.length === 1) redirect(buildPath(orgIds[0]))
+
+  redirect("/orgs")
 }
