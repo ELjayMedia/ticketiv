@@ -1,9 +1,17 @@
 import "server-only"
 
+import type { ChannelResult } from "./types"
+
 // Email channel adapter. Resend is the first live provider; the interface is
 // deliberately tiny so other providers (SES, SendGrid) can be slotted in.
 // When RESEND_API_KEY is absent the adapter reports `skipped` so callers can
 // record the intent without failing the surrounding flow (e.g. local/dev).
+//
+// RESEND_FROM defaults to onboarding@resend.dev, which Resend allows before a
+// domain is verified (delivers only to the account owner). Once ticketiv.com
+// is verified (TICK-60) set RESEND_FROM to a branded address.
+
+const PROVIDER = "resend"
 
 export interface EmailMessage {
   to: string
@@ -12,17 +20,12 @@ export interface EmailMessage {
   text: string
 }
 
-export type ChannelResult =
-  | { status: "sent"; ref: string | null }
-  | { status: "skipped"; reason: string }
-  | { status: "failed"; error: string }
-
 export async function sendEmail(message: EmailMessage): Promise<ChannelResult> {
   const apiKey = process.env.RESEND_API_KEY
-  const from = process.env.RESEND_FROM ?? "Ticketiv <tickets@ticketiv.com>"
+  const from = process.env.RESEND_FROM ?? "Ticketiv <onboarding@resend.dev>"
 
   if (!apiKey) {
-    return { status: "skipped", reason: "RESEND_API_KEY not configured" }
+    return { status: "skipped", reason: "RESEND_API_KEY not configured", provider: PROVIDER }
   }
 
   try {
@@ -43,12 +46,12 @@ export async function sendEmail(message: EmailMessage): Promise<ChannelResult> {
 
     if (!response.ok) {
       const body = await response.text().catch(() => "")
-      return { status: "failed", error: `Resend ${response.status}: ${body.slice(0, 200)}` }
+      return { status: "failed", error: `Resend ${response.status}: ${body.slice(0, 200)}`, provider: PROVIDER }
     }
 
     const data = (await response.json().catch(() => ({}))) as { id?: string }
-    return { status: "sent", ref: data.id ?? null }
+    return { status: "sent", ref: data.id ?? null, provider: PROVIDER }
   } catch (error: any) {
-    return { status: "failed", error: error?.message ?? "email send failed" }
+    return { status: "failed", error: error?.message ?? "email send failed", provider: PROVIDER }
   }
 }
