@@ -12,7 +12,7 @@ type ManagedEvent = {
   org_id: string
   title?: string | null
   description?: string | null
-  date?: string | null
+  starts_at?: string | null
   status?: string | null
   cover_image_url?: string | null
   venue_id?: string | null
@@ -21,7 +21,7 @@ type ManagedEvent = {
 export async function requireOrganizerEventManager<TEvent extends ManagedEvent = ManagedEvent>(
   orgId: string,
   eventId: string,
-  select = "id, title, date, status, cover_image_url, description, org_id",
+  select = "id, title, starts_at, status, cover_image_url, description, org_id",
 ): Promise<{ userId: string; event: TEvent }> {
   const supabase = createServerSupabaseClient()
   if (!supabase) redirect("/login")
