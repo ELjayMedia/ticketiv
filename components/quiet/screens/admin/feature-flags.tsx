@@ -17,6 +17,7 @@ import {
 
 export interface FeatureFlagsScreenProps {
   flags: PlatformFlag[]
+  canAct?: boolean
 }
 
 const STATE_META: Record<string, { fg: string; bg: string; label: string }> = {
@@ -41,7 +42,7 @@ function timeAgo(iso: string | null): string {
   return RELATIVE.format(-Math.floor(d / 30), "month")
 }
 
-export function FeatureFlagsScreen({ flags }: FeatureFlagsScreenProps) {
+export function FeatureFlagsScreen({ flags, canAct = true }: FeatureFlagsScreenProps) {
   const inRollout = flags.filter((f) => stateFor(f) === "rollout").length
   const live = flags.filter((f) => stateFor(f) === "live").length
   const off = flags.filter((f) => stateFor(f) === "off").length
@@ -75,9 +76,11 @@ export function FeatureFlagsScreen({ flags }: FeatureFlagsScreenProps) {
           <div className="font-mono text-[10px] uppercase tracking-wider text-ink-3">PLATFORM / FLAGS</div>
           <h1 className="text-h1 mt-1">{flags.length} flags</h1>
         </div>
-        <Button variant="accent" size="xs" onClick={() => setShowNew(true)}>
-          <Icon name="plus" size={12} /> New flag
-        </Button>
+        {canAct && (
+          <Button variant="accent" size="xs" onClick={() => setShowNew(true)}>
+            <Icon name="plus" size={12} /> New flag
+          </Button>
+        )}
       </div>
 
       {showNew && <NewFlagDialog onDismiss={() => setShowNew(false)} />}
@@ -162,26 +165,28 @@ export function FeatureFlagsScreen({ flags }: FeatureFlagsScreenProps) {
                 </span>
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono text-[11px] text-ink-3">{timeAgo(f.last_changed_at)}</span>
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      disabled={busy === f.id}
-                      onClick={() => toggle(f)}
-                      className="rounded-md border border-line-2 bg-surface px-2 py-1 font-mono text-[10px] font-semibold hover:bg-bg disabled:opacity-50"
-                      title={f.enabled ? "Pause" : "Resume"}
-                    >
-                      {f.enabled ? "Pause" : "Resume"}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy === f.id}
-                      onClick={() => remove(f)}
-                      aria-label={`Delete ${f.key}`}
-                      className="rounded-md p-1 text-ink-3 hover:bg-[#fdf0ec] hover:text-[#c1422b] disabled:opacity-50"
-                    >
-                      <Icon name="close" size={14} />
-                    </button>
-                  </div>
+                  {canAct && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        disabled={busy === f.id}
+                        onClick={() => toggle(f)}
+                        className="rounded-md border border-line-2 bg-surface px-2 py-1 font-mono text-[10px] font-semibold hover:bg-bg disabled:opacity-50"
+                        title={f.enabled ? "Pause" : "Resume"}
+                      >
+                        {f.enabled ? "Pause" : "Resume"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy === f.id}
+                        onClick={() => remove(f)}
+                        aria-label={`Delete ${f.key}`}
+                        className="rounded-md p-1 text-ink-3 hover:bg-[#fdf0ec] hover:text-[#c1422b] disabled:opacity-50"
+                      >
+                        <Icon name="close" size={14} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )
