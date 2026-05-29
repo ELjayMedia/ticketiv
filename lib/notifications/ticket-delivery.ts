@@ -3,6 +3,7 @@ import "server-only"
 import { APP_URL } from "@/lib/env"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendTransactionalNotification } from "@/lib/notifications/transactional"
+import { issueTicketToken } from "@/lib/ticket-tokens"
 
 // TICK-65 / TICK-72 — transactional ticket delivery entry point.
 //
@@ -39,7 +40,7 @@ export async function deliverTicketsForOrder(orderId: string): Promise<void> {
 
     const { data: items } = await admin
       .from("order_items")
-      .select("id, ticket_type_id, status, ticket_types(name, event_id, events(title, starts_at))")
+      .select("id, ticket_type_id, status, ticket_types(name, event_id, events(title, starts_at, ends_at))")
       .eq("order_id", orderId)
       .in("status", ["issued", "checked_in", "transferred"])
 
@@ -51,6 +52,32 @@ export async function deliverTicketsForOrder(orderId: string): Promise<void> {
     const event = ticketType?.events
     const eventId: string | null = ticketType?.event_id ?? null
     const start = event?.starts_at ? new Date(event.starts_at) : null
+
+    // Token TTL = event end + 7 days. Multi-day events: max(event_dates.ends_at).
+    // Fallback chain: events.ends_at → max(event_dates.ends_at) → starts_at + 24h.
+    let endsAt: Date | null = event?.ends_at ? new Date(event.ends_at) : null
+    if (!endsAt && eventId) {
+      const { data: lastDate } = await admin
+        .from("event_dates")
+        .select("ends_at")
+        .eq("event_id", eventId)
+        .not("ends_at", "is", null)
+        .order("ends_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (lastDate?.ends_at) endsAt = new Date(lastDate.ends_at)
+    }
+    if (!endsAt && start) endsAt = new Date(start.getTime() + 24 * 60 * 60 * 1000)
+    const tokenExpSeconds = endsAt
+      ? Math.floor(endsAt.getTime() / 1000) + 7 * 24 * 60 * 60
+      : Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60
+
+    // Capability token → secure /t/{token} link that opens without login.
+    // Falls back to the RLS-gated /tickets/{id} when no secret is configured.
+    const token = issueTicketToken(first.id, tokenExpSeconds)
+    const ticketUrl = token
+      ? `${TICKET_BASE_URL}/t/${token}`
+      : `${TICKET_BASE_URL}/tickets/${first.id}`
 
     // Resolve recipient + opt-in. WhatsApp/SMS need a phone; email opt-in is
     // honoured (defaults to on when no preference row exists).
@@ -84,7 +111,7 @@ export async function deliverTicketsForOrder(orderId: string): Promise<void> {
         ticketType: ticketType?.name ?? "General",
         ticketCount: issued.length,
         totalLabel: moneySzl(order.total_cents ?? 0, order.currency ?? "SZL"),
-        ticketUrl: `${TICKET_BASE_URL}/tickets/${first.id}`,
+        ticketUrl,
         receiptUrl: `${TICKET_BASE_URL}/orders/${order.id}/confirmation`,
       },
       recipient: { email: recipientEmail, phone, emailOptIn },
