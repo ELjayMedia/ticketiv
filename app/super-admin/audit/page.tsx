@@ -16,6 +16,26 @@ type AuditSearchParams = {
   org?: string
   record?: string
   q?: string
+  from?: string
+  to?: string
+}
+
+// Audit `changes` are diffs/metadata written by our own code, but can carry
+// PII (emails, holder details) and the odd token. Mask values whose key looks
+// sensitive before rendering. Kept local so the page is self-contained.
+const SENSITIVE_KEY = /(authorization|signature|secret|token|password|\bpan\b|card|cvv|\botp\b|api[_-]?key|\bkey\b|email|phone)/i
+
+function redactChanges(value: unknown, depth = 0): unknown {
+  if (value === null || value === undefined || depth >= 6) return value
+  if (Array.isArray(value)) return value.map((v) => redactChanges(v, depth + 1))
+  if (typeof value === "object") {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = SENSITIVE_KEY.test(k) ? "[redacted]" : redactChanges(v, depth + 1)
+    }
+    return out
+  }
+  return value
 }
 
 type AuditEntry = {
@@ -40,7 +60,7 @@ function formatDate(value: string | null) {
 function formatChanges(value: unknown) {
   if (!value) return "—"
   try {
-    return JSON.stringify(value, null, 2)
+    return JSON.stringify(redactChanges(value), null, 2)
   } catch {
     return String(value)
   }
@@ -81,6 +101,10 @@ export default async function SuperAdminAuditPage({
   if (filters.actor) query = query.eq("actor_id", filters.actor)
   if (filters.org) query = query.eq("org_id", filters.org)
   if (filters.record) query = query.eq("record_id", filters.record)
+  // Date range (inclusive). `to` is treated as end-of-day so a single date
+  // picks the whole day.
+  if (filters.from) query = query.gte("created_at", filters.from)
+  if (filters.to) query = query.lte("created_at", `${filters.to}T23:59:59.999Z`)
 
   const { data, error } = await query
   if (error) throw new Error(error.message)
@@ -162,6 +186,8 @@ export default async function SuperAdminAuditPage({
             <FormField label="Record ID" name="record" defaultValue={filters.record ?? ""} placeholder="uuid or text id" />
             <FormField label="Actor ID" name="actor" defaultValue={filters.actor ?? ""} placeholder="user uuid" />
             <FormField label="Org ID" name="org" defaultValue={filters.org ?? ""} placeholder="org uuid" />
+            <FormField label="From date" name="from" type="date" defaultValue={filters.from ?? ""} />
+            <FormField label="To date" name="to" type="date" defaultValue={filters.to ?? ""} />
             <div className="flex gap-2 md:col-span-3 xl:col-span-6">
               <Button type="submit" variant="primary" size="md">
                 Apply filters
