@@ -56,7 +56,6 @@ export default async function OrgPickerPage() {
                 <CardBody className="flex items-center gap-3 p-4">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius)] border border-line bg-bg">
                     {org.logo ? (
-                      // eslint-disable-next-line @next/next/no-img-element
                       <img src={org.logo} alt="" className="h-full w-full object-cover" />
                     ) : (
                       <Icon name="user" size={16} className="text-ink-3" />

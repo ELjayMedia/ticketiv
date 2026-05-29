@@ -51,7 +51,6 @@ export default async function SeriesPage({ params }: SeriesPageProps) {
       <div className="relative w-full overflow-hidden bg-bg">
         <div className="relative aspect-[16/9] max-h-[420px] w-full">
           {series.cover_image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={series.cover_image_url}
               alt={series.title}
@@ -90,7 +89,6 @@ export default async function SeriesPage({ params }: SeriesPageProps) {
               className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-ink transition-colors hover:bg-bg"
             >
               {series.organization.logo && (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={series.organization.logo}
                   alt=""

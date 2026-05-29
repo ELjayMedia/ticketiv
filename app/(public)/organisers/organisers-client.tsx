@@ -42,7 +42,7 @@ export default function OrganisersClient({ initialOrganisers }: OrganisersClient
             <Link key={organiser.id} href={`/organisers/${organiser.id}`} className="block">
               <Card className="h-full overflow-hidden transition-colors hover:border-line-2">
                 <div className="aspect-square overflow-hidden bg-bg">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  { }
                   <img
                     src={organiser.logo_url || "/placeholder.svg"}
                     alt={organiser.name}
