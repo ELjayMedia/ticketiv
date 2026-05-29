@@ -126,6 +126,19 @@ export async function sendTransactionalNotification(input: TransactionalInput): 
     const channels = input.channels ?? resolveChannels(input.recipient)
 
     for (const channel of channels) {
+      // Idempotency: if this order+channel+template was already delivered,
+      // don't send again. Makes the layer safe to call from multiple
+      // completion paths and across provider webhook redeliveries. A prior
+      // skipped/failed attempt is NOT a block — we retry those.
+      const { data: alreadySent } = await admin
+        .from("notifications")
+        .select("id")
+        .eq("dedupe_key", `${input.template}:${input.orderId}:${channel}`)
+        .eq("status", "sent")
+        .limit(1)
+        .maybeSingle()
+      if (alreadySent) continue
+
       let result: ChannelResult
       try {
         result = await dispatch(channel, input)
