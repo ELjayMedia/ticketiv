@@ -112,8 +112,28 @@ export default async function OrdersPage({
   const ticketsSold = items.filter((i: any) => i.status === "issued" || i.status === "checked_in").length
   const checkedIn = items.filter((i: any) => i.status === "checked_in").length
 
-  // Attendee list for attendees view
-  const attendees = view === "attendees" ? items : []
+  // Attendee list for attendees view — filter by holder name/email, ticket
+  // code or ticket type (search) and order_item status.
+  const attendees =
+    view === "attendees"
+      ? items.filter((it: any) => {
+          if (filterStatus && it.status !== filterStatus) return false
+          if (filterQ) {
+            const hay = [
+              it.holder_name,
+              it.holder_email,
+              it.ticket_code,
+              it.ticket_types?.name,
+              it.orders?.buyer_email,
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase()
+            if (!hay.includes(filterQ)) return false
+          }
+          return true
+        })
+      : []
 
   const tabHref = (v: View) => `/orgs/${orgId}/events/${eventId}/orders?view=${v}`
 
@@ -180,7 +200,11 @@ export default async function OrdersPage({
               <input
                 name="q"
                 defaultValue={sp.q ?? ""}
-                placeholder="Search buyer email or order ID…"
+                placeholder={
+                  view === "attendees"
+                    ? "Search holder name, email or ticket code…"
+                    : "Search buyer email or order ID…"
+                }
                 className="flex-1 min-w-48 rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-2 text-[13px] text-ink outline-none transition focus:border-accent focus:ring-[3px] focus:ring-accent-soft"
               />
               <select
@@ -189,10 +213,22 @@ export default async function OrdersPage({
                 className="rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-2 text-[13px] text-ink outline-none"
               >
                 <option value="">All statuses</option>
-                <option value="paid">Paid</option>
-                <option value="pending">Pending</option>
-                <option value="failed">Failed</option>
-                <option value="refunded">Refunded</option>
+                {view === "attendees" ? (
+                  <>
+                    <option value="issued">Issued</option>
+                    <option value="checked_in">Checked in</option>
+                    <option value="transferred">Transferred</option>
+                    <option value="revoked">Revoked</option>
+                    <option value="refunded">Refunded</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="paid">Paid</option>
+                    <option value="pending">Pending</option>
+                    <option value="failed">Failed</option>
+                    <option value="refunded">Refunded</option>
+                  </>
+                )}
               </select>
               <button
                 type="submit"
@@ -289,12 +325,14 @@ export default async function OrdersPage({
         {view === "attendees" && (
           <Card>
             <CardBody className="px-5 py-4">
-              <p className="text-label">Attendees ({items.length})</p>
+              <p className="text-label">
+                Attendees{attendees.length !== items.length ? ` (${attendees.length} of ${items.length})` : ` (${items.length})`}
+              </p>
             </CardBody>
             <CardDivider />
-            {items.length === 0 ? (
+            {attendees.length === 0 ? (
               <CardBody className="py-12 text-center text-[13px] text-ink-3">
-                No attendees yet.
+                {items.length === 0 ? "No attendees yet." : "No attendees match the current filters."}
               </CardBody>
             ) : (
               <div className="overflow-x-auto">
@@ -309,7 +347,7 @@ export default async function OrdersPage({
                     </tr>
                   </thead>
                   <tbody>
-                    {items.map((item: any, i: number) => (
+                    {attendees.map((item: any, i: number) => (
                       <tr key={item.id} className={i > 0 ? "border-t border-line" : ""}>
                         <td className="px-5 py-3 font-mono text-[12px] text-ink">
                           {item.ticket_code}
