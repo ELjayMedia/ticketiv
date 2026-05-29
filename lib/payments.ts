@@ -5,6 +5,7 @@ import crypto, { randomUUID } from "crypto"
 import { APP_URL, PAYSTACK_SECRET_KEY } from "@/lib/env"
 import { completePaidOrder } from "@/lib/orders"
 import { notifyPaymentFailed, notifyPaymentSucceeded, notifyTicketPurchaseSucceeded } from "@/lib/notifications"
+import { deliverTicketsForOrder } from "@/lib/notifications/ticket-delivery"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
@@ -240,6 +241,10 @@ export async function completeVerifiedPayment(input: CompleteVerifiedPaymentInpu
     notifyPaymentSucceeded({ userId: order.buyer_id, orderId: order.id, paymentId: payment.id, amountCents: order.total_cents, currency: order.currency }),
     notifyTicketPurchaseSucceeded({ userId: order.buyer_id, orderId: order.id, orgId: order.org_id, amountCents: order.total_cents, currency: order.currency, ticketCount: completed.items?.length ?? undefined }),
   ])
+
+  // Transactional ticket delivery (email now, WhatsApp stub). Best-effort —
+  // never blocks payment completion.
+  await deliverTicketsForOrder(order.id)
 
   return { payment, order: completed.order, items: completed.items }
 }
