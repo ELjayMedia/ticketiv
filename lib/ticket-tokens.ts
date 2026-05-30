@@ -2,14 +2,15 @@ import "server-only"
 
 import crypto from "crypto"
 
-// TICK-75 — Capability tokens for ticket view links.
+// TICK-75 / TICK-77 — Capability tokens for ticket and order view links.
 //
 // A signed, time-boxed, single-resource token used in delivered URLs so
-// WhatsApp/SMS/email recipients can open their ticket without a login wall.
+// WhatsApp/SMS/email recipients can open their ticket or order bundle without
+// a login wall.
 //
 // Properties:
 // - HMAC-SHA256 over a tiny JSON payload, base64url(payload).base64url(sig).
-// - Payload carries only the order_item_id, expiry, and a version — never
+// - Payload carries only a scoped identifier, expiry, kind, and version — never
 //   PII, ticket_code, or QR content.
 // - Verification is constant-time and rejects expired / unsupported / malformed
 //   tokens before any data lookup happens.
@@ -20,11 +21,17 @@ import crypto from "crypto"
 
 const VERSION = 1
 
-// Payload shape: { oi } encodes a single order_item (per-ticket /t link),
-// { or } encodes a whole order (bundle /o link). Same secret, same HMAC,
-// same TTL semantics — only the field discriminates. Old tokens (oi only)
-// keep verifying unchanged.
+type TicketTokenKind = "oi" | "or"
+
+// Payload shape:
+// - kind: "oi" + oi encodes a single order_item (per-ticket /t link).
+// - kind: "or" + or encodes a whole order (buyer bundle /o link).
+//
+// Older TICK-75 per-item tokens did not include kind; verifyTicketToken still
+// accepts those for backwards compatibility. New tokens always include kind so
+// /t and /o tokens cannot be confused by shape alone.
 interface TicketTokenPayload {
+  kind?: TicketTokenKind
   oi?: string
   or?: string
   exp: number
@@ -60,7 +67,7 @@ function sign(payload: TicketTokenPayload, secret: string): string {
 export function issueTicketToken(orderItemId: string, expEpochSeconds: number): string | null {
   const secret = getSecret()
   if (!secret) return null
-  return sign({ oi: orderItemId, exp: Math.floor(expEpochSeconds), v: VERSION }, secret)
+  return sign({ kind: "oi", oi: orderItemId, exp: Math.floor(expEpochSeconds), v: VERSION }, secret)
 }
 
 /**
@@ -70,7 +77,7 @@ export function issueTicketToken(orderItemId: string, expEpochSeconds: number): 
 export function issueOrderToken(orderId: string, expEpochSeconds: number): string | null {
   const secret = getSecret()
   if (!secret) return null
-  return sign({ or: orderId, exp: Math.floor(expEpochSeconds), v: VERSION }, secret)
+  return sign({ kind: "or", or: orderId, exp: Math.floor(expEpochSeconds), v: VERSION }, secret)
 }
 
 export type VerificationFailure =
@@ -88,8 +95,7 @@ export type OrderTokenVerification =
   | { ok: true; orderId: string; expiresAt: Date }
   | { ok: false; reason: VerificationFailure }
 
-// Verifies signature, version, and expiry. Caller decides which field
-// (oi/or) it expects.
+// Verifies signature, version, and expiry. Caller decides which kind it expects.
 function verifyEnvelope(token: string): { ok: true; payload: TicketTokenPayload } | { ok: false; reason: VerificationFailure } {
   const secret = getSecret()
   if (!secret) return { ok: false, reason: "missing_secret" }
@@ -124,7 +130,11 @@ export function verifyTicketToken(token: string): TicketTokenVerification {
   const result = verifyEnvelope(token)
   if (!result.ok) return result
   const { payload } = result
-  if (typeof payload.oi !== "string") return { ok: false, reason: "malformed" }
+
+  // Accept old TICK-75 tokens where kind was omitted, but reject explicit order
+  // tokens on the /t route.
+  if (payload.kind && payload.kind !== "oi") return { ok: false, reason: "malformed" }
+  if (typeof payload.oi !== "string" || payload.or) return { ok: false, reason: "malformed" }
   return { ok: true, orderItemId: payload.oi, expiresAt: new Date(payload.exp * 1000) }
 }
 
@@ -132,6 +142,8 @@ export function verifyOrderToken(token: string): OrderTokenVerification {
   const result = verifyEnvelope(token)
   if (!result.ok) return result
   const { payload } = result
-  if (typeof payload.or !== "string") return { ok: false, reason: "malformed" }
+
+  if (payload.kind !== "or") return { ok: false, reason: "malformed" }
+  if (typeof payload.or !== "string" || payload.oi) return { ok: false, reason: "malformed" }
   return { ok: true, orderId: payload.or, expiresAt: new Date(payload.exp * 1000) }
 }
