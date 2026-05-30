@@ -57,6 +57,13 @@ export interface FriendsScreenProps {
     whenAgo: string
     icon: "ticket" | "spark" | "heart" | "plus"
   }>
+  friends: Array<{
+    id: string
+    name: string
+    photo: string
+    handle: string | null
+    mutualLabel: string
+  }>
   suggested: Array<{
     id: string
     name: string
@@ -93,6 +100,16 @@ export function mapFriends(o: FriendsOverview, host = "ticketiv.com"): FriendsSc
       what: a.eventTitle,
       whenAgo: timeAgo(a.whenAt),
       icon: "spark" as const,
+    })),
+    friends: o.friends.map((f) => ({
+      id: f.id,
+      name: f.name,
+      photo: avatarFor(f.id),
+      handle: f.handle,
+      mutualLabel:
+        f.mutualEventCount > 0
+          ? `${f.mutualEventCount} shared event${f.mutualEventCount === 1 ? "" : "s"}`
+          : "No shared events yet",
     })),
     suggested: o.suggested.map((s) => ({
       id: s.id,

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { acceptTransfer, declineTransfer } from "@/lib/data/attendee/transfers";
+import { acceptTransfer, cancelTransfer, declineTransfer } from "@/lib/data/attendee/transfers";
 import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
@@ -40,7 +40,27 @@ interface MyTicketsProps {
   upcoming?: TicketListItem[];
   past?: TicketListItem[];
   inboundTransfer?: InboundTransfer | null;
+  transferHistory?: TransferHistoryRow[];
   counts?: { upcoming: number; past: number; transfers: number };
+}
+
+type TransferStatus =
+  | "requested"
+  | "pending"
+  | "accepted"
+  | "declined"
+  | "cancelled"
+  | "completed";
+
+interface TransferHistoryRow {
+  id: string;
+  direction: "sent" | "received";
+  status: TransferStatus;
+  eventTitle: string;
+  counterpartyName: string;
+  counterpartyPhoto: string;
+  dateLabel: string;
+  canCancel: boolean;
 }
 
 interface FeaturedTicket {
@@ -152,10 +172,13 @@ export function MyTickets({
   upcoming,
   past,
   inboundTransfer,
+  transferHistory,
   counts,
 }: MyTicketsProps) {
   const [seg, setSeg] = React.useState<Segment>("upcoming");
   const [transferLoading, setTransferLoading] = React.useState<"accept" | "decline" | null>(null);
+  const [cancelling, setCancelling] = React.useState<string | null>(null);
+  const [hiddenTransfers, setHiddenTransfers] = React.useState<Set<string>>(new Set());
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
 
@@ -169,7 +192,13 @@ export function MyTickets({
   const _past = past ?? [];
   const _inbound =
     inboundTransfer === undefined && isDemo ? DEFAULT_INBOUND : inboundTransfer;
-  const _counts = counts ?? { upcoming: _upcoming.length, past: _past.length, transfers: 0 };
+  const _history = transferHistory ?? [];
+  const _visibleHistory = _history.filter((t) => !hiddenTransfers.has(t.id));
+  const _counts = counts ?? {
+    upcoming: _upcoming.length,
+    past: _past.length,
+    transfers: _history.length,
+  };
   const hasUpcoming = Boolean(_featured) || _upcoming.length > 0;
 
   const filteredUpcoming = searchQuery.trim()
@@ -536,11 +565,108 @@ export function MyTickets({
       )}
 
       {seg === "transfers" && (
-        <EmptyState
-          icon="arrowUR"
-          title="Transfers"
-          subtitle="Outgoing and incoming transfers will appear here."
-        />
+        _inbound || _visibleHistory.length > 0 ? (
+          <div className="px-5 pt-1">
+            {_inbound && (
+              <section className="pb-4">
+                <div className="text-label mb-2">Action needed</div>
+                <Card className="border-[#fde2c1] bg-[#fdf6ed] p-3.5" flat>
+                  <div className="flex items-center gap-3">
+                    <Avatar src={_inbound.fromPhoto} size={36} />
+                    <div className="flex flex-1 flex-col">
+                      <span className="text-[13px] font-semibold">
+                        {_inbound.fromName} sent you a ticket
+                      </span>
+                      <span className="font-mono text-[11px] text-ink-3">
+                        {_inbound.eventTitle} · {_inbound.expiresInLabel}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex gap-1.5">
+                    <Button
+                      variant="default"
+                      size="xs"
+                      className="flex-1"
+                      disabled={transferLoading !== null}
+                      onClick={async () => {
+                        if (!_inbound?.transferId) return;
+                        setTransferLoading("decline");
+                        await declineTransfer(_inbound.transferId).catch(() => null);
+                        setTransferLoading(null);
+                      }}
+                    >
+                      Decline
+                    </Button>
+                    <Button
+                      variant="accent"
+                      size="xs"
+                      className="flex-1"
+                      disabled={transferLoading !== null}
+                      onClick={async () => {
+                        if (!_inbound?.transferId) return;
+                        setTransferLoading("accept");
+                        await acceptTransfer(_inbound.transferId).catch(() => null);
+                        setTransferLoading(null);
+                      }}
+                    >
+                      {transferLoading === "accept" ? "Accepting…" : "Accept"}
+                    </Button>
+                  </div>
+                </Card>
+              </section>
+            )}
+
+            {_visibleHistory.length === 0 ? null : (
+              <section className="pb-4">
+                <div className="text-label mb-2">History</div>
+                <ul className="flex flex-col gap-2">
+                  {_visibleHistory.map((t) => (
+                    <li key={t.id}>
+                      <Card className="flex items-center gap-3 p-3" flat>
+                        <Avatar src={t.counterpartyPhoto} size={36} />
+                        <div className="flex min-w-0 flex-1 flex-col">
+                          <span className="truncate text-[13px] font-semibold">
+                            {t.direction === "sent" ? "↗ Sent to " : "↙ Received from "}
+                            {t.counterpartyName}
+                          </span>
+                          <span className="truncate font-mono text-[11px] text-ink-3">
+                            {t.eventTitle} · {t.dateLabel}
+                          </span>
+                          <div className="mt-1">
+                            <TransferStatusChip status={t.status} />
+                          </div>
+                        </div>
+                        {t.canCancel && (
+                          <Button
+                            variant="default"
+                            size="xs"
+                            disabled={cancelling === t.id}
+                            onClick={async () => {
+                              setCancelling(t.id);
+                              const ok = await cancelTransfer(t.id).catch(() => null);
+                              setCancelling(null);
+                              if (ok) {
+                                setHiddenTransfers((prev) => new Set([...prev, t.id]));
+                              }
+                            }}
+                          >
+                            {cancelling === t.id ? "…" : "Cancel"}
+                          </Button>
+                        )}
+                      </Card>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </div>
+        ) : (
+          <EmptyState
+            icon="arrowUR"
+            title="No transfers yet"
+            subtitle="Tickets you send or receive will appear here."
+          />
+        )
       )}
     </div>
   );
@@ -558,6 +684,27 @@ function StatusChip({ status, count }: { status: TicketDisplayStatus; count: num
   return (
     <Chip size="sm" className={config.className}>
       {config.label}
+    </Chip>
+  );
+}
+
+const TRANSFER_STATUS: Record<
+  TransferStatus,
+  { label: string; className: string }
+> = {
+  requested: { label: "Pending", className: "border-transparent bg-[#fdf6ed] text-[#a36a18]" },
+  pending: { label: "Pending", className: "border-transparent bg-[#fdf6ed] text-[#a36a18]" },
+  accepted: { label: "Accepted", className: "border-transparent bg-accent-soft text-accent" },
+  completed: { label: "Completed", className: "border-transparent bg-accent-soft text-accent" },
+  declined: { label: "Declined", className: "border-transparent bg-line/40 text-ink-3" },
+  cancelled: { label: "Cancelled", className: "border-transparent bg-line/40 text-ink-3" },
+};
+
+function TransferStatusChip({ status }: { status: TransferStatus }) {
+  const cfg = TRANSFER_STATUS[status];
+  return (
+    <Chip size="sm" className={cfg.className}>
+      {cfg.label}
     </Chip>
   );
 }

@@ -374,10 +374,25 @@ export function CalendarScreen(props: CalendarProps = {}) {
       )}
 
       {view === "week" && (
-        <EmptyView label="Week view — Phase 3 wiring lands a 7-day strip here." />
+        <WeekView
+          year={displayYear}
+          month={displayMonth}
+          daysInMonth={daysInMonth}
+          today={isInitialMonth ? cfg.today : null}
+          todayEvents={isInitialMonth ? cfg.todayEvents : []}
+          comingUp={cfg.comingUp}
+        />
       )}
       {view === "list" && (
-        <EmptyView label="List view — chronological feed lands here." />
+        <ListView
+          year={displayYear}
+          month={displayMonth}
+          today={isInitialMonth ? cfg.today : null}
+          todayLabel={cfg.todayLabel}
+          todayEvents={isInitialMonth ? cfg.todayEvents : []}
+          comingUp={cfg.comingUp}
+          searchQuery={searchQuery}
+        />
       )}
 
       {/* Filter bottom sheet */}
@@ -429,6 +444,252 @@ function EmptyView({ label }: { label: string }) {
   return (
     <div className="mx-5 mt-4 rounded-[var(--radius-lg)] border border-dashed border-line-2 px-6 py-10 text-center font-mono text-[11px] text-ink-3">
       {label}
+    </div>
+  );
+}
+
+interface WeekViewProps {
+  year: number;
+  month: number; // 0-indexed
+  daysInMonth: number;
+  today: number | null;
+  todayEvents: CalendarEvent[];
+  comingUp: ComingUpEvent[];
+}
+
+function WeekView({ year, month, daysInMonth, today, todayEvents, comingUp }: WeekViewProps) {
+  // Start the strip on the Monday of the week containing today (or day 1 of the
+  // displayed month when today isn't in this month).
+  const anchorDay = today ?? 1;
+  const anchor = new Date(year, month, anchorDay);
+  const weekday = (anchor.getDay() + 6) % 7; // Mon=0 ... Sun=6
+  const initialMondayDate = new Date(year, month, anchorDay - weekday);
+
+  const [mondayDate, setMondayDate] = React.useState(initialMondayDate);
+
+  function shiftWeek(delta: number) {
+    setMondayDate((d) => {
+      const next = new Date(d);
+      next.setDate(d.getDate() + delta * 7);
+      return next;
+    });
+  }
+
+  const days: Array<{
+    date: Date;
+    inMonth: boolean;
+    isToday: boolean;
+    events: { id: string; title: string; venue: string; time: string }[];
+  }> = [];
+
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(mondayDate);
+    d.setDate(mondayDate.getDate() + i);
+    const inMonth = d.getMonth() === month && d.getFullYear() === year && d.getDate() <= daysInMonth;
+    const isToday = inMonth && today !== null && d.getDate() === today;
+    const dayNum = d.getDate();
+
+    let events: { id: string; title: string; venue: string; time: string }[] = [];
+    if (inMonth) {
+      if (isToday) {
+        events = todayEvents.map((e) => ({ id: e.id, title: e.title, venue: e.venue, time: e.time }));
+      } else {
+        events = comingUp
+          .filter((e) => e.day === dayNum)
+          .map((e) => ({ id: e.id, title: e.title, venue: e.venue, time: e.time }));
+      }
+    }
+    days.push({ date: d, inMonth, isToday, events });
+  }
+
+  const startLabel = mondayDate.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  const endLabel = days[6].date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+
+  return (
+    <>
+      <div className="flex items-center gap-2 px-5 pb-3">
+        <button
+          onClick={() => shiftWeek(-1)}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius)] border border-line-2 bg-surface hover:bg-bg"
+          aria-label="Previous week"
+        >
+          <Icon name="chevL" size={14} />
+        </button>
+        <span className="flex-1 text-center text-[14px] font-semibold">
+          {startLabel} – {endLabel}
+        </span>
+        <button
+          onClick={() => shiftWeek(1)}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius)] border border-line-2 bg-surface hover:bg-bg"
+          aria-label="Next week"
+        >
+          <Icon name="chevR" size={14} />
+        </button>
+      </div>
+
+      <div className="px-5 pb-4">
+        <div className="grid grid-cols-7 gap-1">
+          {days.map((d, i) => (
+            <div
+              key={i}
+              className={
+                "flex flex-col rounded-[var(--radius-md)] border p-1.5 min-h-[110px] " +
+                (d.isToday
+                  ? "border-transparent bg-accent text-white"
+                  : d.inMonth
+                  ? "border-line bg-surface"
+                  : "border-line/50 bg-bg")
+              }
+            >
+              <span
+                className={
+                  "text-center font-mono text-[10px] uppercase " +
+                  (d.isToday ? "text-white/85" : "text-ink-3")
+                }
+              >
+                {WEEKDAYS[i]}
+              </span>
+              <span
+                className={
+                  "text-center font-mono text-[13px] font-semibold " +
+                  (d.isToday ? "text-white" : d.inMonth ? "text-ink" : "text-ink-3")
+                }
+              >
+                {d.date.getDate()}
+              </span>
+              <div className="mt-1 flex flex-col gap-0.5">
+                {d.events.slice(0, 3).map((e) => (
+                  <Link
+                    key={e.id}
+                    href={`/events/${e.id}`}
+                    className={
+                      "truncate rounded-sm px-1 py-0.5 text-[9px] " +
+                      (d.isToday
+                        ? "bg-white/20 text-white"
+                        : "bg-accent-soft text-accent")
+                    }
+                    title={`${e.title} · ${e.time}`}
+                  >
+                    {e.time} {e.title}
+                  </Link>
+                ))}
+                {d.events.length > 3 && (
+                  <span
+                    className={
+                      "text-center font-mono text-[9px] " +
+                      (d.isToday ? "text-white/85" : "text-ink-3")
+                    }
+                  >
+                    +{d.events.length - 3}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+interface ListViewProps {
+  year: number;
+  month: number;
+  today: number | null;
+  todayLabel: string;
+  todayEvents: CalendarEvent[];
+  comingUp: ComingUpEvent[];
+  searchQuery: string;
+}
+
+function ListView({ year, month, today, todayLabel, todayEvents, comingUp, searchQuery }: ListViewProps) {
+  type Row = {
+    id: string;
+    day: number;
+    title: string;
+    venue: string;
+    time: string;
+    eventId: string;
+  };
+
+  const q = searchQuery.trim().toLowerCase();
+  const all: Row[] = [
+    ...(today !== null
+      ? todayEvents.map((e) => ({
+          id: `today-${e.id}`,
+          day: today,
+          title: e.title,
+          venue: e.venue,
+          time: e.time,
+          eventId: e.id,
+        }))
+      : []),
+    ...comingUp.map((e) => ({
+      id: e.id,
+      day: e.day,
+      title: e.title,
+      venue: e.venue,
+      time: e.time,
+      eventId: e.id,
+    })),
+  ]
+    .filter((r) =>
+      q ? r.title.toLowerCase().includes(q) || r.venue.toLowerCase().includes(q) : true,
+    )
+    .sort((a, b) => a.day - b.day || a.time.localeCompare(b.time));
+
+  if (all.length === 0) {
+    return (
+      <EmptyView label={q ? "No events match your search." : "No events to list."} />
+    );
+  }
+
+  const grouped = new Map<number, Row[]>();
+  for (const r of all) {
+    const arr = grouped.get(r.day) ?? [];
+    arr.push(r);
+    grouped.set(r.day, arr);
+  }
+  const days = [...grouped.keys()].sort((a, b) => a - b);
+
+  return (
+    <div className="px-5">
+      {days.map((day) => {
+        const date = new Date(year, month, day);
+        const isToday = today === day;
+        const headerLabel = isToday
+          ? todayLabel
+          : date.toLocaleDateString("en-GB", {
+              weekday: "short",
+              day: "numeric",
+              month: "short",
+            });
+        return (
+          <section key={day} className="pb-4">
+            <div className="text-label mb-2">{headerLabel}</div>
+            <ul className="flex flex-col gap-1.5">
+              {grouped.get(day)!.map((r) => (
+                <li key={r.id}>
+                  <Link
+                    href={`/events/${r.eventId}`}
+                    className="flex items-center gap-3 rounded-[var(--radius-md)] border border-line bg-surface p-3 transition-colors hover:bg-bg"
+                  >
+                    <div className="flex w-12 flex-col items-center font-mono">
+                      <span className="text-[13px] font-semibold tabular-nums">{r.time}</span>
+                    </div>
+                    <div className="h-7 w-[3px] rounded-full bg-accent-soft" />
+                    <div className="flex flex-1 flex-col">
+                      <span className="text-[13px] font-semibold">{r.title}</span>
+                      <span className="font-mono text-[11px] text-ink-3">{r.venue}</span>
+                    </div>
+                    <Icon name="chevR" size={14} className="text-ink-3" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
     </div>
   );
 }

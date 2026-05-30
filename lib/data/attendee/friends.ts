@@ -27,6 +27,12 @@ export interface FriendsOverview {
     eventTitle: string
     whenAt: string
   }>
+  friends: Array<{
+    id: string
+    name: string
+    handle: string | null
+    mutualEventCount: number
+  }>
   suggested: Array<{
     id: string
     name: string
@@ -68,6 +74,37 @@ export async function getMyFriendsOverview(): Promise<FriendsOverview | null> {
 
   const totalFriends = friendsRes.count ?? 0
   const pendingRequests = pendingRes.count ?? 0
+  const friendIds = (friendsRes.data ?? [])
+    .map((r) => r.friend_id)
+    .filter((id): id is string => typeof id === "string" && id.length > 0)
+
+  // Hydrate friend profiles (display_name) + handles in parallel.
+  const [profilesRes, handlesRes] = await Promise.all([
+    friendIds.length > 0
+      ? supabase
+          .from("profiles")
+          .select("user_id, display_name, name, surname")
+          .in("user_id", friendIds)
+      : Promise.resolve({ data: [] as Array<{ user_id: string; display_name: string | null; name: string | null; surname: string | null }> }),
+    friendIds.length > 0
+      ? supabase.from("user_handles").select("user_id, handle").in("user_id", friendIds)
+      : Promise.resolve({ data: [] as Array<{ user_id: string; handle: string }> }),
+  ])
+
+  const profById = new Map<string, { name: string; handle: string | null }>()
+  for (const p of (profilesRes.data ?? []) as Array<{ user_id: string; display_name: string | null; name: string | null; surname: string | null }>) {
+    const display =
+      p.display_name?.trim() ||
+      [p.name, p.surname].filter(Boolean).join(" ").trim() ||
+      "Friend"
+    profById.set(p.user_id, { name: display, handle: null })
+  }
+  for (const h of (handlesRes.data ?? []) as Array<{ user_id: string; handle: string }>) {
+    const ex = profById.get(h.user_id)
+    if (ex) ex.handle = h.handle
+    else profById.set(h.user_id, { name: "Friend", handle: h.handle })
+  }
+
   const goingRows = (goingRes.data ?? []) as unknown as Array<{
     event_id: string
     friend_id: string
@@ -147,11 +184,31 @@ export async function getMyFriendsOverview(): Promise<FriendsOverview | null> {
     whenAt: r.events?.starts_at ?? new Date().toISOString(),
   }))
 
+  // Mutual upcoming events per friend, derived from goingRows.
+  const mutualByFriend = new Map<string, Set<string>>()
+  for (const r of goingRows) {
+    if (!friendIds.includes(r.friend_id)) continue
+    const set = mutualByFriend.get(r.friend_id) ?? new Set<string>()
+    set.add(r.event_id)
+    mutualByFriend.set(r.friend_id, set)
+  }
+
+  const friends = friendIds.map((id) => {
+    const prof = profById.get(id)
+    return {
+      id,
+      name: prof?.name ?? "Friend",
+      handle: prof?.handle ?? null,
+      mutualEventCount: mutualByFriend.get(id)?.size ?? 0,
+    }
+  })
+
   return {
     totalFriends,
     pendingRequests,
     goingTogether,
     activity,
+    friends,
     suggested: [],
     inviteHandle: myHandleRes.data?.handle ?? null,
   }
