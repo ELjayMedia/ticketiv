@@ -12,7 +12,7 @@ export interface CheckoutTicketTypeRow {
   id: string;
   name: string;
   price_cents: number;
-  quota: number | null;
+  remaining: number | null;
   sales_status?: string | null;
 }
 
@@ -46,14 +46,14 @@ export function mapCheckoutEvent(row: EventPublicView): CheckoutEventProps {
 export function mapCheckoutTicketType(t: CheckoutTicketTypeRow): CheckoutTicketTypeProp {
   let sublabel: string | undefined;
   if (t.sales_status === "paused") sublabel = "Sales paused";
-  else if (t.quota === 0) sublabel = "Sold out";
-  else if (typeof t.quota === "number" && t.quota <= 10) sublabel = `${t.quota} left`;
+  else if (t.remaining === 0) sublabel = "Sold out";
+  else if (typeof t.remaining === "number" && t.remaining <= 10) sublabel = `${t.remaining} left`;
 
   return {
     id: t.id,
     name: t.name,
     priceMinor: t.price_cents,
-    remaining: t.quota,
+    remaining: t.remaining,
     sublabel,
   };
 }

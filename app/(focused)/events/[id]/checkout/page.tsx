@@ -27,7 +27,7 @@ async function fetchCheckoutExtras(eventId: string) {
   const supabase = await createServerSupabaseClient();
   if (!supabase)
     return {
-      ticketTypes: [] as Array<{ id: string; name: string; price_cents: number; quota: number | null; sales_status: string | null }>,
+      ticketTypes: [] as Array<{ id: string; name: string; price_cents: number; remaining: number | null; sales_status: string | null }>,
       plan: null as { platform_fixed_cents: number | null; platform_percent_bps: number | null } | null,
       orgId: null as string | null,
     };
@@ -40,7 +40,7 @@ async function fetchCheckoutExtras(eventId: string) {
 
   const orgId = eventRow?.org_id ?? null;
 
-  const [ttRes, planRes] = await Promise.all([
+  const [ttRes, remainingRes, planRes] = await Promise.all([
     supabase
       .from("ticket_types")
       .select("id, name, price_cents, quota, sales_status")
@@ -49,6 +49,7 @@ async function fetchCheckoutExtras(eventId: string) {
       // They should never appear in the public listing or be reachable by URL.
       .neq("sales_status", "hidden")
       .order("price_cents", { ascending: true }),
+    supabase.rpc("fn_ticket_type_remaining", { p_event_id: eventId }),
     orgId
       ? supabase
           .from("pricing_plans")
@@ -62,10 +63,23 @@ async function fetchCheckoutExtras(eventId: string) {
   ]);
 
   if (ttRes.error) console.error("[checkout] ticket_types:", ttRes.error);
+  if (remainingRes.error) console.error("[checkout] fn_ticket_type_remaining:", remainingRes.error);
   if ("error" in planRes && planRes.error) console.error("[checkout] pricing_plans:", planRes.error);
 
+  const remainingMap = new Map<string, number>(
+    ((remainingRes.data ?? []) as Array<{ ticket_type_id: string; remaining: number }>).map(
+      (r) => [r.ticket_type_id, r.remaining],
+    ),
+  );
+
   return {
-    ticketTypes: ttRes.data ?? [],
+    ticketTypes: (ttRes.data ?? []).map((t) => ({
+      id: t.id,
+      name: t.name,
+      price_cents: t.price_cents,
+      sales_status: t.sales_status,
+      remaining: remainingMap.get(t.id) ?? null,
+    })),
     plan: planRes.data ?? null,
     orgId,
   };

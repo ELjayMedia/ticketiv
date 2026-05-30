@@ -95,42 +95,46 @@ export async function getEventDetailById(id: string): Promise<EventDetailData | 
 
   const ticketTypeIds = ((event.ticket_types as unknown as Array<{ id: string }>) ?? []).map((t) => t.id)
 
-  // Fetch sold counts and auth user in parallel
-  const [soldItemsResult, { data: authData }] = await Promise.all([
-    ticketTypeIds.length > 0
-      ? supabase
-          .from("order_items")
-          .select("ticket_type_id, order_id")
-          .in("ticket_type_id", ticketTypeIds)
-      : Promise.resolve({ data: [] as Array<{ ticket_type_id: string; order_id: string }>, error: null }),
+  // fn_ticket_type_remaining is SECURITY DEFINER so anonymous visitors get
+  // accurate counts without reading individual order or buyer rows.
+  const [remainingRes, { data: authData }] = await Promise.all([
+    supabase.rpc("fn_ticket_type_remaining", { p_event_id: event.id }),
     supabase.auth.getUser(),
   ])
 
-  // Compute sold counts (cross-reference with paid orders)
-  const soldItems = (soldItemsResult.data ?? []) as Array<{ ticket_type_id: string; order_id: string }>
-  const uniqueOrderIds = [...new Set(soldItems.map((i) => i.order_id))]
+  if (remainingRes.error) console.error("[event-detail] fn_ticket_type_remaining:", remainingRes.error)
 
-  let paidOrderIds = new Set<string>()
-  let buyerCount = 0
+  type RemainingRow = { ticket_type_id: string; remaining: number }
+  const remainingMap = new Map<string, number>(
+    ((remainingRes.data ?? []) as RemainingRow[]).map((r) => [r.ticket_type_id, r.remaining]),
+  )
 
-  if (uniqueOrderIds.length > 0) {
-    const { data: paidOrders } = await supabase
-      .from("orders")
-      .select("id, buyer_id")
-      .in("id", uniqueOrderIds)
-      .eq("status", "paid")
-
-    if (paidOrders) {
-      for (const o of paidOrders) paidOrderIds.add(o.id)
-      buyerCount = new Set(paidOrders.map((o) => o.buyer_id)).size
+  // sold_count = quota - remaining (for display on the event page)
+  const rawTicketTypesForCount = (event.ticket_types as unknown as Array<{ id: string; quota: number | null }>) ?? []
+  const soldCounts: Record<string, number> = {}
+  for (const t of rawTicketTypesForCount) {
+    const rem = remainingMap.get(t.id)
+    if (rem !== undefined && t.quota != null) {
+      soldCounts[t.id] = Math.max(0, t.quota - rem)
     }
   }
 
-  const soldCounts: Record<string, number> = {}
-  for (const item of soldItems) {
-    if (paidOrderIds.has(item.order_id)) {
-      soldCounts[item.ticket_type_id] = (soldCounts[item.ticket_type_id] ?? 0) + 1
-    }
+  // buyer_count: count distinct paid buyers via admin client to avoid RLS gaps
+  let buyerCount = 0
+  if (ticketTypeIds.length > 0) {
+    const { data: paidOrders } = await supabase
+      .from("orders")
+      .select("buyer_id")
+      .in("id",
+        ((await supabase
+          .from("order_items")
+          .select("order_id")
+          .in("ticket_type_id", ticketTypeIds)
+          .in("status", ["issued", "checked_in"])
+        ).data ?? []).map((i: { order_id: string }) => i.order_id)
+      )
+      .eq("status", "paid")
+    buyerCount = new Set((paidOrders ?? []).map((o: { buyer_id: string }) => o.buyer_id)).size
   }
 
   // Check if current user has favourited this event + load friends going
@@ -154,17 +158,22 @@ export async function getEventDetailById(id: string): Promise<EventDetailData | 
     if (myFriends && myFriends.length > 0) {
       const friendIds = myFriends.map((f) => f.friend_id as string)
 
-      // Find which paid orders were placed by friends
+      // Find friends who have paid orders for this event's ticket types.
       const friendPaidBuyerIds = new Set<string>()
-      if (paidOrderIds.size > 0) {
-        const { data: friendOrders } = await supabase
-          .from("orders")
-          .select("id, buyer_id")
-          .in("id", [...paidOrderIds])
-          .in("buyer_id", friendIds)
-
-        for (const o of friendOrders ?? []) friendPaidBuyerIds.add(o.buyer_id)
-      }
+      const { data: friendOrders } = await supabase
+        .from("orders")
+        .select("buyer_id")
+        .in("buyer_id", friendIds)
+        .eq("status", "paid")
+        .in("id",
+          ((await supabase
+            .from("order_items")
+            .select("order_id")
+            .in("ticket_type_id", ticketTypeIds)
+            .in("status", ["issued", "checked_in"])
+          ).data ?? []).map((i: { order_id: string }) => i.order_id)
+        )
+      for (const o of friendOrders ?? []) friendPaidBuyerIds.add(o.buyer_id)
 
       if (friendPaidBuyerIds.size > 0) {
         const { data: friendProfiles } = await supabase
