@@ -32,21 +32,21 @@ export async function requestEmailClaimAction(email: string): Promise<ClaimEmail
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { ok: false, message: "Open this page after starting checkout — we couldn't find your session." }
+    return { ok: false, message: "Open this page after starting checkout — we could not find your session." }
   }
   if (!(user as { is_anonymous?: boolean }).is_anonymous) {
-    // Already a recoverable account — nothing to claim.
     return { ok: true, message: "This account already has an email saved." }
   }
 
-  const { error } = await supabase.auth.updateUser({ email: trimmed })
+  const { error } = await supabase.auth.updateUser(
+    { email: trimmed },
+    { emailRedirectTo: "/auth/confirm?next=/tickets" },
+  )
   if (error) {
-    // Common case: an existing account already uses that email. We deliberately
-    // don't leak which case it is — just ask them to use the sign-in flow.
     console.error("[claim] updateUser failed", error)
     return {
       ok: false,
-      message: "We couldn't send the confirmation. If you already have a Ticketiv account with that email, sign in instead.",
+      message: "We could not send the confirmation. If you already have a Ticketiv account with that email, sign in instead.",
     }
   }
 
