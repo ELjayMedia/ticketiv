@@ -109,6 +109,8 @@ export function MobileCheckout({
     { ok: true; label: string; savedMinor: number } | { ok: false; message: string } | null
   >(null);
   const [isApplyingPromo, setIsApplyingPromo] = React.useState(false);
+  const [attendeeName, setAttendeeName] = React.useState("");
+  const [attendeePhone, setAttendeePhone] = React.useState("");
 
   async function handleApplyPromo() {
     const code = promoInput.trim().toUpperCase();
@@ -279,6 +281,32 @@ export function MobileCheckout({
           </Card>
         </section>
 
+        {/* Attendee details */}
+        <section className="px-5 pb-4">
+          <div className="text-label mb-2">Attendee details</div>
+          <div className="flex flex-col gap-2">
+            <input
+              type="text"
+              autoComplete="name"
+              value={attendeeName}
+              onChange={(e) => setAttendeeName(e.target.value)}
+              placeholder="Full name"
+              className="h-10 w-full rounded-[var(--radius-md)] border border-line bg-surface px-3 text-[14px] placeholder:text-ink-3 focus:border-accent focus:outline-none"
+              disabled={submitting}
+            />
+            <input
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              value={attendeePhone}
+              onChange={(e) => setAttendeePhone(e.target.value)}
+              placeholder="Phone number (optional)"
+              className="h-10 w-full rounded-[var(--radius-md)] border border-line bg-surface px-3 text-[14px] placeholder:text-ink-3 focus:border-accent focus:outline-none"
+              disabled={submitting}
+            />
+          </div>
+        </section>
+
         {/* Promo */}
         {activePromo && (
           <section className="px-5 pb-4">
@@ -395,7 +423,10 @@ export function MobileCheckout({
                 subtitle={p.sub}
               />
             ))}
-            <button className="flex items-center gap-3 rounded-[var(--radius-md)] border border-line p-3 text-[13px] text-ink-3 hover:border-line-2">
+            <button
+              onClick={() => router.push("/profile")}
+              className="flex items-center gap-3 rounded-[var(--radius-md)] border border-line p-3 text-[13px] text-ink-3 hover:border-line-2"
+            >
               <span className="inline-block h-[18px] w-[18px] rounded-full border-2 border-line-2" />
               <Icon name="plus" size={20} />
               <span>Add new payment method</span>

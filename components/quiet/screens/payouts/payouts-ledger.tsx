@@ -272,7 +272,7 @@ export function PayoutsLedger(p: PayoutsLedgerProps) {
       <Card className="p-5">
         <div className="mb-3 flex items-center justify-between">
           <span className="text-h2">Payout accounts</span>
-          <Button variant="default" size="xs" onClick={() => router.push(`/orgs/${p.orgId}/payouts/accounts/new`)}>
+          <Button variant="default" size="xs" onClick={() => router.push(`/orgs/${p.orgId}/payouts/accounts`)}>
             <Icon name="plus" size={12} /> Add account
           </Button>
         </div>
