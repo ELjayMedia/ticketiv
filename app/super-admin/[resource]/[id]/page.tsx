@@ -113,11 +113,12 @@ export default async function SuperAdminEditResourcePage({
   const showTicketTypeActions = canUseBusinessActions && resource.key === "ticket-types"
   const showDeviceActions = canUseBusinessActions && resource.key === "devices"
   const showPayoutActions = canUseBusinessActions && resource.key === "payouts"
-  const eventStatus = typeof data.status === "string" ? data.status : null
-  const salesStatus = typeof data.sales_status === "string" ? data.sales_status : "on_sale"
-  const payoutStatus = typeof data.status === "string" ? data.status : null
-  const assignedEventId = typeof data.event_id === "string" ? data.event_id : null
-  const deviceRole = typeof data.device_role === "string" ? data.device_role : null
+  const rec = data as { status?: unknown; sales_status?: unknown; event_id?: unknown; device_role?: unknown }
+  const eventStatus = typeof rec.status === "string" ? rec.status : null
+  const salesStatus = typeof rec.sales_status === "string" ? rec.sales_status : "on_sale"
+  const payoutStatus = typeof rec.status === "string" ? rec.status : null
+  const assignedEventId = typeof rec.event_id === "string" ? rec.event_id : null
+  const deviceRole = typeof rec.device_role === "string" ? rec.device_role : null
   const isPublished = eventStatus === "published"
   const isArchived = eventStatus === "archived"
   const isPaused = salesStatus === "paused"
