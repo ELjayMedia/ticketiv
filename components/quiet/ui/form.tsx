@@ -55,7 +55,7 @@ FormField.displayName = "FormField";
  * Visually distinct from a checkbox; carries label + sublabel + price slot.
  * ────────────────────────────────────────────────────────────── */
 interface RadioCardProps
-  extends Omit<React.HTMLAttributes<HTMLLabelElement>, "onChange"> {
+  extends Omit<React.HTMLAttributes<HTMLLabelElement>, "onChange" | "title"> {
   selected: boolean;
   disabled?: boolean;
   name: string;
