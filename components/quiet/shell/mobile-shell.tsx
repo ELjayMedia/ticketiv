@@ -51,7 +51,7 @@ export function MobileTabBar() {
   const pathname = usePathname();
   return (
     <nav
-      className="sticky bottom-0 z-30 flex border-t border-line bg-surface pt-2.5 pb-7"
+      className="fixed bottom-0 left-0 right-0 z-30 flex border-t border-line bg-surface pt-2.5 pb-7"
       aria-label="Primary"
     >
       {TABS.map((tab) => {
