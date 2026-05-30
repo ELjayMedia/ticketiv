@@ -152,9 +152,14 @@ export function MobileEvent({ event = DEFAULT_EVENT }: MobileEventProps) {
               <div className="text-label">Where</div>
               <div className="mt-1 text-[15px] font-semibold">{event.venue.name}</div>
               {event.venue.distanceKm > 0 && (
-                <button className="mt-0.5 font-mono text-[11px] text-accent">
+                <a
+                  href={`https://www.google.com/maps/search/${encodeURIComponent(event.venue.name)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-0.5 font-mono text-[11px] text-accent"
+                >
                   {event.venue.distanceKm} km · directions ↗
-                </button>
+                </a>
               )}
             </Card>
           </div>

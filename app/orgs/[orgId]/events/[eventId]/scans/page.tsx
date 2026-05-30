@@ -130,10 +130,12 @@ export default async function ScansPage({ params }: { params: { orgId: string; e
               <p className="text-[13px] text-ink-3">{event?.title}</p>
             </div>
           </div>
-          <Button variant="outline" size="md">
-            <Icon name="download" size={14} />
-            Export CSV
-          </Button>
+          <a href={`/api/orgs/${orgId}/events/${eventId}/attendees.csv`}>
+            <Button variant="outline" size="md">
+              <Icon name="download" size={14} />
+              Export CSV
+            </Button>
+          </a>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">

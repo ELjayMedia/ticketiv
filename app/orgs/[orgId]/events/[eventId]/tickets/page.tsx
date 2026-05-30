@@ -8,6 +8,7 @@ import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
 import { getDemoEventById } from "@/lib/demo-data"
+import { DeleteTicketTypeButton } from "./_components/delete-ticket-type-button"
 
 export const dynamic = "force-dynamic"
 
@@ -72,10 +73,12 @@ export default async function TicketsPage({ params }: { params: { orgId: string;
               <p className="text-[13px] text-ink-3">{event?.title}</p>
             </div>
           </div>
-          <Button variant="primary" size="md">
-            <Icon name="plus" size={14} />
-            Add ticket type
-          </Button>
+          <Link href={`/orgs/${orgId}/events/${eventId}/tickets/new`}>
+            <Button variant="primary" size="md">
+              <Icon name="plus" size={14} />
+              Add ticket type
+            </Button>
+          </Link>
         </div>
 
         <div className="flex flex-col gap-4">
@@ -83,10 +86,12 @@ export default async function TicketsPage({ params }: { params: { orgId: string;
             <Card>
               <CardBody className="flex flex-col items-center justify-center gap-4 py-12">
                 <p className="text-[13px] text-ink-3">No ticket types yet.</p>
-                <Button variant="primary" size="md">
-                  <Icon name="plus" size={14} />
-                  Create first ticket type
-                </Button>
+                <Link href={`/orgs/${orgId}/events/${eventId}/tickets/new`}>
+                  <Button variant="primary" size="md">
+                    <Icon name="plus" size={14} />
+                    Create first ticket type
+                  </Button>
+                </Link>
               </CardBody>
             </Card>
           ) : (
@@ -100,14 +105,10 @@ export default async function TicketsPage({ params }: { params: { orgId: string;
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm">Edit</Button>
-                    <button
-                      type="button"
-                      aria-label="Delete ticket type"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-danger transition-colors hover:bg-danger-soft"
-                    >
-                      <Icon name="trash" size={14} />
-                    </button>
+                    <Link href={`/orgs/${orgId}/events/${eventId}/tickets/${ticket.id}/edit`}>
+                      <Button variant="outline" size="sm">Edit</Button>
+                    </Link>
+                    <DeleteTicketTypeButton eventId={eventId} ticketTypeId={ticket.id} />
                   </div>
                 </CardBody>
                 <CardDivider />
