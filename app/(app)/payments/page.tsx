@@ -48,34 +48,23 @@ export default async function PaymentsPage() {
         .from("payments")
         .select(`
           id,
-          amount,
+          amount_cents,
           currency,
           status,
           created_at,
-          order:orders(id, event_id)
+          orders!inner(id, buyer_id)
         `)
-        .eq("user_id", session.user.id)
+        .eq("orders.buyer_id", session.user.id)
         .order("created_at", { ascending: false })
 
       if (paymentsError) {
         payments = mockPayments
       } else if (paymentsData) {
-        payments = await Promise.all(
-          paymentsData.map(async (payment: any) => {
-            if (!payment.order?.event_id) {
-              return { ...payment, order: { ...payment.order, event_title: "Unknown Event" } }
-            }
-            const { data: eventData } = await supabase
-              .from("events")
-              .select("title")
-              .eq("id", payment.order.event_id)
-              .single()
-            return {
-              ...payment,
-              order: { ...payment.order, event_title: eventData?.title || "Unknown Event" },
-            }
-          })
-        )
+        payments = paymentsData.map((payment: any) => ({
+          ...payment,
+          amount: payment.amount_cents,
+          order: { id: payment.orders?.id, event_title: "Order #" + (payment.orders?.id?.slice(0, 8) ?? "unknown") },
+        }))
       }
     }
   }

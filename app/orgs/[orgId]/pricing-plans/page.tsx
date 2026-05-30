@@ -12,10 +12,14 @@ export const dynamic = "force-dynamic"
 
 interface PricingPlan {
   id: string
-  name: string
-  monthly_fee_cents: number
-  transaction_fee_percent: number
-  features: string[]
+  active: boolean
+  currency: string
+  effective_from: string
+  platform_percent_bps: number
+  platform_fixed_cents: number
+  platform_fee_payer: string
+  processor_percent_bps: number
+  processor_fixed_cents: number
 }
 
 export default async function PricingPlansPage({ params }: { params: { orgId: string } }) {
@@ -31,9 +35,8 @@ export default async function PricingPlansPage({ params }: { params: { orgId: st
       org = getDemoOrganization(orgId)
       if (!org) return redirect("/403")
       pricingPlans = [
-        { id: "starter", name: "Starter", monthly_fee_cents: 0, transaction_fee_percent: 5, features: ["Up to 5 events/month", "Basic analytics", "Community support"] },
-        { id: "pro", name: "Pro", monthly_fee_cents: 9999, transaction_fee_percent: 2.5, features: ["Unlimited events", "Advanced analytics", "Priority support", "Custom branding"] },
-        { id: "enterprise", name: "Enterprise", monthly_fee_cents: 29999, transaction_fee_percent: 1.5, features: ["Everything in Pro", "Dedicated account manager", "Custom integrations", "SLA guarantee"] },
+        { id: "starter", active: true, currency: "SZL", effective_from: new Date().toISOString(), platform_percent_bps: 500, platform_fixed_cents: 0, platform_fee_payer: "buyer", processor_percent_bps: 150, processor_fixed_cents: 0 },
+        { id: "pro", active: true, currency: "SZL", effective_from: new Date().toISOString(), platform_percent_bps: 250, platform_fixed_cents: 0, platform_fee_payer: "buyer", processor_percent_bps: 150, processor_fixed_cents: 0 },
       ]
     } catch {
       /* fall through */
@@ -57,7 +60,7 @@ export default async function PricingPlansPage({ params }: { params: { orgId: st
 
     const { data: plans = [] } = await supabase
       .from("pricing_plans")
-      .select("id, name, monthly_fee_cents, transaction_fee_percent, features")
+      .select("id, active, currency, effective_from, platform_percent_bps, platform_fixed_cents, platform_fee_payer, processor_percent_bps, processor_fixed_cents")
       .eq("org_id", orgId)
     pricingPlans = (plans ?? []) as PricingPlan[]
   }
@@ -91,31 +94,32 @@ export default async function PricingPlansPage({ params }: { params: { orgId: st
               <Card key={plan.id} className="flex flex-col">
                 <CardBody className="flex flex-1 flex-col gap-5">
                   <div className="flex flex-col gap-1">
-                    <p className="text-h3">{plan.name}</p>
-                    <p className="text-[12px] text-ink-3">Current plan for this organisation.</p>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-baseline gap-2">
-                      <span className="font-mono text-[32px] font-semibold tabular-nums text-ink">
-                        ${(plan.monthly_fee_cents / 100).toFixed(0)}
-                      </span>
-                      <span className="text-[13px] text-ink-3">/month</span>
-                    </div>
-                    <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                      <Icon name="wallet" size={12} />
-                      {plan.transaction_fee_percent}% per transaction
+                    <p className="text-h3">{plan.currency} plan</p>
+                    <p className="text-[12px] text-ink-3">
+                      Effective {new Date(plan.effective_from).toLocaleDateString()}
+                      {plan.active ? "" : " · Inactive"}
                     </p>
                   </div>
 
-                  <ul className="flex flex-col gap-2">
-                    {plan.features?.map((feature, idx) => (
-                      <li key={idx} className="flex items-start gap-2 text-[13px] text-ink">
-                        <Icon name="check" size={14} className="mt-0.5 text-accent" />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="flex flex-col gap-2">
+                    <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-3">
+                      <Icon name="wallet" size={12} />
+                      Platform: {(plan.platform_percent_bps / 100).toFixed(2)}%
+                      {plan.platform_fixed_cents > 0
+                        ? ` + ${(plan.platform_fixed_cents / 100).toLocaleString("en-SZ", { minimumFractionDigits: 2 })} ${plan.currency}`
+                        : ""}
+                    </p>
+                    <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-3">
+                      <Icon name="wallet" size={12} />
+                      Processor: {(plan.processor_percent_bps / 100).toFixed(2)}%
+                      {plan.processor_fixed_cents > 0
+                        ? ` + ${(plan.processor_fixed_cents / 100).toLocaleString("en-SZ", { minimumFractionDigits: 2 })} ${plan.currency}`
+                        : ""}
+                    </p>
+                    <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+                      Fees paid by: {plan.platform_fee_payer}
+                    </p>
+                  </div>
 
                   <Button variant="primary" size="md" block className="mt-auto">
                     View details

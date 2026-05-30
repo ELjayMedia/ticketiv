@@ -7,11 +7,9 @@ import { DEMO_ARTISTS, DEMO_EVENTS } from "@/lib/demo-data"
 export interface Artist {
   id: string
   name: string
-  bio?: string
-  avatar_url?: string
-  genre?: string
-  role?: string
-  created_at?: string
+  bio?: string | null
+  image_url?: string | null
+  created_at?: string | null
 }
 
 export interface ArtistDetail extends Artist {
@@ -38,7 +36,7 @@ export async function getPublicArtists(params?: {
   try {
     const { data, error } = await supabase
       .from("artists")
-      .select("id, name, bio, avatar_url, genre, role, created_at")
+      .select("id, name, bio, image_url, created_at")
       .order("name")
       .limit(params?.limit || 50)
       .range(params?.offset || 0, (params?.offset || 0) + (params?.limit || 50) - 1)
@@ -85,7 +83,7 @@ export async function getArtistDetail(artistId: string): Promise<ArtistDetail | 
   try {
     const { data: artist, error: artistError } = await supabase
       .from("artists")
-      .select("id, name, bio, avatar_url, genre, role, created_at")
+      .select("id, name, bio, image_url, created_at")
       .eq("id", artistId)
       .maybeSingle()
 
@@ -250,7 +248,7 @@ export async function getArtistsByUserId(userId: string): Promise<Artist[]> {
  */
 export async function createArtist(
   orgId: string,
-  artist: Omit<Artist, "id" | "created_at" | "updated_at">
+  artist: { name: string; bio?: string | null; primary_user_id?: string | null }
 ): Promise<Artist | null> {
   const supabase = await createServerSupabaseClient()
   if (!supabase) return null

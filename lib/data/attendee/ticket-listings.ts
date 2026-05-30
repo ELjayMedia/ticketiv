@@ -38,8 +38,7 @@ type TicketListingRow = {
 type PublicTicketListingRow = TicketListingRow & {
   order_items?: {
     ticket_type_id: string | null
-    ticket_types?: { name: string | null } | null
-    orders?: { event_id: string | null; events?: { title: string | null; slug: string | null } | null } | null
+    ticket_types?: { name: string | null; events?: { id: string; title: string | null; slug: string | null } | null } | null
   } | null
 }
 
@@ -62,8 +61,8 @@ function mapRow(row: TicketListingRow): AttendeeTicketListing {
 function mapPublicRow(row: PublicTicketListingRow): PublicEventTicketListing {
   return {
     ...mapRow(row),
-    eventTitle: row.order_items?.orders?.events?.title ?? null,
-    eventSlug: row.order_items?.orders?.events?.slug ?? null,
+    eventTitle: row.order_items?.ticket_types?.events?.title ?? null,
+    eventSlug: row.order_items?.ticket_types?.events?.slug ?? null,
     ticketTypeName: row.order_items?.ticket_types?.name ?? null,
   }
 }
@@ -106,10 +105,9 @@ const PUBLIC_LISTING_SELECT = `
   created_at,
   order_items:order_item_id(
     ticket_type_id,
-    ticket_types:ticket_type_id(name),
-    orders:order_id(
-      event_id,
-      events:event_id(title, slug)
+    ticket_types:ticket_type_id(
+      name,
+      events:event_id(id, title, slug)
     )
   )
 `
@@ -124,7 +122,7 @@ export async function getPublicEventTicketListings(eventId: string | null): Prom
     .from("resale_listings")
     .select(PUBLIC_LISTING_SELECT)
     .eq("status", "active")
-    .eq("order_items.orders.event_id", eventId)
+    .eq("order_items.ticket_types.events.id", eventId)
     .order("price_cents", { ascending: true })
     .limit(20)
 

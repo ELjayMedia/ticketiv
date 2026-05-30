@@ -141,11 +141,11 @@ export async function getUserTickets(userId: string): Promise<
     .select(
       `
       *,
-      event:events(title, starts_at),
-      ticket_type:ticket_types(name, price)
+      ticket_types(name, price_cents, event_id),
+      orders!inner(buyer_id)
     `,
     )
-    .eq("buyer_id", userId)
+    .eq("orders.buyer_id", userId)
     .order("created_at", { ascending: false })
 
   if (error) throw error
@@ -248,7 +248,7 @@ export async function getUserOrders(userId: string): Promise<
       order_items(*)
     `,
     )
-    .eq("purchaser_id", userId)
+    .eq("buyer_id", userId)
     .order("created_at", { ascending: false })
 
   if (error) throw error
@@ -312,9 +312,9 @@ export async function getEventOrders(
     .from("orders")
     .select(`
       *,
-      order_items(*)
+      order_items!inner(*, ticket_types!inner(event_id))
     `)
-    .eq("event_id", eventId)
+    .eq("order_items.ticket_types.event_id", eventId)
 
   if (filters?.status) {
     query = query.eq("status", filters.status)
@@ -527,7 +527,7 @@ export async function getMyOrders(): Promise<
       *,
       order_items(*)
     `)
-    .eq("purchaser_id", user.id)
+    .eq("buyer_id", user.id)
     .order("created_at", { ascending: false })
 
   if (error) throw error

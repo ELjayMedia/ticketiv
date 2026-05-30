@@ -13,10 +13,10 @@ export const dynamic = "force-dynamic"
 
 interface Scan {
   id: string
-  ticket_id: string
+  ticket_code: string
   scanned_at: string
-  scanned_by: string
-  status: "success" | "invalid" | "already_scanned"
+  device_id: string | null
+  outcome: string
 }
 
 function StatTile({
@@ -61,10 +61,10 @@ export default async function ScansPage({ params }: { params: { orgId: string; e
       event = getDemoEventById(eventId)
       if (!event) return redirect("/403")
       scans = [
-        { id: "1", ticket_id: "TK001", scanned_at: "2024-01-15 19:30:45", scanned_by: "Scanner1", status: "success" },
-        { id: "2", ticket_id: "TK002", scanned_at: "2024-01-15 19:31:12", scanned_by: "Scanner1", status: "success" },
-        { id: "3", ticket_id: "TK003", scanned_at: "2024-01-15 19:32:05", scanned_by: "Scanner2", status: "already_scanned" },
-        { id: "4", ticket_id: "INVALID", scanned_at: "2024-01-15 19:33:20", scanned_by: "Scanner2", status: "invalid" },
+        { id: "1", ticket_code: "TK001", scanned_at: "2024-01-15 19:30:45", device_id: "Scanner1", outcome: "success" },
+        { id: "2", ticket_code: "TK002", scanned_at: "2024-01-15 19:31:12", device_id: "Scanner1", outcome: "success" },
+        { id: "3", ticket_code: "TK003", scanned_at: "2024-01-15 19:32:05", device_id: "Scanner2", outcome: "already_scanned" },
+        { id: "4", ticket_code: "INVALID", scanned_at: "2024-01-15 19:33:20", device_id: "Scanner2", outcome: "invalid" },
       ]
     } catch {
       /* fall through */
@@ -90,7 +90,7 @@ export default async function ScansPage({ params }: { params: { orgId: string; e
 
     const { data: scansData = [] } = await supabase
       .from("scans")
-      .select("id, ticket_id, scanned_at, scanned_by, status")
+      .select("id, ticket_code, scanned_at, device_id, outcome")
       .eq("event_id", eventId)
       .order("scanned_at", { ascending: false })
       .limit(100)
@@ -98,12 +98,12 @@ export default async function ScansPage({ params }: { params: { orgId: string; e
   }
 
   const totalScans = scans.length
-  const successfulScans = scans.filter((s) => s.status === "success").length
+  const successfulScans = scans.filter((s) => s.outcome === "success").length
   const failedScans = totalScans - successfulScans
 
-  function statusChip(status: Scan["status"]) {
-    if (status === "success") return <Chip size="sm" variant="active">success</Chip>
-    if (status === "invalid") {
+  function outcomeChip(outcome: string) {
+    if (outcome === "success") return <Chip size="sm" variant="active">success</Chip>
+    if (outcome === "invalid") {
       return (
         <Chip size="sm" variant="muted" className="bg-danger-soft text-danger">
           invalid
@@ -169,10 +169,10 @@ export default async function ScansPage({ params }: { params: { orgId: string; e
                 <tbody>
                   {scans.map((scan, i) => (
                     <tr key={scan.id} className={i > 0 ? "border-t border-line" : ""}>
-                      <td className="px-5 py-3 font-mono text-[13px] text-ink">{scan.ticket_id}</td>
+                      <td className="px-5 py-3 font-mono text-[13px] text-ink">{scan.ticket_code}</td>
                       <td className="px-5 py-3 font-mono text-[12px] text-ink-3">{scan.scanned_at}</td>
-                      <td className="px-5 py-3 text-[13px] text-ink-3">{scan.scanned_by}</td>
-                      <td className="px-5 py-3">{statusChip(scan.status)}</td>
+                      <td className="px-5 py-3 text-[13px] text-ink-3">{scan.device_id ?? "—"}</td>
+                      <td className="px-5 py-3">{outcomeChip(scan.outcome)}</td>
                     </tr>
                   ))}
                 </tbody>

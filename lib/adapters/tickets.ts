@@ -22,7 +22,7 @@ export async function getMyTickets(userId: string, params?: {
     let query = supabase
       .from("v_my_tickets")
       .select("*")
-      .eq("user_id", userId)
+      .eq("buyer_id", userId)
       .order("starts_at", { ascending: false })
 
     const limit = params?.limit || 24
@@ -56,7 +56,7 @@ export async function getTicketById(ticketId: string, userId: string): Promise<M
       .from("v_my_tickets")
       .select("*")
       .eq("order_item_id", ticketId)
-      .eq("user_id", userId)
+      .eq("buyer_id", userId)
       .single()
 
     if (error) {

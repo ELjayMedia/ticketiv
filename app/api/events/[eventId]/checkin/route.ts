@@ -71,7 +71,7 @@ export async function POST(
     // Find the order_item by qr_token (ticket_code)
     const { data: orderItem, error: findError } = await supabase
       .from("order_items")
-      .select("id, order_id, event_id, ticket_code, checked_in_at")
+      .select("id, order_id, ticket_code, checked_in_at, ticket_types(event_id)")
       .eq("ticket_code", qr_token)
       .maybeSingle()
 
@@ -91,7 +91,10 @@ export async function POST(
     }
 
     // Verify the ticket belongs to this event
-    if (orderItem.event_id !== eventId) {
+    const ticketEventId = Array.isArray(orderItem.ticket_types)
+      ? orderItem.ticket_types[0]?.event_id
+      : orderItem.ticket_types?.event_id
+    if (ticketEventId !== eventId) {
       return NextResponse.json(
         { error: "Ticket does not belong to this event" },
         { status: 400 }

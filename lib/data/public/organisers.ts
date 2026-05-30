@@ -7,18 +7,16 @@ import { DEMO_ORGANISERS, DEMO_EVENTS } from "@/lib/demo-data"
 export interface OrganiserSummary {
   id: string
   name: string
-  description?: string
-  logo_url?: string
-  website?: string
+  bio?: string | null
+  logo?: string | null
   upcoming_events_count: number
 }
 
 export interface OrganiserDetail {
   id: string
   name: string
-  description?: string
-  logo_url?: string
-  website?: string
+  bio?: string | null
+  logo?: string | null
   created_at?: string
 }
 
@@ -41,9 +39,8 @@ export async function getPublicOrganisers(params?: {
       return {
         id: org.id,
         name: org.name,
-        description: org.description,
-        logo_url: org.logo_url,
-        website: org.website,
+        bio: (org as any).bio ?? null,
+        logo: (org as any).logo_url ?? (org as any).logo ?? null,
         upcoming_events_count: upcomingEvents,
       }
     })
@@ -55,7 +52,7 @@ export async function getPublicOrganisers(params?: {
   try {
     const { data, error } = await supabase
       .from("organizations")
-      .select("id, name, description, logo_url, website")
+      .select("id, name, bio, logo")
       .order("name")
       .limit(params?.limit || 50)
       .range(params?.offset || 0, (params?.offset || 0) + (params?.limit || 50) - 1)
@@ -118,7 +115,7 @@ export async function getOrganiserDetail(orgId: string) {
   try {
     const { data: org, error: orgError } = await supabase
       .from("organizations")
-      .select("id, name, description, logo_url, website, created_at")
+      .select("id, name, bio, logo, created_at")
       .eq("id", orgId)
       .maybeSingle()
 

@@ -220,7 +220,7 @@ export async function getEventTicketTypes(
   const query = supabase
     .from("ticket_types")
     .select(`
-      id, event_id, name, price_cents, currency, quantity_total, quantity_remaining,
+      id, event_id, name, price_cents, currency, quota,
       ticket_type_channels ( channel, quota, per_order_limit )
     `)
     .eq("event_id", eventId)
@@ -228,9 +228,19 @@ export async function getEventTicketTypes(
   const { data, error } = await query
   if (error) throw error
 
-  if (!channel) return data ?? []
+  const mapped = (data ?? []).map((t) => ({
+    ...t,
+    quantity_total: t.quota ?? 0,
+    quantity_remaining: t.quota ?? 0,
+    price: t.price_cents,
+    description: null,
+    per_user_limit: null,
+    is_reserved_seating: false,
+  }))
 
-  return (data ?? []).map((t) => ({
+  if (!channel) return mapped
+
+  return mapped.map((t) => ({
     ...t,
     ticket_type_channels: ((t as any).ticket_type_channels || []).filter((c: any) => c.channel === channel),
   }))
