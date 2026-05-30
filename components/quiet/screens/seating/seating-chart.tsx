@@ -29,6 +29,11 @@ function stateClass(state: SeatState, isPremium: boolean, isBalcony: boolean): s
 }
 
 export function SeatingChart({ chart, currency = "₹", onSelectionChange }: SeatingChartProps) {
+  const MIN_SCALE = 0.5
+  const MAX_SCALE = 3
+  const SCALE_STEP = 0.25
+  const [scale, setScale] = React.useState(1)
+
   const [picked, setPicked] = React.useState<Set<string>>(() => {
     const initial = new Set<string>()
     for (const s of chart.seats) if (s.state === "pick") initial.add(s.label)
@@ -99,6 +104,9 @@ export function SeatingChart({ chart, currency = "₹", onSelectionChange }: Sea
       {/* Grid */}
       <div className="px-5 pb-4">
         <Card className="p-3.5">
+          <div
+            style={{ transform: `scale(${scale})`, transformOrigin: "top center", transition: "transform 0.15s ease" }}
+          >
           <div className="flex flex-col items-center gap-1.5">
             {chart.schema.rows.map((row) => {
               const tier = tierForRow(row)
@@ -134,12 +142,23 @@ export function SeatingChart({ chart, currency = "₹", onSelectionChange }: Sea
               )
             })}
           </div>
+          </div>
           <div className="mt-3.5 flex items-center justify-center gap-1.5">
-            <button className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-line-2 bg-surface">
+            <button
+              type="button"
+              onClick={() => setScale(s => Math.max(MIN_SCALE, +(s - SCALE_STEP).toFixed(2)))}
+              disabled={scale <= MIN_SCALE}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-line-2 bg-surface disabled:opacity-40"
+            >
               <Icon name="minus" size={14} />
             </button>
-            <span className="px-1.5 font-mono text-[11px] text-ink-3">pinch / tap to zoom</span>
-            <button className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-line-2 bg-surface">
+            <span className="px-1.5 font-mono text-[11px] text-ink-3">{Math.round(scale * 100)}%</span>
+            <button
+              type="button"
+              onClick={() => setScale(s => Math.min(MAX_SCALE, +(s + SCALE_STEP).toFixed(2)))}
+              disabled={scale >= MAX_SCALE}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-line-2 bg-surface disabled:opacity-40"
+            >
               <Icon name="plus" size={14} />
             </button>
           </div>

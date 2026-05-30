@@ -96,6 +96,21 @@ const DEFAULT_PROPS: Required<FriendsScreenProps> = {
 export function FriendsScreen(props: FriendsScreenProps = {}) {
   const cfg = { ...DEFAULT_PROPS, ...props };
   const [tab, setTab] = React.useState<Tab>("activity");
+  const [copied, setCopied] = React.useState(false);
+
+  function handleCopyInviteLink() {
+    const url = cfg.inviteLink.startsWith("http") ? cfg.inviteLink : `https://${cfg.inviteLink}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }).catch(() => {
+        window.prompt("Copy your invite link:", url);
+      });
+    } else {
+      window.prompt("Copy your invite link:", url);
+    }
+  }
 
   return (
     <div className="bg-bg pb-24">
@@ -259,8 +274,8 @@ export function FriendsScreen(props: FriendsScreenProps = {}) {
                 <span className="flex-1 font-mono text-[12px]">
                   {cfg.inviteLink}
                 </span>
-                <Button variant="default" size="xs">
-                  <Icon name="copy" size={12} /> Copy
+                <Button variant="default" size="xs" onClick={handleCopyInviteLink}>
+                  <Icon name="copy" size={12} /> {copied ? "Copied!" : "Copy"}
                 </Button>
               </div>
             </Card>

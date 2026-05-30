@@ -1,3 +1,6 @@
+"use client";
+
+import * as React from "react";
 import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
@@ -123,8 +126,11 @@ const DEFAULT_EVENT: DesktopEventData = {
 };
 
 const TABS = ["About", "Lineup", "Venue", "Reviews", "FAQ"] as const;
+type Tab = typeof TABS[number];
 
 export function DesktopEvent({ event = DEFAULT_EVENT }: DesktopEventProps) {
+  const [activeTab, setActiveTab] = React.useState<Tab>("About");
+
   return (
     <div className="mx-auto max-w-[1280px] px-10">
       {/* Hero photo */}
@@ -165,12 +171,13 @@ export function DesktopEvent({ event = DEFAULT_EVENT }: DesktopEventProps) {
           {/* Tabs */}
           <div>
             <div className="flex gap-6 border-b border-line">
-              {TABS.map((t, i) => (
+              {TABS.map((t) => (
                 <button
                   key={t}
+                  onClick={() => setActiveTab(t)}
                   className={
                     "-mb-px border-b-2 py-2.5 text-[14px] " +
-                    (i === 0
+                    (t === activeTab
                       ? "border-accent font-medium text-ink"
                       : "border-transparent text-ink-3 hover:text-ink")
                   }
@@ -180,90 +187,91 @@ export function DesktopEvent({ event = DEFAULT_EVENT }: DesktopEventProps) {
               ))}
             </div>
 
-            <div className="py-5">
-              <h2 className="text-h2">About this show</h2>
-              <p className="mt-3 max-w-[640px] text-[14px] leading-relaxed text-ink-2">
-                {event.longDescription}
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {event.amenities.map((a) => (
-                  <Chip key={a} size="sm">
-                    {a}
-                  </Chip>
-                ))}
+            {activeTab === "About" && (
+              <div className="py-5">
+                <h2 className="text-h2">About this show</h2>
+                <p className="mt-3 max-w-[640px] text-[14px] leading-relaxed text-ink-2">
+                  {event.longDescription}
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {event.amenities.map((a) => (
+                    <Chip key={a} size="sm">{a}</Chip>
+                  ))}
+                </div>
               </div>
-            </div>
-          </div>
+            )}
 
-          {/* Lineup */}
-          <div>
-            <div className="mb-3.5 flex items-end justify-between">
-              <h2 className="text-h2">Lineup</h2>
-              <span className="font-mono text-[11px] text-ink-3">
-                {event.lineup.length} artists · set times below
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              {event.lineup.map((a) => (
-                <Card
-                  key={a.name}
-                  className="flex min-w-[240px] flex-1 items-center gap-3 p-3.5"
-                  flat
-                >
-                  <Avatar src={a.photo} size={48} />
-                  <div className="flex flex-1 flex-col">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[15px] font-semibold">{a.name}</span>
-                      {a.headliner && (
-                        <Chip variant="accent" size="sm">
-                          Headliner
-                        </Chip>
-                      )}
-                    </div>
-                    <span className="font-mono text-[11px] text-ink-3">{a.role}</span>
+            {activeTab === "Lineup" && (
+              <div className="py-5">
+                <div className="mb-3.5 flex items-end justify-between">
+                  <h2 className="text-h2">Lineup</h2>
+                  <span className="font-mono text-[11px] text-ink-3">
+                    {event.lineup.length} artists · set times below
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {event.lineup.map((a) => (
+                    <Card key={a.name} className="flex min-w-[240px] flex-1 items-center gap-3 p-3.5" flat>
+                      <Avatar src={a.photo} size={48} />
+                      <div className="flex flex-1 flex-col">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[15px] font-semibold">{a.name}</span>
+                          {a.headliner && <Chip variant="accent" size="sm">Headliner</Chip>}
+                        </div>
+                        <span className="font-mono text-[11px] text-ink-3">{a.role}</span>
+                      </div>
+                      <Button variant="default" size="xs">Follow</Button>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "Venue" && (
+              <div className="py-5">
+                <Card className="grid grid-cols-2 overflow-hidden p-0">
+                  <div className="relative h-[220px] bg-[#e8e6e2]">
+                    <svg viewBox="0 0 400 220" className="absolute inset-0 h-full w-full">
+                      <path d="M0,100 L400,80 M0,140 L400,120 M180,0 L200,220" stroke="#d4d2cc" strokeWidth="2" />
+                      <circle cx="200" cy="110" r="10" fill="var(--color-accent)" />
+                      <circle cx="200" cy="110" r="18" fill="var(--color-accent)" fillOpacity="0.2" />
+                    </svg>
                   </div>
-                  <Button variant="default" size="xs">
-                    Follow
-                  </Button>
+                  <div className="flex flex-col gap-1.5 p-5">
+                    <span className="text-label">VENUE</span>
+                    <span className="text-[16px] font-semibold">{event.venue.name}</span>
+                    <span className="font-mono text-[12px] text-ink-3">
+                      Shahibaug · {event.venue.distanceKm} km from city centre
+                    </span>
+                    <Divider className="my-3" />
+                    <a
+                      href={`https://www.google.com/maps/search/${encodeURIComponent(event.venue.name)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="self-start inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-1.5 text-[13px] font-semibold text-ink transition-colors hover:bg-bg"
+                    >
+                      <Icon name="map" size={14} /> Open in maps
+                    </a>
+                  </div>
                 </Card>
-              ))}
-            </div>
-          </div>
+              </div>
+            )}
 
-          {/* Venue placeholder */}
-          <div>
-            <h2 className="text-h2 mb-3.5">Venue</h2>
-            <Card className="grid grid-cols-2 overflow-hidden p-0">
-              <div className="relative h-[220px] bg-[#e8e6e2]">
-                {/* Lightweight static map placeholder — Phase 2 wiring will
-                    swap this for a real Mapbox tile or a Supabase-cached snapshot. */}
-                <svg viewBox="0 0 400 220" className="absolute inset-0 h-full w-full">
-                  <path
-                    d="M0,100 L400,80 M0,140 L400,120 M180,0 L200,220"
-                    stroke="#d4d2cc"
-                    strokeWidth="2"
-                  />
-                  <circle cx="200" cy="110" r="10" fill="var(--color-accent)" />
-                  <circle cx="200" cy="110" r="18" fill="var(--color-accent)" fillOpacity="0.2" />
-                </svg>
+            {activeTab === "Reviews" && (
+              <div className="py-5">
+                <div className="rounded-[var(--radius-lg)] border border-dashed border-line-2 px-6 py-10 text-center font-mono text-[11px] text-ink-3">
+                  No reviews yet — be the first to rate this event after attending.
+                </div>
               </div>
-              <div className="flex flex-col gap-1.5 p-5">
-                <span className="text-label">VENUE</span>
-                <span className="text-[16px] font-semibold">{event.venue.name}</span>
-                <span className="font-mono text-[12px] text-ink-3">
-                  Shahibaug · {event.venue.distanceKm} km from city centre
-                </span>
-                <Divider className="my-3" />
-                <a
-                  href={`https://www.google.com/maps/search/${encodeURIComponent(event.venue.name)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="self-start inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-1.5 text-[13px] font-semibold text-ink transition-colors hover:bg-bg"
-                >
-                  <Icon name="map" size={14} /> Open in maps
-                </a>
+            )}
+
+            {activeTab === "FAQ" && (
+              <div className="py-5">
+                <div className="rounded-[var(--radius-lg)] border border-dashed border-line-2 px-6 py-10 text-center font-mono text-[11px] text-ink-3">
+                  FAQ coming soon.
+                </div>
               </div>
-            </Card>
+            )}
           </div>
 
           {/* Organizer */}
