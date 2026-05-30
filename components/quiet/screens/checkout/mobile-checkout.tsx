@@ -108,11 +108,30 @@ export function MobileCheckout({
   const [promoFeedback, setPromoFeedback] = React.useState<
     { ok: true; label: string; savedMinor: number } | { ok: false; message: string } | null
   >(null);
+  const [isApplyingPromo, setIsApplyingPromo] = React.useState(false);
 
-  function handleApplyPromo() {
+  async function handleApplyPromo() {
     const code = promoInput.trim().toUpperCase();
     if (!code) return;
-    setPromoFeedback({ ok: true, label: code, savedMinor: 0 });
+    setIsApplyingPromo(true);
+    setPromoFeedback(null);
+    try {
+      const result = await startCheckoutAction({
+        eventId: eventUuid,
+        buyerEmail: buyerEmail.trim() || "promo-check@placeholder.invalid",
+        items: [{ ticketTypeId: ticketTypeId ?? "", quantity }],
+        promoCode: code,
+      });
+      if (!result.ok) {
+        setPromoFeedback({ ok: false, message: result.error });
+      } else if (result.promo && !result.promo.applied) {
+        setPromoFeedback({ ok: false, message: describePromoFailure(result.promo.reason) });
+      } else {
+        setPromoFeedback({ ok: true, label: code, savedMinor: result.promo?.adjustmentCents ?? 0 });
+      }
+    } finally {
+      setIsApplyingPromo(false);
+    }
   }
 
   async function handlePay() {
@@ -311,15 +330,15 @@ export function MobileCheckout({
               }}
               placeholder="Add a code"
               className="h-9 flex-1 rounded-[var(--radius-md)] border border-line bg-surface px-3 font-mono text-[13px] uppercase tracking-wide placeholder:normal-case placeholder:text-ink-3 focus:border-accent focus:outline-none"
-              disabled={submitting || promoFeedback?.ok === true}
+              disabled={submitting || isApplyingPromo || promoFeedback?.ok === true}
             />
             <button
               type="button"
               onClick={handleApplyPromo}
-              disabled={!promoInput.trim() || submitting || promoFeedback?.ok === true}
+              disabled={!promoInput.trim() || submitting || isApplyingPromo || promoFeedback?.ok === true}
               className="h-9 shrink-0 rounded-[var(--radius-md)] border border-line-2 bg-surface px-3 font-mono text-[12px] font-semibold text-ink disabled:opacity-40"
             >
-              Apply
+              {isApplyingPromo ? "Applying…" : "Apply"}
             </button>
           </div>
           {promoFeedback?.ok === true && (
