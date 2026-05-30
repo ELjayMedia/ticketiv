@@ -101,12 +101,14 @@ export async function createArtist(
   if (!supabase) return null
 
   try {
+    const artistSlug = artist.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
     const { data, error } = await supabase
       .from("artists")
       .insert([
         {
           org_id: orgId,
           name: artist.name,
+          slug: `${artistSlug}-${Date.now()}`,
           bio: artist.bio || null,
           primary_user_id: artist.primary_user_id || null,
         },
@@ -146,7 +148,7 @@ export async function updateArtist(
 
     const { data, error } = await supabase
       .from("artists")
-      .update(updateData)
+      .update(updateData as any)
       .eq("id", artistId)
       .select()
       .single()

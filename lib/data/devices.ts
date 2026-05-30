@@ -55,7 +55,7 @@ export async function createDevice(orgId: string, label: string, role: string, m
   try {
     const { data, error } = await supabase
       .from("devices")
-      .insert([{ org_id: orgId, label, role, event_id: eventId, registered_by: registeredBy, max_scans_per_minute: maxScansPerMinute }])
+      .insert([{ org_id: orgId, label, device_role: role as any, event_id: eventId, registered_by: registeredBy, max_scans_per_minute: maxScansPerMinute }])
       .select()
 
     if (error) {
@@ -77,7 +77,7 @@ export async function updateDevice(deviceId: string, updates: Record<string, unk
   try {
     const { data, error } = await supabase
       .from("devices")
-      .update(updates)
+      .update(updates as any)
       .eq("id", deviceId)
       .select()
 

@@ -118,7 +118,7 @@ export async function upsertPricingPlan(
     if (planData.id) {
       const { data, error } = await supabase
         .from("pricing_plans")
-        .update(planData)
+        .update(planData as any)
         .eq("id", planData.id)
         .select()
         .single()

@@ -101,7 +101,7 @@ export async function upsertProfile(profile: Profile): Promise<Profile | null> {
   try {
     const { data, error } = await supabase
       .from("profiles")
-      .upsert(profile)
+      .upsert(profile as any)
       .select()
       .single()
 
@@ -130,7 +130,7 @@ export async function updateProfile(
   try {
     const { data, error } = await supabase
       .from("profiles")
-      .update(updates)
+      .update(updates as any)
       .eq("user_id", userId)
       .select()
       .single()

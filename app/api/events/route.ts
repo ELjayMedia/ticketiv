@@ -57,15 +57,17 @@ export async function POST(request: NextRequest) {
     // Create venue if needed
     let finalVenueId = venue_id
     if (newVenue && !venue_id) {
+      const venueSlug = (newVenue.name as string)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
       const { data: venueData, error: venueError } = await supabase
         .from("venues")
         .insert({
           name: newVenue.name,
-          address_line1: newVenue.address_line1 || null,
-          city: newVenue.city,
-          state: newVenue.state || null,
-          country: newVenue.country || "USA",
-          postal_code: newVenue.postal_code || null,
+          slug: `${venueSlug}-${Date.now()}`,
+          address: newVenue.address_line1 || newVenue.address || null,
+          city: newVenue.city || null,
           capacity: newVenue.capacity || null,
         })
         .select()
@@ -86,14 +88,12 @@ export async function POST(request: NextRequest) {
       org_id: orgMember.org_id,
       title,
       slug: draftId ? undefined : slug, // Don't update slug for existing events
-      description: shortDescription,
-      full_description: fullDescription || null,
+      description: shortDescription || fullDescription || null,
       category,
-      tags: tags || [],
       venue_id: finalVenueId,
       cover_image_url: coverImageUrl || null,
-      visibility: isPublished ? "public" : "draft",
-      status: isPublished ? "published" : "draft",
+      visibility: isPublished ? "public" : "unlisted",
+      status: (isPublished ? "published" : "draft") as "published" | "draft" | "archived",
     }
 
     let eventId = draftId

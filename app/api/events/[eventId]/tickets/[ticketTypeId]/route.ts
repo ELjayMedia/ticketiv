@@ -94,7 +94,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   const { data: ticket, error } = await admin
     .from("ticket_types")
-    .update(patch)
+    .update(patch as any)
     .eq("id", ticketTypeId)
     .eq("event_id", eventId)
     .select("id, name, price_cents, currency, quota, per_user_limit, sales_status, is_reserved_seating, created_at")

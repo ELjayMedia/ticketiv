@@ -45,7 +45,7 @@ export async function updateResourceAction(resourceKey: string, recordId: string
 
   const admin = createAdminClient()
   const payload = buildAdminPayload(resource, formData)
-  const { error } = await admin.from(resource.table).update(payload).eq(resource.primaryKey, recordId)
+  const { error } = await admin.from(resource.table).update(payload as any).eq(resource.primaryKey, recordId)
 
   if (error) throw new Error(error.message)
 
