@@ -103,6 +103,8 @@ export function CalendarScreen(props: CalendarProps = {}) {
   const [view, setView] = React.useState<View>("month");
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
+  const [filterOpen, setFilterOpen] = React.useState(false);
+  const [filterCategory, setFilterCategory] = React.useState<string>("all");
 
   const { year: initYear, month: initMonth } = React.useMemo(
     () => parseMonthLabel(cfg.monthLabel),
@@ -167,7 +169,11 @@ export function CalendarScreen(props: CalendarProps = {}) {
         </button>
         <button
           aria-label="Filter"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"
+          onClick={() => setFilterOpen(true)}
+          className={
+            "inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60 " +
+            (filterCategory !== "all" ? "text-accent" : "")
+          }
         >
           <Icon name="filter" size={20} />
         </button>
@@ -372,6 +378,48 @@ export function CalendarScreen(props: CalendarProps = {}) {
       )}
       {view === "list" && (
         <EmptyView label="List view — chronological feed lands here." />
+      )}
+
+      {/* Filter bottom sheet */}
+      {filterOpen && (
+        <div className="fixed inset-0 z-50 flex items-end">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setFilterOpen(false)}
+          />
+          <div className="relative w-full rounded-t-2xl bg-bg px-5 pb-8 pt-4 shadow-xl">
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-line-2" />
+            <div className="mb-4 flex items-center justify-between">
+              <span className="text-h3">Filter events</span>
+              <button onClick={() => setFilterOpen(false)} className="text-ink-3 hover:text-ink">
+                <Icon name="close" size={18} />
+              </button>
+            </div>
+            <div className="text-label mb-3">Category</div>
+            <div className="flex flex-wrap gap-2">
+              {["all", "music", "comedy", "art", "sport", "food"].map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setFilterCategory(cat)}
+                  className={
+                    "rounded-full border px-4 py-1.5 text-[13px] font-medium capitalize transition-colors " +
+                    (filterCategory === cat
+                      ? "border-accent bg-accent text-white"
+                      : "border-line bg-surface text-ink hover:border-line-2")
+                  }
+                >
+                  {cat === "all" ? "All categories" : cat}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => { setFilterCategory("all"); setFilterOpen(false); }}
+              className="mt-5 w-full rounded-[var(--radius-md)] border border-line py-2.5 text-[13px] font-medium text-ink-3 hover:bg-surface"
+            >
+              Clear filter
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -1,5 +1,7 @@
 "use client";
 
+import * as React from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
@@ -119,10 +121,30 @@ export function TicketView({ ticket = DEFAULT_TICKET, siblingIds = DEFAULT_SIBLI
   const status: TicketDisplayStatus = ticket.status ?? (ticket.isValid ? "issued" : "checked_in");
   const badge = STATUS_BADGE[status];
   const canTransferOrResell = status === "issued";
+  const router = useRouter();
+  const touchStartX = React.useRef<number | null>(null);
 
   const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(
     `${ticket.venueName} ${ticket.venueAddress}`
   )}`;
+
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null) return;
+    const delta = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(delta) < 50) return;
+    const currentIndex = siblingIds.indexOf(ticket.id);
+    if (currentIndex === -1) return;
+    if (delta < 0 && currentIndex < siblingIds.length - 1) {
+      router.push(`/tickets/${siblingIds[currentIndex + 1]}`);
+    } else if (delta > 0 && currentIndex > 0) {
+      router.push(`/tickets/${siblingIds[currentIndex - 1]}`);
+    }
+  }
 
   function handleShare() {
     if (navigator.share) {
@@ -144,7 +166,11 @@ export function TicketView({ ticket = DEFAULT_TICKET, siblingIds = DEFAULT_SIBLI
     alert("Wallet export coming soon.");
   }
   return (
-    <div className="min-h-dvh bg-ink text-white">
+    <div
+      className="min-h-dvh bg-ink text-white"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       <div className="h-14" />
 
       {/* Top bar */}

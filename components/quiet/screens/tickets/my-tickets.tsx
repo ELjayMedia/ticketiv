@@ -230,6 +230,7 @@ export function MyTickets({
         </button>
         <button
           aria-label="Download all tickets"
+          onClick={() => window.print()}
           className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"
         >
           <Icon name="download" size={20} />
