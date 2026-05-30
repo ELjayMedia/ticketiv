@@ -98,6 +98,7 @@ export function MobileCheckout({
   const [quantity, setQuantity] = React.useState(1);
   const [paymentId, setPaymentId] = React.useState(paymentMethods[0]?.id);
   const [holdRemaining, setHoldRemaining] = React.useState(holdSeconds);
+  const [activePromo, setActivePromo] = React.useState(appliedPromo ?? null);
   const [accepted, setAccepted] = React.useState(false);
   const [guaranteeOpen, setGuaranteeOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
@@ -156,7 +157,7 @@ export function MobileCheckout({
   const subtotal = (selectedTicket?.priceMinor ?? 0) * quantity;
   const fee = bookingFeeMinor;
   const vat = Math.round(subtotal * vatRate);
-  const discount = appliedPromo?.savedMinor ?? 0;
+  const discount = activePromo?.savedMinor ?? 0;
   const total = subtotal + fee + vat - discount;
 
   return (
@@ -254,7 +255,7 @@ export function MobileCheckout({
         </section>
 
         {/* Promo */}
-        {appliedPromo && (
+        {activePromo && (
           <section className="px-5 pb-4">
             <Card
               className="flex items-center gap-2.5 border-[color:var(--color-accent-soft)] bg-[#fbf7ff] px-3 py-2.5"
@@ -265,14 +266,21 @@ export function MobileCheckout({
               </div>
               <div className="flex flex-1 flex-col">
                 <span className="text-[13px] font-semibold">
-                  {appliedPromo.code} applied
+                  {activePromo.code} applied
                 </span>
                 <span className="font-mono text-[11px] text-ink-3">
-                  {appliedPromo.description} · saved{" "}
-                  {formatPrice(appliedPromo.savedMinor)}
+                  {activePromo.description} · saved{" "}
+                  {formatPrice(activePromo.savedMinor)}
                 </span>
               </div>
-              <button className="text-[12px] font-semibold text-accent">
+              <button
+                type="button"
+                className="text-[12px] font-semibold text-accent"
+                onClick={() => {
+                  setActivePromo(null);
+                  setPromoInput("");
+                }}
+              >
                 Remove
               </button>
             </Card>
@@ -359,9 +367,9 @@ export function MobileCheckout({
             <SummaryRow label={`${quantity} × ${selectedTicket?.name ?? "—"}`} value={formatPrice(subtotal)} />
             <SummaryRow label="Booking fee" value={formatPrice(fee)} />
             <SummaryRow label={`VAT ${Math.round(vatRate * 100)}%`} value={formatPrice(vat)} />
-            {appliedPromo && (
+            {activePromo && (
               <SummaryRow
-                label={appliedPromo.code}
+                label={activePromo.code}
                 value={`−${formatPrice(discount)}`}
                 accent
               />
