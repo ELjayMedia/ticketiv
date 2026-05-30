@@ -5,13 +5,14 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { sendTransactionalNotification } from "@/lib/notifications/transactional"
 import { issueOrderToken, issueTicketToken } from "@/lib/ticket-tokens"
 
-// TICK-65 / TICK-72 — transactional ticket delivery entry point.
+// TICK-65 / TICK-72 / TICK-77 — transactional ticket delivery entry point.
 //
 // After an order's tickets are issued, build the `ticket_issued` payload and
 // hand off to the provider-agnostic notification layer (email live via Resend;
-// WhatsApp + SMS provider-ready). The actual QR is never sent — recipients get
-// a secure link to the live ticket page (which reflects transfer/refund/
-// revoke/check-in status). In-app My Tickets remains the source of truth.
+// WhatsApp + SMS provider-ready). The actual QR is never sent — buyers get a
+// secure order-level bundle link (/o/{token}) and per-attendee shares continue
+// to use per-ticket links (/t/{token}). In-app My Tickets remains the source of
+// truth.
 //
 // Best-effort: never throws into the caller (payment completion must not fail
 // because a notification didn't go out).
@@ -72,23 +73,17 @@ export async function deliverTicketsForOrder(orderId: string): Promise<void> {
       ? Math.floor(endsAt.getTime() / 1000) + 7 * 24 * 60 * 60
       : Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60
 
-    // Capability token → secure link that opens without login. Multi-ticket
-    // orders get the /o bundle so the buyer sees every ticket in one place
-    // and can share individual ones from there; single-ticket orders skip
-    // straight to /t. Falls back to the RLS-gated /tickets/{id} when no
-    // secret is configured.
-    let ticketUrl: string
-    if (issued.length > 1) {
-      const orderToken = issueOrderToken(order.id, tokenExpSeconds)
-      ticketUrl = orderToken
-        ? `${TICKET_BASE_URL}/o/${orderToken}`
+    // TICK-77: buyer delivery should use the order-level bundle link. The /o
+    // page then mints per-item /t links for forwarding individual tickets. If
+    // the token secret is missing, fall back to the first RLS-gated ticket page
+    // so local/dev delivery still has a usable link.
+    const orderToken = issueOrderToken(order.id, tokenExpSeconds)
+    const fallbackItemToken = issueTicketToken(first.id, tokenExpSeconds)
+    const ticketUrl = orderToken
+      ? `${TICKET_BASE_URL}/o/${orderToken}`
+      : fallbackItemToken
+        ? `${TICKET_BASE_URL}/t/${fallbackItemToken}`
         : `${TICKET_BASE_URL}/tickets/${first.id}`
-    } else {
-      const itemToken = issueTicketToken(first.id, tokenExpSeconds)
-      ticketUrl = itemToken
-        ? `${TICKET_BASE_URL}/t/${itemToken}`
-        : `${TICKET_BASE_URL}/tickets/${first.id}`
-    }
 
     // Resolve recipient + opt-in. WhatsApp/SMS need a phone; email opt-in is
     // honoured (defaults to on when no preference row exists).
