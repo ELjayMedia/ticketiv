@@ -1,5 +1,6 @@
 import { createBrowserClient } from "@supabase/ssr"
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./env"
+import type { Database } from "@/types/database"
 
 export function createClient() {
   const url = SUPABASE_URL
@@ -11,5 +12,5 @@ export function createClient() {
     return null
   }
 
-  return createBrowserClient(url, key)
+  return createBrowserClient<Database>(url, key)
 }

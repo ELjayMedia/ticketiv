@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import { getSupabasePublicConfig } from "./env"
+import type { Database } from "@/types/database"
 
 /**
  * Legacy synchronous wrapper kept for compatibility with existing pages that
@@ -17,7 +18,7 @@ export function createServerSupabaseClient() {
     return null
   }
 
-  return createServerClient(config.url, config.anonKey, {
+  return createServerClient<Database>(config.url, config.anonKey, {
     cookies: {
       async getAll() {
         const cookieStore = await cookies()
