@@ -42,21 +42,23 @@ export async function loadUserPermissions(userId: string): Promise<UserAuthzData
     }
 
     // 2. Fetch org memberships
-    const { data: orgMemberships = [] } = await supabase
+    const { data: orgMembershipsData } = await supabase
       .from("org_members")
       .select("org_id, role, created_at")
       .eq("user_id", userId)
+    const orgMemberships = orgMembershipsData ?? []
 
     // 3. Fetch event staff roles (event_staff has no org_id — join through events if org context needed)
     let eventAccessByEventId: Record<string, string> = {}
     let eventOrgByEventId: Record<string, string> = {}
     if (orgMemberships.length > 0) {
       const orgIds = orgMemberships.map((m) => m.org_id)
-      const { data: eventStaff = [] } = await supabase
+      const { data: eventStaffData } = await supabase
         .from("event_staff")
         .select("event_id, role, events!inner(org_id)")
         .eq("user_id", userId)
         .in("events.org_id", orgIds)
+      const eventStaff = eventStaffData ?? []
 
       eventAccessByEventId = eventStaff.reduce(
         (acc, staff) => {
@@ -95,7 +97,7 @@ export async function loadUserPermissions(userId: string): Promise<UserAuthzData
       permissions: {
         isGlobalAdmin,
         orgMemberships: orgMemberships as OrgMembership[],
-        eventAccessByEventId,
+        eventAccessByEventId: eventAccessByEventId as Record<string, import("@/lib/rbac").EventRole>,
         eventOrgByEventId,
         activeOrgId,
       },

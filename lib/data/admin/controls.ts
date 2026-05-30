@@ -132,7 +132,7 @@ export async function upsertPricingPlan(
     } else {
       const { data, error } = await supabase
         .from("pricing_plans")
-        .insert({ ...planData, org_id: null })
+        .insert({ ...(planData as any), org_id: null })
         .select()
         .single()
 

@@ -275,6 +275,7 @@ export async function createPayment(
 
   // Production mode - Supabase
   const supabase = await createServerSupabaseClient()
+  if (!supabase) throw new Error("Supabase not configured")
 
   // Get order details
   const { data: order, error: orderError } = await supabase.from("orders").select("*").eq("id", orderId).single()
@@ -325,6 +326,7 @@ export async function verifyPayment(reference: string): Promise<{
 
   // Production mode - Supabase
   const supabase = await createServerSupabaseClient()
+  if (!supabase) throw new Error("Supabase not configured")
 
   const { data: payment, error } = await supabase
     .from("payments")

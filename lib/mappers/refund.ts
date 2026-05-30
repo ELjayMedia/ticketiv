@@ -47,7 +47,7 @@ export function mapRefund(order: BuyerOrder): RefundScreenProps {
       bookingFeeMinor: order.platform_fee_cents ?? 0,
       paymentDescription: order.status === "paid" ? "Paid" : order.status,
       tickets: order.items.map((it) => ({
-        ticketId: it.id,
+        ticketId: it.id ?? "",
         seatLabel: it.ticket_type_name ?? "General",
         typeLabel: it.ticket_type_name ?? "General",
         priceMinor: it.price_cents ?? 0,
