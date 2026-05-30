@@ -1,5 +1,6 @@
 import { DesktopNav } from "@/components/quiet/shell/desktop-nav";
 import { MobileTabBar } from "@/components/quiet/shell/mobile-shell";
+import { getCurrentUserProfile } from "@/lib/auth";
 
 /**
  * Consumer surface layout.
@@ -11,16 +12,29 @@ import { MobileTabBar } from "@/components/quiet/shell/mobile-shell";
  * Linear/Vercel approach of two distinct shells, not one
  * responsive blob.
  */
-export default function ConsumerLayout({
+export default async function ConsumerLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const userSession = await getCurrentUserProfile();
+  const profile = userSession?.profile ?? null;
+
+  const displayName = profile?.full_name
+    ? profile.full_name.split(" ")[0]
+    : profile?.email
+    ? profile.email.split("@")[0]
+    : undefined;
+
   return (
     <div className="min-h-dvh">
       {/* Desktop nav (≥ md) */}
       <div className="hidden md:block">
-        <DesktopNav />
+        <DesktopNav
+          signedIn={!!profile}
+          displayName={displayName}
+          avatarUrl={profile?.avatar_url ?? undefined}
+        />
       </div>
 
       <main className="pb-20 md:pb-12">{children}</main>

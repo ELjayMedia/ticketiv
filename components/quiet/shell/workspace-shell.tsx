@@ -99,7 +99,7 @@ const WORKSPACE_LABEL: Record<Extract<WorkspaceType, "organizer" | "scanner" | "
   app: "Attendee",
 };
 
-type ShellUser = { id?: string; email?: string };
+type ShellUser = { id?: string; email?: string; name?: string };
 
 interface WorkspaceShellProps {
   workspace: Extract<WorkspaceType, "organizer" | "scanner" | "app">;
@@ -126,7 +126,10 @@ export function WorkspaceShell({
         const demoUser = getDemoSession();
         if (demoUser) {
           if (active) {
-            setUser({ id: demoUser.id, email: demoUser.email });
+            const demoName = (demoUser as any).full_name
+              ? ((demoUser as any).full_name as string).split(" ")[0]
+              : undefined;
+            setUser({ id: demoUser.id, email: demoUser.email, name: demoName });
             setLoading(false);
           }
           return;
@@ -156,11 +159,22 @@ export function WorkspaceShell({
         if (!session && requireAuth) router.push("/login");
 
         if (active) {
-          setUser(
-            session?.user
-              ? { id: session.user.id, email: session.user.email ?? undefined }
-              : null
-          );
+          if (session?.user) {
+            let name: string | undefined;
+            if (supabase) {
+              const { data: profile } = await supabase
+                .from("profiles")
+                .select("full_name")
+                .eq("user_id", session.user.id)
+                .single();
+              if (profile?.full_name) {
+                name = (profile.full_name as string).split(" ")[0];
+              }
+            }
+            setUser({ id: session.user.id, email: session.user.email ?? undefined, name });
+          } else {
+            setUser(null);
+          }
           setLoading(false);
         }
       } catch {
@@ -176,11 +190,16 @@ export function WorkspaceShell({
     if (supabase) {
       const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
         if (!active) return;
-        setUser(
-          session?.user
-            ? { id: session.user.id, email: session.user.email ?? undefined }
-            : null
-        );
+        if (session?.user) {
+          setUser((prev) => ({
+            id: session.user.id,
+            email: session.user.email ?? undefined,
+            // preserve name if it's the same user (e.g. token refresh)
+            name: prev?.id === session.user.id ? prev.name : undefined,
+          }));
+        } else {
+          setUser(null);
+        }
         if (!session && requireAuth) {
           const demoUser = getDemoSession();
           if (!demoUser) router.push("/login");
@@ -321,9 +340,9 @@ function DesktopWorkspaceNav({
         {user ? (
           <div className="flex items-center gap-3">
             <span className="hidden max-w-[200px] truncate text-[12px] text-ink-3 lg:inline">
-              {user.email}
+              {user.name ? `Hi, ${user.name}` : user.email}
             </span>
-            <Avatar label={user.email?.[0]?.toUpperCase() ?? "U"} size={28} />
+            <Avatar label={(user.name ?? user.email)?.[0]?.toUpperCase() ?? "U"} size={28} />
             <Button variant="ghost" size="xs" onClick={onLogout} aria-label="Sign out">
               <Icon name="arrowR" size={14} />
               Sign out
