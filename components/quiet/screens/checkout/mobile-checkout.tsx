@@ -109,6 +109,12 @@ export function MobileCheckout({
     { ok: true; label: string; savedMinor: number } | { ok: false; message: string } | null
   >(null);
 
+  function handleApplyPromo() {
+    const code = promoInput.trim().toUpperCase();
+    if (!code) return;
+    setPromoFeedback({ ok: true, label: code, savedMinor: 0 });
+  }
+
   async function handlePay() {
     setSubmitError(null);
     if (!ticketTypeId) {
@@ -305,13 +311,30 @@ export function MobileCheckout({
               }}
               placeholder="Add a code"
               className="h-9 flex-1 rounded-[var(--radius-md)] border border-line bg-surface px-3 font-mono text-[13px] uppercase tracking-wide placeholder:normal-case placeholder:text-ink-3 focus:border-accent focus:outline-none"
-              disabled={submitting}
+              disabled={submitting || promoFeedback?.ok === true}
             />
+            <button
+              type="button"
+              onClick={handleApplyPromo}
+              disabled={!promoInput.trim() || submitting || promoFeedback?.ok === true}
+              className="h-9 shrink-0 rounded-[var(--radius-md)] border border-line-2 bg-surface px-3 font-mono text-[12px] font-semibold text-ink disabled:opacity-40"
+            >
+              Apply
+            </button>
           </div>
           {promoFeedback?.ok === true && (
-            <p className="mt-1.5 text-[12px] text-accent">
-              {promoFeedback.label} applied · saved {formatPrice(Math.abs(promoFeedback.savedMinor))}
-            </p>
+            <div className="mt-1.5 flex items-center gap-1.5">
+              <p className="flex-1 text-[12px] text-accent">
+                {promoFeedback.label} — verified at checkout
+              </p>
+              <button
+                type="button"
+                onClick={() => { setPromoFeedback(null); setPromoInput(""); }}
+                className="text-[11px] text-ink-3 hover:text-ink"
+              >
+                Remove
+              </button>
+            </div>
           )}
           {promoFeedback?.ok === false && (
             <p role="alert" className="mt-1.5 text-[12px] text-danger">

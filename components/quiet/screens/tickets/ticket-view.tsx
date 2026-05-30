@@ -33,6 +33,8 @@ type TicketDisplayStatus =
 
 interface TicketViewProps {
   ticket?: TicketData;
+  /** All ticket IDs in the same order, including this one. When provided, dots become navigable links. */
+  siblingIds?: string[];
 }
 
 interface TicketData {
@@ -55,6 +57,8 @@ interface TicketData {
   isValid: boolean;
   status?: TicketDisplayStatus;
 }
+
+const DEFAULT_SIBLING_IDS = ["tkt_demo_001", "tkt_demo_002"];
 
 const DEFAULT_TICKET: TicketData = {
   id: "tkt_demo_001",
@@ -111,7 +115,7 @@ const STATUS_BADGE: Record<
   },
 };
 
-export function TicketView({ ticket = DEFAULT_TICKET }: TicketViewProps) {
+export function TicketView({ ticket = DEFAULT_TICKET, siblingIds = DEFAULT_SIBLING_IDS }: TicketViewProps) {
   const status: TicketDisplayStatus = ticket.status ?? (ticket.isValid ? "issued" : "checked_in");
   const badge = STATUS_BADGE[status];
   const canTransferOrResell = status === "issued";
@@ -283,13 +287,27 @@ export function TicketView({ ticket = DEFAULT_TICKET }: TicketViewProps) {
       {/* Pagination dots */}
       {ticket.totalInOrder > 1 && (
         <div className="flex items-center justify-center gap-1.5 pb-6">
-          <span className="h-1.5 w-6 rounded-full bg-white" />
-          {Array.from({ length: ticket.totalInOrder - 1 }).map((_, i) => (
-            <span
-              key={i}
-              className="h-1.5 w-1.5 rounded-full bg-white/30"
-            />
-          ))}
+          {siblingIds.length > 1 ? (
+            siblingIds.map((id, i) => (
+              <Link
+                key={id}
+                href={`/tickets/${id}`}
+                aria-label={`Ticket ${i + 1} of ${siblingIds.length}`}
+                className={
+                  id === ticket.id
+                    ? "h-1.5 w-6 rounded-full bg-white transition-all"
+                    : "h-1.5 w-1.5 rounded-full bg-white/30 transition-all hover:bg-white/60"
+                }
+              />
+            ))
+          ) : (
+            <>
+              <span className="h-1.5 w-6 rounded-full bg-white" />
+              {Array.from({ length: ticket.totalInOrder - 1 }).map((_, i) => (
+                <span key={i} className="h-1.5 w-1.5 rounded-full bg-white/30" />
+              ))}
+            </>
+          )}
         </div>
       )}
     </div>

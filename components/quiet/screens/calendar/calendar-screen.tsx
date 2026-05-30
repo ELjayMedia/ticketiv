@@ -80,9 +80,68 @@ const DEFAULT_PROPS: Required<CalendarProps> = {
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+function parseMonthLabel(label: string): { year: number; month: number } {
+  const yearMatch = label.match(/\d{4}/);
+  const year = yearMatch ? parseInt(yearMatch[0]) : new Date().getFullYear();
+  const idx = MONTH_NAMES.findIndex((n) => label.startsWith(n));
+  return { year, month: idx >= 0 ? idx : new Date().getMonth() };
+}
+
+function buildMonthInfo(year: number, month: number) {
+  const firstDay = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const rawDay = firstDay.getDay(); // 0=Sun
+  const firstDayOffset = rawDay === 0 ? 6 : rawDay - 1; // Mon=0..Sun=6
+  const monthLabel = `${MONTH_NAMES[month]} ${year}`;
+  return { daysInMonth, firstDayOffset, monthLabel };
+}
+
 export function CalendarScreen(props: CalendarProps = {}) {
   const cfg = { ...DEFAULT_PROPS, ...props };
   const [view, setView] = React.useState<View>("month");
+
+  const { year: initYear, month: initMonth } = React.useMemo(
+    () => parseMonthLabel(cfg.monthLabel),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+  const [displayYear, setDisplayYear] = React.useState(initYear);
+  const [displayMonth, setDisplayMonth] = React.useState(initMonth);
+  const [selectedDay, setSelectedDay] = React.useState<number | null>(null);
+
+  const { daysInMonth, firstDayOffset, monthLabel } = React.useMemo(
+    () => buildMonthInfo(displayYear, displayMonth),
+    [displayYear, displayMonth]
+  );
+
+  const isInitialMonth = displayYear === initYear && displayMonth === initMonth;
+
+  function prevMonth() {
+    setSelectedDay(null);
+    if (displayMonth === 0) { setDisplayYear((y: number) => y - 1); setDisplayMonth(11); }
+    else { setDisplayMonth((m: number) => m - 1); }
+  }
+  function nextMonth() {
+    setSelectedDay(null);
+    if (displayMonth === 11) { setDisplayYear((y: number) => y + 1); setDisplayMonth(0); }
+    else { setDisplayMonth((m: number) => m + 1); }
+  }
+
+  // Derive displayed events from selection
+  const isShowingToday = selectedDay === null || (isInitialMonth && selectedDay === cfg.today);
+  const dayLabel = isShowingToday
+    ? cfg.todayLabel
+    : new Date(displayYear, displayMonth, selectedDay!).toLocaleDateString("en-US", {
+        weekday: "long", month: "short", day: "numeric",
+      });
+  const dayEvents = isShowingToday ? cfg.todayEvents : [];
+  const comingUpFiltered = React.useMemo((): ComingUpEvent[] => {
+    if (selectedDay === null) return cfg.comingUp;
+    if (!isInitialMonth) return [];
+    return cfg.comingUp.filter((e) => e.day === selectedDay);
+  }, [selectedDay, isInitialMonth, cfg.comingUp]);
 
   return (
     <div className="bg-bg pb-24">
@@ -126,15 +185,17 @@ export function CalendarScreen(props: CalendarProps = {}) {
           {/* Month nav */}
           <div className="flex items-center gap-2 px-5 pb-3">
             <button
+              onClick={prevMonth}
               className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius)] border border-line-2 bg-surface hover:bg-bg"
               aria-label="Previous month"
             >
               <Icon name="chevL" size={14} />
             </button>
             <span className="flex-1 text-center text-[14px] font-semibold">
-              {cfg.monthLabel}
+              {monthLabel}
             </span>
             <button
+              onClick={nextMonth}
               className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius)] border border-line-2 bg-surface hover:bg-bg"
               aria-label="Next month"
             >
@@ -153,69 +214,65 @@ export function CalendarScreen(props: CalendarProps = {}) {
                   {d}
                 </div>
               ))}
-              {Array.from({ length: cfg.firstDayOffset }).map((_, i) => (
+              {Array.from({ length: firstDayOffset }).map((_, i) => (
                 <div key={`o-${i}`} />
               ))}
-              {Array.from({ length: cfg.daysInMonth }, (_, i) => i + 1).map(
-                (d) => {
-                  const isToday = d === cfg.today;
-                  const count = cfg.eventDays[d];
-                  return (
-                    <button
-                      key={d}
+              {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => {
+                const isToday = isInitialMonth && d === cfg.today;
+                const isSelected = d === selectedDay;
+                const count = isInitialMonth ? cfg.eventDays[d] : undefined;
+                return (
+                  <button
+                    key={d}
+                    onClick={() => setSelectedDay(d === selectedDay ? null : d)}
+                    className={
+                      "relative aspect-square rounded-[var(--radius-md)] border " +
+                      (isSelected
+                        ? "border-accent bg-ink text-white"
+                        : isToday
+                        ? "border-transparent bg-accent text-white"
+                        : count
+                        ? "border-[color:var(--color-accent-soft)] bg-surface"
+                        : "border-line bg-surface")
+                    }
+                  >
+                    <span
                       className={
-                        "relative aspect-square rounded-[var(--radius-md)] border " +
-                        (isToday
-                          ? "border-transparent bg-accent text-white"
+                        "font-mono text-[13px] " +
+                        (isSelected || isToday
+                          ? "font-bold text-white"
                           : count
-                          ? "border-[color:var(--color-accent-soft)] bg-surface"
-                          : "border-line bg-surface")
+                          ? "font-medium text-ink"
+                          : "font-medium text-ink-3")
                       }
                     >
-                      <span
-                        className={
-                          "font-mono text-[13px] " +
-                          (isToday
-                            ? "font-bold text-white"
-                            : count
-                            ? "font-medium text-ink"
-                            : "font-medium text-ink-3")
-                        }
-                      >
-                        {d}
+                      {d}
+                    </span>
+                    {count && !isSelected && (
+                      <span className="absolute inset-x-0 bottom-1 flex items-center justify-center gap-0.5">
+                        {Array.from({ length: Math.min(count, 3) }).map((_, i) => (
+                          <span
+                            key={i}
+                            className={"h-1 w-1 rounded-full " + (isToday ? "bg-white" : "bg-accent")}
+                          />
+                        ))}
                       </span>
-                      {count && (
-                        <span className="absolute inset-x-0 bottom-1 flex items-center justify-center gap-0.5">
-                          {Array.from({ length: Math.min(count, 3) }).map(
-                            (_, i) => (
-                              <span
-                                key={i}
-                                className={
-                                  "h-1 w-1 rounded-full " +
-                                  (isToday ? "bg-white" : "bg-accent")
-                                }
-                              />
-                            )
-                          )}
-                        </span>
-                      )}
-                    </button>
-                  );
-                }
-              )}
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Today */}
+          {/* Today / selected day */}
           <section className="px-5 pb-4">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-label">{cfg.todayLabel}</span>
+              <span className="text-label">{dayLabel}</span>
               <span className="font-mono text-[11px] text-ink-3">
-                {cfg.todayEvents.length} event
-                {cfg.todayEvents.length === 1 ? "" : "s"}
+                {dayEvents.length} event{dayEvents.length === 1 ? "" : "s"}
               </span>
             </div>
-            {cfg.todayEvents.map((e) => (
+            {dayEvents.length > 0 ? dayEvents.map((e) => (
               <Link key={e.id} href={`/events/${e.id}`}>
                 <Card
                   className="flex items-center gap-2.5 p-3 transition-colors hover:bg-bg"
@@ -235,14 +292,19 @@ export function CalendarScreen(props: CalendarProps = {}) {
                   </Button>
                 </Card>
               </Link>
-            ))}
+            )) : selectedDay !== null ? (
+              <div className="rounded-[var(--radius)] border border-dashed border-line px-4 py-3 text-center font-mono text-[11px] text-ink-3">
+                No events on this day
+              </div>
+            ) : null}
           </section>
 
           {/* Coming up */}
+          {comingUpFiltered.length > 0 && (
           <section className="px-5 pb-4">
             <div className="text-label mb-2">Coming up</div>
             <ul className="flex flex-col">
-              {cfg.comingUp.map((e, i, arr) => (
+              {comingUpFiltered.map((e, i, arr) => (
                 <li key={e.id}>
                   <Link
                     href={`/events/${e.id}`}
@@ -274,6 +336,7 @@ export function CalendarScreen(props: CalendarProps = {}) {
               ))}
             </ul>
           </section>
+          )}
         </>
       )}
 

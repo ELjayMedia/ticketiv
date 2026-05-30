@@ -12,6 +12,7 @@ import {
   formatRecentSoldLabel,
   formatLineupLabel,
 } from "@/lib/format";
+import { ExpandableText } from "./expandable-text";
 
 /* ──────────────────────────────────────────────────────────────
  * Mobile event detail · `/events/[id]` on phones.
@@ -216,10 +217,7 @@ export function MobileEvent({ event = DEFAULT_EVENT }: MobileEventProps) {
         {event.description && (
           <section className="px-5 pt-5">
             <h2 className="text-h3 mb-2.5">About</h2>
-            <p className="text-[14px] leading-relaxed text-ink-2">
-              {event.description}{" "}
-              <button className="font-semibold text-accent">read more</button>
-            </p>
+            <ExpandableText text={event.description} />
           </section>
         )}
 
