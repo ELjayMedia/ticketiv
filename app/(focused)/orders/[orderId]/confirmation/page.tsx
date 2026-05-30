@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import { OrderConfirmation } from "@/components/quiet/screens/confirmation/order-confirmation";
+import { SaveMyTicketsCard } from "@/components/quiet/screens/tickets/save-my-tickets-card";
 import { getOrderForBuyer } from "@/lib/data/attendee/orders";
 import { mapConfirmation } from "@/lib/mappers/confirmation";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 /**
  * `/orders/[orderId]/confirmation`
@@ -31,12 +33,26 @@ export default async function ConfirmationPage({
 
   const props = mapConfirmation(order);
 
+  // Prompt anonymous buyers to save their tickets to a recoverable account
+  // right at the "ticket ready" moment — the highest-intent point in the flow.
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = supabase ? await supabase.auth.getUser() : { data: { user: null } };
+  const isAnonymous = Boolean(user && (user as { is_anonymous?: boolean }).is_anonymous);
+  const defaultClaimEmail = order.buyer_email ?? "";
+
   return (
     <div className="h-dvh">
       {props.state === "pending" && (
         <meta httpEquiv="refresh" content={String(PENDING_REFRESH_SECONDS)} />
       )}
       <OrderConfirmation order={props} />
+      {isAnonymous && props.state !== "pending" && (
+        <div className="mx-auto max-w-[480px] px-4 pb-6">
+          <SaveMyTicketsCard defaultEmail={defaultClaimEmail} />
+        </div>
+      )}
     </div>
   );
 }

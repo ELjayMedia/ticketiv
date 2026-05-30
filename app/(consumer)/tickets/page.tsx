@@ -1,8 +1,10 @@
 import { MyTickets } from "@/components/quiet/screens/tickets/my-tickets";
+import { SaveMyTicketsCard } from "@/components/quiet/screens/tickets/save-my-tickets-card";
 import { getMyTickets } from "@/lib/data/attendee/tickets";
 import { getInboundTransfers } from "@/lib/data/attendee/inbound-transfers";
 import { mapMyTickets } from "@/lib/mappers/tickets";
 import { PHOTOS } from "@/lib/photos";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 export const metadata = { title: "My tickets" };
 export const dynamic = "force-dynamic";
@@ -41,8 +43,20 @@ export default async function TicketsPage() {
       }
     : null;
 
+  // Show the "Save my tickets" prompt only to anonymous (guest) buyers.
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = supabase ? await supabase.auth.getUser() : { data: { user: null } };
+  const isAnonymous = Boolean(user && (user as { is_anonymous?: boolean }).is_anonymous);
+
   return (
-    <div className="mx-auto max-w-[480px]">
+    <div className="mx-auto flex max-w-[480px] flex-col gap-4">
+      {isAnonymous && (
+        <div className="px-4 pt-4">
+          <SaveMyTicketsCard />
+        </div>
+      )}
       <MyTickets
         featured={props.featured}
         upcoming={props.upcoming}
