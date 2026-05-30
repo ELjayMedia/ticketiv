@@ -14,14 +14,14 @@ export default async function EditTicketTypePage({
   const cookieStore = await cookies()
   const demoSessionCookie = cookieStore.get("demo_session")
 
-  type TicketTypeRow = { id: string; name: string; price_cents: number; quota: number; per_user_limit: number | null }
+  type TicketTypeRow = { id: string; name: string; price_cents: number; quota: number; per_user_limit: number | null; sales_status: string }
   let ticketType: TicketTypeRow | null = null
 
   if (demoSessionCookie) {
     // Demo fallback — synthetic data matching the demo ticket types
     const demoTypes: Record<string, TicketTypeRow> = {
-      general: { id: "general", name: "General Admission", price_cents: 12900, quota: 100, per_user_limit: 5 },
-      vip: { id: "vip", name: "VIP", price_cents: 29900, quota: 20, per_user_limit: 2 },
+      general: { id: "general", name: "General Admission", price_cents: 12900, quota: 100, per_user_limit: 5, sales_status: "on_sale" },
+      vip: { id: "vip", name: "VIP", price_cents: 29900, quota: 20, per_user_limit: 2, sales_status: "on_sale" },
     }
     ticketType = demoTypes[ticketId] ?? null
   } else {
@@ -35,7 +35,7 @@ export default async function EditTicketTypePage({
 
     const { data } = await supabase
       .from("ticket_types")
-      .select("id, name, price_cents, quota, per_user_limit")
+      .select("id, name, price_cents, quota, per_user_limit, sales_status")
       .eq("id", ticketId)
       .eq("event_id", eventId)
       .maybeSingle()

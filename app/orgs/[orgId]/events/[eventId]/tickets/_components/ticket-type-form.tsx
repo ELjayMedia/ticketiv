@@ -6,6 +6,8 @@ import { FormField } from "@/components/quiet/ui/form"
 import { Button } from "@/components/quiet/ui/button"
 import { Card, CardBody } from "@/components/quiet/ui/card"
 
+type SalesStatus = "on_sale" | "paused" | "sold_out" | "hidden"
+
 interface TicketTypeFormProps {
   orgId: string
   eventId: string
@@ -15,6 +17,7 @@ interface TicketTypeFormProps {
     price_cents: number
     quota: number
     per_user_limit: number | null
+    sales_status?: string
   }
 }
 
@@ -41,6 +44,9 @@ export function TicketTypeForm({
       ? String(defaultValues.per_user_limit)
       : "1"
   )
+  const [salesStatus, setSalesStatus] = useState<SalesStatus>(
+    (defaultValues?.sales_status as SalesStatus) ?? "on_sale"
+  )
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -61,6 +67,7 @@ export function TicketTypeForm({
             price: parseFloat(price),
             quota: parseInt(quota, 10),
             per_user_limit: parseInt(perUserLimit, 10) || 0,
+            sales_status: salesStatus,
           }),
         })
       } else {
@@ -132,6 +139,21 @@ export function TicketTypeForm({
             onChange={(e) => setPerUserLimit(e.target.value)}
             hint="0 = unlimited"
           />
+          {isEdit && (
+            <label className="flex flex-col gap-1">
+              <span className="text-label">Sales status</span>
+              <select
+                value={salesStatus}
+                onChange={(e) => setSalesStatus(e.target.value as SalesStatus)}
+                className="rounded-md border border-line-2 bg-surface px-3 py-2.5 text-[14px] font-medium text-ink outline-none transition-shadow duration-100 focus:border-accent focus:ring-[3px] focus:ring-accent-soft"
+              >
+                <option value="on_sale">On sale</option>
+                <option value="paused">Paused</option>
+                <option value="sold_out">Sold out</option>
+                <option value="hidden">Hidden</option>
+              </select>
+            </label>
+          )}
           {error && <p className="text-sm text-danger">{error}</p>}
         </CardBody>
       </Card>
