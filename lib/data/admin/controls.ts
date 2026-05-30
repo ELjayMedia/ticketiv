@@ -12,10 +12,19 @@ export interface FeatureFlag {
 
 export interface PricingPlan {
   id: string
-  name: string
-  commission_percent: number
-  fixed_fee_cents: number
+  active: boolean
   created_at: string
+  currency: string
+  effective_from: string
+  max_platform_fee_cents: number | null
+  min_platform_fee_cents: number | null
+  org_id: string | null
+  platform_fee_payer: string
+  platform_fixed_cents: number
+  platform_percent_bps: number
+  processor_fee_payer: string
+  processor_fixed_cents: number
+  processor_percent_bps: number
 }
 
 /**
