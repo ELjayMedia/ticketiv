@@ -22,12 +22,15 @@ interface DesktopNavProps {
   avatarUrl?: string;
   /** Show "Sign in" CTA instead of avatar when not authenticated */
   signedIn?: boolean;
+  /** Signed-in user's display name (first name preferred) */
+  displayName?: string;
 }
 
 export function DesktopNav({
   breadcrumb,
   avatarUrl,
   signedIn = false,
+  displayName,
 }: DesktopNavProps) {
   const pathname = usePathname();
 
@@ -88,6 +91,11 @@ export function DesktopNav({
 
         {signedIn ? (
           <>
+            {displayName && (
+              <span className="hidden max-w-[180px] truncate text-[12px] text-ink-3 lg:inline">
+                Hi, {displayName}
+              </span>
+            )}
             <Button variant="ghost" size="xs" className="text-ink-3">
               <Icon name="bell" size={16} />
             </Button>
