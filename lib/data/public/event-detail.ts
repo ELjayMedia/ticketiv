@@ -98,7 +98,7 @@ export async function getEventDetailById(id: string): Promise<EventDetailData | 
   // fn_ticket_type_remaining is SECURITY DEFINER so anonymous visitors get
   // accurate counts without reading individual order or buyer rows.
   const [remainingRes, { data: authData }] = await Promise.all([
-    supabase.rpc("fn_ticket_type_remaining", { p_event_id: event.id }),
+    (supabase.rpc as any)("fn_ticket_type_remaining", { p_event_id: event.id }),
     supabase.auth.getUser(),
   ])
 
