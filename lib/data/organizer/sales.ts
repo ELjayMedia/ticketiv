@@ -11,11 +11,9 @@ export interface OrderSummary {
 
 export interface OrderDetail {
   id: string
-  purchaser_email: string
-  purchaser_first_name: string
-  purchaser_last_name: string
+  buyer_email: string | null
   status: string
-  total_amount_cents: number
+  total_cents: number
   created_at: string
 }
 
@@ -30,7 +28,7 @@ export async function getOrgOrderSummary(orgId: string): Promise<OrderSummary> {
   try {
     const { data: orders, error: ordersError } = await supabase
       .from("orders")
-      .select("id, status, total_amount_cents")
+      .select("id, status, total_cents")
       .eq("org_id", orgId)
 
     if (ordersError || !orders) {
@@ -39,8 +37,8 @@ export async function getOrgOrderSummary(orgId: string): Promise<OrderSummary> {
     }
 
     const totalRevenue = orders
-      .filter((o) => o.status === "completed")
-      .reduce((sum, o) => sum + (o.total_amount_cents || 0), 0)
+      .filter((o) => o.status === "paid")
+      .reduce((sum, o) => sum + (o.total_cents || 0), 0)
 
     const pendingOrders = orders.filter((o) => o.status === "pending").length
 
@@ -65,10 +63,19 @@ export async function getOrgOrders(orgId: string, eventId?: string): Promise<Ord
   if (!supabase) return []
 
   try {
-    let query = supabase.from("orders").select("*").eq("org_id", orgId)
+    let query = supabase.from("orders").select("id, buyer_email, status, total_cents, created_at").eq("org_id", orgId)
 
     if (eventId) {
-      query = query.eq("event_id", eventId)
+      // Filter by event via order_items join
+      const { data: orderIds } = await supabase
+        .from("order_items")
+        .select("order_id")
+        .eq("ticket_types.event_id", eventId)
+      if (orderIds && orderIds.length > 0) {
+        query = query.in("id", orderIds.map((r) => r.order_id))
+      } else {
+        return []
+      }
     }
 
     const { data, error } = await query.order("created_at", { ascending: false })

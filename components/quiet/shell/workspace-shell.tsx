@@ -164,11 +164,12 @@ export function WorkspaceShell({
             if (supabase) {
               const { data: profile } = await supabase
                 .from("profiles")
-                .select("full_name")
+                .select("display_name, name")
                 .eq("user_id", session.user.id)
                 .single();
-              if (profile?.full_name) {
-                name = (profile.full_name as string).split(" ")[0];
+              const fullName = profile?.display_name ?? profile?.name;
+              if (fullName) {
+                name = fullName.split(" ")[0];
               }
             }
             setUser({ id: session.user.id, email: session.user.email ?? undefined, name });

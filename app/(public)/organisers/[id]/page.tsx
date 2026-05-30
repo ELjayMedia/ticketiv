@@ -15,20 +15,20 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
 
   const events = await getOrganiserEvents(params.id)
 
-  const organizerEvents: EventCardData[] = events.map((event) => ({
+  const organizerEvents: EventCardData[] = events.map((event: any) => ({
     id: event.id,
     slug: event.slug,
     title: event.title,
-    poster_url: event.poster_url,
-    starts_at: event.starts_at,
-    city: event.city,
-    venue_name: event.venue_name,
-    min_price_cents: event.min_price_cents,
-    max_price_cents: event.max_price_cents,
+    poster_url: event.poster_url ?? null,
+    starts_at: event.starts_at ?? "",
+    city: event.city ?? null,
+    venue_name: event.venue_name ?? null,
+    min_price_cents: event.min_price_cents ?? null,
+    max_price_cents: event.max_price_cents ?? null,
     currency: event.currency,
-    is_promoted: event.is_promoted,
+    is_promoted: event.is_promoted ?? false,
     organizer_name: organizer.name,
-    organizer_logo_url: organizer.logo_url ?? null,
+    organizer_logo_url: (organizer as any).logo ?? null,
     tickets_remaining: event.tickets_remaining,
     tickets_sold: event.tickets_sold ?? null,
   }))
@@ -39,8 +39,8 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
         <div className="h-40 w-full bg-gradient-to-br from-accent-soft to-bg sm:h-56" />
         <div className="flex flex-col gap-4 px-5 pb-5 sm:flex-row sm:items-start sm:px-6 sm:pb-6">
           <div className="-mt-12 flex h-20 w-20 items-center justify-center overflow-hidden rounded-[var(--radius-md)] border-4 border-surface bg-bg sm:-mt-16 sm:h-24 sm:w-24">
-            {organizer.logo_url ? (
-              <img src={organizer.logo_url} alt={organizer.name} className="h-full w-full object-cover" />
+            {(organizer as any).logo ? (
+              <img src={(organizer as any).logo} alt={organizer.name} className="h-full w-full object-cover" />
             ) : (
               <div className="font-mono text-[22px] font-semibold text-ink-3">
                 {organizer.name.substring(0, 2).toUpperCase()}
@@ -50,11 +50,8 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
           <div className="flex flex-1 flex-col gap-2 pt-2">
             <Chip size="sm" variant="default" className="w-fit">Event organiser</Chip>
             <h1 className="text-h1 sm:text-[28px]">{organizer.name}</h1>
-            {organizer.city && (
-              <Chip size="sm" variant="muted" className="w-fit">{organizer.city}</Chip>
-            )}
-            {organizer.description && (
-              <p className="line-clamp-2 text-[14px] leading-relaxed text-ink-3">{organizer.description}</p>
+            {organizer.bio && (
+              <p className="line-clamp-2 text-[14px] leading-relaxed text-ink-3">{organizer.bio}</p>
             )}
           </div>
         </div>

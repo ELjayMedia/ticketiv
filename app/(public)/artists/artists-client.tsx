@@ -36,14 +36,13 @@ export default function ArtistsClient({ initialArtists }: ArtistsClientProps) {
               <Card className="h-full hover:shadow-lg transition-shadow duration-300 cursor-pointer overflow-hidden">
                 <div className="aspect-square bg-muted overflow-hidden relative group">
                   <img
-                    src={artist.avatar_url || "/placeholder.svg"}
+                    src={artist.image_url || "/placeholder.svg"}
                     alt={artist.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 </div>
                 <CardContent className="pt-4 space-y-2">
                   <h3 className="font-semibold line-clamp-2">{artist.name}</h3>
-                  {artist.role && <Badge className="w-fit text-xs">{artist.role}</Badge>}
                   {artist.bio && <p className="text-sm text-muted-foreground line-clamp-2">{artist.bio}</p>}
                 </CardContent>
               </Card>

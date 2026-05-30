@@ -91,7 +91,7 @@ export async function acceptTransfer(transferId: string) {
   return res.json()
 }
 
-export async function listTransfers(params?: { status?: "pending" | "accepted" | "revoked" }) {
+export async function listTransfers(params?: { status?: "pending" | "accepted" | "declined" | "cancelled" | "completed" | "requested" }) {
   const demoSession = await getDemoSessionFromCookie()
 
   if (demoSession) {

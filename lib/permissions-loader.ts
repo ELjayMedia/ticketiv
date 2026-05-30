@@ -8,10 +8,8 @@ import { getDemoSession } from "@/lib/demo-auth"
 export interface UserAuthzData {
   userId: string
   profile: {
-    id: string
-    email: string
+    user_id: string
     display_name?: string | null
-    default_org_id?: string | null
   } | null
   permissions: Permissions
 }
@@ -34,8 +32,8 @@ export async function loadUserPermissions(userId: string): Promise<UserAuthzData
     // 1. Fetch user profile
     const { data: profile } = await supabase
       .from("profiles")
-      .select("id, email, display_name, org_id")
-      .eq("id", userId)
+      .select("user_id, display_name")
+      .eq("user_id", userId)
       .maybeSingle()
 
     if (!profile) {
@@ -49,16 +47,16 @@ export async function loadUserPermissions(userId: string): Promise<UserAuthzData
       .select("org_id, role, created_at")
       .eq("user_id", userId)
 
-    // 3. Fetch event staff roles with org_id mapping (only when user has org memberships to avoid loading everything)
+    // 3. Fetch event staff roles (event_staff has no org_id — join through events if org context needed)
     let eventAccessByEventId: Record<string, string> = {}
     let eventOrgByEventId: Record<string, string> = {}
     if (orgMemberships.length > 0) {
       const orgIds = orgMemberships.map((m) => m.org_id)
       const { data: eventStaff = [] } = await supabase
         .from("event_staff")
-        .select("event_id, org_id, role")
+        .select("event_id, role, events!inner(org_id)")
         .eq("user_id", userId)
-        .in("org_id", orgIds)
+        .in("events.org_id", orgIds)
 
       eventAccessByEventId = eventStaff.reduce(
         (acc, staff) => {
@@ -68,10 +66,12 @@ export async function loadUserPermissions(userId: string): Promise<UserAuthzData
         {} as Record<string, string>
       )
 
-      // Also build eventOrgByEventId for org admin inheritance checks
       eventOrgByEventId = eventStaff.reduce(
         (acc, staff) => {
-          acc[staff.event_id] = staff.org_id
+          const orgId = Array.isArray(staff.events)
+            ? staff.events[0]?.org_id
+            : (staff.events as any)?.org_id
+          if (orgId) acc[staff.event_id] = orgId
           return acc
         },
         {} as Record<string, string>
@@ -87,13 +87,7 @@ export async function loadUserPermissions(userId: string): Promise<UserAuthzData
 
     const isGlobalAdmin = !!adminCheck
 
-    // Determine active org: use first membership, or profile's default org
-    const activeOrgId =
-      orgMemberships.length > 0
-        ? orgMemberships[0].org_id
-        : profile.org_id
-        ? profile.org_id
-        : null
+    const activeOrgId = orgMemberships.length > 0 ? orgMemberships[0].org_id : null
 
     return {
       userId,
@@ -132,10 +126,8 @@ function buildDemoUserAuthz(userId: string, demoUser: any): UserAuthzData {
   return {
     userId,
     profile: {
-      id: demoUser.id,
-      email: demoUser.email,
-      display_name: demoUser.full_name,
-      default_org_id: demoUser.org_id,
+      user_id: demoUser.id,
+      display_name: demoUser.full_name ?? demoUser.display_name ?? null,
     },
     permissions: {
       isGlobalAdmin,
@@ -192,16 +184,21 @@ export async function getUserEventRoles(userId: string, orgId: string): Promise<
   try {
     const { data, error } = await supabase
       .from("event_staff")
-      .select("event_id, org_id, role, created_at")
+      .select("event_id, role, created_at, events!inner(org_id)")
       .eq("user_id", userId)
-      .eq("org_id", orgId)
+      .eq("events.org_id", orgId)
 
     if (error) {
       console.error("[v0] Error fetching event roles:", error)
       return []
     }
 
-    return (data || []) as EventStaff[]
+    return (data || []).map((row) => ({
+      event_id: row.event_id,
+      role: row.role,
+      created_at: row.created_at ?? new Date().toISOString(),
+      org_id: (Array.isArray(row.events) ? row.events[0]?.org_id : (row.events as any)?.org_id) ?? orgId,
+    })) as EventStaff[]
   } catch (error) {
     console.error("[v0] Unexpected error fetching event roles:", error)
     return []

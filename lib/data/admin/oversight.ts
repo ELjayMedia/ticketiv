@@ -4,23 +4,24 @@ import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export interface Job {
   id: string
-  job_type: string
-  status: "pending" | "processing" | "completed" | "failed"
-  payload?: Record<string, unknown>
-  result?: Record<string, unknown>
-  error?: string
-  scheduled_at: string
-  started_at?: string
-  completed_at?: string
-  created_at: string
+  kind: string
+  attempts: number | null
+  payload: unknown
+  last_error: string | null
+  locked_at: string | null
+  max_attempts: number | null
+  run_after: string | null
+  created_at: string | null
 }
 
 export interface Webhook {
   id: string
-  event_type: string
-  url: string
-  is_active: boolean
-  created_at: string
+  provider: string
+  payload: unknown
+  processed_at: string | null
+  provider_event_id: string | null
+  received_at: string
+  signature: string | null
 }
 
 /**
@@ -89,19 +90,15 @@ export async function getAppAuditLogs(limit: number = 100) {
  * Get background jobs for monitoring
  * Reads from: jobs
  */
-export async function getJobs(filters?: { status?: string; jobType?: string; limit?: number }): Promise<Job[]> {
+export async function getJobs(filters?: { jobType?: string; limit?: number }): Promise<Job[]> {
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
 
   try {
     let query = supabase.from("jobs").select("*")
 
-    if (filters?.status) {
-      query = query.eq("status", filters.status)
-    }
-
     if (filters?.jobType) {
-      query = query.eq("job_type", filters.jobType)
+      query = query.eq("kind", filters.jobType)
     }
 
     const { data, error } = await query

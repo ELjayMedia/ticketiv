@@ -4,21 +4,28 @@ import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export interface LedgerEntry {
   id: string
-  org_id?: string
-  transaction_type: string
+  org_id: string
+  type: string
   amount_cents: number
-  reference_id?: string
-  created_at: string
+  currency: string
+  occurred_at: string
+  event_id: string | null
+  order_id: string | null
+  payment_id: string | null
+  payout_id: string | null
+  refund_id: string | null
 }
 
 export interface Payout {
   id: string
   org_id: string
   amount_cents: number
-  status: "pending" | "processing" | "completed" | "failed"
-  period_start: string
-  period_end: string
-  created_at: string
+  currency: string
+  status: "paid" | "failed" | "requested" | "processing" | "cancelled"
+  provider: string
+  destination_ref: string | null
+  created_at: string | null
+  paid_at: string | null
 }
 
 /**
@@ -43,7 +50,7 @@ export async function getLedgerEntries(filters?: {
     }
 
     if (filters?.transactionType) {
-      query = query.eq("transaction_type", filters.transactionType)
+      query = query.eq("type", filters.transactionType)
     }
 
     if (filters?.startDate) {
@@ -87,7 +94,7 @@ export async function getAllPayouts(filters?: {
     let query = supabase.from("payouts").select("*")
 
     if (filters?.status) {
-      query = query.eq("status", filters.status)
+      query = query.eq("status", filters.status as Payout["status"])
     }
 
     if (filters?.startDate) {
@@ -123,7 +130,7 @@ export async function getPayoutReconciliation(orgId?: string) {
   if (!supabase) return null
 
   try {
-    let ledgerQuery = supabase.from("ledger_entries").select("amount_cents, transaction_type")
+    let ledgerQuery = supabase.from("ledger_entries").select("amount_cents, type")
 
     if (orgId) {
       ledgerQuery = ledgerQuery.eq("org_id", orgId)
@@ -151,7 +158,7 @@ export async function getPayoutReconciliation(orgId?: string) {
 
     const totalLedger = (ledgerData || []).reduce((sum, entry) => sum + (entry.amount_cents || 0), 0)
     const totalPayouts = (payoutData || [])
-      .filter((p) => p.status === "completed")
+      .filter((p) => p.status === "paid")
       .reduce((sum, p) => sum + (p.amount_cents || 0), 0)
     const outstanding = totalLedger - totalPayouts
 

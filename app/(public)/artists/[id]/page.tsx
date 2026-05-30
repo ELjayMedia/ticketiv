@@ -40,17 +40,14 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
     if (!demoArtist) notFound()
     artist = {
       id: demoArtist.id,
+      org_id: "",
       name: demoArtist.name,
-      role: demoArtist.role || null,
       bio: demoArtist.bio || null,
-      avatar_url: demoArtist.avatar_url || null,
-      banner_url: null,
-      website_url: null,
-      twitter: null,
-      instagram: null,
-      youtube: null,
-      created_at: demoArtist.created_at,
-      updated_at: demoArtist.created_at,
+      image_url: (demoArtist as any).image_url ?? (demoArtist as any).avatar_url ?? null,
+      slug: (demoArtist as any).slug ?? null,
+      primary_user_id: null,
+      created_at: demoArtist.created_at ?? new Date().toISOString(),
+      updated_at: demoArtist.created_at ?? new Date().toISOString(),
     }
   }
 
@@ -111,18 +108,13 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
           <div className="-mt-12 h-20 w-20 overflow-hidden rounded-full border-4 border-surface bg-surface sm:-mt-16 sm:h-24 sm:w-24">
             { }
             <img
-              src={(artist as any).avatar_url || "/placeholder.svg?height=200&width=200"}
+              src={artist.image_url || "/placeholder.svg?height=200&width=200"}
               alt={artist.name}
               className="h-full w-full object-cover"
             />
           </div>
           <div className="flex flex-1 flex-col gap-2 pt-2">
             <h1 className="text-h1 sm:text-[28px]">{artist.name}</h1>
-            {(artist as any).role && (
-              <Chip size="sm" variant="default" className="w-fit">
-                {(artist as any).role}
-              </Chip>
-            )}
             {artist.bio && (
               <p className="text-[14px] leading-relaxed text-ink-3">{artist.bio}</p>
             )}
