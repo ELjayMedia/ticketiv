@@ -130,6 +130,17 @@ type Tab = typeof TABS[number];
 
 export function DesktopEvent({ event = DEFAULT_EVENT }: DesktopEventProps) {
   const [activeTab, setActiveTab] = React.useState<Tab>("About");
+  const [followedArtists, setFollowedArtists] = React.useState<Set<string>>(new Set());
+  const [followedOrganizer, setFollowedOrganizer] = React.useState(false);
+  const [friendsModalOpen, setFriendsModalOpen] = React.useState(false);
+
+  function toggleArtist(name: string) {
+    setFollowedArtists((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  }
 
   return (
     <div className="mx-auto max-w-[1280px] px-10">
@@ -220,7 +231,13 @@ export function DesktopEvent({ event = DEFAULT_EVENT }: DesktopEventProps) {
                         </div>
                         <span className="font-mono text-[11px] text-ink-3">{a.role}</span>
                       </div>
-                      <Button variant="default" size="xs">Follow</Button>
+                      <Button
+                        variant={followedArtists.has(a.name) ? "accent" : "default"}
+                        size="xs"
+                        onClick={() => toggleArtist(a.name)}
+                      >
+                        {followedArtists.has(a.name) ? "Following" : "Follow"}
+                      </Button>
                     </Card>
                   ))}
                 </div>
@@ -290,8 +307,12 @@ export function DesktopEvent({ event = DEFAULT_EVENT }: DesktopEventProps) {
                 {formatDesktopOrganizerStats(event.organizer)}
               </span>
             </div>
-            <Button variant="default" size="sm">
-              Follow organizer
+            <Button
+              variant={followedOrganizer ? "accent" : "default"}
+              size="sm"
+              onClick={() => setFollowedOrganizer((v) => !v)}
+            >
+              {followedOrganizer ? "Following" : "Follow organizer"}
             </Button>
           </Card>
         </div>
@@ -409,7 +430,12 @@ export function DesktopEvent({ event = DEFAULT_EVENT }: DesktopEventProps) {
               <span className="font-semibold">{event.goingFriends.count} friends</span>
               <span className="text-ink-3"> going</span>
             </span>
-            <button className="text-[12px] font-medium text-accent">View</button>
+            <button
+              onClick={() => setFriendsModalOpen(true)}
+              className="text-[12px] font-medium text-accent hover:opacity-75"
+            >
+              View
+            </button>
           </Card>
           )}
 
@@ -456,8 +482,72 @@ export function DesktopEvent({ event = DEFAULT_EVENT }: DesktopEventProps) {
           </Card>
         </aside>
       </div>
+      {friendsModalOpen && (
+        <FriendsGoingModal
+          friends={event.goingFriends}
+          eventTitle={event.title}
+          onClose={() => setFriendsModalOpen(false)}
+        />
+      )}
     </div>
   );
+}
+
+function FriendsGoingModal({
+  friends,
+  eventTitle,
+  onClose,
+}: {
+  friends: DesktopEventData["goingFriends"];
+  eventTitle: string;
+  onClose: () => void;
+}) {
+  React.useEffect(() => {
+    const onEsc = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    window.addEventListener("keydown", onEsc)
+    document.body.style.overflow = "hidden"
+    return () => {
+      window.removeEventListener("keydown", onEsc)
+      document.body.style.overflow = ""
+    }
+  }, [onClose])
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[400px] rounded-[var(--radius-lg)] bg-surface p-5 shadow-[var(--shadow-elev)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-[16px] font-semibold">Friends going · {friends.count}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-line/60"
+          >
+            <Icon name="close" size={16} />
+          </button>
+        </div>
+        <p className="mb-3 font-mono text-[11px] text-ink-3">{eventTitle}</p>
+        <ul className="flex flex-col gap-3">
+          {friends.photos.slice(0, friends.count).map((photo, i) => (
+            <li key={i} className="flex items-center gap-2.5">
+              <Avatar src={photo} size={32} />
+              <span className="text-[13px] font-semibold">
+                {friends.names[i] ?? `Friend ${i + 1}`}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  )
 }
 
 const META_GRID_COLS: Record<number, string> = {

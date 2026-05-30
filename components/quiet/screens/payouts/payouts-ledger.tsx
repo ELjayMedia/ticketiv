@@ -1,7 +1,10 @@
+"use client"
+
 // Quiet · Payouts & ledger (organizer console)
 // Pixel-faithful port of QuietDeskPayouts from hifi-quiet-org-desk.jsx.
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { Card } from "@/components/quiet/ui/card"
 import { Button } from "@/components/quiet/ui/button"
 import { Icon } from "@/components/quiet/ui/icon"
@@ -122,6 +125,7 @@ function KPI({ label, value, sub }: { label: string; value: string; sub?: string
 }
 
 export function PayoutsLedger(p: PayoutsLedgerProps) {
+  const router = useRouter()
   return (
     <div className="flex min-h-full flex-col gap-3.5 p-7">
       {/* Header */}
@@ -131,7 +135,7 @@ export function PayoutsLedger(p: PayoutsLedgerProps) {
           <h1 className="text-h1 mt-1">Payouts &amp; ledger</h1>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="default" size="xs">Statements</Button>
+          <Button variant="default" size="xs" onClick={() => router.push(`/orgs/${p.orgId}/finance/statements`)}>Statements</Button>
           <RequestPayoutButton
             orgId={p.orgId}
             availableMinor={p.finance.availableMinor}
@@ -226,7 +230,12 @@ export function PayoutsLedger(p: PayoutsLedgerProps) {
                 every charge, refund &amp; payout
               </span>
             </div>
-            <span className="font-mono text-[11px] font-semibold text-accent">full ledger ›</span>
+            <button
+              onClick={() => router.push(`/orgs/${p.orgId}/finance/ledger`)}
+              className="font-mono text-[11px] font-semibold text-accent hover:opacity-75"
+            >
+              full ledger ›
+            </button>
           </div>
           {p.ledger.length === 0 ? (
             <div className="px-4 py-8 text-center font-mono text-xs text-ink-3">
@@ -263,7 +272,7 @@ export function PayoutsLedger(p: PayoutsLedgerProps) {
       <Card className="p-5">
         <div className="mb-3 flex items-center justify-between">
           <span className="text-h2">Payout accounts</span>
-          <Button variant="default" size="xs">
+          <Button variant="default" size="xs" onClick={() => router.push(`/orgs/${p.orgId}/payouts/accounts/new`)}>
             <Icon name="plus" size={12} /> Add account
           </Button>
         </div>

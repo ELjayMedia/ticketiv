@@ -156,6 +156,8 @@ export function MyTickets({
 }: MyTicketsProps) {
   const [seg, setSeg] = React.useState<Segment>("upcoming");
   const [transferLoading, setTransferLoading] = React.useState<"accept" | "decline" | null>(null);
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState("");
 
   // When the page is given no data at all (e.g. /dev/preview), fall back to
   // the demo arrays so the screen still renders. For real authenticated users
@@ -169,6 +171,43 @@ export function MyTickets({
     inboundTransfer === undefined && isDemo ? DEFAULT_INBOUND : inboundTransfer;
   const _counts = counts ?? { upcoming: _upcoming.length, past: _past.length, transfers: 0 };
   const hasUpcoming = Boolean(_featured) || _upcoming.length > 0;
+
+  const filteredUpcoming = searchQuery.trim()
+    ? _upcoming.filter((t) => t.title.toLowerCase().includes(searchQuery.toLowerCase()))
+    : _upcoming;
+
+  function handleShareFeatured() {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    if (navigator.share) {
+      navigator.share({ title: `My ticket for ${_featured?.eventTitle}`, url }).catch(() => {});
+    } else {
+      navigator.clipboard?.writeText(url).catch(() => {});
+    }
+  }
+
+  function handleAddToCalendar() {
+    if (!_featured) return;
+    const ics = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Ticketiv//EN",
+      "BEGIN:VEVENT",
+      `SUMMARY:${_featured.eventTitle}`,
+      `DESCRIPTION:Ticket #${_featured.orderNumber} · ${_featured.seatLabel}`,
+      `LOCATION:${_featured.venueLabel}`,
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n");
+    const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${_featured.eventTitle.replace(/\s+/g, "-")}.ics`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <div className="bg-bg pb-24">
@@ -184,6 +223,7 @@ export function MyTickets({
         </div>
         <button
           aria-label="Search tickets"
+          onClick={() => { setSearchOpen((v) => !v); setSearchQuery(""); }}
           className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"
         >
           <Icon name="search" size={20} />
@@ -195,6 +235,27 @@ export function MyTickets({
           <Icon name="download" size={20} />
         </button>
       </header>
+
+      {searchOpen && (
+        <div className="px-5 pb-2">
+          <div className="flex items-center gap-2 rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-2">
+            <Icon name="search" size={14} className="text-ink-3 shrink-0" />
+            <input
+              autoFocus
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search tickets…"
+              className="flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-3"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery("")} className="text-ink-3 hover:text-ink">
+                <Icon name="close" size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Segmented */}
       <div className="px-5 pb-4">
@@ -285,12 +346,14 @@ export function MyTickets({
                   </Link>
                   <button
                     aria-label="Share"
+                    onClick={handleShareFeatured}
                     className="inline-flex h-9 w-9 items-center justify-center rounded-[var(--radius)] border border-line-2 hover:bg-bg"
                   >
                     <Icon name="arrowUR" size={14} />
                   </button>
                   <button
                     aria-label="Add to calendar"
+                    onClick={handleAddToCalendar}
                     className="inline-flex h-9 w-9 items-center justify-center rounded-[var(--radius)] border border-line-2 hover:bg-bg"
                   >
                     <Icon name="cal" size={14} />
@@ -315,7 +378,7 @@ export function MyTickets({
 
           {/* Other upcoming */}
           <ul className="flex flex-col gap-2 px-5">
-            {_upcoming.map((t) => (
+            {filteredUpcoming.map((t) => (
               <li key={t.ticketId}>
                 <Card
                   className="flex items-center gap-3 p-3 transition-colors hover:bg-bg"
