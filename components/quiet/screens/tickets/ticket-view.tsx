@@ -158,12 +158,68 @@ export function TicketView({ ticket = DEFAULT_TICKET, siblingIds = DEFAULT_SIBLI
     }
   }
 
+  const [walletBusy, setWalletBusy] = React.useState(false);
+  const [walletMsg, setWalletMsg] = React.useState<string | null>(null);
+
   function handleSave() {
     window.print();
   }
 
-  function handleWallet() {
-    alert("Wallet export coming soon.");
+  function detectPlatform(): "apple" | "google" | "unknown" {
+    if (typeof navigator === "undefined") return "unknown";
+    const ua = navigator.userAgent.toLowerCase();
+    if (/iphone|ipad|ipod|macintosh/.test(ua)) return "apple";
+    if (/android/.test(ua)) return "google";
+    return "unknown";
+  }
+
+  async function handleWallet() {
+    setWalletBusy(true);
+    setWalletMsg(null);
+    try {
+      const platform = detectPlatform();
+      const res = await fetch(
+        `/api/tickets/${encodeURIComponent(ticket.id)}/wallet?platform=${platform}`,
+      );
+      const ct = res.headers.get("content-type") ?? "";
+
+      if (res.ok && ct.includes("vnd.apple.pkpass")) {
+        const blob = await res.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = objectUrl;
+        a.download = `${ticket.eventTitle.replace(/\s+/g, "-")}.pkpass`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
+
+      if (res.ok && ct.includes("application/json")) {
+        const body = (await res.json()) as { saveUrl?: string };
+        if (body.saveUrl) {
+          window.open(body.saveUrl, "_blank", "noopener,noreferrer");
+          return;
+        }
+      }
+
+      // Not available — fall back to print so the user still gets a saved copy.
+      const body = await res.json().catch(() => ({}));
+      setWalletMsg(
+        body?.message ??
+          "Wallet export isn't available right now. Opening Save instead.",
+      );
+      setTimeout(() => {
+        setWalletMsg(null);
+        window.print();
+      }, 1500);
+    } catch {
+      setWalletMsg("Couldn't reach wallet service. Use Save to keep a copy.");
+      setTimeout(() => setWalletMsg(null), 2500);
+    } finally {
+      setWalletBusy(false);
+    }
   }
   return (
     <div
@@ -270,13 +326,21 @@ export function TicketView({ ticket = DEFAULT_TICKET, siblingIds = DEFAULT_SIBLI
                 {ticket.qrCode}
               </div>
               <div className="mt-3 flex items-center justify-center gap-3.5">
-                <Button variant="default" size="xs" onClick={handleWallet}>
-                  <Icon name="wallet" size={14} /> Wallet
+                <Button variant="default" size="xs" onClick={handleWallet} disabled={walletBusy}>
+                  <Icon name="wallet" size={14} /> {walletBusy ? "Working…" : "Wallet"}
                 </Button>
                 <Button variant="default" size="xs" onClick={handleSave}>
                   <Icon name="download" size={14} /> Save
                 </Button>
               </div>
+              {walletMsg && (
+                <div
+                  role="status"
+                  className="mt-2 text-[11px] text-ink-3"
+                >
+                  {walletMsg}
+                </div>
+              )}
             </div>
           ) : (
             <div className="p-4 text-center" role="status">

@@ -2,6 +2,7 @@ import { MyTickets } from "@/components/quiet/screens/tickets/my-tickets";
 import { SaveMyTicketsCard } from "@/components/quiet/screens/tickets/save-my-tickets-card";
 import { getMyTickets } from "@/lib/data/attendee/tickets";
 import { getInboundTransfers } from "@/lib/data/attendee/inbound-transfers";
+import { getMyTransferHistory } from "@/lib/data/attendee/transfers";
 import { mapMyTickets } from "@/lib/mappers/tickets";
 import { PHOTOS } from "@/lib/photos";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
@@ -28,9 +29,10 @@ function avatarFor(uid: string): string {
 }
 
 export default async function TicketsPage() {
-  const [rows, inbound] = await Promise.all([
+  const [rows, inbound, history] = await Promise.all([
     getMyTickets(),
     getInboundTransfers(),
+    getMyTransferHistory(),
   ]);
   const props = mapMyTickets(rows);
   const next = inbound[0];
@@ -43,6 +45,21 @@ export default async function TicketsPage() {
         expiresInLabel: expiresIn(next.expires_at),
       }
     : null;
+
+  const transferHistory = history.map((h) => ({
+    id: h.id,
+    direction: h.direction,
+    status: h.status,
+    eventTitle: h.eventTitle,
+    counterpartyName: h.counterpartyName,
+    counterpartyPhoto: avatarFor(h.counterpartyId),
+    dateLabel: new Date(h.createdAt).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }),
+    canCancel: h.canCancel,
+  }));
 
   // Show the "Save my tickets" prompt only to anonymous (guest) buyers.
   const supabase = await createServerSupabaseClient();
@@ -63,9 +80,10 @@ export default async function TicketsPage() {
         upcoming={props.upcoming}
         past={props.past}
         inboundTransfer={inboundTransfer}
+        transferHistory={transferHistory}
         counts={{
           ...props.counts,
-          transfers: inbound.length,
+          transfers: inbound.length + transferHistory.length,
         }}
       />
     </div>

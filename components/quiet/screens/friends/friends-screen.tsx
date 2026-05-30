@@ -33,9 +33,18 @@ interface FriendsScreenProps {
   pendingRequests?: number;
   goingTogether?: GoingTogether | null;
   activity?: ActivityItem[];
+  friends?: FriendRow[];
   suggested?: SuggestedFriend[];
   inviteLink?: string;
   inviteReward?: string;
+}
+
+interface FriendRow {
+  id: string;
+  name: string;
+  photo: string;
+  handle: string | null;
+  mutualLabel: string;
 }
 
 interface GoingTogether {
@@ -77,6 +86,11 @@ const DEFAULT_PROPS: Required<FriendsScreenProps> = {
     friendNames: ["Farah", "Salman"],
     totalCount: 3,
   },
+  friends: [
+    { id: "f1", name: "Farah K.", photo: PHOTOS.face_2, handle: "farah", mutualLabel: "2 shared events" },
+    { id: "f2", name: "Salman R.", photo: PHOTOS.face_3, handle: "salman", mutualLabel: "1 shared event" },
+    { id: "f3", name: "Vicky Kausal", photo: PHOTOS.face_4, handle: null, mutualLabel: "No shared events yet" },
+  ],
   activity: [
     { id: "a1", name: "Farah", photo: PHOTOS.face_2, action: "booked", what: "Indie Showcase", whenAgo: "2h", icon: "ticket" },
     { id: "a2", name: "Salman", photo: PHOTOS.face_3, action: "is going to", what: "Tribal Tales", whenAgo: "5h", icon: "spark" },
@@ -340,11 +354,7 @@ export function FriendsScreen(props: FriendsScreenProps = {}) {
       )}
 
       {tab === "friends" && (
-        <div className="mx-5 mt-4 rounded-[var(--radius-lg)] border border-dashed border-line-2 px-6 py-10 text-center">
-          <span className="font-mono text-[11px] text-ink-3">
-            Full friend list lands in Phase 3 wiring.
-          </span>
-        </div>
+        <FriendsListTab friends={cfg.friends} searchQuery={searchQuery} />
       )}
       {tab === "requests" && (
         <section className="px-5 pt-1">
@@ -400,5 +410,69 @@ export function FriendsScreen(props: FriendsScreenProps = {}) {
         </section>
       )}
     </div>
+  );
+}
+
+function FriendsListTab({
+  friends,
+  searchQuery,
+}: {
+  friends: FriendRow[];
+  searchQuery: string;
+}) {
+  const q = searchQuery.trim().toLowerCase();
+  const visible = q
+    ? friends.filter(
+        (f) =>
+          f.name.toLowerCase().includes(q) ||
+          (f.handle?.toLowerCase().includes(q) ?? false),
+      )
+    : friends;
+
+  if (friends.length === 0) {
+    return (
+      <div className="mx-5 mt-4 rounded-[var(--radius-lg)] border border-dashed border-line-2 px-6 py-10 text-center">
+        <span className="font-mono text-[11px] text-ink-3">
+          No friends yet — invite someone!
+        </span>
+      </div>
+    );
+  }
+
+  if (visible.length === 0) {
+    return (
+      <div className="mx-5 mt-4 rounded-[var(--radius-lg)] border border-dashed border-line-2 px-6 py-10 text-center">
+        <span className="font-mono text-[11px] text-ink-3">No friends match your search.</span>
+      </div>
+    );
+  }
+
+  return (
+    <section className="px-5 pt-1">
+      <div className="text-label mb-2">{friends.length} friend{friends.length === 1 ? "" : "s"}</div>
+      <ul className="flex flex-col gap-2">
+        {visible.map((f) => (
+          <li key={f.id}>
+            <Card className="flex items-center gap-3 p-3" flat>
+              <Avatar src={f.photo} size={40} />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-[13px] font-semibold">{f.name}</span>
+                <span className="truncate font-mono text-[11px] text-ink-3">
+                  {f.handle ? `@${f.handle} · ` : ""}{f.mutualLabel}
+                </span>
+              </div>
+              {f.handle && (
+                <Link
+                  href={`/u/${f.handle}`}
+                  className="inline-flex items-center gap-1 rounded-[var(--radius)] border border-line-2 px-2.5 py-1 text-[12px] font-semibold hover:bg-bg"
+                >
+                  View
+                </Link>
+              )}
+            </Card>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
