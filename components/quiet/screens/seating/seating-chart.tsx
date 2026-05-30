@@ -5,6 +5,7 @@
 // driven by a normalized SeatMapSchema (see lib/data/attendee/seating.ts).
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { Card } from "@/components/quiet/ui/card"
 import { Button } from "@/components/quiet/ui/button"
 import { Icon } from "@/components/quiet/ui/icon"
@@ -29,6 +30,7 @@ function stateClass(state: SeatState, isPremium: boolean, isBalcony: boolean): s
 }
 
 export function SeatingChart({ chart, currency = "₹", onSelectionChange }: SeatingChartProps) {
+  const router = useRouter()
   const MIN_SCALE = 0.5
   const MAX_SCALE = 3
   const SCALE_STEP = 0.25
@@ -79,6 +81,7 @@ export function SeatingChart({ chart, currency = "₹", onSelectionChange }: Sea
       <div className="flex items-center gap-2.5 px-5 pb-3.5 pt-2">
         <button
           aria-label="Back"
+          onClick={() => router.back()}
           className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"
         >
           <Icon name="chevL" size={22} />

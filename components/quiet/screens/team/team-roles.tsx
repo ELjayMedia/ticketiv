@@ -1,12 +1,16 @@
+"use client"
+
 // Quiet · Team & roles (organizer console)
 // Pixel-faithful port of QuietDeskTeam.
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { Card } from "@/components/quiet/ui/card"
 import { Button } from "@/components/quiet/ui/button"
 import { Icon } from "@/components/quiet/ui/icon"
 
 export interface TeamRolesProps {
+  orgId: string
   orgName: string
   members: Array<{
     id: string
@@ -42,7 +46,18 @@ function roleBadgeClass(role: string): string {
   return "bg-[#f3f1ee] text-ink-3"
 }
 
-export function TeamRoles({ orgName, members, pendingInvites }: TeamRolesProps) {
+export function TeamRoles({ orgId, orgName, members, pendingInvites }: TeamRolesProps) {
+  const router = useRouter()
+  const [search, setSearch] = React.useState("")
+  const [permissionsOpen, setPermissionsOpen] = React.useState(false)
+
+  const filtered = search.trim()
+    ? members.filter((m) =>
+        m.name.toLowerCase().includes(search.toLowerCase()) ||
+        m.role.toLowerCase().includes(search.toLowerCase())
+      )
+    : members
+
   return (
     <div className="flex min-h-full flex-col gap-3.5 p-7">
       {/* Header */}
@@ -52,7 +67,7 @@ export function TeamRoles({ orgName, members, pendingInvites }: TeamRolesProps) 
           <h1 className="text-h1 mt-1">Team &amp; roles</h1>
           <div className="font-mono text-[11px] text-ink-3 mt-0.5">{orgName}</div>
         </div>
-        <Button variant="accent" size="xs">
+        <Button variant="accent" size="xs" onClick={() => router.push(`/orgs/${orgId}/team/invite`)}>
           <Icon name="plus" size={12} /> Invite member
         </Button>
       </div>
@@ -67,23 +82,30 @@ export function TeamRoles({ orgName, members, pendingInvites }: TeamRolesProps) 
             </span>
           </div>
           <div className="flex w-56 items-center gap-1.5 rounded-md border border-line-2 bg-bg px-2.5 py-1.5">
-            <Icon name="search" size={14} className="text-ink-3" />
-            <span className="text-xs text-ink-3">filter members</span>
+            <Icon name="search" size={14} className="text-ink-3 shrink-0" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="filter members"
+              className="flex-1 bg-transparent text-xs text-ink outline-none placeholder:text-ink-3"
+            />
           </div>
         </div>
         <div className="grid grid-cols-[2fr_1.2fr_1.2fr_0.8fr_0.8fr_16px] gap-2.5 border-b border-line bg-bg px-4 py-2.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-ink-3">
           <span>Member</span><span>Role</span><span>Events scoped</span><span>Joined</span><span>Last active</span><span />
         </div>
-        {members.length === 0 ? (
+        {filtered.length === 0 ? (
           <div className="px-4 py-8 text-center font-mono text-xs text-ink-3">
-            No team members yet.
+            {search ? "No members match your search." : "No team members yet."}
           </div>
         ) : (
-          members.map((m, i) => (
+          filtered.map((m, i) => (
             <div
               key={m.id}
-              className={`grid grid-cols-[2fr_1.2fr_1.2fr_0.8fr_0.8fr_16px] items-center gap-2.5 px-4 py-3 text-sm ${
-                i < members.length - 1 ? "border-b border-line" : ""
+              onClick={() => router.push(`/orgs/${orgId}/team/${m.id}`)}
+              className={`grid grid-cols-[2fr_1.2fr_1.2fr_0.8fr_0.8fr_16px] items-center gap-2.5 cursor-pointer px-4 py-3 text-sm hover:bg-bg ${
+                i < filtered.length - 1 ? "border-b border-line" : ""
               }`}
             >
               <div className="flex items-center gap-2.5">
@@ -124,7 +146,7 @@ export function TeamRoles({ orgName, members, pendingInvites }: TeamRolesProps) 
             <span className="text-h2">Role permissions</span>
             <span className="font-mono text-[11px] text-ink-3">13 platform actors · app_role enum</span>
           </div>
-          <Button variant="default" size="xs">View all permissions</Button>
+          <Button variant="default" size="xs" onClick={() => setPermissionsOpen(true)}>View all permissions</Button>
         </div>
         <div className="grid grid-cols-[2fr_repeat(6,1fr)] gap-2 border-b border-line py-2 font-mono text-[10px] font-semibold uppercase tracking-wider text-ink-3">
           <span>Capability</span>
@@ -157,6 +179,84 @@ export function TeamRoles({ orgName, members, pendingInvites }: TeamRolesProps) 
           </div>
         ))}
       </Card>
+
+      {permissionsOpen && (
+        <PermissionsModal onClose={() => setPermissionsOpen(false)} />
+      )}
+    </div>
+  )
+}
+
+function PermissionsModal({ onClose }: { onClose: () => void }) {
+  React.useEffect(() => {
+    const onEsc = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    window.addEventListener("keydown", onEsc)
+    document.body.style.overflow = "hidden"
+    return () => {
+      window.removeEventListener("keydown", onEsc)
+      document.body.style.overflow = ""
+    }
+  }, [onClose])
+
+  const ALL_ROLES = ["owner", "admin", "event_admin", "scanner", "pos", "support", "staff", "member"]
+  const ALL_CAPABILITIES: Array<[string, string[]]> = [
+    ...PERMISSIONS_MATRIX,
+    ["View events", ["✓", "✓", "scope", "✓", "✓", "✓", "✓", "✓"]],
+    ["View guestlist", ["✓", "✓", "scope", "✓", "", "✓", "", ""]],
+    ["Manage devices", ["✓", "✓", "", "", "", "", "", ""]],
+    ["Manage integrations", ["✓", "✓", "", "", "", "", "", ""]],
+    ["Bulk export", ["✓", "✓", "", "", "", "read", "", ""]],
+  ]
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="All permissions"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[80vh] w-full max-w-[900px] flex-col overflow-hidden rounded-[var(--radius-lg)] bg-surface shadow-[var(--shadow-elev)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-line px-6 py-4">
+          <div>
+            <h2 className="text-[18px] font-semibold">All role permissions</h2>
+            <p className="mt-0.5 font-mono text-[11px] text-ink-3">Full capability matrix for all 8 platform roles</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-line/60"
+          >
+            <Icon name="close" size={16} />
+          </button>
+        </div>
+        <div className="overflow-auto p-6">
+          <div className="grid grid-cols-[2fr_repeat(8,1fr)] gap-2 border-b border-line pb-2 font-mono text-[10px] font-semibold uppercase tracking-wider text-ink-3">
+            <span>Capability</span>
+            {ALL_ROLES.map((r) => <span key={r}>{r}</span>)}
+          </div>
+          {ALL_CAPABILITIES.map(([cap, vals], i, arr) => (
+            <div
+              key={cap}
+              className={`grid grid-cols-[2fr_repeat(8,1fr)] items-center gap-2 py-2.5 text-xs ${i < arr.length - 1 ? "border-b border-line" : ""}`}
+            >
+              <span className="font-medium">{cap}</span>
+              {Array.from({ length: 8 }, (_, j) => vals[j] ?? "").map((v, j) => (
+                <span
+                  key={j}
+                  className={`font-mono text-[11px] font-semibold ${v === "✓" ? "text-accent" : v === "scope" || v === "read" ? "text-ink-3" : "text-line-2"}`}
+                >
+                  {v || "—"}
+                </span>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

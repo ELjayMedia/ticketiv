@@ -1,3 +1,6 @@
+"use client";
+
+import * as React from "react";
 import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
@@ -91,6 +94,36 @@ const DEFAULT_EVENT: MobileEventData = {
 };
 
 export function MobileEvent({ event = DEFAULT_EVENT }: MobileEventProps) {
+  const [saved, setSaved] = React.useState(false);
+  const [followedArtists, setFollowedArtists] = React.useState<Set<string>>(new Set());
+  const [followedOrganizer, setFollowedOrganizer] = React.useState(false);
+
+  function toggleArtist(name: string) {
+    setFollowedArtists((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  }
+
+  function handleShare() {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    if (navigator.share) {
+      navigator.share({ title: event.title, url }).catch(() => {});
+    } else {
+      navigator.clipboard?.writeText(url).catch(() => {});
+    }
+  }
+
+  function handleInvite() {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    if (navigator.share) {
+      navigator.share({ title: `Join me at ${event.title}!`, url }).catch(() => {});
+    } else {
+      navigator.clipboard?.writeText(url).catch(() => {});
+    }
+  }
+
   return (
     <div className="flex h-full flex-col bg-bg">
       <div className="flex-1 overflow-y-auto no-scrollbar">
@@ -108,16 +141,18 @@ export function MobileEvent({ event = DEFAULT_EVENT }: MobileEventProps) {
               </Link>
               <span className="flex-1" />
               <button
+                onClick={handleShare}
                 className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/95 hover:bg-white"
                 aria-label="Share"
               >
                 <Icon name="share" size={18} className="text-ink" />
               </button>
               <button
+                onClick={() => setSaved((v) => !v)}
                 className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/95 hover:bg-white"
-                aria-label="Save"
+                aria-label={saved ? "Unsave" : "Save"}
               >
-                <Icon name="heart" size={18} className="text-ink" />
+                <Icon name="heart" size={18} className={saved ? "text-accent" : "text-ink"} />
               </button>
             </div>
 
@@ -194,8 +229,12 @@ export function MobileEvent({ event = DEFAULT_EVENT }: MobileEventProps) {
                     </div>
                     <span className="font-mono text-[11px] text-ink-3">{a.role}</span>
                   </div>
-                  <Button variant="default" size="xs">
-                    Follow
+                  <Button
+                    variant={followedArtists.has(a.name) ? "accent" : "default"}
+                    size="xs"
+                    onClick={() => toggleArtist(a.name)}
+                  >
+                    {followedArtists.has(a.name) ? "Following" : "Follow"}
                   </Button>
                 </Card>
               </li>
@@ -258,8 +297,12 @@ export function MobileEvent({ event = DEFAULT_EVENT }: MobileEventProps) {
                 {formatOrganizerStats(event.organizer)}
               </span>
             </div>
-            <Button variant="default" size="xs">
-              Follow
+            <Button
+              variant={followedOrganizer ? "accent" : "default"}
+              size="xs"
+              onClick={() => setFollowedOrganizer((v) => !v)}
+            >
+              {followedOrganizer ? "Following" : "Follow"}
             </Button>
           </Card>
         </section>
@@ -320,7 +363,7 @@ export function MobileEvent({ event = DEFAULT_EVENT }: MobileEventProps) {
                 {event.goingFriends.count} friends going
               </span>
             </div>
-            <Button variant="default" size="xs">
+            <Button variant="default" size="xs" onClick={handleInvite}>
               Invite
             </Button>
           </Card>

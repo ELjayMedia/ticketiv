@@ -101,6 +101,8 @@ function buildMonthInfo(year: number, month: number) {
 export function CalendarScreen(props: CalendarProps = {}) {
   const cfg = { ...DEFAULT_PROPS, ...props };
   const [view, setView] = React.useState<View>("month");
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState("");
 
   const { year: initYear, month: initMonth } = React.useMemo(
     () => parseMonthLabel(cfg.monthLabel),
@@ -138,10 +140,13 @@ export function CalendarScreen(props: CalendarProps = {}) {
       });
   const dayEvents = isShowingToday ? cfg.todayEvents : [];
   const comingUpFiltered = React.useMemo((): ComingUpEvent[] => {
-    if (selectedDay === null) return cfg.comingUp;
-    if (!isInitialMonth) return [];
-    return cfg.comingUp.filter((e) => e.day === selectedDay);
-  }, [selectedDay, isInitialMonth, cfg.comingUp]);
+    let list = selectedDay === null ? cfg.comingUp : (!isInitialMonth ? [] : cfg.comingUp.filter((e) => e.day === selectedDay));
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter((e) => e.title.toLowerCase().includes(q) || e.venue.toLowerCase().includes(q));
+    }
+    return list;
+  }, [selectedDay, isInitialMonth, cfg.comingUp, searchQuery]);
 
   return (
     <div className="bg-bg pb-24">
@@ -155,6 +160,7 @@ export function CalendarScreen(props: CalendarProps = {}) {
         </div>
         <button
           aria-label="Search calendar"
+          onClick={() => { setSearchOpen((v) => !v); setSearchQuery(""); }}
           className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"
         >
           <Icon name="search" size={20} />
@@ -166,6 +172,27 @@ export function CalendarScreen(props: CalendarProps = {}) {
           <Icon name="filter" size={20} />
         </button>
       </header>
+
+      {searchOpen && (
+        <div className="px-5 pb-2">
+          <div className="flex items-center gap-2 rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-2">
+            <Icon name="search" size={14} className="text-ink-3 shrink-0" />
+            <input
+              autoFocus
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search events…"
+              className="flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-3"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery("")} className="text-ink-3 hover:text-ink">
+                <Icon name="close" size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Segmented */}
       <div className="px-5 pb-4">

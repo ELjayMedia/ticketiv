@@ -6,6 +6,7 @@
 // POST /api/payments/complete with channel="pos".
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { Card } from "@/components/quiet/ui/card"
 import { Button } from "@/components/quiet/ui/button"
 import { Icon } from "@/components/quiet/ui/icon"
@@ -35,6 +36,7 @@ function formatMoney(cents: number, currency: string): string {
 }
 
 export function BoxOffice({ ctx, onCharge }: BoxOfficeProps) {
+  const router = useRouter()
   const [qty, setQty] = React.useState<Record<string, number>>({})
   const [method, setMethod] = React.useState<PayMethod>("cash")
   const [buyerName, setBuyerName] = React.useState("")
@@ -80,7 +82,11 @@ export function BoxOffice({ ctx, onCharge }: BoxOfficeProps) {
 
       {/* Header */}
       <div className="flex items-center gap-2.5 px-5 pb-3.5 pt-2">
-        <button className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60">
+        <button
+          onClick={() => router.back()}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"
+          aria-label="Back"
+        >
           <Icon name="chevL" size={22} />
         </button>
         <div className="flex flex-1 flex-col">
@@ -89,7 +95,11 @@ export function BoxOffice({ ctx, onCharge }: BoxOfficeProps) {
             {ctx.eventTitle} · {ctx.deviceLabel}
           </span>
         </div>
-        <button className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60">
+        <button
+          onClick={() => router.push("/profile")}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"
+          aria-label="Profile"
+        >
           <Icon name="user" size={20} />
         </button>
       </div>
@@ -194,7 +204,7 @@ export function BoxOffice({ ctx, onCharge }: BoxOfficeProps) {
       {/* Charge */}
       <div className="fixed bottom-0 left-1/2 z-10 w-full max-w-[480px] -translate-x-1/2 border-t border-line bg-surface px-5 pb-7 pt-3.5">
         <div className="flex items-center gap-2">
-          <Button variant="default" className="flex-1 rounded-md py-3.5">
+          <Button variant="default" className="flex-1 rounded-md py-3.5" onClick={() => window.print()}>
             Print receipt
           </Button>
           <Button

@@ -93,10 +93,36 @@ const DEFAULT_PROPS: Required<FriendsScreenProps> = {
   inviteReward: "get E100 off when 3 join",
 };
 
+const DEFAULT_REQUESTS = [
+  { id: "r1", name: "Asha Patel", photo: PHOTOS.face_7, mutualLabel: "4 mutual" },
+  { id: "r2", name: "Kiran D.", photo: PHOTOS.face_5, mutualLabel: "2 mutual" },
+  { id: "r3", name: "Meera V.", photo: PHOTOS.face_8, mutualLabel: "1 mutual" },
+];
+
 export function FriendsScreen(props: FriendsScreenProps = {}) {
   const cfg = { ...DEFAULT_PROPS, ...props };
   const [tab, setTab] = React.useState<Tab>("activity");
   const [copied, setCopied] = React.useState(false);
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [addedFriends, setAddedFriends] = React.useState<Set<string>>(new Set());
+  const [showAllSuggested, setShowAllSuggested] = React.useState(false);
+  const [acceptedRequests, setAcceptedRequests] = React.useState<Set<string>>(new Set());
+  const [declinedRequests, setDeclinedRequests] = React.useState<Set<string>>(new Set());
+
+  function toggleAdd(id: string) {
+    setAddedFriends((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  const displayedSuggested = showAllSuggested ? cfg.suggested : cfg.suggested.slice(0, 3);
+
+  const filteredActivity = searchQuery.trim()
+    ? cfg.activity.filter((a) => a.name.toLowerCase().includes(searchQuery.toLowerCase()) || a.what.toLowerCase().includes(searchQuery.toLowerCase()))
+    : cfg.activity;
 
   function handleCopyInviteLink() {
     const url = cfg.inviteLink.startsWith("http") ? cfg.inviteLink : `https://${cfg.inviteLink}`;
@@ -126,14 +152,36 @@ export function FriendsScreen(props: FriendsScreenProps = {}) {
         </div>
         <button
           aria-label="Search friends"
+          onClick={() => { setSearchOpen((v) => !v); setSearchQuery(""); }}
           className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"
         >
           <Icon name="search" size={20} />
         </button>
-        <Button variant="accent" size="xs">
+        <Button variant="accent" size="xs" onClick={handleCopyInviteLink}>
           <Icon name="plus" size={14} /> Invite
         </Button>
       </header>
+
+      {searchOpen && (
+        <div className="px-5 pb-2">
+          <div className="flex items-center gap-2 rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-2">
+            <Icon name="search" size={14} className="text-ink-3 shrink-0" />
+            <input
+              autoFocus
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search friends and activity…"
+              className="flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-3"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery("")} className="text-ink-3 hover:text-ink">
+                <Icon name="close" size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Segmented */}
       <div className="px-5 pb-4">
@@ -202,7 +250,7 @@ export function FriendsScreen(props: FriendsScreenProps = {}) {
           <section className="px-5 pb-4">
             <div className="text-label mb-2">Recent</div>
             <ul className="flex flex-col gap-2">
-              {cfg.activity.map((a) => (
+              {filteredActivity.map((a) => (
                 <li key={a.id} className="flex items-center gap-2.5 py-1">
                   <div className="relative">
                     <Avatar src={a.photo} size={36} />
@@ -229,12 +277,15 @@ export function FriendsScreen(props: FriendsScreenProps = {}) {
           <section className="px-5 pb-4">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-label">People you may know</span>
-              <button className="font-mono text-[11px] font-semibold text-accent">
-                see all ›
+              <button
+                onClick={() => setShowAllSuggested((v) => !v)}
+                className="font-mono text-[11px] font-semibold text-accent"
+              >
+                {showAllSuggested ? "see less" : "see all ›"}
               </button>
             </div>
             <div className="flex gap-2 overflow-x-auto no-scrollbar">
-              {cfg.suggested.map((s) => (
+              {displayedSuggested.map((s) => (
                 <Card
                   key={s.id}
                   className="w-[140px] shrink-0 flex flex-col items-center gap-1.5 p-3"
@@ -246,8 +297,13 @@ export function FriendsScreen(props: FriendsScreenProps = {}) {
                   <span className="font-mono text-[10px] text-ink-3">
                     {s.mutualLabel}
                   </span>
-                  <Button variant="accent" size="xs" className="w-full">
-                    + Add
+                  <Button
+                    variant={addedFriends.has(s.id) ? "default" : "accent"}
+                    size="xs"
+                    className="w-full"
+                    onClick={() => toggleAdd(s.id)}
+                  >
+                    {addedFriends.has(s.id) ? "Requested" : "+ Add"}
                   </Button>
                 </Card>
               ))}
@@ -291,12 +347,57 @@ export function FriendsScreen(props: FriendsScreenProps = {}) {
         </div>
       )}
       {tab === "requests" && (
-        <div className="mx-5 mt-4 rounded-[var(--radius-lg)] border border-dashed border-line-2 px-6 py-10 text-center">
-          <span className="font-mono text-[11px] text-ink-3">
-            {cfg.pendingRequests} pending friend request
-            {cfg.pendingRequests === 1 ? "" : "s"}.
-          </span>
-        </div>
+        <section className="px-5 pt-1">
+          {cfg.pendingRequests === 0 ? (
+            <div className="mt-4 rounded-[var(--radius-lg)] border border-dashed border-line-2 px-6 py-10 text-center">
+              <span className="font-mono text-[11px] text-ink-3">No pending friend requests.</span>
+            </div>
+          ) : (
+            <>
+              <div className="text-label mb-2">
+                {cfg.pendingRequests} pending request{cfg.pendingRequests === 1 ? "" : "s"}
+              </div>
+              <ul className="flex flex-col gap-2">
+                {DEFAULT_REQUESTS.slice(0, cfg.pendingRequests).map((r) => {
+                  const accepted = acceptedRequests.has(r.id);
+                  const declined = declinedRequests.has(r.id);
+                  if (declined) return null;
+                  return (
+                    <li key={r.id}>
+                      <Card className="flex items-center gap-3 p-3.5">
+                        <Avatar src={r.photo} size={40} />
+                        <div className="flex flex-1 flex-col">
+                          <span className="text-[13px] font-semibold">{r.name}</span>
+                          <span className="font-mono text-[10px] text-ink-3">{r.mutualLabel}</span>
+                        </div>
+                        {accepted ? (
+                          <span className="font-mono text-[11px] font-semibold text-accent">Friends ✓</span>
+                        ) : (
+                          <div className="flex gap-1.5">
+                            <Button
+                              variant="default"
+                              size="xs"
+                              onClick={() => setDeclinedRequests((prev) => new Set([...prev, r.id]))}
+                            >
+                              Decline
+                            </Button>
+                            <Button
+                              variant="accent"
+                              size="xs"
+                              onClick={() => setAcceptedRequests((prev) => new Set([...prev, r.id]))}
+                            >
+                              Accept
+                            </Button>
+                          </div>
+                        )}
+                      </Card>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </section>
       )}
     </div>
   );

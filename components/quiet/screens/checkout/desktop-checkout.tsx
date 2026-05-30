@@ -77,6 +77,11 @@ export function DesktopCheckout({
   const [submitting, setSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [buyerEmail, setBuyerEmail] = React.useState(defaultBuyerEmail);
+  const [buyerName, setBuyerName] = React.useState("");
+  const [buyerPhone, setBuyerPhone] = React.useState("");
+  const [attendeeDetails, setAttendeeDetails] = React.useState<Array<{ name: string; phone: string }>>(() =>
+    Array.from({ length: quantity }, () => ({ name: "", phone: "" }))
+  );
   const [promoInput, setPromoInput] = React.useState("");
   const [promoFeedback, setPromoFeedback] = React.useState<string | null>(null);
   const [policyAccepted, setPolicyAccepted] = React.useState(false);
@@ -195,7 +200,14 @@ export function DesktopCheckout({
               <span className="font-mono text-[11px] text-ink-3">1 of 3</span>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <FormField label="Full name" defaultValue="" placeholder="Your full name" autoFocus />
+              <FormField
+                label="Full name"
+                value={buyerName}
+                onChange={(e) => setBuyerName(e.target.value)}
+                placeholder="Your full name"
+                autoFocus
+                disabled={submitting}
+              />
               <FormField
                 label="Email"
                 type="email"
@@ -205,7 +217,14 @@ export function DesktopCheckout({
                 autoComplete="email"
                 disabled={submitting}
               />
-              <FormField label="Phone (+268)" type="tel" defaultValue="" placeholder="76 123 4567" />
+              <FormField
+                label="Phone (+268)"
+                type="tel"
+                value={buyerPhone}
+                onChange={(e) => setBuyerPhone(e.target.value)}
+                placeholder="76 123 4567"
+                disabled={submitting}
+              />
               <FormField label="Country" defaultValue="Eswatini" readOnly />
             </div>
           </Card>
@@ -261,8 +280,29 @@ export function DesktopCheckout({
                     </div>
                     {!isFirst && (
                       <div className="grid grid-cols-2 gap-2.5">
-                        <FormField label="Name" placeholder="Full name" />
-                        <FormField label="Phone" type="tel" placeholder="+268 …" />
+                        <FormField
+                          label="Name"
+                          placeholder="Full name"
+                          value={attendeeDetails[i]?.name ?? ""}
+                          onChange={(e) =>
+                            setAttendeeDetails((prev) =>
+                              prev.map((a, j) => j === i ? { ...a, name: e.target.value } : a)
+                            )
+                          }
+                          disabled={submitting}
+                        />
+                        <FormField
+                          label="Phone"
+                          type="tel"
+                          placeholder="+268 …"
+                          value={attendeeDetails[i]?.phone ?? ""}
+                          onChange={(e) =>
+                            setAttendeeDetails((prev) =>
+                              prev.map((a, j) => j === i ? { ...a, phone: e.target.value } : a)
+                            )
+                          }
+                          disabled={submitting}
+                        />
                       </div>
                     )}
                     {isFirst && (
