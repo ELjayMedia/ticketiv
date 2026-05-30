@@ -156,7 +156,7 @@ export async function getPublicOrganizerEvents(organizerId: string, params?: {
     }
 
     if (!data) return []
-    return data.map((item) => validateSchema(OrganizerEventsPublicViewSchema, item, "v_organizer_events_public"))
+    return validateSchema(OrganizerEventsPublicViewSchema, data, "v_organizer_events_public")
   } catch (error) {
     console.error("[v0] Exception in getPublicOrganizerEvents:", error)
     return []

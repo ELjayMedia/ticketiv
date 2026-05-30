@@ -44,7 +44,7 @@ export default function OrganisersClient({ initialOrganisers }: OrganisersClient
                 <div className="aspect-square overflow-hidden bg-bg">
                   { }
                   <img
-                    src={organiser.logo_url || "/placeholder.svg"}
+                    src={organiser.logo || "/placeholder.svg"}
                     alt={organiser.name}
                     className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
                   />

@@ -49,17 +49,12 @@ export async function createOrder(input: {
       mockItems.push({
         id: `demo-item-${Date.now()}-${i}`,
         order_id: orderId,
-        event_id: input.event_id,
         ticket_type_id: item.ticket_type_id,
-        quantity: item.quantity,
-        unit_price: unitPrice,
-        subtotal_amount: itemTotal,
-        fee_amount: 0,
-        total_amount: itemTotal,
-        currency: "USD",
+        ticket_code: `DEMO-${Date.now()}-${i}`,
+        status: "issued",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      } as OrderItemRecord)
+      } as unknown as OrderItemRecord)
     }
 
     const feeCents = Math.floor(subtotalCents * 0.05) // 5% platform fee
@@ -68,21 +63,17 @@ export async function createOrder(input: {
 
     const mockOrder: OrderRecord = {
       id: orderId,
-      event_id: input.event_id,
-      purchaser_id: input.purchaser_id,
-      purchaser_email: input.purchaser_email,
-      purchaser_first_name: input.purchaser_first_name || null,
-      purchaser_last_name: input.purchaser_last_name || null,
+      org_id: "demo-org",
+      buyer_id: input.purchaser_id,
+      buyer_email: input.purchaser_email,
       status: "pending",
-      subtotal_amount: subtotalCents,
-      fee_amount: feeCents,
-      total_amount: totalCents,
+      channel: (input.channel as any) || "online",
+      subtotal_cents: subtotalCents,
+      total_cents: totalCents,
+      platform_fee_cents: feeCents,
       currency: "USD",
-      payment_reference: null,
-      metadata: { channel: input.channel || "web" },
       created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    } as OrderRecord
+    }
 
     return {
       order: mockOrder,
@@ -99,6 +90,7 @@ export async function createOrder(input: {
 
   // Production mode - Supabase
   const supabase = await createServerSupabaseClient()
+  if (!supabase) throw new Error("Supabase not configured")
 
   // Validate ticket availability and get prices
   const { data: ticketTypes, error: ttError } = await supabase
@@ -116,7 +108,7 @@ export async function createOrder(input: {
   for (const item of input.items) {
     const tt = ticketTypes?.find((t) => t.id === item.ticket_type_id)
     if (!tt) throw new Error(`Ticket type ${item.ticket_type_id} not found`)
-    subtotalCents += tt.price * item.quantity
+    subtotalCents += tt.price_cents * item.quantity
   }
 
   const feeCents = Math.floor(subtotalCents * 0.05) // TODO: Get from pricing_plans
@@ -127,17 +119,16 @@ export async function createOrder(input: {
   const { data: order, error: orderError } = await supabase
     .from("orders")
     .insert({
-      event_id: input.event_id,
-      purchaser_id: input.purchaser_id,
-      purchaser_email: input.purchaser_email,
-      purchaser_first_name: input.purchaser_first_name,
-      purchaser_last_name: input.purchaser_last_name,
+      buyer_id: input.purchaser_id,
+      buyer_email: input.purchaser_email,
+      org_id: "", // caller should supply org_id; placeholder until createOrder is refactored
       status: "pending",
-      subtotal_amount: subtotalCents,
-      fee_amount: feeCents,
-      total_amount: totalCents,
+      subtotal_cents: subtotalCents,
+      platform_fee_cents: feeCents,
+      total_cents: totalCents,
       currency: "USD",
-      metadata: { channel: input.channel || "web", nonce: input.nonce, device_id: input.device_id },
+      channel: (input.channel as any) || "online",
+      device_id: input.device_id ?? null,
     })
     .select()
     .single()
@@ -145,21 +136,14 @@ export async function createOrder(input: {
   if (orderError || !order) throw orderError
 
   // Create order items
-  const itemsToInsert = input.items.map((item) => {
+  const itemsToInsert = input.items.flatMap((item) => {
     const tt = ticketTypes?.find((t) => t.id === item.ticket_type_id)!
-    const itemTotal = tt.price * item.quantity
-
-    return {
+    return Array.from({ length: item.quantity }, (_, i) => ({
       order_id: order.id,
-      event_id: input.event_id,
       ticket_type_id: item.ticket_type_id,
-      quantity: item.quantity,
-      unit_price: tt.price,
-      subtotal_amount: itemTotal,
-      fee_amount: 0,
-      total_amount: itemTotal,
-      currency: "USD",
-    }
+      ticket_code: `TKT-${order.id.slice(0, 8)}-${i}`,
+      status: "issued" as const,
+    }))
   })
 
   const { data: items, error: itemsError } = await supabase.from("order_items").insert(itemsToInsert).select()
@@ -214,6 +198,7 @@ export async function applyPromoCode(
 
   // Production mode - Supabase
   const supabase = await createServerSupabaseClient()
+  if (!supabase) return { is_valid: false, discount_cents: 0, type: "fixed", message: "Service unavailable" }
   const { data: priceRule, error } = await supabase
     .from("price_rules")
     .select("*")

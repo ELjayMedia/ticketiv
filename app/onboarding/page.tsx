@@ -27,7 +27,7 @@ export default async function OnboardingPage() {
     .maybeSingle()
     .then(async (res) => {
       if (res.data) return res
-      return supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle()
+      return supabase.from("profiles").select("display_name").eq("user_id", user.id).maybeSingle()
     })
 
   return (

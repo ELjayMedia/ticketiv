@@ -92,11 +92,11 @@ export async function getPublicOrganisers(params?: {
  * Get organiser detail with events
  * Reads from: organizations, events, event_dates, venues
  */
-export async function getOrganiserDetail(orgId: string) {
+export async function getOrganiserDetail(orgId: string): Promise<OrganiserDetail & { events_count: number } | null> {
   const demoSession = await getDemoSessionFromCookie()
 
   if (demoSession) {
-    const org = DEMO_ORGANISERS.find((o) => o.id === orgId)
+    const org = DEMO_ORGANISERS.find((o: any) => o.id === orgId)
     if (!org) return null
 
     const events = DEMO_EVENTS.filter(
@@ -104,7 +104,11 @@ export async function getOrganiserDetail(orgId: string) {
     ).sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
 
     return {
-      ...org,
+      id: String(org.id),
+      name: String(org.name),
+      bio: (org as any).bio ?? null,
+      logo: (org as any).logo_url ?? (org as any).logo ?? null,
+      created_at: String(org.created_at ?? new Date().toISOString()),
       events_count: events.length,
     }
   }
@@ -132,7 +136,11 @@ export async function getOrganiserDetail(orgId: string) {
       .eq("status", "published")
 
     return {
-      ...org,
+      id: org.id,
+      name: org.name,
+      bio: org.bio,
+      logo: org.logo,
+      created_at: org.created_at,
       events_count: eventsCount || 0,
     }
   } catch (error) {

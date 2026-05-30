@@ -4,27 +4,26 @@ import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export interface Refund {
   id: string
-  order_id: string
-  reason: string
-  status: "pending" | "approved" | "rejected" | "processed"
-  requested_at: string
-  processed_at?: string
+  payment_id: string
+  initiated_by: string | null
+  status: "requested" | "processing" | "processed" | "failed"
+  type: "full" | "partial"
   amount_cents: number
-  created_at: string
+  currency: string
+  processed_at: string | null
+  created_at: string | null
 }
 
 export interface RefundItem {
   id: string
   refund_id: string
-  order_item_id: string
-  reason: string
+  order_item_id: string | null
+  amount_cents: number
+  currency: string
+  reason: string | null
   created_at: string
 }
 
-/**
- * Get refunds for a user
- * Reads from: refunds, refund_items
- */
 export async function getUserRefunds(userId: string): Promise<Refund[]> {
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
@@ -32,26 +31,22 @@ export async function getUserRefunds(userId: string): Promise<Refund[]> {
   try {
     const { data, error } = await supabase
       .from("refunds")
-      .select("*")
-      .eq("user_id", userId)
-      .order("requested_at", { ascending: false })
+      .select("id, payment_id, initiated_by, status, type, amount_cents, currency, processed_at, created_at")
+      .eq("initiated_by", userId)
+      .order("created_at", { ascending: false })
 
     if (error) {
-      console.error("[v0] Error fetching refunds:", error)
+      console.error("[refunds] getUserRefunds:", error)
       return []
     }
 
-    return data || []
+    return (data ?? []) as Refund[]
   } catch (error) {
-    console.error("[v0] Unexpected error fetching refunds:", error)
+    console.error("[refunds] getUserRefunds unexpected:", error)
     return []
   }
 }
 
-/**
- * Get refund details with items
- * Reads from: refunds, refund_items
- */
 export async function getRefundDetail(refundId: string): Promise<(Refund & { items: RefundItem[] }) | null> {
   const supabase = await createServerSupabaseClient()
   if (!supabase) return null
@@ -59,101 +54,41 @@ export async function getRefundDetail(refundId: string): Promise<(Refund & { ite
   try {
     const { data: refund, error: refundError } = await supabase
       .from("refunds")
-      .select("*")
+      .select("id, payment_id, initiated_by, status, type, amount_cents, currency, processed_at, created_at")
       .eq("id", refundId)
       .maybeSingle()
 
     if (refundError || !refund) {
-      console.error("[v0] Error fetching refund:", refundError)
+      console.error("[refunds] getRefundDetail:", refundError)
       return null
     }
 
-    let items = [] as RefundItem[]
-    const { error: itemsError } = await supabase
+    const { data: items } = await supabase
       .from("refund_items")
-      .select("*")
+      .select("id, refund_id, order_item_id, amount_cents, currency, reason, created_at")
       .eq("refund_id", refundId)
 
-    if (itemsError) {
-      console.error("[v0] Error fetching refund items:", itemsError)
-    } else {
-      items = await supabase
-        .from("refund_items")
-        .select("*")
-        .eq("refund_id", refundId)
-        .then(response => response.data || [])
-    }
-
     return {
-      ...refund,
-      items: items || [],
+      ...(refund as Refund),
+      items: (items ?? []) as RefundItem[],
     }
   } catch (error) {
-    console.error("[v0] Unexpected error fetching refund detail:", error)
+    console.error("[refunds] getRefundDetail unexpected:", error)
     return null
   }
 }
 
-/**
- * Request a refund for an order item
- * Writes to: refunds, refund_items
- */
 export async function requestRefund(
   orderItemId: string,
   reason: string,
   amountCents: number
-): Promise<Refund | null> {
-  const supabase = await createServerSupabaseClient()
-  if (!supabase) return null
-
-  try {
-    const session = await supabase.auth.getSession()
-    if (!session.data.session?.user) {
-      console.error("[v0] User not authenticated")
-      return null
-    }
-
-    // Get the order for this item
-    const { data: orderItem } = await supabase
-      .from("order_items")
-      .select("order_id")
-      .eq("id", orderItemId)
-      .maybeSingle()
-
-    if (!orderItem) {
-      console.error("[v0] Order item not found")
-      return null
-    }
-
-    // Create refund
-    const { data: refund, error: refundError } = await supabase
-      .from("refunds")
-      .insert({
-        order_id: orderItem.order_id,
-        user_id: session.data.session.user.id,
-        reason,
-        status: "pending",
-        requested_at: new Date().toISOString(),
-        amount_cents: amountCents,
-      })
-      .select()
-      .single()
-
-    if (refundError || !refund) {
-      console.error("[v0] Error creating refund:", refundError)
-      return null
-    }
-
-    // Create refund item
-    await supabase.from("refund_items").insert({
-      refund_id: refund.id,
-      order_item_id: orderItemId,
-      reason,
-    })
-
-    return refund
-  } catch (error) {
-    console.error("[v0] Unexpected error requesting refund:", error)
-    return null
-  }
+): Promise<{ success: boolean; error?: string }> {
+  // Refund mutations must go through the API route for payment gateway integration
+  const res = await fetch("/api/tickets/refund", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orderItemId, reason, amountCents }),
+  })
+  if (!res.ok) return { success: false, error: await res.text() }
+  return { success: true }
 }
