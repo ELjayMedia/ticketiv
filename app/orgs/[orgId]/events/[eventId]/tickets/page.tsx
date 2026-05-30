@@ -9,6 +9,7 @@ import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
 import { getDemoEventById } from "@/lib/demo-data"
 import { DeleteTicketTypeButton } from "./_components/delete-ticket-type-button"
+import { ToggleSalesStatusButton } from "./_components/toggle-sales-status-button"
 
 export const dynamic = "force-dynamic"
 
@@ -25,8 +26,8 @@ export default async function TicketsPage({ params }: { params: { orgId: string;
       event = getDemoEventById(eventId)
       if (!event) return redirect("/403")
       ticketTypes = [
-        { id: "general", name: "General Admission", price_cents: 12900, quota: 100, per_user_limit: 5 },
-        { id: "vip", name: "VIP", price_cents: 29900, quota: 20, per_user_limit: 2 },
+        { id: "general", name: "General Admission", price_cents: 12900, quota: 100, per_user_limit: 5, sales_status: "on_sale" },
+        { id: "vip", name: "VIP", price_cents: 29900, quota: 20, per_user_limit: 2, sales_status: "on_sale" },
       ]
     } catch {
       /* fall through */
@@ -51,7 +52,7 @@ export default async function TicketsPage({ params }: { params: { orgId: string;
 
     const { data: types = [] } = await supabase
       .from("ticket_types")
-      .select("id, name, price_cents, quota, per_user_limit")
+      .select("id, name, price_cents, quota, per_user_limit, sales_status")
       .eq("event_id", eventId)
     ticketTypes = types ?? []
   }
@@ -105,6 +106,7 @@ export default async function TicketsPage({ params }: { params: { orgId: string;
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
+                    <ToggleSalesStatusButton eventId={eventId} ticketTypeId={ticket.id} currentStatus={ticket.sales_status ?? "on_sale"} />
                     <Link href={`/orgs/${orgId}/events/${eventId}/tickets/${ticket.id}/edit`}>
                       <Button variant="outline" size="sm">Edit</Button>
                     </Link>
@@ -136,7 +138,11 @@ export default async function TicketsPage({ params }: { params: { orgId: string;
                     </div>
                     <div className="flex flex-col gap-1">
                       <span className="text-label">Status</span>
-                      <Chip size="sm" variant="active" className="w-fit">Active</Chip>
+                      {ticket.sales_status === "on_sale" && <Chip size="sm" variant="active" className="w-fit">On sale</Chip>}
+                      {ticket.sales_status === "paused" && <Chip size="sm" variant="muted" className="w-fit">Paused</Chip>}
+                      {ticket.sales_status === "sold_out" && <Chip size="sm" variant="default" className="w-fit">Sold out</Chip>}
+                      {ticket.sales_status === "hidden" && <Chip size="sm" variant="muted" className="w-fit">Hidden</Chip>}
+                      {!ticket.sales_status && <Chip size="sm" variant="active" className="w-fit">On sale</Chip>}
                     </div>
                   </div>
                 </CardBody>
