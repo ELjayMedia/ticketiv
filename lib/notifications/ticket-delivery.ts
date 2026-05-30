@@ -3,7 +3,7 @@ import "server-only"
 import { APP_URL } from "@/lib/env"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendTransactionalNotification } from "@/lib/notifications/transactional"
-import { issueTicketToken } from "@/lib/ticket-tokens"
+import { issueOrderToken, issueTicketToken } from "@/lib/ticket-tokens"
 
 // TICK-65 / TICK-72 — transactional ticket delivery entry point.
 //
@@ -72,12 +72,23 @@ export async function deliverTicketsForOrder(orderId: string): Promise<void> {
       ? Math.floor(endsAt.getTime() / 1000) + 7 * 24 * 60 * 60
       : Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60
 
-    // Capability token → secure /t/{token} link that opens without login.
-    // Falls back to the RLS-gated /tickets/{id} when no secret is configured.
-    const token = issueTicketToken(first.id, tokenExpSeconds)
-    const ticketUrl = token
-      ? `${TICKET_BASE_URL}/t/${token}`
-      : `${TICKET_BASE_URL}/tickets/${first.id}`
+    // Capability token → secure link that opens without login. Multi-ticket
+    // orders get the /o bundle so the buyer sees every ticket in one place
+    // and can share individual ones from there; single-ticket orders skip
+    // straight to /t. Falls back to the RLS-gated /tickets/{id} when no
+    // secret is configured.
+    let ticketUrl: string
+    if (issued.length > 1) {
+      const orderToken = issueOrderToken(order.id, tokenExpSeconds)
+      ticketUrl = orderToken
+        ? `${TICKET_BASE_URL}/o/${orderToken}`
+        : `${TICKET_BASE_URL}/tickets/${first.id}`
+    } else {
+      const itemToken = issueTicketToken(first.id, tokenExpSeconds)
+      ticketUrl = itemToken
+        ? `${TICKET_BASE_URL}/t/${itemToken}`
+        : `${TICKET_BASE_URL}/tickets/${first.id}`
+    }
 
     // Resolve recipient + opt-in. WhatsApp/SMS need a phone; email opt-in is
     // honoured (defaults to on when no preference row exists).
