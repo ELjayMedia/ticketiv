@@ -161,7 +161,7 @@ export async function getPublicArtistEvents(artistId: string, params?: {
     }
 
     if (!data) return []
-    return data.map((item) => validateSchema(ArtistEventsPublicViewSchema, item, "v_artist_events_public"))
+    return validateSchema(ArtistEventsPublicViewSchema, data, "v_artist_events_public")
   } catch (error) {
     console.error("[v0] Exception in getPublicArtistEvents:", error)
     return []

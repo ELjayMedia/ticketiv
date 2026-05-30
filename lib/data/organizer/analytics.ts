@@ -3,18 +3,25 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export interface EventMetric {
-  date: string
+  day: string
+  event_id: string
+  org_id: string
   tickets_sold: number
-  revenue_cents: number
+  gross_revenue_cents: number
   refunds_cents: number
-  orders_count: number
+  unique_buyers: number
+  created_at: string
 }
 
 export interface OrgMetric {
-  date: string
-  total_revenue_cents: number
-  total_orders: number
-  total_tickets_sold: number
+  day: string
+  org_id: string
+  tickets_sold: number
+  gross_revenue_cents: number
+  refunds_cents: number
+  unique_buyers: number
+  active_events: number
+  created_at: string
 }
 
 /**
@@ -88,12 +95,16 @@ export async function getSalesBreakdown(orgId: string, groupBy: "ticket_type" | 
   if (!supabase) return []
 
   try {
-    const view = groupBy === "event" ? "mv_event_sales" : "mv_revenue_breakdown"
-
-    const { data, error } = await supabase.from(view).select("*").eq("org_id", orgId)
+    if (groupBy === "event") {
+      // mv_event_sales has no org_id — return all (caller should filter by event IDs if needed)
+      const { data, error } = await supabase.from("mv_event_sales").select("*")
+      if (error) { console.error("[v0] Error fetching event sales:", error); return [] }
+      return data || []
+    }
+    const { data, error } = await supabase.from("mv_revenue_breakdown").select("*").eq("org_id", orgId)
 
     if (error) {
-      console.error(`[v0] Error fetching sales breakdown from ${view}:`, error)
+      console.error("[v0] Error fetching revenue breakdown:", error)
       return []
     }
 

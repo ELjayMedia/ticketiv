@@ -69,7 +69,7 @@ export async function getOrgEventKPIs(orgId: string): Promise<EventKPIsView[]> {
     // Demo mode: get all demo events for org
     const demoEvents = getDemoOrganizerEvents(orgId)
     return demoEvents
-      .map((event) => getEventKPIsDemo(event.id))
+      .map((event: any) => getEventKPIsDemo(event.id))
       .filter((kpi): kpi is EventKPIsView => kpi !== null)
   }
 
@@ -119,14 +119,14 @@ function getEventKPIsDemo(eventId: string): EventKPIsView | null {
   const revenue = totalTickets * 12950 // Average $129.50 per ticket
 
   return {
+    org_id: "00000000-0000-0000-0000-000000000000",
     event_id: eventId,
-    event_title: `Demo Event ${eventId.slice(0, 8)}`,
-    event_date: new Date().toISOString(),
-    total_tickets_sold: totalTickets,
-    total_revenue_cents: revenue,
-    total_checked_in: checkedIn,
-    capacity: null,
-    attendance_rate: checkedIn / totalTickets,
-    avg_ticket_price_cents: Math.floor(revenue / totalTickets),
+    title: `Demo Event ${eventId.slice(0, 8)}`,
+    slug: `demo-event-${eventId.slice(0, 8)}`,
+    paid_orders: Math.floor(totalTickets * 0.9),
+    tickets_issued: totalTickets,
+    tickets_checked_in: checkedIn,
+    revenue_cents: revenue,
+    currency: "SZL",
   }
 }
