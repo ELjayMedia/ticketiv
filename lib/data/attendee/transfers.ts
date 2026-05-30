@@ -83,7 +83,7 @@ export async function acceptTransfer(transferId: string): Promise<{ transfer_id:
   const supabase = await createServerSupabaseClient()
   if (!supabase) return null
 
-  const { data, error } = await supabase.rpc("fn_complete_transfer", {
+  const { data, error } = await (supabase.rpc as any)("fn_complete_transfer", {
     p_transfer_id: transferId,
   })
 

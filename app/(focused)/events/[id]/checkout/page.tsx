@@ -49,7 +49,7 @@ async function fetchCheckoutExtras(eventId: string) {
       // They should never appear in the public listing or be reachable by URL.
       .neq("sales_status", "hidden")
       .order("price_cents", { ascending: true }),
-    supabase.rpc("fn_ticket_type_remaining", { p_event_id: eventId }),
+    (supabase.rpc as any)("fn_ticket_type_remaining", { p_event_id: eventId }),
     orgId
       ? supabase
           .from("pricing_plans")

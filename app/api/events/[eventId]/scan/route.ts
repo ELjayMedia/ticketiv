@@ -62,7 +62,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (!ticketCode) return NextResponse.json({ error: "Ticket code is required" }, { status: 400 })
 
   const admin = createAdminClient()
-  const { data, error } = await admin.rpc("fn_scan_ticket", {
+  const { data, error } = await (admin.rpc as any)("fn_scan_ticket", {
     p_ticket_code: ticketCode,
     p_event_id:    eventId,
     p_scanned_by:  userId,

@@ -92,7 +92,7 @@ export async function validateQrCode(input: ValidateQrCodeInput): Promise<Valida
     return { valid: false, status: "error", message: "Supabase is not configured" }
   }
 
-  const { data, error } = await supabase.rpc("fn_scan_ticket", {
+  const { data, error } = await (supabase.rpc as any)("fn_scan_ticket", {
     p_ticket_code: input.code,
     p_event_id:    input.eventId,
     p_scanned_by:  input.userId,
