@@ -23,7 +23,7 @@ export default function ConsumerLayout({
         <DesktopNav />
       </div>
 
-      <main className="pb-0 md:pb-12">{children}</main>
+      <main className="pb-20 md:pb-12">{children}</main>
 
       {/* Mobile tab bar (< md) */}
       <div className="block md:hidden">
