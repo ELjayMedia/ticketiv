@@ -87,29 +87,29 @@ export async function getCurrentUserProfile(): Promise<UserSession | null> {
 
   try {
     const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (sessionError) {
-      console.error("[v0] Session retrieval error:", sessionError)
+    if (userError) {
+      console.error("[auth] getUser error:", userError)
       return null
     }
 
-    if (!session) return null
+    if (!user) return null
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("*")
-      .eq("user_id", session.user.id)
+      .eq("user_id", user.id)
       .single()
 
     if (profileError) {
-      console.error("[v0] Profile retrieval error:", profileError)
-      return { session, profile: null }
+      console.error("[auth] Profile retrieval error:", profileError)
+      return { session: { user }, profile: null }
     }
 
-    return { session, profile }
+    return { session: { user }, profile }
   } catch (error: any) {
     // During static prerender Next.js throws DYNAMIC_SERVER_USAGE when cookies()
     // is accessed.  Treat that as "no authenticated user" so the build succeeds.

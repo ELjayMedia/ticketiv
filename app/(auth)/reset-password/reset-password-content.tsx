@@ -2,31 +2,23 @@
 
 import type React from "react"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/quiet/ui/button"
 import { Icon } from "@/components/quiet/ui/icon"
 import { Logo } from "@/components/Logo"
+import { createClient } from "@/lib/supabase/client"
 
 export default function ResetPasswordContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
-
-  const token = searchParams.get("token")
-
-  useEffect(() => {
-    if (!token) {
-      router.push("/forgot-password")
-    }
-  }, [token, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,8 +37,20 @@ export default function ResetPasswordContent() {
     setLoading(true)
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      const supabase = createClient()
+      const { error: updateError } = await supabase.auth.updateUser({ password })
+
+      if (updateError) {
+        if (updateError.message.toLowerCase().includes("session")) {
+          setError("Your reset link has expired. Please request a new one.")
+        } else {
+          setError(updateError.message || "Failed to reset password. Please try again.")
+        }
+        return
+      }
+
       setSuccess(true)
+      await supabase.auth.signOut()
 
       setTimeout(() => {
         router.push("/login?message=password-reset")
@@ -94,7 +98,7 @@ export default function ResetPasswordContent() {
           Set a new password.
         </h1>
         <p className="mt-3 text-[14px] leading-6 text-ink-3">
-          Use at least 8 characters. We’ll log you in after you confirm.
+          Use at least 8 characters. We'll log you in after you confirm.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">
