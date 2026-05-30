@@ -79,6 +79,30 @@ export function DesktopCheckout({
   const [buyerEmail, setBuyerEmail] = React.useState(defaultBuyerEmail);
   const [promoInput, setPromoInput] = React.useState("");
   const [promoFeedback, setPromoFeedback] = React.useState<string | null>(null);
+  const [policyAccepted, setPolicyAccepted] = React.useState(false);
+  const [isApplyingPromo, setIsApplyingPromo] = React.useState(false);
+  const [activePromo, setActivePromo] = React.useState(appliedPromo ?? null);
+
+  async function handleApplyPromo() {
+    if (!promoInput.trim()) return;
+    setIsApplyingPromo(true);
+    setPromoFeedback(null);
+    try {
+      const result = await startCheckoutAction({
+        eventId: eventUuid,
+        buyerEmail: buyerEmail.trim() || "promo-check@placeholder.invalid",
+        items: [{ ticketTypeId, quantity }],
+        promoCode: promoInput.trim(),
+      });
+      if (!result.ok) {
+        setPromoFeedback(result.error);
+      } else if (result.promo && !result.promo.applied) {
+        setPromoFeedback(describePromoFailure(result.promo.reason));
+      }
+    } finally {
+      setIsApplyingPromo(false);
+    }
+  }
 
   async function handleContinueToPayment() {
     setSubmitError(null);
@@ -130,7 +154,7 @@ export function DesktopCheckout({
   }, [holdRemaining]);
 
   const vat = Math.round(subtotalMinor * vatRate);
-  const discount = appliedPromo?.savedMinor ?? 0;
+  const discount = activePromo?.savedMinor ?? 0;
   const total = subtotalMinor + bookingFeeMinor + vat - discount;
 
   return (
@@ -271,10 +295,16 @@ export function DesktopCheckout({
                     if (promoFeedback) setPromoFeedback(null);
                   }}
                   className="!gap-0"
+                  disabled={isApplyingPromo || submitting}
                 />
               </div>
-              <Button variant="default" type="button">
-                Apply
+              <Button
+                variant="default"
+                type="button"
+                onClick={handleApplyPromo}
+                disabled={isApplyingPromo || submitting}
+              >
+                {isApplyingPromo ? "Applying…" : "Apply"}
               </Button>
             </div>
             {promoFeedback && (
@@ -282,21 +312,28 @@ export function DesktopCheckout({
                 {promoFeedback}
               </p>
             )}
-            {appliedPromo && (
+            {activePromo && (
               <div className="mt-3 flex items-center gap-2.5 rounded-md border border-accent bg-accent-soft p-3">
                 <div className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-white">
                   <Icon name="check" size={12} strokeWidth={3} />
                 </div>
                 <div className="flex flex-1 flex-col">
                   <span className="text-[13px] font-semibold">
-                    {appliedPromo.code} applied
+                    {activePromo.code} applied
                   </span>
                   <span className="font-mono text-[11px] text-ink-3">
-                    {appliedPromo.description} · saved{" "}
-                    {formatPrice(appliedPromo.savedMinor)}
+                    {activePromo.description} · saved{" "}
+                    {formatPrice(activePromo.savedMinor)}
                   </span>
                 </div>
-                <button className="text-[12px] font-semibold text-accent">
+                <button
+                  type="button"
+                  className="text-[12px] font-semibold text-accent"
+                  onClick={() => {
+                    setActivePromo(null);
+                    setPromoInput("");
+                  }}
+                >
                   Remove
                 </button>
               </div>
@@ -304,14 +341,32 @@ export function DesktopCheckout({
           </Card>
 
           <div className="flex flex-col gap-2">
+            <label className="flex items-center gap-2 text-[12px] text-ink-3">
+              <input
+                type="checkbox"
+                checked={policyAccepted}
+                onChange={(e) => setPolicyAccepted(e.target.checked)}
+                className="accent-accent"
+              />
+              I accept the refund &amp; cancellation policy
+            </label>
+            {holdRemaining <= 0 && (
+              <div role="alert" className="rounded-md border border-danger/40 bg-danger/5 px-3 py-2 text-[12px] text-danger">
+                Your hold has expired — go back and select tickets again.
+              </div>
+            )}
             <div className="flex items-center gap-2">
-              <Button variant="default" className="flex-1">
+              <Button
+                variant="default"
+                className="flex-1"
+                onClick={() => router.push(`/events/${eventId}`)}
+              >
                 Back
               </Button>
               <button
                 type="button"
                 onClick={handleContinueToPayment}
-                disabled={submitting || !buyerEmail.trim()}
+                disabled={submitting || !buyerEmail.trim() || holdRemaining <= 0 || !policyAccepted}
                 className="flex flex-[2] items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-2.5 text-[14px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {submitting ? "Starting payment…" : "Continue to payment"}
@@ -357,9 +412,9 @@ export function DesktopCheckout({
               label={`VAT ${Math.round(vatRate * 100)}%`}
               value={formatPrice(vat)}
             />
-            {appliedPromo && (
+            {activePromo && (
               <SummaryRow
-                label={appliedPromo.code}
+                label={activePromo.code}
                 value={`−${formatPrice(discount)}`}
                 accent
               />

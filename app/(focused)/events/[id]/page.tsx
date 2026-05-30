@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { LiveEventShell } from "@/components/quiet/screens/event-detail/live-event-shell";
+import { HoldExpiredBanner } from "@/components/quiet/screens/event-detail/hold-expired-banner";
 import { getPublicEventBySlug } from "@/lib/adapters/events";
 import { mapEventDetail, mapDesktopEventDetail } from "@/lib/mappers/event-detail";
 import type { EventLineupRow, EventFriendRow } from "@/lib/mappers/event-detail";
@@ -87,10 +88,13 @@ async function fetchEventExtras(eventId: string, organizerId: string | null) {
 
 export default async function EventDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ hold_expired?: string }>;
 }) {
   const { id } = await params;
+  const { hold_expired } = await searchParams;
   const row = await getPublicEventBySlug(id);
   if (!row) notFound();
 
@@ -124,6 +128,9 @@ export default async function EventDetailPage({
   });
 
   return (
-    <LiveEventShell eventId={row.id} mobile={mobile} desktop={desktop} initialStats={liveStats} />
+    <>
+      {hold_expired === "1" && <HoldExpiredBanner />}
+      <LiveEventShell eventId={row.id} mobile={mobile} desktop={desktop} initialStats={liveStats} />
+    </>
   );
 }

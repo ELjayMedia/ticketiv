@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { MobileCheckout } from "@/components/quiet/screens/checkout/mobile-checkout";
 import { DesktopCheckout } from "@/components/quiet/screens/checkout/desktop-checkout";
 import { getPublicEventBySlug } from "@/lib/adapters/events";
@@ -87,10 +87,45 @@ async function fetchCheckoutExtras(eventId: string) {
 
 export default async function CheckoutPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ hold?: string }>;
 }) {
   const { id } = await params;
+  const { hold: holdCode } = await searchParams;
+
+  if (!holdCode) redirect(`/events/${id}`);
+
+  const supabase = await createServerSupabaseClient();
+
+  // Resolve slug → UUID
+  const { data: eventRow } = supabase
+    ? await supabase.from("events").select("id").eq("slug", id).maybeSingle()
+    : { data: null };
+  if (!eventRow?.id) redirect("/browse");
+
+  const eventUuidFromSlug = eventRow.id;
+
+  // Validate the hold
+  const { data: hold } = supabase
+    ? await supabase
+        .from("seat_holds")
+        .select("id, expires_at")
+        .eq("hold_code", holdCode)
+        .eq("event_id", eventUuidFromSlug)
+        .eq("status", "active")
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle()
+    : { data: null };
+
+  if (!hold) redirect(`/events/${id}?hold_expired=1`);
+
+  const holdSeconds = Math.max(
+    0,
+    Math.floor((new Date(hold.expires_at).getTime() - Date.now()) / 1000),
+  );
+
   const row = await getPublicEventBySlug(id);
   if (!row) notFound();
 
@@ -100,7 +135,6 @@ export default async function CheckoutPage({
   // Prefill the buyer-email field when the buyer is already signed in (and
   // their account carries a real address — not an anonymous guest from a
   // previous visit). Empty otherwise; the UI collects it from guests.
-  const supabase = await createServerSupabaseClient();
   const {
     data: { user },
   } = supabase ? await supabase.auth.getUser() : { data: { user: null } };
@@ -119,6 +153,7 @@ export default async function CheckoutPage({
           eventUuid={row.id}
           ticketTypes={mappedTypes}
           bookingFeeMinor={bookingFee}
+          holdSeconds={holdSeconds}
           defaultBuyerEmail={defaultBuyerEmail}
         />
       </div>
@@ -132,6 +167,7 @@ export default async function CheckoutPage({
           subtotalMinor={subtotalForFirst}
           bookingFeeMinor={bookingFee}
           vatRate={0.15}
+          holdSeconds={holdSeconds}
           defaultBuyerEmail={defaultBuyerEmail}
         />
       </div>
