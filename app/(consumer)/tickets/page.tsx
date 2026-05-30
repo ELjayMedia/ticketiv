@@ -36,6 +36,7 @@ export default async function TicketsPage() {
   const next = inbound[0];
   const inboundTransfer = next
     ? {
+        transferId: next.transfer_id,
         fromName: next.from_name,
         fromPhoto: avatarFor(next.from_user_id),
         eventTitle: next.event_title,

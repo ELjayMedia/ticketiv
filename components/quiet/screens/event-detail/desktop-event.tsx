@@ -254,9 +254,14 @@ export function DesktopEvent({ event = DEFAULT_EVENT }: DesktopEventProps) {
                   Shahibaug · {event.venue.distanceKm} km from city centre
                 </span>
                 <Divider className="my-3" />
-                <Button variant="default" size="sm" className="self-start">
+                <a
+                  href={`https://www.google.com/maps/search/${encodeURIComponent(event.venue.name)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="self-start inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-1.5 text-[13px] font-semibold text-ink transition-colors hover:bg-bg"
+                >
                   <Icon name="map" size={14} /> Open in maps
-                </Button>
+                </a>
               </div>
             </Card>
           </div>

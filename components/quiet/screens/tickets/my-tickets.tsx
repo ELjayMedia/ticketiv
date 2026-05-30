@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { acceptTransfer, declineTransfer } from "@/lib/data/attendee/transfers";
 import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
@@ -89,6 +90,7 @@ const STATUS_CHIP: Record<
 };
 
 interface InboundTransfer {
+  transferId?: string;
   fromName: string;
   fromPhoto: string;
   eventTitle: string;
@@ -153,6 +155,7 @@ export function MyTickets({
   counts,
 }: MyTicketsProps) {
   const [seg, setSeg] = React.useState<Segment>("upcoming");
+  const [transferLoading, setTransferLoading] = React.useState<"accept" | "decline" | null>(null);
 
   // When the page is given no data at all (e.g. /dev/preview), fall back to
   // the demo arrays so the screen still renders. For real authenticated users
@@ -396,11 +399,33 @@ export function MyTickets({
                   </div>
                 </div>
                 <div className="mt-3 flex gap-1.5">
-                  <Button variant="default" size="xs" className="flex-1">
+                  <Button
+                    variant="default"
+                    size="xs"
+                    className="flex-1"
+                    disabled={transferLoading !== null}
+                    onClick={async () => {
+                      if (!_inbound?.transferId) return;
+                      setTransferLoading("decline");
+                      await declineTransfer(_inbound.transferId).catch(() => null);
+                      setTransferLoading(null);
+                    }}
+                  >
                     Decline
                   </Button>
-                  <Button variant="accent" size="xs" className="flex-1">
-                    Accept transfer
+                  <Button
+                    variant="accent"
+                    size="xs"
+                    className="flex-1"
+                    disabled={transferLoading !== null}
+                    onClick={async () => {
+                      if (!_inbound?.transferId) return;
+                      setTransferLoading("accept");
+                      await acceptTransfer(_inbound.transferId).catch(() => null);
+                      setTransferLoading(null);
+                    }}
+                  >
+                    {transferLoading === "accept" ? "Accepting…" : "Accept transfer"}
                   </Button>
                 </div>
               </Card>

@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
@@ -113,6 +115,30 @@ export function TicketView({ ticket = DEFAULT_TICKET }: TicketViewProps) {
   const status: TicketDisplayStatus = ticket.status ?? (ticket.isValid ? "issued" : "checked_in");
   const badge = STATUS_BADGE[status];
   const canTransferOrResell = status === "issued";
+
+  const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(
+    `${ticket.venueName} ${ticket.venueAddress}`
+  )}`;
+
+  function handleShare() {
+    if (navigator.share) {
+      navigator.share({
+        title: `Ticket: ${ticket.eventTitle}`,
+        text: `My ticket for ${ticket.eventTitle} on ${ticket.dateLabel}`,
+        url: window.location.href,
+      }).catch(() => {});
+    } else {
+      navigator.clipboard?.writeText(window.location.href).catch(() => {});
+    }
+  }
+
+  function handleSave() {
+    window.print();
+  }
+
+  function handleWallet() {
+    alert("Wallet export coming soon.");
+  }
   return (
     <div className="min-h-dvh bg-ink text-white">
       <div className="h-14" />
@@ -133,6 +159,7 @@ export function TicketView({ ticket = DEFAULT_TICKET }: TicketViewProps) {
           </span>
         </div>
         <button
+          onClick={handleShare}
           className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
           aria-label="Share"
         >
@@ -184,9 +211,14 @@ export function TicketView({ ticket = DEFAULT_TICKET }: TicketViewProps) {
                   {ticket.venueAddress} · {ticket.venueDistanceKm} km
                 </span>
               </div>
-              <Button variant="default" size="xs">
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-surface px-2.5 py-1 text-xs font-semibold text-ink transition-colors hover:bg-bg"
+              >
                 Maps
-              </Button>
+              </a>
             </div>
           </div>
 
@@ -208,10 +240,10 @@ export function TicketView({ ticket = DEFAULT_TICKET }: TicketViewProps) {
                 {ticket.qrCode}
               </div>
               <div className="mt-3 flex items-center justify-center gap-3.5">
-                <Button variant="default" size="xs">
+                <Button variant="default" size="xs" onClick={handleWallet}>
                   <Icon name="wallet" size={14} /> Wallet
                 </Button>
-                <Button variant="default" size="xs">
+                <Button variant="default" size="xs" onClick={handleSave}>
                   <Icon name="download" size={14} /> Save
                 </Button>
               </div>
