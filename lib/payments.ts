@@ -308,7 +308,8 @@ async function completeProviderCheckoutByKind(orderId: string, reference: string
   // idempotent — safe across webhook redeliveries and the buyer-facing
   // completion action. resale → buyer_order_id, waitlist → order_id.
   const row = Array.isArray(result) ? result[0] : result
-  const deliverOrderId = kind === "resale_checkout" ? row?.buyer_order_id : row?.order_id
+  const rowAny = row as Record<string, unknown> | undefined
+  const deliverOrderId = kind === "resale_checkout" ? rowAny?.buyer_order_id : rowAny?.order_id
   if (deliverOrderId) await deliverTicketsForOrder(String(deliverOrderId))
 
   return { handled: true as const, kind, paymentId: payment.id, result }

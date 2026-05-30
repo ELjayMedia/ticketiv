@@ -45,7 +45,7 @@ export async function emitOrgMemberNotifications(input: {
 }) {
   const admin = createAdminClient()
   let query = admin.from("org_members").select("user_id, role").eq("org_id", input.orgId)
-  if (input.roles?.length) query = query.in("role", input.roles)
+  if (input.roles?.length) query = query.in("role", input.roles as any)
 
   const { data: members, error } = await query
   if (error) {

@@ -12,6 +12,7 @@ import {
   type NotificationTemplate,
   type TicketIssuedPayload,
 } from "@/lib/notifications/templates"
+import type { Json } from "@/types/database"
 
 // TICK-72 — provider-agnostic transactional notification layer (builds on the
 // TICK-65 email delivery). A single entry point dispatches a template over the
@@ -109,7 +110,7 @@ async function logAttempt(
       provider: result.provider,
       ...(result.status === "sent" ? { ref: result.ref, meta: result.meta ?? null } : {}),
       ...(result.status === "skipped" ? { reason: result.reason } : {}),
-    },
+    } as Json,
     last_error: result.status === "failed" ? result.error : null,
     sent_at: result.status === "sent" ? now : null,
     dedupe_key: `${input.template}:${input.orderId}:${channel}`,
