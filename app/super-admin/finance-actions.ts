@@ -64,7 +64,7 @@ async function setPayoutStatus(payoutId: string, nextStatus: PayoutStatus, formD
 
   const { data: updatedPayout, error: updateError } = await admin
     .from("payouts")
-    .update(patch)
+    .update(patch as any)
     .eq("id", payoutId)
     .eq("status", currentStatus)
     .select("id, status")

@@ -33,6 +33,7 @@ export async function getUserTickets(userId: string): Promise<
 
   // Production mode - Supabase
   const supabase = await createServerSupabaseClient()
+  if (!supabase) throw new Error("Supabase not configured")
   const { data, error } = await supabase
     .from("order_items")
     .select(
@@ -74,6 +75,7 @@ export async function getTicketById(ticketId: string): Promise<{
 
   // Production mode - Supabase
   const supabase = await createServerSupabaseClient()
+  if (!supabase) return null
   const { data, error } = await supabase
     .from("order_items")
     .select(
@@ -137,6 +139,7 @@ export async function getUserOrders(userId: string): Promise<
 
   // Production mode - Supabase
   const supabase = await createServerSupabaseClient()
+  if (!supabase) return []
   const { data, error } = await supabase
     .from("orders")
     .select(

@@ -37,14 +37,14 @@ export async function upsertWebhookEndpoint(input: WebhookEndpointInput): Promis
   }
 
   if (input.id) {
-    const { error } = await admin.from("webhook_endpoints").update(payload).eq("id", input.id)
+    const { error } = await admin.from("webhook_endpoints").update(payload as any).eq("id", input.id)
     if (error) throw new Error(error.message)
     revalidatePath("/super-admin/webhooks")
     return { id: input.id }
   } else {
     const { data, error } = await admin
       .from("webhook_endpoints")
-      .insert(payload)
+      .insert(payload as any)
       .select("id")
       .single()
     if (error || !data) throw new Error(error?.message ?? "insert failed")

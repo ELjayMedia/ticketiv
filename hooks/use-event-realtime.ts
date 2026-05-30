@@ -13,6 +13,7 @@ export function useEventRealtime({ eventId, onChange }: UseEventRealtimeArgs) {
     if (!eventId) return
 
     const supabase = createClientSupabaseClient()
+    if (!supabase) return
 
     const channel = supabase
       .channel(`events:${eventId}`)

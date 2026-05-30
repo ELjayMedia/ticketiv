@@ -37,11 +37,12 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 })
   if (!(await canManage(admin, event, userId))) return NextResponse.json({ error: "Permission denied" }, { status: 403 })
 
-  const { data: tickets = [] } = await admin
+  const { data: ticketsRaw } = await admin
     .from("ticket_types")
     .select("id, name, quota, price_cents, currency, per_user_limit, sales_status, ticket_type_channels(channel, quota, per_order_limit)")
     .eq("event_id", eventId)
     .order("created_at", { ascending: true })
+  const tickets = ticketsRaw ?? []
 
   const ticketIds = tickets.map((ticket: any) => ticket.id)
   let orderItems: any[] = []

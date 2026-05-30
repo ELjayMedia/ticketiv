@@ -86,6 +86,7 @@ export function NotificationBell({ userId }: { userId?: string }) {
     let active = true
 
     async function loadNotifications() {
+      if (!supabase) return
       setLoading(true)
       const { data, error } = await supabase
         .from("notifications")

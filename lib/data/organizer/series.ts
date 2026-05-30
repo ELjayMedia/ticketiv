@@ -210,7 +210,7 @@ export async function updateOrgSeries(
 
   const { data, error } = await supabase
     .from("event_series")
-    .update(updates)
+    .update(updates as any)
     .eq("id", id)
     .eq("org_id", orgId)
     .select("slug")
@@ -304,13 +304,13 @@ export async function generateSeriesEvents(
     title: `${series.title} — ${format(date, "EEE d MMM yyyy")}`,
     slug: `${series.slug}-${format(date, "yyyy-MM-dd")}-${Math.random().toString(36).slice(2, 7)}`,
     starts_at: date.toISOString(),
-    status: "draft",
-    event_format: "single_day",
+    status: "draft" as const,
+    event_format: "single_day" as const,
   }))
 
   const { data: inserted, error: insertError } = await supabase
     .from("events")
-    .insert(rows)
+    .insert(rows as any)
     .select("id")
 
   if (insertError) {

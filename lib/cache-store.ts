@@ -7,7 +7,7 @@ type CacheKey = string
 type CacheEntry<T> = {
   data: T
   timestamp: number
-  orgId: string
+  orgId: string | null
 }
 
 const cache = new Map<CacheKey, CacheEntry<any>>()

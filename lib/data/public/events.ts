@@ -90,8 +90,8 @@ export async function getEventBySlug(slug: string): Promise<EventDetail | null> 
       {
         id: "ticket",
         name: "General Admission",
-        price_cents: event.min_price_cents,
-        currency: event.currency,
+        price_cents: event.min_price_cents ?? 0,
+        currency: event.currency ?? "USD",
         quota: 100,
         per_user_limit: null,
         is_reserved_seating: false,

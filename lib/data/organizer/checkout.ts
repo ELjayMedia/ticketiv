@@ -275,6 +275,7 @@ export async function createPayment(
 
   // Production mode - Supabase
   const supabase = await createServerSupabaseClient()
+  if (!supabase) throw new Error("Supabase not configured")
 
   // Get order details
   const { data: order, error: orderError } = await supabase.from("orders").select("*").eq("id", orderId).single()
@@ -325,6 +326,7 @@ export async function verifyPayment(reference: string): Promise<{
 
   // Production mode - Supabase
   const supabase = await createServerSupabaseClient()
+  if (!supabase) throw new Error("Supabase not configured")
 
   const { data: payment, error } = await supabase
     .from("payments")
@@ -428,8 +430,8 @@ export async function previewOrder(input: {
   // Get pricing plan for fees
   const { data: pricingPlan } = await supabase.from("pricing_plans").select("*").eq("event_id", input.eventId).single()
 
-  const feePercent = pricingPlan?.platform_fee_percent || 5
-  const feeCents = Math.floor(subtotalCents * (feePercent / 100))
+  const feeBps = (pricingPlan as { platform_percent_bps?: number } | null)?.platform_percent_bps ?? 500
+  const feeCents = Math.floor(subtotalCents * feeBps / 10000)
 
   // Apply promo code if provided
   let discountCents = 0

@@ -69,11 +69,20 @@ export async function initiateRefundAction(
   const order = (orderData as any).orders
   if (order.org_id !== orgId) throw new Error("Order does not belong to this org")
 
+  const { data: paymentRow } = await supabase
+    .from("payments")
+    .select("id")
+    .eq("order_id", orderData.order_id)
+    .in("status", ["paid", "succeeded"])
+    .maybeSingle()
+
+  if (!paymentRow) throw new Error("No paid payment found for this order")
+
   const { error } = await supabase.from("refunds").insert({
-    payment_id: null,
+    payment_id: paymentRow.id,
     amount_cents: (order as any).total_cents ?? 0,
     currency: (order as any).currency ?? "SZL",
-    type: "organizer_initiated",
+    type: "organizer_initiated" as any,
     status: "pending",
     initiated_by: userId,
   })
