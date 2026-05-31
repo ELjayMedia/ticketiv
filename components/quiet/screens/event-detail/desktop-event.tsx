@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { createSeatHoldAction } from "@/app/(focused)/events/[id]/actions";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
 import { Card } from "@/components/quiet/ui/card";
@@ -400,12 +401,16 @@ export function DesktopEvent({ event = DEFAULT_EVENT }: DesktopEventProps) {
               })}
             </ul>
 
-            <Link
-              href={`/events/${event.id}/checkout`}
-              className="mt-5 flex items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3 text-[14px] font-semibold text-white hover:opacity-90"
-            >
-              Continue <Icon name="arrowR" size={14} />
-            </Link>
+            <form action={createSeatHoldAction}>
+              <input type="hidden" name="eventSlug" value={event.id} />
+              <input type="hidden" name="quantity" value="1" />
+              <button
+                type="submit"
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3 text-[14px] font-semibold text-white hover:opacity-90"
+              >
+                Continue <Icon name="arrowR" size={14} />
+              </button>
+            </form>
 
             <div className="mt-3 flex items-center gap-1.5 font-mono text-[10px] text-ink-3">
               <Icon name="check" size={12} className="text-success" />

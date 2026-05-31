@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { createSeatHoldAction } from "@/app/(focused)/events/[id]/actions";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
 import { Card } from "@/components/quiet/ui/card";
@@ -418,12 +419,16 @@ export function MobileEvent({ event = DEFAULT_EVENT }: MobileEventProps) {
               {formatPrice(event.fromPriceMinor)}
             </span>
           </div>
-          <Link
-            href={`/events/${event.id}/checkout`}
-            className="flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90"
-          >
-            Get tickets <Icon name="arrowR" size={16} />
-          </Link>
+          <form action={createSeatHoldAction} className="flex flex-1">
+            <input type="hidden" name="eventSlug" value={event.id} />
+            <input type="hidden" name="quantity" value="1" />
+            <button
+              type="submit"
+              className="flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90"
+            >
+              Get tickets <Icon name="arrowR" size={16} />
+            </button>
+          </form>
         </div>
       )}
     </div>

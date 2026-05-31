@@ -105,9 +105,9 @@ export default async function CheckoutPage({
 
   const eventUuidFromSlug = eventRow.id;
 
-  // Validate the hold when a code is present. The full seat-hold reservation
-  // flow (TICK-16) is not yet wired up, so callers without a hold code proceed
-  // with holdSeconds = 0 (no countdown shown).
+  // Validate the hold when a code is present. The Get Tickets button creates a
+  // hold via fn_create_seat_hold and appends ?hold= to this URL. Callers without
+  // a hold code (e.g. hold creation failure) fall through with holdSeconds = 0.
   let holdSeconds = 0;
   if (holdCode) {
     const { data: hold } = supabase
