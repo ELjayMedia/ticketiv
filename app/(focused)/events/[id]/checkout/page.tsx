@@ -95,8 +95,6 @@ export default async function CheckoutPage({
   const { id } = await params;
   const { hold: holdCode } = await searchParams;
 
-  if (!holdCode) redirect(`/events/${id}`);
-
   const supabase = await createServerSupabaseClient();
 
   // Resolve slug → UUID
@@ -107,24 +105,29 @@ export default async function CheckoutPage({
 
   const eventUuidFromSlug = eventRow.id;
 
-  // Validate the hold
-  const { data: hold } = supabase
-    ? await supabase
-        .from("seat_holds")
-        .select("id, expires_at")
-        .eq("hold_code", holdCode)
-        .eq("event_id", eventUuidFromSlug)
-        .eq("status", "active")
-        .gt("expires_at", new Date().toISOString())
-        .maybeSingle()
-    : { data: null };
+  // Validate the hold when a code is present. The Get Tickets button creates a
+  // hold via fn_create_seat_hold and appends ?hold= to this URL. Callers without
+  // a hold code (e.g. hold creation failure) fall through with holdSeconds = 0.
+  let holdSeconds = 0;
+  if (holdCode) {
+    const { data: hold } = supabase
+      ? await supabase
+          .from("seat_holds")
+          .select("id, expires_at")
+          .eq("hold_code", holdCode)
+          .eq("event_id", eventUuidFromSlug)
+          .eq("status", "active")
+          .gt("expires_at", new Date().toISOString())
+          .maybeSingle()
+      : { data: null };
 
-  if (!hold) redirect(`/events/${id}?hold_expired=1`);
+    if (!hold) redirect(`/events/${id}?hold_expired=1`);
 
-  const holdSeconds = Math.max(
-    0,
-    Math.floor((new Date(hold.expires_at).getTime() - Date.now()) / 1000),
-  );
+    holdSeconds = Math.max(
+      0,
+      Math.floor((new Date(hold.expires_at).getTime() - Date.now()) / 1000),
+    );
+  }
 
   const row = await getPublicEventBySlug(id);
   if (!row) notFound();
