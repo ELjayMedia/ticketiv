@@ -8,6 +8,7 @@ import {
   bookingFeeFor,
 } from "@/lib/mappers/checkout";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * `/events/[id]/checkout`
@@ -108,18 +109,18 @@ export default async function CheckoutPage({
   // Validate the hold when a code is present. The Get Tickets button creates a
   // hold via fn_create_seat_hold and appends ?hold= to this URL. Callers without
   // a hold code (e.g. hold creation failure) fall through with holdSeconds = 0.
+  // Admin client is required because seat_holds has no SELECT RLS policy.
   let holdSeconds = 0;
   if (holdCode) {
-    const { data: hold } = supabase
-      ? await supabase
-          .from("seat_holds")
-          .select("id, expires_at")
-          .eq("hold_code", holdCode)
-          .eq("event_id", eventUuidFromSlug)
-          .eq("status", "active")
-          .gt("expires_at", new Date().toISOString())
-          .maybeSingle()
-      : { data: null };
+    const admin = createAdminClient();
+    const { data: hold } = await admin
+      .from("seat_holds")
+      .select("id, expires_at")
+      .eq("hold_code", holdCode)
+      .eq("event_id", eventUuidFromSlug)
+      .eq("status", "active")
+      .gt("expires_at", new Date().toISOString())
+      .maybeSingle();
 
     if (!hold) redirect(`/events/${id}?hold_expired=1`);
 
