@@ -7,7 +7,6 @@ import { AppShell } from "@/components/ui/app-shell"
 import { Spinner } from "@/components/ui/spinner"
 import type { WorkspaceType } from "@/lib/navigation"
 import { createClient } from "@/lib/supabase"
-import { getDemoSession, clearDemoSession } from "@/lib/demo-auth"
 
 interface WorkspaceShellProps {
   workspace: WorkspaceType
@@ -29,16 +28,6 @@ export function WorkspaceShell({ workspace, children, requireAuth = false }: Wor
 
     async function loadSession() {
       try {
-        const demoUser = getDemoSession()
-        if (demoUser) {
-          console.log("[v0] Demo session found:", demoUser.email)
-          if (active) {
-            setUser({ id: demoUser.id, email: demoUser.email })
-            setLoading(false)
-          }
-          return
-        }
-
         if (!supabase) {
           if (active) {
             setLoading(false)
@@ -87,10 +76,7 @@ export function WorkspaceShell({ workspace, children, requireAuth = false }: Wor
         if (!active) return
         setUser(session?.user ? { id: session.user.id, email: session.user.email } : null)
         if (!session && requireAuth) {
-          const demoUser = getDemoSession()
-          if (!demoUser) {
-            router.push("/login")
-          }
+          router.push("/login")
         }
       })
 
@@ -106,13 +92,6 @@ export function WorkspaceShell({ workspace, children, requireAuth = false }: Wor
   }, [requireAuth, router, supabase])
 
   const handleLogout = async () => {
-    const demoUser = getDemoSession()
-    if (demoUser) {
-      clearDemoSession()
-      router.push("/login")
-      return
-    }
-
     if (supabase) {
       const { error } = await supabase.auth.signOut()
       if (error) {
