@@ -3,11 +3,18 @@ import Link from "next/link"
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
+import {
+  ForwardTicketButton,
+  ShareOrderButton,
+} from "@/components/quiet/screens/tickets/order-bundle-actions"
 import { TokenRecoveryScreen } from "@/components/quiet/screens/tickets/token-recovery"
+import { APP_URL } from "@/lib/env"
 import { ticketDisplayStatus, type TicketDisplayStatus } from "@/lib/mappers/tickets"
 import { MyTicketsViewSchema, type MyTicketsView } from "@/lib/schemas/views"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { issueTicketToken, verifyOrderToken } from "@/lib/ticket-tokens"
+
+const TICKET_BASE_URL = process.env.NEXT_PUBLIC_TICKET_BASE_URL ?? APP_URL
 
 // TICK-77 — Order-level capability-token route.
 //
@@ -69,6 +76,8 @@ export default async function OrderTokenPage({
   const eventTitle = rows[0].event_title
   const start = rows[0].event_starts_at ? new Date(rows[0].event_starts_at) : null
 
+  const orderUrl = `${TICKET_BASE_URL}/o/${token}`
+
   return (
     <main className="flex min-h-dvh flex-col bg-bg">
       <div className="container mx-auto flex w-full max-w-md flex-col gap-5 px-4 py-8">
@@ -83,8 +92,9 @@ export default async function OrderTokenPage({
         </div>
 
         <Card>
-          <CardBody className="px-5 py-3">
+          <CardBody className="flex items-center justify-between gap-3 px-5 py-3">
             <p className="text-label">{rows.length} {rows.length === 1 ? "ticket" : "tickets"}</p>
+            <ShareOrderButton url={orderUrl} eventTitle={eventTitle} ticketCount={rows.length} />
           </CardBody>
           <CardDivider />
           <div className="divide-y divide-line">
@@ -93,30 +103,38 @@ export default async function OrderTokenPage({
               const display: TicketDisplayStatus = status === "pending" ? "issued" : status
               const itemToken = issueTicketToken(row.order_item_id, perItemExpSeconds)
               const href = itemToken ? `/t/${itemToken}` : `/tickets/${row.order_item_id}`
+              const absoluteHref = itemToken ? `${TICKET_BASE_URL}${href}` : null
               return (
-                <Link
+                <div
                   key={row.order_item_id}
-                  href={href}
                   className="flex items-center justify-between gap-3 px-5 py-4 transition-colors hover:bg-surface-2"
                 >
-                  <div className="flex flex-col gap-0.5">
-                    <p className="text-[14px] font-semibold text-ink">{row.ticket_type_name}</p>
-                    <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                      Ticket · {row.order_item_id.slice(0, 6).toUpperCase()}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
+                  <Link href={href} className="flex flex-1 items-center justify-between gap-3">
+                    <div className="flex flex-col gap-0.5">
+                      <p className="text-[14px] font-semibold text-ink">{row.ticket_type_name ?? "General"}</p>
+                      <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+                        Ticket · {row.order_item_id.slice(0, 6).toUpperCase()}
+                      </p>
+                    </div>
                     <Chip size="sm" variant={STATUS_VARIANT[display]}>{STATUS_LABEL[display]}</Chip>
+                  </Link>
+                  {absoluteHref && display === "issued" ? (
+                    <ForwardTicketButton
+                      url={absoluteHref}
+                      eventTitle={eventTitle}
+                      ticketTypeName={row.ticket_type_name ?? "General"}
+                    />
+                  ) : (
                     <Icon name="chevR" size={16} className="text-ink-3" />
-                  </div>
-                </Link>
+                  )}
+                </div>
               )
             })}
           </div>
         </Card>
 
         <p className="px-1 text-[12px] text-ink-3">
-          Forward an individual ticket by tapping it and sharing that page&apos;s link — each ticket has its own secure QR.
+          Tap a ticket to open it, or use Forward to send just that ticket to a friend. Each ticket has its own secure QR.
         </p>
       </div>
     </main>
