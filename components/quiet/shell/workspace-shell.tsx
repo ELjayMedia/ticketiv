@@ -8,7 +8,6 @@ import { Avatar } from "@/components/quiet/ui/primitives";
 import { Button } from "@/components/quiet/ui/button";
 import { cn } from "@/lib/cn";
 import { createClient } from "@/lib/supabase";
-import { getDemoSession, clearDemoSession } from "@/lib/demo-auth";
 import type { WorkspaceType } from "@/lib/navigation";
 
 interface NavItem {
@@ -123,18 +122,6 @@ export function WorkspaceShell({
 
     async function loadSession() {
       try {
-        const demoUser = getDemoSession();
-        if (demoUser) {
-          if (active) {
-            const demoName = (demoUser as any).full_name
-              ? ((demoUser as any).full_name as string).split(" ")[0]
-              : undefined;
-            setUser({ id: demoUser.id, email: demoUser.email, name: demoName });
-            setLoading(false);
-          }
-          return;
-        }
-
         if (!supabase) {
           if (active) {
             setLoading(false);
@@ -161,16 +148,14 @@ export function WorkspaceShell({
         if (active) {
           if (session?.user) {
             let name: string | undefined;
-            if (supabase) {
-              const { data: profile } = await supabase
-                .from("profiles")
-                .select("display_name, name")
-                .eq("user_id", session.user.id)
-                .single();
-              const fullName = profile?.display_name ?? profile?.name;
-              if (fullName) {
-                name = fullName.split(" ")[0];
-              }
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("display_name, name")
+              .eq("user_id", session.user.id)
+              .single();
+            const fullName = profile?.display_name ?? profile?.name;
+            if (fullName) {
+              name = fullName.split(" ")[0];
             }
             setUser({ id: session.user.id, email: session.user.email ?? undefined, name });
           } else {
@@ -195,16 +180,12 @@ export function WorkspaceShell({
           setUser((prev) => ({
             id: session.user.id,
             email: session.user.email ?? undefined,
-            // preserve name if it's the same user (e.g. token refresh)
             name: prev?.id === session.user.id ? prev.name : undefined,
           }));
         } else {
           setUser(null);
         }
-        if (!session && requireAuth) {
-          const demoUser = getDemoSession();
-          if (!demoUser) router.push("/login");
-        }
+        if (!session && requireAuth) router.push("/login");
       });
 
       return () => {
@@ -219,12 +200,6 @@ export function WorkspaceShell({
   }, [requireAuth, router, supabase]);
 
   const handleLogout = React.useCallback(async () => {
-    const demoUser = getDemoSession();
-    if (demoUser) {
-      clearDemoSession();
-      router.push("/login");
-      return;
-    }
     if (supabase) {
       await supabase.auth.signOut();
     } else {
