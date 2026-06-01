@@ -6,7 +6,6 @@ import { Chip } from "@/components/quiet/ui/chip"
 import { Photo } from "@/components/quiet/ui/primitives"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import type { ArtistRecord } from "@/types"
-import { DEMO_ARTISTS } from "@/lib/demo-data"
 
 interface ArtistPageProps {
   params: { id: string }
@@ -32,23 +31,14 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
       .select("*")
       .eq("id", params.id)
       .maybeSingle<ArtistRecord>()
-    if (!error && data) artist = data
+
+    if (!error && data) {
+      artist = data
+    }
   }
 
   if (!artist) {
-    const demoArtist = DEMO_ARTISTS.find((a) => a.id === params.id)
-    if (!demoArtist) notFound()
-    artist = {
-      id: demoArtist.id,
-      org_id: "",
-      name: demoArtist.name,
-      bio: demoArtist.bio || null,
-      image_url: (demoArtist as any).image_url ?? (demoArtist as any).avatar_url ?? null,
-      slug: (demoArtist as any).slug ?? null,
-      primary_user_id: null,
-      created_at: demoArtist.created_at ?? new Date().toISOString(),
-      updated_at: demoArtist.created_at ?? new Date().toISOString(),
-    }
+    notFound()
   }
 
   let tourDates: TourDateEvent[] = []
@@ -73,7 +63,9 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
         .map((relation: any) => {
           const event = relation.events
           if (!event) return null
+
           const eventDate = event.event_dates?.[0]?.starts_at
+
           return {
             id: event.id,
             title: event.title,
@@ -89,7 +81,11 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
       tourDates.sort((a, b) => {
         const dateA = new Date(a.starts_at).getTime()
         const dateB = new Date(b.starts_at).getTime()
-        if (dateA !== dateB) return dateA - dateB
+
+        if (dateA !== dateB) {
+          return dateA - dateB
+        }
+
         return (a.display_order || 2) - (b.display_order || 2)
       })
     }
@@ -104,19 +100,23 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
           height={240}
           overlay="dim"
         />
+
         <div className="flex flex-col gap-4 px-5 pb-5 sm:flex-row sm:items-start sm:px-6 sm:pb-6">
           <div className="-mt-12 h-20 w-20 overflow-hidden rounded-full border-4 border-surface bg-surface sm:-mt-16 sm:h-24 sm:w-24">
-            { }
             <img
               src={artist.image_url || "/placeholder.svg?height=200&width=200"}
               alt={artist.name}
               className="h-full w-full object-cover"
             />
           </div>
+
           <div className="flex flex-1 flex-col gap-2 pt-2">
             <h1 className="text-h1 sm:text-[28px]">{artist.name}</h1>
+
             {artist.bio && (
-              <p className="text-[14px] leading-relaxed text-ink-3">{artist.bio}</p>
+              <p className="text-[14px] leading-relaxed text-ink-3">
+                {artist.bio}
+              </p>
             )}
           </div>
         </div>
@@ -138,6 +138,7 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
             {tourDates.map((date) => {
               const eventDate = new Date(date.starts_at)
               const isHeadlining = date.display_order === 1
+
               return (
                 <Link key={date.id} href={`/events/${date.slug}`} className="block">
                   <Card className="transition-colors hover:bg-bg">
@@ -152,14 +153,20 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
                       </div>
 
                       <div className="flex min-w-0 flex-1 flex-col gap-1">
-                        <h3 className="truncate text-[16px] font-semibold text-ink">{date.title}</h3>
+                        <h3 className="truncate text-[16px] font-semibold text-ink">
+                          {date.title}
+                        </h3>
+
                         <div className="flex items-center gap-2 text-[13px] text-ink-3">
                           {date.venue_name && <span>{date.venue_name}</span>}
                           {date.city && <span>·</span>}
                           {date.city && <span>{date.city}</span>}
                         </div>
+
                         {isHeadlining && (
-                          <Chip size="sm" variant="accent" className="mt-1 w-fit">Headlining</Chip>
+                          <Chip size="sm" variant="accent" className="mt-1 w-fit">
+                            Headlining
+                          </Chip>
                         )}
                       </div>
 
@@ -186,6 +193,7 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
             Website
           </Link>
         )}
+
         {(artist as any).twitter && (
           <Link
             href={(artist as any).twitter}
@@ -196,6 +204,7 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
             Twitter
           </Link>
         )}
+
         {(artist as any).instagram && (
           <Link
             href={(artist as any).instagram}
@@ -206,6 +215,7 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
             Instagram
           </Link>
         )}
+
         {(artist as any).youtube && (
           <Link
             href={(artist as any).youtube}
