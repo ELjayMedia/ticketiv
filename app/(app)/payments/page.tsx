@@ -8,10 +8,18 @@ export const dynamic = "force-dynamic"
 
 export default async function PaymentsPage() {
   const supabase = await createServerSupabaseClient()
-  if (!supabase) return redirect("/login")
 
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) redirect("/login")
+  if (!supabase) {
+    return redirect("/login")
+  }
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  if (!session) {
+    redirect("/login")
+  }
 
   const { data: paymentsData } = await supabase
     .from("payments")
@@ -29,7 +37,10 @@ export default async function PaymentsPage() {
   const payments = (paymentsData ?? []).map((payment: any) => ({
     ...payment,
     amount: payment.amount_cents,
-    order: { id: payment.orders?.id, event_title: "Order #" + (payment.orders?.id?.slice(0, 8) ?? "unknown") },
+    order: {
+      id: payment.orders?.id,
+      event_title: "Order #" + (payment.orders?.id?.slice(0, 8) ?? "unknown"),
+    },
   }))
 
   return (
@@ -47,7 +58,7 @@ export default async function PaymentsPage() {
 
         {payments.length === 0 ? (
           <CardBody className="px-5 py-10 text-center">
-            <p className="text-[13px] text-ink-3">No payment history.</p>
+            <p className="text-[13px] text-ink-3">No payment history yet.</p>
           </CardBody>
         ) : (
           payments.map((payment, i) => (
@@ -56,7 +67,7 @@ export default async function PaymentsPage() {
               <div className="flex items-center justify-between gap-4 px-5 py-4">
                 <div className="flex flex-col gap-0.5">
                   <p className="text-[14px] font-semibold text-ink">
-                    {payment.order?.event_title || "Unknown event"}
+                    {payment.order?.event_title || "Unknown order"}
                   </p>
                   <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
                     {new Date(payment.created_at).toLocaleDateString()}
@@ -64,7 +75,7 @@ export default async function PaymentsPage() {
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <p className="font-mono text-[14px] font-semibold tabular-nums text-ink">
-                    R{(payment.amount / 100).toFixed(2)}
+                    {payment.currency || "SZL"} {(payment.amount / 100).toFixed(2)}
                   </p>
                   <Chip
                     size="sm"

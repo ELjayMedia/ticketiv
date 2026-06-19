@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server"
 export async function GET() {
   try {
     const supabase = await createServerSupabaseClient()
+
     if (!supabase) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 })
     }
@@ -13,7 +14,9 @@ export async function GET() {
       .select("id, name, address_line1, city, state, country, capacity")
       .order("name")
 
-    if (error) throw error
+    if (error) {
+      throw error
+    }
 
     return NextResponse.json({ venues: venues || [] })
   } catch (error) {

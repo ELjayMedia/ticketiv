@@ -9,7 +9,6 @@ import { createServerSupabaseClient } from "@/lib/supabase-server"
  * This prevents users from accessing organizer routes without org membership
  */
 export default async function OrganizerLayout({ children }: { children: React.ReactNode }) {
-  // Verify org membership server-side
   const supabase = createServerSupabaseClient()
   if (!supabase) {
     console.warn("[v0] Supabase not configured for organizer layout")

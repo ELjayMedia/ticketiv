@@ -148,16 +148,14 @@ export function WorkspaceShell({
         if (active) {
           if (session?.user) {
             let name: string | undefined;
-            if (supabase) {
-              const { data: profile } = await supabase
-                .from("profiles")
-                .select("display_name, name")
-                .eq("user_id", session.user.id)
-                .single();
-              const fullName = profile?.display_name ?? profile?.name;
-              if (fullName) {
-                name = fullName.split(" ")[0];
-              }
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("display_name, name")
+              .eq("user_id", session.user.id)
+              .single();
+            const fullName = profile?.display_name ?? profile?.name;
+            if (fullName) {
+              name = fullName.split(" ")[0];
             }
             setUser({ id: session.user.id, email: session.user.email ?? undefined, name });
           } else {
@@ -182,15 +180,12 @@ export function WorkspaceShell({
           setUser((prev) => ({
             id: session.user.id,
             email: session.user.email ?? undefined,
-            // preserve name if it's the same user (e.g. token refresh)
             name: prev?.id === session.user.id ? prev.name : undefined,
           }));
         } else {
           setUser(null);
         }
-        if (!session && requireAuth) {
-          router.push("/login");
-        }
+        if (!session && requireAuth) router.push("/login");
       });
 
       return () => {

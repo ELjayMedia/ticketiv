@@ -17,8 +17,11 @@ interface EventDetailPageProps {
 
 export default async function EventDetailPage({ params }: EventDetailPageProps) {
   const { orgId, eventId } = params
-
   const { event } = await requireOrganizerEventManager(orgId, eventId)
+
+  if (!event) {
+    return redirect("/403")
+  }
 
   return (
     <main className="flex-1 overflow-auto">
@@ -40,7 +43,6 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
         {event.cover_image_url && (
           <Card className="overflow-hidden">
             <div className="h-64 w-full overflow-hidden">
-              { }
               <img
                 src={event.cover_image_url}
                 alt={event.title}

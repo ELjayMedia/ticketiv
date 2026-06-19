@@ -12,10 +12,6 @@ export default async function EventsCreateLayout({
 }: {
   children: React.ReactNode
 }) {
-  // Require authentication
-  // noStore() prevents Next.js from trying to statically render this layout;
-  // getSession() calls cookies() which throws DYNAMIC_SERVER_USAGE if it runs
-  // during build, so we catch that and redirect to login gracefully.
   noStore()
 
   const supabase = createServerSupabaseClient()

@@ -10,11 +10,15 @@ export default async function EventEditPage({ params }: { params: { orgId: strin
   // Authorize the organizer (and confirm the event belongs to the org)
   // before rendering the editor; the wizard client fetches its own event
   // data via /api/events/[eventId].
-  await requireOrganizerEventManager(
+  const { event } = await requireOrganizerEventManager(
     orgId,
     eventId,
     "id, title, description, starts_at, status, venue_id, org_id",
   )
+
+  if (!event) {
+    return redirect("/403")
+  }
 
   return <EventWizardClient orgId={orgId} eventId={eventId} />
 }
