@@ -40,6 +40,8 @@ interface MapInput {
   supportUrl?: string;
   /** Total events published by this organizer — drives the "23 events hosted" line. */
   organizerEventsHosted?: number | null;
+  /** Ticket types for the selector on the event detail page. */
+  ticketTypes?: TicketTypeRow[];
 }
 
 function durationLabel(start: Date | null, end: Date | null): string | null {
@@ -110,6 +112,12 @@ export function mapEventDetail(row: EventPublicView, input: MapInput = {}): Mobi
     },
     goingFriends: mapFriends(input.friends),
     fromPriceMinor: row.min_price_cents ?? null,
+    ticketTypes: (input.ticketTypes ?? []).map((t) => ({
+      id: t.id,
+      name: t.name,
+      priceMinor: t.price_cents,
+      remaining: t.quota,
+    })),
     attendeeCount: input.attendeeCount ?? null,
     soldCount: input.soldCount ?? null,
     recentSoldCount: input.recentSoldCount ?? null,

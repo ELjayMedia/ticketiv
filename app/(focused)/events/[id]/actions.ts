@@ -7,6 +7,7 @@ import { getPublicEventBySlug } from "@/lib/adapters/events"
 export async function createSeatHoldAction(formData: FormData) {
   const eventSlug = (formData.get("eventSlug") as string | null)?.trim()
   const quantity = Math.max(1, Number(formData.get("quantity") ?? 1))
+  const ticketTypeId = (formData.get("ticketTypeId") as string | null)?.trim() || null
 
   if (!eventSlug) notFound()
 
@@ -24,6 +25,7 @@ export async function createSeatHoldAction(formData: FormData) {
   const { data: holdCode, error } = await admin.rpc("fn_create_seat_hold", {
     p_event_id: event.id,
     p_quantity: quantity,
+    p_ticket_type_id: ticketTypeId,
   })
 
   if (error || !holdCode) {

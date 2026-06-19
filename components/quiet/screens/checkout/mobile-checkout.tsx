@@ -57,6 +57,8 @@ export interface MobileCheckoutProps {
   vatRate?: number;
   /** Buyer's email; prefilled for signed-in users, empty for guests. */
   defaultBuyerEmail?: string;
+  /** Ticket type pre-selected from the event detail page hold. */
+  defaultTicketTypeId?: string;
 }
 
 
@@ -74,6 +76,7 @@ export function MobileCheckout({
   bookingFeeMinor = 10000,
   vatRate = 0.15,
   defaultBuyerEmail = "",
+  defaultTicketTypeId,
 }: MobileCheckoutProps) {
   const router = useRouter();
   const { stats: liveStats } = useEventLiveStats(eventId);
@@ -88,7 +91,7 @@ export function MobileCheckout({
 
   const firstAvailable = ticketTypes.find((t) => t.remaining !== 0);
   const [ticketTypeId, setTicketTypeId] = React.useState(
-    firstAvailable?.id ?? ticketTypes[0]?.id
+    defaultTicketTypeId ?? firstAvailable?.id ?? ticketTypes[0]?.id
   );
   const [quantity, setQuantity] = React.useState(1);
   const [paymentId, setPaymentId] = React.useState(paymentMethods[0]?.id);

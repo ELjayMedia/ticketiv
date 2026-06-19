@@ -42,6 +42,9 @@ export function DesktopEvent({ event }: DesktopEventProps) {
   const [followedArtists, setFollowedArtists] = React.useState<Set<string>>(new Set());
   const [followedOrganizer, setFollowedOrganizer] = React.useState(false);
   const [friendsModalOpen, setFriendsModalOpen] = React.useState(false);
+  const ticketTypes = event?.ticketTypes ?? [];
+  const firstAvailable = ticketTypes.find((t) => t.remaining !== 0) ?? ticketTypes[0];
+  const [selectedTypeId, setSelectedTypeId] = React.useState<string | undefined>(firstAvailable?.id);
 
   if (!event) {
     return (
@@ -62,7 +65,6 @@ export function DesktopEvent({ event }: DesktopEventProps) {
     );
   }
 
-  const ticketTypes = event.ticketTypes ?? [];
   const amenities = event.amenities ?? [];
   const aboutText = event.longDescription || event.description;
 
@@ -269,10 +271,23 @@ export function DesktopEvent({ event }: DesktopEventProps) {
               <ul className="flex flex-col gap-2">
                 {ticketTypes.map((t) => {
                   const soldOut = t.remaining === 0;
+                  const selected = selectedTypeId === t.id;
                   const scarcity = soldOut ? null : formatScarcityLabel(t.remaining);
                   return (
                     <li key={t.id}>
-                      <button disabled={soldOut} className={"flex w-full items-center gap-3 rounded-[var(--radius-md)] border p-3 text-left transition-colors " + (soldOut ? "cursor-not-allowed border-line bg-surface opacity-50" : "border-line hover:border-line-2")}>
+                      <button
+                        type="button"
+                        disabled={soldOut}
+                        onClick={() => !soldOut && setSelectedTypeId(t.id)}
+                        className={
+                          "flex w-full items-center gap-3 rounded-[var(--radius-md)] border p-3 text-left transition-colors " +
+                          (soldOut
+                            ? "cursor-not-allowed border-line bg-surface opacity-50"
+                            : selected
+                            ? "border-accent bg-accent-soft"
+                            : "border-line hover:border-line-2")
+                        }
+                      >
                         <div className="flex min-w-0 flex-1 flex-col">
                           <span className="text-[14px] font-semibold">{t.name}</span>
                           {t.description && <span className="font-mono text-[11px] text-ink-3">{t.description}</span>}
@@ -289,6 +304,7 @@ export function DesktopEvent({ event }: DesktopEventProps) {
               <form action={createSeatHoldAction}>
                 <input type="hidden" name="eventSlug" value={event.id} />
                 <input type="hidden" name="quantity" value="1" />
+                <input type="hidden" name="ticketTypeId" value={selectedTypeId ?? ""} />
                 <button type="submit" className="mt-5 flex w-full items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3 text-[14px] font-semibold text-white hover:opacity-90">
                   Continue <Icon name="arrowR" size={14} />
                 </button>

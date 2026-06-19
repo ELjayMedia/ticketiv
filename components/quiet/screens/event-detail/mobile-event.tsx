@@ -14,6 +14,7 @@ import {
   formatSoldCount,
   formatRecentSoldLabel,
   formatLineupLabel,
+  formatScarcityLabel,
 } from "@/lib/format";
 import { ExpandableText } from "./expandable-text";
 
@@ -35,6 +36,7 @@ export interface MobileEventData {
   organizer: { name: string; handle: string; eventsHosted: number; rating: number; verified: boolean; photo: string };
   goingFriends: { count: number; names: string[]; photos: string[] };
   fromPriceMinor: number | null;
+  ticketTypes?: ReadonlyArray<{ id: string; name: string; priceMinor: number; remaining: number | null }>;
   attendeeCount?: number | null;
   soldCount?: number | null;
   recentSoldCount?: number | null;
@@ -46,6 +48,9 @@ export function MobileEvent({ event }: MobileEventProps) {
   const [saved, setSaved] = React.useState(false);
   const [followedArtists, setFollowedArtists] = React.useState<Set<string>>(new Set());
   const [followedOrganizer, setFollowedOrganizer] = React.useState(false);
+  const ticketTypes = event?.ticketTypes ?? [];
+  const firstAvailable = ticketTypes.find((t) => t.remaining !== 0) ?? ticketTypes[0];
+  const [selectedTypeId, setSelectedTypeId] = React.useState<string | undefined>(firstAvailable?.id);
 
   if (!event) {
     return (
@@ -182,6 +187,43 @@ export function MobileEvent({ event }: MobileEventProps) {
           </section>
         )}
 
+        {ticketTypes.length > 0 && (
+          <section className="px-5 pt-5">
+            <h2 className="mb-3 text-h3">Tickets</h2>
+            <ul className="flex flex-col gap-2">
+              {ticketTypes.map((t) => {
+                const soldOut = t.remaining === 0;
+                const selected = selectedTypeId === t.id;
+                const scarcity = soldOut ? null : formatScarcityLabel(t.remaining);
+                return (
+                  <li key={t.id}>
+                    <button
+                      type="button"
+                      disabled={soldOut}
+                      onClick={() => !soldOut && setSelectedTypeId(t.id)}
+                      className={
+                        "flex w-full items-center gap-3 rounded-[var(--radius-md)] border p-3 text-left transition-colors " +
+                        (soldOut
+                          ? "cursor-not-allowed border-line bg-surface opacity-50"
+                          : selected
+                          ? "border-accent bg-accent-soft"
+                          : "border-line hover:border-line-2")
+                      }
+                    >
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <span className="text-[14px] font-semibold">{t.name}</span>
+                        {scarcity && <span className="mt-0.5 font-mono text-[10px] font-semibold uppercase text-accent">{scarcity}</span>}
+                        {soldOut && <span className="mt-0.5 font-mono text-[10px] font-semibold uppercase text-ink-3">Sold out</span>}
+                      </div>
+                      <span className={"font-mono text-[14px] font-semibold " + (soldOut ? "line-through" : "")}>{formatPrice(t.priceMinor)}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
         <section className="px-5 pt-5">
           <Card className="flex items-center gap-3 p-3.5">
             <Avatar src={event.organizer.photo} size={44} />
@@ -239,6 +281,7 @@ export function MobileEvent({ event }: MobileEventProps) {
           <form action={createSeatHoldAction} className="flex flex-1">
             <input type="hidden" name="eventSlug" value={event.id} />
             <input type="hidden" name="quantity" value="1" />
+            <input type="hidden" name="ticketTypeId" value={selectedTypeId ?? ""} />
             <button type="submit" className="flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90">Get tickets <Icon name="arrowR" size={16} /></button>
           </form>
         </div>
