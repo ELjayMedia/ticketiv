@@ -111,11 +111,12 @@ export default async function CheckoutPage({
   // a hold code (e.g. hold creation failure) fall through with holdSeconds = 0.
   // Admin client is required because seat_holds has no SELECT RLS policy.
   let holdSeconds = 0;
+  let holdTicketTypeId: string | null = null;
   if (holdCode) {
     const admin = createAdminClient();
     const { data: hold } = await admin
       .from("seat_holds")
-      .select("id, expires_at")
+      .select("id, expires_at, ticket_type_id")
       .eq("hold_code", holdCode)
       .eq("event_id", eventUuidFromSlug)
       .eq("status", "active")
@@ -128,6 +129,7 @@ export default async function CheckoutPage({
       0,
       Math.floor((new Date(hold.expires_at).getTime() - Date.now()) / 1000),
     );
+    holdTicketTypeId = hold.ticket_type_id ?? null;
   }
 
   const row = await getPublicEventBySlug(id);
@@ -145,7 +147,8 @@ export default async function CheckoutPage({
   const defaultBuyerEmail = user?.email ?? "";
 
   const mappedTypes = ticketTypes.map(mapCheckoutTicketType);
-  const firstSellable = mappedTypes.find((t) => t.remaining !== 0) ?? mappedTypes[0];
+  const holdType = holdTicketTypeId ? mappedTypes.find((t) => t.id === holdTicketTypeId) : null;
+  const firstSellable = holdType ?? mappedTypes.find((t) => t.remaining !== 0) ?? mappedTypes[0];
   const subtotalForFirst = firstSellable ? firstSellable.priceMinor : 0;
   const bookingFee = bookingFeeFor(plan, subtotalForFirst);
 
@@ -159,6 +162,7 @@ export default async function CheckoutPage({
           bookingFeeMinor={bookingFee}
           holdSeconds={holdSeconds}
           defaultBuyerEmail={defaultBuyerEmail}
+          defaultTicketTypeId={firstSellable?.id}
         />
       </div>
       <div className="hidden md:block">

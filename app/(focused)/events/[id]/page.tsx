@@ -119,7 +119,7 @@ export default async function EventDetailPage({
     organizerEventsHosted,
   };
 
-  const mobile = mapEventDetail(row, { lineup, friends, refundPolicy, ...trust });
+  const mobile = mapEventDetail(row, { lineup, friends, refundPolicy, ticketTypes, ...trust });
   const desktop = mapDesktopEventDetail(row, ticketTypes, {
     lineup,
     friends,
