@@ -6,7 +6,6 @@ import { Icon } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo, Segmented } from "@/components/quiet/ui/primitives";
 import { Button } from "@/components/quiet/ui/button";
-import { PHOTOS } from "@/lib/photos";
 
 /* ──────────────────────────────────────────────────────────────
  * /calendar · port of QuietCalendar
@@ -54,29 +53,6 @@ interface ComingUpEvent {
   time: string;
 }
 
-const DEFAULT_PROPS: Required<CalendarProps> = {
-  monthLabel: "July 2026",
-  eventDays: { 15: 1, 22: 1, 25: 2, 27: 1, 30: 1 },
-  today: 22,
-  daysInMonth: 31,
-  firstDayOffset: 2, // July 1 2026 is a Wednesday
-  todayLabel: "Today · 22 Jul",
-  todayEvents: [
-    {
-      id: "evt-sunset",
-      title: "Sunset Set",
-      venue: "Riverside Park",
-      time: "18:00",
-      photo: PHOTOS.fest_river,
-    },
-  ],
-  comingUp: [
-    { id: "evt1", day: 25, weekday: "Fri", title: "Open Mic Friday", venue: "Studio X", time: "20:00" },
-    { id: "evt2", day: 25, weekday: "Fri", title: "Stand-up · A.Khan", venue: "Comedy Club", time: "21:30" },
-    { id: "evt3", day: 27, weekday: "Sun", title: "A Doll's House", venue: "Natarani", time: "19:00" },
-    { id: "evt4", day: 30, weekday: "Wed", title: "Tribal Tales", venue: "Cafe Natarani", time: "20:00" },
-  ],
-};
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
@@ -99,7 +75,20 @@ function buildMonthInfo(year: number, month: number) {
 }
 
 export function CalendarScreen(props: CalendarProps = {}) {
-  const cfg = { ...DEFAULT_PROPS, ...props };
+  const now = new Date();
+  const todayDay = props.today ?? now.getDate();
+  const { daysInMonth: curDaysInMonth, firstDayOffset: curFirstDayOffset, monthLabel: curMonthLabel } =
+    buildMonthInfo(now.getFullYear(), now.getMonth());
+  const cfg = {
+    monthLabel: props.monthLabel ?? curMonthLabel,
+    eventDays: props.eventDays ?? {},
+    today: todayDay,
+    daysInMonth: props.daysInMonth ?? curDaysInMonth,
+    firstDayOffset: props.firstDayOffset ?? curFirstDayOffset,
+    todayLabel: props.todayLabel ?? `Today · ${todayDay} ${MONTH_NAMES[now.getMonth()].slice(0, 3)}`,
+    todayEvents: props.todayEvents ?? [],
+    comingUp: props.comingUp ?? [],
+  };
   const [view, setView] = React.useState<View>("month");
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");

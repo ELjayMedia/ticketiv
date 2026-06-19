@@ -7,7 +7,6 @@ import { Chip } from "@/components/quiet/ui/chip";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo, Avatar } from "@/components/quiet/ui/primitives";
 import { Button } from "@/components/quiet/ui/button";
-import { PHOTOS } from "@/lib/photos";
 import { formatPrice } from "@/lib/format";
 
 /* ──────────────────────────────────────────────────────────────
@@ -43,54 +42,25 @@ interface FriendOption {
   going?: boolean;
 }
 
-const DEFAULT_TICKET: TicketSummary = {
-  id: "tkt_demo_001",
-  eventTitle: "Tribal Tales",
-  eventPhoto: PHOTOS.dj_set,
-  seatLabel: "Seat C-5",
-  whenLabel: "WED 30 AUG",
-  typeLabel: "REGULAR",
-  priceMinor: 50000,
-};
-
-const DEFAULT_FRIENDS: FriendOption[] = [
-  {
-    id: "u1",
-    name: "Farah Khan",
-    handle: "farah",
-    photo: PHOTOS.face_2,
-    meta: "2 mutual events",
-  },
-  {
-    id: "u2",
-    name: "Salman Khan",
-    handle: "salman",
-    photo: PHOTOS.face_3,
-    meta: "sent you a ticket once",
-  },
-  {
-    id: "u3",
-    name: "Vicky Kausal",
-    handle: "vicky",
-    photo: PHOTOS.face_4,
-    meta: "also going",
-    going: true,
-  },
-  {
-    id: "u4",
-    name: "Amir Khan",
-    handle: "amir",
-    photo: PHOTOS.face_5,
-    meta: "@amir",
-  },
-];
-
 export function Transfer({
-  ticket = DEFAULT_TICKET,
-  friends = DEFAULT_FRIENDS,
+  ticket,
+  friends = [],
 }: TransferProps) {
-  const [selectedId, setSelectedId] = React.useState<string | null>("u1");
-  const [note, setNote] = React.useState("See you at the gate ✨");
+  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [note, setNote] = React.useState("");
+
+  if (!ticket) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-bg p-6">
+        <div className="text-center">
+          <p className="text-[14px] text-ink-3">Ticket not found.</p>
+          <Link href="/app/tickets" className="mt-3 inline-flex items-center gap-1 text-[13px] text-ink-3 underline-offset-4 hover:underline">
+            <Icon name="chevL" size={14} /> My tickets
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const selected = friends.find((f) => f.id === selectedId);
 

@@ -14,7 +14,6 @@ import {
   LiveDot,
 } from "@/components/quiet/ui/primitives";
 import { Button } from "@/components/quiet/ui/button";
-import { PHOTOS } from "@/lib/photos";
 
 /* ──────────────────────────────────────────────────────────────
  * Mobile /tickets · ticket ownership hub
@@ -117,55 +116,6 @@ interface InboundTransfer {
   expiresInLabel: string;
 }
 
-const DEFAULT_FEATURED: FeaturedTicket = {
-  ticketId: "tkt_demo_001",
-  orderNumber: "RG7352",
-  eventTitle: "Tribal Tales",
-  eventPhoto: PHOTOS.dj_set,
-  whenLabel: "WED 30 AUG · 15:50",
-  venueLabel: "Cafe Natarani",
-  seatLabel: "seats C-4, C-5",
-  daysUntil: 4,
-  urgencyLabel: "IN 4 DAYS",
-  isEventDay: false,
-};
-
-const DEFAULT_UPCOMING: TicketListItem[] = [
-  {
-    ticketId: "tkt_demo_002",
-    title: "Stand-up · A. Khan",
-    photo: PHOTOS.singer_red,
-    whenLabel: "Fri 25 Jul · 21:30",
-    venueLabel: "Comedy Club",
-    count: 1,
-    status: "issued",
-  },
-  {
-    ticketId: "tkt_demo_003",
-    title: "Indie Showcase",
-    photo: PHOTOS.crowd_lights,
-    whenLabel: "Sat 26 Jul · 22:00",
-    venueLabel: "The Loft",
-    count: 1,
-    status: "issued",
-  },
-  {
-    ticketId: "tkt_demo_004",
-    title: "Sunset Set",
-    photo: PHOTOS.fest_river,
-    whenLabel: "Sat 23 Aug · 18:00",
-    venueLabel: "Riverside",
-    count: 2,
-    status: "transferred",
-  },
-];
-
-const DEFAULT_INBOUND: InboundTransfer = {
-  fromName: "Salman",
-  fromPhoto: PHOTOS.face_3,
-  eventTitle: "Indie Showcase",
-  expiresInLabel: "expires in 22h",
-};
 
 export function MyTickets({
   featured,
@@ -182,16 +132,10 @@ export function MyTickets({
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
 
-  // When the page is given no data at all (e.g. /dev/preview), fall back to
-  // the demo arrays so the screen still renders. For real authenticated users
-  // we receive `upcoming: []` — that path renders an honest empty state.
-  const isDemo =
-    featured === undefined && upcoming === undefined && counts === undefined;
-  const _featured = featured ?? (isDemo ? DEFAULT_FEATURED : undefined);
-  const _upcoming = upcoming ?? (isDemo ? DEFAULT_UPCOMING : []);
+  const _featured = featured;
+  const _upcoming = upcoming ?? [];
   const _past = past ?? [];
-  const _inbound =
-    inboundTransfer === undefined && isDemo ? DEFAULT_INBOUND : inboundTransfer;
+  const _inbound = inboundTransfer ?? null;
   const _history = transferHistory ?? [];
   const _visibleHistory = _history.filter((t) => !hiddenTransfers.has(t.id));
   const _counts = counts ?? {

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider } from "@/components/quiet/ui/primitives";
-import { PHOTOS } from "@/lib/photos";
 import { formatPrice } from "@/lib/format";
 
 /* ──────────────────────────────────────────────────────────────
@@ -45,30 +44,6 @@ interface RefundTicketRow {
   priceMinor: number;
 }
 
-const DEFAULT_ORDER: RefundOrder = {
-  id: "ord_demo_001",
-  orderNumber: "RG7352",
-  eventTitle: "Tribal Tales",
-  eventPhoto: PHOTOS.dj_set,
-  whenLabel: "WED 30 AUG",
-  totalMinor: 101800,
-  bookingFeeMinor: 5000,
-  paymentDescription: "Visa •••• 4242",
-  tickets: [
-    {
-      ticketId: "tkt_demo_001",
-      seatLabel: "C-4",
-      typeLabel: "Regular",
-      priceMinor: 50000,
-    },
-    {
-      ticketId: "tkt_demo_002",
-      seatLabel: "C-5",
-      typeLabel: "Regular",
-      priceMinor: 50000,
-    },
-  ],
-};
 
 const REASONS = [
   "Can't attend",
@@ -79,15 +54,29 @@ const REASONS = [
 ] as const;
 
 export function Refund({
-  order = DEFAULT_ORDER,
+  order,
   daysUntil = 5,
 }: RefundProps) {
+  const firstTicketId = order?.tickets[0]?.ticketId;
   const [selected, setSelected] = React.useState<Set<string>>(
-    new Set([order.tickets[0]?.ticketId].filter(Boolean) as string[])
+    new Set(firstTicketId ? [firstTicketId] : [])
   );
   const [reason, setReason] = React.useState<(typeof REASONS)[number]>(
     "Can't attend"
   );
+
+  if (!order) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-bg p-6">
+        <div className="text-center">
+          <p className="text-[14px] text-ink-3">Order not found.</p>
+          <Link href="/app/tickets" className="mt-3 inline-flex items-center gap-1 text-[13px] text-ink-3 underline-offset-4 hover:underline">
+            <Icon name="chevL" size={14} /> My tickets
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   // Policy band
   const band: "full" | "half" | "none" =
