@@ -2,7 +2,6 @@ import type React from "react"
 import { unstable_noStore as noStore } from "next/cache"
 import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { getDemoSession } from "@/lib/demo-auth"
 
 /**
  * Public events creation layout
@@ -13,15 +12,7 @@ export default async function EventsCreateLayout({
 }: {
   children: React.ReactNode
 }) {
-  // Check if user is authenticated (demo or real)
-  const demoUser = getDemoSession()
-
-  if (demoUser) {
-    console.log("[v0] Demo user creating event:", demoUser.email)
-    return <>{children}</>
-  }
-
-  // Production: require authentication only
+  // Require authentication
   // noStore() prevents Next.js from trying to statically render this layout;
   // getSession() calls cookies() which throws DYNAMIC_SERVER_USAGE if it runs
   // during build, so we catch that and redirect to login gracefully.

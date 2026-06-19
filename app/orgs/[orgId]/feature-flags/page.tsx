@@ -1,12 +1,10 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
-import { cookies } from "next/headers"
 import Link from "next/link"
 
 import { Card, CardBody } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
-import { getDemoOrganization } from "@/lib/demo-data"
 
 export const dynamic = "force-dynamic"
 
@@ -20,49 +18,28 @@ interface FeatureFlag {
 
 export default async function FeatureFlagsPage({ params }: { params: { orgId: string } }) {
   const { orgId } = params
-  const cookieStore = await cookies()
-  const demoSessionCookie = cookieStore.get("demo_session")
 
-  let org: any = null
-  let flags: FeatureFlag[] = []
+  const supabase = createServerSupabaseClient()
+  if (!supabase) return redirect("/login")
 
-  if (demoSessionCookie) {
-    try {
-      org = getDemoOrganization(orgId)
-      if (!org) return redirect("/403")
-      flags = [
-        { id: "advanced-analytics", key: "advanced-analytics", description: "Enable detailed event analytics and reporting", enabled: true, config: { retention_days: 90 } },
-        { id: "custom-branding", key: "custom-branding", description: "Allow custom colors and logos for events", enabled: true },
-        { id: "api-access", key: "api-access", description: "Enable API access for integrations", enabled: false },
-        { id: "team-collaboration", key: "team-collaboration", description: "Enable team features and permissions", enabled: true },
-        { id: "sso-login", key: "sso-login", description: "Enable single sign-on integration", enabled: false },
-      ]
-    } catch {
-      /* fall through */
-    }
-  } else {
-    const supabase = createServerSupabaseClient()
-    if (!supabase) return redirect("/login")
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  if (!session) return redirect("/login")
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-    if (!session) return redirect("/login")
+  const { data: orgData } = await supabase
+    .from("organizations")
+    .select("id, name")
+    .eq("id", orgId)
+    .maybeSingle()
+  if (!orgData) return redirect("/403")
+  const org = orgData
 
-    const { data: orgData } = await supabase
-      .from("organizations")
-      .select("id, name")
-      .eq("id", orgId)
-      .maybeSingle()
-    if (!orgData) return redirect("/403")
-    org = orgData
-
-    const { data: flagsData = [] } = await supabase
-      .from("feature_flags")
-      .select("id, key, description, enabled, config")
-      .eq("org_id", orgId)
-    flags = (flagsData ?? []) as FeatureFlag[]
-  }
+  const { data: flagsData = [] } = await supabase
+    .from("feature_flags")
+    .select("id, key, description, enabled, config")
+    .eq("org_id", orgId)
+  const flags = (flagsData ?? []) as FeatureFlag[]
 
   return (
     <main className="flex-1 overflow-auto">

@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { cookies } from "next/headers"
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,18 +17,6 @@ export async function POST(request: NextRequest) {
       isPublished,
       draftId,
     } = body
-
-    const cookieStore = await cookies()
-    const demoSessionCookie = cookieStore.get("demo_session")
-
-    if (demoSessionCookie) {
-      // Demo mode: return success with mock ID
-      return NextResponse.json({
-        success: true,
-        eventId: draftId || `demo-event-${Date.now()}`,
-        message: isPublished ? "Event published successfully" : "Draft saved successfully",
-      })
-    }
 
     const supabase = await createServerSupabaseClient()
     if (!supabase) {

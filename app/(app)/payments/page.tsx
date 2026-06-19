@@ -1,6 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
-import { cookies } from "next/headers"
 
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
@@ -8,66 +7,30 @@ import { Chip } from "@/components/quiet/ui/chip"
 export const dynamic = "force-dynamic"
 
 export default async function PaymentsPage() {
-  const cookieStore = await cookies()
-  const demoSessionCookie = cookieStore.get("demo_session")
-  const demoSession = demoSessionCookie ? JSON.parse(demoSessionCookie.value) : null
+  const supabase = await createServerSupabaseClient()
+  if (!supabase) return redirect("/login")
 
-  const mockPayments = [
-    {
-      id: "payment_1",
-      amount: 15000,
-      currency: "ZAR",
-      status: "completed",
-      created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      order: { id: "order_1", event_title: "Vodacom Bulls Championship Match" },
-    },
-    {
-      id: "payment_2",
-      amount: 8500,
-      currency: "ZAR",
-      status: "completed",
-      created_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-      order: { id: "order_2", event_title: "Betway SA20 Season 4" },
-    },
-  ]
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) redirect("/login")
 
-  let payments: any[] = []
+  const { data: paymentsData } = await supabase
+    .from("payments")
+    .select(`
+      id,
+      amount_cents,
+      currency,
+      status,
+      created_at,
+      orders!inner(id, buyer_id)
+    `)
+    .eq("orders.buyer_id", session!.user.id)
+    .order("created_at", { ascending: false })
 
-  if (demoSession) {
-    payments = mockPayments
-  } else {
-    const supabase = await createServerSupabaseClient()
-
-    if (!supabase) {
-      payments = mockPayments
-    } else {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) redirect("/login")
-
-      const { data: paymentsData, error: paymentsError } = await supabase
-        .from("payments")
-        .select(`
-          id,
-          amount_cents,
-          currency,
-          status,
-          created_at,
-          orders!inner(id, buyer_id)
-        `)
-        .eq("orders.buyer_id", session.user.id)
-        .order("created_at", { ascending: false })
-
-      if (paymentsError) {
-        payments = mockPayments
-      } else if (paymentsData) {
-        payments = paymentsData.map((payment: any) => ({
-          ...payment,
-          amount: payment.amount_cents,
-          order: { id: payment.orders?.id, event_title: "Order #" + (payment.orders?.id?.slice(0, 8) ?? "unknown") },
-        }))
-      }
-    }
-  }
+  const payments = (paymentsData ?? []).map((payment: any) => ({
+    ...payment,
+    amount: payment.amount_cents,
+    order: { id: payment.orders?.id, event_title: "Order #" + (payment.orders?.id?.slice(0, 8) ?? "unknown") },
+  }))
 
   return (
     <main className="mx-auto flex w-full max-w-[980px] flex-col gap-6 px-4 py-8 lg:px-6 lg:py-10">

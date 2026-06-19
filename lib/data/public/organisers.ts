@@ -1,8 +1,6 @@
 
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { getDemoSessionFromCookie } from "@/lib/demo-auth"
-import { DEMO_ORGANISERS, DEMO_EVENTS } from "@/lib/demo-data"
 
 export interface OrganiserSummary {
   id: string
@@ -28,24 +26,6 @@ export async function getPublicOrganisers(params?: {
   limit?: number
   offset?: number
 }): Promise<OrganiserSummary[]> {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    return DEMO_ORGANISERS.map((org) => {
-      const upcomingEvents = DEMO_EVENTS.filter(
-        (e) => e.org_id === org.id && e.status === "published" && new Date(e.starts_at) > new Date()
-      ).length
-
-      return {
-        id: org.id,
-        name: org.name,
-        bio: (org as any).bio ?? null,
-        logo: (org as any).logo_url ?? (org as any).logo ?? null,
-        upcoming_events_count: upcomingEvents,
-      }
-    })
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
 
@@ -93,26 +73,6 @@ export async function getPublicOrganisers(params?: {
  * Reads from: organizations, events, event_dates, venues
  */
 export async function getOrganiserDetail(orgId: string): Promise<OrganiserDetail & { events_count: number } | null> {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    const org = DEMO_ORGANISERS.find((o: any) => o.id === orgId)
-    if (!org) return null
-
-    const events = DEMO_EVENTS.filter(
-      (e) => e.org_id === orgId && e.status === "published"
-    ).sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
-
-    return {
-      id: String(org.id),
-      name: String(org.name),
-      bio: (org as any).bio ?? null,
-      logo: (org as any).logo_url ?? (org as any).logo ?? null,
-      created_at: String(org.created_at ?? new Date().toISOString()),
-      events_count: events.length,
-    }
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return null
 
@@ -154,24 +114,6 @@ export async function getOrganiserDetail(orgId: string): Promise<OrganiserDetail
  * Reads from: v_events_public filtered by org_id
  */
 export async function getOrganiserEvents(orgId: string) {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    const events = DEMO_EVENTS.filter((e) => e.org_id === orgId && e.status === "published").sort(
-      (a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()
-    )
-
-    return events.map((e) => ({
-      id: e.id,
-      title: e.title,
-      slug: e.slug,
-      description: e.description,
-      starts_at: e.starts_at,
-      ends_at: e.ends_at,
-      city: e.city || "TBA",
-    }))
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
 

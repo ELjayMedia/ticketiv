@@ -1,7 +1,5 @@
 import "server-only"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { getDemoSessionFromCookie } from "@/lib/demo-auth"
-import { DEMO_ORDERS, DEMO_ORDER_ITEMS } from "@/lib/demo-data"
 
 export interface BuyerOrderItem {
   id: string | null
@@ -120,14 +118,6 @@ export async function getUserTickets(userId: string): Promise<
     } | null
   }>
 > {
-  const demoSession = await getDemoSessionFromCookie()
-
-  // Demo mode
-  if (demoSession && demoSession.id === userId) {
-    return DEMO_ORDER_ITEMS.filter((i) => i.buyer_id === userId) as any[]
-  }
-
-  // Production mode - Supabase
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
   const { data, error } = await supabase
@@ -157,14 +147,6 @@ export async function getTicketById(ticketId: string): Promise<{
   ticket_types: any
   orders: any
 } | null> {
-  const demoSession = await getDemoSessionFromCookie()
-
-  // Demo mode
-  if (demoSession) {
-    return (DEMO_ORDER_ITEMS.find((i) => i.id === ticketId) as any) ?? null
-  }
-
-  // Production mode - Supabase
   const supabase = await createServerSupabaseClient()
   if (!supabase) return null
   const { data, error } = await supabase
@@ -190,17 +172,6 @@ export async function getUserOrders(userId: string): Promise<
     order_items: any[]
   }>
 > {
-  const demoSession = await getDemoSessionFromCookie()
-
-  // Demo mode
-  if (demoSession && demoSession.id === userId) {
-    return DEMO_ORDERS.filter((o) => o.buyer_id === userId).map((order: any) => ({
-      ...order,
-      order_items: DEMO_ORDER_ITEMS.filter((i: any) => i.order_id === order.id),
-    })) as any[]
-  }
-
-  // Production mode - Supabase
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
   const { data, error } = await supabase
@@ -229,19 +200,6 @@ export async function getEventOrders(
     order_items: any[]
   }>
 > {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    let orders = DEMO_ORDERS.filter((o: any) => o.event_id === eventId)
-    if (filters?.status) {
-      orders = orders.filter((o: any) => o.status === filters.status)
-    }
-    return orders.map((order: any) => ({
-      ...order,
-      order_items: DEMO_ORDER_ITEMS.filter((i: any) => i.order_id === order.id),
-    })) as any[]
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
 
@@ -273,12 +231,6 @@ export async function getOrderPayments(orderId: string): Promise<
     created_at: string
   }>
 > {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    return []
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
 
@@ -322,26 +274,6 @@ export async function getOrderById(orderId: string): Promise<{
   order_adjustments: any[]
   payments: any[]
 } | null> {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    const order: any = DEMO_ORDERS.find((o: any) => o.id === orderId)
-    if (!order) return null
-
-    return {
-      id: order.id,
-      buyer_id: order.buyer_id ?? "",
-      buyer_email: order.buyer_email ?? null,
-      status: order.status ?? "pending",
-      total_cents: order.total_cents ?? 0,
-      currency: order.currency ?? "SZL",
-      created_at: order.created_at ?? new Date().toISOString(),
-      order_items: DEMO_ORDER_ITEMS.filter((i: any) => i.order_id === orderId),
-      order_adjustments: [],
-      payments: [],
-    }
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return null
 
@@ -372,15 +304,6 @@ export async function getMyOrders(): Promise<
     order_items: any[]
   }>
 > {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    return DEMO_ORDERS.filter((o: any) => o.buyer_id === demoSession.id).map((order: any) => ({
-      ...order,
-      order_items: DEMO_ORDER_ITEMS.filter((i: any) => i.order_id === order.id),
-    })) as any[]
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
 

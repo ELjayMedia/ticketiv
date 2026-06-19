@@ -1,48 +1,34 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
-import { cookies } from "next/headers"
 import Link from "next/link"
 
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
-import { getDemoOrganizerEvents } from "@/lib/demo-data"
 
 export const dynamic = "force-dynamic"
 
 export default async function OrgEventsPage({ params }: { params: { orgId: string } }) {
   const { orgId } = params
-  const cookieStore = await cookies()
-  const demoSessionCookie = cookieStore.get("demo_session")
 
-  let events: any[] = []
+  const supabase = createServerSupabaseClient()
+  if (!supabase) return redirect("/login")
 
-  if (demoSessionCookie) {
-    try {
-      events = getDemoOrganizerEvents(orgId)
-    } catch {
-      /* fall through */
-    }
-  } else {
-    const supabase = createServerSupabaseClient()
-    if (!supabase) return redirect("/login")
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  if (!session) return redirect("/login")
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-    if (!session) return redirect("/login")
+  const { data: eventsData = [] } = await supabase
+    .from("events")
+    .select(`
+      id, title, description, date, status, cover_image_url,
+      orders:order_items(count)
+    `)
+    .eq("org_id", orgId)
+    .order("date", { ascending: false })
 
-    const { data: eventsData = [] } = await supabase
-      .from("events")
-      .select(`
-        id, title, description, date, status, cover_image_url,
-        orders:order_items(count)
-      `)
-      .eq("org_id", orgId)
-      .order("date", { ascending: false })
-
-    events = eventsData ?? []
-  }
+  const events = eventsData ?? []
 
   return (
     <main className="flex-1 overflow-auto">

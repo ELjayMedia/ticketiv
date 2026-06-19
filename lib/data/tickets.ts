@@ -1,15 +1,7 @@
 // Tables: order_items, orders, ticket_types, events, event_dates, venues, transfers
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { getDemoSessionFromCookie } from "@/lib/demo-auth"
-import { getDemoUserTickets, getDemoTicketDetail } from "@/lib/demo-data"
 
 export async function getMyTickets() {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    return getDemoUserTickets(demoSession.id)
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
 
@@ -40,12 +32,6 @@ export async function getMyTickets() {
 }
 
 export async function getTicketById(orderItemId: string) {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    return getDemoTicketDetail(orderItemId)
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return null
 
@@ -92,12 +78,6 @@ export async function acceptTransfer(transferId: string) {
 }
 
 export async function listTransfers(params?: { status?: "pending" | "accepted" | "declined" | "cancelled" | "completed" | "requested" }) {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    return []
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
 

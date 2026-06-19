@@ -1,13 +1,11 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
-import { cookies } from "next/headers"
 import Link from "next/link"
 
 import { Button } from "@/components/quiet/ui/button"
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
-import { getDemoEventById } from "@/lib/demo-data"
 
 export const dynamic = "force-dynamic"
 
@@ -50,52 +48,32 @@ function StatTile({
 
 export default async function ScansPage({ params }: { params: { orgId: string; eventId: string } }) {
   const { orgId, eventId } = params
-  const cookieStore = await cookies()
-  const demoSessionCookie = cookieStore.get("demo_session")
 
-  let event: any = null
-  let scans: Scan[] = []
+  const supabase = createServerSupabaseClient()
+  if (!supabase) return redirect("/login")
 
-  if (demoSessionCookie) {
-    try {
-      event = getDemoEventById(eventId)
-      if (!event) return redirect("/403")
-      scans = [
-        { id: "1", ticket_code: "TK001", scanned_at: "2024-01-15 19:30:45", device_id: "Scanner1", outcome: "success" },
-        { id: "2", ticket_code: "TK002", scanned_at: "2024-01-15 19:31:12", device_id: "Scanner1", outcome: "success" },
-        { id: "3", ticket_code: "TK003", scanned_at: "2024-01-15 19:32:05", device_id: "Scanner2", outcome: "already_scanned" },
-        { id: "4", ticket_code: "INVALID", scanned_at: "2024-01-15 19:33:20", device_id: "Scanner2", outcome: "invalid" },
-      ]
-    } catch {
-      /* fall through */
-    }
-  } else {
-    const supabase = createServerSupabaseClient()
-    if (!supabase) return redirect("/login")
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  if (!session) return redirect("/login")
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-    if (!session) return redirect("/login")
+  const { data: eventData } = await supabase
+    .from("events")
+    .select("id, title")
+    .eq("id", eventId)
+    .eq("org_id", orgId)
+    .maybeSingle()
 
-    const { data: eventData } = await supabase
-      .from("events")
-      .select("id, title")
-      .eq("id", eventId)
-      .eq("org_id", orgId)
-      .maybeSingle()
+  if (!eventData) return redirect("/403")
+  const event = eventData
 
-    if (!eventData) return redirect("/403")
-    event = eventData
-
-    const { data: scansData = [] } = await supabase
-      .from("scans")
-      .select("id, ticket_code, scanned_at, device_id, outcome")
-      .eq("event_id", eventId)
-      .order("scanned_at", { ascending: false })
-      .limit(100)
-    scans = (scansData ?? []) as Scan[]
-  }
+  const { data: scansData = [] } = await supabase
+    .from("scans")
+    .select("id, ticket_code, scanned_at, device_id, outcome")
+    .eq("event_id", eventId)
+    .order("scanned_at", { ascending: false })
+    .limit(100)
+  const scans = (scansData ?? []) as Scan[]
 
   const totalScans = scans.length
   const successfulScans = scans.filter((s) => s.outcome === "success").length

@@ -1,8 +1,6 @@
 import type React from "react"
-import { redirect, notFound } from "next/navigation"
+import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { getDemoSession } from "@/lib/demo-auth"
-import { getDemoOrganization } from "@/lib/demo-data"
 
 /**
  * Org-scoped layout
@@ -17,26 +15,8 @@ export default async function OrgLayout({
   params: { orgId: string }
 }) {
   const orgId = params.orgId
-  const demoUser = getDemoSession()
 
-  // Demo mode check
-  if (demoUser) {
-    const org = getDemoOrganization(orgId)
-    if (!org) {
-      notFound()
-    }
-
-    // In demo: only allow access if org matches user's org
-    if (demoUser.org_id !== orgId) {
-      console.warn("[v0] Demo user attempting access to different org:", demoUser.email, orgId)
-      return redirect("/403")
-    }
-
-    console.log("[v0] Demo org access granted:", orgId)
-    return <>{children}</>
-  }
-
-  // Production: verify org membership server-side
+  // Verify org membership server-side
   const supabase = createServerSupabaseClient()
   if (!supabase) {
     return redirect("/login")

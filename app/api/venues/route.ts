@@ -1,17 +1,8 @@
 import { NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { cookies } from "next/headers"
-import { DEMO_VENUES } from "@/lib/demo-data"
 
 export async function GET() {
   try {
-    const cookieStore = await cookies()
-    const demoSessionCookie = cookieStore.get("demo_session")
-
-    if (demoSessionCookie) {
-      return NextResponse.json({ venues: DEMO_VENUES })
-    }
-
     const supabase = await createServerSupabaseClient()
     if (!supabase) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 })

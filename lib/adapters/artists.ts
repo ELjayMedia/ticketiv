@@ -1,7 +1,6 @@
 "use server"
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { getDemoSessionFromCookie } from "@/lib/demo-auth"
 import { validateSchema, ArtistPublicViewSchema, ArtistEventsPublicViewSchema, type ArtistPublicView, type EventsPublicView } from "@/lib/schemas/views"
 
 /**
@@ -14,38 +13,6 @@ export async function getPublicArtistsList(params?: {
   search?: string
   genre?: string
 }): Promise<ArtistPublicView[]> {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    const demoArtists: ArtistPublicView[] = [
-      {
-        id: "demo-artist-1",
-        name: "The Demo Band",
-        slug: "the-demo-band",
-        bio: "A legendary demo band",
-        photo_url: null,
-        genre: "Rock",
-        social_links: null,
-      },
-    ]
-
-    let filtered = demoArtists
-
-    if (params?.search) {
-      const search = params.search.toLowerCase()
-      filtered = filtered.filter((a) => a.name.toLowerCase().includes(search))
-    }
-
-    if (params?.genre) {
-      filtered = filtered.filter((a) => a.genre === params.genre)
-    }
-
-    const limit = params?.limit || 24
-    const offset = params?.offset || 0
-
-    return filtered.slice(offset, offset + limit)
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) {
     console.warn("[v0] Supabase not configured, returning empty artists list")
@@ -83,23 +50,6 @@ export async function getPublicArtistsList(params?: {
 }
 
 export async function getPublicArtistById(artistId: string): Promise<ArtistPublicView | null> {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    if (artistId === "demo-artist-1") {
-      return {
-        id: "demo-artist-1",
-        name: "The Demo Band",
-        slug: "the-demo-band",
-        bio: "A legendary demo band",
-        photo_url: null,
-        genre: "Rock",
-        social_links: null,
-      }
-    }
-    return null
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) {
     console.warn("[v0] Supabase not configured, cannot fetch artist details")
@@ -130,13 +80,6 @@ export async function getPublicArtistEvents(artistId: string, params?: {
   limit?: number
   offset?: number
 }): Promise<EventsPublicView[]> {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    // Return empty for demo
-    return []
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) {
     console.warn("[v0] Supabase not configured, returning empty artist events")

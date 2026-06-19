@@ -1,31 +1,25 @@
 import { NextResponse } from "next/server"
 import { createDeltaPayPayment } from "@/lib/deltapay"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { getDemoSessionFromCookie } from "@/lib/demo-auth"
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
     const { orderId, amount, currency, customerEmail, metadata } = body
 
-    const demoSession = await getDemoSessionFromCookie()
     const supabase = await createServerSupabaseClient()
-
-    let userId: string | null = null
-
-    if (demoSession) {
-      userId = demoSession.id
-    } else if (supabase) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-      }
-      userId = user.id
-    } else {
+    if (!supabase) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 })
     }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const userId = user.id
 
     const paymentIntent = await createDeltaPayPayment({
       amount,

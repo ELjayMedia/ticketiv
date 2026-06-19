@@ -1,8 +1,6 @@
 
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { getDemoSessionFromCookie } from "@/lib/demo-auth"
-import { DEMO_ARTISTS, DEMO_EVENTS } from "@/lib/demo-data"
 
 export interface Artist {
   id: string
@@ -24,12 +22,6 @@ export async function getPublicArtists(params?: {
   limit?: number
   offset?: number
 }): Promise<Artist[]> {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    return DEMO_ARTISTS.slice(params?.offset || 0, (params?.offset || 0) + (params?.limit || 50))
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
 
@@ -58,25 +50,6 @@ export async function getPublicArtists(params?: {
  * Reads from: artists, event_artists, events
  */
 export async function getArtistDetail(artistId: string): Promise<ArtistDetail | null> {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    const artist = DEMO_ARTISTS.find((a) => a.id === artistId)
-    if (!artist) return null
-
-    // Find events this artist is featured in
-    const upcomingEvents = DEMO_EVENTS.filter((e) => {
-      // This is a simplified check; in real data, check event_artists table
-      const isArtistInEvent = [0, 1, 5, 6, 2, 3, 4, 7, 8, 9, 10].includes(DEMO_ARTISTS.indexOf(artist))
-      return e.status === "published" && isArtistInEvent && new Date(e.starts_at) > new Date()
-    }).length
-
-    return {
-      ...artist,
-      upcoming_events_count: upcomingEvents,
-    }
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return null
 
@@ -118,15 +91,6 @@ export async function getArtistDetail(artistId: string): Promise<ArtistDetail | 
  * Reads from: event_artists, events, v_events_public
  */
 export async function getArtistEvents(artistId: string) {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    // Simplified: return events matching demo data
-    return DEMO_EVENTS.filter((e) => e.status === "published").sort(
-      (a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()
-    )
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
 

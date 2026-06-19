@@ -1,12 +1,10 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
-import { cookies } from "next/headers"
 import Link from "next/link"
 
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon, type IconName } from "@/components/quiet/ui/icon"
-import { getDemoOrganizerEvents, getDemoOrganization } from "@/lib/demo-data"
 import { getOrgEventKPIs } from "@/lib/adapters/kpis"
 import DashboardCharts from "./dashboard-charts"
 
@@ -145,121 +143,85 @@ function OrgProfileBadge({
 
 export default async function OrgDashboardPage({ params }: { params: { orgId: string } }) {
   const { orgId } = params
-  const cookieStore = await cookies()
-  const demoSessionCookie = cookieStore.get("demo_session")
+
+  const supabase = createServerSupabaseClient()
+  if (!supabase) return redirect("/login")
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  if (!session) return redirect("/login")
+
+  const { data: org, error: orgError } = await supabase
+    .from("organizations")
+    .select("name, slug, bio, logo, default_currency")
+    .eq("id", orgId)
+    .maybeSingle()
+  if (orgError || !org) return redirect("/403")
+
+  const orgName = (org as any).name
 
   let events: any[] = []
   let kpis: any[] = []
-  let orgName = "Organization"
   let totalTicketsSold = 0
   let totalRevenueCents = 0
   let totalCheckedIn = 0
   let activeEvents = 0
   let lastOrderAt: string | null = null
 
-  // Onboarding state
-  let profileCompleteness = { pct: 100, missing: [] as string[] }
-  let hasPayoutAccount = false
-  let staffCount = 0
+  // Profile completeness check
+  const missing: string[] = []
+  if (!org.bio) missing.push("bio")
+  if (!org.logo) missing.push("logo")
+  const profileFields = 4 // name, slug, bio, logo
+  const filledFields = profileFields - missing.length
+  const profileCompleteness = {
+    pct: Math.round((filledFields / profileFields) * 100),
+    missing,
+  }
 
-  if (demoSessionCookie) {
-    try {
-      const org: any = getDemoOrganization(orgId)
-      if (!org) return redirect("/403")
-      orgName = org.name
-      events = getDemoOrganizerEvents(orgId)
+  // Parallel fetches for onboarding state + KPIs
+  const [eventsRes, payoutAccountsRes, staffRes] = await Promise.all([
+    supabase
+      .from("events")
+      .select("id, title, status, starts_at")
+      .eq("org_id", orgId)
+      .order("starts_at", { ascending: false }),
+    supabase
+      .from("payout_accounts")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", orgId),
+    supabase
+      .from("org_members")
+      .select("user_id", { count: "exact", head: true })
+      .eq("org_id", orgId),
+  ])
 
-      kpis = events.map((event) => ({
-        event_id: event.id,
-        event_title: event.title,
-        event_date: event.starts_at,
-        total_tickets_sold: Math.floor(Math.random() * 300) + 20,
-        total_checked_in: Math.floor(Math.random() * 200) + 10,
-        total_revenue_cents: Math.floor(Math.random() * 5000000) + 500000,
-        attendance_rate: Math.random() * 0.8,
-      }))
+  events = (eventsRes.data ?? []) as any[]
+  const hasPayoutAccount = (payoutAccountsRes.count ?? 0) > 0
+  const staffCount = staffRes.count ?? 0
 
-      totalTicketsSold = kpis.reduce((sum, kpi) => sum + kpi.total_tickets_sold, 0)
-      totalRevenueCents = kpis.reduce((sum, kpi) => sum + kpi.total_revenue_cents, 0)
-      totalCheckedIn = kpis.reduce((sum, kpi) => sum + kpi.total_checked_in, 0)
-      activeEvents = events.filter((e) => e.status === "published").length
-      hasPayoutAccount = false
-      staffCount = 2
-    } catch {
-      /* fall through */
-    }
-  } else {
-    const supabase = createServerSupabaseClient()
-    if (!supabase) return redirect("/login")
+  kpis = await getOrgEventKPIs(orgId)
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-    if (!session) return redirect("/login")
+  // Aggregate live stats from event_live_stats for events this org owns
+  if (events.length > 0) {
+    const eventIds = events.map((e) => e.id)
+    const { data: liveStats } = await supabase
+      .from("event_live_stats")
+      .select("tickets_sold, gross_sales_cents, checked_in_count, last_order_at")
+      .in("event_id", eventIds)
 
-    const { data: org, error: orgError } = await supabase
-      .from("organizations")
-      .select("name, slug, bio, logo, default_currency")
-      .eq("id", orgId)
-      .maybeSingle()
-    if (orgError || !org) return redirect("/403")
-
-    orgName = (org as any).name
-
-    // Profile completeness check
-    const missing: string[] = []
-    if (!org.bio) missing.push("bio")
-    if (!org.logo) missing.push("logo")
-    const profileFields = 4 // name, slug, bio, logo
-    const filledFields = profileFields - missing.length
-    profileCompleteness = {
-      pct: Math.round((filledFields / profileFields) * 100),
-      missing,
-    }
-
-    // Parallel fetches for onboarding state + KPIs
-    const [eventsRes, payoutAccountsRes, staffRes] = await Promise.all([
-      supabase
-        .from("events")
-        .select("id, title, status, starts_at")
-        .eq("org_id", orgId)
-        .order("starts_at", { ascending: false }),
-      supabase
-        .from("payout_accounts")
-        .select("id", { count: "exact", head: true })
-        .eq("org_id", orgId),
-      supabase
-        .from("org_members")
-        .select("user_id", { count: "exact", head: true })
-        .eq("org_id", orgId),
-    ])
-
-    events = (eventsRes.data ?? []) as any[]
-    hasPayoutAccount = (payoutAccountsRes.count ?? 0) > 0
-    staffCount = staffRes.count ?? 0
-
-    kpis = await getOrgEventKPIs(orgId)
-
-    // Aggregate live stats from event_live_stats for events this org owns
-    if (events.length > 0) {
-      const eventIds = events.map((e) => e.id)
-      const { data: liveStats } = await supabase
-        .from("event_live_stats")
-        .select("tickets_sold, gross_sales_cents, checked_in_count, last_order_at")
-        .in("event_id", eventIds)
-
-      for (const stat of liveStats ?? []) {
-        totalTicketsSold += stat.tickets_sold ?? 0
-        totalRevenueCents += stat.gross_sales_cents ?? 0
-        totalCheckedIn += stat.checked_in_count ?? 0
-        if (stat.last_order_at && (!lastOrderAt || stat.last_order_at > lastOrderAt)) {
-          lastOrderAt = stat.last_order_at
-        }
+    for (const stat of liveStats ?? []) {
+      totalTicketsSold += stat.tickets_sold ?? 0
+      totalRevenueCents += stat.gross_sales_cents ?? 0
+      totalCheckedIn += stat.checked_in_count ?? 0
+      if (stat.last_order_at && (!lastOrderAt || stat.last_order_at > lastOrderAt)) {
+        lastOrderAt = stat.last_order_at
       }
     }
-
-    activeEvents = events.filter((e) => e.status === "published").length
   }
+
+  activeEvents = events.filter((e) => e.status === "published").length
 
   const upcomingEvents = events.filter((e) => e.status === "published").slice(0, 5)
   const attendancePct =

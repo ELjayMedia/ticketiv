@@ -1,11 +1,9 @@
-import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 
 import { Card } from "@/components/quiet/ui/card"
 import { Icon } from "@/components/quiet/ui/icon"
 import { EventManagementTabs } from "@/components/event-management-tabs"
-import { getDemoEventById } from "@/lib/demo-data"
 import { requireOrganizerEventManager } from "@/lib/org-management"
 
 export const dynamic = "force-dynamic"
@@ -19,22 +17,8 @@ interface EventDetailPageProps {
 
 export default async function EventDetailPage({ params }: EventDetailPageProps) {
   const { orgId, eventId } = params
-  const cookieStore = await cookies()
-  const demoSessionCookie = cookieStore.get("demo_session")
 
-  let event: any = null
-
-  if (demoSessionCookie) {
-    try {
-      event = getDemoEventById(eventId)
-      if (!event) return redirect("/403")
-    } catch {
-      return redirect("/403")
-    }
-  } else {
-    const { event: eventData } = await requireOrganizerEventManager(orgId, eventId)
-    event = eventData
-  }
+  const { event } = await requireOrganizerEventManager(orgId, eventId)
 
   return (
     <main className="flex-1 overflow-auto">

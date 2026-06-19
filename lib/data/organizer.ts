@@ -1,25 +1,7 @@
 // Tables: events, orders, ledger_entries, scans, payouts, payout_accounts, event_staff, devices
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { getDemoSessionFromCookie } from "@/lib/demo-auth"
-import { DEMO_EVENTS, DEMO_ORDERS, DEMO_ORDER_ITEMS } from "@/lib/demo-data"
 
 export async function getOrganizerDashboardKpis(params?: { range?: "7d" | "30d" | "90d" | "all" }) {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    const orders = DEMO_ORDERS.filter((o) => o.status === "completed")
-    const items = DEMO_ORDER_ITEMS.filter((i) => orders.some((o) => o.id === i.order_id))
-
-    return {
-      events_count: DEMO_EVENTS.length,
-      tickets_sold: items.length,
-      gross_revenue_cents: orders.reduce((sum, o) => sum + o.total_amount, 0),
-      net_revenue_cents: orders.reduce((sum, o) => sum + o.total_amount - o.fee_amount, 0),
-      check_ins: items.filter((i) => i.checked_in_at).length,
-      currency: "USD",
-    }
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) throw new Error("Supabase not configured")
 
@@ -32,17 +14,6 @@ export async function getOrganizerDashboardKpis(params?: { range?: "7d" | "30d" 
 }
 
 export async function getOrganizerEvents() {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    return DEMO_EVENTS.map((e) => ({
-      ...e,
-      orders_count: DEMO_ORDERS.filter((o) => o.event_id === e.id).length,
-      tickets_sold: DEMO_ORDER_ITEMS.filter((i) => DEMO_ORDERS.some((o) => o.id === i.order_id && o.event_id === e.id))
-        .length,
-    }))
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
 
@@ -59,20 +30,6 @@ export async function getOrganizerEvents() {
 }
 
 export async function getEventKpis(eventId: string) {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    const orders = DEMO_ORDERS.filter((o) => o.event_id === eventId && o.status === "completed")
-    const items = DEMO_ORDER_ITEMS.filter((i) => orders.some((o) => o.id === i.order_id))
-
-    return {
-      orders_count: orders.length,
-      tickets_sold: items.length,
-      gross_revenue_cents: orders.reduce((sum, o) => sum + o.total_amount, 0),
-      check_ins: items.filter((i) => i.checked_in_at).length,
-    }
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) throw new Error("Supabase not configured")
 
@@ -85,12 +42,6 @@ export async function getEventKpis(eventId: string) {
 }
 
 export async function getEventLedger(eventId: string) {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    return []
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
 
@@ -105,12 +56,6 @@ export async function getEventLedger(eventId: string) {
 }
 
 export async function getPayouts(orgId?: string) {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    return []
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
 
@@ -145,12 +90,6 @@ export async function requestPayout(input: { orgId: string; eventId?: string; am
 }
 
 export async function getEventStaff(eventId: string) {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    return []
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
 
@@ -167,12 +106,6 @@ export async function getEventStaff(eventId: string) {
 }
 
 export async function getDevices(eventId?: string) {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    return []
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
 

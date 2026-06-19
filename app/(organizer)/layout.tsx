@@ -2,7 +2,6 @@ import type React from "react"
 import { redirect } from "next/navigation"
 import { WorkspaceShell } from "@/components/quiet/shell/workspace-shell"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { getDemoSession } from "@/lib/demo-auth"
 
 /**
  * Organizer workspace layout
@@ -10,23 +9,7 @@ import { getDemoSession } from "@/lib/demo-auth"
  * This prevents users from accessing organizer routes without org membership
  */
 export default async function OrganizerLayout({ children }: { children: React.ReactNode }) {
-  // Check demo session first
-  const demoUser = getDemoSession()
-  if (demoUser) {
-    // Demo users are allowed (demo app handles role checks)
-    if (demoUser.role !== "organizer" && demoUser.role !== "staff") {
-      console.warn("[v0] Demo user without organizer role attempting organizer access:", demoUser.email)
-      return redirect("/403")
-    }
-    console.log("[v0] Demo organizer access granted:", demoUser.email)
-    return (
-      <WorkspaceShell workspace="organizer" requireAuth>
-        {children}
-      </WorkspaceShell>
-    )
-  }
-
-  // Production: verify org membership server-side
+  // Verify org membership server-side
   const supabase = createServerSupabaseClient()
   if (!supabase) {
     console.warn("[v0] Supabase not configured for organizer layout")
