@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import {
   PhoneShell,
   BrowserShell,
@@ -8,7 +9,6 @@ import { MobileEvent } from "@/components/quiet/screens/event-detail/mobile-even
 import { DesktopEvent } from "@/components/quiet/screens/event-detail/desktop-event";
 import { MobileCheckout } from "@/components/quiet/screens/checkout/mobile-checkout";
 import { DesktopCheckout } from "@/components/quiet/screens/checkout/desktop-checkout";
-import { OrderConfirmation } from "@/components/quiet/screens/confirmation/order-confirmation";
 import { MyTickets } from "@/components/quiet/screens/tickets/my-tickets";
 import { TicketView } from "@/components/quiet/screens/tickets/ticket-view";
 import { Transfer } from "@/components/quiet/screens/tickets/transfer";
@@ -21,45 +21,14 @@ import { DesktopNav } from "@/components/quiet/shell/desktop-nav";
 import { MobileTabBar } from "@/components/quiet/shell/mobile-shell";
 import { PHOTOS } from "@/lib/photos";
 
-const DEMO_TICKET_TYPES = [
-  { id: "regular", name: "Regular", priceMinor: 50000, remaining: 5, sublabel: "5 left at this price" },
-  { id: "premium", name: "Premium", priceMinor: 120000, remaining: 18, sublabel: "Front rows · 18 left" },
-  { id: "vip", name: "VIP", priceMinor: 250000, remaining: 0, sublabel: "Meet & greet" },
-] as const;
-
-const DEMO_PROMO = {
-  code: "WELCOME10",
-  description: "10% off",
-  savedMinor: 10000,
-};
-
-const DEMO_ORDER = {
-  id: "ord_demo_001",
-  orderNumber: "RG7352",
-  state: "paid" as const,
-  headline: "You're going.",
-  statusNote: "Tickets issued",
-  eventTitle: "Tribal Tales",
-  eventSubtitle: "SUNSET SET BY DJ FUN",
-  eventPhoto: PHOTOS.dj_set,
-  whenDate: "30 Aug",
-  whenTime: "15:50",
-  seats: ["C-4", "C-5"],
-  ticketTypeName: "Regular",
-  quantity: 2,
-  totalMinor: 101800,
-  paymentDescription: "Visa ••42",
-  receiptEmail: "you@example.com",
-  eventSlug: "tribal-tales",
-  firstTicketId: "tkt_demo_001",
-};
-
 /**
  * /dev/preview — internal screen index.
  * Every shipped screen rendered inside its target device chrome
  * (phone 390×844, browser 1440×900) for visual QA without devtools.
  */
 export default function PreviewIndexPage() {
+  if (process.env.NODE_ENV !== "development") notFound();
+
   return (
     <div className="min-h-dvh bg-[#f0eee9] py-12">
       <div className="mx-auto max-w-[1600px] px-8">
@@ -125,13 +94,12 @@ export default function PreviewIndexPage() {
             <PhoneShell>
               <MobileCheckout
                 eventId="tribal-tales"
-                eventUuid="00000000-0000-0000-0000-000000000000"
+                eventUuid=""
                 eventTitle="Tribal Tales"
                 eventPhoto={PHOTOS.dj_set}
                 eventWhenLabel="Wed 30 Aug · 15:50"
                 eventVenue="Cafe Natarani"
-                ticketTypes={DEMO_TICKET_TYPES}
-                appliedPromo={DEMO_PROMO}
+                ticketTypes={[]}
               />
             </PhoneShell>
           </PreviewArtboard>
@@ -143,25 +111,18 @@ export default function PreviewIndexPage() {
             >
               <DesktopCheckout
                 eventId="tribal-tales"
-                eventUuid="00000000-0000-0000-0000-000000000000"
+                eventUuid=""
                 eventTitle="Tribal Tales"
                 eventPhoto={PHOTOS.dj_set}
                 eventWhenLabel="Wed 30 Aug · 15:50"
-                ticketTypeId="00000000-0000-0000-0000-000000000000"
+                ticketTypeId=""
                 ticketTypeName="Regular"
                 quantity={2}
                 subtotalMinor={100000}
                 bookingFeeMinor={10000}
                 vatRate={0.15}
-                appliedPromo={DEMO_PROMO}
               />
             </BrowserShell>
-          </PreviewArtboard>
-
-          <PreviewArtboard label="Confirmation · /orders/[orderId]/confirmation">
-            <PhoneShell>
-              <OrderConfirmation order={DEMO_ORDER} />
-            </PhoneShell>
           </PreviewArtboard>
         </PreviewSection>
 

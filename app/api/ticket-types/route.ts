@@ -1,21 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { cookies } from "next/headers"
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies()
-    const demoSessionCookie = cookieStore.get("demo_session")
-
-    // Demo mode: Return success without persisting
-    if (demoSessionCookie) {
-      return NextResponse.json({
-        success: true,
-        message: "Demo mode: Ticket type would be created in production",
-        id: `demo-ticket-${Date.now()}`,
-      })
-    }
-
     const supabase = createServerSupabaseClient()
     if (!supabase) {
       return NextResponse.json({ error: "Database not configured" }, { status: 500 })

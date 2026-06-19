@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider } from "@/components/quiet/ui/primitives";
-import { PHOTOS } from "@/lib/photos";
 import { formatPrice } from "@/lib/format";
 
 /* ──────────────────────────────────────────────────────────────
@@ -42,24 +41,27 @@ interface ResaleTicket {
   faceMinor: number;
 }
 
-const DEFAULT_TICKET: ResaleTicket = {
-  id: "tkt_demo_001",
-  eventTitle: "Tribal Tales",
-  eventPhoto: PHOTOS.dj_set,
-  seatLabel: "Seat C-5",
-  whenLabel: "WED 30 AUG",
-  typeLabel: "REGULAR",
-  paidMinor: 50000,
-  faceMinor: 50000,
-};
-
 export function Resale({
-  ticket = DEFAULT_TICKET,
+  ticket,
   feeRate = 0.08,
   capRate = 1.1,
 }: ResaleProps) {
+  const [askMinor, setAskMinor] = React.useState(0);
+
+  if (!ticket) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-bg p-6">
+        <div className="text-center">
+          <p className="text-[14px] text-ink-3">Ticket not found.</p>
+          <Link href="/app/tickets" className="mt-3 inline-flex items-center gap-1 text-[13px] text-ink-3 underline-offset-4 hover:underline">
+            <Icon name="chevL" size={14} /> My tickets
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const capMinor = Math.round(ticket.faceMinor * capRate);
-  const [askMinor, setAskMinor] = React.useState(45000); // E450 starting ask
   const feeMinor = Math.round(askMinor * feeRate);
   const payoutMinor = askMinor - feeMinor;
 

@@ -1,22 +1,6 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { getDemoSessionFromCookie } from "@/lib/demo-auth"
-import { DEMO_EVENTS, DEMO_VENUES } from "@/lib/demo-data"
 
 export async function getScannableEvents() {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    return DEMO_EVENTS.map((e) => {
-      const venue = DEMO_VENUES.find((v) => v.id === e.venue_id)
-      return {
-        id: e.id,
-        title: e.title,
-        starts_at: e.starts_at,
-        venue_name: venue?.name || null,
-      }
-    })
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
 
@@ -74,12 +58,6 @@ export async function validateTicketScan(input: {
 }
 
 export async function getScanHistory(params: { eventId: string; limit?: number }) {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    return []
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
 

@@ -1,6 +1,4 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { getDemoSessionFromCookie } from "@/lib/demo-auth"
-import { DEMO_TICKET_TYPES } from "@/lib/demo-data"
 import type { OrderRecord, OrderItemRecord } from "@/types"
 
 export async function createOrder(input: {
@@ -28,67 +26,6 @@ export async function createOrder(input: {
     currency: string
   }
 }> {
-  const demoSession = await getDemoSessionFromCookie()
-
-  // Demo mode
-  if (demoSession) {
-    const orderId = `demo-order-${Date.now()}`
-
-    // Calculate pricing
-    let subtotalCents = 0
-    const mockItems: OrderItemRecord[] = []
-
-    for (let i = 0; i < input.items.length; i++) {
-      const item = input.items[i]
-      const ticketType = DEMO_TICKET_TYPES.find((t) => t.id === item.ticket_type_id)
-      const unitPrice = ticketType?.price_cents || 0
-      const itemTotal = unitPrice * item.quantity
-
-      subtotalCents += itemTotal
-
-      mockItems.push({
-        id: `demo-item-${Date.now()}-${i}`,
-        order_id: orderId,
-        ticket_type_id: item.ticket_type_id,
-        ticket_code: `DEMO-${Date.now()}-${i}`,
-        status: "issued",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      } as unknown as OrderItemRecord)
-    }
-
-    const feeCents = Math.floor(subtotalCents * 0.05) // 5% platform fee
-    const discountCents = 0 // TODO: Apply promo code
-    const totalCents = subtotalCents + feeCents - discountCents
-
-    const mockOrder: OrderRecord = {
-      id: orderId,
-      org_id: "demo-org",
-      buyer_id: input.purchaser_id,
-      buyer_email: input.purchaser_email,
-      status: "pending",
-      channel: (input.channel as any) || "online",
-      subtotal_cents: subtotalCents,
-      total_cents: totalCents,
-      platform_fee_cents: feeCents,
-      currency: "USD",
-      created_at: new Date().toISOString(),
-    }
-
-    return {
-      order: mockOrder,
-      items: mockItems,
-      pricing_breakdown: {
-        subtotal_cents: subtotalCents,
-        fee_cents: feeCents,
-        discount_cents: discountCents,
-        total_cents: totalCents,
-        currency: "USD",
-      },
-    }
-  }
-
-  // Production mode - Supabase
   const supabase = await createServerSupabaseClient()
   if (!supabase) throw new Error("Supabase not configured")
 
@@ -176,27 +113,6 @@ export async function applyPromoCode(
   type: "percentage" | "fixed" | "free"
   message?: string
 }> {
-  const demoSession = await getDemoSessionFromCookie()
-
-  // Demo mode
-  if (demoSession) {
-    if (code.toUpperCase() === "DEMO10") {
-      return {
-        is_valid: true,
-        discount_cents: Math.floor(orderDraft.subtotal_cents * 0.1),
-        type: "percentage",
-        message: "10% off applied!",
-      }
-    }
-    return {
-      is_valid: false,
-      discount_cents: 0,
-      type: "fixed",
-      message: "Invalid promo code",
-    }
-  }
-
-  // Production mode - Supabase
   const supabase = await createServerSupabaseClient()
   if (!supabase) return { is_valid: false, discount_cents: 0, type: "fixed", message: "Service unavailable" }
   const { data: priceRule, error } = await supabase
@@ -259,21 +175,6 @@ export async function createPayment(
   amount_cents: number
   currency: string
 }> {
-  const demoSession = await getDemoSessionFromCookie()
-
-  // Demo mode
-  if (demoSession) {
-    const paymentId = `demo-payment-${Date.now()}`
-    return {
-      payment_id: paymentId,
-      provider_reference: `ref-${paymentId}`,
-      checkout_url: `/checkout/success?order_id=${orderId}`,
-      amount_cents: 5000,
-      currency: "USD",
-    }
-  }
-
-  // Production mode - Supabase
   const supabase = await createServerSupabaseClient()
   if (!supabase) throw new Error("Supabase not configured")
 
@@ -312,19 +213,6 @@ export async function verifyPayment(reference: string): Promise<{
   amount_cents: number
   currency: string
 }> {
-  const demoSession = await getDemoSessionFromCookie()
-
-  // Demo mode
-  if (demoSession) {
-    return {
-      status: "succeeded",
-      order_id: reference.replace("ref-demo-payment-", "demo-order-"),
-      amount_cents: 5000,
-      currency: "USD",
-    }
-  }
-
-  // Production mode - Supabase
   const supabase = await createServerSupabaseClient()
   if (!supabase) throw new Error("Supabase not configured")
 
@@ -352,48 +240,6 @@ export async function previewOrder(input: {
   channel?: string
   promoCode?: string
 }) {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    let subtotalCents = 0
-    const lineItems = []
-
-    for (const item of input.items) {
-      const tt = DEMO_TICKET_TYPES.find((t) => t.id === item.ticket_type_id)
-      if (!tt) throw new Error(`Ticket type ${item.ticket_type_id} not found`)
-
-      const itemTotal = tt.price_cents * item.quantity
-      subtotalCents += itemTotal
-
-      lineItems.push({
-        ticket_type_id: item.ticket_type_id,
-        ticket_type_name: tt.name,
-        quantity: item.quantity,
-        unit_price_cents: tt.price_cents,
-        subtotal_cents: itemTotal,
-      })
-    }
-
-    const feeCents = Math.floor(subtotalCents * 0.05)
-    const discountCents = input.promoCode?.toUpperCase() === "DEMO10" ? Math.floor(subtotalCents * 0.1) : 0
-    const totalCents = subtotalCents + feeCents - discountCents
-
-    return {
-      subtotal_cents: subtotalCents,
-      fee_cents: feeCents,
-      discount_cents: discountCents,
-      total_cents: totalCents,
-      currency: "USD",
-      line_items: lineItems,
-      adjustments: [
-        { type: "platform_fee", amount_cents: feeCents, label: "Platform Fee" },
-        ...(discountCents > 0
-          ? [{ type: "promo_discount", amount_cents: -discountCents, label: "Promo Discount" }]
-          : []),
-      ],
-    }
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) throw new Error("Supabase not configured")
 
@@ -470,27 +316,6 @@ export async function validatePromoCode(input: {
   channel?: string
   items: Array<{ ticket_type_id: string; quantity: number }>
 }) {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    if (input.code.toUpperCase() === "DEMO10") {
-      return {
-        is_valid: true,
-        discount_cents: 0, // Caller should calculate
-        type: "percentage" as const,
-        value: 10,
-        message: "10% off applied!",
-      }
-    }
-    return {
-      is_valid: false,
-      discount_cents: 0,
-      type: "percentage" as const,
-      value: 0,
-      message: "Invalid promo code",
-    }
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) throw new Error("Supabase not configured")
 

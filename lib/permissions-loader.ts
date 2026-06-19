@@ -3,7 +3,6 @@
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import type { OrgMembership, EventStaff, Permissions } from "@/lib/rbac"
-import { getDemoSession } from "@/lib/demo-auth"
 
 export interface UserAuthzData {
   userId: string
@@ -19,12 +18,6 @@ export interface UserAuthzData {
  * Should be called once per session/request to build the permission context
  */
 export async function loadUserPermissions(userId: string): Promise<UserAuthzData | null> {
-  // Check demo session first
-  const demoUser = getDemoSession()
-  if (demoUser && demoUser.id === userId) {
-    return buildDemoUserAuthz(userId, demoUser)
-  }
-
   const supabase = createServerSupabaseClient()
   if (!supabase) return null
 
@@ -105,49 +98,6 @@ export async function loadUserPermissions(userId: string): Promise<UserAuthzData
   } catch (error) {
     console.error("[v0] Error loading user permissions:", error)
     return null
-  }
-}
-
-/**
- * Build demo user authorization context
- */
-function buildDemoUserAuthz(userId: string, demoUser: any): UserAuthzData {
-  const isOrgAdmin = demoUser.role === "organizer" || demoUser.role === "admin"
-  const isGlobalAdmin = demoUser.role === "admin"
-
-  const orgMemberships: OrgMembership[] = isOrgAdmin
-    ? [
-        {
-          org_id: demoUser.org_id || "demo-org-1",
-          role: demoUser.role === "admin" ? "admin" : ("organizer" as const),
-          created_at: new Date().toISOString(),
-        },
-      ]
-    : []
-
-  return {
-    userId,
-    profile: {
-      user_id: demoUser.id,
-      display_name: demoUser.full_name ?? demoUser.display_name ?? null,
-    },
-    permissions: {
-      isGlobalAdmin,
-      orgMemberships,
-      eventAccessByEventId: isOrgAdmin
-        ? {
-            "demo-event-1": isGlobalAdmin ? ("admin" as const) : ("organizer" as const),
-            "demo-event-2": isGlobalAdmin ? ("admin" as const) : ("organizer" as const),
-          }
-        : {},
-      eventOrgByEventId: isOrgAdmin
-        ? {
-            "demo-event-1": demoUser.org_id || "demo-org-1",
-            "demo-event-2": demoUser.org_id || "demo-org-1",
-          }
-        : {},
-      activeOrgId: demoUser.org_id || "demo-org-1",
-    },
   }
 }
 

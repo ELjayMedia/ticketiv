@@ -1,12 +1,10 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
-import { cookies } from "next/headers"
 import Link from "next/link"
 
 import { Button } from "@/components/quiet/ui/button"
 import { Card, CardBody } from "@/components/quiet/ui/card"
 import { Icon } from "@/components/quiet/ui/icon"
-import { getDemoOrganization } from "@/lib/demo-data"
 
 export const dynamic = "force-dynamic"
 
@@ -24,46 +22,28 @@ interface PricingPlan {
 
 export default async function PricingPlansPage({ params }: { params: { orgId: string } }) {
   const { orgId } = params
-  const cookieStore = await cookies()
-  const demoSessionCookie = cookieStore.get("demo_session")
 
-  let org: any = null
-  let pricingPlans: PricingPlan[] = []
+  const supabase = createServerSupabaseClient()
+  if (!supabase) return redirect("/login")
 
-  if (demoSessionCookie) {
-    try {
-      org = getDemoOrganization(orgId)
-      if (!org) return redirect("/403")
-      pricingPlans = [
-        { id: "starter", active: true, currency: "SZL", effective_from: new Date().toISOString(), platform_percent_bps: 500, platform_fixed_cents: 0, platform_fee_payer: "buyer", processor_percent_bps: 150, processor_fixed_cents: 0 },
-        { id: "pro", active: true, currency: "SZL", effective_from: new Date().toISOString(), platform_percent_bps: 250, platform_fixed_cents: 0, platform_fee_payer: "buyer", processor_percent_bps: 150, processor_fixed_cents: 0 },
-      ]
-    } catch {
-      /* fall through */
-    }
-  } else {
-    const supabase = createServerSupabaseClient()
-    if (!supabase) return redirect("/login")
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  if (!session) return redirect("/login")
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-    if (!session) return redirect("/login")
+  const { data: orgData } = await supabase
+    .from("organizations")
+    .select("id, name")
+    .eq("id", orgId)
+    .maybeSingle()
+  if (!orgData) return redirect("/403")
+  const org = orgData
 
-    const { data: orgData } = await supabase
-      .from("organizations")
-      .select("id, name")
-      .eq("id", orgId)
-      .maybeSingle()
-    if (!orgData) return redirect("/403")
-    org = orgData
-
-    const { data: plans = [] } = await supabase
-      .from("pricing_plans")
-      .select("id, active, currency, effective_from, platform_percent_bps, platform_fixed_cents, platform_fee_payer, processor_percent_bps, processor_fixed_cents")
-      .eq("org_id", orgId)
-    pricingPlans = (plans ?? []) as PricingPlan[]
-  }
+  const { data: plans = [] } = await supabase
+    .from("pricing_plans")
+    .select("id, active, currency, effective_from, platform_percent_bps, platform_fixed_cents, platform_fee_payer, processor_percent_bps, processor_fixed_cents")
+    .eq("org_id", orgId)
+  const pricingPlans = (plans ?? []) as PricingPlan[]
 
   return (
     <main className="flex-1 overflow-auto">

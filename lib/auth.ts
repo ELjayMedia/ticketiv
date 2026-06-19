@@ -1,6 +1,5 @@
 import { unstable_noStore as noStore } from "next/cache"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { getDemoSession, clearDemoSession } from "@/lib/demo-auth"
 import { isUserAdmin } from "@/lib/data/admin"
 
 export interface UserProfile {
@@ -64,20 +63,6 @@ export async function getCurrentUserProfile(): Promise<UserSession | null> {
   // if cookies() throws DYNAMIC_SERVER_USAGE instead of letting it propagate.
   noStore()
 
-  const demoUser = getDemoSession()
-  if (demoUser) {
-    return {
-      session: { user: { id: demoUser.id, email: demoUser.email } },
-      profile: {
-        id: demoUser.id,
-        email: demoUser.email,
-        full_name: demoUser.full_name,
-        role: demoUser.role,
-        created_at: demoUser.created_at,
-      },
-    }
-  }
-
   const supabase = createServerSupabaseClient()
 
   if (!supabase) {
@@ -120,13 +105,6 @@ export async function getCurrentUserProfile(): Promise<UserSession | null> {
 }
 
 export async function getUserWorkspace(): Promise<"public" | "app" | "organizer" | "scanner"> {
-  const demoUser = getDemoSession()
-  if (demoUser) {
-    if (demoUser.role === "organizer") return "organizer"
-    if (demoUser.role === "staff") return "scanner"
-    return "app"
-  }
-
   const userProfile = await getCurrentUserProfile()
 
   if (!userProfile?.profile) return "public"
@@ -163,24 +141,7 @@ export async function getUserWorkspace(): Promise<"public" | "app" | "organizer"
   }
 }
 
-/**
- * LOGOUT & SESSION INVALIDATION
- * 
- * When user logs out:
- * 1. Demo session is immediately cleared from memory
- * 2. Supabase auth.signOut() is called from client (removes all session cookies)
- * 3. Subsequent requests to protected routes will have no valid session
- * 4. User is redirected to login page
- * 5. Protected pages check for session and redirect if missing
- */
 export async function signOutUser(): Promise<{ success: boolean; error?: string }> {
-  const demoUser = getDemoSession()
-  if (demoUser) {
-    clearDemoSession()
-    console.log("[v0] Demo session cleared on logout")
-    return { success: true }
-  }
-
   console.warn("[v0] signOutUser called from server - should use client-side supabase.auth.signOut()")
   return { success: false, error: "Call supabase.auth.signOut() from client components" }
 }

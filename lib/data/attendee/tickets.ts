@@ -3,16 +3,9 @@
 // ownership + status are validated server-side.
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { getDemoSessionFromCookie } from "@/lib/demo-auth"
-import { getDemoUserTickets, getDemoTicketDetail } from "@/lib/demo-data"
 import { MyTicketsViewSchema, validateSchema, type MyTicketsView } from "@/lib/schemas/views"
 
 export async function getMyTickets(): Promise<MyTicketsView[]> {
-  const demoSession = await getDemoSessionFromCookie()
-  if (demoSession) {
-    return getDemoUserTickets(demoSession.id) as unknown as MyTicketsView[]
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
 
@@ -35,11 +28,6 @@ export async function getMyTickets(): Promise<MyTicketsView[]> {
 }
 
 export async function getTicketById(orderItemId: string): Promise<MyTicketsView | null> {
-  const demoSession = await getDemoSessionFromCookie()
-  if (demoSession) {
-    return getDemoTicketDetail(orderItemId) as unknown as MyTicketsView | null
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return null
 
@@ -75,9 +63,6 @@ export async function acceptTransfer(transferId: string) {
 }
 
 export async function listTransfers(params?: { status?: "pending" | "accepted" | "declined" | "cancelled" | "completed" | "requested" }) {
-  const demoSession = await getDemoSessionFromCookie()
-  if (demoSession) return []
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
 

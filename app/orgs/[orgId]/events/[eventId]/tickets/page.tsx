@@ -1,13 +1,11 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
-import { cookies } from "next/headers"
 import Link from "next/link"
 
 import { Button } from "@/components/quiet/ui/button"
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
-import { getDemoEventById } from "@/lib/demo-data"
 import { DeleteTicketTypeButton } from "./_components/delete-ticket-type-button"
 import { ToggleSalesStatusButton } from "./_components/toggle-sales-status-button"
 
@@ -15,47 +13,29 @@ export const dynamic = "force-dynamic"
 
 export default async function TicketsPage({ params }: { params: { orgId: string; eventId: string } }) {
   const { orgId, eventId } = params
-  const cookieStore = await cookies()
-  const demoSessionCookie = cookieStore.get("demo_session")
 
-  let event: any = null
-  let ticketTypes: any[] = []
+  const supabase = createServerSupabaseClient()
+  if (!supabase) return redirect("/login")
 
-  if (demoSessionCookie) {
-    try {
-      event = getDemoEventById(eventId)
-      if (!event) return redirect("/403")
-      ticketTypes = [
-        { id: "general", name: "General Admission", price_cents: 12900, quota: 100, per_user_limit: 5, sales_status: "on_sale" },
-        { id: "vip", name: "VIP", price_cents: 29900, quota: 20, per_user_limit: 2, sales_status: "on_sale" },
-      ]
-    } catch {
-      /* fall through */
-    }
-  } else {
-    const supabase = createServerSupabaseClient()
-    if (!supabase) return redirect("/login")
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  if (!session) return redirect("/login")
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-    if (!session) return redirect("/login")
+  const { data: eventData } = await supabase
+    .from("events")
+    .select("id, title")
+    .eq("id", eventId)
+    .eq("org_id", orgId)
+    .maybeSingle()
+  if (!eventData) return redirect("/403")
+  const event = eventData
 
-    const { data: eventData } = await supabase
-      .from("events")
-      .select("id, title")
-      .eq("id", eventId)
-      .eq("org_id", orgId)
-      .maybeSingle()
-    if (!eventData) return redirect("/403")
-    event = eventData
-
-    const { data: types = [] } = await supabase
-      .from("ticket_types")
-      .select("id, name, price_cents, quota, per_user_limit, sales_status")
-      .eq("event_id", eventId)
-    ticketTypes = types ?? []
-  }
+  const { data: types = [] } = await supabase
+    .from("ticket_types")
+    .select("id, name, price_cents, quota, per_user_limit, sales_status")
+    .eq("event_id", eventId)
+  const ticketTypes = types ?? []
 
   return (
     <main className="flex-1 overflow-auto">

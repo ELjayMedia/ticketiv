@@ -1,7 +1,6 @@
 import type React from "react"
 import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { getDemoSession } from "@/lib/demo-auth"
 
 /**
  * Admin layout
@@ -9,20 +8,7 @@ import { getDemoSession } from "@/lib/demo-auth"
  * This is the defense-in-depth check on top of middleware
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const demoUser = getDemoSession()
-
-  // Demo mode check
-  if (demoUser) {
-    if (demoUser.role !== "admin") {
-      console.warn("[v0] Demo user without admin role attempting admin access:", demoUser.email)
-      return redirect("/403")
-    }
-
-    console.log("[v0] Demo admin access granted:", demoUser.email)
-    return <>{children}</>
-  }
-
-  // Production: verify global admin status server-side
+  // Verify global admin status server-side
   const supabase = createServerSupabaseClient()
   if (!supabase) {
     return redirect("/login")

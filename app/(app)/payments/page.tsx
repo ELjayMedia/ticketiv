@@ -21,9 +21,7 @@ export default async function PaymentsPage() {
     redirect("/login")
   }
 
-  let payments: any[] = []
-
-  const { data: paymentsData, error: paymentsError } = await supabase
+  const { data: paymentsData } = await supabase
     .from("payments")
     .select(`
       id,
@@ -33,19 +31,17 @@ export default async function PaymentsPage() {
       created_at,
       orders!inner(id, buyer_id)
     `)
-    .eq("orders.buyer_id", session.user.id)
+    .eq("orders.buyer_id", session!.user.id)
     .order("created_at", { ascending: false })
 
-  if (!paymentsError && paymentsData) {
-    payments = paymentsData.map((payment: any) => ({
-      ...payment,
-      amount: payment.amount_cents,
-      order: {
-        id: payment.orders?.id,
-        event_title: "Order #" + (payment.orders?.id?.slice(0, 8) ?? "unknown"),
-      },
-    }))
-  }
+  const payments = (paymentsData ?? []).map((payment: any) => ({
+    ...payment,
+    amount: payment.amount_cents,
+    order: {
+      id: payment.orders?.id,
+      event_title: "Order #" + (payment.orders?.id?.slice(0, 8) ?? "unknown"),
+    },
+  }))
 
   return (
     <main className="mx-auto flex w-full max-w-[980px] flex-col gap-6 px-4 py-8 lg:px-6 lg:py-10">

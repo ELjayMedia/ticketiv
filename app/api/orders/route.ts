@@ -2,16 +2,11 @@ import { NextResponse } from "next/server"
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { createOrder, getOrdersForUser } from "@/lib/orders"
-import { getDemoSessionFromCookie } from "@/lib/demo-auth"
 
 export async function GET() {
   const supabase = createServerSupabaseClient()
 
   if (!supabase) {
-    const demoSession = await getDemoSessionFromCookie()
-    if (demoSession) {
-      return NextResponse.json({ orders: [] })
-    }
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -40,37 +35,7 @@ export async function POST(request: Request) {
     const supabase = createServerSupabaseClient()
 
     if (!supabase) {
-      const demoSession = await getDemoSessionFromCookie()
-      if (!demoSession) {
-        return NextResponse.json({ error: "Unauthorized - Please log in" }, { status: 401 })
-      }
-
-      // Return mock success response for demo mode
-      return NextResponse.json(
-        {
-          order: {
-            id: `order_demo_${Date.now()}`,
-            event_id: body.eventId,
-            purchaser_id: demoSession.id,
-            purchaser_email: body.email,
-            purchaser_first_name: body.firstName,
-            purchaser_last_name: body.lastName,
-            status: "completed",
-            total_amount: 0,
-            currency: "ZAR",
-            created_at: new Date().toISOString(),
-          },
-          items: [],
-          pricing: {
-            subtotal: 0,
-            fees: 0,
-            total: 0,
-            currency: "ZAR",
-            lineItems: [],
-          },
-        },
-        { status: 201 },
-      )
+      return NextResponse.json({ error: "Unauthorized - Please log in" }, { status: 401 })
     }
 
     const {

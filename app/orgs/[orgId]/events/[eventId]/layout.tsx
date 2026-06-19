@@ -1,8 +1,6 @@
 import type React from "react"
 import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { getDemoSession } from "@/lib/demo-auth"
-import { getDemoEventById } from "@/lib/demo-data"
 
 /**
  * Event edit layout
@@ -17,15 +15,6 @@ export default async function EventEditLayout({
   children: React.ReactNode
 }) {
   const { orgId, eventId } = params
-
-  const demoUser = getDemoSession()
-  if (demoUser) {
-    if (demoUser.role !== "organizer" && demoUser.role !== "staff") {
-      return redirect("/403")
-    }
-    console.log("[v0] Demo user event edit access granted:", eventId)
-    return <>{children}</>
-  }
 
   const supabase = createServerSupabaseClient()
   if (!supabase) {

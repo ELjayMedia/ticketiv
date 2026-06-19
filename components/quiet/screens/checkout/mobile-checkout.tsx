@@ -59,11 +59,6 @@ export interface MobileCheckoutProps {
   defaultBuyerEmail?: string;
 }
 
-const DEFAULT_PAYMENTS = [
-  { id: "card", label: "•••• •••• •••• 4242", sub: "Exp 12/27 · Visa", type: "card" as const },
-  { id: "momo", label: "MTN MoMo", sub: "Pay from your phone", type: "mobile_money" as const },
-  { id: "eft", label: "DeltaPay EFT", sub: "Bank-to-bank", type: "ewallet" as const },
-];
 
 export function MobileCheckout({
   eventId,
@@ -74,7 +69,7 @@ export function MobileCheckout({
   eventVenue,
   holdSeconds = 522,
   ticketTypes,
-  paymentMethods = DEFAULT_PAYMENTS,
+  paymentMethods = [],
   appliedPromo,
   bookingFeeMinor = 10000,
   vatRate = 0.15,
@@ -115,12 +110,16 @@ export function MobileCheckout({
   async function handleApplyPromo() {
     const code = promoInput.trim().toUpperCase();
     if (!code) return;
+    if (!buyerEmail.trim()) {
+      setPromoFeedback({ ok: false, message: "Enter your email to apply a promo code." });
+      return;
+    }
     setIsApplyingPromo(true);
     setPromoFeedback(null);
     try {
       const result = await startCheckoutAction({
         eventId: eventUuid,
-        buyerEmail: buyerEmail.trim() || "promo-check@placeholder.invalid",
+        buyerEmail: buyerEmail.trim(),
         items: [{ ticketTypeId: ticketTypeId ?? "", quantity }],
         promoCode: code,
       });

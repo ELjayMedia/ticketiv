@@ -12,7 +12,6 @@ import {
   Segmented,
 } from "@/components/quiet/ui/primitives";
 import { Button } from "@/components/quiet/ui/button";
-import { PHOTOS } from "@/lib/photos";
 import { formatPrice } from "@/lib/format";
 
 /* ──────────────────────────────────────────────────────────────
@@ -37,6 +36,7 @@ interface FriendsScreenProps {
   suggested?: SuggestedFriend[];
   inviteLink?: string;
   inviteReward?: string;
+  requests?: { id: string; name: string; photo: string; mutualLabel: string }[];
 }
 
 interface FriendRow {
@@ -74,47 +74,18 @@ interface SuggestedFriend {
   mutualLabel: string;
 }
 
-const DEFAULT_PROPS: Required<FriendsScreenProps> = {
-  totalFriends: 10,
-  pendingRequests: 3,
-  goingTogether: {
-    eventId: "tribal-tales",
-    eventTitle: "Tribal Tales",
-    whenLabel: "Wed 30",
-    fromPriceMinor: 50000,
-    friendPhotos: [PHOTOS.face_1, PHOTOS.face_2, PHOTOS.face_3],
-    friendNames: ["Farah", "Salman"],
-    totalCount: 3,
-  },
-  friends: [
-    { id: "f1", name: "Farah K.", photo: PHOTOS.face_2, handle: "farah", mutualLabel: "2 shared events" },
-    { id: "f2", name: "Salman R.", photo: PHOTOS.face_3, handle: "salman", mutualLabel: "1 shared event" },
-    { id: "f3", name: "Vicky Kausal", photo: PHOTOS.face_4, handle: null, mutualLabel: "No shared events yet" },
-  ],
-  activity: [
-    { id: "a1", name: "Farah", photo: PHOTOS.face_2, action: "booked", what: "Indie Showcase", whenAgo: "2h", icon: "ticket" },
-    { id: "a2", name: "Salman", photo: PHOTOS.face_3, action: "is going to", what: "Tribal Tales", whenAgo: "5h", icon: "spark" },
-    { id: "a3", name: "Vicky", photo: PHOTOS.face_4, action: "rated", what: "Open Mic Friday · ★★★★★", whenAgo: "1d", icon: "heart" },
-    { id: "a4", name: "Asha", photo: PHOTOS.face_7, action: "saved", what: "Sunset Set", whenAgo: "1d", icon: "heart" },
-    { id: "a5", name: "Amir", photo: PHOTOS.face_5, action: "is following", what: "Comedy Co.", whenAgo: "2d", icon: "plus" },
-  ],
-  suggested: [
-    { id: "s1", name: "Vicky Kausal", photo: PHOTOS.face_4, mutualLabel: "3 mutual" },
-    { id: "s2", name: "Rishi K.", photo: PHOTOS.face_6, mutualLabel: "5 mutual" },
-    { id: "s3", name: "Priya P.", photo: PHOTOS.face_8, mutualLabel: "1 mutual" },
-  ],
-  inviteLink: "ticketiv.com/r/smit",
-  inviteReward: "get E100 off when 3 join",
-};
-
-const DEFAULT_REQUESTS = [
-  { id: "r1", name: "Asha Patel", photo: PHOTOS.face_7, mutualLabel: "4 mutual" },
-  { id: "r2", name: "Kiran D.", photo: PHOTOS.face_5, mutualLabel: "2 mutual" },
-  { id: "r3", name: "Meera V.", photo: PHOTOS.face_8, mutualLabel: "1 mutual" },
-];
-
-export function FriendsScreen(props: FriendsScreenProps = {}) {
-  const cfg = { ...DEFAULT_PROPS, ...props };
+export function FriendsScreen({
+  totalFriends = 0,
+  pendingRequests = 0,
+  goingTogether = null,
+  activity = [],
+  friends = [],
+  suggested = [],
+  inviteLink = "",
+  inviteReward = "",
+  requests = [],
+}: FriendsScreenProps = {}) {
+  const cfg = { totalFriends, pendingRequests, goingTogether, activity, friends, suggested, inviteLink, inviteReward };
   const [tab, setTab] = React.useState<Tab>("activity");
   const [copied, setCopied] = React.useState(false);
   const [searchOpen, setSearchOpen] = React.useState(false);
@@ -368,7 +339,7 @@ export function FriendsScreen(props: FriendsScreenProps = {}) {
                 {cfg.pendingRequests} pending request{cfg.pendingRequests === 1 ? "" : "s"}
               </div>
               <ul className="flex flex-col gap-2">
-                {DEFAULT_REQUESTS.slice(0, cfg.pendingRequests).map((r) => {
+                {requests.slice(0, cfg.pendingRequests).map((r) => {
                   const accepted = acceptedRequests.has(r.id);
                   const declined = declinedRequests.has(r.id);
                   if (declined) return null;

@@ -1,6 +1,4 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { getDemoSessionFromCookie } from "@/lib/demo-auth"
-import { DEMO_ORDERS, DEMO_ORDER_ITEMS } from "@/lib/demo-data"
 
 export async function getUserTickets(userId: string): Promise<
   Array<{
@@ -24,14 +22,6 @@ export async function getUserTickets(userId: string): Promise<
     } | null
   }>
 > {
-  const demoSession = await getDemoSessionFromCookie()
-
-  // Demo mode
-  if (demoSession && demoSession.id === userId) {
-    return DEMO_ORDER_ITEMS.filter((i) => i.buyer_id === userId)
-  }
-
-  // Production mode - Supabase
   const supabase = await createServerSupabaseClient()
   if (!supabase) throw new Error("Supabase not configured")
   const { data, error } = await supabase
@@ -66,14 +56,6 @@ export async function getTicketById(ticketId: string): Promise<{
   ticket_type: any
   order: any
 } | null> {
-  const demoSession = await getDemoSessionFromCookie()
-
-  // Demo mode
-  if (demoSession) {
-    return DEMO_ORDER_ITEMS.find((i) => i.id === ticketId)
-  }
-
-  // Production mode - Supabase
   const supabase = await createServerSupabaseClient()
   if (!supabase) return null
   const { data, error } = await supabase
@@ -127,17 +109,6 @@ export async function getUserOrders(userId: string): Promise<
     }>
   }>
 > {
-  const demoSession = await getDemoSessionFromCookie()
-
-  // Demo mode
-  if (demoSession && demoSession.id === userId) {
-    return DEMO_ORDERS.filter((o) => o.buyer_id === userId).map((order) => ({
-      ...order,
-      order_items: DEMO_ORDER_ITEMS.filter((i) => i.order_id === order.id),
-    }))
-  }
-
-  // Production mode - Supabase
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
   const { data, error } = await supabase
@@ -192,19 +163,6 @@ export async function getEventOrders(
     }>
   }>
 > {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    let orders = DEMO_ORDERS.filter((o) => o.event_id === eventId)
-    if (filters?.status) {
-      orders = orders.filter((o) => o.status === filters.status)
-    }
-    return orders.map((order) => ({
-      ...order,
-      order_items: DEMO_ORDER_ITEMS.filter((i) => i.order_id === order.id),
-    }))
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
 
@@ -237,12 +195,6 @@ export async function getOrderPayments(orderId: string): Promise<
     updated_at: string
   }>
 > {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    return []
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
 
@@ -307,20 +259,6 @@ export async function createOrder(input: {
 }
 
 export async function getOrderById(orderId: string): Promise<any | null> {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    const order = DEMO_ORDERS.find((o) => o.id === orderId)
-    if (!order) return null
-
-    return {
-      ...order,
-      order_items: DEMO_ORDER_ITEMS.filter((i) => i.order_id === orderId),
-      order_adjustments: [],
-      payments: [],
-    }
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return null
 
@@ -394,15 +332,6 @@ export async function getMyOrders(): Promise<
     }>
   }>
 > {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    return DEMO_ORDERS.filter((o) => o.buyer_id === demoSession.id).map((order) => ({
-      ...order,
-      order_items: DEMO_ORDER_ITEMS.filter((i) => i.order_id === order.id),
-    }))
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
 

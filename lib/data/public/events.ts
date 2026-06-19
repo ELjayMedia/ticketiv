@@ -13,8 +13,6 @@
 
 import { getPublicEventsList, getPublicEventBySlug } from "@/lib/adapters/events"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { getDemoSessionFromCookie } from "@/lib/demo-auth"
-import { DEMO_EVENTS, DEMO_VENUES, DEMO_TICKET_TYPES, getDemoEventById } from "@/lib/demo-data"
 import type { EventSummary, EventDetail } from "@/types"
 
 // Re-export the new adapter functions for migration
@@ -106,51 +104,6 @@ export async function getEventBySlug(slug: string): Promise<EventDetail | null> 
  * @deprecated Use getPublicEventBySlug() instead
  */
 export async function getEventById(eventId: string): Promise<EventDetail | null> {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    const event = getDemoEventById(eventId)
-    if (!event) return null
-
-    return {
-      id: event.id,
-      title: event.title,
-      slug: event.slug,
-      description: event.description,
-      city: event.venue?.city || null,
-      category: event.category,
-      venue_id: event.venue_id,
-      visibility: event.status,
-      venues: event.venue
-        ? {
-            id: event.venue.id,
-            name: event.venue.name,
-            address: event.venue.address_line1,
-            city: event.venue.city,
-            tz: event.venue.timezone,
-            capacity: event.venue.capacity,
-          }
-        : null,
-      event_dates: [{ id: `${event.id}-date`, starts_at: event.starts_at, ends_at: event.ends_at }],
-      ticket_types: event.ticket_types.map((t) => ({
-        id: t.id,
-        name: t.name,
-        price: t.price_cents,
-        currency: t.currency,
-        quantity_total: t.quantity_total,
-        quantity_remaining: t.quantity_remaining,
-        per_user_limit: null,
-        is_reserved_seating: false,
-        ticket_type_channels: [{ channel: "web", quota: t.quantity_total, per_order_limit: 10 }],
-      })),
-      event_artists:
-        event.artists?.map((a) => ({
-          role: a.role || "performer",
-          artists: { id: a.id, name: a.name, bio: a.bio, image_url: a.avatar_url, genre: null },
-        })) || [],
-    }
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return null
 
@@ -195,25 +148,6 @@ export async function getEventTicketTypes(
     }>
   }>
 > {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    const tickets = DEMO_TICKET_TYPES.filter((t) => t.event_id === eventId)
-    return tickets.map((t) => ({
-      id: t.id,
-      event_id: t.event_id,
-      name: t.name,
-      description: t.description || null,
-      price: t.price_cents,
-      currency: t.currency,
-      quantity_total: t.quantity_total,
-      quantity_remaining: t.quantity_remaining,
-      per_user_limit: null,
-      is_reserved_seating: false,
-      ticket_type_channels: [{ channel: "web", quota: t.quantity_total, per_order_limit: 10 }],
-    }))
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
 
@@ -250,13 +184,6 @@ export async function getEventTicketTypes(
  * LEGACY: getEventLineup
  */
 export async function getEventLineup(eventId: string) {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    const event = getDemoEventById(eventId)
-    return event?.artists || []
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
 

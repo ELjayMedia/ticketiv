@@ -2,8 +2,6 @@
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { EventKPIsViewSchema, type EventKPIsView } from "@/lib/schemas/views"
-import { getDemoOrganizerEvents } from "@/lib/demo-data"
-import { getDemoSessionFromCookie } from "@/lib/demo-auth"
 
 /**
  * Get KPI data for a single event (sales, check-ins, attendance rate)
@@ -11,13 +9,6 @@ import { getDemoSessionFromCookie } from "@/lib/demo-auth"
  * Validates: EventKPIsViewSchema
  */
 export async function getEventKPIs(eventId: string): Promise<EventKPIsView | null> {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    // Demo mode: synthesize KPI data from demo events
-    return getEventKPIsDemo(eventId)
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) {
     console.warn("[v0] Supabase not configured, cannot fetch event KPIs")
@@ -63,16 +54,6 @@ export async function getEventKPIs(eventId: string): Promise<EventKPIsView | nul
  * Validates: EventKPIsViewSchema[]
  */
 export async function getOrgEventKPIs(orgId: string): Promise<EventKPIsView[]> {
-  const demoSession = await getDemoSessionFromCookie()
-
-  if (demoSession) {
-    // Demo mode: get all demo events for org
-    const demoEvents = getDemoOrganizerEvents(orgId)
-    return demoEvents
-      .map((event: any) => getEventKPIsDemo(event.id))
-      .filter((kpi): kpi is EventKPIsView => kpi !== null)
-  }
-
   const supabase = await createServerSupabaseClient()
   if (!supabase) {
     console.warn("[v0] Supabase not configured, cannot fetch org KPIs")
@@ -108,25 +89,3 @@ export async function getOrgEventKPIs(orgId: string): Promise<EventKPIsView[]> {
   }
 }
 
-/**
- * Demo mode: synthesize KPI data from demo event
- */
-function getEventKPIsDemo(eventId: string): EventKPIsView | null {
-  // For demo, create synthetic KPI data
-  // In production, this would come from the v_event_kpis view
-  const totalTickets = Math.floor(Math.random() * 500) + 50
-  const checkedIn = Math.floor(totalTickets * (Math.random() * 0.7))
-  const revenue = totalTickets * 12950 // Average $129.50 per ticket
-
-  return {
-    org_id: "00000000-0000-0000-0000-000000000000",
-    event_id: eventId,
-    title: `Demo Event ${eventId.slice(0, 8)}`,
-    slug: `demo-event-${eventId.slice(0, 8)}`,
-    paid_orders: Math.floor(totalTickets * 0.9),
-    tickets_issued: totalTickets,
-    tickets_checked_in: checkedIn,
-    revenue_cents: revenue,
-    currency: "SZL",
-  }
-}
