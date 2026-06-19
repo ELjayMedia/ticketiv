@@ -7,7 +7,6 @@ import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
 import { Photo, Divider, QRPattern } from "@/components/quiet/ui/primitives";
 import { Button } from "@/components/quiet/ui/button";
-import { PHOTOS } from "@/lib/photos";
 
 /* ──────────────────────────────────────────────────────────────
  * `/tickets/[id]` — QR ticket view
@@ -60,28 +59,6 @@ interface TicketData {
   status?: TicketDisplayStatus;
 }
 
-const DEFAULT_SIBLING_IDS = ["tkt_demo_001", "tkt_demo_002"];
-
-const DEFAULT_TICKET: TicketData = {
-  id: "tkt_demo_001",
-  orderNumber: "RG7352",
-  positionLabel: "1 of 2",
-  totalInOrder: 2,
-  eventTitle: "Tribal Tales",
-  eventPhoto: PHOTOS.dj_set,
-  dateLabel: "30 Aug",
-  timeLabel: "15:50",
-  doorsLabel: "15:00",
-  holderName: "Prateek S.",
-  seatLabel: "C-4",
-  typeLabel: "Regular",
-  venueName: "Cafe Natarani",
-  venueAddress: "Shahibaug, Ahmedabad",
-  venueDistanceKm: 12,
-  qrCode: "TKT-9X2K-LM4P",
-  isValid: true,
-  status: "issued",
-};
 
 const STATUS_BADGE: Record<
   TicketDisplayStatus,
@@ -117,12 +94,28 @@ const STATUS_BADGE: Record<
   },
 };
 
-export function TicketView({ ticket = DEFAULT_TICKET, siblingIds = DEFAULT_SIBLING_IDS }: TicketViewProps) {
+export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
+  const router = useRouter();
+  const touchStartX = React.useRef<number | null>(null);
+  const [walletBusy, setWalletBusy] = React.useState(false);
+  const [walletMsg, setWalletMsg] = React.useState<string | null>(null);
+
+  if (!ticket) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-bg p-6">
+        <div className="text-center">
+          <p className="text-[14px] text-ink-3">Ticket not found.</p>
+          <Link href="/app/tickets" className="mt-3 inline-flex items-center gap-1 text-[13px] text-ink-3 underline-offset-4 hover:underline">
+            <Icon name="chevL" size={14} /> My tickets
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const status: TicketDisplayStatus = ticket.status ?? (ticket.isValid ? "issued" : "checked_in");
   const badge = STATUS_BADGE[status];
   const canTransferOrResell = status === "issued";
-  const router = useRouter();
-  const touchStartX = React.useRef<number | null>(null);
 
   const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(
     `${ticket.venueName} ${ticket.venueAddress}`
@@ -157,9 +150,6 @@ export function TicketView({ ticket = DEFAULT_TICKET, siblingIds = DEFAULT_SIBLI
       navigator.clipboard?.writeText(window.location.href).catch(() => {});
     }
   }
-
-  const [walletBusy, setWalletBusy] = React.useState(false);
-  const [walletMsg, setWalletMsg] = React.useState<string | null>(null);
 
   function handleSave() {
     window.print();
