@@ -4,18 +4,18 @@ import {
   calculateLineItemPricing,
   calculateOrderPricing,
   formatCurrency,
+  type PricingTicketType,
 } from "@/lib/pricing"
-import type { TicketTypeRecord } from "@/types"
 
-// Minimal ticket-type factory — only the fields pricing reads.
-function tt(overrides: Partial<TicketTypeRecord> = {}): TicketTypeRecord {
+// Minimal ticket-type factory — only the fields the preview calculator reads.
+function tt(overrides: Partial<PricingTicketType> = {}): PricingTicketType {
   return {
     id: "tt_1",
     price: 100,
     currency: "SZL",
     absorb_fees: false,
     ...overrides,
-  } as TicketTypeRecord
+  }
 }
 
 describe("calculateLineItemPricing", () => {

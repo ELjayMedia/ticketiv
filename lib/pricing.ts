@@ -1,4 +1,16 @@
-import type { TicketTypeRecord } from "@/types"
+// TICK-175 — this is the legacy client-side preview calculator (only
+// formatCurrency is consumed in the app today). It operates on a decimal
+// "price" + optional absorb_fees shape, which is NOT the DB TicketTypeRecord
+// (that stores price_cents and has no absorb_fees column). Decoupled into a
+// local interface so the dead preview math doesn't drag a wrong type onto the
+// DB record. See docs/TYPE_BURNDOWN.md — the cents-vs-units semantics need a
+// product decision before this module is wired to real checkout.
+export interface PricingTicketType {
+  id: string
+  price: number
+  currency: string
+  absorb_fees?: boolean | null
+}
 
 export interface FeeConfiguration {
   platformPercentFee: number
@@ -41,7 +53,7 @@ export interface PricingPreview {
 }
 
 export interface PreviewOrderInput {
-  items: Array<{ ticketType: TicketTypeRecord; quantity: number }>
+  items: Array<{ ticketType: PricingTicketType; quantity: number }>
   promoCode?: string
   eventId?: string
   currency?: string
@@ -49,7 +61,7 @@ export interface PreviewOrderInput {
 }
 
 export interface OrderPricingInput {
-  items: Array<{ ticketType: TicketTypeRecord; quantity: number }>
+  items: Array<{ ticketType: PricingTicketType; quantity: number }>
   currency?: string
   feeConfiguration?: Partial<FeeConfiguration>
 }
@@ -78,7 +90,7 @@ function roundCurrency(value: number) {
 }
 
 export function calculateLineItemPricing(
-  ticketType: TicketTypeRecord,
+  ticketType: PricingTicketType,
   quantity: number,
   configOverrides?: Partial<FeeConfiguration>,
 ): LineItemPricingBreakdown {
