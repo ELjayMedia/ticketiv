@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server"
 import { joinWaitlist } from "@/lib/waitlist"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { clientKey, rateLimit, tooManyRequests } from "@/lib/rate-limit"
 
 export async function POST(request: Request) {
   try {
+    const rl = await rateLimit("waitlist:join", clientKey(request), 10, 60)
+    if (!rl.allowed) return tooManyRequests(rl)
+
     const formData = await request.formData()
     const eventId = formData.get("eventId") as string
     const firstName = formData.get("firstName") as string

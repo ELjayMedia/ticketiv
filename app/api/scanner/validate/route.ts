@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { validateQrCode } from "@/lib/scanning"
+import { clientKey, rateLimit, tooManyRequests } from "@/lib/rate-limit"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export async function POST(request: Request) {
@@ -43,6 +44,9 @@ export async function POST(request: Request) {
       { status: 401 },
     )
   }
+
+  const rl = await rateLimit("scanner:validate", clientKey(request, session.user.id), 120, 60)
+  if (!rl.allowed) return tooManyRequests(rl)
 
   const body = await request.json()
 

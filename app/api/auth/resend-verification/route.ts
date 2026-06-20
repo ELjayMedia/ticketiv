@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { clientKey, rateLimit, tooManyRequests } from "@/lib/rate-limit"
 
 export async function POST(request: Request) {
   try {
+    const rl = await rateLimit("auth:resend-verification", clientKey(request), 5, 300)
+    if (!rl.allowed) return tooManyRequests(rl)
+
     const { email } = await request.json()
 
     if (!email) {
