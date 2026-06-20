@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  build:
+    name: Lint, typecheck & build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # The repo is pnpm-only (see CLAUDE.md). corepack pins pnpm to the
+      # version declared in package.json#packageManager (pnpm@10.28.0).
+      - name: Enable corepack (pnpm 10.28.0)
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      # TICK-175 will flip this step to blocking once the type errors on the
+      # money paths are burned down. Until then `tsc --noEmit` is informational
+      # only (continue-on-error) so CI surfaces the report without gating PRs.
+      - name: Typecheck (non-blocking — flips to blocking under TICK-175)
+        run: npx tsc --noEmit
+        continue-on-error: true
+
+      - name: Build
+        run: pnpm build
