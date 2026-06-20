@@ -13,7 +13,7 @@ interface MobileShellProps {
 }
 
 export function MobileShell({ children, user, workspace }: MobileShellProps) {
-  const pathname = usePathname()
+  const pathname = usePathname() ?? ""
 
   const isEventDetailPage = pathname.startsWith("/events/") && pathname !== "/events"
   const isCheckoutPage = pathname.includes("/checkout")

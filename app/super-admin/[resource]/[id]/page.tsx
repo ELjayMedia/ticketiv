@@ -79,12 +79,13 @@ export default async function SuperAdminEditResourcePage({
   const resource = getAdminResource(resourceKey)
 
   if (!resource) notFound()
+  const activeResource = resource
 
   const admin = createAdminClient()
   const { data, error } = await admin
-    .from(resource.table)
+    .from(activeResource.table as any)
     .select("*")
-    .eq(resource.primaryKey, id)
+    .eq(activeResource.primaryKey, id)
     .maybeSingle()
 
   if (error) throw new Error(error.message)
@@ -92,7 +93,7 @@ export default async function SuperAdminEditResourcePage({
 
   async function updateRecord(formData: FormData) {
     "use server"
-    await updateResourceAction(resource.key, id, formData)
+    await updateResourceAction(activeResource.key, id, formData)
   }
   async function publishEvent() { "use server"; await publishEventAction(id) }
   async function archiveEvent(formData: FormData) { "use server"; await archiveEventAction(id, formData) }
@@ -325,7 +326,7 @@ export default async function SuperAdminEditResourcePage({
           <CardBody className="p-5">
             <ResourceForm
               resource={resource}
-              record={data}
+              record={data as unknown as Record<string, unknown> | null}
               action={updateRecord}
               submitLabel="Save changes"
             />

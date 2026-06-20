@@ -28,7 +28,7 @@ export async function getWaitlistCheckoutPaymentStatus(paymentId: string | null)
     return null
   }
 
-  if (!data || data.payload?.kind !== "waitlist_checkout") return null
+  if (!data || (data.payload as { kind?: string } | null)?.kind !== "waitlist_checkout") return null
 
   return {
     paymentId: data.id,

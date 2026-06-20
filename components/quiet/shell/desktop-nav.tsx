@@ -32,7 +32,7 @@ export function DesktopNav({
   signedIn = false,
   displayName,
 }: DesktopNavProps) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
 
   return (
     <header className="border-b border-line bg-surface">

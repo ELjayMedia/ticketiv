@@ -36,9 +36,9 @@ export async function posCharge(input: ChargeInput): Promise<{ orderId: string }
       quantity: Math.max(1, Math.floor(i.quantity)),
     })),
     p_payment_method: input.method,
-    p_buyer_name: input.buyer.name,
-    p_buyer_email: null,
-    p_buyer_phone: input.buyer.phone,
+    p_buyer_name: input.buyer.name ?? undefined,
+    p_buyer_email: undefined,
+    p_buyer_phone: input.buyer.phone ?? undefined,
   })
 
   if (error) {

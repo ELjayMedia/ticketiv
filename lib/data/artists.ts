@@ -4,12 +4,12 @@ import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export interface Artist {
   id: string
-  org_id: string
+  org_id: string | null
   name: string
-  bio?: string
-  created_at?: string
-  updated_at?: string
-  primary_user_id?: string
+  bio?: string | null
+  created_at?: string | null
+  updated_at?: string | null
+  primary_user_id?: string | null
 }
 
 /**

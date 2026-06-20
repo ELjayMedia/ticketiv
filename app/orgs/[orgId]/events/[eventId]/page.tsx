@@ -45,14 +45,23 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
             <div className="h-64 w-full overflow-hidden">
               <img
                 src={event.cover_image_url}
-                alt={event.title}
+                alt={event.title ?? ""}
                 className="h-full w-full object-cover"
               />
             </div>
           </Card>
         )}
 
-        <EventManagementTabs eventId={eventId} orgId={orgId} event={event} />
+        <EventManagementTabs
+          eventId={eventId}
+          orgId={orgId}
+          event={{
+            id: event.id,
+            title: event.title ?? "",
+            date: event.starts_at ?? "",
+            status: event.status ?? "",
+          }}
+        />
       </div>
     </main>
   )

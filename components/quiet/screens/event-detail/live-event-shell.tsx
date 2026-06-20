@@ -36,16 +36,17 @@ export function LiveEventShell({ eventId, mobile, desktop, initialStats = null }
       recentSoldCount: desktop.recentSoldCount ?? null,
     }
 
+    const available = stats?.tickets_available
     if (
-      typeof stats?.tickets_available === "number" &&
-      Number.isFinite(stats.tickets_available) &&
-      baseDesktop.ticketTypes.length === 1
+      typeof available === "number" &&
+      Number.isFinite(available) &&
+      (baseDesktop.ticketTypes?.length ?? 0) === 1
     ) {
       return {
         ...baseDesktop,
-        ticketTypes: baseDesktop.ticketTypes.map((ticket) => ({
+        ticketTypes: (baseDesktop.ticketTypes ?? []).map((ticket) => ({
           ...ticket,
-          remaining: Math.max(0, stats.tickets_available),
+          remaining: Math.max(0, available),
         })),
       }
     }
@@ -54,8 +55,8 @@ export function LiveEventShell({ eventId, mobile, desktop, initialStats = null }
   }, [desktop, stats])
 
   const allTicketTypesSoldOut =
-    mergedDesktop.ticketTypes.length > 0 &&
-    mergedDesktop.ticketTypes.every((ticket) => ticket.remaining === 0)
+    (mergedDesktop.ticketTypes?.length ?? 0) > 0 &&
+    (mergedDesktop.ticketTypes ?? []).every((ticket) => ticket.remaining === 0)
 
   const liveSoldOut =
     typeof stats?.tickets_available === "number" &&

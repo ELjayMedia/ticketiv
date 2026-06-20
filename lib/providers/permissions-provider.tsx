@@ -66,7 +66,7 @@ function validateAndNormalizeActiveOrgId(
 
 export function PermissionsProvider({ children }: { children: React.ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null)
-  const [profile, setProfile] = useState<PermissionsContextType["profile"] & { default_org_id?: string | null }>(null)
+  const [profile, setProfile] = useState<(PermissionsContextType["profile"] & { default_org_id?: string | null }) | null>(null)
   const [permissions, setPermissions] = useState<Permissions | null>(null)
   const [activeOrgId, setActiveOrgIdState] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)

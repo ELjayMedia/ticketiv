@@ -20,7 +20,7 @@ export default function NewEventPage() {
   const params = useParams<{ orgId: string }>()
   const { permissions } = usePermissions()
 
-  const orgId = params.orgId
+  const orgId = params?.orgId ?? ""
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [loading, setLoading] = useState(false)

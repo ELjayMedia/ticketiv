@@ -1,13 +1,14 @@
 "use server"
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import type { Json } from "@/types/database"
 
 export interface FeatureFlag {
   id: string
   key: string
   enabled: boolean
-  config?: Record<string, unknown>
-  created_at: string
+  config?: Json
+  created_at: string | null
 }
 
 export interface PricingPlan {
@@ -69,7 +70,7 @@ export async function updateFeatureFlag(
   try {
     const { data, error } = await supabase
       .from("feature_flags")
-      .update({ enabled, config })
+      .update({ enabled, config: (config ?? null) as Json })
       .eq("id", flagId)
       .select()
       .single()

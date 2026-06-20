@@ -46,7 +46,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ kin
 
   const admin = createAdminClient()
   const { data, error } = await admin
-    .from(config.table)
+    .from(config.table as any)
     .select(config.columns.join(","))
     .order(config.orderBy, { ascending: false })
     .limit(5000)
@@ -55,6 +55,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ kin
     return new Response(error.message, { status: 500 })
   }
 
-  const csv = rowsToCsv((data ?? []) as Record<string, unknown>[], config.columns)
+  const csv = rowsToCsv((data ?? []) as unknown as Record<string, unknown>[], config.columns)
   return csvResponse(`ticketiv-${kind}.csv`, csv)
 }

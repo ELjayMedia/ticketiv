@@ -99,7 +99,7 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
 
     const supabase = createClient()
     const shouldCreateUser = mode === "signup"
-    const redirectTo = search.get("redirectTo") || search.get("from")
+    const redirectTo = search?.get("redirectTo") || search?.get("from")
 
     setBusy(true)
     const { error } = await supabase.auth.signInWithOtp({

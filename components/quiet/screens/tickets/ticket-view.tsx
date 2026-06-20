@@ -113,6 +113,9 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
     );
   }
 
+  // Control-flow narrowing from the guard above doesn't reach the nested
+  // event-handler closures, so bind a non-optional alias for them to close over.
+  const t: TicketData = ticket;
   const status: TicketDisplayStatus = ticket.status ?? (ticket.isValid ? "issued" : "checked_in");
   const badge = STATUS_BADGE[status];
   const canTransferOrResell = status === "issued";
@@ -130,7 +133,7 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
     const delta = e.changedTouches[0].clientX - touchStartX.current;
     touchStartX.current = null;
     if (Math.abs(delta) < 50) return;
-    const currentIndex = siblingIds.indexOf(ticket.id);
+    const currentIndex = siblingIds.indexOf(t.id);
     if (currentIndex === -1) return;
     if (delta < 0 && currentIndex < siblingIds.length - 1) {
       router.push(`/tickets/${siblingIds[currentIndex + 1]}`);
@@ -142,8 +145,8 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
   function handleShare() {
     if (navigator.share) {
       navigator.share({
-        title: `Ticket: ${ticket.eventTitle}`,
-        text: `My ticket for ${ticket.eventTitle} on ${ticket.dateLabel}`,
+        title: `Ticket: ${t.eventTitle}`,
+        text: `My ticket for ${t.eventTitle} on ${t.dateLabel}`,
         url: window.location.href,
       }).catch(() => {});
     } else {
@@ -169,7 +172,7 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
     try {
       const platform = detectPlatform();
       const res = await fetch(
-        `/api/tickets/${encodeURIComponent(ticket.id)}/wallet?platform=${platform}`,
+        `/api/tickets/${encodeURIComponent(t.id)}/wallet?platform=${platform}`,
       );
       const ct = res.headers.get("content-type") ?? "";
 
@@ -178,7 +181,7 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
         const objectUrl = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = objectUrl;
-        a.download = `${ticket.eventTitle.replace(/\s+/g, "-")}.pkpass`;
+        a.download = `${t.eventTitle.replace(/\s+/g, "-")}.pkpass`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

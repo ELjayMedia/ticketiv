@@ -28,7 +28,7 @@ export async function getResaleCheckoutPaymentStatus(paymentId: string | null): 
     return null
   }
 
-  if (!data || data.payload?.kind !== "resale_checkout") return null
+  if (!data || (data.payload as { kind?: string } | null)?.kind !== "resale_checkout") return null
 
   return {
     paymentId: data.id,

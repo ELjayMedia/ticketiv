@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     .from("webhooks")
     .select("id, processed_at")
     .eq("provider", "paystack")
-    .eq("provider_event_id", providerEventId)
+    .eq("provider_event_id", providerEventId as string)
     .maybeSingle()
 
   if (existingError) {

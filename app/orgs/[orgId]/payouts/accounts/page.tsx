@@ -89,7 +89,7 @@ export default async function PayoutAccountsPage({
                     </div>
                     <p className="font-mono text-[12px] text-ink-3">
                       {account.maskedRef} · Added{" "}
-                      {new Date(account.addedAt).toLocaleDateString("en-SZ")}
+                      {new Date(account.addedAt ?? "").toLocaleDateString("en-SZ")}
                     </p>
                   </div>
                   <Icon name="check" size={16} className="text-success" />

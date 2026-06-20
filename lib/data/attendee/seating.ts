@@ -91,7 +91,7 @@ export async function getEventSeatingChart(eventId: string): Promise<EventSeatin
       .from("order_items")
       .select("seat_id, status")
       .not("seat_id", "is", null)
-      .in("status", ["issued", "scanned"]),
+      .in("status", ["issued", "checked_in"]),
   ])
 
   const {

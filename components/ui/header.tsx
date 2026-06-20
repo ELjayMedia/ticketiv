@@ -16,7 +16,7 @@ interface HeaderProps {
 
 export function Header({ user, onLogout }: HeaderProps) {
   const router = useRouter()
-  const pathname = usePathname()
+  const pathname = usePathname() ?? ""
   const supabase = useMemo(() => createClient(), [])
   const auth = useAuth()
   const [mounted, setMounted] = useState(false)

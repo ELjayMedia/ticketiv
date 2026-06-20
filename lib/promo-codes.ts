@@ -10,13 +10,13 @@ export interface PriceRule {
   code: string | null
   type: "absolute_discount" | "percent_discount" | "abs_fee" | "percent_fee" | "tax"
   value_numeric: number
-  applies_to: "item" | "order"
+  applies_to: string
   starts_at: string | null
   ends_at: string | null
   max_redemptions: number | null
   per_user_limit: number | null
-  is_active: boolean
-  created_at: string
+  is_active: boolean | null
+  created_at: string | null
 }
 
 export async function validatePromoCode(

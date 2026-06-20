@@ -61,13 +61,10 @@ export function OnboardingForm({ initialDisplayName }: { initialDisplayName: str
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setBusy(false); router.push("/login"); return }
 
-    const { error: profileErr } = await supabase
+    await supabase
       .from("profiles")
       .update({ display_name: displayName.trim() })
       .eq("user_id", user.id)
-    if (profileErr) {
-      await supabase.from("profiles").update({ display_name: displayName.trim() }).eq("id", user.id)
-    }
 
     const { error: handleErr } = await supabase
       .from("user_handles")

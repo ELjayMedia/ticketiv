@@ -289,9 +289,9 @@ function OperationsTab({ orgId, eventId }: { orgId: string; eventId: string }) {
 
 export function EventManagementTabs({ eventId, orgId, event }: EventManagementTabsProps) {
   const router = useRouter()
-  const pathname = usePathname()
+  const pathname = usePathname() ?? ""
   const searchParams = useSearchParams()
-  const tab = searchParams.get('tab') ?? 'overview'
+  const tab = searchParams?.get('tab') ?? 'overview'
 
   const dismissKey = `ticketiv:event-setup-dismissed:${eventId}`
   const [nudgeDismissed, setNudgeDismissed] = useState(true)
@@ -308,7 +308,7 @@ export function EventManagementTabs({ eventId, orgId, event }: EventManagementTa
   }, [dismissKey])
 
   function changeTab(next: string) {
-    const params = new URLSearchParams(searchParams.toString())
+    const params = new URLSearchParams(searchParams?.toString() ?? "")
     if (next === 'overview') params.delete('tab')
     else params.set('tab', next)
     const query = params.toString()

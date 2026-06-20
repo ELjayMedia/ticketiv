@@ -30,7 +30,7 @@ interface CheckinHistory {
 
 export function CheckinScanner() {
   const params = useParams()
-  const eventId = params.eventId as string
+  const eventId = (params?.eventId ?? "") as string
 
   const [qrInput, setQrInput] = useState("")
   const [history, setHistory] = useState<CheckinHistory[]>([])

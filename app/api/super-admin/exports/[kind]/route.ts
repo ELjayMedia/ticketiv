@@ -95,7 +95,7 @@ export async function GET(
 
   const admin = createAdminClient()
   let query = admin
-    .from(config.table)
+    .from(config.table as any)
     .select(config.columns.join(","))
     .order(config.dateColumn, { ascending: false })
     .limit(50_000)
@@ -112,7 +112,7 @@ export async function GET(
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  let rows = (data ?? []) as Record<string, unknown>[]
+  let rows = (data ?? []) as unknown as Record<string, unknown>[]
 
   // Add SZL decimal companion columns for money fields
   const moneyColumns = config.moneyColumns ?? []

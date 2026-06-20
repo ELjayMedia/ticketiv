@@ -78,7 +78,7 @@ export function MobileEvent({ event }: MobileEventProps) {
   function handleShare() {
     const url = typeof window !== "undefined" ? window.location.href : "";
     if (navigator.share) {
-      navigator.share({ title: event.title, url }).catch(() => {});
+      navigator.share({ title: event?.title, url }).catch(() => {});
     } else {
       navigator.clipboard?.writeText(url).catch(() => {});
     }
@@ -87,7 +87,7 @@ export function MobileEvent({ event }: MobileEventProps) {
   function handleInvite() {
     const url = typeof window !== "undefined" ? window.location.href : "";
     if (navigator.share) {
-      navigator.share({ title: `Join me at ${event.title}!`, url }).catch(() => {});
+      navigator.share({ title: `Join me at ${event?.title}!`, url }).catch(() => {});
     } else {
       navigator.clipboard?.writeText(url).catch(() => {});
     }

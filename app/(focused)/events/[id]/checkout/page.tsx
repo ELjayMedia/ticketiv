@@ -127,7 +127,7 @@ export default async function CheckoutPage({
 
     holdSeconds = Math.max(
       0,
-      Math.floor((new Date(hold.expires_at).getTime() - Date.now()) / 1000),
+      Math.floor((new Date(hold.expires_at ?? "").getTime() - Date.now()) / 1000),
     );
     holdTicketTypeId = hold.ticket_type_id ?? null;
   }

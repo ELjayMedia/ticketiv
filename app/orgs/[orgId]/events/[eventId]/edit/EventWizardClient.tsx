@@ -31,7 +31,7 @@ type StepKey = (typeof STEPS)[number]["key"]
 export default function EventWizardClient({ orgId, eventId }: { orgId: string; eventId: string }) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const step = (searchParams.get("step") ?? "basics") as StepKey
+  const step = (searchParams?.get("step") ?? "basics") as StepKey
 
   const [event, setEvent] = useState<any>(null)
   const [loading, setLoading] = useState(true)

@@ -94,7 +94,22 @@ export async function getCurrentUserProfile(): Promise<UserSession | null> {
       return { session: { user }, profile: null }
     }
 
-    return { session: { user }, profile }
+    const fullName =
+      profile.display_name?.trim() ||
+      [profile.name, profile.surname].filter(Boolean).join(" ").trim() ||
+      null
+
+    return {
+      session: { user },
+      profile: {
+        id: profile.user_id,
+        email: user.email ?? "",
+        full_name: fullName,
+        role: profile.role,
+        phone: profile.phone,
+        created_at: profile.created_at ?? undefined,
+      },
+    }
   } catch (error: any) {
     // During static prerender Next.js throws DYNAMIC_SERVER_USAGE when cookies()
     // is accessed.  Treat that as "no authenticated user" so the build succeeds.

@@ -26,8 +26,8 @@ function explainOtpError(message: string) {
 export function OtpForm() {
   const router = useRouter()
   const search = useSearchParams()
-  const to = search.get("to") ?? ""
-  const mode = search.get("mode") === "signup" ? "signup" : "login"
+  const to = search?.get("to") ?? ""
+  const mode = search?.get("mode") === "signup" ? "signup" : "login"
 
   const [digits, setDigits] = useState<string[]>(Array(6).fill(""))
   const [busy, setBusy] = useState(false)
@@ -83,7 +83,7 @@ export function OtpForm() {
     const { error: bootstrapError } = await supabase.rpc("fn_bootstrap_ticketiv_user", {
       p_user_id: user.id,
       p_email: user.email ?? to,
-      p_phone: null,
+      p_phone: undefined,
       p_display_name: user.user_metadata?.display_name ?? null,
     })
 
@@ -127,7 +127,7 @@ export function OtpForm() {
 
     setBusy(false)
 
-    const redirectTo = search.get("redirectTo") || search.get("from")
+    const redirectTo = search?.get("redirectTo") || search?.get("from")
     router.push((redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//") ? redirectTo : "/") as "/")
     router.refresh()
   }

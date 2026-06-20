@@ -17,5 +17,5 @@ export default async function OrgTeamPage({
     notFound()
   }
 
-  return <TeamRoles {...mapTeam(team!)} />
+  return <TeamRoles {...mapTeam(team!, orgId)} />
 }

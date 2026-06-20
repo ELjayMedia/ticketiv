@@ -48,12 +48,12 @@ export async function searchEvents(filters: SearchFilters): Promise<SearchResult
   if (!supabase) return { query: filters.q ?? "", totalReturned: 0, rows: [] }
 
   const { data, error } = await supabase.rpc("fn_search_events", {
-    p_query: filters.q ?? null,
-    p_category: filters.category ?? null,
-    p_city: filters.city ?? null,
-    p_starts_after: filters.startsAfter ?? null,
-    p_starts_before: filters.startsBefore ?? null,
-    p_max_price_cents: typeof filters.maxPriceCents === "number" ? filters.maxPriceCents : null,
+    p_query: filters.q ?? undefined,
+    p_category: filters.category ?? undefined,
+    p_city: filters.city ?? undefined,
+    p_starts_after: filters.startsAfter ?? undefined,
+    p_starts_before: filters.startsBefore ?? undefined,
+    p_max_price_cents: typeof filters.maxPriceCents === "number" ? filters.maxPriceCents : undefined,
     p_only_free: filters.onlyFree ?? false,
     p_limit: filters.limit ?? 30,
     p_offset: filters.offset ?? 0,

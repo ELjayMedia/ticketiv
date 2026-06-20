@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { findAvailableSeriesSlug, generateSeriesSlug } from "@/lib/series/slug"
 import { computeOccurrences } from "@/lib/series/occurrences"
 import type { RecurrencePattern } from "@/lib/series/recurrence"
+import type { Json } from "@/types/database"
 
 export type OrgSeriesSummary = {
   id: string
@@ -161,7 +162,7 @@ export async function createOrgSeries(
       description: input.description?.trim() || null,
       series_type: input.series_type,
       cover_image_url: input.cover_image_url?.trim() || null,
-      recurrence_pattern: recurrence,
+      recurrence_pattern: (recurrence ?? null) as Json,
       starts_on: input.starts_on || null,
       ends_on: input.ends_on || null,
     })

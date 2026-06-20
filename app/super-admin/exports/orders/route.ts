@@ -17,5 +17,5 @@ export async function GET() {
 
   if (error) throw new Error(error.message)
 
-  return makeCsvResponse("ticketiv-orders", ORDER_EXPORT_COLUMNS, (data ?? []) as Array<Record<string, unknown>>)
+  return makeCsvResponse("ticketiv-orders", ORDER_EXPORT_COLUMNS, (data ?? []) as unknown as Array<Record<string, unknown>>)
 }

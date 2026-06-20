@@ -20,9 +20,9 @@ async function bootstrapTicketivProfile() {
 
   const { error } = await supabase.rpc("fn_bootstrap_ticketiv_user", {
     p_user_id: user.id,
-    p_email: user.email ?? null,
-    p_phone: null,
-    p_display_name: user.user_metadata?.display_name ?? null,
+    p_email: user.email ?? undefined,
+    p_phone: undefined,
+    p_display_name: user.user_metadata?.display_name ?? undefined,
   })
 
   if (error) {

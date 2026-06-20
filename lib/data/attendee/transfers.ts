@@ -6,13 +6,13 @@ import { createServerSupabaseClient } from "@/lib/supabase-server"
 // Status enum: requested | pending | accepted | declined | cancelled | completed
 export interface Transfer {
   id: string
-  order_item_id: string
-  from_user_id: string
-  to_user_id: string
+  order_item_id: string | null
+  from_user_id: string | null
+  to_user_id: string | null
   status: "requested" | "pending" | "accepted" | "declined" | "cancelled" | "completed"
-  metadata: Record<string, unknown> | null
-  created_at: string
-  updated_at: string
+  metadata: unknown
+  created_at: string | null
+  updated_at: string | null
 }
 
 export async function getUserTransfers(userId: string): Promise<Transfer[]> {

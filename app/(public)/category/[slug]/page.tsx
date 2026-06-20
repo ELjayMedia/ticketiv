@@ -1,10 +1,9 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 
-import { EventCard } from "@/components/events/event-card"
+import { EventCardStandard as EventCard } from "@/components/standardized/event-card-standard"
 import { Card, CardBody } from "@/components/quiet/ui/card"
-import { getPublicEvents } from "@/lib/data/events"
-import type { EventSummary } from "@/types"
+import { getPublicEventsList } from "@/lib/adapters/events"
 
 interface CategoryPageProps {
   params: { slug: string }
@@ -16,7 +15,7 @@ function formatCategory(slug: string) {
 
 export default async function CategoryPage({ params }: CategoryPageProps) {
   const categoryName = formatCategory(params.slug)
-  const events = await getPublicEvents({ category: categoryName })
+  const events = await getPublicEventsList({ category: categoryName })
 
   if (!events || events.length === 0) notFound()
 
@@ -36,7 +35,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
         </CardBody>
         <CardBody>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {events.map((event: EventSummary) => (
+            {events.map((event) => (
               <EventCard key={event.id} event={event} />
             ))}
           </div>

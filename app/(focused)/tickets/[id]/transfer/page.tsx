@@ -59,7 +59,11 @@ async function fetchTransferData(eventId: string) {
     friend_handle: handleByUser.get(p.user_id) ?? null,
   }));
 
-  const goingIds = new Set<string>((goingRes.data ?? []).map((g) => g.friend_id));
+  const goingIds = new Set<string>(
+    (goingRes.data ?? [])
+      .map((g) => g.friend_id)
+      .filter((id): id is string => id !== null),
+  );
 
   return { friends: rows, goingIds };
 }

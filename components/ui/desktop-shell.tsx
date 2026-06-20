@@ -43,7 +43,7 @@ interface DesktopShellProps {
 }
 
 export function DesktopShell({ children, user, workspace, onLogout }: DesktopShellProps) {
-  const pathname = usePathname()
+  const pathname = usePathname() ?? ""
   const router = useRouter()
   const { permissions } = usePermissions()
   const [searchQuery, setSearchQuery] = useState("")
