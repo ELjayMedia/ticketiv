@@ -26,9 +26,12 @@ REVOKE EXECUTE ON FUNCTION public.fn_complete_transfer(p_transfer_id uuid) FROM 
 --   * fn_create_seat_hold(uuid,int,uuid)    -> guest checkout creates holds pre-auth
 -- These are write-but-bounded; abuse is mitigated by rate limiting (TICK-177).
 
--- 3) Materialized views exposing revenue must not be readable by clients.
-REVOKE SELECT ON public.mv_event_sales        FROM anon, authenticated;
-REVOKE SELECT ON public.mv_revenue_breakdown  FROM anon, authenticated;
+-- 3) Materialized views exposing revenue — DEFERRED (see remediation doc).
+--    lib/data/organizer/analytics.ts reads mv_event_sales / mv_revenue_breakdown
+--    through the AUTHENTICATED client, so revoking SELECT here would break
+--    organizer analytics. Fix order: (a) move those reads to the service-role
+--    admin client with an explicit org check, then (b) revoke anon+authenticated.
+--    Tracked as a follow-up; not applied in this migration.
 
 -- NOT handled here (require non-SQL / risky DDL — see remediation doc):
 --   * pg_trgm in public schema  -> moving it drops dependent trigram indexes; do as a

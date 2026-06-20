@@ -3,7 +3,12 @@
 Source: Supabase `get_advisors(security)` on project `radsfmlsjznqvcpogluo`, 2026-06-20.
 Migration: `supabase/migrations/20260620130000_security_advisor_remediation.sql`.
 
-> Not yet applied to the live DB. Apply only after sign-off (see "Applying" below).
+> Status (2026-06-20): the SAFE SUBSET is **applied** to the live DB and verified —
+> `v_my_tickets` + `admin_event_readiness` now `security_invoker`, and `anon`
+> EXECUTE revoked on `fn_scan_ticket` + `fn_complete_transfer`. The materialized-view
+> SELECT revoke is **deferred** (see finding #3) because organizer analytics reads
+> those views through the authenticated client — revoking would break it until the
+> reads move to the service-role admin client.
 
 ## Findings & actions
 
