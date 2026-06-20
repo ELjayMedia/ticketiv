@@ -1,6 +1,7 @@
 import "server-only"
 
 import crypto, { randomUUID } from "crypto"
+import * as Sentry from "@sentry/nextjs"
 
 import { APP_URL, PAYSTACK_SECRET_KEY } from "@/lib/env"
 import { completePaidOrder } from "@/lib/orders"
@@ -147,6 +148,7 @@ async function writePaymentLedger(order: LiveOrder, paymentId: string) {
   const { error } = await admin.from("ledger_entries").insert(entries)
   if (error) {
     console.error("Failed to write payment ledger entries", error)
+    Sentry.captureException(error, { tags: { area: "ledger" }, extra: { orderId: order.id, paymentId } })
     throw new Error("Unable to write ledger entries")
   }
 }
@@ -301,6 +303,7 @@ async function completeProviderCheckoutByKind(orderId: string, reference: string
     // but surface the failure so the webhook returns non-2xx and the provider
     // redelivers.
     console.error(`[webhook] ${rpc} failed`, rpcError)
+    Sentry.captureException(rpcError, { tags: { area: "payment-completion", rpc }, extra: { orderId, paymentId: payment.id } })
     throw new Error(`Completion failed: ${rpcError.message}`)
   }
 

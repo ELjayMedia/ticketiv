@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import * as Sentry from "@sentry/nextjs"
 
 import { completePaystackPaymentFromWebhook, verifyPaystackWebhookSignature } from "@/lib/payments"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
@@ -72,6 +73,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, result })
   } catch (error: any) {
     console.error("Failed to process Paystack webhook", error)
+    Sentry.captureException(error, {
+      tags: { area: "paystack-webhook" },
+      extra: { providerEventId, webhookId: webhook?.id },
+    })
     return NextResponse.json({ error: error?.message ?? "Unable to process webhook" }, { status: 400 })
   }
 }
