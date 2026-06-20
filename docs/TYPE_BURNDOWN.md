@@ -1,101 +1,79 @@
-# TypeScript Error Burndown (TICK-175)
+# TypeScript Error Burndown (TICK-175) — COMPLETE
 
-Snapshot: 2026-06-20. `npx tsc --noEmit` after the pricing decouple.
-next.config.mjs still has `typescript.ignoreBuildErrors: true` — DO NOT flip
-it until the count reaches ~0, or the Vercel build breaks.
+Snapshot: 2026-06-20. `npx tsc --noEmit` is **clean (0 errors)**.
+`next.config.mjs` now has `typescript.ignoreBuildErrors: false` and the CI
+`Typecheck` step is **blocking** (no more `continue-on-error`). Type
+regressions now fail CI and the Vercel build.
 
 ## Count
 
-- Start of session: 243
-- Now: 233
-- Fixed: pricing.ts preview calculator decoupled from the DB record via a
-  local `PricingTicketType` interface (10 errors: 3 in pricing.ts, 7 in its test).
+- Start of session: 243 → 233 (after the pricing decouple) → **0**.
 
-## Remaining by error code
+## How it was burned down
 
-```
-     76 error TS2322
-     33 error TS2344
-     29 error TS2339
-     28 error TS2345
-     18 error TS18047
-     14 error TS18048
-     13 error TS2769
-      5 error TS2741
-      5 error TS2352
-      3 error TS2739
-      3 error TS2367
-      3 error TS1205
-      2 error TS7053
-      1 error TS2307
-```
+The bulk of the errors traced to **v0-generated data modules that queried
+columns the live schema never had**, plus app code lagging the Next 16
+async-`params` change. Work fell into five buckets:
 
-## Remaining by file (top 30)
+1. **Deleted dead/divergent duplicate modules** (zero importers, all querying
+   non-existent columns):
+   - `lib/data/orders.ts` (dup of `lib/data/attendee/orders.ts`)
+   - `lib/data/profiles.ts`, `lib/data/public/profiles.ts` (`profiles` has no
+     `org_id`)
+   - `lib/data/events.ts`, `lib/data/public/events.ts` (canonical path is the
+     `lib/adapters/events.ts` view reader)
+   - `lib/data/organizer/{checkout,finance,settings,operations}.ts`
+   - `components/events/event-card.tsx` (shadcn-based; replaced by the
+     Quiet-UI `EventCardStandard`)
+   Their barrel re-exports were dropped from the `lib/data/{public,organizer}`
+   and `attendee` index files.
 
-```
-     14 lib/data/organizer/checkout.ts
-     13 app/orgs/[orgId]/events/page.tsx
-      7 lib/data/orders.ts
-      7 components/events/event-card.tsx
-      6 lib/data/public/search.ts
-      6 components/quiet/screens/tickets/ticket-view.tsx
-      5 lib/data/public/profiles.ts
-      5 lib/data/profiles.ts
-      5 lib/data/events.ts
-      5 lib/data/attendee/transfers.ts
-      5 lib/data/artists.ts
-      5 components/quiet/screens/event-detail/live-event-shell.tsx
-      5 components/OtpForm.tsx
-      5 .next/types/validator.ts
-      4 lib/data/public/events.ts
-      4 lib/data/organizer/finance.ts
-      4 app/super-admin/[resource]/page.tsx
-      4 app/api/ticket-types/route.ts
-      4 app/
-      3 lib/data/organizer/settings.ts
-      3 lib/data/attendee/index.ts
-      3 lib/data/admin/controls.ts
-      3 components/ui/mobile-shell.tsx
-      3 components/event-management-tabs.tsx
-      3 app/super-admin/actions.ts
-      3 app/orgs/[orgId]/events/[eventId]/pos/actions.ts
-      3 app/api/events/[eventId]/venue/route.ts
-      3 .next/types/app/
-      2 lib/providers/permissions-provider.tsx
-      2 lib/promo-codes.ts
-```
+2. **Column-name / enum drift fixed against the real schema:**
+   - `events.date` → `starts_at` (no `date` column)
+   - `price_rules.value` → `value_numeric`; type enum uses
+     `absolute_discount|percent_discount|abs_fee|percent_fee|tax`
+   - `order_items.status` `"scanned"` → `"checked_in"`
+   - payment status `"paid"` → `"succeeded"`, refund status `"pending"` →
+     `"requested"`
+   - `ticket_types` insert dropped non-existent `description`, `sale_start_at`,
+     `sale_end_at`, `is_active`
+   - `profiles` row mapped into the `auth.UserProfile` shape (id/email/full_name)
+   - dashboard KPIs aligned to `v_event_kpis` (`title`, `tickets_issued`,
+     `tickets_checked_in`, `revenue_cents`)
 
-## Semantic landmines (fix carefully — these are real bugs, not cosmetics)
+3. **Hand-written record interfaces relaxed to match generated nullability:**
+   `Artist`, `Transfer`, `PriceRule`, `FeatureFlag`, `OrgPayoutRow`,
+   `OrgPayoutAccount`, wallet `Payment`, `WaitlistRecord`.
 
-These reveal app code referencing columns that do not exist in the current
-schema. Each needs reconciliation against the live DB, NOT a blind rename —
-several sit on the money/POS path.
+4. **Null-safety sweep:** guarded nullable `useSearchParams()` / `usePathname()`
+   / `useParams()` across client components; passed `undefined` (not `null`) to
+   RPC string params (auth callbacks, POS charge, venue create, guestlist).
+   `Json` columns (`changes`, `config`, `recurrence_pattern`, payload `.kind`)
+   are now cast through the generated `Json` type.
 
-1. **pricing.ts cents-vs-units** — the preview calculator works in decimal
-   currency units with fixed fees like `+1.79`, while the platform stores money
-   as integer `_cents`. It is currently dead (only `formatCurrency` is consumed).
-   Needs a product decision before wiring to real checkout.
-2. **price_rules shape** (`lib/data/organizer/checkout.ts`) — code reads `.value`
-   and compares type against `"percentage"`/`"fixed"`, but the table has
-   `value_numeric` and enum `absolute_discount|percent_discount|abs_fee|percent_fee|tax`.
-3. **payments shape** (checkout.ts, orders.ts) — code reads `.amount` /
-   `.total_amount` / `provider_reference` and uses status `"initiated"`; the
-   table has `amount_cents`, no `total_amount`/`provider_reference`, and status
-   `pending|succeeded|failed|refunded`.
-4. **OrderItemRecord / OrderRecord app interfaces** (`types/index.ts`,
-   `lib/data/orders.ts`) — declare `unit_price_cents`, `total_amount_cents`,
-   `event_id`, `quantity`, `purchaser_*`, `subtotal_amount` that the actual
-   `.select()` rows don't return → assignability failures.
+5. **Next 16 async `params` migration:** every dynamic route segment
+   (`page.tsx` / `route.ts` / `layout.tsx` under `[param]` dirs) now types
+   `params: Promise<…>` and `await`s it (client `team/invite` uses React
+   `use()`). This cleared the generated `.next/types` `PageProps`/`RouteContext`
+   validator errors.
 
-## Recommended plan
+## Verification
 
-1. Regenerate Supabase types (`generate_typescript_types`) as the source of truth.
-2. Reconcile the app-level interfaces in `types/index.ts` to match (or replace
-   them with the generated row types) — fixes the bulk of TS2322/TS2344.
-3. Fix the financial-core files first against real columns, verifying the POS
-   charge + order read paths still behave (covered by TICK-174 tests as they grow):
-   `lib/data/organizer/checkout.ts`, `lib/data/orders.ts`, `lib/data/public/search.ts`.
-4. Sweep the null-safety errors (TS18047/18048) across the app pages.
-5. Only when the count is ~0: set `ignoreBuildErrors: false` and make
-   `tsc --noEmit` a blocking CI gate (the CI step is already wired, currently
-   `continue-on-error: true`).
+- `npx tsc --noEmit` → 0 errors.
+- `pnpm test` → 13/13 passing.
+- `next build` compiles past type-checking; in the offline sandbox it only
+  fails fetching Google Fonts (network), which CI/Vercel resolve.
+
+## Guard rails now in place
+
+- `next.config.mjs`: `typescript.ignoreBuildErrors: false`.
+- `.github/workflows/ci.yml`: `Typecheck` runs `npx tsc --noEmit` with no
+  `continue-on-error` — type errors block PRs and pushes.
+
+## Follow-ups (non-blocking, tracked separately)
+
+- Some dynamic admin reads use `.from(resource.table as any)` because the table
+  name is runtime-dynamic; that is inherent to the generic admin CRUD and is
+  cast deliberately.
+- A few CSV export selects cast through `unknown` because PostgREST returns a
+  `GenericStringError` type for joined-string `.select()` calls.

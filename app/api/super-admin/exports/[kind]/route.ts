@@ -76,7 +76,7 @@ function addSzlColumns(rows: Record<string, unknown>[], moneyColumns: string[]) 
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { kind: string } },
+  { params }: { params: Promise<{ kind: string }> },
 ) {
   try {
     await requireAdminRole([...FINANCE_ROLES])
@@ -84,7 +84,7 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { kind } = params
+  const { kind } = await params
   const config = EXPORTS[kind]
   if (!config) {
     return new NextResponse("Unknown export type", { status: 404 })

@@ -4,8 +4,8 @@ import EventWizardClient from "./EventWizardClient"
 
 export const dynamic = "force-dynamic"
 
-export default async function EventEditPage({ params }: { params: { orgId: string; eventId: string } }) {
-  const { orgId, eventId } = params
+export default async function EventEditPage({ params }: { params: Promise<{ orgId: string; eventId: string }> }) {
+  const { orgId, eventId } = await params
 
   // Authorize the organizer (and confirm the event belongs to the org)
   // before rendering the editor; the wizard client fetches its own event

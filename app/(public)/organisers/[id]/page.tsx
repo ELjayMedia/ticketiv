@@ -6,14 +6,15 @@ import { Chip } from "@/components/quiet/ui/chip"
 import { getOrganiserDetail, getOrganiserEvents } from "@/lib/data/public"
 
 interface OrganizerPageProps {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
 export default async function OrganizerPage({ params }: OrganizerPageProps) {
-  const organizer = await getOrganiserDetail(params.id)
+  const { id } = await params
+  const organizer = await getOrganiserDetail(id)
   if (!organizer) notFound()
 
-  const events = await getOrganiserEvents(params.id)
+  const events = await getOrganiserEvents(id)
 
   const organizerEvents: EventCardData[] = events.map((event: any) => ({
     id: event.id,

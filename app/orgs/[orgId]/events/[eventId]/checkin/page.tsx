@@ -10,14 +10,14 @@ import { createServerSupabaseClient } from "@/lib/supabase-server"
 export const dynamic = "force-dynamic"
 
 interface CheckinPageProps {
-  params: {
+  params: Promise<{
     orgId: string
     eventId: string
-  }
+  }>
 }
 
 export default async function EventCheckinPage({ params }: CheckinPageProps) {
-  const { orgId, eventId } = params
+  const { orgId, eventId } = await params
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return redirect("/login")

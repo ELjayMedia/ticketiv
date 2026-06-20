@@ -16,9 +16,9 @@ export const metadata = { title: "Payout accounts" }
 export default async function PayoutAccountsPage({
   params,
 }: {
-  params: { orgId: string }
+  params: Promise<{ orgId: string }>
 }) {
-  const { orgId } = params
+  const { orgId } = await params
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return redirect("/login")

@@ -16,8 +16,8 @@ interface FeatureFlag {
   config?: Record<string, unknown>
 }
 
-export default async function FeatureFlagsPage({ params }: { params: { orgId: string } }) {
-  const { orgId } = params
+export default async function FeatureFlagsPage({ params }: { params: Promise<{ orgId: string }> }) {
+  const { orgId } = await params
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return redirect("/login")

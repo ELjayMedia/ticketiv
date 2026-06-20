@@ -12,9 +12,9 @@ export default async function OrgLayout({
   params,
 }: {
   children: React.ReactNode
-  params: { orgId: string }
+  params: Promise<{ orgId: string }>
 }) {
-  const orgId = params.orgId
+  const { orgId } = await params
 
   // Verify org membership server-side
   const supabase = createServerSupabaseClient()

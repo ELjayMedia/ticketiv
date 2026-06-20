@@ -6,7 +6,7 @@ import { Card, CardBody } from "@/components/quiet/ui/card"
 import { getPublicEventsList } from "@/lib/adapters/events"
 
 interface CategoryPageProps {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }
 
 function formatCategory(slug: string) {
@@ -14,7 +14,8 @@ function formatCategory(slug: string) {
 }
 
 export default async function CategoryPage({ params }: CategoryPageProps) {
-  const categoryName = formatCategory(params.slug)
+  const { slug } = await params
+  const categoryName = formatCategory(slug)
   const events = await getPublicEventsList({ category: categoryName })
 
   if (!events || events.length === 0) notFound()

@@ -11,8 +11,8 @@ import { ToggleSalesStatusButton } from "./_components/toggle-sales-status-butto
 
 export const dynamic = "force-dynamic"
 
-export default async function TicketsPage({ params }: { params: { orgId: string; eventId: string } }) {
-  const { orgId, eventId } = params
+export default async function TicketsPage({ params }: { params: Promise<{ orgId: string; eventId: string }> }) {
+  const { orgId, eventId } = await params
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return redirect("/login")

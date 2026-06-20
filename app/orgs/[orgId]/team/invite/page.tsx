@@ -1,14 +1,15 @@
 "use client"
 
 import * as React from "react"
+import { use } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Icon } from "@/components/quiet/ui/icon"
 import { Button } from "@/components/quiet/ui/button"
 import { Card } from "@/components/quiet/ui/card"
 
-export default function TeamInvitePage({ params }: { params: { orgId: string } }) {
-  const { orgId } = params
+export default function TeamInvitePage({ params }: { params: Promise<{ orgId: string }> }) {
+  const { orgId } = use(params)
   const router = useRouter()
   const [email, setEmail] = React.useState("")
   const [role, setRole] = React.useState("organizer_staff")

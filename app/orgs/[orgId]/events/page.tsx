@@ -8,8 +8,8 @@ import { Icon } from "@/components/quiet/ui/icon"
 
 export const dynamic = "force-dynamic"
 
-export default async function OrgEventsPage({ params }: { params: { orgId: string } }) {
-  const { orgId } = params
+export default async function OrgEventsPage({ params }: { params: Promise<{ orgId: string }> }) {
+  const { orgId } = await params
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return redirect("/login")

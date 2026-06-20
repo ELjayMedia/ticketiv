@@ -11,9 +11,9 @@ function csvCell(v: unknown) {
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { orgId: string; eventId: string } },
+  { params }: { params: Promise<{ orgId: string; eventId: string }> },
 ) {
-  const { orgId, eventId } = params
+  const { orgId, eventId } = await params
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

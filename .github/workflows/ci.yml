@@ -32,12 +32,10 @@ jobs:
       - name: Unit tests (TICK-174)
         run: pnpm test
 
-      # TICK-175 will flip this step to blocking once the type errors on the
-      # money paths are burned down. Until then `tsc --noEmit` is informational
-      # only (continue-on-error) so CI surfaces the report without gating PRs.
-      - name: Typecheck (non-blocking — flips to blocking under TICK-175)
+      # TICK-175 — type burndown complete (233 → 0). tsc is now blocking and
+      # next.config.mjs has ignoreBuildErrors:false, so type regressions fail CI.
+      - name: Typecheck
         run: npx tsc --noEmit
-        continue-on-error: true
 
       - name: Build
         run: pnpm build
