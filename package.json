@@ -10,7 +10,9 @@
     "build": "next build --webpack",
     "dev": "next dev",
     "lint": "eslint .",
-    "start": "next start"
+    "start": "next start",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -79,7 +81,8 @@
     "eslint-config-next": "16.0.10",
     "postcss": "^8.5",
     "tailwindcss": "^4.1.9",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.9"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

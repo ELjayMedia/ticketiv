@@ -29,6 +29,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Unit tests (TICK-174)
+        run: pnpm test
+
       # TICK-175 will flip this step to blocking once the type errors on the
       # money paths are burned down. Until then `tsc --noEmit` is informational
       # only (continue-on-error) so CI surfaces the report without gating PRs.
