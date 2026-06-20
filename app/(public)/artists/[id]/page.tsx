@@ -8,7 +8,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server"
 import type { ArtistRecord } from "@/types"
 
 interface ArtistPageProps {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
 interface TourDateEvent {
@@ -22,6 +22,7 @@ interface TourDateEvent {
 }
 
 export default async function ArtistPage({ params }: ArtistPageProps) {
+  const { id } = await params
   const supabase = createServerSupabaseClient()
   let artist: ArtistRecord | null = null
 
@@ -29,7 +30,7 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
     const { data, error } = await supabase
       .from("artists")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", id)
       .maybeSingle<ArtistRecord>()
 
     if (!error && data) {
@@ -54,7 +55,7 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
           venues:venue_id(name)
         )
       `)
-      .eq("artist_id", params.id)
+      .eq("artist_id", id)
       .eq("events.visibility", "public")
       .eq("events.status", "published")
 

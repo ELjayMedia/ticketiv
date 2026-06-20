@@ -48,7 +48,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   // client so auth.uid() flows through to the function's authorization check.
   const { data, error } = await supabase.rpc("fn_issue_guestlist", {
     p_guestlist_entry_id: entryId,
-    p_allocate: allocate,
+    p_allocate: allocate ?? undefined,
   })
 
   if (error) {

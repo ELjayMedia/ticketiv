@@ -96,8 +96,9 @@ export default async function SuperAdminResourcePage({
   if (!resource) notFound()
 
   const admin = createAdminClient()
+  const activeResource = resource
   const [{ data, error }, lookups] = await Promise.all([
-    admin.from(resource.table).select("*").order(resource.orderBy, { ascending: false }).limit(50),
+    admin.from(activeResource.table as any).select("*").order(activeResource.orderBy, { ascending: false }).limit(50),
     getLookupMaps(),
   ])
 
@@ -105,7 +106,7 @@ export default async function SuperAdminResourcePage({
 
   async function createRecord(formData: FormData) {
     "use server"
-    await createResourceAction(resource.key, formData)
+    await createResourceAction(activeResource.key, formData)
   }
 
   const statusMessage = query.status ? STATUS_MESSAGES[query.status] : null
@@ -178,7 +179,7 @@ export default async function SuperAdminResourcePage({
                 </tr>
               </thead>
               <tbody>
-                {(data ?? []).map((row) => {
+                {((data ?? []) as unknown as Record<string, unknown>[]).map((row) => {
                   const recordId = String(row[resource.primaryKey])
                   return (
                     <tr key={recordId} className="border-b border-line last:border-0">

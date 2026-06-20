@@ -1,6 +1,7 @@
 "use server"
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import type { Json } from "@/types/database"
 
 export type AuditAction = "INSERT" | "UPDATE" | "DELETE"
 
@@ -69,8 +70,8 @@ export async function logAuditEvent(auditLog: {
           actor_id: auditLog.actorId,
           table_name: auditLog.tableName,
           record_id: auditLog.recordId,
-          action: auditLog.action,
-          changes: auditLog.changes,
+          action: auditLog.action.toLowerCase() as "insert" | "update" | "delete",
+          changes: (auditLog.changes ?? null) as Json,
           ip: auditLog.ip,
           user_agent: auditLog.userAgent,
         },

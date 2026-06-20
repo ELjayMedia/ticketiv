@@ -8,6 +8,7 @@ export interface Artist {
   bio?: string | null
   image_url?: string | null
   created_at?: string | null
+  primary_user_id?: string | null
 }
 
 export interface ArtistDetail extends Artist {

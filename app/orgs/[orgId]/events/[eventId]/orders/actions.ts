@@ -73,7 +73,7 @@ export async function initiateRefundAction(
     .from("payments")
     .select("id")
     .eq("order_id", orderData.order_id)
-    .in("status", ["paid", "succeeded"])
+    .in("status", ["succeeded"])
     .maybeSingle()
 
   if (!paymentRow) throw new Error("No paid payment found for this order")
@@ -83,7 +83,7 @@ export async function initiateRefundAction(
     amount_cents: (order as any).total_cents ?? 0,
     currency: (order as any).currency ?? "SZL",
     type: "organizer_initiated" as any,
-    status: "pending",
+    status: "requested",
     initiated_by: userId,
   })
 

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { searchEvents } from "@/lib/data/public/search";
+import { clientKey, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,6 +11,9 @@ export const dynamic = "force-dynamic";
  * the screen. The overlay debounces calls so this stays cheap.
  */
 export async function GET(request: NextRequest) {
+  const rl = await rateLimit("search:suggest", clientKey(request), 60, 60);
+  if (!rl.allowed) return tooManyRequests(rl);
+
   const q = request.nextUrl.searchParams.get("q")?.trim();
   if (!q || q.length < 2) {
     return NextResponse.json({ query: q ?? "", events: [] });

@@ -61,15 +61,11 @@ export async function POST(request: NextRequest) {
       .insert({
         event_id,
         name,
-        description,
         price_cents,
         currency,
         quota,
         per_user_limit,
-        sale_start_at,
-        sale_end_at,
         is_reserved_seating: is_reserved_seating || false,
-        is_active: true,
       })
       .select()
       .single()

@@ -113,7 +113,7 @@ export function mapPayouts(o: OrgPayoutsOverview): PayoutsLedgerProps {
     },
     payouts: o.payouts.map((row) => ({
       id: row.id,
-      dateLabel: DATE_FMT.format(new Date(row.created_at)),
+      dateLabel: DATE_FMT.format(new Date(row.created_at ?? "")),
       amountMinor: row.amount_cents,
       destination: destinationLabel(row.provider, row.destination_ref),
       status: normalizeStatus(row.status),

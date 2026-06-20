@@ -76,7 +76,7 @@ function addSzlColumns(rows: Record<string, unknown>[], moneyColumns: string[]) 
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { kind: string } },
+  { params }: { params: Promise<{ kind: string }> },
 ) {
   try {
     await requireAdminRole([...FINANCE_ROLES])
@@ -84,7 +84,7 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { kind } = params
+  const { kind } = await params
   const config = EXPORTS[kind]
   if (!config) {
     return new NextResponse("Unknown export type", { status: 404 })
@@ -95,7 +95,7 @@ export async function GET(
 
   const admin = createAdminClient()
   let query = admin
-    .from(config.table)
+    .from(config.table as any)
     .select(config.columns.join(","))
     .order(config.dateColumn, { ascending: false })
     .limit(50_000)
@@ -112,7 +112,7 @@ export async function GET(
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  let rows = (data ?? []) as Record<string, unknown>[]
+  let rows = (data ?? []) as unknown as Record<string, unknown>[]
 
   // Add SZL decimal companion columns for money fields
   const moneyColumns = config.moneyColumns ?? []

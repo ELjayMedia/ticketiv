@@ -7,10 +7,10 @@ export interface Payment {
   order_id: string
   amount_cents: number
   currency: string
-  status: string
+  status: string | null
   provider: string
   ext_payment_id?: string | null
-  created_at: string
+  created_at: string | null
 }
 
 export interface LedgerEntry {

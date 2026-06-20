@@ -271,7 +271,7 @@ function DesktopWorkspaceNav({
   user?: ShellUser;
   onLogout: () => void;
 }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const items = WORKSPACE_NAV[workspace];
 
   return (
@@ -343,7 +343,7 @@ function MobileWorkspaceTabs({
 }: {
   workspace: Extract<WorkspaceType, "organizer" | "scanner" | "app">;
 }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const items = WORKSPACE_NAV[workspace];
 
   return (

@@ -74,8 +74,8 @@ interface EventMetric {
   checked_in_count: number
 }
 
-export default async function OrgFinancePage({ params }: { params: { orgId: string } }) {
-  const { orgId } = params
+export default async function OrgFinancePage({ params }: { params: Promise<{ orgId: string }> }) {
+  const { orgId } = await params
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return redirect("/login")

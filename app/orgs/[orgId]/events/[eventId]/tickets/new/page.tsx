@@ -5,9 +5,9 @@ import { TicketTypeForm } from "../_components/ticket-type-form"
 export default async function NewTicketTypePage({
   params,
 }: {
-  params: { orgId: string; eventId: string }
+  params: Promise<{ orgId: string; eventId: string }>
 }) {
-  const { orgId, eventId } = params
+  const { orgId, eventId } = await params
 
   return (
     <main className="flex-1 overflow-auto">

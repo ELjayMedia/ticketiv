@@ -50,11 +50,11 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
   if (ticketIds.length > 0) {
     const { data: loadedItems = [] } = await admin.from("order_items").select("id, order_id, ticket_type_id, status").in("ticket_type_id", ticketIds)
-    orderItems = loadedItems
+    orderItems = loadedItems ?? []
     const orderIds = [...new Set(orderItems.map((item) => item.order_id).filter(Boolean))]
     if (orderIds.length > 0) {
       const { data: loadedOrders = [] } = await admin.from("orders").select("id, status, total_cents, currency, buyer_email, email, item_count, created_at").in("id", orderIds).order("created_at", { ascending: false })
-      orders = loadedOrders
+      orders = loadedOrders ?? []
     }
   }
 

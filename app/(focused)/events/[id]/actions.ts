@@ -22,7 +22,7 @@ export async function createSeatHoldAction(formData: FormData) {
   if (!event?.id) notFound()
 
   const admin = createAdminClient()
-  const { data: holdCode, error } = await admin.rpc("fn_create_seat_hold", {
+  const { data: holdCode, error } = await (admin.rpc as any)("fn_create_seat_hold", {
     p_event_id: event.id,
     p_quantity: quantity,
     p_ticket_type_id: ticketTypeId,

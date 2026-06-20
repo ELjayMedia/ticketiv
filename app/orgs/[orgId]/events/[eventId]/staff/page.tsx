@@ -14,8 +14,8 @@ export const dynamic = "force-dynamic"
 
 const MANAGER_ROLES = new Set(["admin", "organizer", "organizer_owner", "organizer_admin"])
 
-export default async function EventStaffPage({ params }: { params: { orgId: string; eventId: string } }) {
-  const { orgId, eventId } = params
+export default async function EventStaffPage({ params }: { params: Promise<{ orgId: string; eventId: string }> }) {
+  const { orgId, eventId } = await params
 
   const supabase = createServerSupabaseClient()
   if (!supabase) redirect("/login")

@@ -8,9 +8,9 @@ import { TicketTypeForm } from "../../_components/ticket-type-form"
 export default async function EditTicketTypePage({
   params,
 }: {
-  params: { orgId: string; eventId: string; ticketId: string }
+  params: Promise<{ orgId: string; eventId: string; ticketId: string }>
 }) {
-  const { orgId, eventId, ticketId } = params
+  const { orgId, eventId, ticketId } = await params
   const cookieStore = await cookies()
   const demoSessionCookie = cookieStore.get("demo_session")
 

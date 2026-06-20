@@ -16,9 +16,9 @@ export const dynamic = "force-dynamic"
 export default async function EditSeriesPage({
   params,
 }: {
-  params: { orgId: string; seriesSlug: string }
+  params: Promise<{ orgId: string; seriesSlug: string }>
 }) {
-  const { orgId, seriesSlug } = params
+  const { orgId, seriesSlug } = await params
   const series = await getOrgSeriesBySlug(orgId, seriesSlug)
   if (!series) notFound()
 

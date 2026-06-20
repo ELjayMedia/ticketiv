@@ -9,9 +9,9 @@ export const dynamic = "force-dynamic"
 export default async function NewSeriesPage({
   params,
 }: {
-  params: { orgId: string }
+  params: Promise<{ orgId: string }>
 }) {
-  const { orgId } = params
+  const { orgId } = await params
   return (
     <main className="flex-1 overflow-auto">
       <div className="container mx-auto flex max-w-2xl flex-col gap-6 p-6">

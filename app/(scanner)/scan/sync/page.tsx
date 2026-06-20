@@ -12,7 +12,7 @@ export default function SyncQueuePage() {
   const [syncing, setSyncing] = useState(false)
   const [progress, setProgress] = useState(0)
 
-  const pendingScans = 3
+  const pendingScans: number = 3
   const lastSync = "2 minutes ago"
 
   const handleSync = async () => {

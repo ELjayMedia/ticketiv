@@ -33,7 +33,7 @@ export default async function SuperAdminWorkspacePage({ params }: { params: Prom
     Promise.all(
       resources.map(async (resource) => {
         const { count } = await admin
-          .from(resource.table)
+          .from(resource.table as any)
           .select(resource.primaryKey, { count: "exact", head: true })
         return [resource.key, count ?? 0] as const
       }),

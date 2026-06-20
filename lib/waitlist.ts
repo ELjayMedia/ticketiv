@@ -148,7 +148,7 @@ export async function getEventWaitlist(eventId: string): Promise<WaitlistRecord[
     return []
   }
 
-  return data || []
+  return (data || []) as unknown as WaitlistRecord[]
 }
 
 export async function cancelWaitlistEntry(

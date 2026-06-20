@@ -21,10 +21,10 @@ const CheckinRequestSchema = z.object({
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { eventId: string } }
+  { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
-    const { eventId } = params
+    const { eventId } = await params
     const body = await request.json()
     const { qr_token } = CheckinRequestSchema.parse(body)
 

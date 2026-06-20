@@ -154,7 +154,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
     p_buyer_id: input.purchaserId,
     p_buyer_email: input.purchaserEmail,
     p_items: normalizedItems,
-    p_holder_name: buildHolderName(input),
+    p_holder_name: buildHolderName(input) ?? undefined,
   })
 
   if (error) {
@@ -162,7 +162,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
     throw new Error(normalizeOrderError(error))
   }
 
-  const result = Array.isArray(data) ? (data[0] as RpcCreatedOrder | undefined) : (data as RpcCreatedOrder | undefined)
+  const result = Array.isArray(data) ? (data[0] as unknown as RpcCreatedOrder | undefined) : (data as unknown as RpcCreatedOrder | undefined)
   const order = result?.order_row
   const createdItems = result?.order_items ?? []
 

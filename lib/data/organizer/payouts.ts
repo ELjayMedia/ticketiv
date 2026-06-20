@@ -13,7 +13,7 @@ export interface OrgPayoutRow {
   provider: string | null
   destination_ref: string | null
   status: string
-  created_at: string
+  created_at: string | null
   paid_at: string | null
 }
 
@@ -34,7 +34,7 @@ export interface OrgPayoutAccount {
   id: string
   provider: string
   details_encrypted: string | null
-  created_at: string
+  created_at: string | null
 }
 
 export interface PaymentProviderStatus {

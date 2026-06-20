@@ -74,7 +74,7 @@ export function DevicesClient({
           org_id: orgId,
           event_id: eventId,
           label: label.trim(),
-          device_role: deviceRole,
+          device_role: deviceRole as "organizer_scanner" | "organizer_pos" | "organizer_kiosk" | "scanner_unassigned",
           max_scans_per_minute: maxScans ? parseInt(maxScans, 10) : null,
           registered_by: session.user.id,
         })

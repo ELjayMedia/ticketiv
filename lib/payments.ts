@@ -1,6 +1,7 @@
 import "server-only"
 
 import crypto, { randomUUID } from "crypto"
+import * as Sentry from "@sentry/nextjs"
 
 import { APP_URL, PAYSTACK_SECRET_KEY } from "@/lib/env"
 import { completePaidOrder } from "@/lib/orders"
@@ -147,6 +148,7 @@ async function writePaymentLedger(order: LiveOrder, paymentId: string) {
   const { error } = await admin.from("ledger_entries").insert(entries)
   if (error) {
     console.error("Failed to write payment ledger entries", error)
+    Sentry.captureException(error, { tags: { area: "ledger" }, extra: { orderId: order.id, paymentId } })
     throw new Error("Unable to write ledger entries")
   }
 }
@@ -301,6 +303,7 @@ async function completeProviderCheckoutByKind(orderId: string, reference: string
     // but surface the failure so the webhook returns non-2xx and the provider
     // redelivers.
     console.error(`[webhook] ${rpc} failed`, rpcError)
+    Sentry.captureException(rpcError, { tags: { area: "payment-completion", rpc }, extra: { orderId, paymentId: payment.id } })
     throw new Error(`Completion failed: ${rpcError.message}`)
   }
 
@@ -328,6 +331,37 @@ export async function completePaystackPaymentFromWebhook(payload: Record<string,
   if (status !== "success") {
     await failPaymentAttempt(orderId, "paystack", reference, payload)
     return { ok: true, status }
+  }
+
+  // TICK-178 — webhook hardening. Look the order up once via service role so we
+  // can (1) ack redeliveries for an already-settled order (idempotent no-op,
+  // returns 200 so the provider stops retrying) and (2) verify the provider
+  // amount matches what we charged before crediting anything.
+  const amount = Number(data.amount ?? 0)
+  const admin = createAdminClient()
+  const { data: orderRow, error: orderLookupError } = await admin
+    .from("orders")
+    .select("id, status, total_cents")
+    .eq("id", orderId)
+    .maybeSingle<{ id: string; status: string; total_cents: number }>()
+
+  if (orderLookupError) {
+    console.error("[webhook] order lookup failed", orderLookupError)
+    throw new Error("Unable to load order")
+  }
+  if (!orderRow) throw new Error("Order not found")
+
+  // Already settled (paid/refunded/failed) — acknowledge so Paystack stops
+  // redelivering instead of throwing "not payable" -> 400 -> infinite retry.
+  if (orderRow.status !== "pending") {
+    return { ok: true, duplicate: true, status: orderRow.status }
+  }
+
+  // Reject tampered/mismatched amounts. data.amount is in minor units (cents),
+  // same unit as total_cents. Skip only when the provider omits the amount.
+  if (amount && amount !== orderRow.total_cents) {
+    console.error("[webhook] amount mismatch", { orderId, amount, expected: orderRow.total_cents })
+    throw new Error(`Paystack amount ${amount} does not match order total ${orderRow.total_cents}`)
   }
 
   // Resale / waitlist orders complete through their dedicated idempotent path.

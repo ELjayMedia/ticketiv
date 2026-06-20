@@ -9,14 +9,14 @@ import { requireOrganizerEventManager } from "@/lib/org-management"
 export const dynamic = "force-dynamic"
 
 interface EventDetailPageProps {
-  params: {
+  params: Promise<{
     orgId: string
     eventId: string
-  }
+  }>
 }
 
 export default async function EventDetailPage({ params }: EventDetailPageProps) {
-  const { orgId, eventId } = params
+  const { orgId, eventId } = await params
   const { event } = await requireOrganizerEventManager(orgId, eventId)
 
   if (!event) {
@@ -45,14 +45,23 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
             <div className="h-64 w-full overflow-hidden">
               <img
                 src={event.cover_image_url}
-                alt={event.title}
+                alt={event.title ?? ""}
                 className="h-full w-full object-cover"
               />
             </div>
           </Card>
         )}
 
-        <EventManagementTabs eventId={eventId} orgId={orgId} event={event} />
+        <EventManagementTabs
+          eventId={eventId}
+          orgId={orgId}
+          event={{
+            id: event.id,
+            title: event.title ?? "",
+            date: event.starts_at ?? "",
+            status: event.status ?? "",
+          }}
+        />
       </div>
     </main>
   )

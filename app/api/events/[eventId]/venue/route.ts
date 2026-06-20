@@ -94,10 +94,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const { data, error } = await admin.rpc("fn_get_or_create_venue", {
       p_name: name,
-      p_city: city || null,
-      p_address: address || null,
+      p_city: city || undefined,
+      p_address: address || undefined,
       p_tz: tz,
-      p_capacity: capacity,
+      p_capacity: capacity ?? undefined,
     })
 
     if (error) {

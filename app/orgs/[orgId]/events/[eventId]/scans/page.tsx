@@ -46,8 +46,8 @@ function StatTile({
   )
 }
 
-export default async function ScansPage({ params }: { params: { orgId: string; eventId: string } }) {
-  const { orgId, eventId } = params
+export default async function ScansPage({ params }: { params: Promise<{ orgId: string; eventId: string }> }) {
+  const { orgId, eventId } = await params
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return redirect("/login")

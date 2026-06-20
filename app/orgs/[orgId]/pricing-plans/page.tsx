@@ -20,8 +20,8 @@ interface PricingPlan {
   processor_fixed_cents: number
 }
 
-export default async function PricingPlansPage({ params }: { params: { orgId: string } }) {
-  const { orgId } = params
+export default async function PricingPlansPage({ params }: { params: Promise<{ orgId: string }> }) {
+  const { orgId } = await params
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return redirect("/login")

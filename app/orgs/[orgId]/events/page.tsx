@@ -8,8 +8,8 @@ import { Icon } from "@/components/quiet/ui/icon"
 
 export const dynamic = "force-dynamic"
 
-export default async function OrgEventsPage({ params }: { params: { orgId: string } }) {
-  const { orgId } = params
+export default async function OrgEventsPage({ params }: { params: Promise<{ orgId: string }> }) {
+  const { orgId } = await params
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return redirect("/login")
@@ -22,11 +22,11 @@ export default async function OrgEventsPage({ params }: { params: { orgId: strin
   const { data: eventsData = [] } = await supabase
     .from("events")
     .select(`
-      id, title, description, date, status, cover_image_url,
+      id, title, description, starts_at, status, cover_image_url,
       orders:order_items(count)
     `)
     .eq("org_id", orgId)
-    .order("date", { ascending: false })
+    .order("starts_at", { ascending: false })
 
   const events = eventsData ?? []
 
@@ -103,7 +103,13 @@ export default async function OrgEventsPage({ params }: { params: { orgId: strin
 
                     <div className="flex items-center gap-1.5 text-[12px] text-ink-3">
                       <Icon name="cal" size={12} />
-                      <span className="truncate">{event.date}</span>
+                      <span className="truncate">
+                        {event.starts_at
+                          ? new Date(event.starts_at).toLocaleDateString("en-SZ", {
+                              dateStyle: "medium",
+                            })
+                          : "Date TBA"}
+                      </span>
                     </div>
 
                     <CardDivider />

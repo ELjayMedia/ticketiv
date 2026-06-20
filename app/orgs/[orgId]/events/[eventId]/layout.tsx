@@ -11,10 +11,10 @@ export default async function EventEditLayout({
   params,
   children,
 }: {
-  params: { orgId: string; eventId: string }
+  params: Promise<{ orgId: string; eventId: string }>
   children: React.ReactNode
 }) {
-  const { orgId, eventId } = params
+  const { orgId, eventId } = await params
 
   const supabase = createServerSupabaseClient()
   if (!supabase) {

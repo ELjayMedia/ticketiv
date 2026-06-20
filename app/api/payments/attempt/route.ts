@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { createPaymentAttempt } from "@/lib/payments"
+import { clientKey, rateLimit, tooManyRequests } from "@/lib/rate-limit"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export async function POST(request: Request) {
@@ -22,6 +23,9 @@ export async function POST(request: Request) {
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    const rl = await rateLimit("payments:attempt", clientKey(request, session.user.id), 10, 60)
+    if (!rl.allowed) return tooManyRequests(rl)
 
     const body = await request.json()
     const provider = String(body.provider ?? "").toLowerCase()

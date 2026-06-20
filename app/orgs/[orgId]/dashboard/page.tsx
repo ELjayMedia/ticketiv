@@ -10,8 +10,8 @@ import DashboardCharts from "./dashboard-charts"
 
 export const dynamic = "force-dynamic"
 
-export default async function OrgDashboardPage({ params }: { params: { orgId: string } }) {
-  const { orgId } = params
+export default async function OrgDashboardPage({ params }: { params: Promise<{ orgId: string }> }) {
+  const { orgId } = await params
   const supabase = createServerSupabaseClient()
 
   if (!supabase) {

@@ -43,10 +43,10 @@ export default async function OrdersPage({
   params,
   searchParams,
 }: {
-  params: { orgId: string; eventId: string }
+  params: Promise<{ orgId: string; eventId: string }>
   searchParams?: Promise<{ view?: string; status?: string; q?: string }>
 }) {
-  const { orgId, eventId } = params
+  const { orgId, eventId } = await params
   const sp = searchParams ? await searchParams : {}
   const view = (sp.view ?? "orders") as View
   const filterStatus = sp.status

@@ -19,9 +19,9 @@ function fmtDate(d: string | null) {
 export default async function OrderDetailPage({
   params,
 }: {
-  params: { orgId: string; eventId: string; orderId: string }
+  params: Promise<{ orgId: string; eventId: string; orderId: string }>
 }) {
-  const { orgId, eventId, orderId } = params
+  const { orgId, eventId, orderId } = await params
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return redirect("/login")

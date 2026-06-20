@@ -29,7 +29,7 @@ export async function createResourceAction(resourceKey: string, formData: FormDa
 
   const admin = createAdminClient()
   const payload = buildAdminPayload(resource, formData)
-  const { error } = await admin.from(resource.table).insert(payload)
+  const { error } = await admin.from(resource.table as any).insert(payload as any)
 
   if (error) throw new Error(error.message)
 
@@ -45,7 +45,7 @@ export async function updateResourceAction(resourceKey: string, recordId: string
 
   const admin = createAdminClient()
   const payload = buildAdminPayload(resource, formData)
-  const { error } = await admin.from(resource.table).update(payload as any).eq(resource.primaryKey, recordId)
+  const { error } = await admin.from(resource.table as any).update(payload as any).eq(resource.primaryKey, recordId)
 
   if (error) throw new Error(error.message)
 
@@ -61,7 +61,7 @@ export async function removeResourceAction(resourceKey: string, recordId: string
   if (!resource) throw new Error("Unknown admin resource")
 
   const admin = createAdminClient()
-  const { error } = await admin.from(resource.table).delete().eq(resource.primaryKey, recordId)
+  const { error } = await admin.from(resource.table as any).delete().eq(resource.primaryKey, recordId)
 
   if (error) throw new Error(error.message)
 

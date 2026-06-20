@@ -8,10 +8,10 @@ import {
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 
 interface KpiRow {
-  event_title: string
-  total_tickets_sold: number
-  total_checked_in: number
-  total_revenue_cents: number
+  title: string
+  tickets_issued: number
+  tickets_checked_in: number
+  revenue_cents: number
 }
 
 interface DashboardChartsProps {
@@ -48,16 +48,16 @@ const tooltipStyle = {
 
 export default function DashboardCharts({ kpis }: DashboardChartsProps) {
   const chartData = kpis.slice(0, 6).map((k) => ({
-    name: k.event_title.substring(0, 15),
-    tickets: k.total_tickets_sold,
-    revenue: k.total_revenue_cents / 100,
-    checkedIn: k.total_checked_in,
+    name: k.title.substring(0, 15),
+    tickets: k.tickets_issued,
+    revenue: k.revenue_cents / 100,
+    checkedIn: k.tickets_checked_in,
   }))
 
   const attendanceData = kpis.slice(0, 6).map((k) => ({
-    name: k.event_title.substring(0, 15),
-    attended: k.total_checked_in,
-    notAttended: k.total_tickets_sold - k.total_checked_in,
+    name: k.title.substring(0, 15),
+    attended: k.tickets_checked_in,
+    notAttended: k.tickets_issued - k.tickets_checked_in,
   }))
 
   return (

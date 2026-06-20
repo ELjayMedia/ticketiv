@@ -16,9 +16,9 @@ export const metadata = { title: "Payout accounts" }
 export default async function PayoutAccountsPage({
   params,
 }: {
-  params: { orgId: string }
+  params: Promise<{ orgId: string }>
 }) {
-  const { orgId } = params
+  const { orgId } = await params
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return redirect("/login")
@@ -89,7 +89,7 @@ export default async function PayoutAccountsPage({
                     </div>
                     <p className="font-mono text-[12px] text-ink-3">
                       {account.maskedRef} · Added{" "}
-                      {new Date(account.addedAt).toLocaleDateString("en-SZ")}
+                      {new Date(account.addedAt ?? "").toLocaleDateString("en-SZ")}
                     </p>
                   </div>
                   <Icon name="check" size={16} className="text-success" />

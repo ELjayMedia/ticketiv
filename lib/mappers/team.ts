@@ -16,8 +16,9 @@ function timeAgo(iso: string | null): string {
   return JOINED_FMT.format(new Date(iso))
 }
 
-export function mapTeam(team: OrgTeam): TeamRolesProps {
+export function mapTeam(team: OrgTeam, orgId: string): TeamRolesProps {
   return {
+    orgId,
     orgName: team.orgName,
     members: team.active.map((m) => ({
       id: m.user_id ?? `device-${m.display_name}`,

@@ -50,7 +50,7 @@ export async function getPOSContext(
     supabase
       .from("order_items")
       .select("ticket_type_id, orders!inner(channel, status)")
-      .in("status", ["issued", "scanned"])
+      .in("status", ["issued", "checked_in"])
       .eq("orders.channel", "pos"),
     deviceId
       ? supabase.from("devices").select("label").eq("id", deviceId).maybeSingle()

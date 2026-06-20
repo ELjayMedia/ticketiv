@@ -97,7 +97,7 @@ export default async function SuperAdminAuditPage({
     .limit(150)
 
   if (filters.table) query = query.eq("table_name", filters.table)
-  if (filters.action) query = query.eq("action", filters.action)
+  if (filters.action) query = query.eq("action", filters.action as "insert" | "update" | "delete" | "login" | "logout" | "other")
   if (filters.actor) query = query.eq("actor_id", filters.actor)
   if (filters.org) query = query.eq("org_id", filters.org)
   if (filters.record) query = query.eq("record_id", filters.record)

@@ -31,7 +31,7 @@ export interface EventCardData {
   venue_name?: string | null
   min_price_cents?: number | null
   max_price_cents?: number | null
-  currency?: string
+  currency?: string | null
   is_promoted?: boolean
   organizer_name?: string | null
   /** Presence of a logo URL is the verified-organizer signal — matches the
