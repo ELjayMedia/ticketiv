@@ -330,6 +330,37 @@ export async function completePaystackPaymentFromWebhook(payload: Record<string,
     return { ok: true, status }
   }
 
+  // TICK-178 — webhook hardening. Look the order up once via service role so we
+  // can (1) ack redeliveries for an already-settled order (idempotent no-op,
+  // returns 200 so the provider stops retrying) and (2) verify the provider
+  // amount matches what we charged before crediting anything.
+  const amount = Number(data.amount ?? 0)
+  const admin = createAdminClient()
+  const { data: orderRow, error: orderLookupError } = await admin
+    .from("orders")
+    .select("id, status, total_cents")
+    .eq("id", orderId)
+    .maybeSingle<{ id: string; status: string; total_cents: number }>()
+
+  if (orderLookupError) {
+    console.error("[webhook] order lookup failed", orderLookupError)
+    throw new Error("Unable to load order")
+  }
+  if (!orderRow) throw new Error("Order not found")
+
+  // Already settled (paid/refunded/failed) — acknowledge so Paystack stops
+  // redelivering instead of throwing "not payable" -> 400 -> infinite retry.
+  if (orderRow.status !== "pending") {
+    return { ok: true, duplicate: true, status: orderRow.status }
+  }
+
+  // Reject tampered/mismatched amounts. data.amount is in minor units (cents),
+  // same unit as total_cents. Skip only when the provider omits the amount.
+  if (amount && amount !== orderRow.total_cents) {
+    console.error("[webhook] amount mismatch", { orderId, amount, expected: orderRow.total_cents })
+    throw new Error(`Paystack amount ${amount} does not match order total ${orderRow.total_cents}`)
+  }
+
   // Resale / waitlist orders complete through their dedicated idempotent path.
   const kindResult = await completeProviderCheckoutByKind(orderId, reference, payload)
   if (kindResult.handled) {
