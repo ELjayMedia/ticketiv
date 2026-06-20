@@ -9,6 +9,7 @@ import { notifyPaymentFailed, notifyPaymentSucceeded, notifyTicketPurchaseSuccee
 import { deliverTicketsForOrder } from "@/lib/notifications/ticket-delivery"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { buildLedgerEntries, evaluatePaystackWebhookOutcome } from "@/lib/payments-math"
 
 export type PaymentProvider = "deltapay" | "paystack" | "flutterwave" | "manual" | "momo"
 
@@ -133,17 +134,7 @@ export async function verifyPaystackWebhookSignature(rawBody: string, signature:
 
 async function writePaymentLedger(order: LiveOrder, paymentId: string) {
   const admin = createAdminClient()
-  const subtotal = order.subtotal_cents ?? order.total_cents
-  const platformFee = order.platform_fee_cents ?? 0
-  const processorFee = order.processor_fee_cents ?? 0
-  const net = order.total_cents - platformFee - processorFee
-
-  const entries = [
-    { org_id: order.org_id, order_id: order.id, payment_id: paymentId, type: "order_gross", amount_cents: subtotal, currency: order.currency, meta: { source: "payment_completion" } },
-    ...(platformFee > 0 ? [{ org_id: order.org_id, order_id: order.id, payment_id: paymentId, type: "fee", amount_cents: -platformFee, currency: order.currency, meta: { fee_type: "platform" } }] : []),
-    ...(processorFee > 0 ? [{ org_id: order.org_id, order_id: order.id, payment_id: paymentId, type: "fee", amount_cents: -processorFee, currency: order.currency, meta: { fee_type: "processor" } }] : []),
-    { org_id: order.org_id, order_id: order.id, payment_id: paymentId, type: "payment_net", amount_cents: net, currency: order.currency, meta: { source: "payment_completion" } },
-  ]
+  const entries = buildLedgerEntries(order, paymentId)
 
   const { error } = await admin.from("ledger_entries").insert(entries)
   if (error) {
@@ -336,7 +327,8 @@ export async function completePaystackPaymentFromWebhook(payload: Record<string,
   // TICK-178 — webhook hardening. Look the order up once via service role so we
   // can (1) ack redeliveries for an already-settled order (idempotent no-op,
   // returns 200 so the provider stops retrying) and (2) verify the provider
-  // amount matches what we charged before crediting anything.
+  // amount matches what we charged before crediting anything. The decision
+  // itself is pure (evaluatePaystackWebhookOutcome) and unit-tested.
   const amount = Number(data.amount ?? 0)
   const admin = createAdminClient()
   const { data: orderRow, error: orderLookupError } = await admin
@@ -351,15 +343,22 @@ export async function completePaystackPaymentFromWebhook(payload: Record<string,
   }
   if (!orderRow) throw new Error("Order not found")
 
+  const outcome = evaluatePaystackWebhookOutcome({
+    status,
+    orderStatus: orderRow.status,
+    orderTotalCents: orderRow.total_cents,
+    amount,
+  })
+
   // Already settled (paid/refunded/failed) — acknowledge so Paystack stops
   // redelivering instead of throwing "not payable" -> 400 -> infinite retry.
-  if (orderRow.status !== "pending") {
+  if (outcome === "duplicate") {
     return { ok: true, duplicate: true, status: orderRow.status }
   }
 
   // Reject tampered/mismatched amounts. data.amount is in minor units (cents),
   // same unit as total_cents. Skip only when the provider omits the amount.
-  if (amount && amount !== orderRow.total_cents) {
+  if (outcome === "amount_mismatch") {
     console.error("[webhook] amount mismatch", { orderId, amount, expected: orderRow.total_cents })
     throw new Error(`Paystack amount ${amount} does not match order total ${orderRow.total_cents}`)
   }
