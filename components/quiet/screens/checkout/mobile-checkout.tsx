@@ -9,7 +9,8 @@ import {
   RadioCard,
   QuantityStepper,
 } from "@/components/quiet/ui/form";
-import { useRouter } from "next/navigation";
+import { Modal, ModalContent, ModalFooter } from "@/components/quiet/ui/modal";
+import { useRouter, useSearchParams } from "next/navigation";
 import { formatPrice, formatHoldTimer, formatScarcityLabel } from "@/lib/format";
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
 import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/actions";
@@ -78,6 +79,7 @@ export function MobileCheckout({
   defaultTicketTypeId,
 }: MobileCheckoutProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { stats: liveStats } = useEventLiveStats(eventId);
   const lastStatsAtRef = React.useRef<string | null>(null);
   React.useEffect(() => {
@@ -89,10 +91,17 @@ export function MobileCheckout({
   }, [liveStats?.updated_at, router]);
 
   const firstAvailable = ticketTypes.find((t) => t.remaining !== 0);
+
+  // TICK-198: initialise from URL params so back-button / share restores cart
   const [ticketTypeId, setTicketTypeId] = React.useState(
-    defaultTicketTypeId ?? firstAvailable?.id ?? ticketTypes[0]?.id
+    searchParams.get("tt") ??
+      defaultTicketTypeId ??
+      firstAvailable?.id ??
+      ticketTypes[0]?.id
   );
-  const [quantity, setQuantity] = React.useState(1);
+  const [quantity, setQuantity] = React.useState(
+    Math.max(1, Number(searchParams.get("qty")) || 1)
+  );
   const [paymentId, setPaymentId] = React.useState(paymentMethods[0]?.id);
   const [holdRemaining, setHoldRemaining] = React.useState(holdSeconds);
   const [activePromo, setActivePromo] = React.useState(appliedPromo ?? null);
@@ -168,6 +177,24 @@ export function MobileCheckout({
       router.push(`/orders/${result.orderId}/confirmation`);
     }
   }
+
+  // TICK-198: keep URL in sync with cart state (shallow replace, no server re-render)
+  React.useEffect(() => {
+    const next = new URLSearchParams(searchParams.toString());
+    if (ticketTypeId) next.set("tt", ticketTypeId); else next.delete("tt");
+    next.set("qty", String(quantity));
+    router.replace(`?${next.toString()}`, { scroll: false });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticketTypeId, quantity]);
+
+  // TICK-200: when the hold expires (holdRemaining hits 0), redirect to
+  // the event page with a banner so the buyer can request a new hold.
+  React.useEffect(() => {
+    if (holdSeconds <= 0) return; // no hold was created — no redirect
+    if (holdRemaining <= 0) {
+      router.replace(`/events/${eventId}?hold_expired=1`);
+    }
+  }, [holdRemaining, holdSeconds, eventId, router]);
 
   // Activity-based hold extension: real users who scroll/tap/type during
   // checkout shouldn't get punished by an unresponsive timer. When the
@@ -267,6 +294,21 @@ export function MobileCheckout({
             })}
           </div>
         </section>
+
+        {/* TICK-199: Sold-out warning for selected ticket type */}
+        {selectedTicket?.remaining === 0 && (
+          <div
+            role="alert"
+            className="mx-5 mb-4 flex items-center gap-2 rounded-[var(--radius-md)] border border-danger/40 bg-danger-soft px-3 py-2.5 text-[13px] font-semibold text-danger"
+          >
+            <Icon name="zap" size={15} />
+            This ticket type just sold out. Please choose another or{" "}
+            <Link href="/waitlist" className="underline decoration-danger/40">
+              join the waitlist
+            </Link>
+            .
+          </div>
+        )}
 
         {/* Quantity */}
         <section className="px-5 pb-4">
@@ -618,89 +660,29 @@ function useHoldExtension(
 }
 
 function BuyerGuaranteeModal({ onClose }: { onClose: () => void }) {
-  React.useEffect(() => {
-    const onEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onEsc);
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onEsc);
-      document.body.style.overflow = "";
-    };
-  }, [onClose]);
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="ticketiv-guarantee-title"
-      className="fixed inset-0 z-50 flex items-end bg-ink/40 px-5 pb-5 sm:items-center sm:justify-center"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-[480px] rounded-[var(--radius-lg)] bg-surface p-5 shadow-[var(--shadow-elev)]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start">
-          <div className="flex-1">
-            <h2
-              id="ticketiv-guarantee-title"
-              className="text-[18px] font-semibold tracking-[-0.02em]"
-            >
-              Ticketiv buyer guarantee
-            </h2>
-            <p className="mt-1 text-[12px] text-ink-3">
-              Every booking is backed by a clear set of promises.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-line/60"
-          >
-            <Icon name="close" size={16} />
-          </button>
-        </div>
-        <ul className="mt-4 flex flex-col gap-3 text-[13px]">
-          <li className="flex items-start gap-2.5">
-            <Icon name="check" size={14} className="mt-0.5 shrink-0 text-success" />
-            <div>
-              <span className="font-semibold">Authentic tickets, every time.</span>{" "}
-              <span className="text-ink-3">
-                Issued directly by the organizer. No resellers in the loop.
-              </span>
-            </div>
-          </li>
-          <li className="flex items-start gap-2.5">
-            <Icon name="check" size={14} className="mt-0.5 shrink-0 text-success" />
-            <div>
-              <span className="font-semibold">Refunded if the event is cancelled.</span>{" "}
-              <span className="text-ink-3">
-                Full refund, automatically, within 7 days.
-              </span>
-            </div>
-          </li>
-          <li className="flex items-start gap-2.5">
-            <Icon name="check" size={14} className="mt-0.5 shrink-0 text-success" />
-            <div>
-              <span className="font-semibold">Refund window honored.</span>{" "}
-              <span className="text-ink-3">
-                We enforce the organizer's published policy on your behalf.
-              </span>
-            </div>
-          </li>
-          <li className="flex items-start gap-2.5">
-            <Icon name="check" size={14} className="mt-0.5 shrink-0 text-success" />
-            <div>
-              <span className="font-semibold">Encrypted payment.</span>{" "}
-              <span className="text-ink-3">
-                Cards & mobile money, processed by certified providers.
-              </span>
-            </div>
-          </li>
+    <Modal open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <ModalContent title="Ticketiv buyer guarantee" size="sm">
+        <p className="mb-4 text-[13px] text-ink-3">
+          Every booking is backed by a clear set of promises.
+        </p>
+        <ul className="flex flex-col gap-3 text-[13px]">
+          {[
+            ["Authentic tickets, every time.", "Issued directly by the organizer. No resellers in the loop."],
+            ["Refunded if the event is cancelled.", "Full refund, automatically, within 7 days."],
+            ["Refund window honored.", "We enforce the organizer's published policy on your behalf."],
+            ["Encrypted payment.", "Cards & mobile money, processed by certified providers."],
+          ].map(([title, detail]) => (
+            <li key={title} className="flex items-start gap-2.5">
+              <Icon name="check" size={14} className="mt-0.5 shrink-0 text-success" />
+              <div>
+                <span className="font-semibold">{title}</span>{" "}
+                <span className="text-ink-3">{detail}</span>
+              </div>
+            </li>
+          ))}
         </ul>
-        <div className="mt-5 flex items-center gap-2">
+        <ModalFooter className="-mx-5 -mb-5 mt-5">
           <Link
             href="/help"
             className="flex-1 rounded-[var(--radius)] border border-line-2 px-3 py-2 text-center text-[13px] font-semibold hover:bg-bg"
@@ -714,9 +696,9 @@ function BuyerGuaranteeModal({ onClose }: { onClose: () => void }) {
           >
             Got it
           </button>
-        </div>
-      </div>
-    </div>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
   );
 }
 
