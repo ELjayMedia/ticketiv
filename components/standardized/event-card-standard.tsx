@@ -2,6 +2,7 @@
 
 import type React from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { MapPin, Heart, CheckCircle2 } from "lucide-react"
 import { useState } from "react"
 import { toggleFavourite } from "@/app/(consumer)/favourites/actions"
@@ -83,6 +84,7 @@ function formatDateShort(date: string) {
 }
 
 export function EventCardStandard({ event, onSave }: EventCardProps) {
+  const router = useRouter()
   const [isSaved, setIsSaved] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -127,8 +129,13 @@ export function EventCardStandard({ event, onSave }: EventCardProps) {
     setIsSaving(true)
     onSave?.(event.id, newSavedState)
     const result = await toggleFavourite(event.id, newSavedState)
-    if (!result.ok) setIsSaved(!newSavedState)
     setIsSaving(false)
+    if (!result.ok) {
+      setIsSaved(!newSavedState)
+      if (result.error === "Not authenticated") {
+        router.push("/login?next=/favourites")
+      }
+    }
   }
 
   return (

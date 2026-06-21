@@ -15,20 +15,12 @@ export async function toggleFavourite(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: "Not authenticated" }
 
-  if (save) {
-    const { error } = await supabase
-      .from("event_favourites")
-      .upsert({ event_id: eventId, user_id: user.id }, { onConflict: "event_id,user_id" })
-    if (error) return { ok: false, error: error.message }
-  } else {
-    const { error } = await supabase
-      .from("event_favourites")
-      .delete()
-      .eq("event_id", eventId)
-      .eq("user_id", user.id)
-    if (error) return { ok: false, error: error.message }
-  }
+  const { error } = await (supabase.rpc as any)("fn_toggle_favourite", {
+    p_event_id: eventId,
+    p_save: save,
+  })
 
+  if (error) return { ok: false, error: error.message }
   revalidatePath("/favourites")
   return { ok: true }
 }

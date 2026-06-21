@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createSeatHoldAction } from "@/app/(focused)/events/[id]/actions";
 import { toggleFavourite } from "@/app/(consumer)/favourites/actions";
 import { Icon } from "@/components/quiet/ui/icon";
@@ -46,6 +47,7 @@ export interface MobileEventData {
 }
 
 export function MobileEvent({ event }: MobileEventProps) {
+  const router = useRouter();
   const [saved, setSaved] = React.useState(false);
   const [savingFav, setSavingFav] = React.useState(false);
   const [followedArtists, setFollowedArtists] = React.useState<Set<string>>(new Set());
@@ -115,8 +117,13 @@ export function MobileEvent({ event }: MobileEventProps) {
                   setSaved(next);
                   setSavingFav(true);
                   const result = await toggleFavourite(event.id, next);
-                  if (!result.ok) setSaved(!next);
                   setSavingFav(false);
+                  if (!result.ok) {
+                    setSaved(!next);
+                    if (result.error === "Not authenticated") {
+                      router.push("/login?next=/favourites");
+                    }
+                  }
                 }}
                 disabled={savingFav}
                 className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/95 hover:bg-white disabled:opacity-60"

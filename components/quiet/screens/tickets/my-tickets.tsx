@@ -438,11 +438,17 @@ export function MyTickets({
             {filteredUpcoming.map((t) => (
               <li key={t.ticketId}>
                 <Card
-                  className="flex items-center gap-3 p-3 transition-colors hover:bg-bg"
+                  className={
+                    "flex items-center gap-3 p-3 transition-colors hover:bg-bg" +
+                    (t.status === "checked_in" ? " opacity-60" : "")
+                  }
                   flat
                 >
                   <Link href={`/tickets/${t.ticketId}`} className="flex min-w-0 flex-1 items-center gap-3">
-                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-[var(--radius)]">
+                    <div className={
+                      "h-12 w-12 shrink-0 overflow-hidden rounded-[var(--radius)]" +
+                      (t.status === "checked_in" ? " grayscale" : "")
+                    }>
                       <Photo src={t.photo} height={48} />
                     </div>
                     <div className="flex min-w-0 flex-1 flex-col">
