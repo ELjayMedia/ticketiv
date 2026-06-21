@@ -8,7 +8,6 @@ import { Photo, Divider } from "@/components/quiet/ui/primitives";
 import { Button } from "@/components/quiet/ui/button";
 import { FormField, Stepper } from "@/components/quiet/ui/form";
 import { useRouter } from "next/navigation";
-import { PHOTOS } from "@/lib/photos";
 import { formatPrice, formatHoldTimer } from "@/lib/format";
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
 import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/actions";
@@ -34,7 +33,7 @@ interface DesktopCheckoutProps {
   eventTitle: string;
   eventPhoto: string;
   eventWhenLabel: string;
-  /** Seats already picked, e.g. ["C-4", "C-5"]; empty for GA */
+  /** Seats already picked (reserved seating); empty for GA events */
   seats?: string[];
   ticketTypeId: string;
   ticketTypeName: string;
@@ -61,7 +60,7 @@ export function DesktopCheckout({
   eventTitle,
   eventPhoto,
   eventWhenLabel,
-  seats = ["C-4", "C-5"],
+  seats = [],
   ticketTypeId,
   ticketTypeName,
   quantity,
@@ -72,6 +71,7 @@ export function DesktopCheckout({
   holdSeconds = 522,
   defaultBuyerEmail = "",
 }: DesktopCheckoutProps) {
+  const router = useRouter();
   const [holdRemaining, setHoldRemaining] = React.useState(holdSeconds);
   const [guaranteeOpen, setGuaranteeOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
@@ -139,7 +139,6 @@ export function DesktopCheckout({
     }
   }
 
-  const router = useRouter();
   const { stats: liveStats } = useEventLiveStats(eventId);
   const lastStatsAtRef = React.useRef<string | null>(null);
   React.useEffect(() => {
