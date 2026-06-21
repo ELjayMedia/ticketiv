@@ -94,13 +94,13 @@ export function MobileCheckout({
 
   // TICK-198: initialise from URL params so back-button / share restores cart
   const [ticketTypeId, setTicketTypeId] = React.useState(
-    searchParams.get("tt") ??
+    searchParams?.get("tt") ??
       defaultTicketTypeId ??
       firstAvailable?.id ??
       ticketTypes[0]?.id
   );
   const [quantity, setQuantity] = React.useState(
-    Math.max(1, Number(searchParams.get("qty")) || 1)
+    Math.max(1, Number(searchParams?.get("qty")) || 1)
   );
   const [paymentId, setPaymentId] = React.useState(paymentMethods[0]?.id);
   const [holdRemaining, setHoldRemaining] = React.useState(holdSeconds);
@@ -180,7 +180,7 @@ export function MobileCheckout({
 
   // TICK-198: keep URL in sync with cart state (shallow replace, no server re-render)
   React.useEffect(() => {
-    const next = new URLSearchParams(searchParams.toString());
+    const next = new URLSearchParams(searchParams?.toString() ?? "");
     if (ticketTypeId) next.set("tt", ticketTypeId); else next.delete("tt");
     next.set("qty", String(quantity));
     router.replace(`?${next.toString()}`, { scroll: false });
