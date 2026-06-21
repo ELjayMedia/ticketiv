@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { requestTransfer } from "@/lib/data/attendee/transfers";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
 import { Card } from "@/components/quiet/ui/card";
@@ -46,8 +48,11 @@ export function Transfer({
   ticket,
   friends = [],
 }: TransferProps) {
+  const router = useRouter();
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [note, setNote] = React.useState("");
+  const [isPending, setIsPending] = React.useState(false);
+  const [transferError, setTransferError] = React.useState<string | null>(null);
 
   if (!ticket) {
     return (
@@ -209,6 +214,14 @@ export function Transfer({
         <div className="h-24" />
       </div>
 
+      {transferError && (
+        <div className="sticky bottom-28 px-5">
+          <p className="rounded-[var(--radius)] bg-danger-soft px-3 py-2 text-[12px] text-danger">
+            {transferError}
+          </p>
+        </div>
+      )}
+
       <div className="sticky bottom-0 flex items-center gap-2 border-t border-line bg-surface px-5 py-3.5 pb-7">
         <Link
           href={`/tickets/${ticket.id}`}
@@ -217,11 +230,27 @@ export function Transfer({
           Cancel
         </Link>
         <button
-          disabled={!selected}
+          disabled={!selected || isPending}
+          onClick={async () => {
+            if (!selected || isPending) return;
+            setIsPending(true);
+            setTransferError(null);
+            const result = await requestTransfer(ticket.id, selected.id);
+            setIsPending(false);
+            if (!result) {
+              setTransferError("Transfer request failed. Please try again.");
+            } else {
+              router.push(`/tickets/${ticket.id}`);
+            }
+          }}
           className="flex flex-[2] items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {selected ? `Send to ${selected.name.split(" ")[0]}` : "Pick a recipient"}{" "}
-          {selected && <Icon name="arrowR" size={16} />}
+          {isPending
+            ? "Sending…"
+            : selected
+              ? `Send to ${selected.name.split(" ")[0]}`
+              : "Pick a recipient"}
+          {selected && !isPending && <Icon name="arrowR" size={16} />}
         </button>
       </div>
     </div>
