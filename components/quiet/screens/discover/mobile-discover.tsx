@@ -34,6 +34,7 @@ interface TonightRow {
   chip: string;
   chipVariant: "muted" | "accent";
   trustLabel: string | null;
+  stockLabel: string | null;
   verified: boolean;
 }
 
@@ -46,6 +47,7 @@ interface WeekRow {
   venue: string;
   price: string;
   trustLabel: string | null;
+  stockLabel: string | null;
   verified: boolean;
 }
 
@@ -74,6 +76,7 @@ function toTonight(ev: DiscoverEvent): TonightRow {
     chip: ev.city ?? "Tonight",
     chipVariant: "muted",
     trustLabel: ev.soldLabel,
+    stockLabel: ev.stockLabel,
     verified: ev.organizerVerified,
   };
 }
@@ -88,6 +91,7 @@ function toWeek(ev: DiscoverEvent): WeekRow {
     venue: ev.venue,
     price: ev.priceLabel,
     trustLabel: ev.soldLabel,
+    stockLabel: ev.stockLabel,
     verified: ev.organizerVerified,
   };
 }
@@ -206,7 +210,14 @@ export function MobileDiscover({
                   <div className="p-3">
                     <div className="text-h3 flex items-center gap-1 truncate"><span className="truncate">{e.title}</span>{e.verified && <VerifiedMark size={12} title="Verified organizer" />}</div>
                     <div className="mt-0.5 truncate text-[12px] text-ink-3">{e.sub} · {e.venue}</div>
-                    <div className="mt-2 flex items-center justify-between gap-2"><span className="font-mono text-[13px] font-semibold">{e.price}</span>{e.trustLabel && <span className="font-mono text-[11px] text-ink-3">{e.trustLabel}</span>}</div>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <span className="font-mono text-[13px] font-semibold">{e.price}</span>
+                      {e.stockLabel ? (
+                        <Chip variant="accent" size="sm">{e.stockLabel}</Chip>
+                      ) : e.trustLabel ? (
+                        <span className="font-mono text-[11px] text-ink-3">{e.trustLabel}</span>
+                      ) : null}
+                    </div>
                   </div>
                 </Card>
               </Link>
@@ -230,7 +241,14 @@ export function MobileDiscover({
                       <div><div className="text-h3 flex items-center gap-1 truncate"><span className="truncate">{e.title}</span>{e.verified && <VerifiedMark size={12} title="Verified organizer" />}</div><div className="mt-0.5 truncate text-[12px] text-ink-3">{e.sub}</div></div>
                       <div className="flex items-center gap-2 text-[12px] text-ink-3"><Icon name="cal" size={12} /> {e.date}<span>·</span><span className="truncate">{e.venue}</span>{e.trustLabel && <><span>·</span><span className="truncate font-mono text-[11px]">{e.trustLabel}</span></>}</div>
                     </div>
-                    <div className="flex flex-col items-end justify-between"><Icon name="heart" size={16} className="text-ink-4" /><span className="font-mono text-[12px] font-semibold">{e.price}</span></div>
+                    <div className="flex flex-col items-end justify-between">
+                      {e.stockLabel ? (
+                        <Chip variant="accent" size="sm">{e.stockLabel}</Chip>
+                      ) : (
+                        <Icon name="heart" size={16} className="text-ink-4" />
+                      )}
+                      <span className="font-mono text-[12px] font-semibold">{e.price}</span>
+                    </div>
                   </Card>
                 </Link>
               </li>

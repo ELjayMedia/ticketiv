@@ -33,6 +33,9 @@ export interface DiscoverEvent {
   ticketsSold: number | null;
   /** "1.2k sold" or null when below the safe-display threshold. */
   soldLabel: string | null;
+  ticketsAvailable: number | null;
+  /** "X left" / "Sold out" when near or at zero; null otherwise. */
+  stockLabel: string | null;
   organizerName: string | null;
   /** Derived from organizer_logo_url presence — matches the rule used by
    *  the event-detail mapper so cards and detail agree. */
@@ -44,6 +47,12 @@ export function mapDiscoverEvent(row: EventsPublicView & { featured_priority?: n
   const minPrice = row.min_price_cents ?? null;
   const currency = asCurrency(row.currency);
   const ticketsSold = typeof row.tickets_sold === "number" ? row.tickets_sold : null;
+  const ticketsAvailable = typeof row.tickets_available === "number" ? row.tickets_available : null;
+  const stockLabel =
+    ticketsAvailable === null ? null :
+    ticketsAvailable === 0 ? "Sold out" :
+    ticketsAvailable < 20 ? `${ticketsAvailable} left` :
+    null;
 
   return {
     id: row.id,
@@ -63,6 +72,8 @@ export function mapDiscoverEvent(row: EventsPublicView & { featured_priority?: n
     featuredPriority: row.featured_priority ?? null,
     ticketsSold,
     soldLabel: formatSoldCount(ticketsSold),
+    ticketsAvailable,
+    stockLabel,
     organizerName: row.organizer_name ?? null,
     organizerVerified: Boolean(row.organizer_logo_url),
   };
