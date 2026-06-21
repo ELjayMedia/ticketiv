@@ -130,14 +130,16 @@ export function CalendarScreen(props: CalendarProps = {}) {
         weekday: "long", month: "short", day: "numeric",
       });
   const dayEvents = isShowingToday ? cfg.todayEvents : [];
-  const comingUpFiltered = React.useMemo((): ComingUpEvent[] => {
+  // Computed inline (no manual useMemo): the React Compiler memoizes this and
+  // the manual memoization tripped react-hooks "could not be preserved".
+  const comingUpFiltered: ComingUpEvent[] = (() => {
     let list = selectedDay === null ? cfg.comingUp : (!isInitialMonth ? [] : cfg.comingUp.filter((e) => e.day === selectedDay));
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter((e) => e.title.toLowerCase().includes(q) || e.venue.toLowerCase().includes(q));
     }
     return list;
-  }, [selectedDay, isInitialMonth, cfg.comingUp, searchQuery]);
+  })();
 
   return (
     <div className="bg-bg pb-24">
