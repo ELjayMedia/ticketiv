@@ -62,20 +62,31 @@ else — keep MoMo gated to Eswatini MSISDNs.
 
 ## Routing (`payment_routing_rules`)
 
-Provider selection should run through the existing `payment_routing_rules`
-table (priority, country_code, currency, provider, fallback_provider) rather
-than hardcoding. Today the checkout picks the provider directly; wiring the
-rules engine into provider selection is the remaining integration step (define
-SZL/SZ → `momo` primary, `paystack` fallback). Tracked under this ticket.
+Provider selection runs through `payment_routing_rules` (priority,
+country_code, currency, provider, fallback_provider, is_active) via
+`lib/payments/routing.ts`:
+
+- `matchRoutingRule(rules, { currency, countryCode })` — pure, unit-tested:
+  active rules only, NULL currency/country = wildcard, lowest `priority` wins.
+- `resolvePaymentProvider({ currency, countryCode, requested })` — used by
+  `createPaymentAttempt`. **Policy:** an explicit, *known* client choice wins
+  (a buyer who picked MoMo vs Card gets it); otherwise the matching rule, then
+  its fallback, then `paystack`. Any lookup error degrades to `paystack` so
+  checkout never breaks on an unreadable rules table.
+
+`/api/payments/attempt` now accepts an optional `provider` (+ `countryCode`);
+omit `provider` to let the rules decide. Configure SZ/SZL → `momo` primary,
+`paystack` fallback in the super-admin routing screen.
 
 ## Decisions
 
-- **deltapay — recommend REMOVE (needs sign-off).** No production contract or
-  verified flow; it adds payment surface area and shows up in the admin routing
-  UI as a selectable rail that cannot actually settle. Removal touches
-  `lib/deltapay.ts`, `app/api/payments/deltapay/*`, the `PaymentProvider` union
-  in `lib/payments.ts`, and the routing admin screen. Left in place pending
-  sign-off rather than deleting a referenced rail unilaterally.
+- **deltapay — REMOVED.** No production contract or verified settlement flow.
+  Deleted `lib/deltapay.ts`, `app/api/payments/deltapay/*`, dropped from the
+  `PaymentProvider` union + `assertProvider`, and the routing-admin placeholder
+  copy. **DB follow-up (needs sign-off):** remove any `deltapay` row from
+  `payment_provider_settings` and drop `'deltapay'` from its
+  `payment_provider_settings_provider_check` constraint — a migration, not
+  applied here.
 - **PayPal — DEFER.** Not required for the Eswatini-first launch (MoMo +
   Paystack cover the market). Revisit only if diaspora/USD card demand is
   confirmed; it would slot in as another provider on the same

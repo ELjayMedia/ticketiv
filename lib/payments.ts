@@ -10,8 +10,9 @@ import { deliverTicketsForOrder } from "@/lib/notifications/ticket-delivery"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { buildLedgerEntries, evaluatePaystackWebhookOutcome } from "@/lib/payments-math"
+import { resolvePaymentProvider } from "@/lib/payments/routing"
 
-export type PaymentProvider = "deltapay" | "paystack" | "flutterwave" | "manual" | "momo"
+export type PaymentProvider = "paystack" | "flutterwave" | "manual" | "momo"
 
 type LiveOrder = {
   id: string
@@ -41,9 +42,12 @@ type PaystackSettings = {
 
 export interface CreatePaymentAttemptInput {
   orderId: string
-  provider: PaymentProvider
+  /** Client preference. When omitted/unknown, payment_routing_rules decides. */
+  provider?: PaymentProvider | string | null
   userId: string
   returnUrl?: string | null
+  /** Optional ISO country code to match against routing rules. */
+  countryCode?: string | null
 }
 
 export interface CompleteVerifiedPaymentInput {
@@ -54,7 +58,7 @@ export interface CompleteVerifiedPaymentInput {
 }
 
 function assertProvider(provider: string): asserts provider is PaymentProvider {
-  if (!["deltapay", "paystack", "flutterwave", "manual", "momo"].includes(provider)) throw new Error("Unsupported payment provider")
+  if (!["paystack", "flutterwave", "manual", "momo"].includes(provider)) throw new Error("Unsupported payment provider")
 }
 
 async function getPaystackSettings(): Promise<PaystackSettings> {
@@ -145,8 +149,15 @@ async function writePaymentLedger(order: LiveOrder, paymentId: string) {
 }
 
 export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
-  assertProvider(input.provider)
   const { supabase, order } = await getPendingOrder(input.orderId, input.userId)
+  // Provider selection runs through payment_routing_rules: an explicit, known
+  // client choice wins; otherwise the rules (then paystack) decide.
+  const provider = await resolvePaymentProvider({
+    currency: order.currency,
+    countryCode: input.countryCode,
+    requested: input.provider,
+  })
+  assertProvider(provider)
   const { count, error: countError } = await supabase.from("payment_attempts").select("id", { count: "exact", head: true }).eq("order_id", order.id)
 
   if (countError) {
@@ -154,15 +165,15 @@ export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
     throw new Error("Unable to create payment attempt")
   }
 
-  const extRef = `${input.provider}_${order.id}_${randomUUID()}`
+  const extRef = `${provider}_${order.id}_${randomUUID()}`
   const attemptNo = (count ?? 0) + 1
-  const providerPayload = input.provider === "paystack" ? await initializePaystackTransaction(order, extRef, input.returnUrl) : null
+  const providerPayload = provider === "paystack" ? await initializePaystackTransaction(order, extRef, input.returnUrl) : null
 
   const { data: attempt, error: attemptError } = await supabase
     .from("payment_attempts")
     .insert({
       order_id: order.id,
-      provider: input.provider,
+      provider,
       attempt_no: attemptNo,
       status: "pending",
       ext_ref: providerPayload?.reference ?? extRef,
@@ -180,7 +191,7 @@ export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
     order,
     attempt,
     payment: {
-      provider: input.provider,
+      provider,
       reference: providerPayload?.reference ?? extRef,
       amountCents: order.total_cents,
       currency: order.currency,

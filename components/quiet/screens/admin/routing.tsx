@@ -303,7 +303,7 @@ function NewRuleDialog({ providers, onDismiss }: { providers: string[]; onDismis
             <input
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. paystack primary in ZA, deltapay fallback"
+              placeholder="e.g. momo primary in SZ, paystack fallback"
               className="w-full rounded-md border border-line-2 bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
             />
           </RuleField>
