@@ -324,3 +324,77 @@ export async function getMyOrders(): Promise<
   if (error) throw error
   return data ?? []
 }
+
+/* ─────────────────────────────────────────────────────────────
+ * OrderListItem — denormalised row for the buyer's /orders page.
+ * Joins order → order_items → ticket_types → events in one query
+ * via Supabase nested selects (no RPC needed).
+ * ───────────────────────────────────────────────────────────── */
+export interface OrderListItem {
+  id: string
+  status: string
+  total_cents: number
+  currency: string
+  created_at: string
+  ticket_count: number
+  event_id: string | null
+  event_title: string | null
+  event_slug: string | null
+  event_starts_at: string | null
+  cover_image_url: string | null
+  venue_name: string | null
+}
+
+export async function getMyOrdersList(): Promise<OrderListItem[]> {
+  const supabase = await createServerSupabaseClient()
+  if (!supabase) return []
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data, error } = await supabase
+    .from("orders")
+    .select(`
+      id,
+      status,
+      total_cents,
+      currency,
+      created_at,
+      order_items(
+        id,
+        ticket_types(
+          event_id,
+          events(id, title, slug, starts_at, cover_image_url, venues(name))
+        )
+      )
+    `)
+    .eq("buyer_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(50)
+
+  if (error) throw error
+
+  return (data ?? []).map((row: any) => {
+    const items: any[] = row.order_items ?? []
+    const ticketCount = items.length
+    // Pull first available event from item chain
+    const firstItem = items[0]
+    const event = firstItem?.ticket_types?.events ?? null
+    return {
+      id: row.id,
+      status: row.status,
+      total_cents: row.total_cents,
+      currency: row.currency,
+      created_at: row.created_at,
+      ticket_count: ticketCount,
+      event_id: event?.id ?? null,
+      event_title: event?.title ?? null,
+      event_slug: event?.slug ?? null,
+      event_starts_at: event?.starts_at ?? null,
+      cover_image_url: event?.cover_image_url ?? null,
+      venue_name: event?.venues?.name ?? null,
+    } satisfies OrderListItem
+  })
+}
