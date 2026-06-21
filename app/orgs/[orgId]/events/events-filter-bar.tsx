@@ -26,7 +26,7 @@ export function EventsFilterBar({ currentQ, currentStatus }: EventsFilterBarProp
   const [q, setQ] = React.useState(currentQ)
 
   function push(updates: { q?: string; status?: string }) {
-    const next = new URLSearchParams(searchParams.toString())
+    const next = new URLSearchParams(searchParams?.toString() ?? "")
     if ("q" in updates) {
       if (updates.q) next.set("q", updates.q)
       else next.delete("q")

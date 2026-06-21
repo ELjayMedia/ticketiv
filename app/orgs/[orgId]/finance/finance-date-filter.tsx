@@ -44,7 +44,7 @@ export function FinanceDateFilter({ currentFrom, currentTo }: FinanceDateFilterP
   const [to, setTo] = React.useState(currentTo ?? "")
 
   function applyDates(newFrom: string | null, newTo: string | null) {
-    const next = new URLSearchParams(searchParams.toString())
+    const next = new URLSearchParams(searchParams?.toString() ?? "")
     if (newFrom) next.set("from", newFrom)
     else next.delete("from")
     if (newTo) next.set("to", newTo)
