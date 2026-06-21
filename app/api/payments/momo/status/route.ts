@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { checkMomoStatus } from "@/lib/payments/momo"
+import { evaluateMomoOutcome } from "@/lib/payments/momo-status"
 import { completeVerifiedPayment, failPaymentAttempt } from "@/lib/payments"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
@@ -60,9 +61,14 @@ export async function GET(request: Request) {
       return NextResponse.json({ status: "FAILED" })
     }
 
-    const status = await checkMomoStatus(referenceId)
+    const momoStatus = await checkMomoStatus(referenceId)
+    const outcome = evaluateMomoOutcome({
+      momoStatus,
+      attemptStatus: attempt.status,
+      orderStatus: order.status,
+    })
 
-    if (status === "SUCCESSFUL") {
+    if (outcome === "settled") {
       try {
         await completeVerifiedPayment({
           orderId: order.id,
@@ -82,7 +88,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ status: "SUCCESSFUL" })
     }
 
-    if (status === "FAILED") {
+    if (outcome === "failed") {
       await failPaymentAttempt(order.id, "momo", referenceId).catch((error) =>
         console.error("[MoMo] failPaymentAttempt error", error),
       )
