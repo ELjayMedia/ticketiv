@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { matchRoutingRule, type RoutingRule } from "@/lib/payments/routing"
+import { matchRoutingRule, normaliseAllowed, type RoutingRule } from "@/lib/payments/routing"
 
 const rule = (r: Partial<RoutingRule>): RoutingRule => ({
   priority: 100,
@@ -51,5 +51,14 @@ describe("matchRoutingRule", () => {
   it("is case-insensitive on currency and country", () => {
     const rules = [rule({ currency: "szl", country_code: "sz", provider: "momo" })]
     expect(matchRoutingRule(rules, { currency: "SZL", countryCode: "SZ" })?.provider).toBe("momo")
+  })
+})
+
+describe("normaliseAllowed (event provider lock)", () => {
+  it("drops unknown providers and empties to no-constraint", () => {
+    expect(normaliseAllowed(["momo", "bogus", "paystack"])).toEqual(["momo", "paystack"])
+    expect(normaliseAllowed([])).toEqual([])
+    expect(normaliseAllowed(null)).toEqual([])
+    expect(normaliseAllowed(["nope"])).toEqual([])
   })
 })

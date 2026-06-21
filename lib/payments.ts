@@ -148,14 +148,52 @@ async function writePaymentLedger(order: LiveOrder, paymentId: string) {
   }
 }
 
+/**
+ * Effective payment-provider lock for an order: the intersection of the
+ * non-empty `events.payment_providers` locks across every event the order
+ * touches. Events without a lock impose no constraint. Empty result = no lock.
+ * Throws when locked events share no common provider (a misconfiguration —
+ * orders are effectively single-event in practice).
+ */
+async function getOrderAllowedProviders(orderId: string): Promise<string[]> {
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from("order_items")
+    .select("ticket_types(events(id, payment_providers))")
+    .eq("order_id", orderId)
+
+  if (error || !data) return []
+
+  const lockByEvent = new Map<string, string[]>()
+  for (const row of data as any[]) {
+    const ev = row?.ticket_types?.events
+    if (ev?.id && Array.isArray(ev.payment_providers) && ev.payment_providers.length > 0) {
+      lockByEvent.set(ev.id, ev.payment_providers.map(String))
+    }
+  }
+
+  const locks = [...lockByEvent.values()]
+  if (locks.length === 0) return []
+
+  let allowed = locks[0]
+  for (const lock of locks.slice(1)) allowed = allowed.filter((p) => lock.includes(p))
+  if (allowed.length === 0) {
+    throw new Error("This order's events have no payment provider in common")
+  }
+  return allowed
+}
+
 export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
   const { supabase, order } = await getPendingOrder(input.orderId, input.userId)
-  // Provider selection runs through payment_routing_rules: an explicit, known
-  // client choice wins; otherwise the rules (then paystack) decide.
+  // Provider selection runs through payment_routing_rules, constrained by any
+  // event-level lock: an explicit, known, *permitted* client choice wins;
+  // otherwise the rules (then the lock / paystack) decide.
+  const allowedProviders = await getOrderAllowedProviders(order.id)
   const provider = await resolvePaymentProvider({
     currency: order.currency,
     countryCode: input.countryCode,
     requested: input.provider,
+    allowedProviders,
   })
   assertProvider(provider)
   const { count, error: countError } = await supabase.from("payment_attempts").select("id", { count: "exact", head: true }).eq("order_id", order.id)

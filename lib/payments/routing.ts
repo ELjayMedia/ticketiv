@@ -26,6 +26,25 @@ export interface RoutingRule {
 export interface RoutingContext {
   currency: string
   countryCode?: string | null
+  /**
+   * Event-level lock. When non-empty, only these providers may be used for the
+   * order; an empty/absent list means no lock (any enabled provider).
+   */
+  allowedProviders?: string[] | null
+}
+
+/** Normalise an allow-list to known providers. Empty result = no constraint. */
+export function normaliseAllowed(allowed: string[] | null | undefined): PaymentProvider[] {
+  if (!allowed || allowed.length === 0) return []
+  return allowed.filter(isKnown)
+}
+
+/** Thrown when an event's provider lock leaves no usable option for a request. */
+export class ProviderNotAllowedError extends Error {
+  constructor(public allowed: string[]) {
+    super(`This event only accepts: ${allowed.join(", ")}`)
+    this.name = "ProviderNotAllowedError"
+  }
 }
 
 function isKnown(p: string | null | undefined): p is PaymentProvider {
@@ -60,8 +79,18 @@ export function matchRoutingRule(
 export async function resolvePaymentProvider(
   ctx: RoutingContext & { requested?: string | null },
 ): Promise<PaymentProvider> {
-  if (isKnown(ctx.requested)) return ctx.requested
+  const allowed = normaliseAllowed(ctx.allowedProviders)
+  const permits = (p: PaymentProvider) => allowed.length === 0 || allowed.includes(p)
 
+  // An explicit, known client choice wins — but only if the event lock permits
+  // it. A disallowed explicit choice is a hard error (don't silently switch the
+  // rail the buyer picked).
+  if (isKnown(ctx.requested)) {
+    if (permits(ctx.requested)) return ctx.requested
+    throw new ProviderNotAllowedError(allowed)
+  }
+
+  let routed: PaymentProvider = FALLBACK_PROVIDER
   try {
     const admin = createAdminClient()
     const { data, error } = await admin
@@ -69,13 +98,17 @@ export async function resolvePaymentProvider(
       .select("priority, country_code, currency, provider, fallback_provider, is_active")
       .eq("is_active", true)
 
-    if (error || !data) return FALLBACK_PROVIDER
-
-    const matched = matchRoutingRule(data as RoutingRule[], ctx)
-    if (matched && isKnown(matched.provider)) return matched.provider
-    if (matched && isKnown(matched.fallback)) return matched.fallback
-    return FALLBACK_PROVIDER
+    if (!error && data) {
+      const matched = matchRoutingRule(data as RoutingRule[], ctx)
+      if (matched && isKnown(matched.provider)) routed = matched.provider
+      else if (matched && isKnown(matched.fallback)) routed = matched.fallback
+    }
   } catch {
-    return FALLBACK_PROVIDER
+    routed = FALLBACK_PROVIDER
   }
+
+  // Apply the event lock to the routed default: keep it if permitted, otherwise
+  // fall back to the first allowed provider.
+  if (permits(routed)) return routed
+  return allowed[0]
 }

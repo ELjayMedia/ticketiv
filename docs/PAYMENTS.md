@@ -78,6 +78,32 @@ country_code, currency, provider, fallback_provider, is_active) via
 omit `provider` to let the rules decide. Configure SZ/SZL → `momo` primary,
 `paystack` fallback in the super-admin routing screen.
 
+## Event-level provider lock
+
+Organizers can restrict an event to specific payment platforms (e.g. MoMo-only,
+or MoMo + Paystack). Stored in `events.payment_providers text[]` — **empty = no
+lock** (accept every enabled provider), so existing events are unaffected.
+
+- **Migration (NOT applied — needs sign-off):**
+  `supabase/migrations/20260621090000_event_payment_providers.sql` adds the
+  column + a `<@ ARRAY['paystack','flutterwave','manual','momo']` check. The
+  feature is inert until this is applied.
+- **Organizer UI:** Policies step of the event editor — multi-select chips of
+  the available providers; none selected = "all available". Persisted via
+  `PUT /api/events/[eventId]/policies` (which also returns `availableProviders`
+  = enabled `payment_provider_settings` rows + MoMo).
+- **Enforcement (authoritative, server-side):** `createPaymentAttempt` computes
+  the order's effective lock (`getOrderAllowedProviders` — intersection of the
+  non-empty locks across the order's events) and passes it to
+  `resolvePaymentProvider`. An explicit client choice that the lock forbids is a
+  hard error (`ProviderNotAllowedError`); the default resolution is constrained
+  to the allowed set.
+- **Follow-up (buyer UI):** the checkout screen is Paystack-centric with a
+  separate MoMo route. Surface `events.payment_providers` to the checkout so the
+  buyer is only offered allowed rails (and a MoMo-locked event renders the MoMo
+  flow directly). Until then the lock is enforced server-side (a forbidden
+  attempt is rejected) but the buyer UI doesn't yet pre-filter the options.
+
 ## Decisions
 
 - **deltapay — REMOVED.** No production contract or verified settlement flow.
