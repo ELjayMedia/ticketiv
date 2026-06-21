@@ -1174,6 +1174,7 @@ export type Database = {
           featured_priority: number | null
           id: string
           org_id: string
+          payment_providers: string[]
           publish_at: string | null
           published_at: string | null
           refund_policy: Json | null
@@ -1206,6 +1207,7 @@ export type Database = {
           featured_priority?: number | null
           id?: string
           org_id: string
+          payment_providers?: string[]
           publish_at?: string | null
           published_at?: string | null
           refund_policy?: Json | null
@@ -1238,6 +1240,7 @@ export type Database = {
           featured_priority?: number | null
           id?: string
           org_id?: string
+          payment_providers?: string[]
           publish_at?: string | null
           published_at?: string | null
           refund_policy?: Json | null
@@ -1942,6 +1945,7 @@ export type Database = {
         Row: {
           checked_in_at: string | null
           created_at: string | null
+          current_owner_id: string | null
           holder_email: string | null
           holder_name: string | null
           holder_phone: string | null
@@ -1960,6 +1964,7 @@ export type Database = {
         Insert: {
           checked_in_at?: string | null
           created_at?: string | null
+          current_owner_id?: string | null
           holder_email?: string | null
           holder_name?: string | null
           holder_phone?: string | null
@@ -1978,6 +1983,7 @@ export type Database = {
         Update: {
           checked_in_at?: string | null
           created_at?: string | null
+          current_owner_id?: string | null
           holder_email?: string | null
           holder_name?: string | null
           holder_phone?: string | null
@@ -5388,6 +5394,7 @@ export type Database = {
           city: string | null
           cover_image_url: string | null
           currency: string | null
+          current_owner_id: string | null
           event_id: string | null
           event_slug: string | null
           event_starts_at: string | null
@@ -5817,6 +5824,7 @@ export type Database = {
           transfer_id: string
         }[]
       }
+      fn_complete_transfer: { Args: { p_transfer_id: string }; Returns: Json }
       fn_complete_waitlist_after_payment: {
         Args: { p_payment_id: string; p_waitlist_id: string }
         Returns: {
@@ -5861,6 +5869,16 @@ export type Database = {
           total_cents: number
         }[]
       }
+      fn_create_seat_hold:
+        | { Args: { p_event_id: string; p_quantity?: number }; Returns: string }
+        | {
+            Args: {
+              p_event_id: string
+              p_quantity?: number
+              p_ticket_type_id?: string
+            }
+            Returns: string
+          }
       fn_create_waitlist_checkout_order: {
         Args: { p_waitlist_id: string }
         Returns: {
@@ -6054,6 +6072,19 @@ export type Database = {
         Returns: Json
       }
       fn_rollup_metrics: { Args: { p_day: string }; Returns: undefined }
+      fn_scan_ticket: {
+        Args: {
+          p_attempt_id?: string
+          p_device_id?: string
+          p_event_id: string
+          p_gate?: string
+          p_scanned_at?: string
+          p_scanned_by: string
+          p_session_id?: string
+          p_ticket_code: string
+        }
+        Returns: Json
+      }
       fn_search_events: {
         Args: {
           p_category?: string
@@ -6086,6 +6117,13 @@ export type Database = {
       fn_ticket_is_transferable: {
         Args: { p_order_item_id: string }
         Returns: boolean
+      }
+      fn_ticket_type_remaining: {
+        Args: { p_event_id: string }
+        Returns: {
+          remaining: number
+          ticket_type_id: string
+        }[]
       }
       get_event_kpis: { Args: { p_event_id: string }; Returns: Json }
       get_organizer_kpis: { Args: { p_range?: string }; Returns: Json }
