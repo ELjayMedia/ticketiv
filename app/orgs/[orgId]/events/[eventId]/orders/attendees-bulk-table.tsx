@@ -2,7 +2,9 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
+import { createClientSupabaseClient } from "@/lib/supabase-client"
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
+import { LiveDot } from "@/components/quiet/ui/primitives"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
 import { Button } from "@/components/quiet/ui/button"
@@ -64,6 +66,56 @@ export function AttendeesBulkTable({
   const [confirmOpen, setConfirmOpen] = React.useState(false)
   const [loading, setLoading] = React.useState(false)
   const [toast, setToast] = React.useState<string | null>(null)
+  const [liveConnected, setLiveConnected] = React.useState(false)
+
+  React.useEffect(() => {
+    const supabase = createClientSupabaseClient()
+    if (!supabase) return
+
+    let channels: ReturnType<typeof supabase.channel>[] = []
+
+    function subscribe() {
+      const ch1 = supabase!
+        .channel(`orders-org-${orgId}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "orders", filter: `org_id=eq.${orgId}` },
+          () => router.refresh(),
+        )
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") setLiveConnected(true)
+        })
+
+      const ch2 = supabase!
+        .channel(`order-items-event-${eventId}`)
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "order_items" },
+          () => router.refresh(),
+        )
+        .subscribe()
+
+      channels = [ch1, ch2]
+    }
+
+    function teardown() {
+      channels.forEach((ch) => supabase!.removeChannel(ch))
+      channels = []
+      setLiveConnected(false)
+    }
+
+    function handleVisibility() {
+      if (document.visibilityState === "hidden") teardown()
+      else subscribe()
+    }
+
+    subscribe()
+    document.addEventListener("visibilitychange", handleVisibility)
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility)
+      teardown()
+    }
+  }, [orgId, eventId, router])
 
   const checkable = attendees.filter((a) => a.status === "issued")
   const allCheckableSelected =
@@ -121,11 +173,14 @@ export function AttendeesBulkTable({
     <>
       <Card>
         <CardBody className="flex items-center justify-between px-5 py-4">
-          <p className="text-label">
-            {filterActive
-              ? `Attendees — ${attendees.length.toLocaleString()} of ${totalCount.toLocaleString()}`
-              : `Attendees (${totalCount.toLocaleString()})`}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-label">
+              {filterActive
+                ? `Attendees — ${attendees.length.toLocaleString()} of ${totalCount.toLocaleString()}`
+                : `Attendees (${totalCount.toLocaleString()})`}
+            </p>
+            {liveConnected && <LiveDot />}
+          </div>
           {selected.size > 0 && (
             <Button
               variant="primary"

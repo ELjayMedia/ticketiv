@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { acceptTransfer, cancelTransfer, declineTransfer } from "@/lib/data/attendee/transfers";
+import { createClientSupabaseClient } from "@/lib/supabase-client";
 import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
@@ -125,12 +127,82 @@ export function MyTickets({
   transferHistory,
   counts,
 }: MyTicketsProps) {
+  const router = useRouter();
   const [seg, setSeg] = React.useState<Segment>("upcoming");
   const [transferLoading, setTransferLoading] = React.useState<"accept" | "decline" | null>(null);
   const [cancelling, setCancelling] = React.useState<string | null>(null);
   const [hiddenTransfers, setHiddenTransfers] = React.useState<Set<string>>(new Set());
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
+  const [liveConnected, setLiveConnected] = React.useState(false);
+  const [stale, setStale] = React.useState(false);
+
+  // TICK-239: Supabase Realtime — refresh ticket list on order_items or orders changes
+  React.useEffect(() => {
+    const supabase = createClientSupabaseClient();
+    if (!supabase) return;
+
+    let channels: ReturnType<typeof supabase.channel>[] = [];
+    let staleTimer: ReturnType<typeof setTimeout>;
+
+    async function subscribe() {
+      const { data: { user } } = await supabase!.auth.getUser();
+      if (!user) return;
+
+      const handleChange = () => {
+        router.refresh();
+        setStale(false);
+        clearTimeout(staleTimer);
+        staleTimer = setTimeout(() => setStale(true), 30000);
+      };
+
+      const ch1 = supabase!
+        .channel(`my-orders-rt-${user.id}`)
+        .on("postgres_changes", {
+          event: "*",
+          schema: "public",
+          table: "orders",
+          filter: `buyer_id=eq.${user.id}`,
+        }, handleChange)
+        .subscribe((status) => setLiveConnected(status === "SUBSCRIBED"));
+
+      const ch2 = supabase!
+        .channel(`my-items-rt-${user.id}`)
+        .on("postgres_changes", {
+          event: "UPDATE",
+          schema: "public",
+          table: "order_items",
+          filter: `current_owner_id=eq.${user.id}`,
+        }, handleChange)
+        .subscribe();
+
+      channels = [ch1, ch2];
+      staleTimer = setTimeout(() => setStale(true), 30000);
+    }
+
+    function teardown() {
+      const client = createClientSupabaseClient();
+      channels.forEach((ch) => client?.removeChannel(ch));
+      channels = [];
+      setLiveConnected(false);
+      clearTimeout(staleTimer);
+    }
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        teardown();
+      } else {
+        subscribe();
+      }
+    };
+
+    subscribe();
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      teardown();
+    };
+  }, [router]);
 
   const _featured = featured;
   const _upcoming = upcoming ?? [];
@@ -188,11 +260,22 @@ export function MyTickets({
 
       {/* Header */}
       <header className="flex items-end gap-2.5 px-5 pb-3 pt-2">
-        <div className="flex flex-1 flex-col">
-          <span className="text-label">My tickets</span>
+        <div className="flex flex-1 flex-col gap-1">
+          <div className="flex items-center gap-1.5">
+            <span className="text-label">My tickets</span>
+            {liveConnected && <LiveDot />}
+          </div>
           <span className="text-h1 mt-0.5">
             Upcoming · {_counts.upcoming}
           </span>
+          {stale && (
+            <button
+              onClick={() => router.refresh()}
+              className="self-start text-[11px] font-mono uppercase tracking-wider text-accent underline underline-offset-2"
+            >
+              Refresh
+            </button>
+          )}
         </div>
         <button
           aria-label="Search tickets"
