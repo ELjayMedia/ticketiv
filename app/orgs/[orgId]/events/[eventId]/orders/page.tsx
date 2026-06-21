@@ -7,6 +7,8 @@ import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
 import { EmptyState } from "@/components/quiet/ui/empty-state"
+import { AttendeesBulkTable } from "./attendees-bulk-table"
+import { CompTicketButton } from "./comp-ticket-button"
 
 export const dynamic = "force-dynamic"
 
@@ -117,6 +119,18 @@ export default async function OrdersPage({
     .select("tickets_sold, gross_sales_cents, checked_in_count")
     .eq("event_id", eventId)
     .maybeSingle()
+
+  // Ticket types for the comp-ticket modal (TICK-237)
+  const { data: ticketTypesRaw } = await supabase
+    .from("ticket_types")
+    .select("id, name, price_cents")
+    .eq("event_id", eventId)
+    .order("name")
+  const ticketTypes = (ticketTypesRaw ?? []).map((tt) => ({
+    id: tt.id,
+    name: tt.name,
+    price_cents: tt.price_cents ?? 0,
+  }))
 
   // Lightweight fetch of all order IDs for this event (just UUIDs).
   // Used for: orders tab count and item-count-per-order in the orders table.
@@ -233,13 +247,18 @@ export default async function OrdersPage({
               <p className="text-[13px] text-ink-3">{event.title}</p>
             </div>
           </div>
-          <a
-            href={`/api/orgs/${orgId}/events/${eventId}/attendees.csv`}
-            className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-transparent px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-bg"
-          >
-            <Icon name="download" size={14} />
-            Export attendees CSV
-          </a>
+          <div className="flex items-center gap-2">
+            {ticketTypes.length > 0 && (
+              <CompTicketButton orgId={orgId} eventId={eventId} ticketTypes={ticketTypes} />
+            )}
+            <a
+              href={`/api/orgs/${orgId}/events/${eventId}/attendees.csv`}
+              className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-transparent px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-bg"
+            >
+              <Icon name="download" size={14} />
+              Export attendees CSV
+            </a>
+          </div>
         </div>
 
         {/* KPI tiles */}
@@ -425,94 +444,18 @@ export default async function OrdersPage({
           </Card>
         )}
 
-        {/* Attendees view */}
+        {/* Attendees view — TICK-235: bulk check-in via AttendeesBulkTable client component */}
         {view === "attendees" && (
-          <Card>
-            <CardBody className="px-5 py-4">
-              <p className="text-label">
-                {filterQ || filterStatus
-                  ? `Attendees — ${attendeesResultCount.toLocaleString()} of ${totalAttendees.toLocaleString()}`
-                  : `Attendees (${attendeesResultCount.toLocaleString()})`}
-              </p>
-            </CardBody>
-            <CardDivider />
-            {attendees.length === 0 ? (
-              <CardBody className="py-12">
-                <EmptyState
-                  icon="users"
-                  title={filterQ || filterStatus ? "No attendees match" : "No attendees yet"}
-                  description={
-                    filterQ || filterStatus
-                      ? "Try adjusting the search or status filter."
-                      : "Attendees will appear here once tickets are issued."
-                  }
-                  compact
-                />
-              </CardBody>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-line">
-                        <th className="px-5 py-3 text-left text-label">Ticket code</th>
-                        <th className="px-5 py-3 text-left text-label">Holder</th>
-                        <th className="px-5 py-3 text-left text-label">Ticket type</th>
-                        <th className="px-5 py-3 text-left text-label">Check-in</th>
-                        <th className="px-5 py-3 text-left text-label">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {attendees.map((item: any, i: number) => (
-                        <tr key={item.id} className={i > 0 ? "border-t border-line" : ""}>
-                          <td className="px-5 py-3 font-mono text-[12px] text-ink">
-                            {item.ticket_code}
-                          </td>
-                          <td className="px-5 py-3">
-                            <div className="flex flex-col gap-0.5">
-                              <span className="text-[13px] font-semibold text-ink">
-                                {item.holder_name ?? "—"}
-                              </span>
-                              <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                                {item.holder_email ?? (item.orders as any)?.buyer_email ?? "—"}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-5 py-3 text-[13px] text-ink">
-                            {(item.ticket_types as any)?.name ?? "—"}
-                          </td>
-                          <td className="px-5 py-3 font-mono text-[12px] text-ink-3">
-                            {item.checked_in_at ? (
-                              <span className="text-success">{fmtDate(item.checked_in_at)}</span>
-                            ) : (
-                              "Not checked in"
-                            )}
-                          </td>
-                          <td className="px-5 py-3">
-                            <Chip
-                              size="sm"
-                              variant={
-                                item.status === "checked_in" || item.status === "issued"
-                                  ? "active"
-                                  : item.status === "refunded" || item.status === "revoked"
-                                    ? "muted"
-                                    : "default"
-                              }
-                              className="capitalize"
-                            >
-                              {item.status}
-                            </Chip>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <Paginator page={page} totalPages={totalPages} buildHref={buildHref} />
-              </>
-            )}
-          </Card>
+          <AttendeesBulkTable
+            attendees={attendees}
+            orgId={orgId}
+            eventId={eventId}
+            totalCount={attendeesResultCount}
+            filterActive={!!(filterQ || filterStatus)}
+            paginator={<Paginator page={page} totalPages={totalPages} buildHref={buildHref} />}
+          />
         )}
+
       </div>
     </main>
   )
