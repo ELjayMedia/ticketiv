@@ -55,20 +55,33 @@ export default async function OrgEventsPage({
 
   // TICK-223: Fetch real sales stats from event_live_stats instead of the
   // hardcoded `count * 129` formula that was previously used.
-  const statsMap = new Map<string, { tickets_sold: number; gross_sales_cents: number }>()
+  // TICK-226: Also fetch checked_in_count and capacity for sell-through % and check-in rate.
+  const statsMap = new Map<
+    string,
+    { tickets_sold: number; gross_sales_cents: number; checked_in_count: number }
+  >()
+  const capacityMap = new Map<string, number>()
   if (events.length > 0) {
-    const { data: liveStats } = await supabase
-      .from("event_live_stats")
-      .select("event_id, tickets_sold, gross_sales_cents")
-      .in(
-        "event_id",
-        events.map((e) => e.id),
-      )
-    for (const s of liveStats ?? []) {
+    const eventIds = events.map((e) => e.id)
+    const [liveStatsResult, ttResult] = await Promise.all([
+      supabase
+        .from("event_live_stats")
+        .select("event_id, tickets_sold, gross_sales_cents, checked_in_count")
+        .in("event_id", eventIds),
+      supabase
+        .from("ticket_types")
+        .select("event_id, quota")
+        .in("event_id", eventIds),
+    ])
+    for (const s of liveStatsResult.data ?? []) {
       statsMap.set(s.event_id, {
         tickets_sold: s.tickets_sold ?? 0,
         gross_sales_cents: s.gross_sales_cents ?? 0,
+        checked_in_count: s.checked_in_count ?? 0,
       })
+    }
+    for (const tt of ttResult.data ?? []) {
+      capacityMap.set(tt.event_id, (capacityMap.get(tt.event_id) ?? 0) + (tt.quota ?? 0))
     }
   }
 
@@ -125,7 +138,18 @@ export default async function OrgEventsPage({
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {events.map((event) => {
-              const stats = statsMap.get(event.id) ?? { tickets_sold: 0, gross_sales_cents: 0 }
+              const stats = statsMap.get(event.id) ?? {
+                tickets_sold: 0,
+                gross_sales_cents: 0,
+                checked_in_count: 0,
+              }
+              const capacity = capacityMap.get(event.id) ?? 0
+              const sellThroughPct =
+                capacity > 0 ? Math.min(100, (stats.tickets_sold / capacity) * 100) : null
+              const checkInRate =
+                stats.tickets_sold > 0
+                  ? Math.min(100, (stats.checked_in_count / stats.tickets_sold) * 100)
+                  : null
               return (
                 <Link key={event.id} href={`/orgs/${orgId}/events/${event.id}`} className="group block">
                   <Card className="flex h-full flex-col overflow-hidden transition-all duration-200 group-hover:border-line-2">
@@ -178,6 +202,11 @@ export default async function OrgEventsPage({
                           </p>
                           <p className="font-mono text-[16px] font-semibold tabular-nums text-ink">
                             {stats.tickets_sold.toLocaleString()}
+                            {capacity > 0 && (
+                              <span className="ml-1 text-[11px] text-ink-3">
+                                / {capacity.toLocaleString()}
+                              </span>
+                            )}
                           </p>
                         </div>
                         <div className="flex flex-col gap-0.5">
@@ -186,12 +215,42 @@ export default async function OrgEventsPage({
                           </p>
                           <p className="inline-flex items-center gap-1 font-mono text-[16px] font-semibold tabular-nums text-ink">
                             <Icon name="trending" size={14} className="text-success" />
-                            {stats.gross_sales_cents > 0
-                              ? formatPrice(stats.gross_sales_cents, "SZL")
-                              : <span className="text-ink-3 text-[13px]">—</span>
-                            }
+                            {stats.gross_sales_cents > 0 ? (
+                              formatPrice(stats.gross_sales_cents, "SZL")
+                            ) : (
+                              <span className="text-ink-3 text-[13px]">—</span>
+                            )}
                           </p>
                         </div>
+                        {sellThroughPct !== null && (
+                          <div className="flex flex-col gap-0.5">
+                            <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+                              Sell-through
+                            </p>
+                            <p
+                              className={[
+                                "font-mono text-[16px] font-semibold tabular-nums",
+                                sellThroughPct >= 80
+                                  ? "text-success"
+                                  : sellThroughPct >= 50
+                                    ? "text-warning"
+                                    : "text-ink",
+                              ].join(" ")}
+                            >
+                              {sellThroughPct.toFixed(0)}%
+                            </p>
+                          </div>
+                        )}
+                        {checkInRate !== null && (
+                          <div className="flex flex-col gap-0.5">
+                            <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+                              Check-in rate
+                            </p>
+                            <p className="font-mono text-[16px] font-semibold tabular-nums text-ink">
+                              {checkInRate.toFixed(0)}%
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </CardBody>
                   </Card>

@@ -80,6 +80,15 @@ interface EventMetric {
   checked_in_count: number
 }
 
+interface TicketTypeMetric {
+  ticket_type_id: string
+  name: string
+  eventTitle: string
+  price_cents: number
+  tickets_sold: number
+  revenue_cents: number
+}
+
 export default async function OrgFinancePage({
   params,
   searchParams,
@@ -163,6 +172,44 @@ export default async function OrgFinancePage({
         checked_in_count: stat?.checked_in_count ?? 0,
       }
     })
+  }
+
+  // TICK-232: Per-ticket-type revenue breakdown
+  let perTicketType: TicketTypeMetric[] = []
+  if (events && events.length > 0) {
+    const eventIds = events.map((e) => e.id)
+    const { data: ticketTypes } = await supabase
+      .from("ticket_types")
+      .select("id, name, price_cents, quota, event_id")
+      .in("event_id", eventIds)
+
+    if (ticketTypes && ticketTypes.length > 0) {
+      const ttIds = ticketTypes.map((tt) => tt.id)
+      const { data: itemRows } = await supabase
+        .from("order_items")
+        .select("ticket_type_id")
+        .in("ticket_type_id", ttIds)
+        .in("status", ["issued", "checked_in"])
+        .limit(10000)
+
+      const countMap = new Map<string, number>()
+      for (const row of itemRows ?? []) {
+        countMap.set(row.ticket_type_id, (countMap.get(row.ticket_type_id) ?? 0) + 1)
+      }
+
+      const eventTitleMap = new Map(events.map((e) => [e.id, e.title]))
+      perTicketType = ticketTypes
+        .map((tt) => ({
+          ticket_type_id: tt.id,
+          name: tt.name,
+          eventTitle: eventTitleMap.get(tt.event_id) ?? "",
+          price_cents: tt.price_cents ?? 0,
+          tickets_sold: countMap.get(tt.id) ?? 0,
+          revenue_cents: (countMap.get(tt.id) ?? 0) * (tt.price_cents ?? 0),
+        }))
+        .filter((tt) => tt.tickets_sold > 0)
+        .sort((a, b) => b.revenue_cents - a.revenue_cents)
+    }
   }
 
   const hasData = summary.gross_cents > 0
@@ -262,6 +309,73 @@ export default async function OrgFinancePage({
               />
             </div>
           </>
+        )}
+
+        {perTicketType.length > 0 && (
+          <section className="flex flex-col gap-4">
+            <h2 className="text-h2">Per-ticket-type breakdown</h2>
+            <Card>
+              <CardBody className="px-5 py-4">
+                <p className="text-label">Ticket types ({perTicketType.length})</p>
+              </CardBody>
+              <CardDivider />
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-line">
+                      <th className="px-5 py-3 text-left text-label">Ticket type</th>
+                      <th className="px-5 py-3 text-left text-label">Event</th>
+                      <th className="px-5 py-3 text-right text-label">Unit price</th>
+                      <th className="px-5 py-3 text-right text-label">Qty sold</th>
+                      <th className="px-5 py-3 text-right text-label">Revenue (SZL)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {perTicketType.map((tt, i) => (
+                      <tr
+                        key={tt.ticket_type_id}
+                        className={[
+                          i > 0 ? "border-t border-line" : "",
+                          "transition-colors hover:bg-bg",
+                        ].join(" ")}
+                      >
+                        <td className="px-5 py-3 text-[13px] font-semibold text-ink">{tt.name}</td>
+                        <td className="px-5 py-3 text-[13px] text-ink-2">{tt.eventTitle}</td>
+                        <td className="px-5 py-3 text-right font-mono text-[13px] tabular-nums text-ink-2">
+                          {(tt.price_cents / 100).toLocaleString("en-US", {
+                            minimumFractionDigits: 2,
+                          })}
+                        </td>
+                        <td className="px-5 py-3 text-right font-mono text-[13px] tabular-nums text-ink">
+                          {tt.tickets_sold.toLocaleString()}
+                        </td>
+                        <td className="px-5 py-3 text-right font-mono text-[13px] font-semibold tabular-nums text-ink">
+                          {(tt.revenue_cents / 100).toLocaleString("en-US", {
+                            minimumFractionDigits: 2,
+                          })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-line bg-bg">
+                      <td colSpan={3} className="px-5 py-3 text-label">
+                        Total
+                      </td>
+                      <td className="px-5 py-3 text-right font-mono text-[13px] font-semibold tabular-nums text-ink">
+                        {perTicketType.reduce((s, t) => s + t.tickets_sold, 0).toLocaleString()}
+                      </td>
+                      <td className="px-5 py-3 text-right font-mono text-[13px] font-semibold tabular-nums text-ink">
+                        {(
+                          perTicketType.reduce((s, t) => s + t.revenue_cents, 0) / 100
+                        ).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </Card>
+          </section>
         )}
 
         {perEvent.length > 0 && (
