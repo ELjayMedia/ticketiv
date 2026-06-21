@@ -12,8 +12,12 @@ async function getUserId() {
   return data.session?.user?.id ?? null
 }
 
+const KNOWN_PROVIDERS = ["paystack", "flutterwave", "manual", "momo"] as const
+
 async function canEdit(admin: ReturnType<typeof createAdminClient>, eventId: string, userId: string) {
-  const { data: event, error } = await admin.from("events").select("id, org_id, refund_policy, attendee_fields, confirmation_message").eq("id", eventId).maybeSingle()
+  // select("*") so the not-yet-migrated payment_providers column doesn't poison
+  // the generated row type; it is read through an `any` cast below.
+  const { data: event, error } = await admin.from("events").select("*").eq("id", eventId).maybeSingle()
   if (error) throw error
   if (!event) return { ok: false, event: null }
 
@@ -31,6 +35,23 @@ function listFrom(value: unknown) {
   return []
 }
 
+/** Allowed-provider list from the request body, constrained to known keys. */
+function providersFrom(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  const set = new Set(value.map(String).map((x) => x.trim().toLowerCase()))
+  return KNOWN_PROVIDERS.filter((p) => set.has(p))
+}
+
+/** Enabled payment providers the organizer may lock the event to. */
+async function getAvailableProviders(admin: ReturnType<typeof createAdminClient>): Promise<string[]> {
+  const { data } = await admin.from("payment_provider_settings").select("provider, is_enabled").eq("is_enabled", true)
+  const enabled = new Set((data ?? []).map((r) => String((r as { provider: string }).provider)))
+  // MoMo is env-configured (not a payment_provider_settings row) but is a real
+  // rail in Eswatini — always offer it. Constrain to the known set.
+  enabled.add("momo")
+  return KNOWN_PROVIDERS.filter((p) => enabled.has(p))
+}
+
 export async function GET(_request: NextRequest, context: RouteContext) {
   const { eventId } = await context.params
   const userId = await getUserId()
@@ -40,7 +61,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   const { ok, event } = await canEdit(admin, eventId, userId)
   if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 })
   if (!ok) return NextResponse.json({ error: "Not allowed" }, { status: 403 })
-  return NextResponse.json({ event })
+  return NextResponse.json({ event, availableProviders: await getAvailableProviders(admin) })
 }
 
 export async function PUT(request: NextRequest, context: RouteContext) {
@@ -57,25 +78,32 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   const refundPolicy = typeof body.refund_policy === "string" ? body.refund_policy.trim() : ""
   const confirmationMessage = typeof body.confirmation_message === "string" ? body.confirmation_message.trim() : ""
   const attendeeFields = listFrom(body.attendee_fields)
+  // Restrict the lock to providers that are actually available right now, so an
+  // organizer can't lock an event to a disabled rail.
+  const available = new Set(await getAvailableProviders(admin))
+  const paymentProviders = providersFrom(body.payment_providers).filter((p) => available.has(p))
 
+  const eventAny = event as Record<string, unknown>
   const changes = {
     before: {
       refund_policy: event.refund_policy,
       attendee_fields: event.attendee_fields,
       confirmation_message: event.confirmation_message,
+      payment_providers: eventAny.payment_providers,
     },
     after: {
       refund_policy: refundPolicy || null,
       attendee_fields: attendeeFields,
       confirmation_message: confirmationMessage || null,
+      payment_providers: paymentProviders,
     },
   }
 
   const { data: updatedEvent, error } = await admin
     .from("events")
-    .update({ refund_policy: refundPolicy || null, attendee_fields: attendeeFields, confirmation_message: confirmationMessage || null })
+    .update({ refund_policy: refundPolicy || null, attendee_fields: attendeeFields, confirmation_message: confirmationMessage || null, payment_providers: paymentProviders } as never)
     .eq("id", eventId)
-    .select("id, org_id, refund_policy, attendee_fields, confirmation_message")
+    .select("*")
     .maybeSingle()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
@@ -86,8 +114,8 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     table_name: "events",
     record_id: eventId,
     action: "update",
-    changes: { section: "policies", ...changes },
+    changes: { section: "policies", ...changes } as never,
   })
 
-  return NextResponse.json({ event: updatedEvent })
+  return NextResponse.json({ event: { ...updatedEvent, payment_providers: paymentProviders } })
 }

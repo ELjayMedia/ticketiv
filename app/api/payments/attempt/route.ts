@@ -28,13 +28,16 @@ export async function POST(request: Request) {
     if (!rl.allowed) return tooManyRequests(rl)
 
     const body = await request.json()
-    const provider = String(body.provider ?? "").toLowerCase()
+    // Provider is now optional — payment_routing_rules resolves it when the
+    // client doesn't force a specific (known) one.
+    const provider = body.provider ? String(body.provider).toLowerCase() : null
 
     const result = await createPaymentAttempt({
       orderId: String(body.orderId ?? ""),
-      provider: provider as any,
+      provider,
       userId: session.user.id,
       returnUrl: body.returnUrl ? String(body.returnUrl) : null,
+      countryCode: body.countryCode ? String(body.countryCode) : null,
     })
 
     return NextResponse.json(result, { status: 201 })
