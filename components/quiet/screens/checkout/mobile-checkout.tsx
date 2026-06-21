@@ -10,7 +10,6 @@ import {
   QuantityStepper,
 } from "@/components/quiet/ui/form";
 import { useRouter } from "next/navigation";
-import { PHOTOS } from "@/lib/photos";
 import { formatPrice, formatHoldTimer, formatScarcityLabel } from "@/lib/format";
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
 import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/actions";
@@ -216,7 +215,7 @@ export function MobileCheckout({
         </header>
 
         {/* Progress indicator: Tickets → Details → Payment → Done */}
-        <MobileCheckoutProgress currentIndex={1} />
+        <MobileCheckoutProgress currentIndex={0} />
 
         {/* Event ribbon */}
         <div className="mx-5 mb-4 flex items-center gap-2.5 rounded-xl bg-ink p-3">
@@ -499,7 +498,6 @@ export function MobileCheckout({
             onChange={(e) => setAccepted(e.target.checked)}
             className="accent-accent"
           />
-          <Icon name="check" size={14} />
           <span>I accept the refund &amp; cancellation policy</span>
         </label>
 
