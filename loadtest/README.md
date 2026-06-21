@@ -1,0 +1,41 @@
+# Load tests (TICK-181)
+
+[k6](https://k6.io) scripts for the two hot paths — public discovery/search and
+the authenticated checkout + scan flow. Record results in
+`docs/loadtest/BASELINE.md`.
+
+## Install
+```bash
+brew install k6        # or: https://k6.io/docs/get-started/installation/
+```
+
+## 1. Public paths (no auth — runnable against any deploy now)
+Discovery + search + suggest. Safe to point at a preview/staging URL.
+```bash
+BASE_URL="https://<staging-or-preview>" k6 run loadtest/k6-public.js
+```
+
+## 2. Checkout + scan (needs seeded staging — gated on TICK-181 staging)
+Requires the seed (`loadtest/seed.sql`, applied to a Supabase staging branch)
+plus a buyer access token and a seeded event/ticket-type id, and a scanner
+device token. Never run against production.
+```bash
+BASE_URL="https://<staging>" \
+BUYER_TOKEN="<supabase access_token>" \
+EVENT_ID="<seeded event uuid>" \
+TICKET_TYPE_ID="<seeded ticket_type uuid>" \
+SCANNER_TOKEN="<device session token>" \
+k6 run loadtest/k6-checkout.js
+```
+
+## Thresholds
+Both scripts fail the run (non-zero exit) if p95 latency or the error rate
+exceed the thresholds defined in each file — so they double as CI smoke gates
+once a stable staging URL exists. Tune the thresholds against the first
+recorded baseline.
+
+## Notes
+- The endpoints under test are rate-limited (TICK-177): payments 10/60s/user,
+  scanner 120/60s, search/suggest 60/60s. The VU counts below stay under those
+  per-key limits by spreading unique users; expect 429s if you raise them.
+- Record dataset size + the commit SHA tested alongside the numbers.
