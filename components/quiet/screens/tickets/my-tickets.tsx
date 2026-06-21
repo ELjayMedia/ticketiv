@@ -3,11 +3,13 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { acceptTransfer, cancelTransfer, declineTransfer } from "@/lib/data/attendee/transfers";
+import { requestTransferByEmail } from "@/app/(consumer)/tickets/actions";
 import { createClientSupabaseClient } from "@/lib/supabase-client";
 import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
 import { Card } from "@/components/quiet/ui/card";
+import { Modal, ModalContent, ModalClose, ModalFooter } from "@/components/quiet/ui/modal";
 import {
   Photo,
   Divider,
@@ -136,6 +138,11 @@ export function MyTickets({
   const [searchQuery, setSearchQuery] = React.useState("");
   const [liveConnected, setLiveConnected] = React.useState(false);
   const [stale, setStale] = React.useState(false);
+  const [localTransferred, setLocalTransferred] = React.useState<Set<string>>(new Set());
+  const [transferModal, setTransferModal] = React.useState<{ ticketId: string; title: string } | null>(null);
+  const [recipientEmail, setRecipientEmail] = React.useState("");
+  const [transferPending, setTransferPending] = React.useState(false);
+  const [transferError, setTransferError] = React.useState<string | null>(null);
 
   // TICK-239: Supabase Realtime — refresh ticket list on order_items or orders changes
   React.useEffect(() => {
@@ -217,9 +224,35 @@ export function MyTickets({
   };
   const hasUpcoming = Boolean(_featured) || _upcoming.length > 0;
 
-  const filteredUpcoming = searchQuery.trim()
+  const filteredUpcoming = (searchQuery.trim()
     ? _upcoming.filter((t) => t.title.toLowerCase().includes(searchQuery.toLowerCase()))
-    : _upcoming;
+    : _upcoming
+  ).map((t) =>
+    localTransferred.has(t.ticketId) ? { ...t, status: "transferred" as const } : t,
+  );
+
+  async function handleTransferSubmit() {
+    if (!transferModal || !recipientEmail.trim() || transferPending) return;
+    setTransferPending(true);
+    setTransferError(null);
+    const result = await requestTransferByEmail(transferModal.ticketId, recipientEmail);
+    setTransferPending(false);
+    if (!result.ok) {
+      setTransferError(result.error ?? "Transfer failed. Please try again.");
+      return;
+    }
+    setLocalTransferred((prev) => new Set([...prev, transferModal.ticketId]));
+    setTransferModal(null);
+    setRecipientEmail("");
+  }
+
+  function handleModalOpenChange(open: boolean) {
+    if (!open) {
+      setTransferModal(null);
+      setRecipientEmail("");
+      setTransferError(null);
+    }
+  }
 
   function handleShareFeatured() {
     const url = typeof window !== "undefined" ? window.location.href : "";
@@ -464,13 +497,23 @@ export function MyTickets({
                     </div>
                   </Link>
                   {t.status === "issued" ? (
-                    <Link
-                      href={`/resale?ticketId=${encodeURIComponent(t.ticketId)}`}
-                      aria-label={`List ${t.title}`}
-                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius)] border border-line-2 hover:bg-bg"
-                    >
-                      <Icon name="ticket" size={14} />
-                    </Link>
+                    <div className="flex shrink-0 flex-col gap-1">
+                      <button
+                        type="button"
+                        aria-label={`Transfer ${t.title}`}
+                        onClick={() => setTransferModal({ ticketId: t.ticketId, title: t.title })}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius)] border border-line-2 hover:bg-bg"
+                      >
+                        <Icon name="arrowUR" size={14} />
+                      </button>
+                      <Link
+                        href={`/resale?ticketId=${encodeURIComponent(t.ticketId)}`}
+                        aria-label={`List ${t.title}`}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius)] border border-line-2 hover:bg-bg"
+                      >
+                        <Icon name="ticket" size={14} />
+                      </Link>
+                    </div>
                   ) : (
                     <Icon
                       name="chevR"
@@ -701,6 +744,56 @@ export function MyTickets({
           />
         )
       )}
+
+      {/* Inline transfer modal */}
+      <Modal open={Boolean(transferModal)} onOpenChange={handleModalOpenChange}>
+        <ModalContent title="Transfer ticket" description="Send this ticket to someone with a Ticketiv account" size="sm">
+          <div className="flex flex-col gap-4">
+            {transferModal && (
+              <p className="font-mono text-[11px] uppercase text-ink-3">
+                {transferModal.title}
+              </p>
+            )}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="transfer-email" className="text-label">
+                Recipient email
+              </label>
+              <input
+                id="transfer-email"
+                type="email"
+                autoComplete="email"
+                autoFocus
+                value={recipientEmail}
+                onChange={(e) => setRecipientEmail(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleTransferSubmit()}
+                placeholder="friend@example.com"
+                className="w-full rounded-[var(--radius)] border border-line bg-bg px-3 py-2.5 text-[14px] outline-none placeholder:text-ink-3 focus:border-accent focus:ring-[3px] focus:ring-accent/10"
+              />
+            </div>
+            {transferError && (
+              <p className="rounded-[var(--radius)] bg-danger-soft px-3 py-2 text-[12px] text-danger">
+                {transferError}
+              </p>
+            )}
+            <p className="font-mono text-[11px] leading-relaxed text-ink-3">
+              The recipient will get 24 hours to accept. Your QR is revoked when they accept.
+            </p>
+          </div>
+          <ModalFooter>
+            <ModalClose asChild>
+              <Button variant="default" size="sm">Cancel</Button>
+            </ModalClose>
+            <Button
+              variant="accent"
+              size="sm"
+              disabled={!recipientEmail.trim() || transferPending}
+              onClick={handleTransferSubmit}
+            >
+              {transferPending ? "Sending…" : "Send transfer"}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }
