@@ -15,9 +15,7 @@ async function getUserId() {
 const KNOWN_PROVIDERS = ["paystack", "flutterwave", "manual", "momo"] as const
 
 async function canEdit(admin: ReturnType<typeof createAdminClient>, eventId: string, userId: string) {
-  // select("*") so the not-yet-migrated payment_providers column doesn't poison
-  // the generated row type; it is read through an `any` cast below.
-  const { data: event, error } = await admin.from("events").select("*").eq("id", eventId).maybeSingle()
+  const { data: event, error } = await admin.from("events").select("id, org_id, refund_policy, attendee_fields, confirmation_message, payment_providers").eq("id", eventId).maybeSingle()
   if (error) throw error
   if (!event) return { ok: false, event: null }
 
@@ -83,13 +81,12 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   const available = new Set(await getAvailableProviders(admin))
   const paymentProviders = providersFrom(body.payment_providers).filter((p) => available.has(p))
 
-  const eventAny = event as Record<string, unknown>
   const changes = {
     before: {
       refund_policy: event.refund_policy,
       attendee_fields: event.attendee_fields,
       confirmation_message: event.confirmation_message,
-      payment_providers: eventAny.payment_providers,
+      payment_providers: event.payment_providers,
     },
     after: {
       refund_policy: refundPolicy || null,
@@ -101,9 +98,9 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
   const { data: updatedEvent, error } = await admin
     .from("events")
-    .update({ refund_policy: refundPolicy || null, attendee_fields: attendeeFields, confirmation_message: confirmationMessage || null, payment_providers: paymentProviders } as never)
+    .update({ refund_policy: refundPolicy || null, attendee_fields: attendeeFields, confirmation_message: confirmationMessage || null, payment_providers: paymentProviders })
     .eq("id", eventId)
-    .select("*")
+    .select("id, org_id, refund_policy, attendee_fields, confirmation_message, payment_providers")
     .maybeSingle()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
@@ -117,5 +114,5 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     changes: { section: "policies", ...changes } as never,
   })
 
-  return NextResponse.json({ event: { ...updatedEvent, payment_providers: paymentProviders } })
+  return NextResponse.json({ event: updatedEvent })
 }
