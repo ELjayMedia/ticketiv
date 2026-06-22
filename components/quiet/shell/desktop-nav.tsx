@@ -82,12 +82,13 @@ export function DesktopNav({
             ⌘K
           </span>
         </SearchTrigger>
-        <SearchTrigger
-          aria-label="Search"
+        <Link
+          href="/search"
+          aria-label="Search events"
           className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60 md:hidden"
         >
           <Icon name="search" size={18} />
-        </SearchTrigger>
+        </Link>
 
         {signedIn ? (
           <>
