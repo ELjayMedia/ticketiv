@@ -24,3 +24,28 @@ export async function duplicateEvent(
   revalidatePath(`/orgs/${orgId}/events`)
   return { ok: true, newEventId: (data as any)?.event_id }
 }
+
+export async function transitionEventStatus(
+  orgId: string,
+  eventId: string,
+  newStatus: "paused" | "published" | "archived",
+): Promise<{ ok: boolean; activeHolders?: number; error?: string }> {
+  const supabase = createServerSupabaseClient()
+  if (!supabase) return { ok: false, error: "Not authenticated" }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: "Not authenticated" }
+
+  const { data, error } = await (supabase.rpc as any)("fn_transition_event_status", {
+    p_event_id: eventId,
+    p_new_status: newStatus,
+  })
+
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath(`/orgs/${orgId}/events`)
+  revalidatePath(`/orgs/${orgId}/events/${eventId}`)
+  return { ok: true, activeHolders: (data as any)?.active_holders }
+}

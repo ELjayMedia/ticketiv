@@ -8,6 +8,7 @@ import { Card, CardBody } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
 import { formatCurrency } from "@/lib/pricing"
+import { EventStatusControls } from "./event-status-controls"
 
 type OpsPayload = {
   event: any
@@ -43,7 +44,15 @@ function MetricTile({
   )
 }
 
-export function EventOperationsClient({ orgId, eventId }: { orgId: string; eventId: string }) {
+export function EventOperationsClient({
+  orgId,
+  eventId,
+  canManageStatus,
+}: {
+  orgId: string
+  eventId: string
+  canManageStatus: boolean
+}) {
   const [data, setData] = useState<OpsPayload | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -96,13 +105,33 @@ export function EventOperationsClient({ orgId, eventId }: { orgId: string; event
               <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Event operations</p>
               <h1 className="text-h1">{event.title}</h1>
               <div className="flex flex-wrap gap-2">
-                <Chip size="sm" variant="active">{event.status}</Chip>
+                <Chip
+                  size="sm"
+                  variant={
+                    event.status === "published"
+                      ? "active"
+                      : event.status === "paused"
+                        ? "muted"
+                        : "default"
+                  }
+                >
+                  {event.status}
+                </Chip>
                 <Chip size="sm" variant="default">{event.visibility}</Chip>
                 <Chip size="sm" variant="muted">Readiness {readinessPercent}%</Chip>
               </div>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            {canManageStatus && (
+              <EventStatusControls
+                orgId={orgId}
+                eventId={eventId}
+                status={event.status}
+                issuedTickets={metrics.issued_tickets || 0}
+                onSuccess={loadOps}
+              />
+            )}
             <Link
               href={`/orgs/${orgId}/events/${eventId}/edit`}
               className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-transparent px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-bg"
