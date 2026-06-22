@@ -2,13 +2,11 @@ import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 
-import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
-import { Chip } from "@/components/quiet/ui/chip"
+import { Card, CardBody } from "@/components/quiet/ui/card"
 import { Icon } from "@/components/quiet/ui/icon"
 import { EmptyState } from "@/components/quiet/ui/empty-state"
 import { EventsFilterBar } from "./events-filter-bar"
-import { DuplicateEventButton } from "./_components/duplicate-event-button"
-import { formatPrice } from "@/lib/format"
+import { EventsGrid } from "./_components/events-grid"
 
 export const dynamic = "force-dynamic"
 
@@ -62,6 +60,27 @@ export default async function OrgEventsPage({
     { tickets_sold: number; gross_sales_cents: number; checked_in_count: number }
   >()
   const capacityMap = new Map<string, number>()
+
+  // TICK-227: Determine if user can delete events (owner/admin roles only)
+  const OWNER_ROLES = new Set(["organizer_owner", "organizer_admin", "admin"])
+  let canDelete = false
+  const { data: memberRow } = await supabase
+    .from("org_members")
+    .select("role")
+    .eq("org_id", orgId)
+    .eq("user_id", session.user.id)
+    .maybeSingle()
+  if (memberRow && OWNER_ROLES.has(memberRow.role)) {
+    canDelete = true
+  } else {
+    const { data: adminRow } = await supabase
+      .from("admin_users")
+      .select("id")
+      .eq("user_id", session.user.id)
+      .maybeSingle()
+    if (adminRow) canDelete = true
+  }
+
   if (events.length > 0) {
     const eventIds = events.map((e) => e.id)
     const [liveStatsResult, ttResult] = await Promise.all([
@@ -137,134 +156,24 @@ export default async function OrgEventsPage({
             </Card>
           )
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {events.map((event) => {
-              const stats = statsMap.get(event.id) ?? {
+          <EventsGrid
+            events={events.map((event) => ({
+              id: event.id,
+              title: event.title,
+              description: event.description ?? null,
+              starts_at: event.starts_at ?? null,
+              status: event.status,
+              cover_image_url: event.cover_image_url ?? null,
+              stats: statsMap.get(event.id) ?? {
                 tickets_sold: 0,
                 gross_sales_cents: 0,
                 checked_in_count: 0,
-              }
-              const capacity = capacityMap.get(event.id) ?? 0
-              const sellThroughPct =
-                capacity > 0 ? Math.min(100, (stats.tickets_sold / capacity) * 100) : null
-              const checkInRate =
-                stats.tickets_sold > 0
-                  ? Math.min(100, (stats.checked_in_count / stats.tickets_sold) * 100)
-                  : null
-              return (
-                <Link key={event.id} href={`/orgs/${orgId}/events/${event.id}`} className="group block">
-                  <Card className="flex h-full flex-col overflow-hidden transition-all duration-200 group-hover:border-line-2">
-                    <div className="relative h-48 w-full overflow-hidden bg-bg">
-                      {event.cover_image_url ? (
-                        <img
-                          src={event.cover_image_url}
-                          alt={event.title}
-                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center">
-                          <Icon name="cal" size={32} className="text-ink-4" />
-                        </div>
-                      )}
-                      <div className="absolute right-3 top-3">
-                        <Chip size="sm" variant={event.status === "published" ? "active" : "muted"}>
-                          {event.status}
-                        </Chip>
-                      </div>
-                    </div>
-
-                    <CardBody className="flex flex-1 flex-col gap-3">
-                      <div className="flex flex-col gap-1">
-                        <h3 className="line-clamp-2 text-[16px] font-semibold leading-tight text-ink">
-                          {event.title}
-                        </h3>
-                        {event.description && (
-                          <p className="line-clamp-1 text-[13px] text-ink-3">{event.description}</p>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-1.5 text-[12px] text-ink-3">
-                        <Icon name="cal" size={12} />
-                        <span className="truncate">
-                          {event.starts_at
-                            ? new Date(event.starts_at).toLocaleDateString("en-SZ", {
-                                dateStyle: "medium",
-                              })
-                            : "Date TBA"}
-                        </span>
-                      </div>
-
-                      <CardDivider />
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="flex flex-col gap-0.5">
-                          <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                            Tickets sold
-                          </p>
-                          <p className="font-mono text-[16px] font-semibold tabular-nums text-ink">
-                            {stats.tickets_sold.toLocaleString()}
-                            {capacity > 0 && (
-                              <span className="ml-1 text-[11px] text-ink-3">
-                                / {capacity.toLocaleString()}
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                        <div className="flex flex-col gap-0.5">
-                          <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                            Revenue
-                          </p>
-                          <p className="inline-flex items-center gap-1 font-mono text-[16px] font-semibold tabular-nums text-ink">
-                            <Icon name="trending" size={14} className="text-success" />
-                            {stats.gross_sales_cents > 0 ? (
-                              formatPrice(stats.gross_sales_cents, "SZL")
-                            ) : (
-                              <span className="text-ink-3 text-[13px]">—</span>
-                            )}
-                          </p>
-                        </div>
-                        {sellThroughPct !== null && (
-                          <div className="flex flex-col gap-0.5">
-                            <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                              Sell-through
-                            </p>
-                            <p
-                              className={[
-                                "font-mono text-[16px] font-semibold tabular-nums",
-                                sellThroughPct >= 80
-                                  ? "text-success"
-                                  : sellThroughPct >= 50
-                                    ? "text-warning"
-                                    : "text-ink",
-                              ].join(" ")}
-                            >
-                              {sellThroughPct.toFixed(0)}%
-                            </p>
-                          </div>
-                        )}
-                        {checkInRate !== null && (
-                          <div className="flex flex-col gap-0.5">
-                            <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                              Check-in rate
-                            </p>
-                            <p className="font-mono text-[16px] font-semibold tabular-nums text-ink">
-                              {checkInRate.toFixed(0)}%
-                            </p>
-                          </div>
-                        )}
-                      </div>
-
-                      <CardDivider />
-
-                      <div className="flex justify-end">
-                        <DuplicateEventButton orgId={orgId} eventId={event.id} />
-                      </div>
-                    </CardBody>
-                  </Card>
-                </Link>
-              )
-            })}
-          </div>
+              },
+              capacity: capacityMap.get(event.id) ?? 0,
+            }))}
+            orgId={orgId}
+            canDelete={canDelete}
+          />
         )}
       </div>
     </main>
