@@ -44,10 +44,10 @@ const WORKSPACE_NAV: Record<Extract<WorkspaceType, "organizer" | "scanner" | "ap
       match: (p) => p.startsWith("/scan"),
     },
     {
-      href: "/onboarding",
+      href: "/guide",
       label: "Guide",
       icon: "spark",
-      match: (p) => p.startsWith("/onboarding") || p.includes("/onboarding"),
+      match: (p) => p.startsWith("/guide") || p.includes("/onboarding"),
     },
   ],
   scanner: [
