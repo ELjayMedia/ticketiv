@@ -68,6 +68,8 @@ interface TransferHistoryRow {
 
 interface FeaturedTicket {
   ticketId: string;
+  orderId: string;
+  orderStatus: string;
   orderNumber: string;
   eventTitle: string;
   eventPhoto: string;
@@ -77,14 +79,20 @@ interface FeaturedTicket {
   daysUntil: number;
   urgencyLabel: string;
   isEventDay: boolean;
+  eventStartsAt: string | null;
+  checkedInAt: string | null;
 }
 
 interface TicketListItem {
   ticketId: string;
+  orderId: string;
+  orderStatus: string;
   title: string;
   photo: string;
   whenLabel: string;
   venueLabel: string;
+  eventStartsAt: string | null;
+  checkedInAt: string | null;
   count: number;
   status: TicketDisplayStatus;
 }
@@ -417,6 +425,9 @@ export function MyTickets({
                     <span className="font-mono text-[11px] text-ink-3">
                       {_featured.venueLabel} · {_featured.seatLabel}
                     </span>
+                    <div className="mt-1.5">
+                      <CheckInBadge checkedInAt={_featured.checkedInAt} />
+                    </div>
                   </div>
                 </div>
                 <Divider className="my-3" />
@@ -461,6 +472,12 @@ export function MyTickets({
                   </span>
                   <Icon name="chevR" size={14} className="text-ink-3" />
                 </Link>
+                <RefundCta
+                  orderId={_featured.orderId}
+                  orderStatus={_featured.orderStatus}
+                  eventStartsAt={_featured.eventStartsAt}
+                  ticketStatus={/* featured is always issued */ "issued"}
+                />
               </div>
             </Card>
           </section>
@@ -491,9 +508,16 @@ export function MyTickets({
                       <span className="truncate font-mono text-[11px] text-ink-3">
                         {t.whenLabel} · {t.venueLabel}
                       </span>
-                      <div className="mt-1 flex gap-1">
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
                         <StatusChip status={t.status} count={t.count} />
+                        <CheckInBadge checkedInAt={t.checkedInAt} />
                       </div>
+                      <RefundCta
+                        orderId={t.orderId}
+                        orderStatus={t.orderStatus}
+                        eventStartsAt={t.eventStartsAt}
+                        ticketStatus={t.status}
+                      />
                     </div>
                   </Link>
                   {t.status === "issued" ? (
@@ -628,8 +652,9 @@ export function MyTickets({
                     <span className="truncate font-mono text-[11px] text-ink-3">
                       {t.whenLabel} · {t.venueLabel}
                     </span>
-                    <div className="mt-1 flex gap-1">
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
                       <StatusChip status={t.status} count={t.count} />
+                      <CheckInBadge checkedInAt={t.checkedInAt} />
                     </div>
                   </div>
                   <Icon name="chevR" size={16} className="text-ink-3" aria-hidden />
@@ -854,5 +879,65 @@ function EmptyState({
         {subtitle}
       </span>
     </div>
+  );
+}
+
+/* ── Check-in badge ───────────────────────────────────────────── */
+function CheckInBadge({ checkedInAt }: { checkedInAt: string | null }) {
+  if (checkedInAt) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded bg-accent-soft px-2 py-0.5 font-mono text-[10px] font-semibold uppercase text-accent">
+        <Icon name="check" size={10} />
+        Checked in
+      </span>
+    );
+  }
+  return (
+    <span className="font-mono text-[10px] uppercase text-ink-3">
+      Not checked in
+    </span>
+  );
+}
+
+/* ── Refund CTA ───────────────────────────────────────────────── */
+function RefundCta({
+  orderId,
+  orderStatus,
+  eventStartsAt,
+  ticketStatus,
+}: {
+  orderId: string;
+  orderStatus: string;
+  eventStartsAt: string | null;
+  ticketStatus: TicketDisplayStatus;
+}) {
+  // Only show on paid orders with a future event and an issued (unused) ticket.
+  if (orderStatus !== "paid") {
+    if (orderStatus === "refunded") {
+      return (
+        <span className="mt-1 block text-[12px] text-ink-3">Refunded</span>
+      );
+    }
+    return null;
+  }
+  if (ticketStatus !== "issued") return null;
+  const isFuture = eventStartsAt ? new Date(eventStartsAt).getTime() > Date.now() : false;
+  if (!isFuture) return null;
+
+  const shortId = orderId.slice(0, 6).toUpperCase();
+  return (
+    <button
+      type="button"
+      className="mt-1.5 inline-flex items-center gap-1 rounded-[var(--radius)] border border-line-2 px-2 py-0.5 text-[11px] font-medium text-ink-2 transition-colors hover:bg-bg"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.open(
+          `mailto:support@ticketiv.com?subject=${encodeURIComponent("Refund Request — Order " + shortId)}`,
+        );
+      }}
+    >
+      Request refund
+    </button>
   );
 }

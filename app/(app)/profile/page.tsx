@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 
 import { Card } from "@/components/quiet/ui/card"
 import { Icon, type IconName } from "@/components/quiet/ui/icon"
@@ -17,6 +18,7 @@ interface ProfileData {
 interface Row {
   icon: IconName
   label: string
+  href?: string
   onClick?: () => void
 }
 
@@ -61,7 +63,7 @@ export default function ProfilePage() {
   }
 
   const accountRows: Row[] = [
-    { icon: "user", label: "Personal information" },
+    { icon: "user", label: "Personal information", href: "/account/settings" },
     { icon: "globe", label: "Language" },
     { icon: "users", label: "My friends" },
     { icon: "share", label: "Invite friends" },
@@ -93,14 +95,25 @@ export default function ProfilePage() {
           {accountRows.map((row, i) => (
             <div key={row.label}>
               {i > 0 && <Divider />}
-              <button
-                type="button"
-                onClick={row.onClick}
-                className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-bg"
-              >
-                <Icon name={row.icon} size={18} className="text-ink-3" />
-                <span className="text-[14px] font-medium text-ink">{row.label}</span>
-              </button>
+              {row.href ? (
+                <Link
+                  href={row.href}
+                  className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-bg"
+                >
+                  <Icon name={row.icon} size={18} className="text-ink-3" />
+                  <span className="flex-1 text-[14px] font-medium text-ink">{row.label}</span>
+                  <Icon name="chevR" size={16} className="text-ink-3" />
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={row.onClick}
+                  className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-bg"
+                >
+                  <Icon name={row.icon} size={18} className="text-ink-3" />
+                  <span className="text-[14px] font-medium text-ink">{row.label}</span>
+                </button>
+              )}
             </div>
           ))}
         </Card>
