@@ -36,9 +36,9 @@ export function DiscoverFilterChips({
   const searchParams = useSearchParams()
 
   // Prefer live searchParams (client-side navigation), fall back to SSR props.
-  const category = searchParams.get("category") ?? activeCategoryProp ?? null
-  const when = searchParams.get("when") ?? activeWhenProp ?? null
-  const onlyFree = searchParams.get("onlyFree") === "1"
+  const category = searchParams?.get("category") ?? activeCategoryProp ?? null
+  const when = searchParams?.get("when") ?? activeWhenProp ?? null
+  const onlyFree = searchParams?.get("onlyFree") === "1"
 
   const hasActiveFilter = Boolean(category || when || onlyFree)
 
