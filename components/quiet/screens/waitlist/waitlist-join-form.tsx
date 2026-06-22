@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
 import { joinWaitlist } from "@/app/(consumer)/waitlist/actions";
+import { WaitlistPushOptIn } from "@/components/quiet/screens/waitlist/waitlist-push-optin";
 
 interface WaitlistJoinFormProps {
   eventId: string;
@@ -91,6 +92,9 @@ export function WaitlistJoinForm({ eventId, ticketTypeId }: WaitlistJoinFormProp
             {pending ? "Joining…" : "Join waitlist"}
           </button>
         </form>
+
+        {/* TICK-214: contextual push opt-in. Permission requested only on tap. */}
+        <WaitlistPushOptIn />
       </Card>
     </section>
   );
