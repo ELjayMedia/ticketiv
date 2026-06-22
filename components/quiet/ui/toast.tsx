@@ -37,10 +37,11 @@ interface ToastContextValue {
 
 const ToastContext = React.createContext<ToastContextValue | null>(null);
 
-export function useToast(): ToastContextValue {
+export function useToast(): ToastContextValue & { toast: ToastContextValue["show"] } {
   const ctx = React.useContext(ToastContext);
   if (!ctx) throw new Error("useToast must be used inside <ToastProvider>");
-  return ctx;
+  // `toast` is an alias for `show` — matches the { toast } destructuring pattern
+  return { ...ctx, toast: ctx.show };
 }
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {

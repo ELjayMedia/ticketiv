@@ -23,6 +23,8 @@ export interface RecentlyViewedEvent {
   dateShort: string;
   /** Pre-formatted price label (e.g. "From E450") or null. */
   priceLabel: string | null;
+  /** Event category (e.g. "Music", "Comedy") — used for "Suggested for you". */
+  category?: string | null;
   /** Epoch ms when the event was viewed; drives ordering + expiry. */
   viewedAt: number;
 }

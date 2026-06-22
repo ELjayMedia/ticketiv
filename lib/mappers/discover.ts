@@ -34,8 +34,10 @@ export interface DiscoverEvent {
   /** "1.2k sold" or null when below the safe-display threshold. */
   soldLabel: string | null;
   ticketsAvailable: number | null;
-  /** "X left" / "Sold out" when near or at zero; null otherwise. */
+  /** "Only X left" / "Sold out" when near or at zero; null otherwise. */
   stockLabel: string | null;
+  /** Distinguishes sold-out vs low-stock for badge colouring. */
+  stockType: "sold-out" | "low" | null;
   organizerName: string | null;
   /** Derived from organizer_logo_url presence — matches the rule used by
    *  the event-detail mapper so cards and detail agree. */
@@ -48,10 +50,14 @@ export function mapDiscoverEvent(row: EventsPublicView & { featured_priority?: n
   const currency = asCurrency(row.currency);
   const ticketsSold = typeof row.tickets_sold === "number" ? row.tickets_sold : null;
   const ticketsAvailable = typeof row.tickets_available === "number" ? row.tickets_available : null;
-  const stockLabel =
+  const stockType: DiscoverEvent["stockType"] =
     ticketsAvailable === null ? null :
-    ticketsAvailable === 0 ? "Sold out" :
-    ticketsAvailable < 20 ? `${ticketsAvailable} left` :
+    ticketsAvailable === 0 ? "sold-out" :
+    ticketsAvailable <= 10 ? "low" :
+    null;
+  const stockLabel =
+    stockType === "sold-out" ? "Sold out" :
+    stockType === "low" ? `Only ${ticketsAvailable} left` :
     null;
 
   return {
@@ -74,6 +80,7 @@ export function mapDiscoverEvent(row: EventsPublicView & { featured_priority?: n
     soldLabel: formatSoldCount(ticketsSold),
     ticketsAvailable,
     stockLabel,
+    stockType,
     organizerName: row.organizer_name ?? null,
     organizerVerified: Boolean(row.organizer_logo_url),
   };

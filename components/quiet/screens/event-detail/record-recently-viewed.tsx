@@ -9,6 +9,7 @@ interface RecordRecentlyViewedProps {
   photo: string;
   dateShort: string;
   priceLabel: string | null;
+  category?: string | null;
 }
 
 /**
@@ -22,10 +23,11 @@ export function RecordRecentlyViewed({
   photo,
   dateShort,
   priceLabel,
+  category,
 }: RecordRecentlyViewedProps) {
   useEffect(() => {
-    recordRecentlyViewed({ slug, title, photo, dateShort, priceLabel });
-  }, [slug, title, photo, dateShort, priceLabel]);
+    recordRecentlyViewed({ slug, title, photo, dateShort, priceLabel, category });
+  }, [slug, title, photo, dateShort, priceLabel, category]);
 
   return null;
 }

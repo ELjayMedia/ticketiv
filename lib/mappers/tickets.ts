@@ -25,6 +25,8 @@ export type TicketDisplayStatus =
 
 export interface FeaturedTicketProp {
   ticketId: string;
+  orderId: string;
+  orderStatus: string;
   orderNumber: string;
   eventTitle: string;
   eventPhoto: string;
@@ -35,14 +37,24 @@ export interface FeaturedTicketProp {
   /** "TODAY" / "TOMORROW" / "IN N DAYS" — pre-formatted for the urgency chip. */
   urgencyLabel: string;
   isEventDay: boolean;
+  /** ISO string for the event start — used for refund eligibility check. */
+  eventStartsAt: string | null;
+  /** ISO string for check-in timestamp — null if not yet checked in. */
+  checkedInAt: string | null;
 }
 
 export interface TicketListItemProp {
   ticketId: string;
+  orderId: string;
+  orderStatus: string;
   title: string;
   photo: string;
   whenLabel: string;
   venueLabel: string;
+  /** ISO string for the event start — used for refund eligibility check. */
+  eventStartsAt: string | null;
+  /** ISO string for check-in timestamp — null if not yet checked in. */
+  checkedInAt: string | null;
   count: number;
   status: TicketDisplayStatus;
 }
@@ -99,10 +111,14 @@ function toListItem(row: MyTicketsView): TicketListItemProp {
   const status = ticketDisplayStatus(row);
   return {
     ticketId: row.order_item_id,
+    orderId: row.order_id,
+    orderStatus: row.order_status,
     title: row.event_title,
     photo: row.cover_image_url ?? PHOTOS.singer_red,
     whenLabel: start ? `${formatEventDate(start)} · ${formatTimeRange(start)}` : "Date TBA",
     venueLabel: row.venue_name ?? "Venue TBA",
+    eventStartsAt: row.event_starts_at ?? null,
+    checkedInAt: row.checked_in_at ?? null,
     count: 1,
     // Pending rows are filtered before this mapper runs.
     status: status === "pending" ? "issued" : status,
@@ -116,6 +132,8 @@ function toFeatured(row: MyTicketsView): FeaturedTicketProp {
   const urgency = urgencyFor(daysUntil, msUntil);
   return {
     ticketId: row.order_item_id,
+    orderId: row.order_id,
+    orderStatus: row.order_status,
     orderNumber: shortOrderNumber(row.order_id),
     eventTitle: row.event_title,
     eventPhoto: row.cover_image_url ?? PHOTOS.dj_set,
@@ -125,6 +143,8 @@ function toFeatured(row: MyTicketsView): FeaturedTicketProp {
     daysUntil,
     urgencyLabel: urgency.label,
     isEventDay: urgency.isEventDay,
+    eventStartsAt: row.event_starts_at ?? null,
+    checkedInAt: row.checked_in_at ?? null,
   };
 }
 

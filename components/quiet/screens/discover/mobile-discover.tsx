@@ -6,6 +6,7 @@ import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider } from "@/components/quiet/ui/primitives";
 import { SearchTrigger } from "@/components/quiet/search/search-overlay";
 import { RecentlyViewedSection } from "@/components/quiet/screens/discover/recently-viewed-section";
+import { SuggestedEventsRow } from "@/components/quiet/screens/discover/suggested-events-row";
 import { DiscoverFilterChips } from "@/components/quiet/screens/discover/discover-filter-chips";
 import { LoadMoreSection } from "@/components/quiet/screens/discover/load-more-section";
 import { PHOTOS } from "@/lib/photos";
@@ -34,6 +35,7 @@ interface TonightRow {
   chipVariant: "muted" | "accent";
   trustLabel: string | null;
   stockLabel: string | null;
+  stockType: "sold-out" | "low" | null;
   verified: boolean;
 }
 
@@ -47,6 +49,7 @@ interface WeekRow {
   price: string;
   trustLabel: string | null;
   stockLabel: string | null;
+  stockType: "sold-out" | "low" | null;
   verified: boolean;
 }
 
@@ -76,6 +79,7 @@ function toTonight(ev: DiscoverEvent): TonightRow {
     chipVariant: "muted",
     trustLabel: ev.soldLabel,
     stockLabel: ev.stockLabel,
+    stockType: ev.stockType,
     verified: ev.organizerVerified,
   };
 }
@@ -91,6 +95,7 @@ function toWeek(ev: DiscoverEvent): WeekRow {
     price: ev.priceLabel,
     trustLabel: ev.soldLabel,
     stockLabel: ev.stockLabel,
+    stockType: ev.stockType,
     verified: ev.organizerVerified,
   };
 }
@@ -214,7 +219,7 @@ export function MobileDiscover({
                     <div className="mt-2 flex items-center justify-between gap-2">
                       <span className="font-mono text-[13px] font-semibold">{e.price}</span>
                       {e.stockLabel ? (
-                        <Chip variant="accent" size="sm">{e.stockLabel}</Chip>
+                        <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase ${e.stockType === "sold-out" ? "bg-danger-soft text-danger" : "bg-warning/10 text-warning"}`}>{e.stockLabel}</span>
                       ) : e.trustLabel ? (
                         <span className="font-mono text-[11px] text-ink-3">{e.trustLabel}</span>
                       ) : null}
@@ -250,7 +255,7 @@ export function MobileDiscover({
                         </div>
                         <div className="flex flex-col items-end justify-between">
                           {e.stockLabel ? (
-                            <Chip variant="accent" size="sm">{e.stockLabel}</Chip>
+                            <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase ${e.stockType === "sold-out" ? "bg-danger-soft text-danger" : "bg-warning/10 text-warning"}`}>{e.stockLabel}</span>
                           ) : (
                             <Icon name="heart" size={16} className="text-ink-4" />
                           )}
@@ -265,6 +270,8 @@ export function MobileDiscover({
           />
         )}
       </section>
+
+      <SuggestedEventsRow variant="mobile" />
     </div>
   );
 }

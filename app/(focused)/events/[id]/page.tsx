@@ -140,6 +140,7 @@ export default async function EventDetailPage({
       row.min_price_cents !== null && row.min_price_cents !== undefined
         ? formatPriceLabel(row.min_price_cents, asCurrency(row.currency), { prefix: "From" })
         : null,
+    category: row.category ?? null,
   };
 
   return (
