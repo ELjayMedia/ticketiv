@@ -4,6 +4,7 @@ import { Chip } from "@/components/quiet/ui/chip";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider } from "@/components/quiet/ui/primitives";
 import { SearchTrigger } from "@/components/quiet/search/search-overlay";
+import { RecentlyViewedSection } from "@/components/quiet/screens/discover/recently-viewed-section";
 import { PHOTOS } from "@/lib/photos";
 import type { DiscoverEvent } from "@/lib/mappers/discover";
 
@@ -158,6 +159,8 @@ export function MobileDiscover({
         ))}
         <Link href="/search"><Chip><Icon name="filter" size={12} /> Filters</Chip></Link>
       </div>
+
+      <RecentlyViewedSection variant="mobile" />
 
       {HERO ? (
         <section className="px-5 pb-6">

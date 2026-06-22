@@ -1,10 +1,13 @@
 import { notFound } from "next/navigation";
 import { LiveEventShell } from "@/components/quiet/screens/event-detail/live-event-shell";
 import { HoldExpiredBanner } from "@/components/quiet/screens/event-detail/hold-expired-banner";
+import { RecordRecentlyViewed } from "@/components/quiet/screens/event-detail/record-recently-viewed";
 import { getPublicEventBySlug } from "@/lib/adapters/events";
 import { mapEventDetail, mapDesktopEventDetail } from "@/lib/mappers/event-detail";
 import type { EventLineupRow, EventFriendRow } from "@/lib/mappers/event-detail";
 import { createPublicSupabaseClient } from "@/lib/supabase-public";
+import { formatEventDate, formatPriceLabel } from "@/lib/format";
+import { asCurrency } from "@/lib/currency";
 
 export const revalidate = 60;
 
@@ -127,9 +130,22 @@ export default async function EventDetailPage({
     ...trust,
   });
 
+  const startsAt = row.starts_at ? new Date(row.starts_at) : null;
+  const recentSnapshot = {
+    slug: row.slug,
+    title: row.title,
+    photo: row.poster_url ?? "",
+    dateShort: startsAt ? formatEventDate(startsAt) : "Date TBA",
+    priceLabel:
+      row.min_price_cents !== null && row.min_price_cents !== undefined
+        ? formatPriceLabel(row.min_price_cents, asCurrency(row.currency), { prefix: "From" })
+        : null,
+  };
+
   return (
     <>
       {hold_expired === "1" && <HoldExpiredBanner />}
+      <RecordRecentlyViewed {...recentSnapshot} />
       <LiveEventShell eventId={row.id} mobile={mobile} desktop={desktop} initialStats={liveStats} />
     </>
   );

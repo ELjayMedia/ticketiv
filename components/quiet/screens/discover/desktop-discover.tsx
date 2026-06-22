@@ -3,6 +3,7 @@ import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider } from "@/components/quiet/ui/primitives";
+import { RecentlyViewedSection } from "@/components/quiet/screens/discover/recently-viewed-section";
 import { PHOTOS } from "@/lib/photos";
 import type { DiscoverEvent } from "@/lib/mappers/discover";
 
@@ -260,6 +261,8 @@ export function DesktopDiscover({
           </div>
         </div>
       </Card>
+
+      <RecentlyViewedSection variant="desktop" />
 
       {/* Two-column: categories + grid */}
       <div className="grid grid-cols-[200px_1fr] gap-8">
