@@ -23,7 +23,7 @@ const WORKSPACE_NAV: Record<Extract<WorkspaceType, "organizer" | "scanner" | "ap
       href: "/events",
       label: "Events",
       icon: "cal",
-      match: (p) => p.startsWith("/events") || p.startsWith("/orgs"),
+      match: (p) => (p.startsWith("/events") || p.startsWith("/orgs")) && !p.includes("/onboarding"),
     },
     {
       href: "/payouts",
@@ -42,6 +42,12 @@ const WORKSPACE_NAV: Record<Extract<WorkspaceType, "organizer" | "scanner" | "ap
       label: "Scanner",
       icon: "check",
       match: (p) => p.startsWith("/scan"),
+    },
+    {
+      href: "/guide",
+      label: "Guide",
+      icon: "spark",
+      match: (p) => p.startsWith("/guide") || p.includes("/onboarding"),
     },
   ],
   scanner: [
