@@ -7,6 +7,7 @@ import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
 import { EmptyState } from "@/components/quiet/ui/empty-state"
 import { EventsFilterBar } from "./events-filter-bar"
+import { DuplicateEventButton } from "./_components/duplicate-event-button"
 import { formatPrice } from "@/lib/format"
 
 export const dynamic = "force-dynamic"
@@ -251,6 +252,12 @@ export default async function OrgEventsPage({
                             </p>
                           </div>
                         )}
+                      </div>
+
+                      <CardDivider />
+
+                      <div className="flex justify-end">
+                        <DuplicateEventButton orgId={orgId} eventId={event.id} />
                       </div>
                     </CardBody>
                   </Card>
