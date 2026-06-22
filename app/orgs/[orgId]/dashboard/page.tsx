@@ -58,8 +58,25 @@ export default async function OrgDashboardPage({ params }: { params: Promise<{ o
   const publishedEvents = events.filter((event) => event.status === "published")
   const recentEvents = publishedEvents.slice(0, 5)
 
+  // Fetch real finance summary from fn_org_finance_summary RPC
+  let financeSummaryGrossCents: number | null = null
+  try {
+    const { data: financeData, error: financeError } = await supabase.rpc(
+      "fn_org_finance_summary",
+      { p_org_id: orgId },
+    )
+    if (!financeError && financeData && typeof financeData === "object") {
+      const d = financeData as Record<string, unknown>
+      if (typeof d.gross_cents === "number") {
+        financeSummaryGrossCents = d.gross_cents
+      }
+    }
+  } catch {
+    // non-fatal — show placeholder
+  }
+
+  // Aggregate tickets sold from event_live_stats
   let totalTicketsSold = 0
-  let totalRevenueCents = 0
   let totalCheckedIn = 0
   let lastOrderAt: string | null = null
 
@@ -74,13 +91,19 @@ export default async function OrgDashboardPage({ params }: { params: Promise<{ o
 
     for (const stat of liveStats ?? []) {
       totalTicketsSold += stat.tickets_sold ?? 0
-      totalRevenueCents += stat.gross_sales_cents ?? 0
       totalCheckedIn += stat.checked_in_count ?? 0
       if (stat.last_order_at && (!lastOrderAt || stat.last_order_at > lastOrderAt)) {
         lastOrderAt = stat.last_order_at
       }
     }
   }
+
+  // Derived stats
+  const grossCents = financeSummaryGrossCents ?? null
+  const avgTicketCents =
+    grossCents !== null && totalTicketsSold > 0
+      ? Math.round(grossCents / totalTicketsSold)
+      : null
 
   const missingProfileFields = [!org.bio ? "bio" : null, !org.logo ? "logo" : null].filter(Boolean)
   const hasPayoutAccount = (payoutAccountsRes.count ?? 0) > 0
@@ -107,6 +130,46 @@ export default async function OrgDashboardPage({ params }: { params: Promise<{ o
               New event
             </Link>
           </div>
+        </div>
+
+        {/* Real stats row — always shown (uses fn_org_finance_summary) */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Card flat>
+            <CardBody className="flex flex-col gap-1 p-4">
+              <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Revenue</span>
+              <span className="font-mono text-[22px] font-semibold tabular-nums text-ink">
+                {grossCents !== null
+                  ? `SZL ${(grossCents / 100).toLocaleString("en-SZ", { minimumFractionDigits: 2 })}`
+                  : "—"}
+              </span>
+            </CardBody>
+          </Card>
+          <Card flat>
+            <CardBody className="flex flex-col gap-1 p-4">
+              <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Tickets Sold</span>
+              <span className="font-mono text-[22px] font-semibold tabular-nums text-ink">
+                {totalTicketsSold.toLocaleString()}
+              </span>
+            </CardBody>
+          </Card>
+          <Card flat>
+            <CardBody className="flex flex-col gap-1 p-4">
+              <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Events</span>
+              <span className="font-mono text-[22px] font-semibold tabular-nums text-ink">
+                {events.length.toLocaleString()}
+              </span>
+            </CardBody>
+          </Card>
+          <Card flat>
+            <CardBody className="flex flex-col gap-1 p-4">
+              <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Avg. Ticket</span>
+              <span className="font-mono text-[22px] font-semibold tabular-nums text-ink">
+                {avgTicketCents !== null
+                  ? `SZL ${(avgTicketCents / 100).toLocaleString("en-SZ", { minimumFractionDigits: 2 })}`
+                  : "—"}
+              </span>
+            </CardBody>
+          </Card>
         </div>
 
         {needsOnboarding && (
@@ -162,7 +225,15 @@ export default async function OrgDashboardPage({ params }: { params: Promise<{ o
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Metric label="Active events" value={publishedEvents.length.toString()} icon="cal" />
             <Metric label="Tickets sold" value={totalTicketsSold.toLocaleString()} icon="ticket" />
-            <Metric label="Gross sales" value={`SZL ${(totalRevenueCents / 100).toLocaleString("en-US", { maximumFractionDigits: 0 })}`} icon="wallet" />
+            <Metric
+              label="Gross sales"
+              value={
+                grossCents !== null
+                  ? `SZL ${(grossCents / 100).toLocaleString("en-SZ", { minimumFractionDigits: 2 })}`
+                  : "—"
+              }
+              icon="wallet"
+            />
             <Metric label="Checked in" value={totalCheckedIn.toLocaleString()} icon="check" />
           </div>
         )}
