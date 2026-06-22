@@ -12,6 +12,7 @@ import { formatPrice, formatHoldTimer } from "@/lib/format";
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
 import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/actions";
 import { describePromoFailure } from "@/lib/checkout/promo-copy";
+import { PromoCodeInput, type PromoResult } from "@/components/quiet/screens/checkout/promo-code-input";
 
 /* ──────────────────────────────────────────────────────────────
  * Desktop checkout · `/events/[id]/checkout` on md+
@@ -87,6 +88,7 @@ export function DesktopCheckout({
   const [policyAccepted, setPolicyAccepted] = React.useState(false);
   const [isApplyingPromo, setIsApplyingPromo] = React.useState(false);
   const [activePromo, setActivePromo] = React.useState(appliedPromo ?? null);
+  const [validatedPromo, setValidatedPromo] = React.useState<PromoResult | null>(null);
 
   async function handleApplyPromo() {
     if (!promoInput.trim()) return;

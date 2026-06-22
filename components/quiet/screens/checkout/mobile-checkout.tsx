@@ -15,6 +15,7 @@ import { formatPrice, formatHoldTimer, formatScarcityLabel } from "@/lib/format"
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
 import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/actions";
 import { describePromoFailure } from "@/lib/checkout/promo-copy";
+import { PromoCodeInput, type PromoResult } from "@/components/quiet/screens/checkout/promo-code-input";
 
 /* ──────────────────────────────────────────────────────────────
  * Mobile checkout · `/events/[id]/checkout` on phones.
@@ -115,6 +116,7 @@ export function MobileCheckout({
     { ok: true; label: string; savedMinor: number } | { ok: false; message: string } | null
   >(null);
   const [isApplyingPromo, setIsApplyingPromo] = React.useState(false);
+  const [appliedPromo, setAppliedPromo] = React.useState<PromoResult | null>(null);
   const [attendeeName, setAttendeeName] = React.useState("");
   const [attendeePhone, setAttendeePhone] = React.useState("");
 
@@ -213,7 +215,12 @@ export function MobileCheckout({
   const fee = bookingFeeMinor;
   const vat = Math.round(subtotal * vatRate);
   const discount = activePromo?.savedMinor ?? 0;
-  const total = subtotal + fee + vat - discount;
+  const promoDiscount = appliedPromo
+    ? appliedPromo.discountType === "percent"
+      ? Math.round(subtotal * appliedPromo.discountValue / 100)
+      : appliedPromo.discountValue
+    : 0;
+  const total = subtotal + fee + vat - discount - promoDiscount;
 
   return (
     <div className="flex h-full flex-col bg-bg">
@@ -431,6 +438,15 @@ export function MobileCheckout({
               {promoFeedback.message}
             </p>
           )}
+          <div className="mt-3">
+            <PromoCodeInput
+              eventId={eventUuid}
+              onApply={(result) => {
+                setAppliedPromo(result);
+                if (result) setPromoInput(result.promoId);
+              }}
+            />
+          </div>
         </section>
 
         {/* Buyer email — required so the ticket can be delivered. Prefilled
@@ -487,6 +503,13 @@ export function MobileCheckout({
               <SummaryRow
                 label={activePromo.code}
                 value={`−${formatPrice(discount)}`}
+                accent
+              />
+            )}
+            {appliedPromo && promoDiscount > 0 && (
+              <SummaryRow
+                label="Promo"
+                value={`−${formatPrice(promoDiscount)}`}
                 accent
               />
             )}
