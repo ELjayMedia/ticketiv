@@ -1,12 +1,21 @@
 import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
-import type { AttendeeTicketListing, PublicEventTicketListing } from "@/lib/data/attendee/ticket-listings";
+import type {
+  AttendeeTicketListing,
+  PublicEventTicketListing,
+  ResaleSort,
+  ResaleTicketTypeOption,
+} from "@/lib/data/attendee/ticket-listings";
 import { ListingStartForm } from "@/components/quiet/screens/resale/listing-start-form";
+import { ResaleBrowseControls } from "@/components/quiet/screens/resale/resale-browse-controls";
 
 interface TicketListingsCentreProps {
   listings: AttendeeTicketListing[];
   publicListings?: PublicEventTicketListing[];
+  publicTicketTypes?: ResaleTicketTypeOption[];
+  sort?: ResaleSort;
+  ticketType?: string | null;
   ticketId?: string | null;
   eventId?: string | null;
 }
@@ -49,11 +58,23 @@ function statusTone(status: string): { label: string; className: string } {
   return { label: normalized.replaceAll("_", " ") || "Pending", className: "bg-[#fdf6ed] text-[#c1841c]" };
 }
 
-export function TicketListingsCentre({ listings, publicListings = [], ticketId, eventId }: TicketListingsCentreProps) {
+export function TicketListingsCentre({
+  listings,
+  publicListings = [],
+  publicTicketTypes = [],
+  sort = "price_asc",
+  ticketType = null,
+  ticketId,
+  eventId,
+}: TicketListingsCentreProps) {
   const hasListings = listings.length > 0;
   const hasPublicListings = publicListings.length > 0;
   const activeCount = listings.filter((listing) => ["active", "listed", "available"].includes(listing.status.toLowerCase())).length;
   const showBuyerContext = Boolean(eventId) && !ticketId;
+  const filterActive = ticketType !== null;
+  // Keep the controls mounted whenever there is anything to browse, or a filter
+  // is active (so a zero-result filter can still be cleared).
+  const showBrowseControls = hasPublicListings || publicTicketTypes.length > 0 || filterActive;
 
   return (
     <div className="mx-auto max-w-[480px] bg-bg pb-24">
@@ -84,7 +105,7 @@ export function TicketListingsCentre({ listings, publicListings = [], ticketId, 
       {ticketId && <ListingStartForm ticketId={ticketId} />}
 
       {showBuyerContext && (
-        <section className="px-5 pb-4">
+        <section className="flex flex-col gap-3 px-5 pb-4">
           <Card className="border-line-2 p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -92,7 +113,9 @@ export function TicketListingsCentre({ listings, publicListings = [], ticketId, 
                 <p className="mt-1 font-mono text-[11px] leading-relaxed text-ink-3">
                   {hasPublicListings
                     ? "Choose from active listings. Checkout and transfer completion will be connected in the next step."
-                    : "No active public listings are available for this event yet."}
+                    : filterActive
+                      ? "No listings match this filter — try a different ticket type."
+                      : "No active public listings are available for this event yet."}
                 </p>
               </div>
               {hasPublicListings && (
@@ -102,6 +125,10 @@ export function TicketListingsCentre({ listings, publicListings = [], ticketId, 
               )}
             </div>
           </Card>
+
+          {showBrowseControls && (
+            <ResaleBrowseControls sort={sort} ticketType={ticketType} ticketTypes={publicTicketTypes} />
+          )}
         </section>
       )}
 
