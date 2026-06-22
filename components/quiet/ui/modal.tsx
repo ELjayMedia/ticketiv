@@ -92,6 +92,18 @@ export function ModalContent({
   );
 }
 
+/* ── useModal — convenience state hook ────────────────────────────
+ * const { isOpen, open, close, toggle } = useModal();
+ * <Modal open={isOpen} onOpenChange={(v) => v ? open() : close()}>
+ * ────────────────────────────────────────────────────────────── */
+export function useModal(initial = false) {
+  const [isOpen, setIsOpen] = React.useState(initial);
+  const open = React.useCallback(() => setIsOpen(true), []);
+  const close = React.useCallback(() => setIsOpen(false), []);
+  const toggle = React.useCallback(() => setIsOpen((v) => !v), []);
+  return { isOpen, open, close, toggle };
+}
+
 /* ── ModalFooter — sticky action row at the bottom ────────────── */
 export function ModalFooter({
   className,

@@ -15,9 +15,13 @@ interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
   circle?: boolean;
   /** Side length for circle skeletons; ignored when circle is false */
   size?: number;
+  /** Explicit width — convenience alternative to className */
+  width?: string | number;
+  /** Explicit height — convenience alternative to className */
+  height?: string | number;
 }
 
-export function Skeleton({ circle, size, className, style, ...rest }: SkeletonProps) {
+export function Skeleton({ circle, size, width, height, className, style, ...rest }: SkeletonProps) {
   return (
     <div
       className={cn(
@@ -27,6 +31,8 @@ export function Skeleton({ circle, size, className, style, ...rest }: SkeletonPr
       )}
       style={{
         ...(circle && size ? { width: size, height: size } : {}),
+        ...(width !== undefined ? { width } : {}),
+        ...(height !== undefined ? { height } : {}),
         ...style,
       }}
       aria-hidden="true"
