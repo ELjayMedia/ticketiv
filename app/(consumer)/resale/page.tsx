@@ -1,8 +1,14 @@
 import { TicketListingsCentre } from "@/components/quiet/screens/resale/resale-centre";
-import { getMyTicketListings, getPublicEventTicketListings } from "@/lib/data/attendee/ticket-listings";
+import {
+  getMyTicketListings,
+  getPublicEventTicketListings,
+  type ResaleSort,
+} from "@/lib/data/attendee/ticket-listings";
 
 export const metadata = { title: "Resale" };
 export const dynamic = "force-dynamic";
+
+const SORT_VALUES: ResaleSort[] = ["price_asc", "price_desc", "newest"];
 
 export default async function ResalePage({
   searchParams,
@@ -12,15 +18,25 @@ export default async function ResalePage({
   const params = (await searchParams) ?? {};
   const ticketId = typeof params.ticketId === "string" ? params.ticketId : null;
   const eventId = typeof params.eventId === "string" ? params.eventId : null;
-  const [listings, publicListings] = await Promise.all([
+  const sort: ResaleSort =
+    typeof params.sort === "string" && SORT_VALUES.includes(params.sort as ResaleSort)
+      ? (params.sort as ResaleSort)
+      : "price_asc";
+  const ticketType = typeof params.ticketType === "string" ? params.ticketType : null;
+
+  const [listings, publicListingsResult] = await Promise.all([
     getMyTicketListings(),
-    getPublicEventTicketListings(eventId),
+    getPublicEventTicketListings(eventId, { sort, ticketTypeId: ticketType }),
   ]);
 
   return (
     <TicketListingsCentre
       listings={listings}
-      publicListings={publicListings}
+      publicListings={publicListingsResult.listings}
+      publicTicketTypes={publicListingsResult.ticketTypes}
+      publicPriceStats={publicListingsResult.priceStats}
+      sort={sort}
+      ticketType={ticketType}
       ticketId={ticketId}
       eventId={eventId}
     />

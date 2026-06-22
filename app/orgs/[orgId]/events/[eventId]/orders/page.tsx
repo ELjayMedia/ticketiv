@@ -1,26 +1,32 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
+import React from "react"
 
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
+import { EmptyState } from "@/components/quiet/ui/empty-state"
+import { AttendeesBulkTable } from "./attendees-bulk-table"
+import { CompTicketButton } from "./comp-ticket-button"
+import { EmailAttendeesButton } from "./email-attendees-button"
 
 export const dynamic = "force-dynamic"
 
-// TICK-49 — Orders, attendee & support management
+// TICK-238: Server-side search + pagination (50 rows/page) replacing the 500-item client-side limit.
 
+const PAGE_SIZE = 50
 type View = "orders" | "attendees"
 
-const STATUS_CHIP: Record<string, "active" | "muted" | "default" | "accent"> = {
+const ORDER_STATUS_CHIP: Record<string, "active" | "muted" | "default" | "accent"> = {
   paid: "active",
   pending: "muted",
   failed: "default",
   refunded: "accent",
 }
 
-function statusVariant(s: string): "active" | "muted" | "default" | "accent" {
-  return STATUS_CHIP[s] ?? "default"
+function orderStatusVariant(s: string): "active" | "muted" | "default" | "accent" {
+  return ORDER_STATUS_CHIP[s] ?? "default"
 }
 
 function fmtDate(d: string | null) {
@@ -39,18 +45,58 @@ function StatTile({ label, value }: { label: string; value: React.ReactNode }) {
   )
 }
 
+function Paginator({
+  page,
+  totalPages,
+  buildHref,
+}: {
+  page: number
+  totalPages: number
+  buildHref: (p: number) => string
+}) {
+  if (totalPages <= 1) return null
+  return (
+    <div className="flex items-center justify-between border-t border-line px-5 py-3">
+      <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+        Page {page} of {totalPages}
+      </span>
+      <div className="flex items-center gap-1">
+        {page > 1 && (
+          <Link
+            href={buildHref(page - 1)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-3 hover:bg-bg hover:text-ink"
+          >
+            <Icon name="chevL" size={14} />
+          </Link>
+        )}
+        {page < totalPages && (
+          <Link
+            href={buildHref(page + 1)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-3 hover:bg-bg hover:text-ink"
+          >
+            <Icon name="chevR" size={14} />
+          </Link>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default async function OrdersPage({
   params,
   searchParams,
 }: {
   params: Promise<{ orgId: string; eventId: string }>
-  searchParams?: Promise<{ view?: string; status?: string; q?: string }>
+  searchParams?: Promise<{ view?: string; status?: string; q?: string; page?: string }>
 }) {
   const { orgId, eventId } = await params
   const sp = searchParams ? await searchParams : {}
   const view = (sp.view ?? "orders") as View
-  const filterStatus = sp.status
-  const filterQ = sp.q?.toLowerCase()
+  const filterStatus = sp.status ?? ""
+  const filterQ = sp.q ?? ""
+  const page = Math.max(1, parseInt(sp.page ?? "1") || 1)
+  const rangeFrom = (page - 1) * PAGE_SIZE
+  const rangeTo = rangeFrom + PAGE_SIZE - 1
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return redirect("/login")
@@ -68,74 +114,122 @@ export default async function OrdersPage({
     .maybeSingle()
   if (!event) return redirect("/403")
 
-  // Fetch order_items for this event (joined through ticket_types)
-  const { data: itemRows = [] } = await supabase
+  // KPI figures from the materialized stats view
+  const { data: liveStats } = await supabase
+    .from("event_live_stats")
+    .select("tickets_sold, gross_sales_cents, checked_in_count")
+    .eq("event_id", eventId)
+    .maybeSingle()
+
+  // Ticket types for the comp-ticket modal (TICK-237)
+  const { data: ticketTypesRaw } = await supabase
+    .from("ticket_types")
+    .select("id, name, price_cents")
+    .eq("event_id", eventId)
+    .order("name")
+  const ticketTypes = (ticketTypesRaw ?? []).map((tt) => ({
+    id: tt.id,
+    name: tt.name,
+    price_cents: tt.price_cents ?? 0,
+  }))
+
+  // Lightweight fetch of all order IDs for this event (just UUIDs).
+  // Used for: orders tab count and item-count-per-order in the orders table.
+  const { data: eventItems } = await supabase
     .from("order_items")
-    .select(`
-      id, ticket_code, status, holder_name, holder_email, holder_phone,
-      checked_in_at, revoked_at, refunded_at, created_at,
-      ticket_types!inner(id, name, price_cents, currency, event_id),
-      orders!inner(id, status, total_cents, currency, email, buyer_email, channel, created_at, org_id)
-    `)
+    .select("order_id, ticket_types!inner(id), orders!inner(org_id)")
     .eq("ticket_types.event_id", eventId)
     .eq("orders.org_id", orgId)
-    .order("created_at", { ascending: false })
-    .limit(500)
+    .limit(10000)
 
-  const items = (itemRows ?? []) as any[]
+  const orderItemCountMap = new Map<string, number>()
+  for (const row of (eventItems ?? []) as any[]) {
+    const oid = row.order_id as string
+    orderItemCountMap.set(oid, (orderItemCountMap.get(oid) ?? 0) + 1)
+  }
+  const allOrderIds = [...orderItemCountMap.keys()]
+  const totalOrdersCount = allOrderIds.length
+  const totalAttendees = liveStats?.tickets_sold ?? 0
 
-  // Derive unique orders from items
-  const orderMap = new Map<string, any>()
-  for (const item of items) {
-    const order = item.orders
-    if (!order) continue
-    if (!orderMap.has(order.id)) {
-      orderMap.set(order.id, {
-        ...order,
-        items: [],
-      })
+  // ── Orders view ──────────────────────────────────────────────────────────────
+  let orders: any[] = []
+  let ordersResultCount = 0
+
+  if (view === "orders" && allOrderIds.length > 0) {
+    let q = supabase
+      .from("orders")
+      .select(
+        "id, status, total_cents, currency, buyer_email, email, channel, created_at",
+        { count: "exact" },
+      )
+      .eq("org_id", orgId)
+      .in("id", allOrderIds)
+      .order("created_at", { ascending: false })
+      .range(rangeFrom, rangeTo)
+
+    if (filterQ) {
+      q = q.or(`buyer_email.ilike.%${filterQ}%,email.ilike.%${filterQ}%`)
     }
-    orderMap.get(order.id).items.push(item)
-  }
-  let orders = Array.from(orderMap.values())
+    if (filterStatus) {
+      q = q.eq("status", filterStatus as any)
+    }
 
-  // Filter
-  if (filterStatus) orders = orders.filter((o) => o.status === filterStatus)
-  if (filterQ) {
-    orders = orders.filter((o) => {
-      const haystack = [o.email, o.buyer_email, o.id, o.channel].filter(Boolean).join(" ").toLowerCase()
-      return haystack.includes(filterQ)
-    })
+    const { data, count } = await q
+    orders = (data as any[]) ?? []
+    ordersResultCount = count ?? 0
   }
 
-  const totalRevenueCents = orders.filter((o) => o.status === "paid").reduce((s: number, o: any) => s + o.total_cents, 0)
-  const ticketsSold = items.filter((i: any) => i.status === "issued" || i.status === "checked_in").length
-  const checkedIn = items.filter((i: any) => i.status === "checked_in").length
+  // ── Attendees view ───────────────────────────────────────────────────────────
+  let attendees: any[] = []
+  let attendeesResultCount = 0
 
-  // Attendee list for attendees view — filter by holder name/email, ticket
-  // code or ticket type (search) and order_item status.
-  const attendees =
-    view === "attendees"
-      ? items.filter((it: any) => {
-          if (filterStatus && it.status !== filterStatus) return false
-          if (filterQ) {
-            const hay = [
-              it.holder_name,
-              it.holder_email,
-              it.ticket_code,
-              it.ticket_types?.name,
-              it.orders?.buyer_email,
-            ]
-              .filter(Boolean)
-              .join(" ")
-              .toLowerCase()
-            if (!hay.includes(filterQ)) return false
-          }
-          return true
-        })
-      : []
+  if (view === "attendees") {
+    let q = supabase
+      .from("order_items")
+      .select(
+        `id, ticket_code, status, holder_name, holder_email, checked_in_at, created_at,
+         ticket_types!inner(name, event_id),
+         orders!inner(buyer_email, org_id)`,
+        { count: "exact" },
+      )
+      .eq("ticket_types.event_id", eventId)
+      .eq("orders.org_id", orgId)
+      .order("created_at", { ascending: false })
+      .range(rangeFrom, rangeTo)
 
-  const tabHref = (v: View) => `/orgs/${orgId}/events/${eventId}/orders?view=${v}`
+    if (filterQ) {
+      q = q.or(
+        `holder_name.ilike.%${filterQ}%,holder_email.ilike.%${filterQ}%,ticket_code.ilike.%${filterQ}%`,
+      )
+    }
+    if (filterStatus) {
+      q = q.eq("status", filterStatus as any)
+    }
+
+    const { data, count } = await q
+    attendees = (data as any[]) ?? []
+    attendeesResultCount = count ?? 0
+  }
+
+  const currentCount = view === "orders" ? ordersResultCount : attendeesResultCount
+  const totalPages = Math.ceil(currentCount / PAGE_SIZE)
+
+  const buildHref = (p: number) => {
+    const next = new URLSearchParams()
+    next.set("view", view)
+    if (filterQ) next.set("q", filterQ)
+    if (filterStatus) next.set("status", filterStatus)
+    if (p > 1) next.set("page", String(p))
+    return `/orgs/${orgId}/events/${eventId}/orders?${next.toString()}`
+  }
+
+  const tabHref = (v: View) => {
+    const next = new URLSearchParams()
+    next.set("view", v)
+    if (filterQ) next.set("q", filterQ)
+    if (filterStatus) next.set("status", filterStatus)
+    return `/orgs/${orgId}/events/${eventId}/orders?${next.toString()}`
+  }
 
   return (
     <main className="flex-1 overflow-auto">
@@ -154,21 +248,37 @@ export default async function OrdersPage({
               <p className="text-[13px] text-ink-3">{event.title}</p>
             </div>
           </div>
-          <a
-            href={`/api/orgs/${orgId}/events/${eventId}/attendees.csv`}
-            className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-transparent px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-bg"
-          >
-            <Icon name="download" size={14} />
-            Export attendees CSV
-          </a>
+          <div className="flex items-center gap-2">
+            <EmailAttendeesButton
+              orgId={orgId}
+              eventId={eventId}
+              ticketTypes={ticketTypes.map((tt) => ({ id: tt.id, name: tt.name }))}
+            />
+            {ticketTypes.length > 0 && (
+              <CompTicketButton orgId={orgId} eventId={eventId} ticketTypes={ticketTypes} />
+            )}
+            <a
+              href={`/api/orgs/${orgId}/events/${eventId}/attendees.csv`}
+              className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-transparent px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-bg"
+            >
+              <Icon name="download" size={14} />
+              Export attendees CSV
+            </a>
+          </div>
         </div>
 
         {/* KPI tiles */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatTile label="Total orders" value={orderMap.size} />
-          <StatTile label="Gross revenue" value={`SZL ${(totalRevenueCents / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`} />
-          <StatTile label="Tickets issued" value={ticketsSold} />
-          <StatTile label="Checked in" value={`${checkedIn} / ${ticketsSold}`} />
+          <StatTile label="Total orders" value={totalOrdersCount.toLocaleString()} />
+          <StatTile
+            label="Gross revenue"
+            value={`SZL ${((liveStats?.gross_sales_cents ?? 0) / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
+          />
+          <StatTile label="Tickets issued" value={(liveStats?.tickets_sold ?? 0).toLocaleString()} />
+          <StatTile
+            label="Checked in"
+            value={`${(liveStats?.checked_in_count ?? 0).toLocaleString()} / ${(liveStats?.tickets_sold ?? 0).toLocaleString()}`}
+          />
         </div>
 
         {/* View tabs */}
@@ -179,14 +289,12 @@ export default async function OrdersPage({
               href={tabHref(v)}
               className={[
                 "inline-flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-semibold capitalize transition-colors",
-                view === v
-                  ? "border-b-2 border-ink text-ink"
-                  : "text-ink-3 hover:text-ink",
+                view === v ? "border-b-2 border-ink text-ink" : "text-ink-3 hover:text-ink",
               ].join(" ")}
             >
               {v}
               <span className="font-mono text-[11px] tabular-nums text-ink-3">
-                {v === "orders" ? orderMap.size : items.length}
+                {v === "orders" ? totalOrdersCount.toLocaleString() : totalAttendees.toLocaleString()}
               </span>
             </Link>
           ))}
@@ -199,17 +307,17 @@ export default async function OrdersPage({
               <input type="hidden" name="view" value={view} />
               <input
                 name="q"
-                defaultValue={sp.q ?? ""}
+                defaultValue={filterQ}
                 placeholder={
                   view === "attendees"
                     ? "Search holder name, email or ticket code…"
                     : "Search buyer email or order ID…"
                 }
-                className="flex-1 min-w-48 rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-2 text-[13px] text-ink outline-none transition focus:border-accent focus:ring-[3px] focus:ring-accent-soft"
+                className="min-w-48 flex-1 rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-2 text-[13px] text-ink outline-none transition focus:border-accent focus:ring-[3px] focus:ring-accent-soft"
               />
               <select
                 name="status"
-                defaultValue={filterStatus ?? ""}
+                defaultValue={filterStatus}
                 className="rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-2 text-[13px] text-ink outline-none"
               >
                 <option value="">All statuses</option>
@@ -238,7 +346,7 @@ export default async function OrdersPage({
               </button>
               {(filterStatus || filterQ) && (
                 <Link
-                  href={tabHref(view)}
+                  href={`/orgs/${orgId}/events/${eventId}/orders?view=${view}`}
                   className="rounded-[var(--radius)] px-4 py-2 text-[13px] font-semibold text-ink-3 transition hover:text-ink"
                 >
                   Clear
@@ -253,148 +361,107 @@ export default async function OrdersPage({
           <Card>
             <CardBody className="px-5 py-4">
               <p className="text-label">
-                Orders{orders.length !== orderMap.size ? ` (${orders.length} of ${orderMap.size})` : ` (${orders.length})`}
+                {filterQ || filterStatus
+                  ? `Orders — ${ordersResultCount.toLocaleString()} of ${totalOrdersCount.toLocaleString()}`
+                  : `Orders (${totalOrdersCount.toLocaleString()})`}
               </p>
             </CardBody>
             <CardDivider />
             {orders.length === 0 ? (
-              <CardBody className="py-12 text-center text-[13px] text-ink-3">
-                No orders match the current filters.
+              <CardBody className="py-12">
+                <EmptyState
+                  icon="ticket"
+                  title={filterQ || filterStatus ? "No orders match" : "No orders yet"}
+                  description={
+                    filterQ || filterStatus
+                      ? "Try adjusting the search or status filter."
+                      : "Orders will appear here once tickets are sold."
+                  }
+                  compact
+                />
               </CardBody>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-line">
-                      <th className="px-5 py-3 text-left text-label">Order</th>
-                      <th className="px-5 py-3 text-left text-label">Buyer</th>
-                      <th className="px-5 py-3 text-left text-label">Channel</th>
-                      <th className="px-5 py-3 text-right text-label">Items</th>
-                      <th className="px-5 py-3 text-right text-label">Total</th>
-                      <th className="px-5 py-3 text-left text-label">Status</th>
-                      <th className="px-5 py-3 text-left text-label">Date</th>
-                      <th className="px-5 py-3 text-right text-label">Detail</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orders.map((order, i) => (
-                      <tr key={order.id} className={i > 0 ? "border-t border-line" : ""}>
-                        <td className="px-5 py-3 font-mono text-[12px] text-ink-3">
-                          {order.id.slice(0, 8)}…
-                        </td>
-                        <td className="px-5 py-3 text-[13px] text-ink">
-                          {order.buyer_email ?? order.email ?? "—"}
-                        </td>
-                        <td className="px-5 py-3">
-                          <Chip size="sm" variant="muted" className="capitalize">
-                            {order.channel ?? "online"}
-                          </Chip>
-                        </td>
-                        <td className="px-5 py-3 text-right font-mono text-[13px] tabular-nums text-ink">
-                          {order.items?.length ?? 0}
-                        </td>
-                        <td className="px-5 py-3 text-right font-mono text-[13px] font-semibold tabular-nums text-ink">
-                          SZL {((order.total_cents ?? 0) / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-5 py-3">
-                          <Chip size="sm" variant={statusVariant(order.status)} className="capitalize">
-                            {order.status}
-                          </Chip>
-                        </td>
-                        <td className="px-5 py-3 font-mono text-[12px] text-ink-3">
-                          {fmtDate(order.created_at)}
-                        </td>
-                        <td className="px-5 py-3 text-right">
-                          <Link
-                            href={`/orgs/${orgId}/events/${eventId}/orders/${order.id}`}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-3 hover:bg-bg hover:text-ink"
-                          >
-                            <Icon name="arrowR" size={14} />
-                          </Link>
-                        </td>
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-line">
+                        <th className="px-5 py-3 text-left text-label">Order</th>
+                        <th className="px-5 py-3 text-left text-label">Buyer</th>
+                        <th className="px-5 py-3 text-left text-label">Channel</th>
+                        <th className="px-5 py-3 text-right text-label">Items</th>
+                        <th className="px-5 py-3 text-right text-label">Total</th>
+                        <th className="px-5 py-3 text-left text-label">Status</th>
+                        <th className="px-5 py-3 text-left text-label">Date</th>
+                        <th className="px-5 py-3 text-right text-label">Detail</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {orders.map((order, i) => (
+                        <tr key={order.id} className={i > 0 ? "border-t border-line" : ""}>
+                          <td className="px-5 py-3 font-mono text-[12px] text-ink-3">
+                            {order.id.slice(0, 8)}…
+                          </td>
+                          <td className="px-5 py-3 text-[13px] text-ink">
+                            {order.buyer_email ?? order.email ?? "—"}
+                          </td>
+                          <td className="px-5 py-3">
+                            <Chip size="sm" variant="muted" className="capitalize">
+                              {order.channel ?? "online"}
+                            </Chip>
+                          </td>
+                          <td className="px-5 py-3 text-right font-mono text-[13px] tabular-nums text-ink">
+                            {orderItemCountMap.get(order.id) ?? 0}
+                          </td>
+                          <td className="px-5 py-3 text-right font-mono text-[13px] font-semibold tabular-nums text-ink">
+                            SZL{" "}
+                            {((order.total_cents ?? 0) / 100).toLocaleString("en-US", {
+                              minimumFractionDigits: 2,
+                            })}
+                          </td>
+                          <td className="px-5 py-3">
+                            <Chip
+                              size="sm"
+                              variant={orderStatusVariant(order.status)}
+                              className="capitalize"
+                            >
+                              {order.status}
+                            </Chip>
+                          </td>
+                          <td className="px-5 py-3 font-mono text-[12px] text-ink-3">
+                            {fmtDate(order.created_at)}
+                          </td>
+                          <td className="px-5 py-3 text-right">
+                            <Link
+                              href={`/orgs/${orgId}/events/${eventId}/orders/${order.id}`}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-3 hover:bg-bg hover:text-ink"
+                            >
+                              <Icon name="arrowR" size={14} />
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <Paginator page={page} totalPages={totalPages} buildHref={buildHref} />
+              </>
             )}
           </Card>
         )}
 
-        {/* Attendees view */}
+        {/* Attendees view — TICK-235: bulk check-in via AttendeesBulkTable client component */}
         {view === "attendees" && (
-          <Card>
-            <CardBody className="px-5 py-4">
-              <p className="text-label">
-                Attendees{attendees.length !== items.length ? ` (${attendees.length} of ${items.length})` : ` (${items.length})`}
-              </p>
-            </CardBody>
-            <CardDivider />
-            {attendees.length === 0 ? (
-              <CardBody className="py-12 text-center text-[13px] text-ink-3">
-                {items.length === 0 ? "No attendees yet." : "No attendees match the current filters."}
-              </CardBody>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-line">
-                      <th className="px-5 py-3 text-left text-label">Ticket code</th>
-                      <th className="px-5 py-3 text-left text-label">Holder</th>
-                      <th className="px-5 py-3 text-left text-label">Ticket type</th>
-                      <th className="px-5 py-3 text-left text-label">Check-in</th>
-                      <th className="px-5 py-3 text-left text-label">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {attendees.map((item: any, i: number) => (
-                      <tr key={item.id} className={i > 0 ? "border-t border-line" : ""}>
-                        <td className="px-5 py-3 font-mono text-[12px] text-ink">
-                          {item.ticket_code}
-                        </td>
-                        <td className="px-5 py-3">
-                          <div className="flex flex-col gap-0.5">
-                            <span className="text-[13px] font-semibold text-ink">
-                              {item.holder_name ?? "—"}
-                            </span>
-                            <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                              {item.holder_email ?? item.orders?.buyer_email ?? "—"}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-3 text-[13px] text-ink">
-                          {item.ticket_types?.name ?? "—"}
-                        </td>
-                        <td className="px-5 py-3 font-mono text-[12px] text-ink-3">
-                          {item.checked_in_at ? (
-                            <span className="text-success">{fmtDate(item.checked_in_at)}</span>
-                          ) : (
-                            "Not checked in"
-                          )}
-                        </td>
-                        <td className="px-5 py-3">
-                          <Chip
-                            size="sm"
-                            variant={
-                              item.status === "checked_in" || item.status === "issued"
-                                ? "active"
-                                : item.status === "refunded" || item.status === "revoked"
-                                  ? "muted"
-                                  : "default"
-                            }
-                            className="capitalize"
-                          >
-                            {item.status}
-                          </Chip>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Card>
+          <AttendeesBulkTable
+            attendees={attendees}
+            orgId={orgId}
+            eventId={eventId}
+            totalCount={attendeesResultCount}
+            filterActive={!!(filterQ || filterStatus)}
+            paginator={<Paginator page={page} totalPages={totalPages} buildHref={buildHref} />}
+          />
         )}
+
       </div>
     </main>
   )

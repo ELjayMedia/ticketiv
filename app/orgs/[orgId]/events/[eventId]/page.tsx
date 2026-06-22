@@ -5,6 +5,7 @@ import { Card } from "@/components/quiet/ui/card"
 import { Icon } from "@/components/quiet/ui/icon"
 import { EventManagementTabs } from "@/components/event-management-tabs"
 import { requireOrganizerEventManager } from "@/lib/org-management"
+import { DuplicateEventButton } from "../_components/duplicate-event-button"
 
 export const dynamic = "force-dynamic"
 
@@ -34,7 +35,10 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
             <Icon name="chevL" size={14} />
             Back to events
           </Link>
-          <h1 className="mt-4 text-h1">{event.title}</h1>
+          <div className="mt-4 flex items-start justify-between gap-4">
+            <h1 className="text-h1">{event.title}</h1>
+            <DuplicateEventButton orgId={orgId} eventId={eventId} />
+          </div>
           {event.description && (
             <p className="mt-1 text-[14px] text-ink-3">{event.description}</p>
           )}

@@ -10,10 +10,12 @@ import { Icon } from "@/components/quiet/ui/icon"
 import { cn } from "@/lib/cn"
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats"
 import {
+  deltaFetchManifest,
   findInManifest,
   isLocallyUsed,
   loadManifest,
   markLocallyUsed,
+  mergeManifestDelta,
   refreshManifest,
   type ScannerManifest,
 } from "@/lib/scanner/manifest-store"
@@ -93,6 +95,8 @@ export default function ScannerPage() {
   const [manifest, setManifest] = useState<ScannerManifest | null>(null)
   const [manifestLoading, setManifestLoading] = useState(false)
   const [recentScans, setRecentScans] = useState<RecentScan[]>([])
+  const [lastSyncAt, setLastSyncAt] = useState<number | null>(null)
+  const [, setTick] = useState(0)
   const deviceId = useMemo(() => loadDeviceId(), [])
 
   const eventId = selectedEvent?.id ?? ""
@@ -135,6 +139,7 @@ export default function ScannerPage() {
       .then((fresh) => {
         if (cancelled || !fresh) return
         setManifest(fresh)
+        setLastSyncAt(Date.now())
       })
       .finally(() => {
         if (!cancelled) setManifestLoading(false)
@@ -143,6 +148,29 @@ export default function ScannerPage() {
       cancelled = true
     }
   }, [eventId, sessionId])
+
+  // 60-second background delta sync while device is online
+  useEffect(() => {
+    if (!eventId || !lastSyncAt) return
+    const id = setInterval(async () => {
+      if (!navigator.onLine) return
+      const since = new Date(lastSyncAt).toISOString()
+      const delta = await deltaFetchManifest(eventId, since)
+      if (!delta) return
+      setManifest((current) => {
+        if (!current) return current
+        return mergeManifestDelta(current, delta)
+      })
+      setLastSyncAt(Date.now())
+    }, 60_000)
+    return () => clearInterval(id)
+  }, [eventId, lastSyncAt])
+
+  // Tick every 30s so the "last synced X ago" label refreshes
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 30_000)
+    return () => clearInterval(id)
+  }, [])
 
   useEffect(() => {
     if (!eventId || sessionId) return
@@ -215,6 +243,38 @@ export default function ScannerPage() {
       scannedAt: new Date().toISOString(),
     }
     setOfflineQueue((current) => [...current, scan])
+  }
+
+  function lastSyncLabel(): string | null {
+    if (!lastSyncAt) return null
+    const secs = Math.floor((Date.now() - lastSyncAt) / 1000)
+    if (secs < 60) return "just now"
+    const mins = Math.floor(secs / 60)
+    return `${mins}m ago`
+  }
+
+  const handleManualSync = async () => {
+    if (!eventId || manifestLoading) return
+    if (lastSyncAt && navigator.onLine) {
+      const since = new Date(lastSyncAt).toISOString()
+      const delta = await deltaFetchManifest(eventId, since)
+      if (delta) {
+        setManifest((current) => {
+          if (!current) return current
+          return mergeManifestDelta(current, delta)
+        })
+        setLastSyncAt(Date.now())
+        return
+      }
+    }
+    // Fall back to full refresh
+    setManifestLoading(true)
+    const fresh = await refreshManifest(eventId)
+    setManifestLoading(false)
+    if (fresh) {
+      setManifest(fresh)
+      setLastSyncAt(Date.now())
+    }
   }
 
   const handleScan = async () => {
@@ -360,9 +420,14 @@ export default function ScannerPage() {
             <span className="font-mono text-[18px] font-semibold text-ink">{liveStats?.checked_in_count ?? 0}</span>
           </div>
           <div className="flex flex-col gap-0.5 rounded-[var(--radius-md)] border border-line bg-bg px-3 py-2">
-            <span className="text-ink-3">Manifest</span>
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-ink-3">Manifest</span>
+              {lastSyncLabel() && (
+                <span className="font-mono text-[9px] text-ink-4">{lastSyncLabel()}</span>
+              )}
+            </div>
             <span className="font-mono text-[18px] font-semibold text-ink">
-              {manifestLoading ? "…" : manifest?.items.length ?? 0}
+              {manifestLoading ? "…" : (manifest?.items.length ?? 0)}
             </span>
           </div>
         </div>
@@ -385,6 +450,10 @@ export default function ScannerPage() {
               Sync {offlineQueue.length}
             </Button>
           )}
+          <Button onClick={handleManualSync} variant="outline" size="sm" disabled={manifestLoading}>
+            <Icon name="download" size={14} />
+            {manifestLoading ? "Syncing…" : "Sync now"}
+          </Button>
           <Button onClick={handleEndSession} variant="outline" size="sm">
             <Icon name="close" size={14} />
             End session

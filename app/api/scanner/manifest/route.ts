@@ -25,8 +25,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "eventId is required" }, { status: 400 })
   }
 
+  const since = request.nextUrl.searchParams.get("since")?.trim() || undefined
+
   try {
-    const items = await loadScannerManifest(eventId, session.user.id)
+    const items = await loadScannerManifest(eventId, session.user.id, since)
     return NextResponse.json({
       eventId,
       fetchedAt: new Date().toISOString(),

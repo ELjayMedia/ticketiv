@@ -76,6 +76,43 @@ export function markLocallyUsed(eventId: string, ticketCode: string) {
   persistUsed(eventId, used)
 }
 
+export function mergeManifestDelta(existing: ScannerManifest, delta: ScannerManifest): ScannerManifest {
+  const map = new Map(existing.items.map((item) => [item.order_item_id, item]))
+  for (const item of delta.items) {
+    map.set(item.order_item_id, item)
+  }
+  const merged: ScannerManifest = {
+    eventId: existing.eventId,
+    fetchedAt: delta.fetchedAt,
+    items: Array.from(map.values()),
+  }
+  persistManifest(merged)
+  const serverUsed = new Set(
+    delta.items.filter((item) => item.already_checked_in).map((item) => item.ticket_code),
+  )
+  if (serverUsed.size > 0) {
+    const localUsed = loadUsed(existing.eventId)
+    serverUsed.forEach((code) => localUsed.add(code))
+    persistUsed(existing.eventId, localUsed)
+  }
+  return merged
+}
+
+export async function deltaFetchManifest(eventId: string, since: string): Promise<ScannerManifest | null> {
+  if (!eventId || !since) return null
+  try {
+    const response = await fetch(
+      `/api/scanner/manifest?eventId=${encodeURIComponent(eventId)}&since=${encodeURIComponent(since)}`,
+      { cache: "no-store" },
+    )
+    if (!response.ok) return null
+    return (await response.json()) as ScannerManifest
+  } catch (error) {
+    console.warn("[scanner] delta manifest fetch failed", error)
+    return null
+  }
+}
+
 export async function refreshManifest(eventId: string): Promise<ScannerManifest | null> {
   if (!eventId) return null
   try {

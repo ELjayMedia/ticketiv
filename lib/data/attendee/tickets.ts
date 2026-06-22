@@ -46,6 +46,17 @@ export async function getTicketById(orderItemId: string): Promise<MyTicketsView 
   return validateSchema(MyTicketsViewSchema, data, "v_my_tickets")
 }
 
+export async function getTicketEventPolicy(eventId: string): Promise<unknown> {
+  const supabase = await createServerSupabaseClient()
+  if (!supabase) return null
+  const { data } = await supabase
+    .from("events")
+    .select("refund_policy")
+    .eq("id", eventId)
+    .maybeSingle()
+  return data?.refund_policy ?? null
+}
+
 export async function createTransfer(input: { orderItemId: string; toUserId?: string; toEmail?: string }) {
   const res = await fetch("/api/tickets/transfer", {
     method: "POST",

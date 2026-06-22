@@ -2,7 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createSeatHoldAction } from "@/app/(focused)/events/[id]/actions";
+import { toggleFavourite } from "@/app/(consumer)/favourites/actions";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
 import { Card } from "@/components/quiet/ui/card";
@@ -45,7 +47,9 @@ export interface MobileEventData {
 }
 
 export function MobileEvent({ event }: MobileEventProps) {
+  const router = useRouter();
   const [saved, setSaved] = React.useState(false);
+  const [savingFav, setSavingFav] = React.useState(false);
   const [followedArtists, setFollowedArtists] = React.useState<Set<string>>(new Set());
   const [followedOrganizer, setFollowedOrganizer] = React.useState(false);
   const ticketTypes = event?.ticketTypes ?? [];
@@ -106,7 +110,25 @@ export function MobileEvent({ event }: MobileEventProps) {
               <button onClick={handleShare} className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/95 hover:bg-white" aria-label="Share">
                 <Icon name="share" size={18} className="text-ink" />
               </button>
-              <button onClick={() => setSaved((v) => !v)} className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/95 hover:bg-white" aria-label={saved ? "Unsave" : "Save"}>
+              <button
+                onClick={async () => {
+                  if (savingFav) return;
+                  const next = !saved;
+                  setSaved(next);
+                  setSavingFav(true);
+                  const result = await toggleFavourite(event.id, next);
+                  setSavingFav(false);
+                  if (!result.ok) {
+                    setSaved(!next);
+                    if (result.error === "Not authenticated") {
+                      router.push("/login?next=/favourites");
+                    }
+                  }
+                }}
+                disabled={savingFav}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/95 hover:bg-white disabled:opacity-60"
+                aria-label={saved ? "Unsave" : "Save"}
+              >
                 <Icon name="heart" size={18} className={saved ? "text-accent" : "text-ink"} />
               </button>
             </div>

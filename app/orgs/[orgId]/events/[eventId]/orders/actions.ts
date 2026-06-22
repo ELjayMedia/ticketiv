@@ -1,6 +1,7 @@
 "use server"
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { revalidatePath } from "next/cache"
 
 // TICK-49 — Support actions gated on org admin membership
 
@@ -115,4 +116,56 @@ export async function revokeTicketAction(
 
   if (error) throw new Error(error.message)
   return { ok: true }
+}
+
+// TICK-235: Bulk check-in selected attendees
+export async function bulkCheckIn(
+  orgId: string,
+  eventId: string,
+  orderItemIds: string[],
+): Promise<{ checkedCount: number; skippedCount: number; error?: string }> {
+  if (orderItemIds.length === 0) return { checkedCount: 0, skippedCount: 0 }
+
+  const supabase = createServerSupabaseClient()
+  if (!supabase) return { checkedCount: 0, skippedCount: 0, error: "Unauthorized" }
+
+  const { data, error } = await (supabase.rpc as any)("fn_bulk_check_in", {
+    p_order_item_ids: orderItemIds,
+    p_org_id: orgId,
+  })
+
+  if (error) return { checkedCount: 0, skippedCount: 0, error: error.message }
+
+  const row = Array.isArray(data) ? data[0] : data
+  revalidatePath(`/orgs/${orgId}/events/${eventId}/orders`)
+  return {
+    checkedCount: row?.checked_count ?? 0,
+    skippedCount: row?.skipped_count ?? 0,
+  }
+}
+
+// TICK-237: Issue a complimentary ticket
+export async function issueCompTicket(
+  orgId: string,
+  eventId: string,
+  ticketTypeId: string,
+  recipientEmail: string,
+  qty: number,
+  note: string,
+): Promise<{ orderId?: string; error?: string }> {
+  const supabase = createServerSupabaseClient()
+  if (!supabase) return { error: "Unauthorized" }
+
+  const { data, error } = await (supabase.rpc as any)("issue_comp_ticket", {
+    p_org_id: orgId,
+    p_ticket_type_id: ticketTypeId,
+    p_recipient_email: recipientEmail,
+    p_qty: qty,
+    p_note: note || null,
+  })
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/orgs/${orgId}/events/${eventId}/orders`)
+  return { orderId: data as string }
 }

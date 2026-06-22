@@ -3,6 +3,7 @@ import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider } from "@/components/quiet/ui/primitives";
+import { RecentlyViewedSection } from "@/components/quiet/screens/discover/recently-viewed-section";
 import { PHOTOS } from "@/lib/photos";
 import type { DiscoverEvent } from "@/lib/mappers/discover";
 
@@ -34,16 +35,17 @@ interface GridRow {
   price: string;
   chip?: string;
   trustLabel: string | null;
+  stockLabel: string | null;
   verified: boolean;
 }
 
 const DEFAULT_GRID: GridRow[] = [
-  { href: "/events/tribal-tales", photo: PHOTOS.dj_neon, title: "Tribal Tales · Vol 4", when: "Wed 30 Aug · 15:50", venue: "Cafe Natarani", price: "E450", chip: "5 left", trustLabel: null, verified: false },
-  { href: "/events/sunset-set", photo: PHOTOS.singer_red, title: "Sunset Set", when: "Sat 26 Aug · 18:00", venue: "Riverside Park", price: "E600", chip: "Selling fast", trustLabel: null, verified: false },
-  { href: "/events/stand-up-saturday", photo: PHOTOS.comedy_club, title: "Stand-up Saturday", when: "Sat 26 Aug · 21:30", venue: "House of MG", price: "E300", trustLabel: null, verified: false },
-  { href: "/events/pottery-and-wine", photo: PHOTOS.workshop, title: "Pottery & Wine", when: "Sun 27 Aug · 14:00", venue: "The Loft", price: "E1,200", trustLabel: null, verified: false },
-  { href: "/events/macbeth-revisited", photo: PHOTOS.theatre_curtain, title: "Macbeth · revisited", when: "Thu 31 Aug · 19:00", venue: "Standard Theatre", price: "E550", trustLabel: null, verified: false },
-  { href: "/events/night-market-mbabane", photo: PHOTOS.food_market, title: "Night Market: Mbabane", when: "Fri 25 Aug · 17:00", venue: "Coronation Park", price: "Free", trustLabel: null, verified: false },
+  { href: "/events/tribal-tales", photo: PHOTOS.dj_neon, title: "Tribal Tales · Vol 4", when: "Wed 30 Aug · 15:50", venue: "Cafe Natarani", price: "E450", chip: undefined, stockLabel: "5 left", trustLabel: null, verified: false },
+  { href: "/events/sunset-set", photo: PHOTOS.singer_red, title: "Sunset Set", when: "Sat 26 Aug · 18:00", venue: "Riverside Park", price: "E600", chip: undefined, stockLabel: "12 left", trustLabel: null, verified: false },
+  { href: "/events/stand-up-saturday", photo: PHOTOS.comedy_club, title: "Stand-up Saturday", when: "Sat 26 Aug · 21:30", venue: "House of MG", price: "E300", chip: undefined, stockLabel: null, trustLabel: null, verified: false },
+  { href: "/events/pottery-and-wine", photo: PHOTOS.workshop, title: "Pottery & Wine", when: "Sun 27 Aug · 14:00", venue: "The Loft", price: "E1,200", chip: undefined, stockLabel: null, trustLabel: null, verified: false },
+  { href: "/events/macbeth-revisited", photo: PHOTOS.theatre_curtain, title: "Macbeth · revisited", when: "Thu 31 Aug · 19:00", venue: "Standard Theatre", price: "E550", chip: undefined, stockLabel: null, trustLabel: null, verified: false },
+  { href: "/events/night-market-mbabane", photo: PHOTOS.food_market, title: "Night Market: Mbabane", when: "Fri 25 Aug · 17:00", venue: "Coronation Park", price: "Free", chip: undefined, stockLabel: null, trustLabel: null, verified: false },
 ];
 
 interface HeroRow {
@@ -82,6 +84,7 @@ function toGrid(ev: DiscoverEvent): GridRow {
     price: ev.priceLabel,
     chip: ev.city ?? undefined,
     trustLabel: ev.soldLabel,
+    stockLabel: ev.stockLabel,
     verified: ev.organizerVerified,
   };
 }
@@ -259,6 +262,8 @@ export function DesktopDiscover({
         </div>
       </Card>
 
+      <RecentlyViewedSection variant="desktop" />
+
       {/* Two-column: categories + grid */}
       <div className="grid grid-cols-[200px_1fr] gap-8">
         {/* Left: categories */}
@@ -344,7 +349,9 @@ export function DesktopDiscover({
                       <span className="font-mono text-[14px] font-semibold">
                         {e.price}
                       </span>
-                      {e.trustLabel ? (
+                      {e.stockLabel ? (
+                        <Chip variant="accent" size="sm">{e.stockLabel}</Chip>
+                      ) : e.trustLabel ? (
                         <span className="font-mono text-[11px] text-ink-3">
                           {e.trustLabel}
                         </span>

@@ -2,8 +2,10 @@
 
 import type React from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { MapPin, Heart, CheckCircle2 } from "lucide-react"
 import { useState } from "react"
+import { toggleFavourite } from "@/app/(consumer)/favourites/actions"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -82,7 +84,9 @@ function formatDateShort(date: string) {
 }
 
 export function EventCardStandard({ event, onSave }: EventCardProps) {
+  const router = useRouter()
   const [isSaved, setIsSaved] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
 
   const priceLabel = formatPriceLabel(
     event.min_price_cents,
@@ -116,12 +120,22 @@ export function EventCardStandard({ event, onSave }: EventCardProps) {
         : null
   const href = event.series_slug ? `/series/${event.series_slug}` : `/events/${event.slug}`
 
-  const handleSaveClick = (e: React.MouseEvent) => {
+  const handleSaveClick = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    if (isSaving) return
     const newSavedState = !isSaved
     setIsSaved(newSavedState)
+    setIsSaving(true)
     onSave?.(event.id, newSavedState)
+    const result = await toggleFavourite(event.id, newSavedState)
+    setIsSaving(false)
+    if (!result.ok) {
+      setIsSaved(!newSavedState)
+      if (result.error === "Not authenticated") {
+        router.push("/login?next=/favourites")
+      }
+    }
   }
 
   return (
@@ -179,6 +193,7 @@ export function EventCardStandard({ event, onSave }: EventCardProps) {
           size="icon"
           className={cn("shrink-0 h-11 w-11 rounded-full hover:bg-accent", isSaved && "text-primary")}
           onClick={handleSaveClick}
+          disabled={isSaving}
           aria-label={isSaved ? "Remove from saved" : "Save event"}
         >
           <Heart className={cn("h-5 w-5", isSaved && "fill-current")} />
@@ -210,6 +225,7 @@ export function EventCardStandard({ event, onSave }: EventCardProps) {
               size="icon"
               className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity bg-background/90 backdrop-blur hover:bg-background"
               onClick={handleSaveClick}
+              disabled={isSaving}
               aria-label={isSaved ? "Remove from saved" : "Save event"}
             >
               <Heart className={`h-4 w-4 ${isSaved ? "fill-primary text-primary" : ""}`} />

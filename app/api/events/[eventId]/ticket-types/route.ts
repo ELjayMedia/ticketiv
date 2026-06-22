@@ -60,30 +60,50 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
   const rows = (ticketTypes ?? []) as TicketTypeRow[]
-  const counts = await Promise.all(
-    rows.map(async (ticketType) => {
-      const { count } = await admin
-        .from("order_items")
-        .select("id", { count: "exact", head: true })
-        .eq("ticket_type_id", ticketType.id)
-        .in("status", ["pending", "issued", "checked_in"])
 
-      return [ticketType.id, count ?? 0] as const
-    }),
-  )
+  const [counts, remainingResult] = await Promise.all([
+    Promise.all(
+      rows.map(async (ticketType) => {
+        const { count } = await admin
+          .from("order_items")
+          .select("id", { count: "exact", head: true })
+          .eq("ticket_type_id", ticketType.id)
+          .in("status", ["pending", "issued", "checked_in"])
+
+        return [ticketType.id, count ?? 0] as const
+      }),
+    ),
+    rows.length > 0
+      ? (admin.rpc as any)("fn_ticket_type_remaining", { p_event_id: eventId }) as Promise<{
+          data: Array<{ ticket_type_id: string; remaining: number }> | null
+          error: any
+        }>
+      : Promise.resolve({ data: [], error: null }),
+  ])
 
   const reservedByTicketType = Object.fromEntries(counts)
+  const remainingMap = new Map<string, number>(
+    ((remainingResult.data ?? []) as Array<{ ticket_type_id: string; remaining: number }>).map(
+      (r) => [r.ticket_type_id, r.remaining],
+    ),
+  )
 
   const tickets = rows.map((ticketType) => {
     const reserved = reservedByTicketType[ticketType.id] ?? 0
     const quota = ticketType.quota ?? 0
     const available = Math.max(quota - reserved, 0)
+    const remainingConfirmed = remainingMap.has(ticketType.id)
+      ? (remainingMap.get(ticketType.id) as number)
+      : quota
+    const soldConfirmed = Math.max(0, quota - remainingConfirmed)
 
     return {
       ...ticketType,
       reserved_count: reserved,
       available_count: available,
       sold_out: quota > 0 && available <= 0,
+      sold_confirmed: soldConfirmed,
+      remaining_confirmed: remainingConfirmed,
     }
   })
 

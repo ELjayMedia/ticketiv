@@ -5,14 +5,18 @@ import Link from "next/link"
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon, type IconName } from "@/components/quiet/ui/icon"
+import { EmptyState } from "@/components/quiet/ui/empty-state"
+import { FinanceDateFilter } from "./finance-date-filter"
 
 export const dynamic = "force-dynamic"
 export const metadata = { title: "Finance Summary" }
 
-// TICK-53 — Organizer finance summary
-
 function fmt(cents: number) {
   return `SZL ${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+function fmtPct(value: number) {
+  return `${value.toFixed(1)}%`
 }
 
 function KpiTile({
@@ -26,7 +30,7 @@ function KpiTile({
   value: string
   detail?: string
   icon: IconName
-  tone?: "neutral" | "positive" | "warning"
+  tone?: "neutral" | "positive" | "warning" | "danger"
 }) {
   return (
     <Card>
@@ -41,7 +45,9 @@ function KpiTile({
                 ? "text-success"
                 : tone === "warning"
                   ? "text-warning"
-                  : "text-ink-3"
+                  : tone === "danger"
+                    ? "text-danger"
+                    : "text-ink-3"
             }
           />
         </div>
@@ -74,8 +80,24 @@ interface EventMetric {
   checked_in_count: number
 }
 
-export default async function OrgFinancePage({ params }: { params: Promise<{ orgId: string }> }) {
+interface TicketTypeMetric {
+  ticket_type_id: string
+  name: string
+  eventTitle: string
+  price_cents: number
+  tickets_sold: number
+  revenue_cents: number
+}
+
+export default async function OrgFinancePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ orgId: string }>
+  searchParams: Promise<{ from?: string; to?: string }>
+}) {
   const { orgId } = await params
+  const { from: rawFrom, to: rawTo } = await searchParams
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return redirect("/login")
@@ -92,8 +114,15 @@ export default async function OrgFinancePage({ params }: { params: Promise<{ org
     .maybeSingle()
   if (!org) return redirect("/403")
 
-  // fn_org_finance_summary is the single source of truth for all money figures
-  const { data: summaryRaw } = await supabase.rpc("fn_org_finance_summary", { p_org_id: orgId })
+  // TICK-231: Pass date range to RPC if provided
+  const dateFrom = rawFrom ?? null
+  const dateTo = rawTo ?? null
+
+  const rpcArgs: Record<string, unknown> = { p_org_id: orgId }
+  if (dateFrom) rpcArgs.p_from = dateFrom
+  if (dateTo) rpcArgs.p_to = dateTo
+
+  const { data: summaryRaw } = await (supabase.rpc as any)("fn_org_finance_summary", rpcArgs)
   const s = (summaryRaw ?? {}) as Record<string, number>
   const summary: FinanceSummary = {
     gross_cents: s.gross_cents ?? 0,
@@ -104,6 +133,16 @@ export default async function OrgFinancePage({ params }: { params: Promise<{ org
     pending_payout_cents: s.pending_payout_cents ?? 0,
     available_cents: s.available_cents ?? 0,
   }
+
+  // TICK-234: Derived percentage KPIs
+  const refundRate =
+    summary.gross_cents > 0
+      ? Math.abs(summary.refunds_cents) / summary.gross_cents * 100
+      : 0
+  const netMargin =
+    summary.gross_cents > 0
+      ? summary.net_cents / summary.gross_cents * 100
+      : 0
 
   // Per-event breakdown via event_live_stats
   const { data: events } = await supabase
@@ -135,6 +174,44 @@ export default async function OrgFinancePage({ params }: { params: Promise<{ org
     })
   }
 
+  // TICK-232: Per-ticket-type revenue breakdown
+  let perTicketType: TicketTypeMetric[] = []
+  if (events && events.length > 0) {
+    const eventIds = events.map((e) => e.id)
+    const { data: ticketTypes } = await supabase
+      .from("ticket_types")
+      .select("id, name, price_cents, quota, event_id")
+      .in("event_id", eventIds)
+
+    if (ticketTypes && ticketTypes.length > 0) {
+      const ttIds = ticketTypes.map((tt) => tt.id)
+      const { data: itemRows } = await supabase
+        .from("order_items")
+        .select("ticket_type_id")
+        .in("ticket_type_id", ttIds)
+        .in("status", ["issued", "checked_in"])
+        .limit(10000)
+
+      const countMap = new Map<string, number>()
+      for (const row of itemRows ?? []) {
+        countMap.set(row.ticket_type_id, (countMap.get(row.ticket_type_id) ?? 0) + 1)
+      }
+
+      const eventTitleMap = new Map(events.map((e) => [e.id, e.title]))
+      perTicketType = ticketTypes
+        .map((tt) => ({
+          ticket_type_id: tt.id,
+          name: tt.name,
+          eventTitle: eventTitleMap.get(tt.event_id) ?? "",
+          price_cents: tt.price_cents ?? 0,
+          tickets_sold: countMap.get(tt.id) ?? 0,
+          revenue_cents: (countMap.get(tt.id) ?? 0) * (tt.price_cents ?? 0),
+        }))
+        .filter((tt) => tt.tickets_sold > 0)
+        .sort((a, b) => b.revenue_cents - a.revenue_cents)
+    }
+  }
+
   const hasData = summary.gross_cents > 0
 
   return (
@@ -155,29 +232,33 @@ export default async function OrgFinancePage({ params }: { params: Promise<{ org
               All figures sourced from the ledger via fn_org_finance_summary.
             </p>
           </div>
-          <Link
-            href={`/orgs/${orgId}/payouts`}
-            className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-transparent px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-bg"
-          >
-            <Icon name="wallet" size={14} />
-            Payouts
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/api/orgs/${orgId}/finance/export${dateFrom || dateTo ? `?from=${dateFrom ?? ""}&to=${dateTo ?? ""}` : ""}`}
+              className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-transparent px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-bg"
+            >
+              <Icon name="download" size={14} />
+              Export CSV
+            </Link>
+            <Link
+              href={`/orgs/${orgId}/payouts`}
+              className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-transparent px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-bg"
+            >
+              <Icon name="wallet" size={14} />
+              Payouts
+            </Link>
+          </div>
         </div>
 
+        {/* TICK-231: Date range filter */}
+        <FinanceDateFilter currentFrom={dateFrom} currentTo={dateTo} />
+
         {!hasData ? (
-          <Card flat className="border-dashed">
-            <CardBody className="flex flex-col items-center gap-4 px-4 py-16 text-center">
-              <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-surface-2 text-ink-3">
-                <Icon name="wallet" size={28} />
-              </span>
-              <div className="flex max-w-sm flex-col items-center gap-2">
-                <h2 className="text-h1">No paid orders yet</h2>
-                <p className="text-[13px] text-ink-3">
-                  Finance figures will appear here once your first ticket sale completes.
-                </p>
-              </div>
-            </CardBody>
-          </Card>
+          <EmptyState
+            icon="wallet"
+            title="No paid orders yet"
+            description="Finance figures will appear here once your first ticket sale completes."
+          />
         ) : (
           <>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -190,14 +271,15 @@ export default async function OrgFinancePage({ params }: { params: Promise<{ org
               />
               <KpiTile
                 label="Refunds"
-                value={fmt(summary.refunds_cents)}
+                value={fmt(Math.abs(summary.refunds_cents))}
                 icon="chevL"
                 tone="warning"
               />
               <KpiTile label="Net earned" value={fmt(summary.net_cents)} icon="check" tone="positive" />
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {/* TICK-234: Refund rate % and net margin % KPI tiles */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
               <KpiTile
                 label="Available balance"
                 value={fmt(summary.available_cents)}
@@ -212,13 +294,88 @@ export default async function OrgFinancePage({ params }: { params: Promise<{ org
                 icon="trending"
               />
               <KpiTile
-                label="Paid out"
-                value={fmt(summary.paid_out_cents)}
-                detail="Received to date"
-                icon="check"
+                label="Refund rate"
+                value={fmtPct(refundRate)}
+                detail={refundRate > 5 ? "Above 5% — investigate" : "Healthy"}
+                icon="trending"
+                tone={refundRate > 5 ? "danger" : "positive"}
+              />
+              <KpiTile
+                label="Net margin"
+                value={fmtPct(netMargin)}
+                detail="After fees and refunds"
+                icon="trending"
+                tone={netMargin > 80 ? "positive" : netMargin > 60 ? "neutral" : "warning"}
               />
             </div>
           </>
+        )}
+
+        {perTicketType.length > 0 && (
+          <section className="flex flex-col gap-4">
+            <h2 className="text-h2">Per-ticket-type breakdown</h2>
+            <Card>
+              <CardBody className="px-5 py-4">
+                <p className="text-label">Ticket types ({perTicketType.length})</p>
+              </CardBody>
+              <CardDivider />
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-line">
+                      <th className="px-5 py-3 text-left text-label">Ticket type</th>
+                      <th className="px-5 py-3 text-left text-label">Event</th>
+                      <th className="px-5 py-3 text-right text-label">Unit price</th>
+                      <th className="px-5 py-3 text-right text-label">Qty sold</th>
+                      <th className="px-5 py-3 text-right text-label">Revenue (SZL)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {perTicketType.map((tt, i) => (
+                      <tr
+                        key={tt.ticket_type_id}
+                        className={[
+                          i > 0 ? "border-t border-line" : "",
+                          "transition-colors hover:bg-bg",
+                        ].join(" ")}
+                      >
+                        <td className="px-5 py-3 text-[13px] font-semibold text-ink">{tt.name}</td>
+                        <td className="px-5 py-3 text-[13px] text-ink-2">{tt.eventTitle}</td>
+                        <td className="px-5 py-3 text-right font-mono text-[13px] tabular-nums text-ink-2">
+                          {(tt.price_cents / 100).toLocaleString("en-US", {
+                            minimumFractionDigits: 2,
+                          })}
+                        </td>
+                        <td className="px-5 py-3 text-right font-mono text-[13px] tabular-nums text-ink">
+                          {tt.tickets_sold.toLocaleString()}
+                        </td>
+                        <td className="px-5 py-3 text-right font-mono text-[13px] font-semibold tabular-nums text-ink">
+                          {(tt.revenue_cents / 100).toLocaleString("en-US", {
+                            minimumFractionDigits: 2,
+                          })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-line bg-bg">
+                      <td colSpan={3} className="px-5 py-3 text-label">
+                        Total
+                      </td>
+                      <td className="px-5 py-3 text-right font-mono text-[13px] font-semibold tabular-nums text-ink">
+                        {perTicketType.reduce((s, t) => s + t.tickets_sold, 0).toLocaleString()}
+                      </td>
+                      <td className="px-5 py-3 text-right font-mono text-[13px] font-semibold tabular-nums text-ink">
+                        {(
+                          perTicketType.reduce((s, t) => s + t.revenue_cents, 0) / 100
+                        ).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </Card>
+          </section>
         )}
 
         {perEvent.length > 0 && (

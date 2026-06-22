@@ -277,7 +277,7 @@ export interface ScannerManifestItem {
   already_checked_in: boolean
 }
 
-export async function loadScannerManifest(eventId: string, userId: string): Promise<ScannerManifestItem[]> {
+export async function loadScannerManifest(eventId: string, userId: string, since?: string): Promise<ScannerManifestItem[]> {
   const supabase = createServerSupabaseClient()
   if (!supabase) throw new Error("Supabase is not configured")
   if (!isUuid(eventId)) throw new Error("A valid eventId is required")
@@ -286,12 +286,18 @@ export async function loadScannerManifest(eventId: string, userId: string): Prom
   const authorized = await ensureScannerAuthorized(supabase, userId, eventId)
   if (!authorized) throw new Error("You are not authorized to scan tickets for this event")
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("order_items")
     .select("id, ticket_code, ticket_type_id, status, checked_in_at, ticket_types!inner(event_id), orders!inner(status)")
     .eq("ticket_types.event_id", eventId)
     .eq("orders.status", "paid")
     .not("status", "in", "(revoked,refunded)")
+
+  if (since) {
+    query = query.gte("updated_at", since)
+  }
+
+  const { data, error } = await query
 
   if (error) throw new Error("Unable to load scanner manifest")
 

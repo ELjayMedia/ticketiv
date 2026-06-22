@@ -38,8 +38,17 @@ interface TicketViewProps {
   siblingIds?: string[];
 }
 
+interface RefundCtaData {
+  orderId: string;
+  available: boolean;
+  policyLabel: string;
+  refundBps: number | null;
+  deadlineLabel: string | null;
+}
+
 interface TicketData {
   id: string;
+  orderId?: string;
   orderNumber: string;
   positionLabel: string; // "1 of 2"
   totalInOrder: number;
@@ -57,6 +66,7 @@ interface TicketData {
   qrCode: string;
   isValid: boolean;
   status?: TicketDisplayStatus;
+  refundCta?: RefundCtaData | null;
 }
 
 
@@ -364,6 +374,32 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
           >
             <Icon name="copy" size={16} /> Resell
           </Link>
+        </div>
+      )}
+
+      {/* Refund policy — shown for issued tickets that have policy data */}
+      {ticket.refundCta && canTransferOrResell && (
+        <div className="mx-5 mb-4 rounded-[var(--radius-md)] border border-white/10 bg-white/[0.06] px-4 py-3.5">
+          <div className="mb-2 flex items-center gap-1.5">
+            <Icon name="fileText" size={12} className="opacity-50" />
+            <span className="font-mono text-[10px] uppercase tracking-wider opacity-50">Refund policy</span>
+          </div>
+          <p className="text-[12px] text-white/70">{ticket.refundCta.policyLabel}</p>
+          {ticket.refundCta.deadlineLabel && (
+            <p className="mt-0.5 text-[11px] text-white/40">{ticket.refundCta.deadlineLabel}</p>
+          )}
+          <div className="mt-3">
+            {ticket.refundCta.available ? (
+              <Link
+                href={`/orders/${ticket.refundCta.orderId}/refund`}
+                className="inline-flex items-center gap-1.5 rounded-[var(--radius)] bg-white/10 px-3 py-2 text-[12px] font-medium text-white hover:bg-white/20"
+              >
+                <Icon name="arrowR" size={13} /> Request refund
+              </Link>
+            ) : (
+              <p className="text-[11px] text-white/35">Refunds not available for this ticket</p>
+            )}
+          </div>
         </div>
       )}
 

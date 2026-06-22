@@ -18,7 +18,35 @@ export interface AttendeeTicketListing {
 export interface PublicEventTicketListing extends AttendeeTicketListing {
   eventTitle: string | null
   eventSlug: string | null
+  ticketTypeId: string | null
   ticketTypeName: string | null
+}
+
+export type ResaleSort = "price_asc" | "price_desc" | "newest"
+
+export interface ResaleTicketTypeOption {
+  id: string
+  name: string
+}
+
+export interface ResalePriceStats {
+  /** Lowest active listing price, in cents. */
+  minCents: number
+  /** Highest active listing price, in cents. */
+  maxCents: number
+  /** Mean active listing price, in cents (rounded). */
+  avgCents: number
+  /** Number of active listings the stats were computed from. */
+  count: number
+  currency: string
+}
+
+export interface PublicEventListingsResult {
+  listings: PublicEventTicketListing[]
+  /** Distinct ticket types across all active listings for the event (pre-filter). */
+  ticketTypes: ResaleTicketTypeOption[]
+  /** Price stats over the full active listing pool (pre-filter), or null when empty. */
+  priceStats: ResalePriceStats | null
 }
 
 type TicketListingRow = {
@@ -63,6 +91,7 @@ function mapPublicRow(row: PublicTicketListingRow): PublicEventTicketListing {
     ...mapRow(row),
     eventTitle: row.order_items?.ticket_types?.events?.title ?? null,
     eventSlug: row.order_items?.ticket_types?.events?.slug ?? null,
+    ticketTypeId: row.order_items?.ticket_type_id ?? null,
     ticketTypeName: row.order_items?.ticket_types?.name ?? null,
   }
 }
@@ -112,26 +141,73 @@ const PUBLIC_LISTING_SELECT = `
   )
 `
 
-export async function getPublicEventTicketListings(eventId: string | null): Promise<PublicEventTicketListing[]> {
-  if (!eventId) return []
+export async function getPublicEventTicketListings(
+  eventId: string | null,
+  opts: { sort?: ResaleSort; ticketTypeId?: string | null } = {},
+): Promise<PublicEventListingsResult> {
+  if (!eventId) return { listings: [], ticketTypes: [], priceStats: null }
 
   const supabase = createServerSupabaseClient()
-  if (!supabase) return []
+  if (!supabase) return { listings: [], ticketTypes: [], priceStats: null }
+
+  const sort: ResaleSort = opts.sort ?? "price_asc"
+  const orderColumn = sort === "newest" ? "created_at" : "price_cents"
+  const ascending = sort === "price_asc"
 
   const { data, error } = await supabase
     .from("resale_listings")
     .select(PUBLIC_LISTING_SELECT)
     .eq("status", "active")
     .eq("order_items.ticket_types.events.id", eventId)
-    .order("price_cents", { ascending: true })
+    .order(orderColumn, { ascending })
     .limit(20)
 
   if (error) {
     console.error("[ticket-listings] public event list:", error)
-    return []
+    return { listings: [], ticketTypes: [], priceStats: null }
   }
 
-  return ((data ?? []) as PublicTicketListingRow[]).map(mapPublicRow)
+  const all = ((data ?? []) as PublicTicketListingRow[]).map(mapPublicRow)
+
+  // Price stats over the full active pool (pre-filter) so the numbers stay
+  // stable while the buyer filters by ticket type.
+  let priceStats: ResalePriceStats | null = null
+  if (all.length > 0) {
+    let minCents = all[0].priceCents
+    let maxCents = all[0].priceCents
+    let totalCents = 0
+    for (const listing of all) {
+      if (listing.priceCents < minCents) minCents = listing.priceCents
+      if (listing.priceCents > maxCents) maxCents = listing.priceCents
+      totalCents += listing.priceCents
+    }
+    priceStats = {
+      minCents,
+      maxCents,
+      avgCents: Math.round(totalCents / all.length),
+      count: all.length,
+      currency: all[0].currency,
+    }
+  }
+
+  // Distinct ticket types across the full active set (so filter chips stay
+  // stable regardless of the active filter).
+  const seen = new Map<string, ResaleTicketTypeOption>()
+  for (const listing of all) {
+    if (listing.ticketTypeId && !seen.has(listing.ticketTypeId)) {
+      seen.set(listing.ticketTypeId, {
+        id: listing.ticketTypeId,
+        name: listing.ticketTypeName ?? "Ticket",
+      })
+    }
+  }
+  const ticketTypes = Array.from(seen.values())
+
+  const listings = opts.ticketTypeId
+    ? all.filter((listing) => listing.ticketTypeId === opts.ticketTypeId)
+    : all
+
+  return { listings, ticketTypes, priceStats }
 }
 
 export async function getPublicTicketListing(listingId: string): Promise<PublicEventTicketListing | null> {

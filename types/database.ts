@@ -6125,6 +6125,24 @@ export type Database = {
           ticket_type_id: string
         }[]
       }
+      fn_update_my_notification_preferences: {
+        Args: {
+          p_email_opt_in?: boolean
+          p_in_app_opt_in?: boolean
+          p_push_opt_in?: boolean
+          p_sms_opt_in?: boolean
+        }
+        Returns: undefined
+      }
+      fn_update_my_profile: {
+        Args: {
+          p_display_name?: string
+          p_name?: string
+          p_phone?: string
+          p_surname?: string
+        }
+        Returns: undefined
+      }
       get_event_kpis: { Args: { p_event_id: string }; Returns: Json }
       get_organizer_kpis: { Args: { p_range?: string }; Returns: Json }
       get_ticket_type_event: {

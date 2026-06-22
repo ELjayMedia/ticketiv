@@ -12,6 +12,7 @@ import { LineupStep } from '@/components/event-wizard/steps/LineupStep'
 import { PoliciesStep } from '@/components/event-wizard/steps/PoliciesStep'
 import { FinishSetupNudge } from '@/components/event-management/finish-setup-nudge'
 import { GuestlistTab } from '@/components/event-management/guestlist-tab'
+import { TicketSalesBreakdown } from '@/components/event-management/ticket-sales-breakdown'
 import { useEventLiveStats } from '@/lib/hooks/use-event-live-stats'
 
 interface EventManagementTabsProps {
@@ -359,6 +360,7 @@ export function EventManagementTabs({ eventId, orgId, event }: EventManagementTa
       {/* Overview Tab */}
       <TabsContent value="overview" className="space-y-6 mt-6">
         <FinishSetupNudge eventId={eventId} dismissed={nudgeDismissed} onDismiss={dismissNudge} />
+        <TicketSalesBreakdown eventId={eventId} />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>

@@ -124,6 +124,12 @@ export async function offerTicketsToWaitlist(
     if (!error) {
       offeredCount += entry.quantity_requested
       // TODO: Send notification email to entry.email
+      // TODO(TICK-214): fire a Web Push to entry.user_id's stored
+      // push_subscriptions here (text: "[Event] — A ticket is available! Offer
+      // expires in [X] minutes.", url: /checkout/waitlist/<entry.id>). Blocked
+      // on the server-side VAPID sender + key provisioning — see the TICK-214
+      // Jira comment. Opt-in capture + storage (push_subscriptions table,
+      // fn_store_push_subscription) already ship; only the sender is missing.
     }
   }
 
