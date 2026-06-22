@@ -116,7 +116,7 @@ export function MobileCheckout({
     { ok: true; label: string; savedMinor: number } | { ok: false; message: string } | null
   >(null);
   const [isApplyingPromo, setIsApplyingPromo] = React.useState(false);
-  const [appliedPromo, setAppliedPromo] = React.useState<PromoResult | null>(null);
+  const [validatedPromo, setValidatedPromo] = React.useState<PromoResult | null>(null);
   const [attendeeName, setAttendeeName] = React.useState("");
   const [attendeePhone, setAttendeePhone] = React.useState("");
 
@@ -215,10 +215,10 @@ export function MobileCheckout({
   const fee = bookingFeeMinor;
   const vat = Math.round(subtotal * vatRate);
   const discount = activePromo?.savedMinor ?? 0;
-  const promoDiscount = appliedPromo
-    ? appliedPromo.discountType === "percent"
-      ? Math.round(subtotal * appliedPromo.discountValue / 100)
-      : appliedPromo.discountValue
+  const promoDiscount = validatedPromo
+    ? validatedPromo.discountType === "percent"
+      ? Math.round(subtotal * validatedPromo.discountValue / 100)
+      : validatedPromo.discountValue
     : 0;
   const total = subtotal + fee + vat - discount - promoDiscount;
 
@@ -442,7 +442,7 @@ export function MobileCheckout({
             <PromoCodeInput
               eventId={eventUuid}
               onApply={(result) => {
-                setAppliedPromo(result);
+                setValidatedPromo(result);
                 if (result) setPromoInput(result.promoId);
               }}
             />
@@ -506,7 +506,7 @@ export function MobileCheckout({
                 accent
               />
             )}
-            {appliedPromo && promoDiscount > 0 && (
+            {validatedPromo && promoDiscount > 0 && (
               <SummaryRow
                 label="Promo"
                 value={`−${formatPrice(promoDiscount)}`}

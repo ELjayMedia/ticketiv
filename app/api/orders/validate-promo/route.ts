@@ -11,8 +11,9 @@ export async function POST(req: NextRequest) {
   if (!supabase) return NextResponse.json({ valid: false, error: "Server error" }, { status: 500 })
 
   // Check for promo_codes table — if it doesn't exist, return a graceful "invalid code" response
-  // Query: find an active promo code for this event or org-wide that matches the code
-  const { data, error } = await supabase
+  // Query: find an active promo code for this event or org-wide that matches the code.
+  // Cast to `any` because the promo_codes table may not be in the generated types yet.
+  const { data, error } = await (supabase as any)
     .from("promo_codes")
     .select("id, code, discount_type, discount_value, max_uses, used_count, expires_at, event_id, org_id")
     .ilike("code", code.trim())
@@ -24,20 +25,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ valid: false, error: "Invalid or expired promo code" })
   }
 
+  const row = data as {
+    id: string
+    code: string
+    discount_type: string
+    discount_value: number
+    max_uses: number | null
+    used_count: number
+    expires_at: string | null
+    event_id: string | null
+    org_id: string | null
+  }
+
   // Check expiry
-  if (data.expires_at && new Date(data.expires_at) < new Date()) {
+  if (row.expires_at && new Date(row.expires_at) < new Date()) {
     return NextResponse.json({ valid: false, error: "This promo code has expired" })
   }
 
   // Check max uses
-  if (data.max_uses !== null && data.used_count >= data.max_uses) {
+  if (row.max_uses !== null && row.used_count >= row.max_uses) {
     return NextResponse.json({ valid: false, error: "This promo code has reached its usage limit" })
   }
 
   return NextResponse.json({
     valid: true,
-    promoId: data.id,
-    discountType: data.discount_type, // "percent" | "fixed"
-    discountValue: data.discount_value, // percent: 0-100, fixed: cents
+    promoId: row.id,
+    discountType: row.discount_type, // "percent" | "fixed"
+    discountValue: row.discount_value, // percent: 0-100, fixed: cents
   })
 }

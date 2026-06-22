@@ -161,7 +161,12 @@ export function DesktopCheckout({
 
   const vat = Math.round(subtotalMinor * vatRate);
   const discount = activePromo?.savedMinor ?? 0;
-  const total = subtotalMinor + bookingFeeMinor + vat - discount;
+  const promoDiscount = validatedPromo
+    ? validatedPromo.discountType === "percent"
+      ? Math.round(subtotalMinor * validatedPromo.discountValue / 100)
+      : validatedPromo.discountValue
+    : 0;
+  const total = subtotalMinor + bookingFeeMinor + vat - discount - promoDiscount;
 
   return (
     <div className="min-h-dvh bg-bg">
@@ -379,6 +384,15 @@ export function DesktopCheckout({
                 </button>
               </div>
             )}
+            <div className="mt-4">
+              <PromoCodeInput
+                eventId={eventUuid}
+                onApply={(result) => {
+                  setValidatedPromo(result);
+                  if (result) setPromoInput(result.promoId);
+                }}
+              />
+            </div>
           </Card>
 
           <div className="flex flex-col gap-2">
@@ -457,6 +471,13 @@ export function DesktopCheckout({
               <SummaryRow
                 label={activePromo.code}
                 value={`−${formatPrice(discount)}`}
+                accent
+              />
+            )}
+            {validatedPromo && promoDiscount > 0 && (
+              <SummaryRow
+                label="Promo"
+                value={`−${formatPrice(promoDiscount)}`}
                 accent
               />
             )}
