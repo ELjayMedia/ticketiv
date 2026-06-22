@@ -34,6 +34,7 @@ export default async function ResalePage({
       listings={listings}
       publicListings={publicListingsResult.listings}
       publicTicketTypes={publicListingsResult.ticketTypes}
+      publicPriceStats={publicListingsResult.priceStats}
       sort={sort}
       ticketType={ticketType}
       ticketId={ticketId}

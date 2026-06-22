@@ -29,10 +29,24 @@ export interface ResaleTicketTypeOption {
   name: string
 }
 
+export interface ResalePriceStats {
+  /** Lowest active listing price, in cents. */
+  minCents: number
+  /** Highest active listing price, in cents. */
+  maxCents: number
+  /** Mean active listing price, in cents (rounded). */
+  avgCents: number
+  /** Number of active listings the stats were computed from. */
+  count: number
+  currency: string
+}
+
 export interface PublicEventListingsResult {
   listings: PublicEventTicketListing[]
   /** Distinct ticket types across all active listings for the event (pre-filter). */
   ticketTypes: ResaleTicketTypeOption[]
+  /** Price stats over the full active listing pool (pre-filter), or null when empty. */
+  priceStats: ResalePriceStats | null
 }
 
 type TicketListingRow = {
@@ -131,10 +145,10 @@ export async function getPublicEventTicketListings(
   eventId: string | null,
   opts: { sort?: ResaleSort; ticketTypeId?: string | null } = {},
 ): Promise<PublicEventListingsResult> {
-  if (!eventId) return { listings: [], ticketTypes: [] }
+  if (!eventId) return { listings: [], ticketTypes: [], priceStats: null }
 
   const supabase = createServerSupabaseClient()
-  if (!supabase) return { listings: [], ticketTypes: [] }
+  if (!supabase) return { listings: [], ticketTypes: [], priceStats: null }
 
   const sort: ResaleSort = opts.sort ?? "price_asc"
   const orderColumn = sort === "newest" ? "created_at" : "price_cents"
@@ -150,10 +164,31 @@ export async function getPublicEventTicketListings(
 
   if (error) {
     console.error("[ticket-listings] public event list:", error)
-    return { listings: [], ticketTypes: [] }
+    return { listings: [], ticketTypes: [], priceStats: null }
   }
 
   const all = ((data ?? []) as PublicTicketListingRow[]).map(mapPublicRow)
+
+  // Price stats over the full active pool (pre-filter) so the numbers stay
+  // stable while the buyer filters by ticket type.
+  let priceStats: ResalePriceStats | null = null
+  if (all.length > 0) {
+    let minCents = all[0].priceCents
+    let maxCents = all[0].priceCents
+    let totalCents = 0
+    for (const listing of all) {
+      if (listing.priceCents < minCents) minCents = listing.priceCents
+      if (listing.priceCents > maxCents) maxCents = listing.priceCents
+      totalCents += listing.priceCents
+    }
+    priceStats = {
+      minCents,
+      maxCents,
+      avgCents: Math.round(totalCents / all.length),
+      count: all.length,
+      currency: all[0].currency,
+    }
+  }
 
   // Distinct ticket types across the full active set (so filter chips stay
   // stable regardless of the active filter).
@@ -172,7 +207,7 @@ export async function getPublicEventTicketListings(
     ? all.filter((listing) => listing.ticketTypeId === opts.ticketTypeId)
     : all
 
-  return { listings, ticketTypes }
+  return { listings, ticketTypes, priceStats }
 }
 
 export async function getPublicTicketListing(listingId: string): Promise<PublicEventTicketListing | null> {

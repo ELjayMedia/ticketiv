@@ -4,6 +4,7 @@ import { Card } from "@/components/quiet/ui/card";
 import type {
   AttendeeTicketListing,
   PublicEventTicketListing,
+  ResalePriceStats,
   ResaleSort,
   ResaleTicketTypeOption,
 } from "@/lib/data/attendee/ticket-listings";
@@ -14,6 +15,7 @@ interface TicketListingsCentreProps {
   listings: AttendeeTicketListing[];
   publicListings?: PublicEventTicketListing[];
   publicTicketTypes?: ResaleTicketTypeOption[];
+  publicPriceStats?: ResalePriceStats | null;
   sort?: ResaleSort;
   ticketType?: string | null;
   ticketId?: string | null;
@@ -62,6 +64,7 @@ export function TicketListingsCentre({
   listings,
   publicListings = [],
   publicTicketTypes = [],
+  publicPriceStats = null,
   sort = "price_asc",
   ticketType = null,
   ticketId,
@@ -125,6 +128,34 @@ export function TicketListingsCentre({
               )}
             </div>
           </Card>
+
+          {publicPriceStats && (
+            <Card className="border-line-2 p-4" flat>
+              <div className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+                Price range · {publicPriceStats.count} listing{publicPriceStats.count === 1 ? "" : "s"}
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-3">
+                <div>
+                  <div className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Min</div>
+                  <div className="mt-0.5 text-[15px] font-semibold tabular-nums text-accent">
+                    {formatMoney(publicPriceStats.minCents, publicPriceStats.currency)}
+                  </div>
+                </div>
+                <div>
+                  <div className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Avg</div>
+                  <div className="mt-0.5 text-[15px] font-semibold tabular-nums text-ink">
+                    {formatMoney(publicPriceStats.avgCents, publicPriceStats.currency)}
+                  </div>
+                </div>
+                <div>
+                  <div className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Max</div>
+                  <div className="mt-0.5 text-[15px] font-semibold tabular-nums text-ink">
+                    {formatMoney(publicPriceStats.maxCents, publicPriceStats.currency)}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )}
 
           {showBrowseControls && (
             <ResaleBrowseControls sort={sort} ticketType={ticketType} ticketTypes={publicTicketTypes} />
