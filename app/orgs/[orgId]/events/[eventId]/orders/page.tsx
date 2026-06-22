@@ -9,6 +9,7 @@ import { Icon } from "@/components/quiet/ui/icon"
 import { EmptyState } from "@/components/quiet/ui/empty-state"
 import { AttendeesBulkTable } from "./attendees-bulk-table"
 import { CompTicketButton } from "./comp-ticket-button"
+import { EmailAttendeesButton } from "./email-attendees-button"
 
 export const dynamic = "force-dynamic"
 
@@ -248,6 +249,11 @@ export default async function OrdersPage({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <EmailAttendeesButton
+              orgId={orgId}
+              eventId={eventId}
+              ticketTypes={ticketTypes.map((tt) => ({ id: tt.id, name: tt.name }))}
+            />
             {ticketTypes.length > 0 && (
               <CompTicketButton orgId={orgId} eventId={eventId} ticketTypes={ticketTypes} />
             )}
