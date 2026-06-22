@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
@@ -5,6 +6,8 @@ import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider } from "@/components/quiet/ui/primitives";
 import { SearchTrigger } from "@/components/quiet/search/search-overlay";
 import { RecentlyViewedSection } from "@/components/quiet/screens/discover/recently-viewed-section";
+import { DiscoverFilterChips } from "@/components/quiet/screens/discover/discover-filter-chips";
+import { LoadMoreSection } from "@/components/quiet/screens/discover/load-more-section";
 import { PHOTOS } from "@/lib/photos";
 import type { DiscoverEvent } from "@/lib/mappers/discover";
 
@@ -14,15 +17,10 @@ interface MobileDiscoverProps {
   editorPick?: DiscoverEvent | null;
   city?: string;
   eventCount?: number;
+  /** Total count of thisWeek events (for LoadMore pagination). */
+  thisWeekTotal?: number;
 }
 
-const FILTERS: ReadonlyArray<{ label: string; href: string; active?: boolean }> = [
-  { label: "This weekend", href: "/search?when=weekend", active: true },
-  { label: "Music", href: "/search?category=Music" },
-  { label: "Comedy", href: "/search?category=Comedy" },
-  { label: "Free", href: "/search?onlyFree=1" },
-  { label: "Tonight", href: "/search?when=tonight" },
-];
 
 interface TonightRow {
   href: string;
@@ -118,6 +116,7 @@ export function MobileDiscover({
   editorPick: editorPickProp,
   city = "Mbabane",
   eventCount,
+  thisWeekTotal,
 }: MobileDiscoverProps = {}) {
   const TONIGHT = tonightProp?.map(toTonight) ?? [];
   const THIS_WEEK = thisWeekProp?.map(toWeek) ?? [];
@@ -153,11 +152,10 @@ export function MobileDiscover({
         </div>
       </div>
 
-      <div className="no-scrollbar flex gap-1.5 overflow-x-auto px-5 pb-4">
-        {FILTERS.map((f) => (
-          <Link key={f.label} href={f.href}><Chip variant={f.active ? "active" : "default"}>{f.label}</Chip></Link>
-        ))}
-        <Link href="/search"><Chip><Icon name="filter" size={12} /> Filters</Chip></Link>
+      <div className="px-5 pb-4">
+        <Suspense>
+          <DiscoverFilterChips />
+        </Suspense>
       </div>
 
       <RecentlyViewedSection variant="mobile" />
@@ -234,29 +232,37 @@ export function MobileDiscover({
         {THIS_WEEK.length === 0 ? (
           <Card flat className="border-dashed p-5 text-center text-[13px] text-ink-3">No events listed this week.</Card>
         ) : (
-          <ul className="flex flex-col gap-3">
-            {THIS_WEEK.map((e) => (
-              <li key={e.href}>
-                <Link href={e.href} className="block">
-                  <Card flat className="flex gap-3 p-3">
-                    <div className="h-[92px] w-[92px] shrink-0 overflow-hidden rounded-[var(--radius)]"><Photo src={e.photo} height={92} /></div>
-                    <div className="flex min-w-0 flex-1 flex-col justify-between py-0.5">
-                      <div><div className="text-h3 flex items-center gap-1 truncate"><span className="truncate">{e.title}</span>{e.verified && <VerifiedMark size={12} title="Verified organizer" />}</div><div className="mt-0.5 truncate text-[12px] text-ink-3">{e.sub}</div></div>
-                      <div className="flex items-center gap-2 text-[12px] text-ink-3"><Icon name="cal" size={12} /> {e.date}<span>·</span><span className="truncate">{e.venue}</span>{e.trustLabel && <><span>·</span><span className="truncate font-mono text-[11px]">{e.trustLabel}</span></>}</div>
-                    </div>
-                    <div className="flex flex-col items-end justify-between">
-                      {e.stockLabel ? (
-                        <Chip variant="accent" size="sm">{e.stockLabel}</Chip>
-                      ) : (
-                        <Icon name="heart" size={16} className="text-ink-4" />
-                      )}
-                      <span className="font-mono text-[12px] font-semibold">{e.price}</span>
-                    </div>
-                  </Card>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <LoadMoreSection
+            initialEvents={thisWeekProp ?? []}
+            totalCount={thisWeekTotal ?? THIS_WEEK.length}
+            batchSize={6}
+            when="thisWeek"
+            renderEvents={(evs) => (
+              <ul className="flex flex-col gap-3">
+                {evs.map(toWeek).map((e) => (
+                  <li key={e.href}>
+                    <Link href={e.href} className="block">
+                      <Card flat className="flex gap-3 p-3">
+                        <div className="h-[92px] w-[92px] shrink-0 overflow-hidden rounded-[var(--radius)]"><Photo src={e.photo} height={92} /></div>
+                        <div className="flex min-w-0 flex-1 flex-col justify-between py-0.5">
+                          <div><div className="text-h3 flex items-center gap-1 truncate"><span className="truncate">{e.title}</span>{e.verified && <VerifiedMark size={12} title="Verified organizer" />}</div><div className="mt-0.5 truncate text-[12px] text-ink-3">{e.sub}</div></div>
+                          <div className="flex items-center gap-2 text-[12px] text-ink-3"><Icon name="cal" size={12} /> {e.date}<span>·</span><span className="truncate">{e.venue}</span>{e.trustLabel && <><span>·</span><span className="truncate font-mono text-[11px]">{e.trustLabel}</span></>}</div>
+                        </div>
+                        <div className="flex flex-col items-end justify-between">
+                          {e.stockLabel ? (
+                            <Chip variant="accent" size="sm">{e.stockLabel}</Chip>
+                          ) : (
+                            <Icon name="heart" size={16} className="text-ink-4" />
+                          )}
+                          <span className="font-mono text-[12px] font-semibold">{e.price}</span>
+                        </div>
+                      </Card>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          />
         )}
       </section>
     </div>

@@ -206,6 +206,18 @@ export async function getMyNotifications(): Promise<AttendeeNotification[]> {
   return ((data ?? []) as RawNotificationRow[]).map(mapNotification)
 }
 
+export async function getMyMutedNotificationTypes(): Promise<string[]> {
+  const supabase = createServerSupabaseClient()
+  if (!supabase) return []
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (supabase.rpc as any)('fn_get_my_notification_mutes')
+  return (data as string[]) ?? []
+}
+
 export async function getUnreadNotificationCount(): Promise<number> {
   const supabase = createServerSupabaseClient()
   if (!supabase) return 0

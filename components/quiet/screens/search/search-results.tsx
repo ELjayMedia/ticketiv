@@ -104,6 +104,7 @@ export function SearchResults({
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Search events, artists, venues"
             className="flex-1 bg-transparent text-sm font-medium outline-none placeholder:text-ink-3"
+            autoFocus
           />
           {draft && (
             <button

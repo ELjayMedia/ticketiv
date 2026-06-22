@@ -2,13 +2,14 @@
 
 import * as React from "react"
 import Link from "next/link";
-import { markAllNotificationsRead, markNotificationRead } from "@/app/(consumer)/notifications/actions";
+import { markAllNotificationsRead, markNotificationRead, toggleNotificationMute } from "@/app/(consumer)/notifications/actions";
 import { Icon, type IconName } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
 import type { AttendeeNotification, NotificationActionKind } from "@/lib/data/attendee/notifications";
 
 interface NotificationsCentreProps {
   notifications: AttendeeNotification[];
+  mutedTypes: string[];
 }
 
 const ICON_BY_KIND: Record<NotificationActionKind, IconName> = {
@@ -39,19 +40,27 @@ function statusLabel(status: string | null): string {
   return status.replace(/[_-]+/g, " ");
 }
 
-export function NotificationsCentre({ notifications }: NotificationsCentreProps) {
+export function NotificationsCentre({ notifications, mutedTypes }: NotificationsCentreProps) {
   const [readIds, setReadIds] = React.useState<Set<string>>(new Set())
   const [allMarkedRead, setAllMarkedRead] = React.useState(false)
   const [loadingId, setLoadingId] = React.useState<string | null>(null)
   const [loadingAll, setLoadingAll] = React.useState(false)
+  const [localMutedTypes, setLocalMutedTypes] = React.useState(new Set(mutedTypes))
+  const [mutingType, setMutingType] = React.useState<string | null>(null)
 
   const hasNotifications = notifications.length > 0;
   const effectiveUnreadCount = allMarkedRead
     ? 0
     : notifications.filter((n) => n.isUnread && !readIds.has(n.id)).length;
 
+  const mutedCount = localMutedTypes.size;
+
   function isEffectivelyUnread(n: AttendeeNotification) {
     return n.isUnread && !readIds.has(n.id) && !allMarkedRead;
+  }
+
+  function isTypeMuted(type: string) {
+    return localMutedTypes.has(type);
   }
 
   async function handleMarkRead(notificationId: string) {
@@ -86,6 +95,34 @@ export function NotificationsCentre({ notifications }: NotificationsCentreProps)
     }
   }
 
+  async function handleToggleMute(type: string) {
+    if (mutingType) return;
+    setMutingType(type);
+    // Optimistic update
+    const wasMuted = localMutedTypes.has(type);
+    setLocalMutedTypes((prev) => {
+      const next = new Set(prev);
+      if (wasMuted) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+    const formData = new FormData();
+    formData.set("type", type);
+    try {
+      await toggleNotificationMute(formData);
+    } catch {
+      // Revert on error
+      setLocalMutedTypes((prev) => {
+        const next = new Set(prev);
+        if (wasMuted) next.add(type);
+        else next.delete(type);
+        return next;
+      });
+    } finally {
+      setMutingType(null);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-[480px] bg-bg pb-24">
       <div className="h-14" />
@@ -101,11 +138,18 @@ export function NotificationsCentre({ notifications }: NotificationsCentreProps)
         <div className="text-label">Updates</div>
         <div className="mt-1 flex items-end justify-between gap-3">
           <h1 className="text-h1">Notifications</h1>
-          {hasNotifications && (
-            <span className="rounded bg-accent-soft px-2 py-1 font-mono text-[10px] font-semibold uppercase text-accent">
-              {effectiveUnreadCount > 0 ? `${effectiveUnreadCount} unread` : `${notifications.length} recent`}
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {mutedCount > 0 && (
+              <span className="rounded bg-surface-2 px-2 py-1 font-mono text-[10px] font-semibold uppercase text-ink-3">
+                {mutedCount} muted
+              </span>
+            )}
+            {hasNotifications && (
+              <span className="rounded bg-accent-soft px-2 py-1 font-mono text-[10px] font-semibold uppercase text-accent">
+                {effectiveUnreadCount > 0 ? `${effectiveUnreadCount} unread` : `${notifications.length} recent`}
+              </span>
+            )}
+          </div>
         </div>
         <p className="mt-2 font-mono text-[12px] leading-relaxed text-ink-3">
           Ticket, transfer, waitlist, listing, refund and event updates appear here with direct actions.
@@ -153,17 +197,23 @@ export function NotificationsCentre({ notifications }: NotificationsCentreProps)
           <ul className="flex flex-col gap-2">
             {notifications.map((n) => {
               const unread = isEffectivelyUnread(n);
+              const muted = isTypeMuted(n.type);
+              const isMuting = mutingType === n.type;
               return (
                 <li key={n.id}>
                   <Card
                     className={`flex items-start gap-3 p-3.5 transition-colors ${
-                      unread ? "border-accent bg-accent-soft/30" : "hover:bg-bg"
+                      muted
+                        ? "opacity-50"
+                        : unread
+                          ? "border-accent bg-accent-soft/30"
+                          : "hover:bg-bg"
                     }`}
                     flat
                   >
                     <div className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
                       <Icon name={ICON_BY_KIND[n.actionKind]} size={16} />
-                      {unread && (
+                      {unread && !muted && (
                         <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-surface" />
                       )}
                     </div>
@@ -183,7 +233,7 @@ export function NotificationsCentre({ notifications }: NotificationsCentreProps)
                       </p>
                       <div className="mt-2 flex items-center gap-2">
                         <span className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] uppercase text-ink-3">
-                          {unread ? "unread" : statusLabel(n.status)}
+                          {muted ? "muted" : unread ? "unread" : statusLabel(n.status)}
                         </span>
                         {n.channel && (
                           <span className="font-mono text-[10px] uppercase text-ink-3">
@@ -194,16 +244,26 @@ export function NotificationsCentre({ notifications }: NotificationsCentreProps)
                           {n.actionLabel}
                         </Link>
                       </div>
-                      {unread && (
+                      <div className="mt-2 flex items-center gap-3">
+                        {unread && !muted && (
+                          <button
+                            type="button"
+                            onClick={() => handleMarkRead(n.id)}
+                            disabled={loadingId === n.id}
+                            className="font-mono text-[10px] font-semibold uppercase text-ink-3 hover:text-ink disabled:opacity-50"
+                          >
+                            {loadingId === n.id ? "…" : "Mark read"}
+                          </button>
+                        )}
                         <button
                           type="button"
-                          onClick={() => handleMarkRead(n.id)}
-                          disabled={loadingId === n.id}
-                          className="mt-2 font-mono text-[10px] font-semibold uppercase text-ink-3 hover:text-ink disabled:opacity-50"
+                          onClick={() => handleToggleMute(n.type)}
+                          disabled={isMuting}
+                          className="font-mono text-[10px] font-semibold uppercase text-ink-3 hover:text-ink disabled:opacity-50"
                         >
-                          {loadingId === n.id ? "…" : "Mark read"}
+                          {isMuting ? "…" : muted ? `Unmute ${n.type}` : `Mute ${n.type}`}
                         </button>
-                      )}
+                      </div>
                     </div>
                     <Link href={n.actionHref} aria-label={n.actionLabel}>
                       <Icon name="chevR" size={14} className="mt-1 text-ink-3" />

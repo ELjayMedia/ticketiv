@@ -28,6 +28,18 @@ export async function markNotificationRead(formData: FormData) {
   revalidatePath("/me")
 }
 
+export async function toggleNotificationMute(formData: FormData) {
+  const type = formData.get("type") as string
+  if (!type) return { error: "Missing type" }
+  const supabase = createServerSupabaseClient()
+  if (!supabase) return { error: "Not available" }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.rpc as any)('fn_toggle_notification_mute', { p_type: type })
+  if (error) return { error: error.message }
+  revalidatePath('/notifications')
+  return { ok: true }
+}
+
 export async function markAllNotificationsRead() {
   const supabase = createServerSupabaseClient()
   if (!supabase) return

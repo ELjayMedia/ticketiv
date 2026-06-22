@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon, type IconName } from "@/components/quiet/ui/icon";
-import { SearchTrigger } from "@/components/quiet/search/search-overlay";
 import { cn } from "@/lib/cn";
 
 interface TabItem {
@@ -123,12 +122,13 @@ export function MobileTopBar({
       <span className="flex-1" />
       {action ?? (
         <>
-          <SearchTrigger
+          <Link
+            href="/search"
             className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"
-            aria-label="Search"
+            aria-label="Search events"
           >
             <Icon name="search" size={20} />
-          </SearchTrigger>
+          </Link>
           <Link
             href="/notifications"
             className="relative inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"

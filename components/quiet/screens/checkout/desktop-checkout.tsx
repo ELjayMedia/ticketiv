@@ -12,6 +12,7 @@ import { formatPrice, formatHoldTimer } from "@/lib/format";
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
 import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/actions";
 import { describePromoFailure } from "@/lib/checkout/promo-copy";
+import { PromoCodeInput, type PromoResult } from "@/components/quiet/screens/checkout/promo-code-input";
 
 /* ──────────────────────────────────────────────────────────────
  * Desktop checkout · `/events/[id]/checkout` on md+
@@ -87,6 +88,7 @@ export function DesktopCheckout({
   const [policyAccepted, setPolicyAccepted] = React.useState(false);
   const [isApplyingPromo, setIsApplyingPromo] = React.useState(false);
   const [activePromo, setActivePromo] = React.useState(appliedPromo ?? null);
+  const [validatedPromo, setValidatedPromo] = React.useState<PromoResult | null>(null);
 
   async function handleApplyPromo() {
     if (!promoInput.trim()) return;
@@ -159,7 +161,12 @@ export function DesktopCheckout({
 
   const vat = Math.round(subtotalMinor * vatRate);
   const discount = activePromo?.savedMinor ?? 0;
-  const total = subtotalMinor + bookingFeeMinor + vat - discount;
+  const promoDiscount = validatedPromo
+    ? validatedPromo.discountType === "percent"
+      ? Math.round(subtotalMinor * validatedPromo.discountValue / 100)
+      : validatedPromo.discountValue
+    : 0;
+  const total = subtotalMinor + bookingFeeMinor + vat - discount - promoDiscount;
 
   return (
     <div className="min-h-dvh bg-bg">
@@ -377,6 +384,15 @@ export function DesktopCheckout({
                 </button>
               </div>
             )}
+            <div className="mt-4">
+              <PromoCodeInput
+                eventId={eventUuid}
+                onApply={(result) => {
+                  setValidatedPromo(result);
+                  if (result) setPromoInput(result.promoId);
+                }}
+              />
+            </div>
           </Card>
 
           <div className="flex flex-col gap-2">
@@ -455,6 +471,13 @@ export function DesktopCheckout({
               <SummaryRow
                 label={activePromo.code}
                 value={`−${formatPrice(discount)}`}
+                accent
+              />
+            )}
+            {validatedPromo && promoDiscount > 0 && (
+              <SummaryRow
+                label="Promo"
+                value={`−${formatPrice(promoDiscount)}`}
                 accent
               />
             )}
