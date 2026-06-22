@@ -1,9 +1,12 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider } from "@/components/quiet/ui/primitives";
 import { RecentlyViewedSection } from "@/components/quiet/screens/discover/recently-viewed-section";
+import { DiscoverFilterChips } from "@/components/quiet/screens/discover/discover-filter-chips";
+import { LoadMoreSection } from "@/components/quiet/screens/discover/load-more-section";
 import { PHOTOS } from "@/lib/photos";
 import type { DiscoverEvent } from "@/lib/mappers/discover";
 
@@ -186,7 +189,7 @@ export function DesktopDiscover({
       </div>
 
       {/* Page header */}
-      <div className="flex items-end justify-between pb-6">
+      <div className="flex items-end justify-between pb-4">
         <div>
           <div className="text-label">Showing events near</div>
           <h1 className="mt-1 inline-flex items-center gap-2 text-[40px] font-semibold leading-none tracking-[-0.025em]">
@@ -211,6 +214,13 @@ export function DesktopDiscover({
             <Icon name="filter" size={14} /> Filters
           </Link>
         </div>
+      </div>
+
+      {/* Quick-filter chips */}
+      <div className="mb-6">
+        <Suspense>
+          <DiscoverFilterChips />
+        </Suspense>
       </div>
 
       {/* Editor's pick hero */}
@@ -313,65 +323,66 @@ export function DesktopDiscover({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            {GRID_EVENTS.map((e) => (
-              <Link
-                key={e.href}
-                href={e.href}
-                className="group"
-              >
-                <Card className="overflow-hidden transition-shadow group-hover:shadow-[var(--shadow-elev)]">
-                  <Photo src={e.photo} height={180} overlay={e.chip ? "dim" : "none"}>
-                    {e.chip && (
-                      <Chip
-                        className="ml-auto border-transparent bg-white/95 text-ink"
-                        size="sm"
-                      >
-                        {e.chip}
-                      </Chip>
-                    )}
-                  </Photo>
-                  <div className="p-3.5">
-                    <div className="text-h3 flex items-center gap-1.5 truncate">
-                      <span className="truncate">{e.title}</span>
-                      {e.verified && <VerifiedMark size={14} title="Verified organizer" />}
-                    </div>
-                    <div className="mt-1 flex items-center gap-1.5 text-[12px] text-ink-3">
-                      <Icon name="cal" size={12} />
-                      <span className="truncate">{e.when}</span>
-                    </div>
-                    <div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-ink-3">
-                      <Icon name="pin" size={12} />
-                      <span className="truncate">{e.venue}</span>
-                    </div>
-                    <Divider className="my-2.5" />
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-[14px] font-semibold">
-                        {e.price}
-                      </span>
-                      {e.stockLabel ? (
-                        <Chip variant="accent" size="sm">{e.stockLabel}</Chip>
-                      ) : e.trustLabel ? (
-                        <span className="font-mono text-[11px] text-ink-3">
-                          {e.trustLabel}
-                        </span>
-                      ) : (
-                        <span className="text-[12px] text-accent group-hover:underline">
-                          Details →
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              </Link>
-            ))}
-          </div>
-
-          <div className="mt-8 flex justify-center">
-            <button className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-surface px-4 py-2 text-[13px] font-medium hover:bg-bg">
-              Load more events
-            </button>
-          </div>
+          <LoadMoreSection
+            initialEvents={events ?? []}
+            totalCount={totalEvents ?? (events?.length ?? 0)}
+            batchSize={9}
+            renderEvents={(evs) => (
+              <div className="grid grid-cols-3 gap-4">
+                {evs.map(toGrid).map((e) => (
+                  <Link
+                    key={e.href}
+                    href={e.href}
+                    className="group"
+                  >
+                    <Card className="overflow-hidden transition-shadow group-hover:shadow-[var(--shadow-elev)]">
+                      <Photo src={e.photo} height={180} overlay={e.chip ? "dim" : "none"}>
+                        {e.chip && (
+                          <Chip
+                            className="ml-auto border-transparent bg-white/95 text-ink"
+                            size="sm"
+                          >
+                            {e.chip}
+                          </Chip>
+                        )}
+                      </Photo>
+                      <div className="p-3.5">
+                        <div className="text-h3 flex items-center gap-1.5 truncate">
+                          <span className="truncate">{e.title}</span>
+                          {e.verified && <VerifiedMark size={14} title="Verified organizer" />}
+                        </div>
+                        <div className="mt-1 flex items-center gap-1.5 text-[12px] text-ink-3">
+                          <Icon name="cal" size={12} />
+                          <span className="truncate">{e.when}</span>
+                        </div>
+                        <div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-ink-3">
+                          <Icon name="pin" size={12} />
+                          <span className="truncate">{e.venue}</span>
+                        </div>
+                        <Divider className="my-2.5" />
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-[14px] font-semibold">
+                            {e.price}
+                          </span>
+                          {e.stockLabel ? (
+                            <Chip variant="accent" size="sm">{e.stockLabel}</Chip>
+                          ) : e.trustLabel ? (
+                            <span className="font-mono text-[11px] text-ink-3">
+                              {e.trustLabel}
+                            </span>
+                          ) : (
+                            <span className="text-[12px] text-accent group-hover:underline">
+                              Details →
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            )}
+          />
         </div>
       </div>
     </div>

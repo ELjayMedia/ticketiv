@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
@@ -152,7 +153,9 @@ export function MobileDiscover({
       </div>
 
       <div className="px-5 pb-4">
-        <DiscoverFilterChips />
+        <Suspense>
+          <DiscoverFilterChips />
+        </Suspense>
       </div>
 
       <RecentlyViewedSection variant="mobile" />

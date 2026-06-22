@@ -25,15 +25,17 @@ export default async function DiscoverPage() {
   const rows = await getPublicEventsList({ limit: 36, sort: "soonest" });
   const events = rows.map(mapDiscoverEvent);
   const { tonight, thisWeek, editorPick } = partitionDiscover(events);
+  const thisWeekEvents = thisWeek.length > 0 ? thisWeek : events.slice(0, 6);
 
   return (
     <>
       <div className="md:hidden">
         <MobileDiscover
           tonight={tonight}
-          thisWeek={thisWeek.length > 0 ? thisWeek : events.slice(0, 6)}
+          thisWeek={thisWeekEvents}
           editorPick={editorPick}
           eventCount={events.length}
+          thisWeekTotal={events.length}
         />
       </div>
       <div className="hidden md:block">
