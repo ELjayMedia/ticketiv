@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { TicketView } from "@/components/quiet/screens/tickets/ticket-view";
-import { getTicketById } from "@/lib/data/attendee/tickets";
+import { getTicketById, getTicketEventPolicy } from "@/lib/data/attendee/tickets";
 import { mapTicketView } from "@/lib/mappers/tickets";
 
 export const metadata = { title: "Your ticket" };
@@ -22,5 +22,7 @@ export default async function TicketPage({
   const row = await getTicketById(id);
   if (!row) notFound();
 
-  return <TicketView ticket={mapTicketView(row)} />;
+  const refundPolicy = row.event_id ? await getTicketEventPolicy(row.event_id) : undefined;
+
+  return <TicketView ticket={mapTicketView(row, { refundPolicy })} />;
 }

@@ -13,6 +13,7 @@
 
 import { PHOTOS } from "@/lib/photos";
 import { formatEventDate, formatTimeRange } from "@/lib/format";
+import { resolveRefundPolicy, refundQuoteForHoursBefore, formatRefundWindow } from "@/lib/refund-policy";
 import type { MyTicketsView } from "@/lib/schemas/views";
 
 export type TicketDisplayStatus =
@@ -127,8 +128,17 @@ function toFeatured(row: MyTicketsView): FeaturedTicketProp {
   };
 }
 
+export interface RefundCtaData {
+  orderId: string;
+  available: boolean;
+  policyLabel: string;
+  refundBps: number | null;
+  deadlineLabel: string | null;
+}
+
 export interface TicketViewProp {
   id: string;
+  orderId: string;
   orderNumber: string;
   positionLabel: string;
   totalInOrder: number;
@@ -148,17 +158,47 @@ export interface TicketViewProp {
   /** True only when the ticket is issued and not yet used / transferred / refunded / revoked. */
   isValid: boolean;
   status: TicketDisplayStatus;
+  /** Null when refund policy data was not fetched. */
+  refundCta: RefundCtaData | null;
 }
+
+const DEADLINE_FMT = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short" });
 
 export function mapTicketView(
   row: MyTicketsView,
-  opts: { position?: number; totalInOrder?: number; holderName?: string } = {},
+  opts: { position?: number; totalInOrder?: number; holderName?: string; refundPolicy?: unknown } = {},
 ): TicketViewProp {
   const start = row.event_starts_at ? new Date(row.event_starts_at) : null;
   const status = ticketDisplayStatus(row);
   const valid = status === "issued";
+
+  let refundCta: RefundCtaData | null = null;
+  if ("refundPolicy" in opts) {
+    const policy = resolveRefundPolicy(opts.refundPolicy);
+    const msUntil = start ? Math.max(0, start.getTime() - Date.now()) : 0;
+    const hoursBefore = msUntil / (60 * 60 * 1000);
+    const band = refundQuoteForHoursBefore(policy, hoursBefore);
+    const available = valid && band !== null && band.refundBps > 0;
+
+    let deadlineLabel: string | null = null;
+    if (policy.bands.length > 0 && start) {
+      const lastBand = policy.bands[policy.bands.length - 1];
+      const deadline = new Date(start.getTime() - lastBand.hoursBefore * 60 * 60 * 1000);
+      deadlineLabel = `Refund by ${DEADLINE_FMT.format(deadline)}`;
+    }
+
+    refundCta = {
+      orderId: row.order_id,
+      available,
+      policyLabel: `${policy.label} · ${formatRefundWindow(policy)}`,
+      refundBps: band?.refundBps ?? null,
+      deadlineLabel,
+    };
+  }
+
   return {
     id: row.order_item_id,
+    orderId: row.order_id,
     orderNumber: shortOrderNumber(row.order_id),
     positionLabel: opts.totalInOrder ? `${opts.position ?? 1} of ${opts.totalInOrder}` : "1 of 1",
     totalInOrder: opts.totalInOrder ?? 1,
@@ -175,9 +215,8 @@ export function mapTicketView(
     venueDistanceKm: 0,
     qrCode: valid ? row.ticket_code : "",
     isValid: valid,
-    // The list mapper coerces "pending" → "issued"; here we keep the raw
-    // value so the screen can show a clear non-valid state.
     status: status === "pending" ? "issued" : status,
+    refundCta,
   };
 }
 
