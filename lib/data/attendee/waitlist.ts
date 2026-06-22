@@ -19,6 +19,8 @@ export interface AttendeeWaitlistEntry {
   ticketTypeName: string | null
   ticketPriceCents: number | null
   ticketCurrency: string | null
+  queuePosition: number | null
+  queueLength: number | null
 }
 
 type WaitlistRow = {
@@ -57,6 +59,8 @@ function mapRow(row: WaitlistRow): AttendeeWaitlistEntry {
     ticketTypeName: row.ticket_types?.name ?? null,
     ticketPriceCents: row.ticket_types?.price_cents ?? null,
     ticketCurrency: row.ticket_types?.currency ?? null,
+    queuePosition: null,
+    queueLength: null,
   }
 }
 
@@ -86,19 +90,34 @@ export async function getMyWaitlistEntries(): Promise<AttendeeWaitlistEntry[]> {
   } = await supabase.auth.getUser()
   if (!user) return []
 
-  const { data, error } = await supabase
-    .from("waitlists")
-    .select(WAITLIST_SELECT)
-    .eq("user_id", user.id)
-    .order("joined_at", { ascending: false })
-    .limit(50)
+  const [listResult, posResult] = await Promise.all([
+    supabase
+      .from("waitlists")
+      .select(WAITLIST_SELECT)
+      .eq("user_id", user.id)
+      .order("joined_at", { ascending: false })
+      .limit(50),
+    supabase.rpc("fn_my_waitlist_positions"),
+  ])
 
-  if (error) {
-    console.error("[waitlist] list:", error)
+  if (listResult.error) {
+    console.error("[waitlist] list:", listResult.error)
     return []
   }
 
-  return ((data ?? []) as WaitlistRow[]).map(mapRow)
+  const posMap = new Map<string, { position: number; queue_length: number }>()
+  for (const p of (posResult.data ?? []) as Array<{ waitlist_id: string; position: number; queue_length: number }>) {
+    posMap.set(p.waitlist_id, { position: p.position, queue_length: p.queue_length })
+  }
+
+  return ((listResult.data ?? []) as WaitlistRow[]).map((row) => {
+    const pos = posMap.get(row.id)
+    return {
+      ...mapRow(row),
+      queuePosition: pos?.position ?? null,
+      queueLength: pos?.queue_length ?? null,
+    }
+  })
 }
 
 export async function getMyWaitlistOffer(waitlistId: string): Promise<AttendeeWaitlistEntry | null> {

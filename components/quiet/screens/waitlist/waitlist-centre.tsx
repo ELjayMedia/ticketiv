@@ -143,6 +143,14 @@ export function WaitlistCentre({ entries, joinEventId, joinTicketTypeId, joined 
                         <p className="mt-1 font-mono text-[11px] leading-relaxed text-ink-3">
                           {entry.ticketTypeName ?? "Any ticket"} · {entry.quantityRequested} requested · joined {formatDate(entry.joinedAt)}
                         </p>
+                        {entry.status.toLowerCase() === "waiting" && (
+                          <div className="mt-1 flex items-center gap-1.5 font-mono text-[11px] text-ink-3">
+                            <Icon name="clock" size={11} />
+                            {entry.queuePosition !== null
+                              ? `#${entry.queuePosition} in queue${entry.queueLength ? ` · ${entry.queueLength} waiting` : ""}`
+                              : "You're on the waitlist"}
+                          </div>
+                        )}
                         {expiry && (
                           <p className="mt-1 font-mono text-[11px] font-semibold text-accent">
                             {expiry}
