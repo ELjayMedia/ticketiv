@@ -54,7 +54,8 @@ export function ProfileScreen({ user, appVersion = "current" }: ProfileScreenPro
   }
 
   const accountRows: SettingRow[] = [
-    { icon: "user", label: "Personal info", value: user.email, href: "/me/personal" },
+    { icon: "settings", label: "Account settings", value: "profile · alerts", href: "/account/settings" },
+    { icon: "user", label: "Personal info", value: user.email, href: "/account/settings" },
     {
       icon: "wallet",
       label: "Payment methods",
@@ -195,7 +196,7 @@ export function ProfileScreen({ user, appVersion = "current" }: ProfileScreenPro
             href: "/notifications",
             accent: user.unreadNotifications > 0,
           },
-          { icon: "settings" as IconName, label: "Privacy & data" },
+          { icon: "settings" as IconName, label: "Account settings", href: "/account/settings" },
           { icon: "fileText" as IconName, label: "Help center" },
           { icon: "share" as IconName, label: "Send feedback" },
           { icon: "close" as IconName, label: "Sign out", accent: true },
