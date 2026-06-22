@@ -97,7 +97,8 @@ export async function getMyWaitlistEntries(): Promise<AttendeeWaitlistEntry[]> {
       .eq("user_id", user.id)
       .order("joined_at", { ascending: false })
       .limit(50),
-    supabase.rpc("fn_my_waitlist_positions"),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any).rpc("fn_my_waitlist_positions"),
   ])
 
   if (listResult.error) {
