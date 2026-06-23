@@ -6072,6 +6072,10 @@ export type Database = {
         Returns: Json
       }
       fn_rollup_metrics: { Args: { p_day: string }; Returns: undefined }
+      fn_seller_completed_resales: {
+        Args: { p_seller_ids: string[] }
+        Returns: { seller_id: string; completed_count: number }[]
+      }
       fn_scan_ticket: {
         Args: {
           p_attempt_id?: string

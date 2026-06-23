@@ -1,7 +1,6 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import React from "react"
 
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
@@ -10,6 +9,7 @@ import { EmptyState } from "@/components/quiet/ui/empty-state"
 import { AttendeesBulkTable } from "./attendees-bulk-table"
 import { CompTicketButton } from "./comp-ticket-button"
 import { EmailAttendeesButton } from "./email-attendees-button"
+import { LiveOrderKpis } from "./live-kpis"
 
 export const dynamic = "force-dynamic"
 
@@ -34,16 +34,6 @@ function fmtDate(d: string | null) {
   return new Intl.DateTimeFormat("en-SZ", { dateStyle: "medium", timeStyle: "short" }).format(new Date(d))
 }
 
-function StatTile({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <Card>
-      <CardBody className="flex flex-col gap-1 p-4">
-        <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">{label}</p>
-        <p className="font-mono text-[22px] font-semibold tabular-nums text-ink">{value}</p>
-      </CardBody>
-    </Card>
-  )
-}
 
 function Paginator({
   page,
@@ -267,19 +257,12 @@ export default async function OrdersPage({
           </div>
         </div>
 
-        {/* KPI tiles */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatTile label="Total orders" value={totalOrdersCount.toLocaleString()} />
-          <StatTile
-            label="Gross revenue"
-            value={`SZL ${((liveStats?.gross_sales_cents ?? 0) / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
-          />
-          <StatTile label="Tickets issued" value={(liveStats?.tickets_sold ?? 0).toLocaleString()} />
-          <StatTile
-            label="Checked in"
-            value={`${(liveStats?.checked_in_count ?? 0).toLocaleString()} / ${(liveStats?.tickets_sold ?? 0).toLocaleString()}`}
-          />
-        </div>
+        {/* KPI tiles — live via Supabase realtime (TICK-192) */}
+        <LiveOrderKpis
+          eventId={eventId}
+          totalOrdersCount={totalOrdersCount}
+          initialStats={liveStats}
+        />
 
         {/* View tabs */}
         <div className="flex gap-1 border-b border-line pb-0">
