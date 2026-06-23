@@ -37,5 +37,8 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
+      - name: Demo-pattern guard (TICK-162)
+        run: bash scripts/check-demo-patterns.sh
+
       - name: Build
         run: pnpm build
