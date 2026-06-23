@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "./supabase-server"
+import { sendWaitlistOfferPush } from "./push/server"
 import type { WaitlistRecord } from "@/types"
 
 export async function joinWaitlist(params: {
@@ -91,6 +92,14 @@ export async function offerTicketsToWaitlist(
     return { success: false, offered: 0 }
   }
 
+  // Fetch event title for push notification copy.
+  const { data: eventRow } = await supabase
+    .from("events")
+    .select("title")
+    .eq("id", eventId)
+    .maybeSingle()
+  const eventTitle = eventRow?.title ?? "Ticketiv event"
+
   // Get next active waitlist entries
   const { data: waitlistEntries } = await supabase
     .from("waitlists")
@@ -106,12 +115,12 @@ export async function offerTicketsToWaitlist(
   }
 
   let offeredCount = 0
-  const offerExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString() // 15 minutes
+  const OFFER_MINUTES = 15
+  const offerExpiresAt = new Date(Date.now() + OFFER_MINUTES * 60 * 1000).toISOString()
 
   for (const entry of waitlistEntries) {
     if (offeredCount >= quantity) break
 
-    // Update status to offered
     const { error } = await supabase
       .from("waitlists")
       .update({
@@ -124,12 +133,13 @@ export async function offerTicketsToWaitlist(
     if (!error) {
       offeredCount += entry.quantity_requested
       // TODO: Send notification email to entry.email
-      // TODO(TICK-214): fire a Web Push to entry.user_id's stored
-      // push_subscriptions here (text: "[Event] — A ticket is available! Offer
-      // expires in [X] minutes.", url: /checkout/waitlist/<entry.id>). Blocked
-      // on the server-side VAPID sender + key provisioning — see the TICK-214
-      // Jira comment. Opt-in capture + storage (push_subscriptions table,
-      // fn_store_push_subscription) already ship; only the sender is missing.
+      // Fire Web Push to the buyer's stored subscriptions (TICK-214).
+      void sendWaitlistOfferPush({
+        userId: entry.user_id ?? null,
+        waitlistId: entry.id,
+        eventTitle,
+        minutesUntilExpiry: OFFER_MINUTES,
+      })
     }
   }
 
