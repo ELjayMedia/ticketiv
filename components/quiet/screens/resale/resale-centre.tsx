@@ -35,6 +35,12 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" });
 }
 
+function sellerTrustLabel(count: number): { label: string; className: string } {
+  if (count === 0) return { label: "New seller", className: "bg-surface-2 text-ink-3" }
+  if (count < 5) return { label: `${count} sale${count === 1 ? "" : "s"}`, className: "bg-surface-2 text-ink-2" }
+  return { label: `${count} sales`, className: "bg-accent-soft text-accent" }
+}
+
 function formatExpiry(iso: string | null): string | null {
   if (!iso) return null;
   const diff = new Date(iso).getTime() - Date.now();
@@ -169,6 +175,7 @@ export function TicketListingsCentre({
             {publicListings.map((listing) => {
               const expiry = formatExpiry(listing.listingExpiresAt);
               const fee = listing.transferFeeCents ? formatMoney(listing.transferFeeCents, listing.currency) : null;
+              const trust = sellerTrustLabel(listing.sellerCompletedCount);
               return (
                 <li key={listing.id}>
                   <Card className="p-3.5" flat>
@@ -193,6 +200,12 @@ export function TicketListingsCentre({
                             {expiry}
                           </p>
                         )}
+                        <div className="mt-2 flex items-center gap-1.5">
+                          <Icon name="user" size={11} className="text-ink-4" />
+                          <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase ${trust.className}`}>
+                            {trust.label}
+                          </span>
+                        </div>
                         <div className="mt-3 grid grid-cols-2 gap-2">
                           {listing.eventSlug ? (
                             <Link

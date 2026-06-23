@@ -2949,6 +2949,47 @@ export type Database = {
           },
         ]
       }
+      push_subscriptions: {
+        Row: {
+          id: string
+          user_id: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          user_agent: string | null
+          created_at: string
+          last_seen_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          user_agent?: string | null
+          created_at?: string
+          last_seen_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          endpoint?: string
+          p256dh?: string
+          auth?: string
+          user_agent?: string | null
+          created_at?: string
+          last_seen_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -6072,6 +6113,23 @@ export type Database = {
         Returns: Json
       }
       fn_rollup_metrics: { Args: { p_day: string }; Returns: undefined }
+      fn_seller_completed_resales: {
+        Args: { p_seller_ids: string[] }
+        Returns: { seller_id: string; completed_count: number }[]
+      }
+      fn_store_push_subscription: {
+        Args: {
+          p_endpoint: string
+          p_p256dh: string
+          p_auth: string
+          p_user_agent?: string
+        }
+        Returns: undefined
+      }
+      fn_remove_push_subscription: {
+        Args: { p_endpoint: string }
+        Returns: undefined
+      }
       fn_scan_ticket: {
         Args: {
           p_attempt_id?: string

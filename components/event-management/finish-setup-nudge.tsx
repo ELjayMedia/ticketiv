@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { AlertTriangle, CheckCircle2, Circle, Sparkles, X } from "lucide-react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/cn"
+import { Card, CardBody } from "@/components/quiet/ui/card"
+import { Button } from "@/components/quiet/ui/button"
+import { Chip } from "@/components/quiet/ui/chip"
+import { Icon } from "@/components/quiet/ui/icon"
 
 type SetupStatus = {
   hasLineup: boolean
@@ -25,14 +26,6 @@ type ChecklistItem = {
   action: string
 }
 
-/**
- * Organizer-facing readiness checklist.
- *
- * This is intentionally a frontend-safe first pass: it reuses existing
- * event setup endpoints and does not change publish rules, RLS, or backend
- * policy. The checklist appears on the event overview and gives organizers a
- * clear path to finish setup before publishing pressure or event-day ops.
- */
 export function FinishSetupNudge({
   eventId,
   dismissed,
@@ -131,38 +124,38 @@ export function FinishSetupNudge({
   const completeCount = items.filter((item) => item.complete).length
 
   return (
-    <Card className="border-primary/30 bg-primary/5">
-      <CardContent className="space-y-4 p-4">
+    <Card>
+      <CardBody className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-3">
-            {missingRequired > 0 ? (
-              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-            ) : (
-              <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-            )}
+            <Icon
+              name={missingRequired > 0 ? "zap" : "spark"}
+              size={20}
+              className="mt-0.5 shrink-0 text-accent"
+            />
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-medium">Event readiness checklist</p>
-                <Badge variant={missingRequired > 0 ? "secondary" : "default"}>
+                <Chip size="sm" variant={missingRequired > 0 ? "muted" : "accent"}>
                   {completeCount}/{items.length} ready
-                </Badge>
+                </Chip>
                 {missingRequired > 0 && (
-                  <Badge variant="outline">{missingRequired} required pending</Badge>
+                  <Chip size="sm" variant="default">{missingRequired} required pending</Chip>
                 )}
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-sm text-ink-3">
                 Use this checklist to reduce incomplete event pages and avoid event-day issues. Required items should be handled before heavy promotion.
               </p>
             </div>
           </div>
           <Button
             variant="ghost"
-            size="icon"
+            size="sm"
             aria-label="Dismiss readiness checklist"
             onClick={onDismiss}
             className="self-start sm:self-center"
           >
-            <X className="h-4 w-4" />
+            <Icon name="close" size={16} />
           </Button>
         </div>
 
@@ -170,38 +163,43 @@ export function FinishSetupNudge({
           <ChecklistGroup title="Required before promotion" items={requiredItems} />
           <ChecklistGroup title="Recommended before event day" items={recommendedItems} />
         </div>
-      </CardContent>
+      </CardBody>
     </Card>
   )
 }
 
 function ChecklistGroup({ title, items }: { title: string; items: ChecklistItem[] }) {
   return (
-    <div className="rounded-lg border bg-background/70 p-3">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
+    <div className="rounded-[var(--radius)] border border-line bg-bg p-3">
+      <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-3">{title}</p>
       <div className="space-y-2">
         {items.map((item) => (
-          <div key={item.key} className="rounded-md border bg-background p-3">
+          <div key={item.key} className="rounded-[var(--radius)] border border-line bg-surface p-3">
             <div className="flex items-start gap-3">
-              {item.complete ? (
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-              ) : (
-                <Circle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-              )}
+              <Icon
+                name={item.complete ? "check" : "plus"}
+                size={16}
+                className={cn("mt-0.5 shrink-0", item.complete ? "text-accent" : "text-ink-3")}
+              />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-medium leading-none">{item.label}</p>
-                  <Badge variant={item.complete ? "default" : item.required ? "secondary" : "outline"}>
+                  <Chip
+                    size="sm"
+                    variant={item.complete ? "accent" : item.required ? "muted" : "default"}
+                  >
                     {item.complete ? "Ready" : item.required ? "Required" : "Recommended"}
-                  </Badge>
+                  </Chip>
                 </div>
-                <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
+                <p className="mt-1 text-sm text-ink-3">{item.description}</p>
               </div>
-              <Button asChild size="sm" variant={item.complete ? "outline" : "default"}>
-                <Link href={`?tab=${item.tab}`} scroll={false}>
-                  {item.action}
-                </Link>
-              </Button>
+              <Link
+                href={`?tab=${item.tab}`}
+                scroll={false}
+                className="inline-flex items-center justify-center gap-1 font-semibold whitespace-nowrap rounded-[var(--radius)] leading-none transition-colors duration-150 bg-transparent text-ink border border-line-2 hover:bg-bg px-3 py-1.5 text-[13px]"
+              >
+                {item.action}
+              </Link>
             </div>
           </div>
         ))}

@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation"
-import { cookies } from "next/headers"
 import Link from "next/link"
 import { Icon } from "@/components/quiet/ui/icon"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
@@ -11,37 +10,21 @@ export default async function EditTicketTypePage({
   params: Promise<{ orgId: string; eventId: string; ticketId: string }>
 }) {
   const { orgId, eventId, ticketId } = await params
-  const cookieStore = await cookies()
-  const demoSessionCookie = cookieStore.get("demo_session")
 
-  type TicketTypeRow = { id: string; name: string; price_cents: number; quota: number; per_user_limit: number | null; sales_status: string }
-  let ticketType: TicketTypeRow | null = null
+  const supabase = createServerSupabaseClient()
+  if (!supabase) return redirect("/login")
 
-  if (demoSessionCookie) {
-    // Demo fallback — synthetic data matching the demo ticket types
-    const demoTypes: Record<string, TicketTypeRow> = {
-      general: { id: "general", name: "General Admission", price_cents: 12900, quota: 100, per_user_limit: 5, sales_status: "on_sale" },
-      vip: { id: "vip", name: "VIP", price_cents: 29900, quota: 20, per_user_limit: 2, sales_status: "on_sale" },
-    }
-    ticketType = demoTypes[ticketId] ?? null
-  } else {
-    const supabase = createServerSupabaseClient()
-    if (!supabase) return redirect("/login")
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  if (!session) return redirect("/login")
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-    if (!session) return redirect("/login")
-
-    const { data } = await supabase
-      .from("ticket_types")
-      .select("id, name, price_cents, quota, per_user_limit, sales_status")
-      .eq("id", ticketId)
-      .eq("event_id", eventId)
-      .maybeSingle()
-
-    ticketType = data ?? null
-  }
+  const { data: ticketType } = await supabase
+    .from("ticket_types")
+    .select("id, name, price_cents, quota, per_user_limit, sales_status")
+    .eq("id", ticketId)
+    .eq("event_id", eventId)
+    .maybeSingle()
 
   if (!ticketType) return redirect(`/orgs/${orgId}/events/${eventId}/tickets`)
 
