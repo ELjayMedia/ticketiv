@@ -11,6 +11,7 @@ export interface MyProfile {
   name: string
   handle: string | null
   joinedAt: string | null
+  avatarUrl: string | null
   upcomingTickets: number
   favouritesCount: number
   friendsCount: number
@@ -46,7 +47,7 @@ export async function getMyProfile(): Promise<MyProfile | null> {
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("display_name, name, surname, created_at, locale")
+      .select("display_name, name, surname, created_at, locale, avatar_url")
       .eq("user_id", user.id)
       .maybeSingle(),
     supabase
@@ -110,6 +111,7 @@ export async function getMyProfile(): Promise<MyProfile | null> {
     name: fullName,
     handle: handleRes.data?.handle ?? null,
     joinedAt: profile?.created_at ?? user.created_at ?? null,
+    avatarUrl: profile?.avatar_url ?? null,
     upcomingTickets: upcomingRes.count ?? 0,
     favouritesCount: favRes.count ?? 0,
     friendsCount: friendsRes.count ?? 0,

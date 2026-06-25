@@ -22,6 +22,7 @@ export interface AccountSettings {
   name: string
   surname: string
   phone: string
+  avatarUrl: string | null
   hasPassword: boolean
   notifications: NotificationPrefs
   connectedAccounts: ConnectedAccount[]
@@ -39,7 +40,7 @@ export async function getAccountSettings(): Promise<AccountSettings | null> {
   const [profileRes, prefsRes] = await Promise.all([
     supabase
       .from("profiles")
-      .select("display_name, name, surname, phone")
+      .select("display_name, name, surname, phone, avatar_url")
       .eq("user_id", user.id)
       .maybeSingle(),
     supabase
@@ -71,6 +72,7 @@ export async function getAccountSettings(): Promise<AccountSettings | null> {
     name: profile?.name ?? "",
     surname: profile?.surname ?? "",
     phone: profile?.phone ?? "",
+    avatarUrl: profile?.avatar_url ?? null,
     hasPassword,
     notifications: {
       emailOptIn: prefs?.email_opt_in ?? true,

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useRef, useState, useTransition } from "react"
 
 import { Button } from "@/components/quiet/ui/button"
 import { Card } from "@/components/quiet/ui/card"
@@ -9,6 +9,7 @@ import { Icon, type IconName } from "@/components/quiet/ui/icon"
 import { Avatar } from "@/components/quiet/ui/primitives"
 import type { AccountSettings } from "@/lib/data/attendee/account-settings"
 import {
+  updateAvatarAction,
   updateNotificationPrefsAction,
   updatePasswordAction,
   updateProfileAction,
@@ -106,17 +107,10 @@ function ProfileSection({ settings }: { settings: AccountSettings }) {
 
   return (
     <Card className="p-5">
-      <form onSubmit={onSubmit} className="flex flex-col gap-4">
-        <div className="flex items-center gap-3">
-          <Avatar label={initials} size={56} />
-          <div className="flex flex-col gap-0.5">
-            <span className="text-[14px] font-semibold text-ink">Profile photo</span>
-            <span className="font-mono text-[11px] text-ink-3">
-              Photo uploads are coming soon — we show your initials for now.
-            </span>
-          </div>
-        </div>
+      <div className="flex flex-col gap-4">
+        <AvatarUploader settings={settings} initials={initials} />
 
+        <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <FormField
           label="Display name"
           name="displayName"
@@ -160,8 +154,60 @@ function ProfileSection({ settings }: { settings: AccountSettings }) {
             {pending ? "Saving…" : "Save profile"}
           </Button>
         </div>
-      </form>
+        </form>
+      </div>
     </Card>
+  )
+}
+
+/* ── Avatar uploader ──────────────────────────────────────────── */
+function AvatarUploader({ settings, initials }: { settings: AccountSettings; initials: string }) {
+  const [pending, startTransition] = useTransition()
+  const [result, setResult] = useState<ActionResult | null>(null)
+  const [preview, setPreview] = useState<string | null>(settings.avatarUrl)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  function onChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setResult(null)
+
+    const formData = new FormData()
+    formData.set("avatar", file)
+    startTransition(async () => {
+      const res = await updateAvatarAction(formData)
+      setResult({ ok: res.ok, error: res.error })
+      if (res.ok && res.url) setPreview(res.url)
+    })
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      <Avatar src={preview ?? undefined} label={initials} size={56} />
+      <div className="flex flex-col gap-1.5">
+        <span className="text-[14px] font-semibold text-ink">Profile photo</span>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={pending}
+            onClick={() => inputRef.current?.click()}
+          >
+            {pending ? "Uploading…" : preview ? "Change photo" : "Upload photo"}
+          </Button>
+          <StatusLine result={result} />
+        </div>
+        <span className="font-mono text-[10px] text-ink-3">JPG, PNG, WebP or GIF, up to 5 MB.</span>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        className="hidden"
+        onChange={onChange}
+      />
+    </div>
   )
 }
 
