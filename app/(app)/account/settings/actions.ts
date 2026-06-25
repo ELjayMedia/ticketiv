@@ -8,6 +8,65 @@ export interface ActionResult {
   error?: string
 }
 
+const AVATAR_BUCKET = "avatars"
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024 // 5 MB
+const ALLOWED_AVATAR_TYPES: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+}
+
+/** Profile photo — upload to the avatars bucket and persist the public URL. */
+export async function updateAvatarAction(
+  formData: FormData,
+): Promise<ActionResult & { url?: string }> {
+  const supabase = createServerSupabaseClient()
+  if (!supabase) return { ok: false, error: "Not available" }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: "Not signed in" }
+
+  const file = formData.get("avatar")
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Choose an image to upload." }
+  }
+  if (file.size > MAX_AVATAR_BYTES) {
+    return { ok: false, error: "Image must be 5 MB or smaller." }
+  }
+  const ext = ALLOWED_AVATAR_TYPES[file.type]
+  if (!ext) {
+    return { ok: false, error: "Use a JPG, PNG, WebP or GIF image." }
+  }
+
+  const path = `${user.id}/avatar-${Date.now()}.${ext}`
+  const { error: uploadError } = await supabase.storage
+    .from(AVATAR_BUCKET)
+    .upload(path, file, { cacheControl: "3600", upsert: true, contentType: file.type })
+
+  if (uploadError) {
+    console.error("[account-settings] avatar upload:", uploadError)
+    return { ok: false, error: "Could not upload that image." }
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path)
+
+  const { error } = await supabase.rpc("fn_set_my_avatar_url", { p_url: publicUrl })
+  if (error) {
+    console.error("[account-settings] set avatar url:", error)
+    return { ok: false, error: "Could not save your photo." }
+  }
+
+  revalidatePath("/account/settings")
+  revalidatePath("/me")
+  revalidatePath("/profile")
+  return { ok: true, url: publicUrl }
+}
+
 /** Profile section — name, surname, display name, phone. */
 export async function updateProfileAction(formData: FormData): Promise<ActionResult> {
   const supabase = createServerSupabaseClient()
@@ -66,6 +125,7 @@ export async function updateNotificationPrefsAction(formData: FormData): Promise
 
   revalidatePath("/account/settings")
   revalidatePath("/me")
+  revalidatePath("/me/reminders")
   return { ok: true }
 }
 

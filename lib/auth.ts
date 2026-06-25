@@ -106,6 +106,7 @@ export async function getCurrentUserProfile(): Promise<UserSession | null> {
         email: user.email ?? "",
         full_name: fullName,
         role: profile.role,
+        avatar_url: profile.avatar_url ?? null,
         phone: profile.phone,
         created_at: profile.created_at ?? undefined,
       },

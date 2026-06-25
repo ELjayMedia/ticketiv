@@ -1,5 +1,5 @@
-// Map MyProfile → ProfileScreen props (Quiet). Avatar URL not yet in schema,
-// so we let the screen fall back to initials.
+// Map MyProfile → ProfileScreen props (Quiet). The screen falls back to
+// initials when there is no avatar URL.
 
 import type { MyProfile } from "@/lib/data/attendee/profile"
 
@@ -26,7 +26,7 @@ export function mapProfile(p: MyProfile): ProfileUserProp {
   return {
     name: p.name,
     handle: p.handle ?? p.email?.split("@")[0] ?? "you",
-    photo: "",
+    photo: p.avatarUrl ?? "",
     joinedLabel: joined ? `joined ${JOINED_FMT.format(joined)}` : "",
     stats: {
       events: p.upcomingTickets,

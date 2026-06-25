@@ -3,6 +3,7 @@
 
 import "server-only"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { localeLabel } from "@/lib/i18n/locales"
 
 export interface MyProfile {
   id: string
@@ -10,6 +11,7 @@ export interface MyProfile {
   name: string
   handle: string | null
   joinedAt: string | null
+  avatarUrl: string | null
   upcomingTickets: number
   favouritesCount: number
   friendsCount: number
@@ -18,6 +20,7 @@ export interface MyProfile {
   unreadNotifications: number
   savedPaymentMethods: number
   remindersEnabled: boolean
+  locale: string
   language: string
 }
 
@@ -44,7 +47,7 @@ export async function getMyProfile(): Promise<MyProfile | null> {
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("display_name, name, surname, created_at")
+      .select("display_name, name, surname, created_at, locale, avatar_url")
       .eq("user_id", user.id)
       .maybeSingle(),
     supabase
@@ -108,6 +111,7 @@ export async function getMyProfile(): Promise<MyProfile | null> {
     name: fullName,
     handle: handleRes.data?.handle ?? null,
     joinedAt: profile?.created_at ?? user.created_at ?? null,
+    avatarUrl: profile?.avatar_url ?? null,
     upcomingTickets: upcomingRes.count ?? 0,
     favouritesCount: favRes.count ?? 0,
     friendsCount: friendsRes.count ?? 0,
@@ -116,6 +120,7 @@ export async function getMyProfile(): Promise<MyProfile | null> {
     unreadNotifications: notificationsRes.count ?? 0,
     savedPaymentMethods: paymentsRes.count ?? 0,
     remindersEnabled: Boolean(remindersEnabled),
-    language: "English",
+    locale: profile?.locale ?? "en",
+    language: localeLabel(profile?.locale),
   }
 }
