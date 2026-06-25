@@ -173,26 +173,6 @@ export function DesktopDiscover({
         </button>
       </form>
 
-      {/* Trust rail */}
-      <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-1.5 rounded-[var(--radius-md)] border border-line bg-surface px-4 py-2.5 text-[12px] text-ink-2">
-        <span className="inline-flex items-center gap-1.5">
-          <Icon name="check" size={12} className="text-success" />
-          Verified organizers only
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <Icon name="check" size={12} className="text-success" />
-          Secure checkout · cards &amp; mobile money
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <Icon name="check" size={12} className="text-success" />
-          Free transfers · refund per organizer policy
-        </span>
-        <span className="flex-1" />
-        <Link href="/help" className="font-mono text-[11px] text-accent hover:underline">
-          How it works ›
-        </Link>
-      </div>
-
       {/* Page header */}
       <div className="flex items-end justify-between pb-4">
         <div>
