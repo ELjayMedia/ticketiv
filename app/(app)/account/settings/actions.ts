@@ -66,6 +66,7 @@ export async function updateNotificationPrefsAction(formData: FormData): Promise
 
   revalidatePath("/account/settings")
   revalidatePath("/me")
+  revalidatePath("/me/reminders")
   return { ok: true }
 }
 

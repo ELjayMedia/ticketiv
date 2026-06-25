@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Icon, type IconName } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
 import { Avatar } from "@/components/quiet/ui/primitives";
+import { ShareButton, ShareRow } from "@/components/quiet/screens/profile/profile-actions";
 
 interface ProfileScreenProps {
   user?: ProfileUser | null;
@@ -29,6 +30,8 @@ interface SettingRow {
   label: string;
   value?: string;
   href?: string;
+  /** Form POST endpoint — used for sign out so it works without a client island. */
+  action?: string;
   accent?: boolean;
   description?: string;
 }
@@ -140,8 +143,12 @@ export function ProfileScreen({ user, appVersion = "current" }: ProfileScreenPro
             </span>
           )}
         </Link>
-        <button aria-label="Share profile" className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"><Icon name="share" size={20} /></button>
-        <button aria-label="Filters" className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"><Icon name="filter" size={20} /></button>
+        <ShareButton
+          handle={user.handle}
+          name={user.name}
+          label="Share profile"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"
+        />
       </header>
 
       <section className="flex flex-col items-center gap-2.5 px-5 pt-2 pb-4">
@@ -151,9 +158,13 @@ export function ProfileScreen({ user, appVersion = "current" }: ProfileScreenPro
             label={user.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
             size={84}
           />
-          <button className="absolute bottom-0 right-0 inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-surface bg-accent text-white" aria-label="Edit avatar">
+          <Link
+            href="/account/settings"
+            className="absolute bottom-0 right-0 inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-surface bg-accent text-white"
+            aria-label="Edit profile photo"
+          >
             <Icon name="plus" size={14} strokeWidth={3} />
-          </button>
+          </Link>
         </div>
         <div className="flex flex-col items-center gap-0.5">
           <h1 className="text-h2 text-[20px]">{user.name}</h1>
@@ -169,6 +180,29 @@ export function ProfileScreen({ user, appVersion = "current" }: ProfileScreenPro
       </section>
 
       <SettingsList title="Account" rows={accountRows} />
+
+      <section className="px-5 pb-4">
+        <div className="text-label mb-2">Friends</div>
+        <Card className="overflow-hidden p-0">
+          <Link
+            href="/friends"
+            className="flex items-center gap-2.5 border-b border-line px-3.5 py-3 transition-colors hover:bg-bg"
+          >
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-accent-soft text-accent">
+              <Icon name="users" size={14} />
+            </span>
+            <span className="flex flex-1 flex-col gap-0.5">
+              <span className="text-[14px] font-medium">My friends</span>
+              <span className="font-mono text-[10px] leading-relaxed text-ink-3">
+                {user.stats.friends} connected
+              </span>
+            </span>
+            <Icon name="chevR" size={14} className="text-ink-3" />
+          </Link>
+          <ShareRow handle={user.handle} name={user.name} description="Share an invite link" />
+        </Card>
+      </section>
+
       <SettingsList title="Your activity" rows={activityRows} />
 
       <section className="px-5 pb-4">
@@ -197,9 +231,14 @@ export function ProfileScreen({ user, appVersion = "current" }: ProfileScreenPro
             accent: user.unreadNotifications > 0,
           },
           { icon: "settings" as IconName, label: "Account settings", href: "/account/settings" },
-          { icon: "fileText" as IconName, label: "Help center" },
-          { icon: "share" as IconName, label: "Send feedback" },
-          { icon: "close" as IconName, label: "Sign out", accent: true },
+          { icon: "spark" as IconName, label: "Help centre", href: "/help" },
+          { icon: "fileText" as IconName, label: "Privacy policy", href: "/privacy" },
+          {
+            icon: "share" as IconName,
+            label: "Send feedback",
+            href: "mailto:support@ticketiv.com?subject=Ticketiv%20feedback",
+          },
+          { icon: "close" as IconName, label: "Sign out", accent: true, action: "/api/sign-out" },
         ]}
         plain
       />
@@ -235,7 +274,14 @@ function SettingsList({ title, rows, plain }: { title: string; rows: SettingRow[
               {!(r.accent && plain) && <Icon name="chevR" size={14} className="text-ink-3" />}
             </div>
           );
-          return r.href ? <Link key={r.label} href={r.href}>{Inner}</Link> : <button key={r.label} type="button" className="block w-full text-left">{Inner}</button>;
+          if (r.href) return <Link key={r.label} href={r.href}>{Inner}</Link>;
+          if (r.action)
+            return (
+              <form key={r.label} action={r.action} method="post" className="block w-full">
+                <button type="submit" className="block w-full text-left">{Inner}</button>
+              </form>
+            );
+          return <button key={r.label} type="button" className="block w-full text-left">{Inner}</button>;
         })}
       </Card>
     </section>

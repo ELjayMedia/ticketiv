@@ -3,6 +3,7 @@
 
 import "server-only"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { localeLabel } from "@/lib/i18n/locales"
 
 export interface MyProfile {
   id: string
@@ -18,6 +19,7 @@ export interface MyProfile {
   unreadNotifications: number
   savedPaymentMethods: number
   remindersEnabled: boolean
+  locale: string
   language: string
 }
 
@@ -44,7 +46,7 @@ export async function getMyProfile(): Promise<MyProfile | null> {
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("display_name, name, surname, created_at")
+      .select("display_name, name, surname, created_at, locale")
       .eq("user_id", user.id)
       .maybeSingle(),
     supabase
@@ -116,6 +118,7 @@ export async function getMyProfile(): Promise<MyProfile | null> {
     unreadNotifications: notificationsRes.count ?? 0,
     savedPaymentMethods: paymentsRes.count ?? 0,
     remindersEnabled: Boolean(remindersEnabled),
-    language: "English",
+    locale: profile?.locale ?? "en",
+    language: localeLabel(profile?.locale),
   }
 }

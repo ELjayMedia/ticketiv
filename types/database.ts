@@ -1804,6 +1804,27 @@ export type Database = {
           },
         ]
       }
+      notification_mutes: {
+        Row: {
+          id: string
+          muted_at: string
+          notification_type: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          muted_at?: string
+          notification_type: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          muted_at?: string
+          notification_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           attempts: number
@@ -2949,51 +2970,11 @@ export type Database = {
           },
         ]
       }
-      push_subscriptions: {
-        Row: {
-          id: string
-          user_id: string
-          endpoint: string
-          p256dh: string
-          auth: string
-          user_agent: string | null
-          created_at: string
-          last_seen_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          endpoint: string
-          p256dh: string
-          auth: string
-          user_agent?: string | null
-          created_at?: string
-          last_seen_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          endpoint?: string
-          p256dh?: string
-          auth?: string
-          user_agent?: string | null
-          created_at?: string
-          last_seen_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "push_subscriptions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       profiles: {
         Row: {
           created_at: string
           display_name: string | null
+          locale: string
           name: string | null
           phone: string | null
           role: Database["public"]["Enums"]["app_role"]
@@ -3003,6 +2984,7 @@ export type Database = {
         Insert: {
           created_at?: string
           display_name?: string | null
+          locale?: string
           name?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["app_role"]
@@ -3012,10 +2994,44 @@ export type Database = {
         Update: {
           created_at?: string
           display_name?: string | null
+          locale?: string
           name?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           surname?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          last_seen_at: string
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          last_seen_at?: string
+          p256dh: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          last_seen_at?: string
+          p256dh?: string
+          user_agent?: string | null
           user_id?: string
         }
         Relationships: []
@@ -5793,6 +5809,13 @@ export type Database = {
         }
         Returns: Json
       }
+      fn_anon_users_to_delete: {
+        Args: never
+        Returns: {
+          reason: string
+          user_id: string
+        }[]
+      }
       fn_apply_pricing_to_order: {
         Args: { p_order_id: string }
         Returns: undefined
@@ -5810,6 +5833,13 @@ export type Database = {
           p_user_id: string
         }
         Returns: Json
+      }
+      fn_bulk_check_in: {
+        Args: { p_order_item_ids: string[]; p_org_id: string }
+        Returns: {
+          checked_count: number
+          skipped_count: number
+        }[]
       }
       fn_check_in:
         | {
@@ -5842,6 +5872,17 @@ export type Database = {
             }
             Returns: Json
           }
+      fn_claim_email_broadcast: {
+        Args: {
+          p_audience: string
+          p_event_id: string
+          p_org_id: string
+          p_recipient_count: number
+          p_subject: string
+        }
+        Returns: string
+      }
+      fn_cleanup_anon_users: { Args: { p_dry_run?: boolean }; Returns: Json }
       fn_cleanup_anonymous_users: {
         Args: { p_dry_run?: boolean }
         Returns: Json
@@ -5941,6 +5982,11 @@ export type Database = {
           total_exec_ms: number
         }[]
       }
+      fn_deactivate_payment_method: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
+      fn_duplicate_event: { Args: { p_event_id: string }; Returns: Json }
       fn_enqueue_webhook: {
         Args: { p_event_type: string; p_org_id?: string; p_payload: Json }
         Returns: number
@@ -5958,6 +6004,15 @@ export type Database = {
           tickets_sold: number
         }[]
       }
+      fn_finalize_email_broadcast: {
+        Args: {
+          p_failed_count: number
+          p_notification_id: string
+          p_sent_count: number
+        }
+        Returns: undefined
+      }
+      fn_get_my_notification_mutes: { Args: never; Returns: string[] }
       fn_get_my_order_totals: {
         Args: { p_order_id: string }
         Returns: Database["public"]["CompositeTypes"]["order_totals"]
@@ -6040,6 +6095,14 @@ export type Database = {
         }
       }
       fn_mint_tickets: { Args: { p_order_item_id: string }; Returns: undefined }
+      fn_my_waitlist_positions: {
+        Args: never
+        Returns: {
+          position: number
+          queue_length: number
+          waitlist_id: string
+        }[]
+      }
       fn_org_finance_summary: { Args: { p_org_id: string }; Returns: Json }
       fn_pos_charge: {
         Args: {
@@ -6108,28 +6171,19 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      fn_request_payout: {
-        Args: { p_amount_cents: number; p_org_id: string }
-        Returns: Json
-      }
-      fn_rollup_metrics: { Args: { p_day: string }; Returns: undefined }
-      fn_seller_completed_resales: {
-        Args: { p_seller_ids: string[] }
-        Returns: { seller_id: string; completed_count: number }[]
-      }
-      fn_store_push_subscription: {
-        Args: {
-          p_endpoint: string
-          p_p256dh: string
-          p_auth: string
-          p_user_agent?: string
-        }
-        Returns: undefined
-      }
       fn_remove_push_subscription: {
         Args: { p_endpoint: string }
         Returns: undefined
       }
+      fn_request_payout: {
+        Args: { p_amount_cents: number; p_org_id: string }
+        Returns: Json
+      }
+      fn_request_transfer_by_email: {
+        Args: { p_order_item_id: string; p_recipient_email: string }
+        Returns: Json
+      }
+      fn_rollup_metrics: { Args: { p_day: string }; Returns: undefined }
       fn_scan_ticket: {
         Args: {
           p_attempt_id?: string
@@ -6172,6 +6226,27 @@ export type Database = {
           venue_name: string
         }[]
       }
+      fn_seller_completed_resales: {
+        Args: { p_seller_ids: string[] }
+        Returns: {
+          completed_count: number
+          seller_id: string
+        }[]
+      }
+      fn_set_default_payment_method: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
+      fn_set_my_locale: { Args: { p_locale: string }; Returns: undefined }
+      fn_store_push_subscription: {
+        Args: {
+          p_auth: string
+          p_endpoint: string
+          p_p256dh: string
+          p_user_agent?: string
+        }
+        Returns: undefined
+      }
       fn_ticket_is_transferable: {
         Args: { p_order_item_id: string }
         Returns: boolean
@@ -6182,6 +6257,15 @@ export type Database = {
           remaining: number
           ticket_type_id: string
         }[]
+      }
+      fn_toggle_favourite: {
+        Args: { p_event_id: string; p_save: boolean }
+        Returns: Json
+      }
+      fn_toggle_notification_mute: { Args: { p_type: string }; Returns: Json }
+      fn_transition_event_status: {
+        Args: { p_event_id: string; p_new_status: string }
+        Returns: Json
       }
       fn_update_my_notification_preferences: {
         Args: {
@@ -6253,6 +6337,16 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { check_user_id?: string }; Returns: boolean }
+      issue_comp_ticket: {
+        Args: {
+          p_note?: string
+          p_org_id: string
+          p_qty?: number
+          p_recipient_email: string
+          p_ticket_type_id: string
+        }
+        Returns: string
+      }
       order_ledger_summary_fn: {
         Args: never
         Returns: {
@@ -6345,7 +6439,7 @@ export type Database = {
         | "organizer_kiosk"
         | "scanner_unassigned"
       event_format: "single_day" | "multi_day"
-      event_status: "draft" | "published" | "archived"
+      event_status: "draft" | "published" | "archived" | "paused"
       fee_payer: "buyer" | "organizer"
       order_item_status:
         | "pending"
@@ -6384,7 +6478,7 @@ export type Database = {
         | "failed"
         | "cancelled"
       refund_type: "full" | "partial"
-      sales_channel: "online" | "pos" | "reseller" | "import"
+      sales_channel: "online" | "pos" | "reseller" | "import" | "comp"
       seat_hold_status: "active" | "released" | "expired"
       series_type: "tour" | "recurring" | "season"
       ticket_type_sales_status: "on_sale" | "paused" | "sold_out" | "hidden"
@@ -6562,7 +6656,7 @@ export const Constants = {
         "scanner_unassigned",
       ],
       event_format: ["single_day", "multi_day"],
-      event_status: ["draft", "published", "archived"],
+      event_status: ["draft", "published", "archived", "paused"],
       fee_payer: ["buyer", "organizer"],
       order_item_status: [
         "pending",
@@ -6600,7 +6694,7 @@ export const Constants = {
         "cancelled",
       ],
       refund_type: ["full", "partial"],
-      sales_channel: ["online", "pos", "reseller", "import"],
+      sales_channel: ["online", "pos", "reseller", "import", "comp"],
       seat_hold_status: ["active", "released", "expired"],
       series_type: ["tour", "recurring", "season"],
       ticket_type_sales_status: ["on_sale", "paused", "sold_out", "hidden"],
