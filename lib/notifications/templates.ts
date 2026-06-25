@@ -15,6 +15,7 @@ export interface TicketIssuedPayload {
   totalLabel: string
   ticketUrl: string
   receiptUrl: string
+  claimUrl?: string
 }
 
 export interface EmailContent {
@@ -38,11 +39,16 @@ export function renderEmail(p: TicketIssuedPayload): EmailContent {
     "",
     `Open your ticket: ${p.ticketUrl}`,
     `Receipt: ${p.receiptUrl}`,
+    p.claimUrl ? `Save your tickets for later: ${p.claimUrl}` : "",
     "",
     "Present the QR code in your ticket at the gate.",
   ]
     .filter(Boolean)
     .join("\n")
+
+  const claimHtml = p.claimUrl
+    ? `<p style="color:#6b6b70;font-size:12px;margin:12px 0 0">Want to recover these later or open them on another device? <a href="${p.claimUrl}" style="color:#0a0a0c;font-weight:600">Save your tickets to an email account</a>.</p>`
+    : ""
 
   const html = `
   <div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;color:#0a0a0c">
@@ -55,6 +61,7 @@ export function renderEmail(p: TicketIssuedPayload): EmailContent {
     </table>
     <a href="${p.ticketUrl}" style="display:inline-block;margin:20px 0 8px;background:#0a0a0c;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600;font-size:14px">Open your ticket</a>
     <p style="color:#6b6b70;font-size:12px;margin:8px 0 0">Your QR code opens in the ticket page and stays valid up to entry. <a href="${p.receiptUrl}" style="color:#6b6b70">View receipt</a>.</p>
+    ${claimHtml}
   </div>`
 
   return { subject, html, text }
@@ -68,6 +75,7 @@ export function renderWhatsApp(p: TicketIssuedPayload): string {
     `Ticket: ${p.ticketType}${p.ticketCount > 1 ? ` ×${p.ticketCount}` : ""}`,
     p.eventDate ? `Date: ${p.eventDate}` : "",
     `Open ticket: ${p.ticketUrl}`,
+    p.claimUrl ? `Save your tickets: ${p.claimUrl}` : "",
     "Please present the QR code at the gate.",
   ]
     .filter(Boolean)
@@ -76,5 +84,6 @@ export function renderWhatsApp(p: TicketIssuedPayload): string {
 
 // SMS fallback — short, single secure link, basic-device safe.
 export function renderSms(p: TicketIssuedPayload): string {
-  return `Your Ticketiv ticket for ${p.eventName} is ready: ${p.ticketUrl} Show the QR code at the gate.`
+  const save = p.claimUrl ? ` Save later: ${p.claimUrl}` : ""
+  return `Your Ticketiv ticket for ${p.eventName} is ready: ${p.ticketUrl}${save} Show the QR code at the gate.`
 }

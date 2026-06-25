@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { sendTransactionalNotification } from "@/lib/notifications/transactional"
 import { issueOrderToken, issueTicketToken } from "@/lib/ticket-tokens"
 
-// TICK-65 / TICK-72 / TICK-77 — transactional ticket delivery entry point.
+// TICK-65 / TICK-72 / TICK-77 / TICK-78 — transactional ticket delivery entry point.
 //
 // After an order's tickets are issued, build the `ticket_issued` payload and
 // hand off to the provider-agnostic notification layer (email via Resend,
@@ -120,6 +120,7 @@ export async function deliverTicketsForOrder(orderId: string): Promise<void> {
         totalLabel: moneySzl(order.total_cents ?? 0, order.currency ?? "SZL"),
         ticketUrl,
         receiptUrl: `${TICKET_BASE_URL}/orders/${order.id}/confirmation`,
+        claimUrl: `${TICKET_BASE_URL}/tickets`,
       },
       recipient: { email: recipientEmail, phone, emailOptIn },
     })
