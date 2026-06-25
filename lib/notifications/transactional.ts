@@ -22,8 +22,10 @@ import type { Json } from "@/types/database"
 // - In-app My Tickets is the source of truth; this layer is additive.
 // - Recipients get a *secure live ticket link*, never an embedded QR.
 // - External failure NEVER blocks ticket issuance — this never throws.
-// - Email is the only live external channel today; WhatsApp + SMS are
-//   provider-ready stubs that report `skipped` until configured.
+// - Email, WhatsApp and SMS are all live adapters (real provider HTTP calls);
+//   each reports `skipped` when its provider env vars are unset, so an
+//   unconfigured channel degrades gracefully rather than failing. See
+//   docs/NOTIFICATIONS.md for per-provider configuration.
 
 export type NotificationChannel = "whatsapp" | "sms" | "email" | "in_app"
 
