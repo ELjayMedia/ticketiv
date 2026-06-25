@@ -8,8 +8,9 @@ import { issueOrderToken, issueTicketToken } from "@/lib/ticket-tokens"
 // TICK-65 / TICK-72 / TICK-77 — transactional ticket delivery entry point.
 //
 // After an order's tickets are issued, build the `ticket_issued` payload and
-// hand off to the provider-agnostic notification layer (email live via Resend;
-// WhatsApp + SMS provider-ready). The actual QR is never sent — buyers get a
+// hand off to the provider-agnostic notification layer (email via Resend,
+// WhatsApp and SMS all live adapters — see docs/NOTIFICATIONS.md). The actual
+// QR is never sent — buyers get a
 // secure order-level bundle link (/o/{token}) and per-attendee shares continue
 // to use per-ticket links (/t/{token}). In-app My Tickets remains the source of
 // truth.
