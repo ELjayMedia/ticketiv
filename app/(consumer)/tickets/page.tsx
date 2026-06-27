@@ -1,6 +1,8 @@
 import { MyTickets } from "@/components/quiet/screens/tickets/my-tickets";
 import { SaveMyTicketsCard } from "@/components/quiet/screens/tickets/save-my-tickets-card";
+import { ClaimGuestOrdersCard } from "@/components/quiet/screens/tickets/claim-guest-orders-card";
 import { getMyTickets } from "@/lib/data/attendee/tickets";
+import { findClaimableGuestOrders } from "@/lib/data/attendee/guest-claim";
 import { getInboundTransfers } from "@/lib/data/attendee/inbound-transfers";
 import { getMyTransferHistory } from "@/lib/data/attendee/transfers";
 import { mapMyTickets } from "@/lib/mappers/tickets";
@@ -68,11 +70,19 @@ export default async function TicketsPage() {
   } = supabase ? await supabase.auth.getUser() : { data: { user: null } };
   const isAnonymous = Boolean(user && (user as { is_anonymous?: boolean }).is_anonymous);
 
+  // Verified accounts: surface any guest orders bought under a prior session.
+  const claimable = user && !isAnonymous ? await findClaimableGuestOrders() : [];
+
   return (
     <div className="mx-auto flex max-w-[480px] flex-col gap-4">
       {isAnonymous && (
         <div className="px-4 pt-4">
           <SaveMyTicketsCard />
+        </div>
+      )}
+      {claimable.length > 0 && (
+        <div className="px-4 pt-4">
+          <ClaimGuestOrdersCard count={claimable.length} />
         </div>
       )}
       <MyTickets
