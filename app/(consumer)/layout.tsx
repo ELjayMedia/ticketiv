@@ -1,6 +1,8 @@
 import { DesktopNav } from "@/components/quiet/shell/desktop-nav";
 import { MobileTabBar } from "@/components/quiet/shell/mobile-shell";
 import { getCurrentUserProfile } from "@/lib/auth";
+import { getMyContexts } from "@/lib/data/identity/contexts";
+import { getActiveContextKey } from "@/lib/identity/context";
 
 /**
  * Consumer surface layout.
@@ -20,6 +22,10 @@ export default async function ConsumerLayout({
   const userSession = await getCurrentUserProfile();
   const profile = userSession?.profile ?? null;
 
+  const [contexts, activeContextKey] = profile
+    ? await Promise.all([getMyContexts(), getActiveContextKey()])
+    : [[], null];
+
   const displayName = profile?.full_name
     ? profile.full_name.split(" ")[0]
     : profile?.email
@@ -34,6 +40,8 @@ export default async function ConsumerLayout({
           signedIn={!!profile}
           displayName={displayName}
           avatarUrl={profile?.avatar_url ?? undefined}
+          contexts={contexts}
+          activeContextKey={activeContextKey}
         />
       </div>
 
