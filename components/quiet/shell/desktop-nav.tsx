@@ -6,6 +6,8 @@ import { Icon } from "@/components/quiet/ui/icon";
 import { Button } from "@/components/quiet/ui/button";
 import { Avatar } from "@/components/quiet/ui/primitives";
 import { SearchTrigger } from "@/components/quiet/search/search-overlay";
+import { ContextSwitcher } from "@/components/quiet/shell/context-switcher";
+import type { UserContext } from "@/lib/data/identity/contexts";
 import { cn } from "@/lib/cn";
 
 const NAV_ITEMS = [
@@ -24,6 +26,10 @@ interface DesktopNavProps {
   signedIn?: boolean;
   /** Signed-in user's display name (first name preferred) */
   displayName?: string;
+  /** Context-switcher entries from the effective-roles resolver (TICK-275). */
+  contexts?: UserContext[];
+  /** The user's last-used context key (cookie-persisted). */
+  activeContextKey?: string | null;
 }
 
 export function DesktopNav({
@@ -31,8 +37,11 @@ export function DesktopNav({
   avatarUrl,
   signedIn = false,
   displayName,
+  contexts = [],
+  activeContextKey = null,
 }: DesktopNavProps) {
   const pathname = usePathname() ?? "";
+  const showSwitcher = contexts.length > 1;
 
   return (
     <header className="border-b border-line bg-surface">
@@ -44,6 +53,13 @@ export function DesktopNav({
           </span>
           <span className="text-[15px] font-semibold tracking-tight">ticketiv</span>
         </Link>
+
+        {showSwitcher && (
+          <>
+            <span className="h-4 w-px bg-line" />
+            <ContextSwitcher contexts={contexts} activeKey={activeContextKey} />
+          </>
+        )}
 
         {breadcrumb ? (
           <>
