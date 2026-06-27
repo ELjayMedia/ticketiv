@@ -7,8 +7,8 @@ export default async function NotFound() {
   const userSession = await getCurrentUserProfile();
   const isAuthenticated = !!userSession?.profile;
 
-  const dashboardLink = userSession?.profile?.role === "organizer" ? "/dashboard" : "/app/tickets";
-  const dashboardLabel = userSession?.profile?.role === "organizer" ? "Go to dashboard" : "View my tickets";
+  const dashboardLink = "/app/tickets";
+  const dashboardLabel = "View my tickets";
 
   return (
     <div className="min-h-dvh flex flex-col bg-bg text-ink">

@@ -2978,7 +2978,6 @@ export type Database = {
           locale: string
           name: string | null
           phone: string | null
-          role: Database["public"]["Enums"]["app_role"]
           surname: string | null
           user_id: string
         }
@@ -2989,7 +2988,6 @@ export type Database = {
           locale?: string
           name?: string | null
           phone?: string | null
-          role?: Database["public"]["Enums"]["app_role"]
           surname?: string | null
           user_id: string
         }
@@ -3000,7 +2998,6 @@ export type Database = {
           locale?: string
           name?: string | null
           phone?: string | null
-          role?: Database["public"]["Enums"]["app_role"]
           surname?: string | null
           user_id?: string
         }
