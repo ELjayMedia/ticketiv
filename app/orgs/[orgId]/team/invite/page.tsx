@@ -2,37 +2,39 @@
 
 import * as React from "react"
 import { use } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Icon } from "@/components/quiet/ui/icon"
 import { Button } from "@/components/quiet/ui/button"
 import { Card } from "@/components/quiet/ui/card"
+import { createOrgInviteAction } from "./actions"
+
+type OrgRole = "organizer_admin" | "organizer_staff" | "finance"
+
+const ROLES: { value: OrgRole; label: string; description: string }[] = [
+  { value: "organizer_admin", label: "Admin", description: "Full access except billing" },
+  { value: "organizer_staff", label: "Staff", description: "Manage events, view orders" },
+  { value: "finance", label: "Finance", description: "Payouts and financial reports" },
+]
 
 export default function TeamInvitePage({ params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = use(params)
-  const router = useRouter()
   const [email, setEmail] = React.useState("")
-  const [role, setRole] = React.useState("organizer_staff")
+  const [role, setRole] = React.useState<OrgRole>("organizer_staff")
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const [sent, setSent] = React.useState(false)
+  const [inviteLink, setInviteLink] = React.useState<string | null>(null)
+  const [copied, setCopied] = React.useState(false)
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault()
-    if (!email.trim()) return
     setSubmitting(true)
     setError(null)
     try {
-      const res = await fetch(`/api/orgs/${orgId}/team/invite`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), role }),
-      })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        setError(body.error ?? "Failed to send invite. Please try again.")
+      const res = await createOrgInviteAction({ orgId, role, email: email || null })
+      if (!res.ok || !res.token) {
+        setError(res.error ?? "Failed to create invite. Please try again.")
       } else {
-        setSent(true)
+        setInviteLink(`${window.location.origin}/invite/${res.token}`)
       }
     } catch {
       setError("Network error. Please check your connection.")
@@ -41,31 +43,49 @@ export default function TeamInvitePage({ params }: { params: Promise<{ orgId: st
     }
   }
 
-  const ROLES = [
-    { value: "organizer_admin", label: "Admin", description: "Full access except billing" },
-    { value: "organizer_staff", label: "Staff", description: "Manage events, view orders" },
-    { value: "scanner", label: "Scanner", description: "Gate scanner only" },
-    { value: "pos", label: "POS", description: "Door sales only" },
-  ]
+  async function copyLink() {
+    if (!inviteLink) return
+    try {
+      await navigator.clipboard.writeText(inviteLink)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      /* clipboard unavailable */
+    }
+  }
 
-  if (sent) {
+  if (inviteLink) {
     return (
       <main className="flex flex-1 items-center justify-center p-6">
-        <div className="flex max-w-sm flex-col items-center gap-4 text-center">
+        <div className="flex w-full max-w-md flex-col items-center gap-4 text-center">
           <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-accent-soft text-accent">
             <Icon name="check" size={28} />
           </span>
-          <h1 className="text-h1">Invite sent</h1>
+          <h1 className="text-h1">Invite ready</h1>
           <p className="text-[14px] text-ink-3">
-            {email} will receive an email to join your team.
+            Share this link with your {ROLES.find((r) => r.value === role)?.label.toLowerCase()}. Whoever
+            opens it and signs in joins your team — it works even if their login email differs.
           </p>
+          <Card className="flex w-full items-center gap-2 p-3">
+            <span className="flex-1 truncate text-left font-mono text-[12px] text-ink-2">{inviteLink}</span>
+            <Button variant="default" size="sm" onClick={copyLink}>
+              <Icon name={copied ? "check" : "copy"} size={14} />
+              {copied ? "Copied" : "Copy"}
+            </Button>
+          </Card>
           <div className="flex gap-2">
-            <Button variant="default" onClick={() => { setSent(false); setEmail(""); }}>
+            <Button
+              variant="default"
+              onClick={() => {
+                setInviteLink(null)
+                setEmail("")
+              }}
+            >
               Invite another
             </Button>
-            <Button variant="accent" onClick={() => router.push(`/orgs/${orgId}/team`)}>
-              Back to team
-            </Button>
+            <Link href={`/orgs/${orgId}/team`}>
+              <Button variant="accent">Back to team</Button>
+            </Link>
           </div>
         </div>
       </main>
@@ -87,16 +107,18 @@ export default function TeamInvitePage({ params }: { params: Promise<{ orgId: st
 
         <form onSubmit={handleInvite} className="flex flex-col gap-5">
           <Card className="p-5">
-            <label className="text-label mb-1.5 block">Email address</label>
+            <label className="text-label mb-1.5 block">Email address (optional)</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="colleague@example.com"
-              required
               className="h-10 w-full rounded-[var(--radius-md)] border border-line bg-surface px-3 text-[14px] placeholder:text-ink-3 focus:border-accent focus:outline-none"
               disabled={submitting}
             />
+            <p className="mt-1.5 text-[12px] text-ink-3">
+              For your reference only — the invite binds to whoever accepts the link.
+            </p>
           </Card>
 
           <Card className="p-5">
@@ -130,11 +152,13 @@ export default function TeamInvitePage({ params }: { params: Promise<{ orgId: st
           </Card>
 
           {error && (
-            <p role="alert" className="text-[13px] text-danger">{error}</p>
+            <p role="alert" className="text-[13px] text-danger">
+              {error}
+            </p>
           )}
 
-          <Button type="submit" variant="accent" disabled={!email.trim() || submitting}>
-            {submitting ? "Sending…" : "Send invite"}
+          <Button type="submit" variant="accent" disabled={submitting}>
+            {submitting ? "Creating…" : "Create invite link"}
           </Button>
         </form>
       </div>

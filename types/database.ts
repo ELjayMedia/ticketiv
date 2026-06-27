@@ -1804,6 +1804,167 @@ export type Database = {
           },
         ]
       }
+      membership_invites: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          created_at: string
+          created_by: string
+          event_id: string | null
+          expires_at: string
+          id: string
+          invited_email: string | null
+          kind: string
+          org_id: string
+          revoked_at: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          created_by?: string
+          event_id?: string | null
+          expires_at?: string
+          id?: string
+          invited_email?: string | null
+          kind: string
+          org_id: string
+          revoked_at?: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          token?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          created_by?: string
+          event_id?: string | null
+          expires_at?: string
+          id?: string
+          invited_email?: string | null
+          kind?: string
+          org_id?: string
+          revoked_at?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "membership_invites_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "admin_event_readiness"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "membership_invites_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_catalog"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "membership_invites_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_summary"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "membership_invites_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "membership_invites_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "mv_event_sales"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "membership_invites_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_artist_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "membership_invites_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_kpis"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "membership_invites_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "membership_invites_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_sales_public"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "membership_invites_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "membership_invites_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_inbound_transfers"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "membership_invites_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_my_tickets"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "membership_invites_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_organizer_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "membership_invites_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_public_event_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "membership_invites_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "membership_invites_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "v_organizer_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_mutes: {
         Row: {
           id: string
@@ -5801,6 +5962,7 @@ export type Database = {
       }
       current_user_org_ids: { Args: never; Returns: string[] }
       current_user_uid: { Args: never; Returns: string }
+      fn_accept_membership_invite: { Args: { p_token: string }; Returns: Json }
       fn_admin_schedule_webhook_dispatch: {
         Args: {
           p_anon_jwt: string
@@ -5936,6 +6098,37 @@ export type Database = {
           order_items: Json
           order_row: Json
         }[]
+      }
+      fn_create_membership_invite: {
+        Args: {
+          p_event_id?: string
+          p_expires_in?: string
+          p_invited_email?: string
+          p_kind: string
+          p_org_id: string
+          p_role: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: {
+          accepted_at: string | null
+          accepted_by: string | null
+          created_at: string
+          created_by: string
+          event_id: string | null
+          expires_at: string
+          id: string
+          invited_email: string | null
+          kind: string
+          org_id: string
+          revoked_at: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          token: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "membership_invites"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       fn_create_organization: {
         Args: { p_currency?: string; p_name: string }
@@ -6182,6 +6375,10 @@ export type Database = {
       fn_request_transfer_by_email: {
         Args: { p_order_item_id: string; p_recipient_email: string }
         Returns: Json
+      }
+      fn_revoke_membership_invite: {
+        Args: { p_id: string }
+        Returns: undefined
       }
       fn_rollup_metrics: { Args: { p_day: string }; Returns: undefined }
       fn_scan_ticket: {
