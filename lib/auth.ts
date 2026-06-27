@@ -6,7 +6,6 @@ export interface UserProfile {
   id: string
   email: string
   full_name: string | null
-  role: string
   avatar_url?: string | null
   phone?: string | null
   created_at?: string
@@ -105,7 +104,6 @@ export async function getCurrentUserProfile(): Promise<UserSession | null> {
         id: profile.user_id,
         email: user.email ?? "",
         full_name: fullName,
-        role: profile.role,
         avatar_url: profile.avatar_url ?? null,
         phone: profile.phone,
         created_at: profile.created_at ?? undefined,
@@ -144,10 +142,8 @@ export async function getUserWorkspace(): Promise<"public" | "app" | "organizer"
       return "organizer"
     }
 
-    // Check if user is staff/scanner
-    if (userProfile.profile.role === "staff") {
-      return "scanner"
-    }
+    // Scanner routing is derived from event_staff assignments elsewhere; the
+    // legacy profiles.role signal was retired in TICK-268.
 
     // Default to attendee app
     return "app"
