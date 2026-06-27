@@ -24,8 +24,26 @@ export const PERMISSION_ACTIONS = {
 
 export type PermissionAction = (typeof PERMISSION_ACTIONS)[keyof typeof PERMISSION_ACTIONS]
 
-export type OrgRole = "admin" | "organizer" | "finance" | "staff" | "member"
-export type EventRole = "admin" | "organizer" | "finance" | "scanner" | "staff"
+// Standardized app_role values (TICK-268) plus legacy values kept for back-compat.
+export type OrgRole =
+  | "organizer_owner"
+  | "organizer_admin"
+  | "organizer_staff"
+  | "finance"
+  | "organizer"
+  | "admin"
+  | "staff"
+  | "member"
+export type EventRole =
+  | "scanner"
+  | "organizer_scanner"
+  | "organizer_owner"
+  | "organizer_admin"
+  | "organizer_staff"
+  | "finance"
+  | "organizer"
+  | "admin"
+  | "staff"
 export type GlobalRole = "admin" | "moderator"
 
 export interface OrgMembership {
@@ -65,34 +83,46 @@ export interface UserAuthzContext {
 // INTERNAL HELPERS - Role to Action Mapping
 // ============================================================================
 
-// Helper: Check if org role can manage org
+// Role groups, per the TICK-277 Owner/Finance/Manager/Door matrix. Legacy
+// "admin"/"organizer" are treated as full (owner-equivalent) for back-compat.
+const OWNER_ROLES = ["organizer_owner", "admin", "organizer"]
+const MANAGER_ROLES = ["organizer_admin", "organizer_staff"]
+const FINANCE_ROLES = ["finance"]
+const DOOR_ROLES = ["scanner", "organizer_scanner"]
+
+function inAny(role: string | null, ...sets: string[][]): boolean {
+  if (!role) return false
+  return sets.some((set) => set.includes(role))
+}
+
+// Owner + Manager: manage events, ticket types, orders, attendees.
 function orgRoleCanManage(role: OrgRole | null): boolean {
-  return role === "admin" || role === "organizer"
+  return inAny(role, OWNER_ROLES, MANAGER_ROLES)
 }
 
-// Helper: Check if org role can view payouts
+// Owner + Finance only: payouts and financial reports.
 function orgRoleCanViewPayouts(role: OrgRole | null): boolean {
-  return role === "admin" || role === "finance" || role === "organizer"
+  return inAny(role, OWNER_ROLES, FINANCE_ROLES)
 }
 
-// Helper: Check if org role can manage staff
+// Owner + Admin: team management (matches the is_org_admin server boundary).
 function orgRoleCanManageStaff(role: OrgRole | null): boolean {
-  return role === "admin" || role === "organizer"
+  return inAny(role, OWNER_ROLES, ["organizer_admin"])
 }
 
-// Helper: Check if org role can create events
+// Owner + Manager: create events.
 function orgRoleCanCreateEvents(role: OrgRole | null): boolean {
-  return role === "admin" || role === "organizer"
+  return inAny(role, OWNER_ROLES, MANAGER_ROLES)
 }
 
-// Helper: Check if event role can scan tickets
+// Door (event scanner) + Owner/Manager: scan tickets.
 function eventRoleCanScan(role: EventRole | null): boolean {
-  return role === "scanner" || role === "admin" || role === "organizer"
+  return inAny(role, DOOR_ROLES, OWNER_ROLES, MANAGER_ROLES)
 }
 
-// Helper: Check if event role can manage event
+// Owner + Manager: manage an event (door-only roles cannot).
 function eventRoleCanManage(role: EventRole | null): boolean {
-  return role === "admin" || role === "organizer"
+  return inAny(role, OWNER_ROLES, MANAGER_ROLES)
 }
 
 // ============================================================================
