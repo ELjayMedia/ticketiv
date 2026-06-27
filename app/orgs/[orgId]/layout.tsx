@@ -46,6 +46,21 @@ export default async function OrgLayout({
   }
 
   if (!membership) {
+    // Door staff (event_staff only, not an org member) shouldn't see the org
+    // workspace — send them straight to Scan instead of a dead 403. (TICK-277)
+    const { data: doorStaff } = await supabase
+      .from("event_staff")
+      .select("event_id, events!inner(org_id)")
+      .eq("user_id", userId)
+      .eq("active", true)
+      .eq("events.org_id", orgId)
+      .limit(1)
+      .maybeSingle()
+
+    if (doorStaff) {
+      return redirect("/scan")
+    }
+
     console.warn("[v0] User is not a member of org:", userId, orgId)
     return redirect("/403")
   }
