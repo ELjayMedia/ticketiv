@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation"
+import { requireOrgCapability } from "@/lib/data/organizer/access"
 import { TeamRoles } from "@/components/quiet/screens/team/team-roles"
 import { getOrgTeam } from "@/lib/data/organizer/team"
 import { mapTeam } from "@/lib/mappers/team"
@@ -12,6 +13,7 @@ export default async function OrgTeamPage({
   params: Promise<{ orgId: string }>
 }) {
   const { orgId } = await params
+  await requireOrgCapability(orgId, "staff")
   const team = await getOrgTeam(orgId)
   if (!team) {
     notFound()

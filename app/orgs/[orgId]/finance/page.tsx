@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
+import { requireOrgCapability } from "@/lib/data/organizer/access"
 
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
@@ -97,6 +98,7 @@ export default async function OrgFinancePage({
   searchParams: Promise<{ from?: string; to?: string }>
 }) {
   const { orgId } = await params
+  await requireOrgCapability(orgId, "payouts")
   const { from: rawFrom, to: rawTo } = await searchParams
 
   const supabase = createServerSupabaseClient()

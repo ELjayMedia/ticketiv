@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
+import { requireOrgCapability } from "@/lib/data/organizer/access"
 
 import { Button } from "@/components/quiet/ui/button"
 import { Card, CardBody } from "@/components/quiet/ui/card"
@@ -22,6 +23,7 @@ interface PricingPlan {
 
 export default async function PricingPlansPage({ params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params
+  await requireOrgCapability(orgId, "manage")
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return redirect("/login")

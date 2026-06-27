@@ -6,6 +6,7 @@ import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
 import { OnboardingChecklist } from "@/components/quiet/screens/organizer/onboarding-checklist"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { getMyOrgCapabilities } from "@/lib/data/organizer/access"
 import { getOrgEventKPIs } from "@/lib/adapters/kpis"
 import DashboardCharts from "./dashboard-charts"
 
@@ -13,6 +14,7 @@ export const dynamic = "force-dynamic"
 
 export default async function OrgDashboardPage({ params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params
+  const caps = await getMyOrgCapabilities(orgId)
   const supabase = createServerSupabaseClient()
 
   if (!supabase) {
@@ -121,14 +123,18 @@ export default async function OrgDashboardPage({ params }: { params: Promise<{ o
             </p>
           </div>
           <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-            <Link href={`/orgs/${orgId}/finance`} className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 px-4 py-2.5 text-sm font-semibold text-ink hover:bg-bg">
-              <Icon name="wallet" size={14} />
-              Finance
-            </Link>
-            <Link href={`/orgs/${orgId}/events/new`} className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-ink bg-ink px-4 py-2.5 text-sm font-semibold text-surface hover:bg-ink-2">
-              <Icon name="plus" size={14} />
-              New event
-            </Link>
+            {caps.payouts && (
+              <Link href={`/orgs/${orgId}/finance`} className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 px-4 py-2.5 text-sm font-semibold text-ink hover:bg-bg">
+                <Icon name="wallet" size={14} />
+                Finance
+              </Link>
+            )}
+            {caps.manage && (
+              <Link href={`/orgs/${orgId}/events/new`} className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-ink bg-ink px-4 py-2.5 text-sm font-semibold text-surface hover:bg-ink-2">
+                <Icon name="plus" size={14} />
+                New event
+              </Link>
+            )}
           </div>
         </div>
 

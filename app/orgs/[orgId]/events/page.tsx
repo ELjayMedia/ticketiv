@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
+import { requireOrgCapability } from "@/lib/data/organizer/access"
 
 import { Card, CardBody } from "@/components/quiet/ui/card"
 import { Icon } from "@/components/quiet/ui/icon"
@@ -21,6 +22,7 @@ export default async function OrgEventsPage({
   searchParams: Promise<{ q?: string; status?: string }>
 }) {
   const { orgId } = await params
+  await requireOrgCapability(orgId, "manage")
   const { q: rawQ, status: rawStatus } = await searchParams
 
   const supabase = createServerSupabaseClient()

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { requireOrgCapability } from "@/lib/data/organizer/access"
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
@@ -19,6 +20,7 @@ export default async function PayoutAccountsPage({
   params: Promise<{ orgId: string }>
 }) {
   const { orgId } = await params
+  await requireOrgCapability(orgId, "payouts")
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return redirect("/login")

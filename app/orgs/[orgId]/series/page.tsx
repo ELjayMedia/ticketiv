@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { format } from "date-fns"
+import { requireOrgCapability } from "@/lib/data/organizer/access"
 
 import { Card, CardBody } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
@@ -30,6 +31,7 @@ export default async function OrgSeriesPage({
   params: Promise<{ orgId: string }>
 }) {
   const { orgId } = await params
+  await requireOrgCapability(orgId, "manage")
   const series = await listOrgSeries(orgId)
 
   return (
