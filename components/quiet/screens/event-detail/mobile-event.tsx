@@ -10,6 +10,7 @@ import { Chip } from "@/components/quiet/ui/chip";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider, Avatar, AvatarStack } from "@/components/quiet/ui/primitives";
 import { Button } from "@/components/quiet/ui/button";
+import { trackBuyerFunnel } from "@/components/analytics/buyer-funnel";
 import {
   formatPrice,
   formatGoingCount,
@@ -25,6 +26,7 @@ export interface MobileEventProps {
 }
 
 export interface MobileEventData {
+  eventUuid: string;
   id: string;
   title: string;
   category: string;
@@ -304,7 +306,21 @@ export function MobileEvent({ event }: MobileEventProps) {
             <input type="hidden" name="eventSlug" value={event.id} />
             <input type="hidden" name="quantity" value="1" />
             <input type="hidden" name="ticketTypeId" value={selectedTypeId ?? ""} />
-            <button type="submit" className="flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90">Get tickets <Icon name="arrowR" size={16} /></button>
+            <button
+              type="submit"
+              onClick={() =>
+                trackBuyerFunnel("add_to_checkout", {
+                  event_id: event.eventUuid,
+                  event_slug: event.id,
+                  ticket_type_id: selectedTypeId ?? null,
+                  quantity: 1,
+                  surface: "mobile_event_detail",
+                })
+              }
+              className="flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90"
+            >
+              Get tickets <Icon name="arrowR" size={16} />
+            </button>
           </form>
         </div>
       )}

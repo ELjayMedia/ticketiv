@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { LiveEventShell } from "@/components/quiet/screens/event-detail/live-event-shell";
 import { HoldExpiredBanner } from "@/components/quiet/screens/event-detail/hold-expired-banner";
 import { RecordRecentlyViewed } from "@/components/quiet/screens/event-detail/record-recently-viewed";
+import { EventViewTracker } from "@/components/analytics/buyer-funnel";
 import { getPublicEventBySlug } from "@/lib/adapters/events";
 import { mapEventDetail, mapDesktopEventDetail } from "@/lib/mappers/event-detail";
 import type { EventLineupRow, EventFriendRow } from "@/lib/mappers/event-detail";
@@ -147,6 +148,13 @@ export default async function EventDetailPage({
     <>
       {hold_expired === "1" && <HoldExpiredBanner />}
       <RecordRecentlyViewed {...recentSnapshot} />
+      <EventViewTracker
+        eventId={row.id}
+        eventSlug={row.slug}
+        category={row.category ?? null}
+        fromPriceMinor={row.min_price_cents ?? null}
+        ticketTypeCount={ticketTypes.length}
+      />
       <LiveEventShell eventId={row.id} mobile={mobile} desktop={desktop} initialStats={liveStats} />
     </>
   );

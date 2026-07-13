@@ -89,6 +89,7 @@ export function mapEventDetail(row: EventPublicView, input: MapInput = {}): Mobi
   const start = row.starts_at ? new Date(row.starts_at) : null;
 
   return {
+    eventUuid: row.id,
     id: row.slug,
     title: row.title,
     category: row.category ?? "Event",

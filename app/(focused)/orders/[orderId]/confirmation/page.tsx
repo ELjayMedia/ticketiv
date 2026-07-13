@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { OrderConfirmation } from "@/components/quiet/screens/confirmation/order-confirmation";
 import { RealtimeOrderStatus } from "@/components/quiet/screens/confirmation/realtime-order-status";
 import { SaveMyTicketsCard } from "@/components/quiet/screens/tickets/save-my-tickets-card";
+import { PaymentOutcomeTracker } from "@/components/analytics/buyer-funnel";
 import { getOrderForBuyer } from "@/lib/data/attendee/orders";
 import { mapConfirmation } from "@/lib/mappers/confirmation";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
@@ -44,6 +45,13 @@ export default async function ConfirmationPage({
   return (
     <div className="h-dvh">
       <RealtimeOrderStatus orderId={orderId} active={props.state === "pending"} />
+      <PaymentOutcomeTracker
+        orderId={props.id}
+        state={props.state}
+        eventSlug={props.eventSlug}
+        quantity={props.quantity}
+        totalMinor={props.totalMinor}
+      />
       <OrderConfirmation order={props} />
       {isAnonymous && props.state !== "pending" && (
         <div className="mx-auto max-w-[480px] px-4 pb-6">
