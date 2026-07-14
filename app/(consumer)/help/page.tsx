@@ -79,12 +79,12 @@ export default function HelpCentrePage() {
             <span className="text-[14px] font-semibold text-ink">Contact support</span>
             <span className="font-mono text-[11px] text-ink-3">We usually reply within a day.</span>
           </div>
-          <a
-            href="mailto:support@ticketiv.com?subject=Ticketiv%20support"
+          <Link
+            href="/support"
             className="inline-flex items-center justify-center rounded-[var(--radius)] border border-line-2 px-3 py-2 text-[13px] font-semibold text-ink hover:bg-bg"
           >
-            Email us
-          </a>
+            Open support
+          </Link>
         </div>
       </Card>
 

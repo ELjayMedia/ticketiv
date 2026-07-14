@@ -199,6 +199,23 @@ export function OrderConfirmation({ order }: OrderConfirmationProps) {
             </section>
           )}
 
+          <section className="px-5 pb-4">
+            <Link href="/support" className="block">
+              <Card className="flex items-center gap-3 p-3" flat>
+                <div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-bg text-ink-3">
+                  <Icon name="spark" size={16} />
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="text-[13px] font-semibold">Need help with this order?</span>
+                  <span className="font-mono text-[11px] text-ink-3">
+                    Email support@ticketiv.com for payment, delivery, or entry support
+                  </span>
+                </div>
+                <Icon name="chevR" size={16} className="text-ink-3" />
+              </Card>
+            </Link>
+          </section>
+
           {/* Receipt */}
           <section className="pb-8">
             <div className="flex items-center justify-center gap-1.5 font-mono text-[11px] text-ink-3">

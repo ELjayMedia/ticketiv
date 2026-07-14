@@ -572,7 +572,7 @@ export function MobileCheckout({
                 Buyer guarantee
               </button>
               <span className="text-ink-3">·</span>
-              <Link href="/help" className="text-[12px] font-semibold text-accent">
+              <Link href="/support" className="text-[12px] font-semibold text-accent">
                 Contact support
               </Link>
             </div>
