@@ -42,6 +42,8 @@ Every support case should capture:
 2. Ask gate staff to record the scanner device and scan timestamp.
 3. Review the ticket status and latest scan result.
 4. If the buyer appears valid, escalate to event operations for on-site resolution.
+   Gate staff should follow `docs/GATE_STAFF_TRAINING.md` for lane handling,
+   supervisor lookup, override authority, and manual admission logging.
 5. If the ticket was already used, explain the finding and keep an audit trail for organiser
    review.
 
