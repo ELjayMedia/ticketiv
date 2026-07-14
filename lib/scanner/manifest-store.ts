@@ -14,8 +14,23 @@ export interface ScannerManifest {
   items: ScannerManifestItem[]
 }
 
+export interface ScannerManifestAccess {
+  deviceId?: string | null
+  sessionId?: string | null
+}
+
 const manifestKey = (eventId: string) => `ticketiv_scanner_manifest:${eventId}`
 const usedKey = (eventId: string) => `ticketiv_scanner_local_used:${eventId}`
+
+function manifestUrl(eventId: string, params?: ScannerManifestAccess & { since?: string }) {
+  const search = new URLSearchParams({ eventId })
+  if (params?.since) search.set("since", params.since)
+  if (params?.deviceId && params?.sessionId) {
+    search.set("deviceId", params.deviceId)
+    search.set("sessionId", params.sessionId)
+  }
+  return `/api/scanner/manifest?${search.toString()}`
+}
 
 export function loadManifest(eventId: string): ScannerManifest | null {
   if (typeof window === "undefined" || !eventId) return null
@@ -98,13 +113,14 @@ export function mergeManifestDelta(existing: ScannerManifest, delta: ScannerMani
   return merged
 }
 
-export async function deltaFetchManifest(eventId: string, since: string): Promise<ScannerManifest | null> {
+export async function deltaFetchManifest(
+  eventId: string,
+  since: string,
+  access?: ScannerManifestAccess,
+): Promise<ScannerManifest | null> {
   if (!eventId || !since) return null
   try {
-    const response = await fetch(
-      `/api/scanner/manifest?eventId=${encodeURIComponent(eventId)}&since=${encodeURIComponent(since)}`,
-      { cache: "no-store" },
-    )
+    const response = await fetch(manifestUrl(eventId, { ...access, since }), { cache: "no-store" })
     if (!response.ok) return null
     return (await response.json()) as ScannerManifest
   } catch (error) {
@@ -113,10 +129,10 @@ export async function deltaFetchManifest(eventId: string, since: string): Promis
   }
 }
 
-export async function refreshManifest(eventId: string): Promise<ScannerManifest | null> {
+export async function refreshManifest(eventId: string, access?: ScannerManifestAccess): Promise<ScannerManifest | null> {
   if (!eventId) return null
   try {
-    const response = await fetch(`/api/scanner/manifest?eventId=${encodeURIComponent(eventId)}`, {
+    const response = await fetch(manifestUrl(eventId, access), {
       cache: "no-store",
     })
     if (!response.ok) return null

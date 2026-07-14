@@ -13,7 +13,7 @@ import { NextResponse, type NextRequest } from "next/server"
  *   /onboarding — requires session, allowed without a handle
  *
  * Protected (auth required, optionally + handle):
- *   /orgs/*, /app/*, /events/create, /scan/*, /admin/*, /dashboard,
+ *   /orgs/*, /app/*, /events/create, /admin/*, /dashboard,
  *   /payouts, /finance, /profile, /payments, /checkout/*, /orders/*, /tickets/*, /devices
  *
  * Safety:
@@ -70,6 +70,13 @@ export async function updateSession(request: NextRequest) {
   // Public browsing routes must never wait on Supabase auth. The page/API code
   // can still load public data, but the middleware should not block rendering.
   if (isPublicBrowsing || isRootOrEvent) {
+    return response
+  }
+
+  // Scanner shells can be opened by dedicated devices provisioned with setup
+  // codes. The scanner API routes enforce either a user session or an active
+  // device_session before returning event/scanning data.
+  if (path === "/scan" || path.startsWith("/scan/")) {
     return response
   }
 

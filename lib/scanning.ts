@@ -1,12 +1,14 @@
 import "server-only"
 
 import { createHash } from "crypto"
+import { verifyDeviceScannerAccess } from "@/lib/scanner/device-session-auth"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export interface ValidateQrCodeInput {
   code: string
   eventId: string
-  userId: string
+  userId?: string | null
   deviceId?: string | null
   sessionId?: string | null
   gate?: string | null
@@ -87,7 +89,7 @@ export async function validateQrCode(input: ValidateQrCodeInput): Promise<Valida
     return { valid: true, status: "offline", message: "Scan stored offline" }
   }
 
-  const supabase = createServerSupabaseClient()
+  const supabase = input.userId ? createServerSupabaseClient() : createAdminClient()
   if (!supabase) {
     return { valid: false, status: "error", message: "Supabase is not configured" }
   }
@@ -95,7 +97,7 @@ export async function validateQrCode(input: ValidateQrCodeInput): Promise<Valida
   const { data, error } = await (supabase.rpc as any)("fn_scan_ticket", {
     p_ticket_code: input.code,
     p_event_id:    input.eventId,
-    p_scanned_by:  input.userId,
+    p_scanned_by:  input.userId ?? null,
     p_device_id:   input.deviceId ?? null,
     p_session_id:  input.sessionId ?? null,
     p_gate:        input.gate ?? null,
@@ -121,7 +123,7 @@ export async function validateQrCode(input: ValidateQrCodeInput): Promise<Valida
   }
 }
 
-export async function syncOfflineScans(scans: OfflineScanPayload[], userId: string) {
+export async function syncOfflineScans(scans: OfflineScanPayload[], userId: string | null) {
   if (!scans || scans.length === 0) return { inserted: 0, results: [] }
 
   const results: Array<{ code: string; outcome: string; idempotent: boolean }> = []
@@ -287,6 +289,41 @@ export async function loadScannerManifest(eventId: string, userId: string, since
   if (!authorized) throw new Error("You are not authorized to scan tickets for this event")
 
   let query = supabase
+    .from("order_items")
+    .select("id, ticket_code, ticket_type_id, status, checked_in_at, ticket_types!inner(event_id), orders!inner(status)")
+    .eq("ticket_types.event_id", eventId)
+    .eq("orders.status", "paid")
+    .not("status", "in", "(revoked,refunded)")
+
+  if (since) {
+    query = query.gte("updated_at", since)
+  }
+
+  const { data, error } = await query
+
+  if (error) throw new Error("Unable to load scanner manifest")
+
+  return (data ?? []).map((row: any) => ({
+    ticket_code:      row.ticket_code,
+    order_item_id:    row.id,
+    ticket_type_id:   row.ticket_type_id,
+    status:           row.status,
+    already_checked_in: Boolean(row.checked_in_at) || row.status === "checked_in",
+  }))
+}
+
+export async function loadScannerManifestForDevice(
+  eventId: string,
+  deviceId: string,
+  sessionId: string,
+  since?: string,
+): Promise<ScannerManifestItem[]> {
+  await verifyDeviceScannerAccess({ eventId, deviceId, sessionId })
+
+  const admin = createAdminClient()
+  if (!isUuid(eventId)) throw new Error("A valid eventId is required")
+
+  let query = admin
     .from("order_items")
     .select("id, ticket_code, ticket_type_id, status, checked_in_at, ticket_types!inner(event_id), orders!inner(status)")
     .eq("ticket_types.event_id", eventId)

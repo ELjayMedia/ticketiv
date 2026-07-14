@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/quiet/ui/button"
-import { Card, CardBody } from "@/components/quiet/ui/card"
+import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { FormField } from "@/components/quiet/ui/form"
 import { Icon } from "@/components/quiet/ui/icon"
 import { cn } from "@/lib/cn"
@@ -13,7 +13,9 @@ import {
   loadDeviceId,
   loadDeviceName,
   loadSelectedEvent,
+  saveDeviceId,
   saveDeviceName,
+  saveDeviceSession,
   saveSelectedEvent,
   type SelectedScannerEvent,
 } from "@/lib/scanner/session-store"
@@ -78,6 +80,9 @@ export default function ScannerSetupPage() {
   const [events, setEvents] = useState<AssignedEvent[] | null>(null)
   const [eventsError, setEventsError] = useState<string | null>(null)
   const [deviceId, setDeviceId] = useState("device-…")
+  const [setupCode, setSetupCode] = useState("")
+  const [claimingCode, setClaimingCode] = useState(false)
+  const [claimError, setClaimError] = useState<string | null>(null)
 
   // Restore any previously-persisted setup so the staff member doesn't
   // have to retype things between shift breaks or page reloads.
@@ -110,6 +115,52 @@ export default function ScannerSetupPage() {
 
   const selectedEvent = events?.find((event) => event.id === eventId) ?? null
 
+  const handleClaimSetupCode = async () => {
+    if (!setupCode.trim() || claimingCode) return
+    setClaimingCode(true)
+    setClaimError(null)
+
+    try {
+      const currentDeviceId = loadDeviceId()
+      const response = await fetch("/api/scanner/provision", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: setupCode,
+          deviceId: currentDeviceId,
+          label: deviceName.trim() || undefined,
+        }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data?.error ?? "Unable to provision scanner device")
+
+      const provisionedEvent: SelectedScannerEvent = {
+        id: data.event.id,
+        title: data.event.title,
+        venueName: data.event.venue_name,
+        startsAt: data.event.starts_at,
+      }
+      const provisionedName = (data.device.label ?? deviceName.trim()) || "Scanner device"
+
+      saveDeviceId(data.device.id)
+      saveDeviceName(provisionedName)
+      saveSelectedEvent(provisionedEvent)
+      saveDeviceSession({
+        id: data.session.id,
+        deviceId: data.device.id,
+        eventId: data.event.id,
+        startedAt: data.session.started_at,
+        deviceBound: true,
+      })
+
+      router.push("/scan")
+    } catch (error: any) {
+      setClaimError(error?.message ?? "Unable to provision scanner device")
+    } finally {
+      setClaimingCode(false)
+    }
+  }
+
   const handleComplete = () => {
     saveDeviceName(deviceName.trim())
     if (selectedEvent) {
@@ -141,6 +192,36 @@ export default function ScannerSetupPage() {
     </Card>
   )
 
+  const setupCodeCard = (
+    <Card>
+      <CardBody className="flex flex-col gap-4">
+        <StepHeader title="Use setup code" description="Provision this scanner for an event without a personal login." />
+        <FormField
+          label="Setup code"
+          placeholder="ABC-123"
+          value={setupCode}
+          onChange={(e) => setSetupCode(e.target.value.toUpperCase())}
+        />
+        <Button
+          variant="primary"
+          size="md"
+          onClick={handleClaimSetupCode}
+          disabled={!setupCode.trim() || claimingCode}
+          block
+        >
+          <Icon name="qr" size={14} />
+          {claimingCode ? "Provisioning…" : "Provision device"}
+        </Button>
+        {claimError && (
+          <>
+            <CardDivider />
+            <p role="alert" className="text-[13px] text-danger">{claimError}</p>
+          </>
+        )}
+      </CardBody>
+    </Card>
+  )
+
   const stepTwo = (
     <Card>
       <CardBody className="flex flex-col gap-5">
@@ -156,7 +237,7 @@ export default function ScannerSetupPage() {
           <p className="text-[13px] text-ink-3">Loading events…</p>
         ) : events.length === 0 ? (
           <p className="rounded-md border border-line bg-bg px-3 py-3 text-[13px] text-ink-3">
-            You aren't on the scanner staff for any active event. Ask the organizer to add you to <em>Event staff</em>.
+            You are not on the scanner staff for any active event. Ask the organizer to add you to <em>Event staff</em>.
           </p>
         ) : (
           <label className="flex flex-col gap-1">
@@ -246,6 +327,7 @@ export default function ScannerSetupPage() {
         </header>
 
         <div className="flex flex-col gap-6 p-4">
+          {setupCodeCard}
           <ProgressDots step={step} />
           {step === 1 && stepOne}
           {step === 2 && stepTwo}
@@ -261,6 +343,9 @@ export default function ScannerSetupPage() {
         </div>
         <div className="mb-12 flex justify-center">
           <ProgressDots step={step} />
+        </div>
+        <div className="mb-6">
+          {setupCodeCard}
         </div>
         {step === 1 && stepOne}
         {step === 2 && stepTwo}

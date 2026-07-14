@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { syncOfflineScans } from "@/lib/scanning"
+import { DeviceScannerAccessError, verifyDeviceScannerAccess } from "@/lib/scanner/device-session-auth"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export async function POST(request: Request) {
@@ -9,18 +10,46 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Supabase is not configured" }, { status: 500 })
   }
 
+  const body = await request.json().catch(() => ({}))
+  const scans = Array.isArray(body.scans) ? body.scans : []
+
   const {
     data: { session },
     error: sessionError,
   } = await supabase.auth.getSession()
 
-  if (sessionError || !session) {
-    return NextResponse.json({ error: "Scanner login required" }, { status: 401 })
+  if (sessionError) {
+    return NextResponse.json({ error: "Failed to verify scanner session" }, { status: 500 })
   }
 
-  const body = await request.json()
+  if (!session && scans.length > 0) {
+    const first = scans[0]
+    const sameSession = scans.every(
+      (scan: any) =>
+        scan?.eventId === first?.eventId &&
+        scan?.deviceId === first?.deviceId &&
+        scan?.sessionId === first?.sessionId,
+    )
+
+    if (!sameSession) {
+      return NextResponse.json({ error: "Offline scans must belong to one device session" }, { status: 400 })
+    }
+
+    try {
+      await verifyDeviceScannerAccess({
+        eventId: first?.eventId ? String(first.eventId) : null,
+        deviceId: first?.deviceId ? String(first.deviceId) : null,
+        sessionId: first?.sessionId ? String(first.sessionId) : null,
+      })
+    } catch (error) {
+      const message = error instanceof DeviceScannerAccessError ? error.message : "Scanner login required"
+      const status = error instanceof DeviceScannerAccessError ? error.status : 401
+      return NextResponse.json({ error: message }, { status })
+    }
+  }
+
   try {
-    const result = await syncOfflineScans(Array.isArray(body.scans) ? body.scans : [], session.user.id)
+    const result = await syncOfflineScans(scans, session?.user.id ?? null)
     return NextResponse.json(result)
   } catch (error: any) {
     return NextResponse.json({ error: error.message ?? "Unable to sync scans" }, { status: 400 })

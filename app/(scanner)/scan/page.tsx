@@ -26,7 +26,9 @@ import {
   type ScannerOutcomeTone,
 } from "@/lib/scanner/outcome-copy"
 import {
+  clearDeviceSession,
   clearSelectedEvent,
+  loadDeviceSession,
   loadDeviceId,
   loadDeviceName,
   loadSelectedEvent,
@@ -44,6 +46,7 @@ interface ScanResponse {
 
 interface OfflineScanPayload {
   code: string
+  eventId: string
   deviceId: string
   sessionId: string
   scannedAt: string
@@ -91,6 +94,7 @@ export default function ScannerPage() {
   const [result, setResult] = useState<ScanResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [deviceBound, setDeviceBound] = useState(false)
   const [offlineQueue, setOfflineQueue] = useState<OfflineScanPayload[]>([])
   const [manifest, setManifest] = useState<ScannerManifest | null>(null)
   const [manifestLoading, setManifestLoading] = useState(false)
@@ -108,12 +112,20 @@ export default function ScannerPage() {
     setHydrated(true)
     const ev = loadSelectedEvent()
     const name = loadDeviceName()
+    const storedSession = loadDeviceSession()
     setSelectedEvent(ev)
     setDeviceName(name)
+    if (ev && storedSession?.eventId === ev.id && storedSession.deviceId === deviceId) {
+      setSessionId(storedSession.id)
+      setDeviceBound(storedSession.deviceBound)
+    } else {
+      clearDeviceSession()
+      setDeviceBound(false)
+    }
     if (!ev) {
       router.replace("/scan/setup")
     }
-  }, [router])
+  }, [deviceId, router])
 
   useEffect(() => {
     setOfflineQueue(loadOfflineQueue())
@@ -135,7 +147,7 @@ export default function ScannerPage() {
     if (!eventId || !sessionId) return
     let cancelled = false
     setManifestLoading(true)
-    refreshManifest(eventId)
+    refreshManifest(eventId, deviceBound ? { deviceId, sessionId } : undefined)
       .then((fresh) => {
         if (cancelled || !fresh) return
         setManifest(fresh)
@@ -147,7 +159,7 @@ export default function ScannerPage() {
     return () => {
       cancelled = true
     }
-  }, [eventId, sessionId])
+  }, [deviceBound, deviceId, eventId, sessionId])
 
   // 60-second background delta sync while device is online
   useEffect(() => {
@@ -155,7 +167,7 @@ export default function ScannerPage() {
     const id = setInterval(async () => {
       if (!navigator.onLine) return
       const since = new Date(lastSyncAt).toISOString()
-      const delta = await deltaFetchManifest(eventId, since)
+      const delta = await deltaFetchManifest(eventId, since, deviceBound ? { deviceId, sessionId } : undefined)
       if (!delta) return
       setManifest((current) => {
         if (!current) return current
@@ -164,7 +176,7 @@ export default function ScannerPage() {
       setLastSyncAt(Date.now())
     }, 60_000)
     return () => clearInterval(id)
-  }, [eventId, lastSyncAt])
+  }, [deviceBound, deviceId, eventId, lastSyncAt, sessionId])
 
   // Tick every 30s so the "last synced X ago" label refreshes
   useEffect(() => {
@@ -173,7 +185,7 @@ export default function ScannerPage() {
   }, [])
 
   useEffect(() => {
-    if (!eventId || sessionId) return
+    if (!eventId || sessionId || deviceBound) return
     let cancelled = false
     async function createSession() {
       try {
@@ -193,7 +205,7 @@ export default function ScannerPage() {
     return () => {
       cancelled = true
     }
-  }, [deviceId, eventId, sessionId])
+  }, [deviceBound, deviceId, eventId, sessionId])
 
   // Best-effort session close on unmount. Explicit "End session" CTA below
   // is the canonical end-of-shift path.
@@ -203,15 +215,20 @@ export default function ScannerPage() {
       fetch("/api/scanner/session", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId }),
+        body: JSON.stringify({ sessionId, deviceId, eventId }),
       }).catch(() => undefined)
     }
-  }, [sessionId])
+  }, [deviceId, eventId, sessionId])
 
   const refreshRecentScans = useCallback(async () => {
     if (!eventId) return
     try {
-      const response = await fetch(`/api/scanner/scans?eventId=${encodeURIComponent(eventId)}&limit=10`, {
+      const params = new URLSearchParams({ eventId, limit: "10" })
+      if (deviceBound && sessionId) {
+        params.set("deviceId", deviceId)
+        params.set("sessionId", sessionId)
+      }
+      const response = await fetch(`/api/scanner/scans?${params.toString()}`, {
         cache: "no-store",
       })
       if (!response.ok) return
@@ -229,7 +246,7 @@ export default function ScannerPage() {
     } catch (error) {
       console.error("Failed to load recent scans", error)
     }
-  }, [eventId])
+  }, [deviceBound, deviceId, eventId, sessionId])
 
   useEffect(() => {
     refreshRecentScans()
@@ -238,6 +255,7 @@ export default function ScannerPage() {
   const queueOfflineScan = () => {
     const scan: OfflineScanPayload = {
       code,
+      eventId,
       deviceId,
       sessionId: sessionId ?? `offline-${deviceId}`,
       scannedAt: new Date().toISOString(),
@@ -257,7 +275,7 @@ export default function ScannerPage() {
     if (!eventId || manifestLoading) return
     if (lastSyncAt && navigator.onLine) {
       const since = new Date(lastSyncAt).toISOString()
-      const delta = await deltaFetchManifest(eventId, since)
+      const delta = await deltaFetchManifest(eventId, since, deviceBound ? { deviceId, sessionId } : undefined)
       if (delta) {
         setManifest((current) => {
           if (!current) return current
@@ -269,7 +287,7 @@ export default function ScannerPage() {
     }
     // Fall back to full refresh
     setManifestLoading(true)
-    const fresh = await refreshManifest(eventId)
+    const fresh = await refreshManifest(eventId, deviceBound ? { deviceId, sessionId } : undefined)
     setManifestLoading(false)
     if (fresh) {
       setManifest(fresh)
@@ -303,6 +321,7 @@ export default function ScannerPage() {
       markLocallyUsed(eventId, trimmedCode)
       const localScan: OfflineScanPayload = {
         code: trimmedCode,
+        eventId,
         deviceId,
         sessionId: sessionId ?? `offline-${deviceId}`,
         scannedAt,
@@ -370,14 +389,16 @@ export default function ScannerPage() {
         await fetch("/api/scanner/session", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId }),
+          body: JSON.stringify({ sessionId, deviceId, eventId }),
         })
       } catch {
         // Best-effort. Session will time out on the server side regardless.
       }
     }
     clearSelectedEvent()
+    clearDeviceSession()
     setSessionId(null)
+    setDeviceBound(false)
     setSelectedEvent(null)
     router.push("/scan/setup")
   }

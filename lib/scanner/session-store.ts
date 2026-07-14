@@ -18,12 +18,21 @@
 const DEVICE_ID_KEY = "ticketiv_scanner_device"
 const DEVICE_NAME_KEY = "ticketiv_scanner_device_name"
 const SELECTED_EVENT_KEY = "ticketiv_scanner_selected_event"
+const DEVICE_SESSION_KEY = "ticketiv_scanner_device_session"
 
 export interface SelectedScannerEvent {
   id: string
   title: string
   venueName: string | null
   startsAt: string | null
+}
+
+export interface ScannerDeviceSession {
+  id: string
+  deviceId: string
+  eventId: string
+  startedAt: string | null
+  deviceBound: boolean
 }
 
 function safeStorage(): Storage | null {
@@ -40,9 +49,13 @@ export function loadDeviceId(): string {
   if (!storage) return "web"
   const existing = storage.getItem(DEVICE_ID_KEY)
   if (existing) return existing
-  const generated = `device-${crypto.randomUUID()}`
+  const generated = crypto.randomUUID()
   storage.setItem(DEVICE_ID_KEY, generated)
   return generated
+}
+
+export function saveDeviceId(deviceId: string): void {
+  safeStorage()?.setItem(DEVICE_ID_KEY, deviceId)
 }
 
 export function loadDeviceName(): string | null {
@@ -69,4 +82,22 @@ export function saveSelectedEvent(event: SelectedScannerEvent): void {
 
 export function clearSelectedEvent(): void {
   safeStorage()?.removeItem(SELECTED_EVENT_KEY)
+}
+
+export function loadDeviceSession(): ScannerDeviceSession | null {
+  const raw = safeStorage()?.getItem(DEVICE_SESSION_KEY)
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as ScannerDeviceSession
+  } catch {
+    return null
+  }
+}
+
+export function saveDeviceSession(session: ScannerDeviceSession): void {
+  safeStorage()?.setItem(DEVICE_SESSION_KEY, JSON.stringify(session))
+}
+
+export function clearDeviceSession(): void {
+  safeStorage()?.removeItem(DEVICE_SESSION_KEY)
 }
