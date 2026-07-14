@@ -199,5 +199,6 @@ organizer representative for that event.
 | Concern | Document |
 |---|---|
 | Live event payment/scanner escalation | `docs/LIVE_EVENT_ESCALATION.md` |
+| Scanner hardware and manual fallback readiness | `docs/SCANNER_HARDWARE_READINESS.md` |
 | Payment rails and provider readiness | `docs/PAYMENTS.md` |
 | Notification channel readiness | `docs/NOTIFICATIONS.md` |

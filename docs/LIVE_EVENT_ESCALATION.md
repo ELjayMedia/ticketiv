@@ -178,5 +178,6 @@ Follow-up owners:
 ## Links
 
 - Payment/webhook recovery: `docs/RUNBOOK.md`
+- Scanner hardware readiness: `docs/SCANNER_HARDWARE_READINESS.md`
 - Payment rail status: `docs/PAYMENTS.md`
 - Notification channel status: `docs/NOTIFICATIONS.md`
