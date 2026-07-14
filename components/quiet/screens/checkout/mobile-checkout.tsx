@@ -584,15 +584,25 @@ export function MobileCheckout({
         )}
 
         {/* Terms */}
-        <label className="flex items-center gap-2 px-5 pb-4 text-[11px] text-ink-3">
+        <div className="flex items-start gap-2 px-5 pb-4 text-[11px] text-ink-3">
           <input
+            id="mobile-policy-acceptance"
             type="checkbox"
             checked={accepted}
             onChange={(e) => setAccepted(e.target.checked)}
-            className="accent-accent"
+            className="mt-0.5 accent-accent"
           />
-          <span>I accept the refund &amp; cancellation policy</span>
-        </label>
+          <span>
+            <label htmlFor="mobile-policy-acceptance">I accept the </label>
+            <Link href="/refund-policy" className="font-semibold text-accent hover:underline">
+              refund &amp; cancellation policy
+            </Link>{" "}
+            and{" "}
+            <Link href="/terms" className="font-semibold text-accent hover:underline">
+              Terms
+            </Link>
+          </span>
+        </div>
 
         <div className="h-20" />
       </div>

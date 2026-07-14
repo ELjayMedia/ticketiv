@@ -284,7 +284,11 @@ export function MobileEvent({ event }: MobileEventProps) {
               <span className="text-[13px] font-semibold">Need help?</span>
               <span className="font-mono text-[11px] text-ink-3">Secure checkout · refund policy · contact support</span>
             </div>
-            <Link href={event.supportUrl ?? "/help"} className="inline-flex items-center gap-1 text-[12px] font-semibold text-accent">Help <Icon name="chevR" size={12} /></Link>
+            <div className="flex flex-col items-end gap-1">
+              <Link href="/refund-policy" className="inline-flex items-center gap-1 text-[12px] font-semibold text-accent">Refunds <Icon name="chevR" size={12} /></Link>
+              <Link href="/terms" className="inline-flex items-center gap-1 text-[12px] font-semibold text-accent">Terms <Icon name="chevR" size={12} /></Link>
+              <Link href={event.supportUrl ?? "/help"} className="inline-flex items-center gap-1 text-[12px] font-semibold text-accent">Help <Icon name="chevR" size={12} /></Link>
+            </div>
           </Card>
         </section>
 

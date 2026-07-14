@@ -322,6 +322,19 @@ export function DesktopEvent({ event }: DesktopEventProps) {
                   Continue <Icon name="arrowR" size={14} />
                 </button>
               </form>
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 font-mono text-[11px] text-ink-3">
+                <Link href="/refund-policy" className="font-semibold text-accent hover:underline">
+                  Refund policy
+                </Link>
+                <span>·</span>
+                <Link href="/terms" className="font-semibold text-accent hover:underline">
+                  Terms
+                </Link>
+                <span>·</span>
+                <Link href={event.supportUrl ?? "/help"} className="font-semibold text-accent hover:underline">
+                  Help
+                </Link>
+              </div>
             </Card>
           )}
 

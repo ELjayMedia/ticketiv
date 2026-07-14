@@ -120,6 +120,14 @@ export default function HelpCentrePage() {
         <Link href="/privacy" className="text-accent hover:underline">
           Privacy policy
         </Link>
+        ,{" "}
+        <Link href="/terms" className="text-accent hover:underline">
+          Terms
+        </Link>
+        , and{" "}
+        <Link href="/refund-policy" className="text-accent hover:underline">
+          Refund policy
+        </Link>
         .
       </p>
     </main>
