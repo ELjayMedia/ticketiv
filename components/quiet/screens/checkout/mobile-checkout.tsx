@@ -16,6 +16,7 @@ import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
 import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/actions";
 import { describePromoFailure } from "@/lib/checkout/promo-copy";
 import { PromoCodeInput, type PromoResult } from "@/components/quiet/screens/checkout/promo-code-input";
+import { trackBuyerFunnel } from "@/components/analytics/buyer-funnel";
 
 /* ──────────────────────────────────────────────────────────────
  * Mobile checkout · `/events/[id]/checkout` on phones.
@@ -152,6 +153,12 @@ export function MobileCheckout({
     setSubmitError(null);
     if (!ticketTypeId) {
       setSubmitError("Select a ticket type before paying.");
+      trackBuyerFunnel("checkout_error", {
+        event_id: eventUuid,
+        event_slug: eventId,
+        reason: "missing_ticket_type",
+        surface: "mobile_checkout",
+      });
       return;
     }
     setSubmitting(true);
@@ -163,6 +170,12 @@ export function MobileCheckout({
     });
     if (!result.ok) {
       setSubmitError(result.error);
+      trackBuyerFunnel("checkout_error", {
+        event_id: eventUuid,
+        event_slug: eventId,
+        reason: result.error,
+        surface: "mobile_checkout",
+      });
       setSubmitting(false);
       return;
     }
@@ -170,11 +183,26 @@ export function MobileCheckout({
     // Buyer can choose not to follow the Paystack redirect and retry.
     if (result.promo && !result.promo.applied) {
       setPromoFeedback({ ok: false, message: describePromoFailure(result.promo.reason) });
+      trackBuyerFunnel("checkout_error", {
+        event_id: eventUuid,
+        event_slug: eventId,
+        reason: `promo_${result.promo.reason}`,
+        surface: "mobile_checkout",
+      });
       setSubmitting(false);
       return;
     }
+    trackBuyerFunnel("payment_redirect", {
+      event_id: eventUuid,
+      event_slug: eventId,
+      ticket_type_id: ticketTypeId,
+      quantity,
+      total_minor: total,
+      provider: result.checkoutUrl ? "paystack" : "internal",
+      surface: "mobile_checkout",
+    });
     if (result.checkoutUrl) {
-      window.location.href = result.checkoutUrl;
+      window.location.assign(result.checkoutUrl);
     } else {
       router.push(`/orders/${result.orderId}/confirmation`);
     }

@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { MobileCheckout } from "@/components/quiet/screens/checkout/mobile-checkout";
 import { DesktopCheckout } from "@/components/quiet/screens/checkout/desktop-checkout";
+import { CheckoutStartTracker } from "@/components/analytics/buyer-funnel";
 import { getPublicEventBySlug } from "@/lib/adapters/events";
 import {
   mapCheckoutEvent,
@@ -154,6 +155,12 @@ export default async function CheckoutPage({
 
   return (
     <>
+      <CheckoutStartTracker
+        eventId={row.id}
+        eventSlug={row.slug}
+        ticketTypeCount={mappedTypes.length}
+        hasHold={Boolean(holdCode)}
+      />
       <div className="h-dvh md:hidden">
         <MobileCheckout
           {...sharedProps}

@@ -13,6 +13,7 @@ import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
 import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/actions";
 import { describePromoFailure } from "@/lib/checkout/promo-copy";
 import { PromoCodeInput, type PromoResult } from "@/components/quiet/screens/checkout/promo-code-input";
+import { trackBuyerFunnel } from "@/components/analytics/buyer-funnel";
 
 /* ──────────────────────────────────────────────────────────────
  * Desktop checkout · `/events/[id]/checkout` on md+
@@ -115,6 +116,12 @@ export function DesktopCheckout({
     setSubmitError(null);
     if (!ticketTypeId) {
       setSubmitError("Select a ticket type before continuing.");
+      trackBuyerFunnel("checkout_error", {
+        event_id: eventUuid,
+        event_slug: eventId,
+        reason: "missing_ticket_type",
+        surface: "desktop_checkout",
+      });
       return;
     }
     setSubmitting(true);
@@ -126,16 +133,37 @@ export function DesktopCheckout({
     });
     if (!result.ok) {
       setSubmitError(result.error);
+      trackBuyerFunnel("checkout_error", {
+        event_id: eventUuid,
+        event_slug: eventId,
+        reason: result.error,
+        surface: "desktop_checkout",
+      });
       setSubmitting(false);
       return;
     }
     if (result.promo && !result.promo.applied) {
       setPromoFeedback(describePromoFailure(result.promo.reason));
+      trackBuyerFunnel("checkout_error", {
+        event_id: eventUuid,
+        event_slug: eventId,
+        reason: `promo_${result.promo.reason}`,
+        surface: "desktop_checkout",
+      });
       setSubmitting(false);
       return;
     }
+    trackBuyerFunnel("payment_redirect", {
+      event_id: eventUuid,
+      event_slug: eventId,
+      ticket_type_id: ticketTypeId,
+      quantity,
+      total_minor: total,
+      provider: result.checkoutUrl ? "paystack" : "internal",
+      surface: "desktop_checkout",
+    });
     if (result.checkoutUrl) {
-      window.location.href = result.checkoutUrl;
+      window.location.assign(result.checkoutUrl);
     } else {
       router.push(`/orders/${result.orderId}/confirmation`);
     }

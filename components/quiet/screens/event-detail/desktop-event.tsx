@@ -8,6 +8,7 @@ import { Chip } from "@/components/quiet/ui/chip";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider, Avatar } from "@/components/quiet/ui/primitives";
 import { Button } from "@/components/quiet/ui/button";
+import { trackBuyerFunnel } from "@/components/analytics/buyer-funnel";
 import {
   formatPrice,
   formatGoingCount,
@@ -305,7 +306,19 @@ export function DesktopEvent({ event }: DesktopEventProps) {
                 <input type="hidden" name="eventSlug" value={event.id} />
                 <input type="hidden" name="quantity" value="1" />
                 <input type="hidden" name="ticketTypeId" value={selectedTypeId ?? ""} />
-                <button type="submit" className="mt-5 flex w-full items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3 text-[14px] font-semibold text-white hover:opacity-90">
+                <button
+                  type="submit"
+                  onClick={() =>
+                    trackBuyerFunnel("add_to_checkout", {
+                      event_id: event.eventUuid,
+                      event_slug: event.id,
+                      ticket_type_id: selectedTypeId ?? null,
+                      quantity: 1,
+                      surface: "desktop_event_detail",
+                    })
+                  }
+                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3 text-[14px] font-semibold text-white hover:opacity-90"
+                >
                   Continue <Icon name="arrowR" size={14} />
                 </button>
               </form>
