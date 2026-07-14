@@ -206,21 +206,21 @@ export type Database = {
           ended_at: string | null
           id: string
           started_at: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           device_id: string
           ended_at?: string | null
           id?: string
           started_at?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           device_id?: string
           ended_at?: string | null
           id?: string
           started_at?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {

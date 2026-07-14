@@ -19,9 +19,9 @@ export type DeviceRow = {
 }
 
 const DEVICE_ROLES = [
-  { value: "scanner", label: "Scanner" },
-  { value: "pos", label: "Point of Sale" },
-  { value: "kiosk", label: "Self-check kiosk" },
+  { value: "organizer_scanner", label: "Scanner" },
+  { value: "organizer_pos", label: "Point of Sale" },
+  { value: "organizer_kiosk", label: "Self-check kiosk" },
 ]
 
 function fmtRelative(d: string | null) {
@@ -50,13 +50,14 @@ export function DevicesClient({
   const [devices, setDevices] = useState<DeviceRow[]>(initialDevices)
   const [addOpen, setAddOpen] = useState(false)
   const [label, setLabel] = useState("")
-  const [deviceRole, setDeviceRole] = useState("scanner")
+  const [deviceRole, setDeviceRole] = useState("organizer_scanner")
   const [maxScans, setMaxScans] = useState("60")
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [removing, setRemoving] = useState<string | null>(null)
+  const [setupCode, setSetupCode] = useState<{ code: string; expiresAt: string; label: string } | null>(null)
 
-  async function registerDevice() {
+  async function createSetupCode() {
     if (!label.trim()) {
       setError("Device label is required")
       return
@@ -64,41 +65,24 @@ export function DevicesClient({
     setSubmitting(true)
     setError("")
     try {
-      const supabase = createClientSupabaseClient()
-      const { data: { session } } = await supabase!.auth.getSession()
-      if (!session) throw new Error("Not authenticated")
-
-      const { data, error: dbError } = await supabase!
-        .from("devices")
-        .insert({
-          org_id: orgId,
-          event_id: eventId,
+      const response = await fetch(`/api/events/${eventId}/devices/setup-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           label: label.trim(),
-          device_role: deviceRole as "organizer_scanner" | "organizer_pos" | "organizer_kiosk" | "scanner_unassigned",
-          max_scans_per_minute: maxScans ? parseInt(maxScans, 10) : null,
-          registered_by: session.user.id,
-        })
-        .select("id, label, device_role, max_scans_per_minute, last_seen_at")
-        .single()
+          deviceRole,
+          maxScansPerMinute: maxScans ? parseInt(maxScans, 10) : null,
+        }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data?.error ?? "Failed to create setup code")
 
-      if (dbError) throw dbError
-
-      setDevices((prev) => [
-        ...prev,
-        {
-          id: data.id,
-          label: data.label ?? label.trim(),
-          device_role: data.device_role,
-          max_scans_per_minute: data.max_scans_per_minute,
-          last_seen_at: data.last_seen_at,
-        },
-      ])
+      setSetupCode({ code: data.code, expiresAt: data.expiresAt, label: data.label })
       setLabel("")
-      setDeviceRole("scanner")
+      setDeviceRole("organizer_scanner")
       setMaxScans("60")
-      setAddOpen(false)
     } catch (e: any) {
-      setError(e?.message ?? "Failed to register device")
+      setError(e?.message ?? "Failed to create setup code")
     } finally {
       setSubmitting(false)
     }
@@ -134,10 +118,10 @@ export function DevicesClient({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => { setAddOpen(true); setError("") }}
+            onClick={() => { setAddOpen(true); setError(""); setSetupCode(null) }}
           >
             <Icon name="plus" size={14} />
-            Register device
+            Setup code
           </Button>
         )}
       </CardBody>
@@ -146,7 +130,7 @@ export function DevicesClient({
         <>
           <CardDivider />
           <CardBody className="flex flex-col gap-3 p-5">
-            <p className="text-h3">Register new device</p>
+            <p className="text-h3">Create setup code</p>
             <FormField
               label="Label *"
               value={label}
@@ -180,19 +164,38 @@ export function DevicesClient({
                 {error}
               </p>
             )}
+            {setupCode && (
+              <div className="flex flex-col gap-2 rounded-[var(--radius-md)] border border-accent/30 bg-accent-soft p-3">
+                <span className="text-label">Setup code</span>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-mono text-[24px] font-semibold tracking-wider text-ink">{setupCode.code}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigator.clipboard?.writeText(setupCode.code)}
+                    aria-label="Copy setup code"
+                  >
+                    <Icon name="copy" size={14} />
+                  </Button>
+                </div>
+                <span className="font-mono text-[11px] uppercase tracking-wide text-ink-3">
+                  Expires {new Date(setupCode.expiresAt).toLocaleTimeString()}
+                </span>
+              </div>
+            )}
             <div className="flex gap-2">
               <Button
                 variant="primary"
                 size="md"
-                onClick={registerDevice}
+                onClick={createSetupCode}
                 disabled={submitting || !label.trim()}
               >
-                {submitting ? "Registering…" : "Register device"}
+                {submitting ? "Creating…" : "Create code"}
               </Button>
               <Button
                 variant="outline"
                 size="md"
-                onClick={() => { setAddOpen(false); setError("") }}
+                onClick={() => { setAddOpen(false); setError(""); setSetupCode(null) }}
               >
                 Cancel
               </Button>
@@ -206,7 +209,7 @@ export function DevicesClient({
       {devices.length === 0 ? (
         <CardBody className="py-8 text-center text-[13px] text-ink-3">
           No devices assigned to this event yet.
-          {canManage && " Register a device to enable gate scanning."}
+          {canManage && " Create a setup code to provision a scanner."}
         </CardBody>
       ) : (
         <div className="divide-y divide-line">

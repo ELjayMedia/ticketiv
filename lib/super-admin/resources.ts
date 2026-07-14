@@ -313,7 +313,7 @@ export const ADMIN_RESOURCES: AdminResource[] = [
     description: "Track scanner/POS device user sessions.",
     orderBy: "started_at",
     listColumns: ["device_id", "user_id", "started_at", "ended_at"],
-    fields: [idField, { name: "device_id", label: "Device ID", type: "uuid", required: true }, { name: "user_id", label: "User ID", type: "uuid", required: true }, { name: "started_at", label: "Started At", type: "datetime" }, { name: "ended_at", label: "Ended At", type: "datetime" }],
+    fields: [idField, { name: "device_id", label: "Device ID", type: "uuid", required: true }, { name: "user_id", label: "User ID", type: "uuid" }, { name: "started_at", label: "Started At", type: "datetime" }, { name: "ended_at", label: "Ended At", type: "datetime" }],
   },
   {
     key: "scans",

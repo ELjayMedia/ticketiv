@@ -98,7 +98,9 @@ export default async function EventStaffPage({ params }: { params: Promise<{ org
       .order("started_at", { ascending: false })
       .limit(20)
 
-    const userIds = Array.from(new Set((sessionRows ?? []).map((s) => s.user_id).filter(Boolean)))
+    const userIds = Array.from(
+      new Set((sessionRows ?? []).map((s) => s.user_id).filter((userId): userId is string => Boolean(userId))),
+    )
     const emailById = new Map<string, string | null>()
     await Promise.all(
       userIds.map(async (uid) => {

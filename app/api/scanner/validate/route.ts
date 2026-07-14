@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { validateQrCode } from "@/lib/scanning"
 import { clientKey, rateLimit, tooManyRequests } from "@/lib/rate-limit"
+import { DeviceScannerAccessError, verifyDeviceScannerAccess } from "@/lib/scanner/device-session-auth"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export async function POST(request: Request) {
@@ -18,6 +19,7 @@ export async function POST(request: Request) {
     )
   }
 
+  const body = await request.json().catch(() => ({}))
   const {
     data: { session },
     error: sessionError,
@@ -34,27 +36,39 @@ export async function POST(request: Request) {
     )
   }
 
+  let deviceAccess: Awaited<ReturnType<typeof verifyDeviceScannerAccess>> | null = null
+
   if (!session) {
-    return NextResponse.json(
-      {
-        valid: false,
-        status: "unauthorized",
-        message: "Scanner login required",
-      },
-      { status: 401 },
-    )
+    try {
+      deviceAccess = await verifyDeviceScannerAccess({
+        eventId: body.eventId ? String(body.eventId) : null,
+        deviceId: body.deviceId ? String(body.deviceId) : null,
+        sessionId: body.sessionId ? String(body.sessionId) : null,
+      })
+    } catch (error) {
+      const message = error instanceof DeviceScannerAccessError ? error.message : "Scanner login required"
+      const status = error instanceof DeviceScannerAccessError ? error.status : 401
+      return NextResponse.json(
+        {
+          valid: false,
+          status: "unauthorized",
+          message,
+        },
+        { status },
+      )
+    }
   }
 
-  const rl = await rateLimit("scanner:validate", clientKey(request, session.user.id), 120, 60)
+  const rateKey = session?.user.id ?? `device:${deviceAccess?.deviceId ?? "unknown"}`
+  const limit = deviceAccess?.maxScansPerMinute ?? 120
+  const rl = await rateLimit("scanner:validate", clientKey(request, rateKey), limit, 60)
   if (!rl.allowed) return tooManyRequests(rl)
-
-  const body = await request.json()
 
   try {
     const result = await validateQrCode({
       code: String(body.code ?? ""),
       eventId: String(body.eventId ?? ""),
-      userId: session.user.id,
+      userId: session?.user.id ?? null,
       deviceId: body.deviceId ? String(body.deviceId) : null,
       sessionId: body.sessionId ? String(body.sessionId) : null,
       gate: body.gate ? String(body.gate) : null,
