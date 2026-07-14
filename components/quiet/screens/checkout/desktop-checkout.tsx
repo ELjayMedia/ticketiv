@@ -396,15 +396,25 @@ export function DesktopCheckout({
           </Card>
 
           <div className="flex flex-col gap-2">
-            <label className="flex items-center gap-2 text-[12px] text-ink-3">
+            <div className="flex items-start gap-2 text-[12px] text-ink-3">
               <input
+                id="desktop-policy-acceptance"
                 type="checkbox"
                 checked={policyAccepted}
                 onChange={(e) => setPolicyAccepted(e.target.checked)}
-                className="accent-accent"
+                className="mt-0.5 accent-accent"
               />
-              I accept the refund &amp; cancellation policy
-            </label>
+              <span>
+                <label htmlFor="desktop-policy-acceptance">I accept the </label>
+                <Link href="/refund-policy" className="font-semibold text-accent hover:underline">
+                  refund &amp; cancellation policy
+                </Link>{" "}
+                and{" "}
+                <Link href="/terms" className="font-semibold text-accent hover:underline">
+                  Terms
+                </Link>
+              </span>
+            </div>
             {holdRemaining <= 0 && (
               <div role="alert" className="rounded-md border border-danger/40 bg-danger/5 px-3 py-2 text-[12px] text-danger">
                 Your hold has expired — go back and select tickets again.
@@ -533,6 +543,12 @@ export function DesktopCheckout({
                 className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent"
               >
                 Need help? <Icon name="chevR" size={10} />
+              </Link>
+              <Link
+                href="/refund-policy"
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent"
+              >
+                Refunds <Icon name="chevR" size={10} />
               </Link>
             </div>
           </div>
