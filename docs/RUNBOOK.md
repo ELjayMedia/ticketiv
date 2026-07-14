@@ -167,6 +167,22 @@ Not executed from this session. Plan (k6 or Artillery against staging):
 
 ---
 
+## 8. Live-event escalation
+
+Use `docs/LIVE_EVENT_ESCALATION.md` for the event-day escalation chain covering:
+- payment outage during active sales;
+- scanner/check-in outage at the gate;
+- fallback decisions such as pause-sales, manual admission, buyer messaging,
+  and provider webhook replay;
+- the required dry-run script and log template before the first live ticketed
+  event.
+
+Do not mark a live event launch-ready until the dry run has named the incident
+lead, event supervisor, payment operator, scanner lead, support comms owner, and
+organizer representative for that event.
+
+---
+
 ## Quick reference — key tables/RPCs
 | Concern | Object |
 |---|---|
@@ -178,3 +194,10 @@ Not executed from this session. Plan (k6 or Artillery against staging):
 | Scanning | `scans`, `fn_scan_ticket` |
 | Async work | `jobs`, `webhook_deliveries` |
 | Live counters | `event_live_stats`, `mv_event_sales`, `mv_revenue_breakdown` |
+
+## Quick reference — operational docs
+| Concern | Document |
+|---|---|
+| Live event payment/scanner escalation | `docs/LIVE_EVENT_ESCALATION.md` |
+| Payment rails and provider readiness | `docs/PAYMENTS.md` |
+| Notification channel readiness | `docs/NOTIFICATIONS.md` |
