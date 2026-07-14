@@ -529,7 +529,7 @@ export function DesktopCheckout({
                 Buyer guarantee <Icon name="chevR" size={10} />
               </button>
               <Link
-                href="/help"
+                href="/support"
                 className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent"
               >
                 Need help? <Icon name="chevR" size={10} />
