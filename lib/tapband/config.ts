@@ -25,6 +25,7 @@ export interface TapBandFeatureConfigRow {
   environment: string
   org_id?: string | null
   event_id?: string | null
+  outlet_id?: string | null
   enabled: boolean
   product_visibility_enabled: boolean
   credential_lookup_enabled: boolean
@@ -96,6 +97,7 @@ export interface EffectiveTapBandConfig {
   environment: string
   orgId: string | null
   eventId: string | null
+  outletId: string | null
   enabled: boolean
   capabilities: Record<TapBandCapability, boolean>
   allowedChipFamilies: string[]
@@ -153,6 +155,7 @@ export function defaultTapBandConfig(environment = resolveTapBandEnvironment()):
     environment,
     orgId: null,
     eventId: null,
+    outletId: null,
     enabled: false,
     capabilities: Object.fromEntries(TAPBAND_CAPABILITIES.map((capability) => [capability, false])) as Record<
       TapBandCapability,
@@ -280,6 +283,7 @@ export function safeTapBandConfigPayload(decision: TapBandAccessDecision) {
       environment: config.environment,
       orgId: config.orgId,
       eventId: config.eventId,
+      outletId: config.outletId,
       enabled: config.enabled,
       capabilities: config.capabilities,
       allowedChipFamilies: config.allowedChipFamilies,
@@ -312,6 +316,7 @@ function applyFeatureConfigRow(effective: EffectiveTapBandConfig, row: TapBandFe
     environment: normalizeEnvironment(row.environment),
     orgId: row.org_id ?? effective.orgId,
     eventId: row.event_id ?? effective.eventId,
+    outletId: row.outlet_id ?? effective.outletId,
     enabled: row.enabled,
     capabilities,
     allowedChipFamilies: normalizeList(row.allowed_chip_families),
@@ -337,11 +342,12 @@ function featureConfigMatches(
   if (!environmentMatches(row.environment, environment)) return false
   if (row.org_id && row.org_id !== context.orgId) return false
   if (row.event_id && row.event_id !== context.eventId) return false
+  if (row.outlet_id && row.outlet_id !== context.outletId) return false
   return true
 }
 
 function featureConfigSpecificity(row: TapBandFeatureConfigRow, environment: string) {
-  return (row.environment === environment ? 1 : 0) + (row.org_id ? 2 : 0) + (row.event_id ? 4 : 0)
+  return (row.environment === environment ? 1 : 0) + (row.org_id ? 2 : 0) + (row.event_id ? 4 : 0) + (row.outlet_id ? 8 : 0)
 }
 
 function findMatchingKillSwitch(
