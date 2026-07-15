@@ -6972,6 +6972,98 @@ export type Database = {
         }
         Returns: undefined
       }
+      fn_tapband_activate_credential: {
+        Args: {
+          p_actor_id: string
+          p_attempt_id?: string
+          p_credential_id: string
+          p_device_id?: string
+          p_session_id?: string
+          p_verification_metadata?: Json
+        }
+        Returns: Json
+      }
+      fn_tapband_actor_can_manage_event: {
+        Args: { p_actor_id: string; p_event_id: string }
+        Returns: boolean
+      }
+      fn_tapband_actor_is_platform_admin: {
+        Args: { p_actor_id: string }
+        Returns: boolean
+      }
+      fn_tapband_assign_entitlement: {
+        Args: {
+          p_actor_id: string
+          p_assignment_source?: string
+          p_attempt_id?: string
+          p_credential_id: string
+          p_event_id: string
+          p_metadata?: Json
+          p_order_item_id: string
+        }
+        Returns: Json
+      }
+      fn_tapband_audit_lifecycle: {
+        Args: {
+          p_action: string
+          p_actor_id: string
+          p_changes: Json
+          p_org_id: string
+          p_record_id: string
+          p_table_name: string
+        }
+        Returns: undefined
+      }
+      fn_tapband_customer_credentials: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
+      fn_tapband_issue_credential: {
+        Args: {
+          p_actor_id: string
+          p_attempt_id?: string
+          p_credential_public_id: string
+          p_device_id?: string
+          p_inventory_id: string
+          p_metadata?: Json
+          p_session_id?: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      fn_tapband_replace_credential: {
+        Args: {
+          p_actor_id: string
+          p_attempt_id?: string
+          p_metadata?: Json
+          p_new_credential_public_id: string
+          p_new_inventory_id: string
+          p_old_credential_id: string
+        }
+        Returns: Json
+      }
+      fn_tapband_resolve_credential_for_event: {
+        Args: {
+          p_actor_id: string
+          p_attempt_id?: string
+          p_credential_public_id: string
+          p_device_id?: string
+          p_event_id: string
+          p_session_id?: string
+        }
+        Returns: Json
+      }
+      fn_tapband_revoke_credential: {
+        Args: {
+          p_actor_id: string
+          p_attempt_id?: string
+          p_credential_id: string
+          p_metadata?: Json
+          p_new_status?: string
+          p_reason: string
+        }
+        Returns: Json
+      }
       fn_ticket_is_transferable: {
         Args: { p_order_item_id: string }
         Returns: boolean
