@@ -200,6 +200,415 @@ export type Database = {
           },
         ]
       }
+      credential_batches: {
+        Row: {
+          accepted_at: string | null
+          branding_version: string | null
+          chip_family: string
+          chip_product: string | null
+          created_at: string
+          created_by: string | null
+          event_id: string | null
+          frequency: string
+          id: string
+          key_version: string | null
+          memory_bytes: number | null
+          metadata: Json
+          notes: string | null
+          org_id: string | null
+          production_date: string | null
+          protocol: string
+          purpose: string
+          quantity_ordered: number
+          quantity_received: number
+          quarantined_at: string | null
+          received_at: string | null
+          serial_prefix: string | null
+          status: string
+          supplier_name: string
+          supplier_reference: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          accepted_at?: string | null
+          branding_version?: string | null
+          chip_family: string
+          chip_product?: string | null
+          created_at?: string
+          created_by?: string | null
+          event_id?: string | null
+          frequency?: string
+          id?: string
+          key_version?: string | null
+          memory_bytes?: number | null
+          metadata?: Json
+          notes?: string | null
+          org_id?: string | null
+          production_date?: string | null
+          protocol?: string
+          purpose?: string
+          quantity_ordered?: number
+          quantity_received?: number
+          quarantined_at?: string | null
+          received_at?: string | null
+          serial_prefix?: string | null
+          status?: string
+          supplier_name: string
+          supplier_reference?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          accepted_at?: string | null
+          branding_version?: string | null
+          chip_family?: string
+          chip_product?: string | null
+          created_at?: string
+          created_by?: string | null
+          event_id?: string | null
+          frequency?: string
+          id?: string
+          key_version?: string | null
+          memory_bytes?: number | null
+          metadata?: Json
+          notes?: string | null
+          org_id?: string | null
+          production_date?: string | null
+          protocol?: string
+          purpose?: string
+          quantity_ordered?: number
+          quantity_received?: number
+          quarantined_at?: string | null
+          received_at?: string | null
+          serial_prefix?: string | null
+          status?: string
+          supplier_name?: string
+          supplier_reference?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credential_batches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_batches_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credential_entitlements: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          assignment_source: string
+          created_at: string
+          credential_id: string
+          event_id: string
+          holder_user_id: string | null
+          id: string
+          metadata: Json
+          order_item_id: string
+          removal_reason: string | null
+          removed_at: string | null
+          removed_by: string | null
+          status: string
+          updated_at: string
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          assignment_source?: string
+          created_at?: string
+          credential_id: string
+          event_id: string
+          holder_user_id?: string | null
+          id?: string
+          metadata?: Json
+          order_item_id: string
+          removal_reason?: string | null
+          removed_at?: string | null
+          removed_by?: string | null
+          status?: string
+          updated_at?: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          assignment_source?: string
+          created_at?: string
+          credential_id?: string
+          event_id?: string
+          holder_user_id?: string | null
+          id?: string
+          metadata?: Json
+          order_item_id?: string
+          removal_reason?: string | null
+          removed_at?: string | null
+          removed_by?: string | null
+          status?: string
+          updated_at?: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credential_entitlements_credential_id_fkey"
+            columns: ["credential_id"]
+            isOneToOne: false
+            referencedRelation: "physical_credentials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_entitlements_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_entitlements_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "order_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credential_inventory: {
+        Row: {
+          activated_at: string | null
+          batch_id: string
+          chip_family: string
+          chip_fingerprint: string | null
+          chip_identifier_hash: string | null
+          created_at: string
+          created_by: string | null
+          current_credential_id: string | null
+          defect_reason: string | null
+          event_id: string | null
+          external_serial: string | null
+          id: string
+          inventory_status: string
+          issued_at: string | null
+          key_version: string | null
+          metadata: Json
+          org_id: string | null
+          outlet_id: string | null
+          public_serial: string
+          qr_reference: string | null
+          retired_at: string | null
+          secure_element_ref: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          activated_at?: string | null
+          batch_id: string
+          chip_family: string
+          chip_fingerprint?: string | null
+          chip_identifier_hash?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_credential_id?: string | null
+          defect_reason?: string | null
+          event_id?: string | null
+          external_serial?: string | null
+          id?: string
+          inventory_status?: string
+          issued_at?: string | null
+          key_version?: string | null
+          metadata?: Json
+          org_id?: string | null
+          outlet_id?: string | null
+          public_serial: string
+          qr_reference?: string | null
+          retired_at?: string | null
+          secure_element_ref?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          activated_at?: string | null
+          batch_id?: string
+          chip_family?: string
+          chip_fingerprint?: string | null
+          chip_identifier_hash?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_credential_id?: string | null
+          defect_reason?: string | null
+          event_id?: string | null
+          external_serial?: string | null
+          id?: string
+          inventory_status?: string
+          issued_at?: string | null
+          key_version?: string | null
+          metadata?: Json
+          org_id?: string | null
+          outlet_id?: string | null
+          public_serial?: string
+          qr_reference?: string | null
+          retired_at?: string | null
+          secure_element_ref?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credential_inventory_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "credential_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_inventory_current_credential_id_fkey"
+            columns: ["current_credential_id"]
+            isOneToOne: false
+            referencedRelation: "physical_credentials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_inventory_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_inventory_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credential_taps: {
+        Row: {
+          client_attempt_id: string | null
+          created_at: string
+          credential_id: string | null
+          device_id: string | null
+          device_session_id: string | null
+          event_id: string | null
+          id: string
+          inventory_id: string | null
+          latency_ms: number | null
+          metadata: Json
+          occurred_at: string
+          offline: boolean
+          operator_user_id: string | null
+          order_item_id: string | null
+          outcome: string
+          outlet_id: string | null
+          presented_credential_hash: string | null
+          reason_code: string | null
+          synced_at: string | null
+          tap_type: string
+        }
+        Insert: {
+          client_attempt_id?: string | null
+          created_at?: string
+          credential_id?: string | null
+          device_id?: string | null
+          device_session_id?: string | null
+          event_id?: string | null
+          id?: string
+          inventory_id?: string | null
+          latency_ms?: number | null
+          metadata?: Json
+          occurred_at?: string
+          offline?: boolean
+          operator_user_id?: string | null
+          order_item_id?: string | null
+          outcome: string
+          outlet_id?: string | null
+          presented_credential_hash?: string | null
+          reason_code?: string | null
+          synced_at?: string | null
+          tap_type: string
+        }
+        Update: {
+          client_attempt_id?: string | null
+          created_at?: string
+          credential_id?: string | null
+          device_id?: string | null
+          device_session_id?: string | null
+          event_id?: string | null
+          id?: string
+          inventory_id?: string | null
+          latency_ms?: number | null
+          metadata?: Json
+          occurred_at?: string
+          offline?: boolean
+          operator_user_id?: string | null
+          order_item_id?: string | null
+          outcome?: string
+          outlet_id?: string | null
+          presented_credential_hash?: string | null
+          reason_code?: string | null
+          synced_at?: string | null
+          tap_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credential_taps_credential_id_fkey"
+            columns: ["credential_id"]
+            isOneToOne: false
+            referencedRelation: "physical_credentials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_taps_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_taps_device_session_id_fkey"
+            columns: ["device_session_id"]
+            isOneToOne: false
+            referencedRelation: "device_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_taps_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_taps_inventory_id_fkey"
+            columns: ["inventory_id"]
+            isOneToOne: false
+            referencedRelation: "credential_inventory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_taps_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "order_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       device_sessions: {
         Row: {
           device_id: string
@@ -2131,6 +2540,7 @@ export type Database = {
           holder_email: string | null
           holder_name: string | null
           holder_phone: string | null
+          holder_user_id: string | null
           id: string
           name: string | null
           order_id: string
@@ -2150,6 +2560,7 @@ export type Database = {
           holder_email?: string | null
           holder_name?: string | null
           holder_phone?: string | null
+          holder_user_id?: string | null
           id?: string
           name?: string | null
           order_id: string
@@ -2169,6 +2580,7 @@ export type Database = {
           holder_email?: string | null
           holder_name?: string | null
           holder_phone?: string | null
+          holder_user_id?: string | null
           id?: string
           name?: string | null
           order_id?: string
@@ -2820,6 +3232,106 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "v_organizer_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      physical_credentials: {
+        Row: {
+          activated_at: string | null
+          activated_by: string | null
+          authentication_mode: string
+          chip_family: string
+          created_at: string
+          credential_public_id: string
+          credential_type: string
+          id: string
+          inventory_id: string
+          issued_at: string
+          issued_by: string | null
+          key_version: string | null
+          last_used_at: string | null
+          pin_enabled: boolean
+          replaced_by_id: string | null
+          replacement_of_id: string | null
+          revocation_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+          verification_metadata: Json
+        }
+        Insert: {
+          activated_at?: string | null
+          activated_by?: string | null
+          authentication_mode?: string
+          chip_family: string
+          created_at?: string
+          credential_public_id: string
+          credential_type?: string
+          id?: string
+          inventory_id: string
+          issued_at?: string
+          issued_by?: string | null
+          key_version?: string | null
+          last_used_at?: string | null
+          pin_enabled?: boolean
+          replaced_by_id?: string | null
+          replacement_of_id?: string | null
+          revocation_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+          verification_metadata?: Json
+        }
+        Update: {
+          activated_at?: string | null
+          activated_by?: string | null
+          authentication_mode?: string
+          chip_family?: string
+          created_at?: string
+          credential_public_id?: string
+          credential_type?: string
+          id?: string
+          inventory_id?: string
+          issued_at?: string
+          issued_by?: string | null
+          key_version?: string | null
+          last_used_at?: string | null
+          pin_enabled?: boolean
+          replaced_by_id?: string | null
+          replacement_of_id?: string | null
+          revocation_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+          verification_metadata?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "physical_credentials_inventory_id_fkey"
+            columns: ["inventory_id"]
+            isOneToOne: false
+            referencedRelation: "credential_inventory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "physical_credentials_replaced_by_id_fkey"
+            columns: ["replaced_by_id"]
+            isOneToOne: false
+            referencedRelation: "physical_credentials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "physical_credentials_replacement_of_id_fkey"
+            columns: ["replacement_of_id"]
+            isOneToOne: false
+            referencedRelation: "physical_credentials"
             referencedColumns: ["id"]
           },
         ]

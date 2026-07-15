@@ -113,7 +113,7 @@ export const ADMIN_WORKSPACES: AdminWorkspace[] = [
     href: "/super-admin/workspaces/tapband-operations",
     icon: Activity,
     description: "Monitor and control TapBand telemetry, feature scope, kill switches and credential alerts.",
-    resources: ["tapband-feature-configs", "tapband-kill-switches", "tapband-telemetry-events", "tapband-alerts", "devices", "scans", "audit-log"],
+    resources: ["credential-batches", "credential-inventory", "physical-credentials", "credential-entitlements", "credential-taps", "tapband-feature-configs", "tapband-kill-switches", "tapband-telemetry-events", "tapband-alerts", "devices", "scans", "audit-log"],
     operatingQuestions: [
       "Which TapBand capabilities are enabled for this environment, organizer or event?",
       "Are any emergency kill switches active for a batch, reader, outlet or channel?",
