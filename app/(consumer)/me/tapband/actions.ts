@@ -4,6 +4,7 @@ import { randomUUID } from "crypto"
 import { revalidatePath } from "next/cache"
 
 import { getMyTapBandProfile, validateTapBandLostReport } from "@/lib/data/attendee/tapband"
+import { notifyTapBandCredentialLost } from "@/lib/notifications"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import {
   assertTapBandLifecycleOk,
@@ -36,6 +37,7 @@ export async function reportTapBandLostAction(
 
   const validation = validateTapBandLostReport(profile, credentialId, confirmation)
   if (!validation.ok) return { ok: false, error: validation.error }
+  const credential = profile.credentials.find((card) => card.credentialId === credentialId)
 
   if (!user.email) {
     return { ok: false, error: "Add an email address to your account before using self-service lost reporting." }
@@ -101,6 +103,13 @@ export async function reportTapBandLostAction(
 
     return { ok: false, error: "Could not mark this TapBand as lost. Contact support if it was stolen." }
   }
+
+  await notifyTapBandCredentialLost({
+    userId: user.id,
+    credentialId,
+    safeLabel: credential?.safeLabel,
+    serialSuffix: credential?.serialSuffix,
+  })
 
   revalidatePath("/me")
   revalidatePath("/profile")
