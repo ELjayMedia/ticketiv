@@ -1,4 +1,5 @@
 import {
+  Activity,
   BadgeDollarSign,
   Building2,
   CalendarDays,
@@ -105,6 +106,20 @@ export const ADMIN_WORKSPACES: AdminWorkspace[] = [
       "Are scanner operators correctly authorized?",
     ],
     nextBusinessActions: ["Pair scanner", "Disable device", "Assign gate staff", "Review invalid scan", "Reset session"],
+  },
+  {
+    key: "tapband-operations",
+    title: "TapBand Operations",
+    href: "/super-admin/workspaces/tapband-operations",
+    icon: Activity,
+    description: "Monitor TapBand telemetry, reader health, credential failures and operational alerts.",
+    resources: ["tapband-telemetry-events", "tapband-alerts", "devices", "scans"],
+    operatingQuestions: [
+      "Which TapBand readers or devices are producing repeated errors?",
+      "Are any credentials showing fraud or replay patterns?",
+      "Which open TapBand alerts need event-day or security response?",
+    ],
+    nextBusinessActions: ["Review alert", "Escalate fraud signal", "Inspect reader", "Resolve alert", "Export telemetry"],
   },
   {
     key: "promotions-controls",
