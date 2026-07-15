@@ -4,6 +4,10 @@ import { createHash } from "crypto"
 import { verifyDeviceScannerAccess } from "@/lib/scanner/device-session-auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import {
+  createTapBandLifecycleService,
+  type TapBandLifecycleResult,
+} from "@/lib/tapband/lifecycle"
 
 export interface ValidateQrCodeInput {
   code: string
@@ -17,20 +21,39 @@ export interface ValidateQrCodeInput {
   attemptId?: string | null
 }
 
+export interface ValidateTapBandCredentialInput {
+  credentialPublicId: string
+  eventId: string
+  userId?: string | null
+  deviceId?: string | null
+  sessionId?: string | null
+  gate?: string | null
+  scannedAt?: string
+  attemptId?: string | null
+}
+
+export type ScannerValidationStatus =
+  | "validated"
+  | "duplicate"
+  | "not_found"
+  | "wrong_event"
+  | "revoked"
+  | "refunded"
+  | "not_paid"
+  | "unauthorized"
+  | "offline"
+  | "tapband_unknown"
+  | "tapband_no_entitlement"
+  | "tapband_lost"
+  | "tapband_replaced"
+  | "tapband_reader_error"
+  | "error"
+
 export interface ValidateQrCodeResult {
   valid: boolean
-  status:
-    | "validated"
-    | "duplicate"
-    | "not_found"
-    | "wrong_event"
-    | "revoked"
-    | "refunded"
-    | "not_paid"
-    | "unauthorized"
-    | "offline"
-    | "error"
+  status: ScannerValidationStatus
   message: string
+  inputMode?: "qr" | "tapband"
   scanId?: string | null
   orderItemId?: string | null
   ticketTypeName?: string | null
@@ -76,6 +99,98 @@ function outcomeToStatus(outcome: string): ValidateQrCodeResult["status"] {
   }
 }
 
+export function tapBandLifecycleStatus(result: Pick<TapBandLifecycleResult, "outcome" | "reasonCode">): ScannerValidationStatus {
+  switch (result.outcome) {
+    case "valid":
+      return "validated"
+    case "already_used":
+      return "duplicate"
+    case "no_entitlement":
+      return "tapband_no_entitlement"
+    case "unknown":
+      return "tapband_unknown"
+    case "lost":
+      return "tapband_lost"
+    case "replaced":
+      return "tapband_replaced"
+    case "revoked":
+    case "retired":
+    case "destroyed":
+    case "defective":
+      return "revoked"
+    case "refunded":
+      return "refunded"
+    case "not_paid":
+      return "not_paid"
+    case "unauthorized":
+      return "unauthorized"
+    case "reader_error":
+      return "tapband_reader_error"
+    case "attempt_conflict":
+      return "duplicate"
+    default:
+      if (result.reasonCode === "tapband_unknown") return "tapband_unknown"
+      if (result.reasonCode?.includes("no_entitlement")) return "tapband_no_entitlement"
+      if (result.reasonCode?.includes("lost")) return "tapband_lost"
+      if (result.reasonCode?.includes("replaced")) return "tapband_replaced"
+      if (result.reasonCode?.includes("unauthorized")) return "unauthorized"
+      if (result.reasonCode?.includes("not_paid")) return "not_paid"
+      if (result.reasonCode?.includes("refunded")) return "refunded"
+      if (result.reasonCode?.includes("revoked")) return "revoked"
+      return "error"
+  }
+}
+
+export function tapBandLifecycleMessage(
+  result: Pick<TapBandLifecycleResult, "message" | "ticketTypeName">,
+  status: ScannerValidationStatus,
+) {
+  if (result.message) return result.message
+
+  switch (status) {
+    case "validated":
+      return result.ticketTypeName ? `TapBand checked in for ${result.ticketTypeName}` : "TapBand checked in"
+    case "duplicate":
+      return "TapBand was already checked in for this event"
+    case "tapband_no_entitlement":
+      return "No active ticket for this event is linked to this TapBand"
+    case "tapband_unknown":
+      return "TapBand not recognised. Use QR or manual fallback"
+    case "tapband_lost":
+      return "TapBand was reported lost. Do not admit with this band"
+    case "tapband_replaced":
+      return "TapBand was replaced. Use the newer TapBand or QR fallback"
+    case "revoked":
+      return "TapBand is inactive. Do not admit with this band"
+    case "refunded":
+      return "Linked ticket was refunded and is no longer valid"
+    case "not_paid":
+      return "Linked order has not been paid"
+    case "unauthorized":
+      return "Scanner is not assigned to this event"
+    case "tapband_reader_error":
+      return "TapBand could not be read. Try again or use QR fallback"
+    default:
+      return "TapBand scan failed"
+  }
+}
+
+export function tapBandLifecycleResultToScanResult(result: TapBandLifecycleResult): ValidateQrCodeResult {
+  const status = tapBandLifecycleStatus(result)
+
+  return {
+    valid: result.valid === true,
+    status,
+    message: tapBandLifecycleMessage(result, status),
+    inputMode: "tapband",
+    scanId: result.scanId ?? null,
+    orderItemId: result.orderItemId ?? null,
+    ticketTypeName: result.ticketTypeName ?? null,
+    checkedInAt: result.checkedInAt ?? null,
+    idempotent: result.idempotent ?? false,
+  }
+}
+
 export async function validateQrCode(input: ValidateQrCodeInput): Promise<ValidateQrCodeResult> {
   if (!input.code.trim()) {
     return { valid: false, status: "error", message: "No QR code provided" }
@@ -115,12 +230,45 @@ export async function validateQrCode(input: ValidateQrCodeInput): Promise<Valida
     valid:          result.valid,
     status:         outcomeToStatus(result.outcome),
     message:        result.message,
+    inputMode:      "qr",
     scanId:         result.scan_id ?? null,
     orderItemId:    result.order_item_id ?? null,
     ticketTypeName: result.ticket_type_name ?? null,
     checkedInAt:    result.checked_in_at ?? null,
     idempotent:     result.idempotent ?? false,
   }
+}
+
+export async function validateTapBandCredential(input: ValidateTapBandCredentialInput): Promise<ValidateQrCodeResult> {
+  const credentialPublicId = input.credentialPublicId.trim()
+
+  if (!credentialPublicId) {
+    return {
+      valid: false,
+      status: "tapband_reader_error",
+      message: tapBandLifecycleMessage({}, "tapband_reader_error"),
+      inputMode: "tapband",
+    }
+  }
+
+  if (!input.eventId) {
+    return { valid: false, status: "error", message: "Event ID is required", inputMode: "tapband" }
+  }
+
+  const service = createTapBandLifecycleService()
+  const result = await service.resolveCredentialForEvent({
+    credentialPublicId,
+    eventId: input.eventId,
+    actorId: input.userId ?? null,
+    deviceId: input.deviceId ?? null,
+    sessionId: input.sessionId ?? null,
+    attemptId: input.attemptId ?? null,
+    gate: input.gate ?? null,
+    scannedAt: input.scannedAt ?? new Date().toISOString(),
+    channel: "nfc",
+  })
+
+  return tapBandLifecycleResultToScanResult(result)
 }
 
 export async function syncOfflineScans(scans: OfflineScanPayload[], userId: string | null) {

@@ -7044,11 +7044,13 @@ export type Database = {
       }
       fn_tapband_resolve_credential_for_event: {
         Args: {
-          p_actor_id: string
+          p_actor_id: string | null
           p_attempt_id?: string
           p_credential_public_id: string
           p_device_id?: string
           p_event_id: string
+          p_gate?: string
+          p_scanned_at?: string
           p_session_id?: string
         }
         Returns: Json

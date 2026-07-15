@@ -36,6 +36,7 @@ const PATHS: Record<string, string> = {
   wallet:
     "M3 7v12a2 2 0 002 2h14a2 2 0 002-2V7 M3 7l3-4h12l3 4 M17 13a1 1 0 100 2 1 1 0 000-2z",
   qr: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h3v3h-3z M20 14v3 M14 20h3 M20 20v1",
+  nfc: "M7 8a7 7 0 010 8 M10 6a10 10 0 010 12 M13 4a13 13 0 010 16 M4 11v2",
   clock: "M12 21a9 9 0 100-18 9 9 0 000 18z M12 7v5l3 2",
   fileText:
     "M14 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V8l-7-5z M8 13h8 M8 17h5",
