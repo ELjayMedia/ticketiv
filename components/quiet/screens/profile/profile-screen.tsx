@@ -3,10 +3,13 @@ import { Icon, type IconName } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
 import { Avatar } from "@/components/quiet/ui/primitives";
 import { ShareButton, ShareRow } from "@/components/quiet/screens/profile/profile-actions";
+import { TapBandSection } from "@/components/quiet/screens/profile/tapband-section";
+import type { MyTapBandProfile } from "@/lib/data/attendee/tapband";
 
 interface ProfileScreenProps {
   user?: ProfileUser | null;
   appVersion?: string;
+  tapBand?: MyTapBandProfile | null;
 }
 
 interface ProfileUser {
@@ -36,7 +39,7 @@ interface SettingRow {
   description?: string;
 }
 
-export function ProfileScreen({ user, appVersion = "current" }: ProfileScreenProps) {
+export function ProfileScreen({ user, appVersion = "current", tapBand }: ProfileScreenProps) {
   if (!user) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-bg p-6">
@@ -180,6 +183,8 @@ export function ProfileScreen({ user, appVersion = "current" }: ProfileScreenPro
       </section>
 
       <SettingsList title="Account" rows={accountRows} />
+
+      <TapBandSection profile={tapBand} />
 
       <section className="px-5 pb-4">
         <div className="text-label mb-2">Friends</div>
