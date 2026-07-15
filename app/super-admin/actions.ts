@@ -13,7 +13,8 @@ import { requireAdminRole } from "@/lib/super-admin/auth"
 const EVENT_OPS_ACTION_ROLES: AdminRoleTier[] = ["super_admin", "event_ops_admin"]
 
 async function requireGenericResourceMutationAccess(resourceKey: string) {
-  await requireAdminRole(allowedGenericMutationRolesForResource(resourceKey))
+  const { user } = await requireAdminRole(allowedGenericMutationRolesForResource(resourceKey))
+  return user
 }
 
 async function requireEventOpsActionAccess() {
@@ -22,32 +23,38 @@ async function requireEventOpsActionAccess() {
 }
 
 export async function createResourceAction(resourceKey: string, formData: FormData) {
-  await requireGenericResourceMutationAccess(resourceKey)
+  const user = await requireGenericResourceMutationAccess(resourceKey)
 
   const resource = getAdminResource(resourceKey)
   if (!resource) throw new Error("Unknown admin resource")
 
   const admin = createAdminClient()
-  const payload = buildAdminPayload(resource, formData)
-  const { error } = await admin.from(resource.table as any).insert(payload as any)
+  const payload = stampActorFields(resource, buildAdminPayload(resource, formData), user.id, "insert")
+  const { data, error } = await admin.from(resource.table as any).insert(payload as any).select(resource.primaryKey).single()
 
   if (error) throw new Error(error.message)
+
+  const inserted = data as unknown as Record<string, unknown> | null
+  const recordId = inserted?.[resource.primaryKey] ? String(inserted[resource.primaryKey]) : null
+  await auditGenericResourceMutation(admin, user.id, resource, recordId, "insert", payload)
 
   revalidatePath(`/super-admin/${resource.key}`)
   redirect(`/super-admin/${resource.key}?status=created`)
 }
 
 export async function updateResourceAction(resourceKey: string, recordId: string, formData: FormData) {
-  await requireGenericResourceMutationAccess(resourceKey)
+  const user = await requireGenericResourceMutationAccess(resourceKey)
 
   const resource = getAdminResource(resourceKey)
   if (!resource) throw new Error("Unknown admin resource")
 
   const admin = createAdminClient()
-  const payload = buildAdminPayload(resource, formData)
+  const payload = stampActorFields(resource, buildAdminPayload(resource, formData), user.id, "update")
   const { error } = await admin.from(resource.table as any).update(payload as any).eq(resource.primaryKey, recordId)
 
   if (error) throw new Error(error.message)
+
+  await auditGenericResourceMutation(admin, user.id, resource, recordId, "update", payload)
 
   revalidatePath(`/super-admin/${resource.key}`)
   revalidatePath(`/super-admin/${resource.key}/${recordId}`)
@@ -55,7 +62,7 @@ export async function updateResourceAction(resourceKey: string, recordId: string
 }
 
 export async function removeResourceAction(resourceKey: string, recordId: string) {
-  await requireGenericResourceMutationAccess(resourceKey)
+  const user = await requireGenericResourceMutationAccess(resourceKey)
 
   const resource = getAdminResource(resourceKey)
   if (!resource) throw new Error("Unknown admin resource")
@@ -65,8 +72,65 @@ export async function removeResourceAction(resourceKey: string, recordId: string
 
   if (error) throw new Error(error.message)
 
+  await auditGenericResourceMutation(admin, user.id, resource, recordId, "delete", {})
+
   revalidatePath(`/super-admin/${resource.key}`)
   redirect(`/super-admin/${resource.key}?status=deleted`)
+}
+
+function stampActorFields(
+  resource: NonNullable<ReturnType<typeof getAdminResource>>,
+  payload: Record<string, unknown>,
+  actorId: string,
+  action: "insert" | "update",
+) {
+  const fields = new Set(resource.fields.map((field) => field.name))
+  const stamped = { ...payload }
+
+  if (action === "insert" && fields.has("created_by") && !stamped.created_by) {
+    stamped.created_by = actorId
+  }
+  if (fields.has("updated_by")) {
+    stamped.updated_by = actorId
+  }
+  if (fields.has("last_changed_by")) {
+    stamped.last_changed_by = actorId
+  }
+  if (fields.has("last_changed_at")) {
+    stamped.last_changed_at = new Date().toISOString()
+  }
+  if (action === "insert" && resource.key === "tapband-kill-switches" && stamped.enabled === false) {
+    stamped.enabled = true
+  }
+  if (action === "update" && fields.has("revoked_by") && (stamped.revoked_at || stamped.enabled === false) && !stamped.revoked_by) {
+    stamped.revoked_by = actorId
+  }
+
+  return stamped
+}
+
+async function auditGenericResourceMutation(
+  admin: ReturnType<typeof createAdminClient>,
+  actorId: string,
+  resource: NonNullable<ReturnType<typeof getAdminResource>>,
+  recordId: string | null,
+  action: "insert" | "update" | "delete",
+  payload: Record<string, unknown>,
+) {
+  if (resource.table === "audit_log") return
+
+  await admin.from("audit_log").insert({
+    org_id: typeof payload.org_id === "string" ? payload.org_id : null,
+    actor_id: actorId,
+    table_name: resource.table,
+    record_id: recordId,
+    action,
+    changes: {
+      business_action: "super_admin_resource_mutation",
+      resource_key: resource.key,
+      changed_fields: Object.keys(payload),
+    },
+  })
 }
 
 export async function publishEventAction(eventId: string) {
