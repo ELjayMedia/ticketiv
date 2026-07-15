@@ -51,6 +51,40 @@ describe("tapband config", () => {
     expect(decision.config.allowedChipFamilies).toEqual(["DESFire EV3"])
   })
 
+  it("allows an outlet-scoped pilot without enabling the whole organization", () => {
+    const configs = [
+      configRow({ id: "org-default", org_id: "org-1", enabled: false }),
+      configRow({
+        id: "outlet-pilot",
+        org_id: "org-1",
+        outlet_id: "outlet-a",
+        enabled: true,
+        credential_lookup_enabled: true,
+        outlet_lookup_enabled: true,
+        outlet_sales_enabled: true,
+      }),
+    ]
+
+    const enabledOutlet = evaluateTapBandAccess(configs, [], {
+      environment: "production",
+      orgId: "org-1",
+      outletId: "outlet-a",
+      capability: "outlet_identity_lookup",
+    })
+    const otherOutlet = evaluateTapBandAccess(configs, [], {
+      environment: "production",
+      orgId: "org-1",
+      outletId: "outlet-b",
+      capability: "outlet_identity_lookup",
+    })
+
+    expect(enabledOutlet.allowed).toBe(true)
+    expect(enabledOutlet.config.sourceConfigId).toBe("outlet-pilot")
+    expect(enabledOutlet.config.outletId).toBe("outlet-a")
+    expect(otherOutlet.allowed).toBe(false)
+    expect(otherOutlet.reasonCode).toBe("tapband_disabled")
+  })
+
   it("keeps NFC disabled while QR fallback remains enabled", () => {
     const configs = [
       configRow({
@@ -136,6 +170,7 @@ function configRow(overrides: Partial<TapBandFeatureConfigRow> = {}): TapBandFea
     environment: "production",
     org_id: null,
     event_id: null,
+    outlet_id: null,
     enabled: false,
     product_visibility_enabled: false,
     credential_lookup_enabled: false,
