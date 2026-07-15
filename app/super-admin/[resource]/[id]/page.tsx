@@ -9,6 +9,7 @@ import { ResourceForm } from "@/components/super-admin/ResourceForm"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getAdminResource } from "@/lib/super-admin/resources"
 import { requireAdminRole } from "@/lib/super-admin/auth"
+import { ADMIN_ROLE_TIERS, canMutateResource } from "@/lib/super-admin/permissions"
 import {
   archiveEventAction,
   assignDeviceToEventAction,
@@ -26,25 +27,6 @@ import {
   markPayoutPaidAction,
   markPayoutProcessingAction,
 } from "../../finance-actions"
-
-const ADMIN_ROLE_TIERS = ["super_admin", "finance_admin", "support_admin", "event_ops_admin", "read_only_admin"] as const
-
-const FINANCE_RESOURCE_KEYS = new Set([
-  "payments",
-  "payment-attempts",
-  "payouts",
-  "payout-accounts",
-  "refunds",
-  "refund-items",
-  "ledger-entries",
-  "pricing-plans",
-])
-
-function canMutateResource(resourceKey: string, roleTier: string) {
-  if (roleTier === "read_only_admin") return false
-  if (FINANCE_RESOURCE_KEYS.has(resourceKey)) return roleTier === "super_admin"
-  return true
-}
 
 function ActionTile({
   icon,
