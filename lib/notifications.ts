@@ -65,6 +65,47 @@ export async function emitOrgMemberNotifications(input: {
   )
 }
 
+export function buildTapBandLostNotificationPayload(input: {
+  safeLabel?: string | null
+  serialSuffix?: string | null
+  reportedAt: string
+}) {
+  const label = input.safeLabel || (input.serialSuffix ? `TapBand ending ${input.serialSuffix}` : "Your TapBand")
+
+  return {
+    title: "TapBand marked lost",
+    message: `${label} was marked lost. It will stop working for entry, but your tickets remain in your account.`,
+    credentialLabel: label,
+    serialSuffix: input.serialSuffix ?? null,
+    reportedAt: input.reportedAt,
+  }
+}
+
+export async function notifyTapBandCredentialLost(input: {
+  userId: string
+  credentialId: string
+  safeLabel?: string | null
+  serialSuffix?: string | null
+  reportedAt?: string
+}) {
+  const reportedAt = input.reportedAt ?? new Date().toISOString()
+
+  try {
+    await emitNotification({
+      userId: input.userId,
+      type: "tapband_credential_lost",
+      payload: buildTapBandLostNotificationPayload({
+        safeLabel: input.safeLabel,
+        serialSuffix: input.serialSuffix,
+        reportedAt,
+      }),
+      dedupeKey: `tapband_credential_lost:${input.credentialId}:${input.userId}`,
+    })
+  } catch (error) {
+    console.error("[notifications] tapband lost:", error)
+  }
+}
+
 export async function notifyTicketPurchaseSucceeded(input: {
   userId: string
   orderId: string
