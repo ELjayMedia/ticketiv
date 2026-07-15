@@ -45,6 +45,8 @@ export interface TapBandTelemetrySignal {
 }
 
 export interface TapBandAlertThresholds {
+  credentialMultiEventWindow: number
+  excessiveReplacements: number
   repeatedAuthFailures: number
   serialEnumerationFailures: number
   duplicateAdmissionAttempts: number
@@ -52,6 +54,8 @@ export interface TapBandAlertThresholds {
 }
 
 const DEFAULT_THRESHOLDS: TapBandAlertThresholds = {
+  credentialMultiEventWindow: 2,
+  excessiveReplacements: 3,
   repeatedAuthFailures: 3,
   serialEnumerationFailures: 10,
   duplicateAdmissionAttempts: 3,
@@ -66,6 +70,8 @@ const AUTH_FAILURE_TYPES = new Set([
 const SERIAL_ENUMERATION_TYPES = new Set(["serial_lookup_failure", "unknown_serial"])
 const DUPLICATE_TYPES = new Set(["checkin_duplicate_valid", "duplicate_valid_admission"])
 const READER_ERROR_TYPES = new Set(["reader_error", "read_back_mismatch", "offline_sync_conflict"])
+const CHECK_IN_TYPES = new Set(["credential_check_in", "nfc_check_in", "qr_check_in", "serial_check_in"])
+const REPLACEMENT_TYPES = new Set(["credential_lost", "credential_replaced", "lost_replacement", "replacement_issued"])
 
 const SENSITIVE_METADATA_KEY =
   /(email|phone|name|token|secret|credential|cryptographic|crypto|pan|card|payment|address|buyer|holder|uid|uuid|raw|payload)/i
@@ -127,6 +133,32 @@ export function evaluateTapBandTelemetrySignals(
   const resolved = { ...DEFAULT_THRESHOLDS, ...thresholds }
 
   return [
+    evaluateDistinctScopeSignal({
+      key: "tapband-credential-multi-event-window",
+      title: "TapBand credential seen across multiple events",
+      healthyMessage: "No credential appeared across multiple event scopes in the telemetry window.",
+      alertMessage: "Possible cloned/replayed TapBand credential activity detected across event scopes.",
+      severity: "critical",
+      threshold: resolved.credentialMultiEventWindow,
+      signals: signals.filter(
+        (signal) =>
+          Boolean(signal.credential_hash) &&
+          Boolean(signal.event_id) &&
+          (CHECK_IN_TYPES.has(signal.event_type) || signal.outcome === "valid"),
+      ),
+      groupBy: (signal) => signal.credential_hash ?? "unknown",
+      scopeBy: (signal) => signal.event_id ?? "unknown",
+    }),
+    evaluateGroupedSignal({
+      key: "tapband-excessive-replacements",
+      title: "TapBand excessive replacement activity",
+      healthyMessage: "No excessive replacement activity in the telemetry window.",
+      alertMessage: "Excessive TapBand lost/replacement activity detected.",
+      severity: "warning",
+      threshold: resolved.excessiveReplacements,
+      signals: signals.filter((signal) => REPLACEMENT_TYPES.has(signal.event_type)),
+      groupBy: (signal) => signal.credential_hash ?? signal.actor_hash ?? signal.device_id ?? "unknown",
+    }),
     evaluateGroupedSignal({
       key: "tapband-repeated-auth-failures",
       title: "TapBand credential authentication failures",
@@ -221,6 +253,61 @@ function evaluateGroupedSignal(input: {
       return {
         group,
         count,
+        eventId: sample?.event_id ?? null,
+        deviceId: sample?.device_id ?? null,
+        readerId: sample?.reader_id ?? null,
+        correlationId: sample?.correlation_id ?? null,
+      }
+    })
+
+  const isHealthy = offenders.length === 0
+
+  return {
+    key: input.key,
+    status: isHealthy ? "ok" : "alert",
+    severity: isHealthy ? "info" : input.severity,
+    title: input.title,
+    message: isHealthy ? input.healthyMessage : input.alertMessage,
+    details: {
+      totalSignals: input.signals.length,
+      threshold: input.threshold,
+      offenders,
+    },
+  }
+}
+
+function evaluateDistinctScopeSignal(input: {
+  key: string
+  title: string
+  healthyMessage: string
+  alertMessage: string
+  severity: "warning" | "critical"
+  threshold: number
+  signals: TapBandTelemetrySignal[]
+  groupBy: (signal: TapBandTelemetrySignal) => string
+  scopeBy: (signal: TapBandTelemetrySignal) => string
+}): OpsAlertCheck {
+  const scopesByGroup = new Map<string, Set<string>>()
+  const sampleByGroup = new Map<string, TapBandTelemetrySignal>()
+
+  for (const signal of input.signals) {
+    const group = input.groupBy(signal)
+    const scope = input.scopeBy(signal)
+    if (!scopesByGroup.has(group)) scopesByGroup.set(group, new Set())
+    scopesByGroup.get(group)?.add(scope)
+    if (!sampleByGroup.has(group)) sampleByGroup.set(group, signal)
+  }
+
+  const offenders = [...scopesByGroup.entries()]
+    .filter(([, scopes]) => scopes.size >= input.threshold)
+    .sort((a, b) => b[1].size - a[1].size)
+    .slice(0, 10)
+    .map(([group, scopes]) => {
+      const sample = sampleByGroup.get(group)
+      return {
+        group,
+        distinctScopes: scopes.size,
+        scopes: [...scopes].slice(0, 10),
         eventId: sample?.event_id ?? null,
         deviceId: sample?.device_id ?? null,
         readerId: sample?.reader_id ?? null,

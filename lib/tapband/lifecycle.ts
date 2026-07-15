@@ -1,6 +1,10 @@
 import "server-only"
 
 import { createAdminClient } from "@/lib/supabase/admin"
+import {
+  recordTapBandTelemetryEvent,
+  type TapBandTelemetryInput,
+} from "@/lib/tapband/telemetry"
 import type { Json } from "@/types/database"
 
 export type TapBandLifecycleMetadata = Record<string, Json>
@@ -57,10 +61,16 @@ export interface ResolveTapBandCredentialInput extends TapBandLifecycleDeviceCon
   credentialPublicId: string
   eventId: string
   actorId: string
+  channel?: TapBandTelemetryInput["channel"]
 }
 
 export interface ListTapBandCustomerCredentialsInput {
   userId: string
+}
+
+export interface TapBandLifecycleServiceOptions {
+  recordTelemetry?: (input: TapBandTelemetryInput) => Promise<unknown>
+  telemetryEnabled?: boolean
 }
 
 export interface TapBandLifecycleResult {
@@ -109,6 +119,18 @@ interface TapBandLifecycleClient {
   ) => Promise<{ data: unknown; error: { message: string } | null }>
 }
 
+interface LifecycleTelemetryContext {
+  operation: string
+  eventType: string
+  actorId?: string | null
+  attemptId?: string | null
+  credentialId?: string | null
+  credentialPublicId?: string | null
+  deviceId?: string | null
+  eventId?: string | null
+  channel?: TapBandTelemetryInput["channel"]
+}
+
 const RESULT_KEY_MAP = {
   reason_code: "reasonCode",
   credential_id: "credentialId",
@@ -155,7 +177,11 @@ export class TapBandLifecycleError extends Error {
 
 export function createTapBandLifecycleService(
   client: TapBandLifecycleClient = createAdminClient() as unknown as TapBandLifecycleClient,
+  options: TapBandLifecycleServiceOptions = {},
 ) {
+  const telemetry =
+    options.telemetryEnabled === false ? null : options.recordTelemetry ?? recordTapBandTelemetryEvent
+
   return {
     issueCredential(input: IssueTapBandCredentialInput) {
       return callLifecycleRpc(client, "fn_tapband_issue_credential", {
@@ -167,6 +193,14 @@ export function createTapBandLifecycleService(
         p_session_id: input.sessionId ?? null,
         p_attempt_id: input.attemptId ?? null,
         p_metadata: input.metadata ?? {},
+      }, telemetry, {
+        operation: "issue",
+        eventType: "credential_issued",
+        actorId: input.actorId,
+        attemptId: input.attemptId ?? null,
+        credentialPublicId: input.credentialPublicId,
+        deviceId: input.deviceId ?? null,
+        channel: "system",
       })
     },
 
@@ -178,6 +212,14 @@ export function createTapBandLifecycleService(
         p_session_id: input.sessionId ?? null,
         p_attempt_id: input.attemptId ?? null,
         p_verification_metadata: input.verificationMetadata ?? {},
+      }, telemetry, {
+        operation: "activate",
+        eventType: "credential_activated",
+        actorId: input.actorId,
+        attemptId: input.attemptId ?? null,
+        credentialId: input.credentialId,
+        deviceId: input.deviceId ?? null,
+        channel: "system",
       })
     },
 
@@ -190,6 +232,14 @@ export function createTapBandLifecycleService(
         p_assignment_source: input.assignmentSource ?? "support",
         p_attempt_id: input.attemptId ?? null,
         p_metadata: input.metadata ?? {},
+      }, telemetry, {
+        operation: "assign_entitlement",
+        eventType: "entitlement_assigned",
+        actorId: input.actorId,
+        attemptId: input.attemptId ?? null,
+        credentialId: input.credentialId,
+        eventId: input.eventId,
+        channel: input.assignmentSource === "outlet_sale" ? "system" : "manual",
       })
     },
 
@@ -201,6 +251,13 @@ export function createTapBandLifecycleService(
         p_new_status: input.newStatus ?? "revoked",
         p_attempt_id: input.attemptId ?? null,
         p_metadata: input.metadata ?? {},
+      }, telemetry, {
+        operation: "revoke",
+        eventType: input.newStatus === "lost" ? "credential_lost" : "credential_revoked",
+        actorId: input.actorId,
+        attemptId: input.attemptId ?? null,
+        credentialId: input.credentialId,
+        channel: "manual",
       })
     },
 
@@ -212,6 +269,14 @@ export function createTapBandLifecycleService(
         p_actor_id: input.actorId,
         p_attempt_id: input.attemptId ?? null,
         p_metadata: input.metadata ?? {},
+      }, telemetry, {
+        operation: "replace",
+        eventType: "credential_replaced",
+        actorId: input.actorId,
+        attemptId: input.attemptId ?? null,
+        credentialId: input.oldCredentialId,
+        credentialPublicId: input.newCredentialPublicId,
+        channel: "manual",
       })
     },
 
@@ -223,6 +288,15 @@ export function createTapBandLifecycleService(
         p_device_id: input.deviceId ?? null,
         p_session_id: input.sessionId ?? null,
         p_attempt_id: input.attemptId ?? null,
+      }, telemetry, {
+        operation: "resolve_for_event",
+        eventType: "credential_check_in",
+        actorId: input.actorId,
+        attemptId: input.attemptId ?? null,
+        credentialPublicId: input.credentialPublicId,
+        deviceId: input.deviceId ?? null,
+        eventId: input.eventId,
+        channel: input.channel ?? "nfc",
       })
     },
 
@@ -329,6 +403,8 @@ async function callLifecycleRpc(
   client: TapBandLifecycleClient,
   functionName: string,
   args: Record<string, unknown>,
+  telemetry: ((input: TapBandTelemetryInput) => Promise<unknown>) | null = null,
+  telemetryContext?: LifecycleTelemetryContext,
 ) {
   const { data, error } = await rpc(client, functionName, args)
 
@@ -336,7 +412,49 @@ async function callLifecycleRpc(
     throw new TapBandLifecycleError(rpcErrorResult(error.message), 500)
   }
 
-  return normalizeTapBandLifecycleResult(data)
+  const result = normalizeTapBandLifecycleResult(data)
+  if (telemetry && telemetryContext) {
+    await recordLifecycleTelemetry(telemetry, result, telemetryContext)
+  }
+
+  return result
+}
+
+async function recordLifecycleTelemetry(
+  telemetry: (input: TapBandTelemetryInput) => Promise<unknown>,
+  result: TapBandLifecycleResult,
+  context: LifecycleTelemetryContext,
+) {
+  try {
+    await telemetry({
+      eventType: lifecycleTelemetryEventType(context.eventType, result),
+      severity: result.ok ? "info" : "warning",
+      eventId: result.eventId ?? context.eventId ?? null,
+      deviceId: context.deviceId ?? null,
+      outcome: result.outcome ?? result.status ?? result.reasonCode ?? (result.ok ? "ok" : "failed"),
+      channel: context.channel ?? "system",
+      credentialId: result.credentialId ?? context.credentialId ?? null,
+      serial: result.credentialPublicId ?? context.credentialPublicId ?? null,
+      actorId: context.actorId ?? null,
+      correlationId: context.attemptId ?? null,
+      metadata: {
+        operation: context.operation,
+        reasonCode: result.reasonCode ?? null,
+        status: result.status ?? null,
+        valid: result.valid ?? null,
+        idempotent: result.idempotent ?? false,
+      },
+    })
+  } catch {
+    // Telemetry must never block credential issue, activation, revocation or entry.
+  }
+}
+
+function lifecycleTelemetryEventType(defaultEventType: string, result: TapBandLifecycleResult) {
+  if (result.reasonCode === "tapband_unknown") return "unknown_serial"
+  if (result.reasonCode === "tapband_unsupported_chip") return "unsupported_chip"
+  if (result.reasonCode?.includes("auth_failure")) return "credential_auth_failure"
+  return defaultEventType
 }
 
 function normalizeTapBandCustomerCredential(raw: unknown): TapBandCustomerCredential | null {

@@ -17,7 +17,7 @@ describe("tapband lifecycle", () => {
       inventory_id: "inventory-1",
       idempotent: false,
     })
-    const service = createTapBandLifecycleService(client)
+    const service = createTapBandLifecycleService(client, { telemetryEnabled: false })
 
     const result = await service.issueCredential({
       inventoryId: "inventory-1",
@@ -60,7 +60,7 @@ describe("tapband lifecycle", () => {
       order_item_id: "order-item-1",
       checked_in_at: "2026-07-15T08:00:00.000Z",
     })
-    const service = createTapBandLifecycleService(client)
+    const service = createTapBandLifecycleService(client, { telemetryEnabled: false })
 
     const result = await service.resolveCredentialForEvent({
       credentialPublicId: "TB-0001",
@@ -108,7 +108,7 @@ describe("tapband lifecycle", () => {
 
   it("maps RPC transport errors to a 500 lifecycle error", async () => {
     const { client } = fakeRpcClient(null, { message: "permission denied for function" })
-    const service = createTapBandLifecycleService(client)
+    const service = createTapBandLifecycleService(client, { telemetryEnabled: false })
 
     await expect(
       service.activateCredential({
@@ -139,7 +139,7 @@ describe("tapband lifecycle", () => {
         replaced_by_id: null,
       },
     ])
-    const service = createTapBandLifecycleService(client)
+    const service = createTapBandLifecycleService(client, { telemetryEnabled: false })
 
     const credentials = await service.listCustomerCredentials({ userId: "user-1" })
 
@@ -159,6 +159,110 @@ describe("tapband lifecycle", () => {
     expect(tapBandLifecycleHttpStatus("tapband_already_used")).toBe(409)
     expect(tapBandLifecycleHttpStatus("tapband_no_entitlement")).toBe(422)
     expect(tapBandLifecycleHttpStatus("tapband_lifecycle_failed")).toBe(400)
+  })
+
+  it("records privacy-minimised lifecycle telemetry after successful RPC calls", async () => {
+    const telemetry: unknown[] = []
+    const { client } = fakeRpcClient({
+      ok: true,
+      valid: true,
+      outcome: "valid",
+      credential_id: "credential-1",
+      event_id: "event-1",
+      order_item_id: "order-item-1",
+      reason_code: "tapband_valid_entitlement",
+    })
+    const service = createTapBandLifecycleService(client, {
+      recordTelemetry: async (input) => {
+        telemetry.push(input)
+      },
+    })
+
+    await service.resolveCredentialForEvent({
+      credentialPublicId: "TB-0001",
+      eventId: "event-1",
+      actorId: "scanner-1",
+      deviceId: "device-1",
+      attemptId: "attempt-1",
+    })
+
+    expect(telemetry).toEqual([
+      expect.objectContaining({
+        eventType: "credential_check_in",
+        severity: "info",
+        eventId: "event-1",
+        deviceId: "device-1",
+        outcome: "valid",
+        channel: "nfc",
+        credentialId: "credential-1",
+        serial: "TB-0001",
+        actorId: "scanner-1",
+        correlationId: "attempt-1",
+        metadata: expect.objectContaining({
+          operation: "resolve_for_event",
+          reasonCode: "tapband_valid_entitlement",
+          valid: true,
+        }),
+      }),
+    ])
+  })
+
+  it("maps unknown credential resolution telemetry to enumeration signals", async () => {
+    const telemetry: unknown[] = []
+    const { client } = fakeRpcClient({
+      ok: false,
+      valid: false,
+      reason_code: "tapband_unknown",
+      message: "Credential not found",
+    })
+    const service = createTapBandLifecycleService(client, {
+      recordTelemetry: async (input) => {
+        telemetry.push(input)
+      },
+    })
+
+    await service.resolveCredentialForEvent({
+      credentialPublicId: "TB-UNKNOWN",
+      eventId: "event-1",
+      actorId: "scanner-1",
+      deviceId: "device-1",
+      attemptId: "attempt-unknown",
+    })
+
+    expect(telemetry).toEqual([
+      expect.objectContaining({
+        eventType: "unknown_serial",
+        severity: "warning",
+        outcome: "tapband_unknown",
+        serial: "TB-UNKNOWN",
+        correlationId: "attempt-unknown",
+      }),
+    ])
+  })
+
+  it("does not fail lifecycle operations when telemetry recording fails", async () => {
+    const { client } = fakeRpcClient({
+      ok: true,
+      status: "revoked",
+      credential_id: "credential-1",
+    })
+    const service = createTapBandLifecycleService(client, {
+      recordTelemetry: async () => {
+        throw new Error("telemetry unavailable")
+      },
+    })
+
+    await expect(
+      service.revokeCredential({
+        credentialId: "credential-1",
+        actorId: "support-1",
+        reason: "customer reported lost",
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      status: "revoked",
+      credentialId: "credential-1",
+    })
   })
 })
 
