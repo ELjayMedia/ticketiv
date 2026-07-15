@@ -39,6 +39,8 @@ export const EVENT_OPS_RESOURCE_KEYS = new Set([
   "devices",
   "device-sessions",
   "scans",
+  "tapband-alerts",
+  "tapband-kill-switches",
 ])
 
 export const SUPPORT_RESOURCE_KEYS = new Set([
