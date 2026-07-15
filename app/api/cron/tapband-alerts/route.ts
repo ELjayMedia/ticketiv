@@ -43,6 +43,8 @@ export async function GET(request: Request) {
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
 
   const checks = evaluateTapBandTelemetrySignals((data ?? []) as TapBandTelemetrySignal[], {
+    credentialMultiEventWindow: readPositiveNumber("TAPBAND_ALERT_CREDENTIAL_MULTI_EVENT", 2),
+    excessiveReplacements: readPositiveNumber("TAPBAND_ALERT_EXCESSIVE_REPLACEMENTS", 3),
     repeatedAuthFailures: readPositiveNumber("TAPBAND_ALERT_AUTH_FAILURES", 3),
     serialEnumerationFailures: readPositiveNumber("TAPBAND_ALERT_SERIAL_ENUMERATION", 10),
     duplicateAdmissionAttempts: readPositiveNumber("TAPBAND_ALERT_DUPLICATE_ADMISSIONS", 3),

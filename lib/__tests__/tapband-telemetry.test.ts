@@ -65,6 +65,33 @@ describe("tapband telemetry", () => {
     expect(checks.find((check) => check.key === "tapband-repeated-auth-failures")?.status).toBe("alert")
     expect(checks.find((check) => check.key === "tapband-reader-errors")?.status).toBe("alert")
   })
+
+  it("alerts on clone/replay, enumeration, duplicate admission and replacement simulations", () => {
+    const signals: TapBandTelemetrySignal[] = [
+      signal("credential_check_in", { credential_hash: "cred-a", event_id: "event-a", outcome: "valid" }),
+      signal("credential_check_in", { credential_hash: "cred-a", event_id: "event-b", outcome: "valid" }),
+      signal("unknown_serial", { actor_hash: "operator-a" }),
+      signal("unknown_serial", { actor_hash: "operator-a" }),
+      signal("credential_check_in", { credential_hash: "cred-b", outcome: "already_used" }),
+      signal("credential_check_in", { credential_hash: "cred-b", outcome: "already_used" }),
+      signal("credential_replaced", { credential_hash: "cred-c", actor_hash: "support-a" }),
+      signal("credential_lost", { credential_hash: "cred-c", actor_hash: "support-a" }),
+    ]
+
+    const checks = evaluateTapBandTelemetrySignals(signals, {
+      credentialMultiEventWindow: 2,
+      excessiveReplacements: 2,
+      serialEnumerationFailures: 2,
+      duplicateAdmissionAttempts: 2,
+      repeatedAuthFailures: 10,
+      readerErrors: 10,
+    })
+
+    expect(checks.find((check) => check.key === "tapband-credential-multi-event-window")?.status).toBe("alert")
+    expect(checks.find((check) => check.key === "tapband-serial-enumeration")?.status).toBe("alert")
+    expect(checks.find((check) => check.key === "tapband-duplicate-valid-admission")?.status).toBe("alert")
+    expect(checks.find((check) => check.key === "tapband-excessive-replacements")?.status).toBe("alert")
+  })
 })
 
 function signal(
