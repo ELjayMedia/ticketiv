@@ -12,6 +12,7 @@ import type { WorkspaceType } from "@/lib/navigation";
 
 interface NavItem {
   href: string;
+  orgHref?: (orgId: string) => string;
   label: string;
   icon: IconName;
   match: (pathname: string) => boolean;
@@ -21,21 +22,26 @@ const WORKSPACE_NAV: Record<Extract<WorkspaceType, "organizer" | "scanner" | "ap
   organizer: [
     {
       href: "/events",
+      orgHref: (orgId) => `/orgs/${orgId}/events`,
       label: "Events",
       icon: "cal",
-      match: (p) => (p.startsWith("/events") || p.startsWith("/orgs")) && !p.includes("/onboarding"),
+      match: (p) =>
+        p.startsWith("/events") ||
+        /^\/orgs\/[^/]+\/(?:dashboard|events|series|pricing-plans|feature-flags)(?:\/|$)/.test(p),
     },
     {
       href: "/payouts",
+      orgHref: (orgId) => `/orgs/${orgId}/payouts`,
       label: "Payouts",
       icon: "wallet",
-      match: (p) => p.startsWith("/payouts") || p.startsWith("/finance"),
+      match: (p) => p.startsWith("/payouts") || /^\/orgs\/[^/]+\/(?:payouts|finance)(?:\/|$)/.test(p),
     },
     {
       href: "/devices",
+      orgHref: (orgId) => `/orgs/${orgId}/events`,
       label: "Devices",
       icon: "qr",
-      match: (p) => p.startsWith("/devices"),
+      match: (p) => p.startsWith("/devices") || /^\/orgs\/[^/]+\/events\/[^/]+\/staff(?:\/|$)/.test(p),
     },
     {
       href: "/scan",
@@ -45,9 +51,10 @@ const WORKSPACE_NAV: Record<Extract<WorkspaceType, "organizer" | "scanner" | "ap
     },
     {
       href: "/guide",
+      orgHref: (orgId) => `/orgs/${orgId}/onboarding`,
       label: "Guide",
       icon: "spark",
-      match: (p) => p.startsWith("/guide") || p.includes("/onboarding"),
+      match: (p) => p.startsWith("/guide") || /^\/orgs\/[^/]+\/onboarding(?:\/|$)/.test(p),
     },
   ],
   scanner: [
@@ -105,6 +112,19 @@ const WORKSPACE_LABEL: Record<Extract<WorkspaceType, "organizer" | "scanner" | "
 };
 
 type ShellUser = { id?: string; email?: string; name?: string };
+
+function getOrgIdFromPathname(pathname: string) {
+  return pathname.match(/^\/orgs\/([^/]+)/)?.[1] ?? null;
+}
+
+function resolveWorkspaceHref(
+  item: NavItem,
+  workspace: Extract<WorkspaceType, "organizer" | "scanner" | "app">,
+  pathname: string
+) {
+  const orgId = workspace === "organizer" ? getOrgIdFromPathname(pathname) : null;
+  return orgId && item.orgHref ? item.orgHref(orgId) : item.href;
+}
 
 interface WorkspaceShellProps {
   workspace: Extract<WorkspaceType, "organizer" | "scanner" | "app">;
@@ -298,10 +318,11 @@ function DesktopWorkspaceNav({
         <nav className="ml-4 flex items-center gap-1 text-[13px]">
           {items.map((item) => {
             const active = item.match(pathname);
+            const href = resolveWorkspaceHref(item, workspace, pathname);
             return (
               <Link
-                key={item.href}
-                href={item.href}
+                key={item.label}
+                href={href}
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 transition-colors",
                   active
@@ -359,10 +380,11 @@ function MobileWorkspaceTabs({
     >
       {items.map((item) => {
         const active = item.match(pathname);
+        const href = resolveWorkspaceHref(item, workspace, pathname);
         return (
           <Link
-            key={item.href}
-            href={item.href}
+            key={item.label}
+            href={href}
             className={cn(
               "flex flex-1 flex-col items-center gap-1 px-1 text-[10px] font-semibold uppercase tracking-wide",
               active ? "text-accent" : "text-ink-3"
