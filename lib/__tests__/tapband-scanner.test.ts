@@ -37,7 +37,10 @@ describe("tapband scanner mapping", () => {
     ["lost", "tapband_lost", "TapBand was reported lost. Do not admit with this band"],
     ["replaced", "tapband_replaced", "TapBand was replaced. Use the newer TapBand or QR fallback"],
     ["no_entitlement", "tapband_no_entitlement", "No active ticket for this event is linked to this TapBand"],
+    ["multiple_entitlements", "tapband_multiple_entitlements", "Multiple active tickets are linked to this TapBand. Use QR fallback until ticket selection is available"],
     ["unknown", "tapband_unknown", "TapBand not recognised. Use QR or manual fallback"],
+    ["unsupported_chip", "tapband_unsupported_chip", "TapBand chip is not supported by this scanner"],
+    ["auth_failure", "tapband_unauthenticated_chip", "TapBand could not be authenticated"],
     ["reader_error", "tapband_reader_error", "TapBand could not be read. Try again or use QR fallback"],
     ["already_used", "duplicate", "TapBand was already checked in for this event"],
   ])("maps %s to %s", (outcome, status, message) => {

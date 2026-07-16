@@ -13,8 +13,11 @@ export type ScannerClientStatus =
   | "offline"
   | "tapband_unknown"
   | "tapband_no_entitlement"
+  | "tapband_multiple_entitlements"
   | "tapband_lost"
   | "tapband_replaced"
+  | "tapband_unsupported_chip"
+  | "tapband_unauthenticated_chip"
   | "tapband_reader_error"
   | "error"
 
@@ -107,8 +110,11 @@ export function scannerStatusTitle(status: ScannerClientStatus, inputMode: Scann
   if (status === "not_found") return inputMode === "tapband" ? "Unknown TapBand" : "Unknown ticket"
   if (status === "tapband_unknown") return "Unknown TapBand"
   if (status === "tapband_no_entitlement") return "No ticket for this event"
+  if (status === "tapband_multiple_entitlements") return "Multiple tickets"
   if (status === "tapband_lost") return "Lost TapBand"
   if (status === "tapband_replaced") return "Replaced TapBand"
+  if (status === "tapband_unsupported_chip") return "Unsupported TapBand"
+  if (status === "tapband_unauthenticated_chip") return "Unauthenticated TapBand"
   if (status === "tapband_reader_error") return "Reader error"
   if (status === "revoked") return inputMode === "tapband" ? "Inactive TapBand" : "Revoked ticket"
   if (status === "refunded") return "Refunded ticket"
@@ -121,7 +127,12 @@ export function scannerStatusTitle(status: ScannerClientStatus, inputMode: Scann
 
 export function scannerStatusTone(status: ScannerClientStatus) {
   if (status === "validated" || status === "offline") return "success"
-  if (status === "duplicate" || status === "not_paid" || status === "tapband_reader_error") return "warning"
+  if (
+    status === "duplicate" ||
+    status === "not_paid" ||
+    status === "tapband_multiple_entitlements" ||
+    status === "tapband_reader_error"
+  ) return "warning"
   return "danger"
 }
 
@@ -144,6 +155,9 @@ function defaultScannerMessage(status: ScannerClientStatus, mode: ScannerInputMo
   if (status === "validated") return mode === "tapband" ? "TapBand checked in" : "Ticket checked in"
   if (status === "duplicate") return "Already checked in for this event"
   if (status === "unauthorized") return "Scanner is not assigned to this event"
+  if (status === "tapband_multiple_entitlements") return "Multiple active tickets are linked to this TapBand. Use QR fallback until ticket selection is available"
+  if (status === "tapband_unsupported_chip") return "TapBand chip is not supported by this scanner"
+  if (status === "tapband_unauthenticated_chip") return "TapBand could not be authenticated"
   if (status === "tapband_reader_error") return "TapBand could not be read"
   return "Scan complete"
 }
@@ -162,8 +176,11 @@ function isScannerClientStatus(value: string): value is ScannerClientStatus {
     "offline",
     "tapband_unknown",
     "tapband_no_entitlement",
+    "tapband_multiple_entitlements",
     "tapband_lost",
     "tapband_replaced",
+    "tapband_unsupported_chip",
+    "tapband_unauthenticated_chip",
     "tapband_reader_error",
     "error",
   ].includes(value)

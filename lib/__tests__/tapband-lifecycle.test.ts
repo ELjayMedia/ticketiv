@@ -161,7 +161,10 @@ describe("tapband lifecycle", () => {
     expect(tapBandLifecycleHttpStatus("tapband_unauthorized")).toBe(403)
     expect(tapBandLifecycleHttpStatus("tapband_credential_not_found")).toBe(404)
     expect(tapBandLifecycleHttpStatus("tapband_already_used")).toBe(409)
+    expect(tapBandLifecycleHttpStatus("tapband_multiple_entitlements")).toBe(409)
     expect(tapBandLifecycleHttpStatus("tapband_no_entitlement")).toBe(422)
+    expect(tapBandLifecycleHttpStatus("tapband_unsupported_chip")).toBe(422)
+    expect(tapBandLifecycleHttpStatus("tapband_auth_failure")).toBe(422)
     expect(tapBandLifecycleHttpStatus("tapband_lifecycle_failed")).toBe(400)
   })
 
