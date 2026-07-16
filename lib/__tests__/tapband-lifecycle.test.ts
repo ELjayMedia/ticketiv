@@ -58,6 +58,7 @@ describe("tapband lifecycle", () => {
       reason_code: "tapband_valid_entitlement",
       credential_id: "credential-1",
       order_item_id: "order-item-1",
+      scan_id: "scan-1",
       checked_in_at: "2026-07-15T08:00:00.000Z",
     })
     const service = createTapBandLifecycleService(client, { telemetryEnabled: false })
@@ -80,11 +81,14 @@ describe("tapband lifecycle", () => {
         p_device_id: "device-1",
         p_session_id: "session-1",
         p_attempt_id: "attempt-1",
+        p_gate: null,
+        p_scanned_at: null,
       },
     })
     expect(result.valid).toBe(true)
     expect(result.reasonCode).toBe("tapband_valid_entitlement")
     expect(result.orderItemId).toBe("order-item-1")
+    expect(result.scanId).toBe("scan-1")
     expect(result.checkedInAt).toBe("2026-07-15T08:00:00.000Z")
   })
 

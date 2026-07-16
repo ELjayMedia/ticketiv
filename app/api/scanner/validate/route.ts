@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import { validateQrCode } from "@/lib/scanning"
+import { validateQrCode, validateTapBandCredential, type ScannerValidationStatus } from "@/lib/scanning"
 import { clientKey, rateLimit, tooManyRequests } from "@/lib/rate-limit"
 import { DeviceScannerAccessError, verifyDeviceScannerAccess } from "@/lib/scanner/device-session-auth"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
@@ -65,30 +65,37 @@ export async function POST(request: Request) {
   if (!rl.allowed) return tooManyRequests(rl)
 
   try {
-    const result = await validateQrCode({
-      code: String(body.code ?? ""),
-      eventId: String(body.eventId ?? ""),
-      userId: session?.user.id ?? null,
-      deviceId: body.deviceId ? String(body.deviceId) : null,
-      sessionId: body.sessionId ? String(body.sessionId) : null,
-      gate: body.gate ? String(body.gate) : null,
-      offline: Boolean(body.offline),
-      scannedAt: body.scannedAt ? String(body.scannedAt) : undefined,
-    })
+    const isTapBandScan =
+      String(body.mode ?? body.inputMode ?? "").toLowerCase() === "tapband" ||
+      body.credentialPublicId != null
 
-    const status = result.valid
-      ? 200
-      : result.status === "not_found"
-        ? 404
-        : result.status === "unauthorized"
-          ? 403
-          : result.status === "error"
-            ? 400
-            : 409
+    const result = isTapBandScan
+      ? await validateTapBandCredential({
+          credentialPublicId: String(body.credentialPublicId ?? body.code ?? ""),
+          eventId: String(body.eventId ?? ""),
+          userId: session?.user.id ?? null,
+          deviceId: body.deviceId ? String(body.deviceId) : null,
+          sessionId: body.sessionId ? String(body.sessionId) : null,
+          gate: body.gate ? String(body.gate) : null,
+          scannedAt: body.scannedAt ? String(body.scannedAt) : undefined,
+          attemptId: body.attemptId ? String(body.attemptId) : null,
+        })
+      : await validateQrCode({
+          code: String(body.code ?? ""),
+          eventId: String(body.eventId ?? ""),
+          userId: session?.user.id ?? null,
+          deviceId: body.deviceId ? String(body.deviceId) : null,
+          sessionId: body.sessionId ? String(body.sessionId) : null,
+          gate: body.gate ? String(body.gate) : null,
+          offline: Boolean(body.offline),
+          scannedAt: body.scannedAt ? String(body.scannedAt) : undefined,
+        })
+
+    const status = statusCodeForScannerResult(result.valid, result.status)
 
     return NextResponse.json(result, { status })
   } catch (error: any) {
-    console.error("Failed to validate QR code", error)
+    console.error("Failed to validate scanner code", error)
 
     return NextResponse.json(
       {
@@ -98,5 +105,30 @@ export async function POST(request: Request) {
       },
       { status: 400 },
     )
+  }
+}
+
+function statusCodeForScannerResult(valid: boolean, status: ScannerValidationStatus) {
+  if (valid) return 200
+
+  switch (status) {
+    case "not_found":
+    case "tapband_unknown":
+      return 404
+    case "unauthorized":
+      return 403
+    case "error":
+    case "tapband_reader_error":
+      return 400
+    case "tapband_no_entitlement":
+    case "tapband_lost":
+    case "tapband_replaced":
+    case "wrong_event":
+    case "revoked":
+    case "refunded":
+    case "not_paid":
+      return 422
+    default:
+      return 409
   }
 }

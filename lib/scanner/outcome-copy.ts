@@ -17,6 +17,11 @@ export type ScannerOutcomeStatus =
   | "not_paid"
   | "unauthorized"
   | "offline"
+  | "tapband_unknown"
+  | "tapband_no_entitlement"
+  | "tapband_lost"
+  | "tapband_replaced"
+  | "tapband_reader_error"
   | "error"
 
 export type ScannerOutcomeTone = "success" | "danger" | "warning" | "muted"
@@ -37,6 +42,11 @@ const COPY: Record<ScannerOutcomeStatus, ScannerOutcomeCopy> = {
   refunded: { title: "Refunded", detail: "This ticket was refunded and is no longer valid.", tone: "danger" },
   not_paid: { title: "Not paid", detail: "Payment hasn't completed for this order.", tone: "danger" },
   unauthorized: { title: "Not authorised", detail: "You're not assigned to scan this event.", tone: "danger" },
+  tapband_unknown: { title: "Unknown TapBand", detail: "Use the attendee QR or manual fallback.", tone: "danger" },
+  tapband_no_entitlement: { title: "No TapBand ticket", detail: "This band has no active ticket for this event.", tone: "danger" },
+  tapband_lost: { title: "Lost TapBand", detail: "This band was reported lost — do not admit.", tone: "danger" },
+  tapband_replaced: { title: "Replaced TapBand", detail: "Use the replacement band or QR fallback.", tone: "danger" },
+  tapband_reader_error: { title: "TapBand read failed", detail: "Try again or switch to QR/manual fallback.", tone: "warning" },
   error: { title: "Scan error", detail: "Something went wrong. Try again.", tone: "danger" },
 }
 

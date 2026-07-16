@@ -60,7 +60,9 @@ export interface ReplaceTapBandCredentialInput {
 export interface ResolveTapBandCredentialInput extends TapBandLifecycleDeviceContext {
   credentialPublicId: string
   eventId: string
-  actorId: string
+  actorId?: string | null
+  gate?: string | null
+  scannedAt?: string | null
   channel?: TapBandTelemetryInput["channel"]
 }
 
@@ -88,6 +90,7 @@ export interface TapBandLifecycleResult {
   eventId?: string | null
   userId?: string | null
   ticketTypeName?: string | null
+  scanId?: string | null
   replacementOfId?: string | null
   replacedById?: string | null
   checkedInAt?: string | null
@@ -141,6 +144,7 @@ const RESULT_KEY_MAP = {
   event_id: "eventId",
   user_id: "userId",
   ticket_type_name: "ticketTypeName",
+  scan_id: "scanId",
   replacement_of_id: "replacementOfId",
   replaced_by_id: "replacedById",
   checked_in_at: "checkedInAt",
@@ -288,6 +292,8 @@ export function createTapBandLifecycleService(
         p_device_id: input.deviceId ?? null,
         p_session_id: input.sessionId ?? null,
         p_attempt_id: input.attemptId ?? null,
+        p_gate: input.gate ?? null,
+        p_scanned_at: input.scannedAt ?? null,
       }, telemetry, {
         operation: "resolve_for_event",
         eventType: "credential_check_in",
@@ -383,6 +389,7 @@ export function normalizeTapBandLifecycleResult(raw: unknown): TapBandLifecycleR
     eventId: asOptionalString(normalized.eventId),
     userId: asOptionalString(normalized.userId),
     ticketTypeName: asOptionalString(normalized.ticketTypeName),
+    scanId: asOptionalString(normalized.scanId),
     replacementOfId: asOptionalString(normalized.replacementOfId),
     replacedById: asOptionalString(normalized.replacedById),
     checkedInAt: asOptionalString(normalized.checkedInAt),

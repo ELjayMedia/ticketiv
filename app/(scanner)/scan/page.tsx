@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/quiet/ui/button"
@@ -39,9 +39,28 @@ interface ScanResponse {
   valid: boolean
   status: ScannerOutcomeStatus
   message: string
+  inputMode?: ScannerInputMode
+  checkedInAt?: string | null
   ticket?: { id: string; event_id: string; ticket_type_id: string } | null
   scan?: { scanned_at: string } | null
   previousScan?: { scanned_at: string } | null
+}
+
+type ScannerInputMode = "qr" | "tapband"
+
+interface NdefReaderLike {
+  scan: (options?: { signal?: AbortSignal }) => Promise<void>
+  addEventListener: (type: "reading" | "readingerror", listener: (event: Event) => void) => void
+}
+
+interface NdefReadingEvent extends Event {
+  serialNumber?: string
+  message?: {
+    records?: Array<{
+      data?: DataView
+      encoding?: string
+    }>
+  }
 }
 
 interface OfflineScanPayload {
@@ -85,14 +104,68 @@ const TONE_STYLES: Record<ScannerOutcomeTone, { border: string; icon: string }> 
   muted: { border: "border-line bg-bg text-ink-3", icon: "clock" },
 }
 
+function createClientAttemptId() {
+  if (typeof window !== "undefined" && window.crypto?.randomUUID) {
+    return window.crypto.randomUUID()
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+function parseTapBandCredential(value: string | null | undefined) {
+  const trimmed = value?.trim()
+  if (!trimmed) return null
+
+  try {
+    const url = new URL(trimmed)
+    const param =
+      url.searchParams.get("credentialPublicId") ??
+      url.searchParams.get("credential_public_id") ??
+      url.searchParams.get("tapband") ??
+      url.searchParams.get("id")
+
+    if (param?.trim()) return param.trim()
+
+    const pathCredential = url.pathname.split("/").filter(Boolean).pop()
+    if (pathCredential?.trim()) return pathCredential.trim()
+  } catch {
+    // Plain TapBand references are expected from serial readers and fallback input.
+  }
+
+  const tagged = trimmed.match(/(?:tapband|credential_public_id|credential|band)[=:/]+([A-Za-z0-9._-]+)/i)
+  return tagged?.[1] ?? trimmed
+}
+
+function extractTapBandCredentialFromNdef(event: NdefReadingEvent) {
+  const records = event.message?.records ?? []
+
+  for (const record of records) {
+    if (!record.data) continue
+
+    try {
+      const text = new TextDecoder(record.encoding || "utf-8").decode(record.data)
+      const credential = parseTapBandCredential(text)
+      if (credential) return credential
+    } catch {
+      // Ignore unreadable NDEF records and fall back to the reader serial.
+    }
+  }
+
+  return parseTapBandCredential(event.serialNumber)
+}
+
 export default function ScannerPage() {
   const router = useRouter()
   const [hydrated, setHydrated] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<SelectedScannerEvent | null>(null)
   const [deviceName, setDeviceName] = useState<string | null>(null)
+  const [inputMode, setInputMode] = useState<ScannerInputMode>("qr")
   const [code, setCode] = useState("")
   const [result, setResult] = useState<ScanResponse | null>(null)
   const [loading, setLoading] = useState(false)
+  const [nfcSupported] = useState(() => typeof window !== "undefined" && "NDEFReader" in window)
+  const [nfcListening, setNfcListening] = useState(false)
+  const [nfcStatus, setNfcStatus] = useState<string | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [deviceBound, setDeviceBound] = useState(false)
   const [offlineQueue, setOfflineQueue] = useState<OfflineScanPayload[]>([])
@@ -101,6 +174,10 @@ export default function ScannerPage() {
   const [recentScans, setRecentScans] = useState<RecentScan[]>([])
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(null)
   const [, setTick] = useState(0)
+  const nfcReaderRef = useRef<NdefReaderLike | null>(null)
+  const nfcAbortRef = useRef<AbortController | null>(null)
+  const lastTapAttemptRef = useRef<{ credential: string; at: number } | null>(null)
+  const tapBandInFlightRef = useRef(false)
   const deviceId = useMemo(() => loadDeviceId(), [])
 
   const eventId = selectedEvent?.id ?? ""
@@ -211,6 +288,9 @@ export default function ScannerPage() {
   // is the canonical end-of-shift path.
   useEffect(() => {
     return () => {
+      nfcAbortRef.current?.abort()
+      nfcAbortRef.current = null
+      nfcReaderRef.current = null
       if (!sessionId) return
       fetch("/api/scanner/session", {
         method: "PATCH",
@@ -269,6 +349,13 @@ export default function ScannerPage() {
     if (secs < 60) return "just now"
     const mins = Math.floor(secs / 60)
     return `${mins}m ago`
+  }
+
+  const stopNfcReader = () => {
+    nfcAbortRef.current?.abort()
+    nfcAbortRef.current = null
+    nfcReaderRef.current = null
+    setNfcListening(false)
   }
 
   const handleManualSync = async () => {
@@ -366,6 +453,126 @@ export default function ScannerPage() {
     }
   }
 
+  const handleTapBandScan = async (credentialValue = code) => {
+    if (tapBandInFlightRef.current) return
+
+    const credentialPublicId = parseTapBandCredential(credentialValue)
+    const now = Date.now()
+    const scannedAt = new Date(now).toISOString()
+
+    if (!credentialPublicId) {
+      setResult({ valid: false, status: "tapband_reader_error", message: "TapBand could not be read" })
+      return
+    }
+
+    const lastAttempt = lastTapAttemptRef.current
+    if (lastAttempt?.credential === credentialPublicId && now - lastAttempt.at < 2500) {
+      setResult({
+        valid: false,
+        status: "duplicate",
+        message: "TapBand was just read. Wait a moment before retrying.",
+      })
+      return
+    }
+
+    lastTapAttemptRef.current = { credential: credentialPublicId, at: now }
+    tapBandInFlightRef.current = true
+    setLoading(true)
+    setResult(null)
+
+    try {
+      const response = await fetch("/api/scanner/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "tapband",
+          credentialPublicId,
+          eventId,
+          deviceId,
+          sessionId,
+          scannedAt,
+          attemptId: createClientAttemptId(),
+        }),
+      })
+      const data: ScanResponse = await response.json()
+      setResult(data)
+      refreshRecentScans()
+    } catch {
+      setResult({
+        valid: false,
+        status: "tapband_reader_error",
+        message: "Network unavailable. TapBand entry needs online validation.",
+      })
+    } finally {
+      tapBandInFlightRef.current = false
+      setLoading(false)
+      setCode("")
+    }
+  }
+
+  const handleNfcRead = async () => {
+    setInputMode("tapband")
+    setResult(null)
+
+    if (!nfcSupported) {
+      setNfcStatus("Manual fallback ready")
+      setResult({
+        valid: false,
+        status: "tapband_reader_error",
+        message: "NFC reader is unavailable on this device. Enter the TapBand reference manually.",
+      })
+      return
+    }
+
+    if (nfcReaderRef.current) {
+      setNfcStatus("Listening for TapBand")
+      return
+    }
+
+    const Reader = (window as Window & typeof globalThis & { NDEFReader?: new () => NdefReaderLike }).NDEFReader
+    if (!Reader) return
+
+    const reader = new Reader()
+    const abortController = new AbortController()
+    nfcReaderRef.current = reader
+    nfcAbortRef.current = abortController
+    setNfcListening(true)
+    setNfcStatus("Listening for TapBand")
+
+    reader.addEventListener("reading", (event) => {
+      const credentialPublicId = extractTapBandCredentialFromNdef(event as NdefReadingEvent)
+      if (!credentialPublicId) {
+        setResult({ valid: false, status: "tapband_reader_error", message: "TapBand could not be read" })
+        return
+      }
+      setCode(credentialPublicId)
+      void handleTapBandScan(credentialPublicId)
+    })
+
+    reader.addEventListener("readingerror", () => {
+      setResult({
+        valid: false,
+        status: "tapband_reader_error",
+        message: "TapBand could not be read. Try again or use QR fallback.",
+      })
+    })
+
+    try {
+      await reader.scan({ signal: abortController.signal })
+    } catch (error: any) {
+      if (abortController.signal.aborted) return
+      nfcReaderRef.current = null
+      nfcAbortRef.current = null
+      setNfcListening(false)
+      setNfcStatus(null)
+      setResult({
+        valid: false,
+        status: "tapband_reader_error",
+        message: error?.message ?? "NFC reader could not start",
+      })
+    }
+  }
+
   const handleSync = async () => {
     if (offlineQueue.length === 0) return
     try {
@@ -416,6 +623,41 @@ export default function ScannerPage() {
   const eventStartsLabel = selectedEvent.startsAt
     ? new Date(selectedEvent.startsAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
     : null
+  const inputLabel = inputMode === "tapband" ? "TapBand code" : "Ticket code"
+  const inputPlaceholder = inputMode === "tapband" ? "Tap or enter TapBand reference" : "Scan or enter code"
+  const desktopInputPlaceholder = inputMode === "tapband" ? "Tap or paste TapBand reference" : "Scan or paste ticket code"
+  const validationLabel = inputMode === "tapband" ? "Validate TapBand" : "Validate ticket"
+  const modeIcon = inputMode === "tapband" ? "nfc" : "qr"
+  const renderScannerModeControl = () => (
+    <ScanModeToggle
+      value={inputMode}
+      onChange={(mode) => {
+        setInputMode(mode)
+        setResult(null)
+        setCode("")
+        if (mode === "qr") {
+          stopNfcReader()
+          setNfcStatus(null)
+        }
+      }}
+    />
+  )
+  const renderNfcControl = () =>
+    inputMode === "tapband" ? (
+      <div className="flex flex-wrap items-center gap-2">
+        <Button onClick={handleNfcRead} variant="outline" size="sm" disabled={loading}>
+          <Icon name="nfc" size={14} />
+          {nfcListening ? "Listening" : "Read band"}
+        </Button>
+        <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+          {nfcStatus ?? (nfcSupported ? "NFC ready" : "Manual fallback")}
+        </span>
+      </div>
+    ) : null
+  const handlePrimaryValidation = () => {
+    if (inputMode === "tapband") return handleTapBandScan()
+    return handleScan()
+  }
 
   const eventCard = (
     <Card>
@@ -545,28 +787,30 @@ export default function ScannerPage() {
         <div className="sticky bottom-0 border-t border-line bg-surface p-4">
           <Card className="mb-4">
             <CardBody className="flex flex-col gap-3">
+              {renderScannerModeControl()}
               <div className="flex items-center gap-2 text-ink-3">
-                <Icon name="qr" size={16} />
-                <span className="text-label">Ticket code</span>
+                <Icon name={modeIcon} size={16} />
+                <span className="text-label">{inputLabel}</span>
               </div>
+              {renderNfcControl()}
               <input
                 value={code}
                 onChange={(event) => setCode(event.target.value)}
-                placeholder="Scan or enter code"
+                placeholder={inputPlaceholder}
                 className={cn(fieldClass, "h-12 text-[16px]")}
                 autoFocus
               />
             </CardBody>
           </Card>
           <Button
-            onClick={handleScan}
+            onClick={handlePrimaryValidation}
             disabled={loading || !code.trim()}
             variant="primary"
             size="md"
             block
             className="h-14 text-[16px]"
           >
-            {loading ? "Validating…" : "Validate ticket"}
+            {loading ? "Validating…" : validationLabel}
           </Button>
         </div>
       </div>
@@ -588,21 +832,23 @@ export default function ScannerPage() {
 
             <Card>
               <CardBody className="flex flex-col gap-4">
+                {renderScannerModeControl()}
                 <div className="flex items-center gap-2">
-                  <Icon name="qr" size={18} className="text-ink-3" />
-                  <p className="text-h3">Manual entry</p>
+                  <Icon name={modeIcon} size={18} className="text-ink-3" />
+                  <p className="text-h3">{inputMode === "tapband" ? "TapBand entry" : "Manual entry"}</p>
                 </div>
+                {renderNfcControl()}
                 <label className="flex flex-col gap-1">
-                  <span className="text-label">Ticket code</span>
+                  <span className="text-label">{inputLabel}</span>
                   <input
                     value={code}
                     onChange={(event) => setCode(event.target.value)}
-                    placeholder="Scan or paste ticket code"
+                    placeholder={desktopInputPlaceholder}
                     className={cn(fieldClass, "font-mono")}
                   />
                 </label>
-                <Button onClick={handleScan} disabled={loading || !code.trim()} variant="primary" size="md" block>
-                  {loading ? "Validating…" : "Validate ticket"}
+                <Button onClick={handlePrimaryValidation} disabled={loading || !code.trim()} variant="primary" size="md" block>
+                  {loading ? "Validating…" : validationLabel}
                 </Button>
               </CardBody>
             </Card>
@@ -614,6 +860,38 @@ export default function ScannerPage() {
         </div>
       </div>
     </>
+  )
+}
+
+function ScanModeToggle({
+  value,
+  onChange,
+}: {
+  value: ScannerInputMode
+  onChange: (mode: ScannerInputMode) => void
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-1 rounded-[var(--radius-md)] border border-line bg-bg p-1" role="tablist">
+      {(["qr", "tapband"] as const).map((mode) => {
+        const active = value === mode
+        return (
+          <button
+            key={mode}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(mode)}
+            className={cn(
+              "inline-flex h-9 items-center justify-center gap-1.5 rounded-[var(--radius-sm)] text-[12px] font-semibold transition-colors",
+              active ? "bg-surface text-ink shadow-sm" : "text-ink-3 hover:text-ink",
+            )}
+          >
+            <Icon name={mode === "tapband" ? "nfc" : "qr"} size={13} />
+            {mode === "tapband" ? "TapBand" : "QR"}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -634,6 +912,12 @@ function ResultCard({ result }: { result: ScanResponse }) {
           <p className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-wider opacity-70">
             <Icon name="clock" size={12} />
             {new Date(result.scan.scanned_at).toLocaleString()}
+          </p>
+        )}
+        {!result.scan?.scanned_at && result.checkedInAt && (
+          <p className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-wider opacity-70">
+            <Icon name="clock" size={12} />
+            {new Date(result.checkedInAt).toLocaleString()}
           </p>
         )}
         {result.previousScan?.scanned_at && (
