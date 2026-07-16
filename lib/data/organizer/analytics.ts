@@ -24,6 +24,14 @@ export interface OrgMetric {
   created_at: string
 }
 
+export interface EventSalesBreakdown {
+  event_id: string
+  tickets_sold: number
+  tickets_issued: number
+  paid_orders: null
+  gross_cents: number
+}
+
 /**
  * Get daily event metrics
  * Reads from: event_metrics_daily
@@ -88,7 +96,8 @@ export async function getOrgMetrics(orgId: string, days: number = 30): Promise<O
 
 /**
  * Get sales breakdown by ticket type or other dimensions
- * Reads from: mv_event_sales, mv_revenue_breakdown
+ * Reads from org-scoped metrics only. Do not read mv_event_sales here:
+ * it has no org_id and can leak cross-org sales when reused.
  */
 export async function getSalesBreakdown(orgId: string, groupBy: "ticket_type" | "event" | "date" = "event") {
   const supabase = await createServerSupabaseClient()
@@ -96,10 +105,14 @@ export async function getSalesBreakdown(orgId: string, groupBy: "ticket_type" | 
 
   try {
     if (groupBy === "event") {
-      // mv_event_sales has no org_id — return all (caller should filter by event IDs if needed)
-      const { data, error } = await supabase.from("mv_event_sales").select("*")
+      const { data, error } = await supabase
+        .from("event_metrics_daily")
+        .select("event_id, tickets_sold, gross_revenue_cents")
+        .eq("org_id", orgId)
+        .order("event_id", { ascending: true })
+        .order("day", { ascending: true })
       if (error) { console.error("[v0] Error fetching event sales:", error); return [] }
-      return data || []
+      return aggregateEventSalesMetrics((data ?? []) as Array<Pick<EventMetric, "event_id" | "tickets_sold" | "gross_revenue_cents">>)
     }
     const { data, error } = await supabase.from("mv_revenue_breakdown").select("*").eq("org_id", orgId)
 
@@ -113,4 +126,26 @@ export async function getSalesBreakdown(orgId: string, groupBy: "ticket_type" | 
     console.error("[v0] Unexpected error fetching sales breakdown:", error)
     return []
   }
+}
+
+export function aggregateEventSalesMetrics(
+  rows: Array<Pick<EventMetric, "event_id" | "tickets_sold" | "gross_revenue_cents">>,
+): EventSalesBreakdown[] {
+  const byEvent = new Map<string, EventSalesBreakdown>()
+
+  for (const row of rows) {
+    const current = byEvent.get(row.event_id) ?? {
+      event_id: row.event_id,
+      tickets_sold: 0,
+      tickets_issued: 0,
+      paid_orders: null,
+      gross_cents: 0,
+    }
+    current.tickets_sold += row.tickets_sold ?? 0
+    current.tickets_issued += row.tickets_sold ?? 0
+    current.gross_cents += row.gross_revenue_cents ?? 0
+    byEvent.set(row.event_id, current)
+  }
+
+  return [...byEvent.values()]
 }
