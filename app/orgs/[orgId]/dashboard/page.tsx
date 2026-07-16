@@ -32,7 +32,7 @@ export default async function OrgDashboardPage({ params }: { params: Promise<{ o
 
   const { data: org, error: orgError } = await supabase
     .from("organizations")
-    .select("name, bio, logo")
+    .select("name, bio, logo, default_currency")
     .eq("id", orgId)
     .maybeSingle()
 
@@ -221,7 +221,7 @@ export default async function OrgDashboardPage({ params }: { params: Promise<{ o
           </div>
         )}
 
-        {events.length > 0 && kpis.length > 0 && <DashboardCharts kpis={kpis} />}
+        {events.length > 0 && kpis.length > 0 && <DashboardCharts kpis={kpis} currency={org.default_currency ?? "SZL"} />}
 
         {events.length > 0 ? (
           <section className="flex flex-col gap-4">
