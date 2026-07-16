@@ -26,22 +26,37 @@ type CheckDefinition = {
   href: (event: ReadinessRow) => string
 }
 
+function adminResourceHref(resource: string, defaults: Record<string, string | null | undefined> = {}) {
+  const params = new URLSearchParams()
+
+  for (const [key, value] of Object.entries(defaults)) {
+    if (value?.trim()) params.set(key, value.trim())
+  }
+
+  const query = params.toString()
+  return query ? `/super-admin/${resource}?${query}` : `/super-admin/${resource}`
+}
+
+function orgDefaults(event: ReadinessRow, extra: Record<string, string | null | undefined> = {}) {
+  return { org_id: event.org_id, ...extra }
+}
+
 const CHECKS: CheckDefinition[] = [
   { key: "has_organization", label: "Organization assigned", actionLabel: "Open orgs", href: () => "/super-admin/organizations" },
-  { key: "has_venue", label: "Venue assigned", actionLabel: "Open venues", href: () => "/super-admin/venues" },
+  { key: "has_venue", label: "Venue assigned", actionLabel: "Open venues", href: (event) => adminResourceHref("venues", orgDefaults(event)) },
   { key: "has_title", label: "Title added", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
   { key: "has_slug", label: "Slug added", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
   { key: "has_start_date", label: "Start date added", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
   { key: "has_valid_date_range", label: "Date range valid", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
   { key: "has_cover_image", label: "Cover image added", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
   { key: "has_description", label: "Description added", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
-  { key: "has_on_sale_ticket_type", label: "On-sale ticket tier available", actionLabel: "Ticket tiers", href: () => "/super-admin/ticket-types" },
-  { key: "has_online_sales_channel", label: "Online sales channel enabled", actionLabel: "Ticket tiers", href: () => "/super-admin/ticket-types" },
+  { key: "has_on_sale_ticket_type", label: "On-sale ticket tier available", actionLabel: "Ticket tiers", href: (event) => adminResourceHref("ticket-types", { event_id: event.event_id, currency: "SZL" }) },
+  { key: "has_online_sales_channel", label: "Online sales channel enabled", actionLabel: "Ticket tiers", href: (event) => adminResourceHref("ticket-types", { event_id: event.event_id, currency: "SZL" }) },
   { key: "has_refund_or_support", label: "Refund or support policy set", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
-  { key: "has_active_staff", label: "Check-in staff assigned", actionLabel: "Event staff", href: () => "/super-admin/event-staff" },
+  { key: "has_active_staff", label: "Check-in staff assigned", actionLabel: "Event staff", href: (event) => adminResourceHref("event-staff", { event_id: event.event_id, role: "scanner", active: "true" }) },
   { key: "has_live_stats_row", label: "Live stats initialized", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
-  { key: "has_active_pricing_plan", label: "Active pricing plan", actionLabel: "Pricing", href: () => "/super-admin/pricing-plans" },
-  { key: "has_payout_account", label: "Payout account present", actionLabel: "Payout accounts", href: () => "/super-admin/payout-accounts" },
+  { key: "has_active_pricing_plan", label: "Active pricing plan", actionLabel: "Pricing", href: (event) => adminResourceHref("pricing-plans", orgDefaults(event, { currency: "SZL", active: "true" })) },
+  { key: "has_payout_account", label: "Payout account present", actionLabel: "Payout accounts", href: (event) => adminResourceHref("payout-accounts", orgDefaults(event)) },
 ]
 
 function readinessScore(checks: Record<string, boolean>) {
@@ -59,13 +74,12 @@ function missingCount(rows: ReadinessRow[], key: string) {
 
 function primaryMissingActions(event: ReadinessRow, missing: CheckDefinition[]) {
   const eventHref = `/super-admin/events/${event.event_id}`
-  const skippedHrefs = new Set([eventHref, "/super-admin/ticket-types"])
   const seen = new Set<string>()
 
   return missing.filter((check) => {
     const href = check.href(event)
     const key = `${href}:${check.actionLabel}`
-    if (skippedHrefs.has(href) || seen.has(key)) return false
+    if (href === eventHref || href.startsWith("/super-admin/ticket-types") || seen.has(key)) return false
     seen.add(key)
     return true
   }).slice(0, 2)
@@ -185,7 +199,7 @@ export default async function SuperAdminReadinessPage() {
                     Open event
                   </Link>
                   <Link
-                    href="/super-admin/ticket-types"
+                    href={adminResourceHref("ticket-types", { event_id: event.event_id, currency: "SZL" })}
                     className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-transparent px-3 py-1.5 text-[13px] font-semibold text-ink transition-colors hover:bg-bg"
                   >
                     Ticket tiers

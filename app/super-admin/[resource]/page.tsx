@@ -17,6 +17,7 @@ import {
   getResourceFriendlyName,
   type LookupMaps,
 } from "@/lib/super-admin/display"
+import { buildAdminCreateDefaults, firstSearchParam, type AdminResourceSearchParams } from "@/lib/super-admin/form"
 import { createResourceAction } from "../actions"
 
 const STATUS_MESSAGES: Record<string, string> = {
@@ -86,7 +87,7 @@ export default async function SuperAdminResourcePage({
   searchParams,
 }: {
   params: Promise<{ resource: string }>
-  searchParams?: Promise<{ status?: string }>
+  searchParams?: Promise<AdminResourceSearchParams>
 }) {
   const { roleTier } = await requireAdminRole(ADMIN_ROLE_TIERS)
   const { resource: resourceKey } = await params
@@ -109,10 +110,13 @@ export default async function SuperAdminResourcePage({
     await createResourceAction(activeResource.key, formData)
   }
 
-  const statusMessage = query.status ? STATUS_MESSAGES[query.status] : null
+  const status = firstSearchParam(query.status)
+  const statusMessage = status ? STATUS_MESSAGES[status] : null
   const friendlyName = getResourceFriendlyName(resource)
   const canMutate = canMutateResource(resource.key, roleTier)
   const createColumnClass = canMutate ? "xl:grid-cols-[0.9fr_1.4fr]" : "xl:grid-cols-1"
+  const createDefaults = buildAdminCreateDefaults(activeResource, query)
+  const hasCreateDefaults = Object.keys(createDefaults).length > 0
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -146,15 +150,23 @@ export default async function SuperAdminResourcePage({
         {canMutate ? (
           <Card>
             <CardBody className="px-5 py-4">
-              <p className="inline-flex items-center gap-2 text-h3">
-                <Icon name="plus" size={16} className="text-ink-3" />
-                Create {friendlyName}
-              </p>
+              <div className="flex flex-col gap-1">
+                <p className="inline-flex items-center gap-2 text-h3">
+                  <Icon name="plus" size={16} className="text-ink-3" />
+                  Create {friendlyName}
+                </p>
+                {hasCreateDefaults ? (
+                  <p className="text-[12px] text-ink-3">
+                    Prefilled from readiness context. Review all values before creating the record.
+                  </p>
+                ) : null}
+              </div>
             </CardBody>
             <CardDivider />
             <CardBody className="p-5">
               <ResourceForm
                 resource={resource}
+                defaults={createDefaults}
                 action={createRecord}
                 submitLabel={`Create ${friendlyName}`}
                 lookups={lookups}

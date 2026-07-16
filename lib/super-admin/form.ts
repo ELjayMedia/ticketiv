@@ -1,5 +1,7 @@
 import type { AdminResource, AdminResourceField } from "@/lib/super-admin/resources"
 
+export type AdminResourceSearchParams = Record<string, string | string[] | undefined>
+
 function parseFieldValue(field: AdminResourceField, formData: FormData) {
   if (field.readonly || field.type === "readonly") return undefined
 
@@ -40,4 +42,21 @@ export function buildAdminPayload(resource: AdminResource, formData: FormData) {
   }
 
   return payload
+}
+
+export function firstSearchParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value
+}
+
+export function buildAdminCreateDefaults(resource: AdminResource, searchParams: AdminResourceSearchParams) {
+  const defaults: Record<string, string> = {}
+
+  for (const field of resource.fields) {
+    if (field.readonly || field.type === "readonly") continue
+
+    const value = firstSearchParam(searchParams[field.name])?.trim()
+    if (value) defaults[field.name] = value
+  }
+
+  return defaults
 }
