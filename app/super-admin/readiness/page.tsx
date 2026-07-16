@@ -19,28 +19,56 @@ type ReadinessRow = {
   checks: Record<string, boolean>
 }
 
-const CHECK_LABELS: Record<string, string> = {
-  has_organization: "Organization assigned",
-  has_venue: "Venue assigned",
-  has_title: "Title added",
-  has_slug: "Slug added",
-  has_start_date: "Start date added",
-  has_valid_date_range: "Date range valid",
-  has_cover_image: "Cover image added",
-  has_description: "Description added",
-  has_on_sale_ticket_type: "On-sale ticket tier available",
-  has_online_sales_channel: "Online sales channel enabled",
-  has_refund_or_support: "Refund or support policy set",
-  has_active_staff: "Check-in staff assigned",
-  has_live_stats_row: "Live stats initialized",
-  has_active_pricing_plan: "Active pricing plan",
-  has_payout_account: "Payout account present",
+type CheckDefinition = {
+  key: string
+  label: string
+  actionLabel: string
+  href: (event: ReadinessRow) => string
 }
 
+const CHECKS: CheckDefinition[] = [
+  { key: "has_organization", label: "Organization assigned", actionLabel: "Open orgs", href: () => "/super-admin/organizations" },
+  { key: "has_venue", label: "Venue assigned", actionLabel: "Open venues", href: () => "/super-admin/venues" },
+  { key: "has_title", label: "Title added", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
+  { key: "has_slug", label: "Slug added", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
+  { key: "has_start_date", label: "Start date added", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
+  { key: "has_valid_date_range", label: "Date range valid", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
+  { key: "has_cover_image", label: "Cover image added", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
+  { key: "has_description", label: "Description added", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
+  { key: "has_on_sale_ticket_type", label: "On-sale ticket tier available", actionLabel: "Ticket tiers", href: () => "/super-admin/ticket-types" },
+  { key: "has_online_sales_channel", label: "Online sales channel enabled", actionLabel: "Ticket tiers", href: () => "/super-admin/ticket-types" },
+  { key: "has_refund_or_support", label: "Refund or support policy set", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
+  { key: "has_active_staff", label: "Check-in staff assigned", actionLabel: "Event staff", href: () => "/super-admin/event-staff" },
+  { key: "has_live_stats_row", label: "Live stats initialized", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
+  { key: "has_active_pricing_plan", label: "Active pricing plan", actionLabel: "Pricing", href: () => "/super-admin/pricing-plans" },
+  { key: "has_payout_account", label: "Payout account present", actionLabel: "Payout accounts", href: () => "/super-admin/payout-accounts" },
+]
+
 function readinessScore(checks: Record<string, boolean>) {
-  const entries = Object.entries(CHECK_LABELS)
-  const passed = entries.filter(([key]) => checks?.[key]).length
-  return { passed, total: entries.length }
+  const passed = CHECKS.filter((check) => checks?.[check.key]).length
+  return { passed, total: CHECKS.length }
+}
+
+function missingChecks(event: ReadinessRow) {
+  return CHECKS.filter((check) => !event.checks?.[check.key])
+}
+
+function missingCount(rows: ReadinessRow[], key: string) {
+  return rows.filter((row) => !row.checks?.[key]).length
+}
+
+function primaryMissingActions(event: ReadinessRow, missing: CheckDefinition[]) {
+  const eventHref = `/super-admin/events/${event.event_id}`
+  const skippedHrefs = new Set([eventHref, "/super-admin/ticket-types"])
+  const seen = new Set<string>()
+
+  return missing.filter((check) => {
+    const href = check.href(event)
+    const key = `${href}:${check.actionLabel}`
+    if (skippedHrefs.has(href) || seen.has(key)) return false
+    seen.add(key)
+    return true
+  }).slice(0, 2)
 }
 
 export default async function SuperAdminReadinessPage() {
@@ -53,6 +81,14 @@ export default async function SuperAdminReadinessPage() {
     .limit(100)
 
   if (error) throw new Error(error.message)
+
+  const rows = ((data ?? []) as ReadinessRow[]).map((event) => {
+    const score = readinessScore(event.checks ?? {})
+    return { event, score, ready: score.passed === score.total, missing: missingChecks(event) }
+  })
+  const readyCount = rows.filter((row) => row.ready).length
+  const totalEvents = rows.length
+  const sourceRows = rows.map((row) => row.event)
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
@@ -71,18 +107,31 @@ export default async function SuperAdminReadinessPage() {
           </p>
         </div>
         <Link
-          href="/super-admin/exports/orders"
+          href="/super-admin/payout-accounts"
           className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-transparent px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-bg"
         >
-          <Icon name="download" size={14} />
-          Export orders CSV
+          <Icon name="wallet" size={14} />
+          Review payout accounts
         </Link>
       </div>
 
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <SummaryTile label="Ready" value={`${readyCount}/${totalEvents}`} />
+        <SummaryTile label="Missing payouts" value={missingCount(sourceRows, "has_payout_account")} />
+        <SummaryTile label="Missing staff" value={missingCount(sourceRows, "has_active_staff")} />
+        <SummaryTile label="Missing support" value={missingCount(sourceRows, "has_refund_or_support")} />
+        <SummaryTile label="Missing pricing" value={missingCount(sourceRows, "has_active_pricing_plan")} />
+      </div>
+
       <div className="grid gap-4 lg:grid-cols-2">
-        {((data ?? []) as ReadinessRow[]).map((event) => {
-          const score = readinessScore(event.checks ?? {})
-          const ready = score.passed === score.total
+        {rows.length === 0 ? (
+          <Card>
+            <CardBody className="p-8 text-center text-[13px] text-ink-3">
+              No event readiness rows are available.
+            </CardBody>
+          </Card>
+        ) : rows.map(({ event, score, ready, missing }) => {
+          const primaryActions = primaryMissingActions(event, missing)
           return (
             <Card key={event.event_id}>
               <CardBody className="flex flex-col gap-3 p-5">
@@ -101,23 +150,34 @@ export default async function SuperAdminReadinessPage() {
                 </div>
 
                 <div className="grid gap-2 text-[13px]">
-                  {Object.entries(CHECK_LABELS).map(([key, label]) => {
-                    const passed = Boolean(event.checks?.[key])
+                  {CHECKS.map((check) => {
+                    const passed = Boolean(event.checks?.[check.key])
                     return (
                       <div
-                        key={key}
-                        className="flex items-center justify-between rounded-[var(--radius-md)] border border-line px-3 py-2"
+                        key={check.key}
+                        className="flex flex-col gap-2 rounded-[var(--radius-md)] border border-line px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
                       >
-                        <span className="text-ink">{label}</span>
-                        <span className={passed ? "font-mono text-[11px] uppercase tracking-wider text-success" : "font-mono text-[11px] uppercase tracking-wider text-ink-3"}>
-                          {passed ? "Pass" : "Missing"}
-                        </span>
+                        <span className="text-ink">{check.label}</span>
+                        <div className="flex items-center gap-2">
+                          <span className={passed ? "font-mono text-[11px] uppercase tracking-wider text-success" : "font-mono text-[11px] uppercase tracking-wider text-ink-3"}>
+                            {passed ? "Pass" : "Missing"}
+                          </span>
+                          {!passed && (
+                            <Link
+                              href={check.href(event)}
+                              className="inline-flex items-center gap-1 rounded-[var(--radius)] border border-line-2 px-2 py-1 text-[11px] font-semibold text-ink transition-colors hover:bg-bg"
+                            >
+                              {check.actionLabel}
+                              <Icon name="chevR" size={12} />
+                            </Link>
+                          )}
+                        </div>
                       </div>
                     )
                   })}
                 </div>
 
-                <div className="flex gap-2 pt-1">
+                <div className="flex flex-wrap gap-2 pt-1">
                   <Link
                     href={`/super-admin/events/${event.event_id}`}
                     className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-ink bg-ink px-3 py-1.5 text-[13px] font-semibold text-surface transition-colors hover:bg-ink-2"
@@ -130,6 +190,15 @@ export default async function SuperAdminReadinessPage() {
                   >
                     Ticket tiers
                   </Link>
+                  {primaryActions.map((check) => (
+                    <Link
+                      key={`primary-${event.event_id}-${check.key}`}
+                      href={check.href(event)}
+                      className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-transparent px-3 py-1.5 text-[13px] font-semibold text-ink transition-colors hover:bg-bg"
+                    >
+                      {check.actionLabel}
+                    </Link>
+                  ))}
                 </div>
               </CardBody>
             </Card>
@@ -137,5 +206,16 @@ export default async function SuperAdminReadinessPage() {
         })}
       </div>
     </main>
+  )
+}
+
+function SummaryTile({ label, value }: { label: string; value: number | string }) {
+  return (
+    <Card flat>
+      <CardBody className="flex flex-col gap-1 p-4">
+        <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">{label}</span>
+        <span className="font-mono text-[24px] font-semibold tabular-nums text-ink">{value}</span>
+      </CardBody>
+    </Card>
   )
 }

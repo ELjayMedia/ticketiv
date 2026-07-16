@@ -5,6 +5,7 @@ import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Icon } from "@/components/quiet/ui/icon"
 import { OnboardingChecklist } from "@/components/quiet/screens/organizer/onboarding-checklist"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { buildOrganizerSetupSteps } from "@/lib/data/organizer/readiness"
 
 export const dynamic = "force-dynamic"
 
@@ -63,43 +64,14 @@ export default async function OrgOnboardingPage({
   const hasDevice = (devicesRes.count ?? 0) > 0
   const hasTeam = (staffRes.count ?? 0) > 1
 
-  const steps = [
-    {
-      id: "profile",
-      title: "Complete your profile",
-      description: "Add a bio and logo so buyers recognise your brand.",
-      href: `/orgs/${orgId}/team`,
-      done: hasProfile,
-    },
-    {
-      id: "payout",
-      title: "Add a payout account",
-      description: "Connect a bank account to receive your revenue.",
-      href: `/orgs/${orgId}/payouts/accounts`,
-      done: hasPayoutAccount,
-    },
-    {
-      id: "event",
-      title: "Create your first event",
-      description: "Set up your event, ticket types, and go live.",
-      href: `/orgs/${orgId}/events/new`,
-      done: hasEvent,
-    },
-    {
-      id: "scanner",
-      title: "Set up scanner devices",
-      description: "Register devices so your gate staff can check in attendees.",
-      href: `/orgs/${orgId}/events`,
-      done: hasDevice,
-    },
-    {
-      id: "team",
-      title: "Invite your team",
-      description: "Add staff, scanners and admins to your organisation.",
-      href: `/orgs/${orgId}/team`,
-      done: hasTeam,
-    },
-  ]
+  const steps = buildOrganizerSetupSteps({
+    orgId,
+    hasProfile,
+    hasPayoutAccount,
+    hasEvent,
+    hasDevice,
+    hasTeam,
+  })
 
   const doneCount = steps.filter((s) => s.done).length
 

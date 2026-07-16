@@ -7,6 +7,7 @@ import { Icon } from "@/components/quiet/ui/icon"
 import { OnboardingChecklist } from "@/components/quiet/screens/organizer/onboarding-checklist"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { getMyOrgCapabilities } from "@/lib/data/organizer/access"
+import { buildOrganizerSetupSteps, needsOrganizerSetup } from "@/lib/data/organizer/readiness"
 import { getOrgEventKPIs } from "@/lib/adapters/kpis"
 import DashboardCharts from "./dashboard-charts"
 
@@ -39,7 +40,7 @@ export default async function OrgDashboardPage({ params }: { params: Promise<{ o
     return redirect("/403")
   }
 
-  const [eventsRes, payoutAccountsRes, staffRes] = await Promise.all([
+  const [eventsRes, payoutAccountsRes, staffRes, devicesRes] = await Promise.all([
     supabase
       .from("events")
       .select("id, title, status, starts_at")
@@ -52,6 +53,10 @@ export default async function OrgDashboardPage({ params }: { params: Promise<{ o
     supabase
       .from("org_members")
       .select("user_id", { count: "exact", head: true })
+      .eq("org_id", orgId),
+    supabase
+      .from("devices")
+      .select("id", { count: "exact", head: true })
       .eq("org_id", orgId),
   ])
 
@@ -110,7 +115,15 @@ export default async function OrgDashboardPage({ params }: { params: Promise<{ o
   const missingProfileFields = [!org.bio ? "bio" : null, !org.logo ? "logo" : null].filter(Boolean)
   const hasPayoutAccount = (payoutAccountsRes.count ?? 0) > 0
   const staffCount = staffRes.count ?? 0
-  const needsOnboarding = events.length === 0 || missingProfileFields.length > 0 || !hasPayoutAccount || staffCount <= 1
+  const setupSteps = buildOrganizerSetupSteps({
+    orgId,
+    hasProfile: missingProfileFields.length === 0,
+    hasPayoutAccount,
+    hasEvent: events.length > 0,
+    hasDevice: (devicesRes.count ?? 0) > 0,
+    hasTeam: staffCount > 1,
+  })
+  const needsOnboarding = needsOrganizerSetup(setupSteps)
 
   return (
     <main className="flex-1 overflow-auto">
@@ -186,43 +199,7 @@ export default async function OrgDashboardPage({ params }: { params: Promise<{ o
             </div>
             <OnboardingChecklist
               orgId={orgId}
-              steps={[
-                {
-                  id: "profile",
-                  title: "Complete your profile",
-                  description: "Add a bio and logo so buyers recognise your brand.",
-                  href: `/orgs/${orgId}/team`,
-                  done: missingProfileFields.length === 0,
-                },
-                {
-                  id: "payout",
-                  title: "Add a payout account",
-                  description: "Connect a bank account to receive your revenue.",
-                  href: `/orgs/${orgId}/payouts/accounts`,
-                  done: hasPayoutAccount,
-                },
-                {
-                  id: "event",
-                  title: "Create your first event",
-                  description: "Set up your event, ticket types, and go live.",
-                  href: `/orgs/${orgId}/events/new`,
-                  done: events.length > 0,
-                },
-                {
-                  id: "scanner",
-                  title: "Set up scanner devices",
-                  description: "Register devices so your gate staff can check in attendees.",
-                  href: `/orgs/${orgId}/events`,
-                  done: false,
-                },
-                {
-                  id: "team",
-                  title: "Invite your team",
-                  description: "Add staff, scanners and admins to your organisation.",
-                  href: `/orgs/${orgId}/team`,
-                  done: staffCount > 1,
-                },
-              ]}
+              steps={setupSteps}
             />
           </div>
         )}
