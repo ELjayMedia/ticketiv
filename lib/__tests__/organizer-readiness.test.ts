@@ -20,6 +20,7 @@ describe("organizer readiness setup steps", () => {
       ["scanner", false],
       ["team", true],
     ])
+    expect(steps.find((step) => step.id === "profile")?.href).toBe("/orgs/org-1/profile")
     expect(steps.find((step) => step.id === "scanner")?.href).toBe("/orgs/org-1/events")
     expect(needsOrganizerSetup(steps)).toBe(true)
   })
