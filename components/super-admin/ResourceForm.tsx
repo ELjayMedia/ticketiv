@@ -26,6 +26,10 @@ function formatValue(type: string, value: unknown) {
   return String(value)
 }
 
+function booleanValue(value: unknown) {
+  return value === true || value === "true" || value === "on" || value === "1"
+}
+
 function FieldLabel({ name, htmlFor }: { name: string; htmlFor?: string }) {
   return (
     <Label htmlFor={htmlFor} className="flex items-center gap-1.5">
@@ -38,12 +42,14 @@ function FieldLabel({ name, htmlFor }: { name: string; htmlFor?: string }) {
 export function ResourceForm({
   resource,
   record,
+  defaults,
   action,
   submitLabel,
   lookups,
 }: {
   resource: AdminResource
   record?: Record<string, unknown> | null
+  defaults?: Record<string, unknown> | null
   action: (formData: FormData) => void
   submitLabel: string
   lookups?: LookupMaps
@@ -51,7 +57,7 @@ export function ResourceForm({
   return (
     <form action={action} className="grid gap-4 rounded-2xl border bg-card p-5 shadow-sm md:grid-cols-2">
       {resource.fields.map((field) => {
-        const value = record?.[field.name]
+        const value = record?.[field.name] ?? defaults?.[field.name]
         const relationOptions = getRelationOptions(field.name, lookups)
 
         if (field.type === "readonly") {
@@ -103,7 +109,7 @@ export function ResourceForm({
         if (field.type === "boolean") {
           return (
             <label key={field.name} className="flex h-11 items-center gap-3 rounded-full border px-4 text-sm">
-              <input name={field.name} type="checkbox" defaultChecked={Boolean(value)} />
+              <input name={field.name} type="checkbox" defaultChecked={booleanValue(value)} />
               <span className="flex items-center gap-1.5">
                 {getFieldLabel(field.name)}
                 <FieldHelpTooltip text={getFieldHelp(field.name)} />
