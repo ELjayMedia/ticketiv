@@ -23,7 +23,7 @@ export function buildOrganizerSetupSteps(status: OrganizerSetupStatus): Organize
       id: "profile",
       title: "Complete your profile",
       description: "Add a bio and logo so buyers recognise your brand.",
-      href: `/orgs/${orgId}/team`,
+      href: `/orgs/${orgId}/profile`,
       done: status.hasProfile,
     },
     {
