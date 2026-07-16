@@ -6,16 +6,19 @@ import {
 } from "recharts"
 
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
+import { buildOrganizerDashboardChartData, formatDashboardMoney } from "@/lib/data/organizer/dashboard-charts"
 
 interface KpiRow {
   title: string
   tickets_issued: number
   tickets_checked_in: number
   revenue_cents: number
+  currency?: string | null
 }
 
 interface DashboardChartsProps {
   kpis: KpiRow[]
+  currency?: string | null
 }
 
 function ChartCard({
@@ -46,19 +49,25 @@ const tooltipStyle = {
   fontSize: 12,
 }
 
-export default function DashboardCharts({ kpis }: DashboardChartsProps) {
-  const chartData = kpis.slice(0, 6).map((k) => ({
-    name: k.title.substring(0, 15),
-    tickets: k.tickets_issued,
-    revenue: k.revenue_cents / 100,
-    checkedIn: k.tickets_checked_in,
-  }))
+type ChartTooltipPayload = {
+  payload?: {
+    currency?: string
+    fullTitle?: string
+    revenueCents?: number
+  }
+}
 
-  const attendanceData = kpis.slice(0, 6).map((k) => ({
-    name: k.title.substring(0, 15),
-    attended: k.tickets_checked_in,
-    notAttended: k.tickets_issued - k.tickets_checked_in,
-  }))
+export default function DashboardCharts({ kpis, currency = "SZL" }: DashboardChartsProps) {
+  const chartData = buildOrganizerDashboardChartData(kpis, { fallbackCurrency: currency ?? "SZL" })
+  const eventLabelFormatter = (label: unknown, payload?: ChartTooltipPayload[]) => {
+    return payload?.[0]?.payload?.fullTitle ?? String(label)
+  }
+  const moneyFormatter = (value: unknown, _name: unknown, item: ChartTooltipPayload) => {
+    const pointCurrency = item.payload?.currency ?? currency ?? "SZL"
+    const fallbackCents = Math.round(Number(value) * 100)
+    const cents = item.payload?.revenueCents ?? fallbackCents
+    return formatDashboardMoney(Number.isFinite(cents) ? cents : 0, pointCurrency)
+  }
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -68,7 +77,7 @@ export default function DashboardCharts({ kpis }: DashboardChartsProps) {
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-line)" />
             <XAxis dataKey="name" tick={{ fontSize: 11, fill: "var(--color-ink-3)" }} />
             <YAxis tick={{ fontSize: 11, fill: "var(--color-ink-3)" }} />
-            <Tooltip contentStyle={tooltipStyle} />
+            <Tooltip contentStyle={tooltipStyle} labelFormatter={eventLabelFormatter} />
             <Bar dataKey="tickets" fill="var(--color-accent)" radius={[8, 8, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
@@ -82,7 +91,8 @@ export default function DashboardCharts({ kpis }: DashboardChartsProps) {
             <YAxis tick={{ fontSize: 11, fill: "var(--color-ink-3)" }} />
             <Tooltip
               contentStyle={tooltipStyle}
-              formatter={(value: number) => `$${value.toLocaleString()}`}
+              labelFormatter={eventLabelFormatter}
+              formatter={moneyFormatter}
             />
             <Line type="monotone" dataKey="revenue" stroke="var(--color-success)" strokeWidth={2} />
           </LineChart>
@@ -91,13 +101,13 @@ export default function DashboardCharts({ kpis }: DashboardChartsProps) {
 
       <ChartCard title="Attendance by event" description="Check-in vs no-show">
         <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={attendanceData}>
+          <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-line)" />
             <XAxis dataKey="name" tick={{ fontSize: 11, fill: "var(--color-ink-3)" }} />
             <YAxis tick={{ fontSize: 11, fill: "var(--color-ink-3)" }} />
-            <Tooltip contentStyle={tooltipStyle} />
+            <Tooltip contentStyle={tooltipStyle} labelFormatter={eventLabelFormatter} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar dataKey="attended" fill="var(--color-success)" name="Checked in" radius={[8, 8, 0, 0]} />
+            <Bar dataKey="checkedIn" fill="var(--color-success)" name="Checked in" radius={[8, 8, 0, 0]} />
             <Bar dataKey="notAttended" fill="var(--color-line-2)" name="No show" radius={[8, 8, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
