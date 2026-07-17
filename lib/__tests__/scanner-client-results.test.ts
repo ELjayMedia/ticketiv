@@ -7,6 +7,7 @@ import {
   scannerStatusTone,
   shouldSuppressTapBandRead,
 } from "@/lib/scanner/client-results"
+import { copyForScannerStatus } from "@/lib/scanner/outcome-copy"
 
 describe("scanner client results", () => {
   it("normalizes legacy QR scan outcomes", () => {
@@ -51,6 +52,28 @@ describe("scanner client results", () => {
     expect(result.inputMode).toBe("tapband")
     expect(scannerStatusTitle(result.status, result.inputMode)).toBe("No ticket for this event")
     expect(scannerStatusTone(result.status)).toBe("danger")
+  })
+
+  it.each([
+    ["tapband_multiple_entitlements", "Multiple tickets", "warning"],
+    ["tapband_unsupported_chip", "Unsupported TapBand", "danger"],
+    ["tapband_unauthenticated_chip", "Unauthenticated TapBand", "danger"],
+  ])("renders %s as scanner-specific copy", (status, title, tone) => {
+    const result = scannerResultFromPayload(
+      {
+        valid: false,
+        status,
+        inputMode: "tapband",
+      },
+      false,
+      "qr",
+    )
+    const mobileCopy = copyForScannerStatus(result.status)
+
+    expect(result.inputMode).toBe("tapband")
+    expect(scannerStatusTitle(result.status, result.inputMode)).toBe(title)
+    expect(scannerStatusTone(result.status)).toBe(tone)
+    expect(mobileCopy.title).toBe(title)
   })
 
   it.each([

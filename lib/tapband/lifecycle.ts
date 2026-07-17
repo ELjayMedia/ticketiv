@@ -338,7 +338,9 @@ export function tapBandLifecycleHttpStatus(reasonCode: string | null | undefined
     reasonCode.includes("duplicate") ||
     reasonCode.includes("already_issued") ||
     reasonCode.includes("already_used") ||
-    reasonCode.includes("attempt_conflict")
+    reasonCode.includes("attempt_conflict") ||
+    reasonCode.includes("multiple_entitlement") ||
+    reasonCode.includes("multiple_eligible")
   ) {
     return 409
   }
@@ -356,7 +358,10 @@ export function tapBandLifecycleHttpStatus(reasonCode: string | null | undefined
     reasonCode.includes("defective") ||
     reasonCode.includes("retired") ||
     reasonCode.includes("destroyed") ||
-    reasonCode.includes("replaced")
+    reasonCode.includes("replaced") ||
+    reasonCode.includes("unsupported_chip") ||
+    reasonCode.includes("auth_failure") ||
+    reasonCode.includes("unauthenticated")
   ) {
     return 422
   }

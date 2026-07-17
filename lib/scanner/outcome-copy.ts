@@ -19,8 +19,11 @@ export type ScannerOutcomeStatus =
   | "offline"
   | "tapband_unknown"
   | "tapband_no_entitlement"
+  | "tapband_multiple_entitlements"
   | "tapband_lost"
   | "tapband_replaced"
+  | "tapband_unsupported_chip"
+  | "tapband_unauthenticated_chip"
   | "tapband_reader_error"
   | "error"
 
@@ -44,8 +47,11 @@ const COPY: Record<ScannerOutcomeStatus, ScannerOutcomeCopy> = {
   unauthorized: { title: "Not authorised", detail: "You're not assigned to scan this event.", tone: "danger" },
   tapband_unknown: { title: "Unknown TapBand", detail: "Use the attendee QR or manual fallback.", tone: "danger" },
   tapband_no_entitlement: { title: "No TapBand ticket", detail: "This band has no active ticket for this event.", tone: "danger" },
+  tapband_multiple_entitlements: { title: "Multiple tickets", detail: "Use QR fallback until ticket selection is available.", tone: "warning" },
   tapband_lost: { title: "Lost TapBand", detail: "This band was reported lost — do not admit.", tone: "danger" },
   tapband_replaced: { title: "Replaced TapBand", detail: "Use the replacement band or QR fallback.", tone: "danger" },
+  tapband_unsupported_chip: { title: "Unsupported TapBand", detail: "This chip is not supported by this scanner.", tone: "danger" },
+  tapband_unauthenticated_chip: { title: "Unauthenticated TapBand", detail: "The band could not be authenticated.", tone: "danger" },
   tapband_reader_error: { title: "TapBand read failed", detail: "Try again or switch to QR/manual fallback.", tone: "warning" },
   error: { title: "Scan error", detail: "Something went wrong. Try again.", tone: "danger" },
 }

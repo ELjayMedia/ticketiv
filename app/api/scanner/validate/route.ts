@@ -120,9 +120,13 @@ function statusCodeForScannerResult(valid: boolean, status: ScannerValidationSta
     case "error":
     case "tapband_reader_error":
       return 400
+    case "tapband_multiple_entitlements":
+      return 409
     case "tapband_no_entitlement":
     case "tapband_lost":
     case "tapband_replaced":
+    case "tapband_unsupported_chip":
+    case "tapband_unauthenticated_chip":
     case "wrong_event":
     case "revoked":
     case "refunded":

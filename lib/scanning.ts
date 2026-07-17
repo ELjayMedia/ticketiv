@@ -44,8 +44,11 @@ export type ScannerValidationStatus =
   | "offline"
   | "tapband_unknown"
   | "tapband_no_entitlement"
+  | "tapband_multiple_entitlements"
   | "tapband_lost"
   | "tapband_replaced"
+  | "tapband_unsupported_chip"
+  | "tapband_unauthenticated_chip"
   | "tapband_reader_error"
   | "error"
 
@@ -107,6 +110,8 @@ export function tapBandLifecycleStatus(result: Pick<TapBandLifecycleResult, "out
       return "duplicate"
     case "no_entitlement":
       return "tapband_no_entitlement"
+    case "multiple_entitlements":
+      return "tapband_multiple_entitlements"
     case "unknown":
       return "tapband_unknown"
     case "lost":
@@ -124,15 +129,23 @@ export function tapBandLifecycleStatus(result: Pick<TapBandLifecycleResult, "out
       return "not_paid"
     case "unauthorized":
       return "unauthorized"
+    case "unsupported_chip":
+      return "tapband_unsupported_chip"
+    case "auth_failure":
+    case "unauthenticated_chip":
+      return "tapband_unauthenticated_chip"
     case "reader_error":
       return "tapband_reader_error"
     case "attempt_conflict":
       return "duplicate"
     default:
       if (result.reasonCode === "tapband_unknown") return "tapband_unknown"
+      if (result.reasonCode?.includes("multiple_entitlement") || result.reasonCode?.includes("multiple_eligible")) return "tapband_multiple_entitlements"
       if (result.reasonCode?.includes("no_entitlement")) return "tapband_no_entitlement"
       if (result.reasonCode?.includes("lost")) return "tapband_lost"
       if (result.reasonCode?.includes("replaced")) return "tapband_replaced"
+      if (result.reasonCode?.includes("unsupported_chip")) return "tapband_unsupported_chip"
+      if (result.reasonCode?.includes("auth_failure") || result.reasonCode?.includes("unauthenticated")) return "tapband_unauthenticated_chip"
       if (result.reasonCode?.includes("unauthorized")) return "unauthorized"
       if (result.reasonCode?.includes("not_paid")) return "not_paid"
       if (result.reasonCode?.includes("refunded")) return "refunded"
@@ -154,6 +167,8 @@ export function tapBandLifecycleMessage(
       return "TapBand was already checked in for this event"
     case "tapband_no_entitlement":
       return "No active ticket for this event is linked to this TapBand"
+    case "tapband_multiple_entitlements":
+      return "Multiple active tickets are linked to this TapBand. Use QR fallback until ticket selection is available"
     case "tapband_unknown":
       return "TapBand not recognised. Use QR or manual fallback"
     case "tapband_lost":
@@ -168,6 +183,10 @@ export function tapBandLifecycleMessage(
       return "Linked order has not been paid"
     case "unauthorized":
       return "Scanner is not assigned to this event"
+    case "tapband_unsupported_chip":
+      return "TapBand chip is not supported by this scanner"
+    case "tapband_unauthenticated_chip":
+      return "TapBand could not be authenticated"
     case "tapband_reader_error":
       return "TapBand could not be read. Try again or use QR fallback"
     default:
