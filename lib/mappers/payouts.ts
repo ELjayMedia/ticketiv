@@ -46,7 +46,7 @@ export function mapPayouts(o: OrgPayoutsOverview): PayoutsLedgerProps {
 
   // Compute running balance for ledger from newest → oldest using the
   // current available balance as the anchor (Σ amount_cents).
-  let running = o.availableBalanceCents
+  let running = o.finance.capturedAvailableCents
   const ledger = o.ledger.map((entry) => {
     const row = {
       id: entry.id,
@@ -78,6 +78,10 @@ export function mapPayouts(o: OrgPayoutsOverview): PayoutsLedgerProps {
       paidOutMinor: o.finance.paidOutCents,
       pendingPayoutMinor: o.finance.pendingPayoutCents,
       availableMinor: o.finance.availableCents,
+      capturedAvailableMinor: o.finance.capturedAvailableCents,
+      settledNetMinor: o.finance.settledNetCents,
+      pendingSettlementMinor: o.finance.pendingSettlementCents,
+      settlementHoldDays: o.finance.settlementHoldDays,
     },
     primaryAccountLabel,
     paymentReadiness: {

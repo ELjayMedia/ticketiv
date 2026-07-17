@@ -12,8 +12,8 @@ import { FinanceDateFilter } from "./finance-date-filter"
 export const dynamic = "force-dynamic"
 export const metadata = { title: "Finance Summary" }
 
-function fmt(cents: number) {
-  return `SZL ${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+function fmt(cents: number, currency: string) {
+  return `${currency} ${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 function fmtPct(value: number) {
@@ -62,6 +62,7 @@ function KpiTile({
 }
 
 interface FinanceSummary {
+  currency: string
   gross_cents: number
   fees_cents: number
   net_cents: number
@@ -69,6 +70,10 @@ interface FinanceSummary {
   paid_out_cents: number
   pending_payout_cents: number
   available_cents: number
+  captured_available_cents: number
+  settled_net_cents: number
+  pending_settlement_cents: number
+  settlement_hold_days: number
 }
 
 interface EventMetric {
@@ -126,14 +131,22 @@ export default async function OrgFinancePage({
 
   const { data: summaryRaw } = await (supabase.rpc as any)("fn_org_finance_summary", rpcArgs)
   const s = (summaryRaw ?? {}) as Record<string, number>
+  const currency = org.default_currency ?? "SZL"
+  const availableCents = s.available_cents ?? 0
+  const capturedAvailableCents = s.captured_available_cents ?? availableCents
   const summary: FinanceSummary = {
+    currency,
     gross_cents: s.gross_cents ?? 0,
     fees_cents: s.fees_cents ?? 0,
     net_cents: s.net_cents ?? 0,
     refunds_cents: s.refunds_cents ?? 0,
     paid_out_cents: s.paid_out_cents ?? 0,
     pending_payout_cents: s.pending_payout_cents ?? 0,
-    available_cents: s.available_cents ?? 0,
+    available_cents: availableCents,
+    captured_available_cents: capturedAvailableCents,
+    settled_net_cents: s.settled_net_cents ?? s.net_cents ?? 0,
+    pending_settlement_cents: s.pending_settlement_cents ?? Math.max(0, capturedAvailableCents - availableCents),
+    settlement_hold_days: s.settlement_hold_days ?? 0,
   }
 
   // TICK-234: Derived percentage KPIs
@@ -264,34 +277,41 @@ export default async function OrgFinancePage({
         ) : (
           <>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <KpiTile label="Gross sales" value={fmt(summary.gross_cents)} icon="wallet" tone="positive" />
+              <KpiTile label="Gross sales" value={fmt(summary.gross_cents, summary.currency)} icon="wallet" tone="positive" />
               <KpiTile
                 label="Platform + processor fees"
-                value={fmt(summary.fees_cents)}
+                value={fmt(summary.fees_cents, summary.currency)}
                 icon="trending"
                 tone="warning"
               />
               <KpiTile
                 label="Refunds"
-                value={fmt(Math.abs(summary.refunds_cents))}
+                value={fmt(Math.abs(summary.refunds_cents), summary.currency)}
                 icon="chevL"
                 tone="warning"
               />
-              <KpiTile label="Net earned" value={fmt(summary.net_cents)} icon="check" tone="positive" />
+              <KpiTile label="Net earned" value={fmt(summary.net_cents, summary.currency)} icon="check" tone="positive" />
             </div>
 
             {/* TICK-234: Refund rate % and net margin % KPI tiles */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
               <KpiTile
-                label="Available balance"
-                value={fmt(summary.available_cents)}
-                detail="Ready to request payout"
+                label="Payable balance"
+                value={fmt(summary.available_cents, summary.currency)}
+                detail="Settled and requestable"
                 icon="wallet"
                 tone="positive"
               />
               <KpiTile
+                label="Pending settlement"
+                value={fmt(summary.pending_settlement_cents, summary.currency)}
+                detail={`${summary.settlement_hold_days}-day provider buffer`}
+                icon="trending"
+                tone={summary.pending_settlement_cents > 0 ? "warning" : "neutral"}
+              />
+              <KpiTile
                 label="Pending payout"
-                value={fmt(summary.pending_payout_cents)}
+                value={fmt(summary.pending_payout_cents, summary.currency)}
                 detail="In-flight to bank"
                 icon="trending"
               />
@@ -329,7 +349,7 @@ export default async function OrgFinancePage({
                       <th className="px-5 py-3 text-left text-label">Event</th>
                       <th className="px-5 py-3 text-right text-label">Unit price</th>
                       <th className="px-5 py-3 text-right text-label">Qty sold</th>
-                      <th className="px-5 py-3 text-right text-label">Revenue (SZL)</th>
+                      <th className="px-5 py-3 text-right text-label">Revenue ({summary.currency})</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -395,7 +415,7 @@ export default async function OrgFinancePage({
                       <th className="px-5 py-3 text-left text-label">Event</th>
                       <th className="px-5 py-3 text-left text-label">Status</th>
                       <th className="px-5 py-3 text-right text-label">Tickets sold</th>
-                      <th className="px-5 py-3 text-right text-label">Gross (SZL)</th>
+                      <th className="px-5 py-3 text-right text-label">Gross ({summary.currency})</th>
                       <th className="px-5 py-3 text-right text-label">Checked in</th>
                     </tr>
                   </thead>
