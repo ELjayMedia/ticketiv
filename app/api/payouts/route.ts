@@ -8,7 +8,8 @@ const ERROR_COPY: Record<string, string> = {
   invalid_amount: "Enter a payout amount greater than zero.",
   no_payout_account: "Add a payout account before requesting a payout.",
   payout_in_progress: "You already have a payout in progress. Wait for it to settle first.",
-  insufficient_balance: "That amount is more than your available balance.",
+  funds_pending_settlement: "Those funds are captured but not settled yet. Try again after the settlement window.",
+  insufficient_balance: "That amount is more than your settled payable balance.",
 }
 
 function describe(message: string): string {

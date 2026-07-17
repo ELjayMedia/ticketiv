@@ -80,6 +80,10 @@ export interface OrgFinanceSummary {
   paidOutCents: number
   pendingPayoutCents: number
   availableCents: number
+  capturedAvailableCents: number
+  settledNetCents: number
+  pendingSettlementCents: number
+  settlementHoldDays: number
 }
 
 export interface OrgPayoutsOverview {
@@ -164,6 +168,8 @@ export async function getOrgPayoutsOverview(orgId: string): Promise<OrgPayoutsOv
   if (summaryError) console.error("[payouts] fn_org_finance_summary:", summaryError)
 
   const summary = (summaryRaw ?? {}) as Record<string, number>
+  const availableCents = summary.available_cents ?? 0
+  const capturedAvailableCents = summary.captured_available_cents ?? availableCents
   const finance: OrgFinanceSummary = {
     grossCents: summary.gross_cents ?? 0,
     feesCents: summary.fees_cents ?? 0,
@@ -171,7 +177,11 @@ export async function getOrgPayoutsOverview(orgId: string): Promise<OrgPayoutsOv
     refundsCents: summary.refunds_cents ?? 0,
     paidOutCents: summary.paid_out_cents ?? 0,
     pendingPayoutCents: summary.pending_payout_cents ?? 0,
-    availableCents: summary.available_cents ?? 0,
+    availableCents,
+    capturedAvailableCents,
+    settledNetCents: summary.settled_net_cents ?? summary.net_cents ?? 0,
+    pendingSettlementCents: summary.pending_settlement_cents ?? Math.max(0, capturedAvailableCents - availableCents),
+    settlementHoldDays: summary.settlement_hold_days ?? 0,
   }
 
   const availableBalanceCents = finance.availableCents

@@ -4,6 +4,7 @@ import { Card, CardBody } from "@/components/quiet/ui/card"
 import { Button } from "@/components/quiet/ui/button"
 import { Icon } from "@/components/quiet/ui/icon"
 import { getPostEventReconciliationOverview } from "@/lib/data/admin/reconciliation"
+import { buildSettlementSummary, type SettlementSummary } from "@/lib/settlement"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { requireAdminRole } from "@/lib/super-admin/auth"
 import {
@@ -29,6 +30,19 @@ interface PayoutRow {
   created_at: string
   paid_at: string | null
   org_name: string | null
+}
+
+interface AdminLedgerRow {
+  org_id: string
+  type: string | null
+  amount_cents: number | null
+  occurred_at: string | null
+}
+
+interface AdminPayoutBalanceRow {
+  org_id: string
+  amount_cents: number | null
+  status: string | null
 }
 
 const STATUS_ORDER: PayoutStatus[] = ["requested", "processing", "failed", "paid", "cancelled"]
@@ -133,6 +147,60 @@ export default async function SuperAdminPayoutsPage() {
     paid_at: row.paid_at,
     org_name: row.organizations?.name ?? null,
   }))
+  const orgIds = Array.from(new Set(rows.map((row) => row.org_id)))
+  const settlementByOrg = new Map<string, SettlementSummary>()
+
+  if (orgIds.length > 0) {
+    const [ledgerRes, payoutBalanceRes] = await Promise.all([
+      admin
+        .from("ledger_entries")
+        .select("org_id, type, amount_cents, occurred_at")
+        .in("org_id", orgIds),
+      admin
+        .from("payouts")
+        .select("org_id, amount_cents, status")
+        .in("org_id", orgIds),
+    ])
+
+    if (ledgerRes.error) console.error("[super-admin/payouts] ledger_entries:", ledgerRes.error)
+    if (payoutBalanceRes.error) console.error("[super-admin/payouts] payouts:", payoutBalanceRes.error)
+
+    const ledgerByOrg = new Map<string, AdminLedgerRow[]>()
+    for (const row of (ledgerRes.data ?? []) as AdminLedgerRow[]) {
+      const list = ledgerByOrg.get(row.org_id) ?? []
+      list.push(row)
+      ledgerByOrg.set(row.org_id, list)
+    }
+
+    const payoutsByOrg = new Map<string, AdminPayoutBalanceRow[]>()
+    for (const row of (payoutBalanceRes.data ?? []) as AdminPayoutBalanceRow[]) {
+      const list = payoutsByOrg.get(row.org_id) ?? []
+      list.push(row)
+      payoutsByOrg.set(row.org_id, list)
+    }
+
+    for (const orgId of orgIds) {
+      settlementByOrg.set(orgId, buildSettlementSummary({
+        ledgerEntries: (ledgerByOrg.get(orgId) ?? []).map((row) => ({
+          type: row.type,
+          amountCents: row.amount_cents ?? 0,
+          occurredAt: row.occurred_at,
+        })),
+        payouts: (payoutsByOrg.get(orgId) ?? []).map((row) => ({
+          status: row.status,
+          amountCents: row.amount_cents ?? 0,
+        })),
+      }))
+    }
+  }
+
+  const settlementTotals = Array.from(settlementByOrg.values()).reduce(
+    (totals, summary) => ({
+      payable: totals.payable + summary.settledAvailableCents,
+      pending: totals.pending + summary.pendingSettlementCents,
+    }),
+    { payable: 0, pending: 0 },
+  )
 
   const byStatus = new Map<PayoutStatus, PayoutRow[]>()
   for (const status of STATUS_ORDER) byStatus.set(status, [])
@@ -170,8 +238,30 @@ export default async function SuperAdminPayoutsPage() {
         </CardBody>
       </Card>
 
+      <Card>
+        <CardBody className="grid grid-cols-1 gap-3 p-4 md:grid-cols-[1fr_auto_auto] md:items-center">
+          <div>
+            <p className="inline-flex items-center gap-2 text-[13px] font-semibold text-ink">
+              <Icon name="wallet" size={15} className="text-accent" />
+              Settlement guardrail
+            </p>
+            <p className="mt-1 text-[12px] leading-5 text-ink-3">
+              Requested payouts are checked against settled funds, with captured-but-pending revenue held out of approval.
+            </p>
+          </div>
+          <div className="rounded-[var(--radius)] border border-line px-3 py-2">
+            <p className="text-label">Payable across queue</p>
+            <p className="mt-1 font-mono text-[13px] font-semibold">{money(settlementTotals.payable, "SZL")}</p>
+          </div>
+          <div className="rounded-[var(--radius)] border border-line px-3 py-2">
+            <p className="text-label">Pending settlement</p>
+            <p className="mt-1 font-mono text-[13px] font-semibold">{money(settlementTotals.pending, "SZL")}</p>
+          </div>
+        </CardBody>
+      </Card>
+
       {/* Status summary tiles */}
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {STATUS_ORDER.map((status) => {
           const list = byStatus.get(status) ?? []
           const total = list.reduce((sum, r) => sum + r.amount_cents, 0)
@@ -210,7 +300,9 @@ export default async function SuperAdminPayoutsPage() {
               <span className="font-mono text-[11px] text-ink-3">{list.length}</span>
             </div>
             <Card className="overflow-hidden">
-              {list.map((row, i) => (
+              {list.map((row, i) => {
+                const settlement = settlementByOrg.get(row.org_id)
+                return (
                 <div
                   key={row.id}
                   className={`flex flex-wrap items-center gap-3 px-4 py-3 ${i < list.length - 1 ? "border-b border-line" : ""}`}
@@ -222,11 +314,18 @@ export default async function SuperAdminPayoutsPage() {
                       {row.destination_ref ? ` · ${row.destination_ref}` : ""} · requested {formatDate(row.created_at)}
                       {row.paid_at ? ` · paid ${formatDate(row.paid_at)}` : ""}
                     </span>
+                    {settlement && (
+                      <span className="font-mono text-[11px] text-ink-3">
+                        payable {money(settlement.settledAvailableCents, row.currency)} · pending settlement{" "}
+                        {money(settlement.pendingSettlementCents, row.currency)} · {settlement.settlementHoldDays}-day buffer
+                      </span>
+                    )}
                   </div>
                   <span className="font-mono text-[14px] font-semibold">{money(row.amount_cents, row.currency)}</span>
                   {canTransition && <div className="flex items-center gap-2">{actionsFor(row.status, row.id)}</div>}
                 </div>
-              ))}
+                )
+              })}
             </Card>
           </section>
         )

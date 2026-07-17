@@ -9,6 +9,8 @@ import { Icon } from "@/components/quiet/ui/icon"
 interface RequestPayoutButtonProps {
   orgId: string
   availableMinor: number
+  pendingSettlementMinor: number
+  settlementHoldDays: number
   currency: string
   /** Disabled when there's no payout account or no eligible balance. */
   eligible: boolean
@@ -19,7 +21,15 @@ function formatMoney(minor: number, currency: string): string {
   return `${currency} ${(Math.abs(minor) / 100).toLocaleString("en", { maximumFractionDigits: 0 })}`
 }
 
-export function RequestPayoutButton({ orgId, availableMinor, currency, eligible, blockedReason }: RequestPayoutButtonProps) {
+export function RequestPayoutButton({
+  orgId,
+  availableMinor,
+  pendingSettlementMinor,
+  settlementHoldDays,
+  currency,
+  eligible,
+  blockedReason,
+}: RequestPayoutButtonProps) {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
   const [amount, setAmount] = React.useState(() => String(Math.max(0, Math.floor(availableMinor / 100))))
@@ -35,7 +45,7 @@ export function RequestPayoutButton({ orgId, availableMinor, currency, eligible,
     }
     const amountCents = Math.round(major * 100)
     if (amountCents > availableMinor) {
-      setError("That's more than your available balance.")
+      setError("That's more than your settled payable balance.")
       return
     }
     setSubmitting(true)
@@ -78,8 +88,13 @@ export function RequestPayoutButton({ orgId, availableMinor, currency, eligible,
             <div className="flex flex-col gap-1">
               <h2 className="text-h3">Request payout</h2>
               <p className="text-[13px] text-ink-3">
-                Available balance {formatMoney(availableMinor, currency)}.
+                Settled payable balance {formatMoney(availableMinor, currency)}.
               </p>
+              {pendingSettlementMinor > 0 && (
+                <p className="text-[12px] text-ink-3">
+                  {formatMoney(pendingSettlementMinor, currency)} is captured but still inside the {settlementHoldDays}-day settlement window.
+                </p>
+              )}
             </div>
 
             <label className="mt-4 flex flex-col gap-1">

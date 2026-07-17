@@ -6823,7 +6823,10 @@ export type Database = {
       }
       fn_normalize_email: { Args: { p: string }; Returns: string }
       fn_normalize_phone: { Args: { p: string }; Returns: string }
-      fn_org_finance_summary: { Args: { p_org_id: string }; Returns: Json }
+      fn_org_finance_summary: {
+        Args: { p_from?: string | null; p_org_id: string; p_to?: string | null }
+        Returns: Json
+      }
       fn_pos_charge: {
         Args: {
           p_buyer_email?: string

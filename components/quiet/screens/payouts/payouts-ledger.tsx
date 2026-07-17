@@ -25,6 +25,10 @@ export interface PayoutsLedgerProps {
     paidOutMinor: number
     pendingPayoutMinor: number
     availableMinor: number
+    capturedAvailableMinor: number
+    settledNetMinor: number
+    pendingSettlementMinor: number
+    settlementHoldDays: number
   }
   primaryAccountLabel: string | null
   paymentReadiness: {
@@ -129,16 +133,18 @@ export function PayoutsLedger(p: PayoutsLedgerProps) {
   return (
     <div className="flex min-h-full flex-col gap-3.5 p-7">
       {/* Header */}
-      <div className="flex items-end justify-between pb-2">
+      <div className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="font-mono text-[10px] uppercase tracking-wider text-ink-3">MONEY / PAYOUTS</div>
           <h1 className="text-h1 mt-1">Payouts &amp; ledger</h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="default" size="xs" onClick={() => router.push(`/orgs/${p.orgId}/finance/statements`)}>Statements</Button>
           <RequestPayoutButton
             orgId={p.orgId}
             availableMinor={p.finance.availableMinor}
+            pendingSettlementMinor={p.finance.pendingSettlementMinor}
+            settlementHoldDays={p.finance.settlementHoldDays}
             currency={p.currency}
             eligible={p.finance.availableMinor > 0 && Boolean(p.primaryAccountLabel) && p.finance.pendingPayoutMinor === 0}
             blockedReason={
@@ -146,8 +152,10 @@ export function PayoutsLedger(p: PayoutsLedgerProps) {
                 ? "Add a payout account first"
                 : p.finance.pendingPayoutMinor > 0
                   ? "A payout is already in progress"
+                  : p.finance.availableMinor <= 0 && p.finance.pendingSettlementMinor > 0
+                    ? "Funds are still settling"
                   : p.finance.availableMinor <= 0
-                    ? "No balance available to withdraw"
+                    ? "No settled balance to withdraw"
                     : null
             }
           />
@@ -155,7 +163,7 @@ export function PayoutsLedger(p: PayoutsLedgerProps) {
       </div>
 
       {/* Finance breakdown */}
-      <div className="grid grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
         <KPI label="Gross sales" value={formatMoney(p.finance.grossMinor, p.currency)} sub="Ticket face value" />
         <KPI label="Fees" value={formatMoney(p.finance.feesMinor, p.currency)} sub="Platform + processor" />
         <KPI label="Refunds" value={formatMoney(p.finance.refundsMinor, p.currency)} sub="Returned to buyers" />
@@ -163,11 +171,16 @@ export function PayoutsLedger(p: PayoutsLedgerProps) {
       </div>
 
       {/* KPIs */}
-      <div className="flex gap-3.5">
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-5">
         <KPI
-          label="Available balance"
+          label="Payable balance"
           value={formatMoney(p.availableBalanceMinor, p.currency)}
-          sub="Ready to withdraw"
+          sub="Settled and requestable"
+        />
+        <KPI
+          label="Pending settlement"
+          value={formatMoney(p.finance.pendingSettlementMinor, p.currency)}
+          sub={`${p.finance.settlementHoldDays}-day provider buffer`}
         />
         <KPI
           label="Pending payout"
@@ -188,7 +201,7 @@ export function PayoutsLedger(p: PayoutsLedgerProps) {
 
       <PaymentReadinessCard readiness={p.paymentReadiness} />
 
-      <div className="grid grid-cols-2 gap-3.5">
+      <div className="grid grid-cols-1 gap-3.5 xl:grid-cols-2">
         {/* Recent payouts */}
         <Card className="overflow-hidden">
           <div className="flex items-center justify-between border-b border-line px-4 py-3.5">
@@ -270,7 +283,7 @@ export function PayoutsLedger(p: PayoutsLedgerProps) {
 
       {/* Accounts */}
       <Card className="p-5">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <span className="text-h2">Payout accounts</span>
           <Button variant="default" size="xs" onClick={() => router.push(`/orgs/${p.orgId}/payouts/accounts`)}>
             <Icon name="plus" size={12} /> Add account
@@ -281,7 +294,7 @@ export function PayoutsLedger(p: PayoutsLedgerProps) {
             No payout accounts. Add one to receive funds.
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {p.accounts.map((a) => (
               <Card key={a.id} className="p-3">
                 <div className="text-label mb-1">{a.label}</div>
@@ -322,7 +335,7 @@ function PaymentReadinessCard({ readiness }: { readiness: PayoutsLedgerProps["pa
             This shows whether this organisation can safely accept payments and receive payouts. Only non-secret provider status is shown here.
           </p>
         </div>
-        <div className="grid min-w-[360px] grid-cols-3 gap-2">
+        <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3 lg:w-auto lg:min-w-[360px]">
           {checks.map((check) => (
             <div key={check.label} className="rounded-[var(--radius)] border border-line p-3">
               <div className="text-label">{check.label}</div>
@@ -335,7 +348,7 @@ function PaymentReadinessCard({ readiness }: { readiness: PayoutsLedgerProps["pa
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-3 gap-3">
+      <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
         <div className="rounded-[var(--radius)] border border-line p-3">
           <div className="text-label mb-2">Active routes</div>
           {readiness.activeRoutes.length === 0 ? (
