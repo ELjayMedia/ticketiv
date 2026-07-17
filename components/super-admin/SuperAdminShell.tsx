@@ -60,6 +60,7 @@ const NAV_GROUPS: Array<{
     items: [
       { label: "Payments", href: "/super-admin/payments", icon: CreditCard },
       { label: "Payment Attempts", href: "/super-admin/payment-attempts", icon: Activity },
+      { label: "Reconciliation", href: "/super-admin/reconciliation", icon: ClipboardList },
       { label: "Payouts", href: "/super-admin/payouts", icon: BadgeDollarSign },
       { label: "Refunds", href: "/super-admin/refunds", icon: WalletCards },
       { label: "Ledger", href: "/super-admin/ledger-entries", icon: ReceiptText },

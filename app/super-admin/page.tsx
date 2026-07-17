@@ -23,7 +23,7 @@ const WORKSPACES: Array<{ title: string; description: string; href: string; icon
   { title: "Organizer Operations", description: "Manage promoters, companies, venues and organizer access.", href: "/super-admin/organizations", icon: "users" },
   { title: "Ticket Inventory", description: "Control ticket tiers, quotas, channels, seating and guest allocation.", href: "/super-admin/ticket-types", icon: "ticket" },
   { title: "Sales & Orders", description: "Review order state, buyer details, issued tickets and checkout problems.", href: "/super-admin/orders", icon: "fileText" },
-  { title: "Payments & Finance", description: "Track settlements, payouts, refunds, provider failures and reconciliation.", href: "/super-admin/payments", icon: "wallet" },
+  { title: "Payments & Finance", description: "Track settlements, payouts, refunds, provider failures and reconciliation.", href: "/super-admin/reconciliation", icon: "wallet" },
   { title: "Promotions & Controls", description: "Manage feature flags, promo codes, vouchers, fees and discounts.", href: "/super-admin/price-rules", icon: "spark" },
 ]
 
@@ -59,6 +59,7 @@ export default async function SuperAdminPage() {
           {canAct && (
             <Link href="/super-admin/payouts" className={navButtonClass}>Review payouts</Link>
           )}
+          <Link href="/super-admin/reconciliation" className={navButtonClass}>Reconciliation</Link>
           <Link href="/super-admin/payments" className={navButtonClass}>Payment failures</Link>
         </div>
       </section>

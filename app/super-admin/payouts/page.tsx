@@ -1,6 +1,9 @@
+import Link from "next/link"
+
 import { Card, CardBody } from "@/components/quiet/ui/card"
 import { Button } from "@/components/quiet/ui/button"
 import { Icon } from "@/components/quiet/ui/icon"
+import { getPostEventReconciliationOverview } from "@/lib/data/admin/reconciliation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { requireAdminRole } from "@/lib/super-admin/auth"
 import {
@@ -101,6 +104,7 @@ export default async function SuperAdminPayoutsPage() {
   const { roleTier } = await requireAdminRole(["super_admin", "finance_admin", "read_only_admin"])
   const canTransition = roleTier === "super_admin"
   const admin = createAdminClient()
+  const reconciliation = await getPostEventReconciliationOverview({ limit: 40 })
 
   const { data, error } = await admin
     .from("payouts")
@@ -143,6 +147,28 @@ export default async function SuperAdminPayoutsPage() {
           Review organizer payout requests and move them through settlement. Every status change is written to the audit log.
         </p>
       </div>
+
+      <Card className={reconciliation.totals.blocked > 0 ? "border-danger/40" : "border-accent/30"}>
+        <CardBody className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="inline-flex items-center gap-2 text-[13px] font-semibold text-ink">
+              <Icon name={reconciliation.totals.blocked > 0 ? "bell" : "check"} size={15} className={reconciliation.totals.blocked > 0 ? "text-danger" : "text-accent"} />
+              Post-event reconciliation
+            </p>
+            <p className="mt-1 text-[12px] leading-5 text-ink-3">
+              {reconciliation.totals.blocked > 0
+                ? `${reconciliation.totals.blocked} ended event${reconciliation.totals.blocked === 1 ? "" : "s"} need finance review before payout release.`
+                : "Ended events in the current window are clear for payout review."}
+            </p>
+          </div>
+          <Link
+            href="/super-admin/reconciliation"
+            className="inline-flex w-fit items-center gap-1.5 rounded-[var(--radius)] border border-line-2 px-3 py-2 text-[12px] font-semibold text-ink transition hover:bg-bg"
+          >
+            Open reconciliation <Icon name="arrowR" size={12} />
+          </Link>
+        </CardBody>
+      </Card>
 
       {/* Status summary tiles */}
       <div className="grid grid-cols-5 gap-3">
