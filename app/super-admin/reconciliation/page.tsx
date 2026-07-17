@@ -6,9 +6,12 @@ import { Icon, type IconName } from "@/components/quiet/ui/icon"
 import { cn } from "@/lib/cn"
 import { getPostEventReconciliationOverview, type PostEventReconciliationRow } from "@/lib/data/admin/reconciliation"
 import { requireAdminRole } from "@/lib/super-admin/auth"
+import { logReconciliationReviewAction } from "./actions"
 
 export const dynamic = "force-dynamic"
 export const metadata = { title: "Post-event reconciliation | Super Admin" }
+
+type SearchParams = Promise<{ status?: string }>
 
 function money(cents: number, currency = "SZL") {
   return `${currency} ${(cents / 100).toLocaleString("en-SZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -95,7 +98,7 @@ function CheckRow({ check }: { check: PostEventReconciliationRow["checks"][numbe
   )
 }
 
-function EventCard({ event }: { event: PostEventReconciliationRow }) {
+function EventCard({ event, canLogReview }: { event: PostEventReconciliationRow; canLogReview: boolean }) {
   const meta = statusMeta(event.status)
   return (
     <Card className={cn("border", meta.border)}>
@@ -132,6 +135,16 @@ function EventCard({ event }: { event: PostEventReconciliationRow }) {
             >
               Payouts <Icon name="wallet" size={12} />
             </Link>
+            {canLogReview && (
+              <form action={logReconciliationReviewAction.bind(null, event.eventId)}>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-accent bg-accent px-3 py-2 text-[12px] font-semibold text-white transition hover:opacity-90"
+                >
+                  Log review <Icon name="fileText" size={12} />
+                </button>
+              </form>
+            )}
           </div>
         </div>
 
@@ -176,9 +189,11 @@ function MiniStat({ label, value, detail }: { label: string; value: string; deta
   )
 }
 
-export default async function SuperAdminReconciliationPage() {
-  await requireAdminRole(["super_admin", "finance_admin", "read_only_admin"])
+export default async function SuperAdminReconciliationPage({ searchParams }: { searchParams?: SearchParams }) {
+  const { roleTier } = await requireAdminRole(["super_admin", "finance_admin", "read_only_admin"])
+  const query = searchParams ? await searchParams : {}
   const overview = await getPostEventReconciliationOverview()
+  const canLogReview = roleTier !== "read_only_admin"
 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-5">
@@ -240,6 +255,20 @@ export default async function SuperAdminReconciliationPage() {
         </CardBody>
       </Card>
 
+      {query.status === "review_logged" && (
+        <Card className="border-accent/40 bg-accent-soft/40">
+          <CardBody className="flex items-center gap-3 p-4">
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
+              <Icon name="check" size={15} />
+            </span>
+            <div>
+              <p className="text-[13px] font-semibold text-ink">Reconciliation review logged</p>
+              <p className="mt-0.5 text-[12px] text-ink-3">The current event checks were written to the audit log.</p>
+            </div>
+          </CardBody>
+        </Card>
+      )}
+
       {overview.events.length === 0 ? (
         <Card>
           <CardBody className="flex flex-col items-center gap-2 px-6 py-12 text-center">
@@ -251,7 +280,7 @@ export default async function SuperAdminReconciliationPage() {
       ) : (
         <div className="flex flex-col gap-4">
           {overview.events.map((event) => (
-            <EventCard key={event.eventId} event={event} />
+            <EventCard key={event.eventId} event={event} canLogReview={canLogReview} />
           ))}
         </div>
       )}

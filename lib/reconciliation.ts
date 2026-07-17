@@ -82,6 +82,9 @@ export interface EventReconciliationResult {
   succeededPaymentCents: number
   statsTicketsSold: number | null
   statsGrossSalesCents: number | null
+  statsSuccessfulPayments: number | null
+  statsFailedPayments: number | null
+  statsCheckedInCount: number | null
   stuckPaymentAttemptCount: number
   orphanedPaymentAttemptCount: number
   checks: EventReconciliationCheck[]
@@ -228,6 +231,9 @@ export function buildEventReconciliation(input: EventReconciliationInput): Event
     succeededPaymentCents,
     statsTicketsSold: input.stats?.ticketsSold ?? null,
     statsGrossSalesCents: input.stats?.grossSalesCents ?? null,
+    statsSuccessfulPayments: input.stats?.successfulPayments ?? null,
+    statsFailedPayments: input.stats?.failedPayments ?? null,
+    statsCheckedInCount: input.stats?.checkedInCount ?? null,
     stuckPaymentAttemptCount,
     orphanedPaymentAttemptCount,
     checks,
