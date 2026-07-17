@@ -56,6 +56,19 @@ const NAV_GROUPS: Array<{
     ],
   },
   {
+    label: "TapBand",
+    items: [
+      { label: "Operations", href: "/super-admin/workspaces/tapband-operations", icon: Activity },
+      { label: "Batches", href: "/super-admin/credential-batches", icon: ClipboardList },
+      { label: "Inventory", href: "/super-admin/credential-inventory", icon: Ticket },
+      { label: "Credentials", href: "/super-admin/physical-credentials", icon: ShieldCheck },
+      { label: "Entitlements", href: "/super-admin/credential-entitlements", icon: Users },
+      { label: "Tap Audit", href: "/super-admin/credential-taps", icon: QrCode },
+      { label: "Config", href: "/super-admin/tapband-feature-configs", icon: Settings },
+      { label: "Kill Switches", href: "/super-admin/tapband-kill-switches", icon: Flag },
+    ],
+  },
+  {
     label: "Finance",
     items: [
       { label: "Payments", href: "/super-admin/payments", icon: CreditCard },

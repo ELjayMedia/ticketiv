@@ -24,6 +24,7 @@ const WORKSPACES: Array<{ title: string; description: string; href: string; icon
   { title: "Ticket Inventory", description: "Control ticket tiers, quotas, channels, seating and guest allocation.", href: "/super-admin/ticket-types", icon: "ticket" },
   { title: "Sales & Orders", description: "Review order state, buyer details, issued tickets and checkout problems.", href: "/super-admin/orders", icon: "fileText" },
   { title: "Payments & Finance", description: "Track settlements, payouts, refunds, provider failures and reconciliation.", href: "/super-admin/reconciliation", icon: "wallet" },
+  { title: "TapBand Operations", description: "Reconcile batches, stock, credentials, entitlements and tap audit signals.", href: "/super-admin/workspaces/tapband-operations", icon: "nfc" },
   { title: "Promotions & Controls", description: "Manage feature flags, promo codes, vouchers, fees and discounts.", href: "/super-admin/price-rules", icon: "spark" },
 ]
 
