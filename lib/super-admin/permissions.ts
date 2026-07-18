@@ -51,7 +51,15 @@ export const SUPPORT_RESOURCE_KEYS = new Set([
   "waitlists",
 ])
 
+export const READ_ONLY_RESOURCE_KEYS = new Set([
+  "physical-credentials",
+  "credential-entitlements",
+  "credential-taps",
+  "tapband-telemetry-events",
+])
+
 export function allowedGenericMutationRolesForResource(resourceKey: string): AdminRoleTier[] {
+  if (READ_ONLY_RESOURCE_KEYS.has(resourceKey)) return []
   if (FINANCE_RESOURCE_KEYS.has(resourceKey)) return ["super_admin"]
   if (EVENT_OPS_RESOURCE_KEYS.has(resourceKey)) return ["super_admin", "event_ops_admin"]
   if (SUPPORT_RESOURCE_KEYS.has(resourceKey)) return ["super_admin", "support_admin"]

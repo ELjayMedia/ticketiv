@@ -17,6 +17,7 @@ import {
   getResourceFriendlyName,
   type LookupMaps,
 } from "@/lib/super-admin/display"
+import type { AdminResource, AdminResourceField } from "@/lib/super-admin/resources"
 import { buildAdminCreateDefaults, firstSearchParam, type AdminResourceSearchParams } from "@/lib/super-admin/form"
 import { createResourceAction } from "../actions"
 
@@ -82,6 +83,24 @@ function HeaderCell({ column }: { column: string }) {
   )
 }
 
+function getStateFilterField(resource: AdminResource): AdminResourceField | null {
+  return resource.fields.find((field) => (
+    field.type === "select" &&
+    Array.isArray(field.options) &&
+    (field.name === "status" || field.name === "inventory_status")
+  )) ?? null
+}
+
+function sanitizeSearchTerm(value: string) {
+  return value.replace(/[%_,]/g, " ").trim().replace(/\s+/g, "%")
+}
+
+function buildSearchClause(resource: AdminResource, searchTerm: string) {
+  const normalized = sanitizeSearchTerm(searchTerm)
+  if (!normalized || !resource.searchColumns?.length) return null
+  return resource.searchColumns.map((column) => `${column}.ilike.%${normalized}%`).join(",")
+}
+
 export default async function SuperAdminResourcePage({
   params,
   searchParams,
@@ -98,8 +117,20 @@ export default async function SuperAdminResourcePage({
 
   const admin = createAdminClient()
   const activeResource = resource
+  const searchTerm = firstSearchParam(query.q)?.trim() ?? ""
+  const stateFilter = firstSearchParam(query.state)?.trim() ?? ""
+  const stateFilterField = getStateFilterField(activeResource)
+  const searchClause = buildSearchClause(activeResource, searchTerm)
+  const canFilter = Boolean(activeResource.searchColumns?.length || stateFilterField)
+
+  let resourceQuery = admin.from(activeResource.table as any).select("*") as any
+  if (searchClause) resourceQuery = resourceQuery.or(searchClause)
+  if (stateFilter && stateFilterField?.options?.includes(stateFilter)) {
+    resourceQuery = resourceQuery.eq(stateFilterField.name, stateFilter)
+  }
+
   const [{ data, error }, lookups] = await Promise.all([
-    admin.from(activeResource.table as any).select("*").order(activeResource.orderBy, { ascending: false }).limit(50),
+    resourceQuery.order(activeResource.orderBy, { ascending: false }).limit(50),
     getLookupMaps(),
   ])
 
@@ -132,6 +163,65 @@ export default async function SuperAdminResourcePage({
         <div className="mb-5 flex items-center gap-2 rounded-[var(--radius-md)] border border-success/30 bg-success/10 px-4 py-3 text-[13px] text-success">
           <Icon name="check" size={14} /> {statusMessage}
         </div>
+      ) : null}
+
+      {canFilter ? (
+        <Card className="mb-5">
+          <CardBody className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_auto_auto_auto] md:items-end">
+            {activeResource.searchColumns?.length ? (
+              <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink">
+                Search
+                <input
+                  name="q"
+                  form="resource-filter-form"
+                  defaultValue={searchTerm}
+                  placeholder={`Serial, status or ${friendlyName.toLowerCase()} reference`}
+                  className="h-10 rounded-full border border-line bg-surface px-4 text-[13px] font-normal text-ink outline-none transition focus:border-ink"
+                />
+              </label>
+            ) : (
+              <input name="q" form="resource-filter-form" type="hidden" value="" />
+            )}
+
+            {stateFilterField ? (
+              <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink">
+                {getFieldLabel(stateFilterField.name)}
+                <select
+                  name="state"
+                  form="resource-filter-form"
+                  defaultValue={stateFilter}
+                  className="h-10 rounded-full border border-line bg-surface px-4 text-[13px] font-normal text-ink outline-none transition focus:border-ink"
+                >
+                  <option value="">All</option>
+                  {stateFilterField.options?.map((option) => (
+                    <option key={option} value={option}>{option.replaceAll("_", " ")}</option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <input name="state" form="resource-filter-form" type="hidden" value="" />
+            )}
+
+            <form id="resource-filter-form" method="get" action={`/super-admin/${resource.key}`}>
+              <button
+                type="submit"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-ink bg-ink px-4 text-[13px] font-semibold text-surface transition hover:bg-ink-2"
+              >
+                <Icon name="search" size={14} />
+                Filter
+              </button>
+            </form>
+
+            {searchTerm || stateFilter ? (
+              <Link
+                href={`/super-admin/${resource.key}`}
+                className="inline-flex h-10 items-center justify-center rounded-full border border-line-2 bg-surface px-4 text-[13px] font-semibold text-ink transition hover:bg-bg"
+              >
+                Clear
+              </Link>
+            ) : null}
+          </CardBody>
+        </Card>
       ) : null}
 
       {!canMutate ? (
@@ -191,7 +281,7 @@ export default async function SuperAdminResourcePage({
                 </tr>
               </thead>
               <tbody>
-                {((data ?? []) as unknown as Record<string, unknown>[]).map((row) => {
+                {((data ?? []) as unknown as Record<string, unknown>[]).length ? ((data ?? []) as unknown as Record<string, unknown>[]).map((row) => {
                   const recordId = String(row[resource.primaryKey])
                   return (
                     <tr key={recordId} className="border-b border-line last:border-0">
@@ -217,7 +307,13 @@ export default async function SuperAdminResourcePage({
                       </td>
                     </tr>
                   )
-                })}
+                }) : (
+                  <tr>
+                    <td colSpan={resource.listColumns.length + 1} className="px-3 py-8 text-center text-[13px] text-ink-3">
+                      No {friendlyName.toLowerCase()} records matched this view.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </CardBody>

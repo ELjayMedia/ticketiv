@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { buildAdminCreateDefaults, firstSearchParam } from "@/lib/super-admin/form"
+import { allowedGenericMutationRolesForResource, canMutateResource } from "@/lib/super-admin/permissions"
 import { getAdminResource } from "@/lib/super-admin/resources"
 
 describe("super admin form defaults", () => {
@@ -46,5 +47,25 @@ describe("super admin form defaults", () => {
       currency: "SZL",
       active: "true",
     })
+  })
+
+  it("keeps sensitive TapBand lifecycle resources read-only in the generic console", () => {
+    for (const key of ["physical-credentials", "credential-entitlements", "credential-taps", "tapband-telemetry-events"]) {
+      expect(allowedGenericMutationRolesForResource(key)).toEqual([])
+      expect(canMutateResource(key, "super_admin")).toBe(false)
+      expect(canMutateResource(key, "support_admin")).toBe(false)
+    }
+  })
+
+  it("keeps TapBand batch and inventory resources searchable for reconciliation", () => {
+    const batches = getAdminResource("credential-batches")
+    const inventory = getAdminResource("credential-inventory")
+
+    expect(batches?.searchColumns).toContain("supplier_reference")
+    expect(batches?.searchColumns).toContain("status")
+    expect(inventory?.searchColumns).toContain("public_serial")
+    expect(inventory?.searchColumns).toContain("inventory_status")
+    expect(allowedGenericMutationRolesForResource("credential-batches")).toEqual(["super_admin"])
+    expect(allowedGenericMutationRolesForResource("credential-inventory")).toEqual(["super_admin"])
   })
 })

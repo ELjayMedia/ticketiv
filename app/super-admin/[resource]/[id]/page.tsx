@@ -10,6 +10,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { getAdminResource } from "@/lib/super-admin/resources"
 import { requireAdminRole } from "@/lib/super-admin/auth"
 import { ADMIN_ROLE_TIERS, canMutateResource } from "@/lib/super-admin/permissions"
+import { formatAdminCell, getFieldHelp, getFieldLabel } from "@/lib/super-admin/display"
 import {
   archiveEventAction,
   assignDeviceToEventAction,
@@ -47,6 +48,29 @@ function ActionTile({
       </p>
       <p className="text-[12px] text-ink-3">{description}</p>
       {children}
+    </div>
+  )
+}
+
+function ReadOnlyResourceDetails({
+  resource,
+  record,
+}: {
+  resource: NonNullable<ReturnType<typeof getAdminResource>>
+  record: Record<string, unknown>
+}) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {resource.fields.map((field) => {
+        const help = getFieldHelp(field.name)
+        return (
+          <div key={field.name} className="rounded-[var(--radius-md)] border border-line bg-bg p-3">
+            <p className="text-label">{getFieldLabel(field.name)}</p>
+            <p className="mt-1 break-words text-[13px] text-ink">{formatAdminCell(field.name, record[field.name])}</p>
+            {help ? <p className="mt-2 text-[12px] leading-5 text-ink-3">{help}</p> : null}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -129,7 +153,7 @@ export default async function SuperAdminEditResourcePage({
           <div className="flex flex-col gap-1">
             <p className="font-semibold text-ink">Raw edit access is disabled for this resource.</p>
             <p>
-              This record can be reviewed, but direct table edits are reserved for higher admin tiers. Finance users should use audited finance workflow actions where available.
+              This record can be reviewed, but direct table edits are disabled or reserved for audited workflow actions where available.
             </p>
           </div>
         </div>
@@ -318,13 +342,13 @@ export default async function SuperAdminEditResourcePage({
         <Card>
           <CardBody className="flex flex-col gap-1 px-5 py-4">
             <p className="text-h3">{resource.label} record</p>
-            <p className="text-[12px] text-ink-3">Direct editing is hidden for your admin tier.</p>
+            <p className="text-[12px] text-ink-3">
+              Direct editing is hidden. Use audited lifecycle actions where a sensitive state change is supported.
+            </p>
           </CardBody>
           <CardDivider />
           <CardBody className="p-5">
-            <pre className="overflow-x-auto rounded-[var(--radius-md)] bg-bg p-4 font-mono text-[11px] text-ink-3">
-              {JSON.stringify(data, null, 2)}
-            </pre>
+            <ReadOnlyResourceDetails resource={resource} record={data as unknown as Record<string, unknown>} />
           </CardBody>
         </Card>
       )}
