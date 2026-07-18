@@ -63,6 +63,20 @@ alter table public.order_items
   add constraint order_items_current_owner_id_fkey
   foreign key (current_owner_id) references auth.users(id) on delete set null;
 
+alter table public.order_items
+  add column if not exists holder_user_id uuid;
+
+alter table public.order_items
+  drop constraint if exists order_items_holder_user_id_fkey;
+
+alter table public.order_items
+  add constraint order_items_holder_user_id_fkey
+  foreign key (holder_user_id) references auth.users(id) on delete set null;
+
+create index if not exists idx_order_items_holder_user_id
+  on public.order_items (holder_user_id)
+  where holder_user_id is not null;
+
 alter table public.payment_provider_settings
   drop constraint if exists payment_provider_settings_updated_by_fkey;
 
@@ -342,24 +356,28 @@ begin
   set created_by = null
   where created_by = p_user_id;
 
-  update public.physical_credentials
-  set
-    status = case
-      when status in ('issued', 'active', 'suspended', 'lost') then 'revoked'
-      else status
-    end,
-    user_id = null,
-    revoked_at = case
-      when status in ('issued', 'active', 'suspended', 'lost') then coalesce(revoked_at, now())
-      else revoked_at
-    end,
-    revocation_reason = case
-      when status in ('issued', 'active', 'suspended', 'lost') then coalesce(revocation_reason, 'account_deleted')
-      else revocation_reason
-    end,
-    verification_metadata = coalesce(verification_metadata, '{}'::jsonb)
-      || jsonb_build_object('accountDeletedAt', now())
-  where user_id = p_user_id;
+  if to_regclass('public.physical_credentials') is not null then
+    execute $sql$
+      update public.physical_credentials
+      set
+        status = case
+          when status in ('issued', 'active', 'suspended', 'lost') then 'revoked'
+          else status
+        end,
+        user_id = null,
+        revoked_at = case
+          when status in ('issued', 'active', 'suspended', 'lost') then coalesce(revoked_at, now())
+          else revoked_at
+        end,
+        revocation_reason = case
+          when status in ('issued', 'active', 'suspended', 'lost') then coalesce(revocation_reason, 'account_deleted')
+          else revocation_reason
+        end,
+        verification_metadata = coalesce(verification_metadata, '{}'::jsonb)
+          || jsonb_build_object('accountDeletedAt', now())
+      where user_id = $1
+    $sql$ using p_user_id;
+  end if;
 
   update public.waitlists
   set email = null, first_name = null, last_name = null
