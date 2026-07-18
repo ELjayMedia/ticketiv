@@ -2662,7 +2662,7 @@ export type Database = {
       orders: {
         Row: {
           buyer_email: string | null
-          buyer_id: string
+          buyer_id: string | null
           buyer_phone: string | null
           channel: Database["public"]["Enums"]["sales_channel"]
           created_at: string
@@ -2690,7 +2690,7 @@ export type Database = {
         }
         Insert: {
           buyer_email?: string | null
-          buyer_id: string
+          buyer_id?: string | null
           buyer_phone?: string | null
           channel?: Database["public"]["Enums"]["sales_channel"]
           created_at?: string
@@ -2718,7 +2718,7 @@ export type Database = {
         }
         Update: {
           buyer_email?: string | null
-          buyer_id?: string
+          buyer_id?: string | null
           buyer_phone?: string | null
           channel?: Database["public"]["Enums"]["sales_channel"]
           created_at?: string
@@ -3824,7 +3824,7 @@ export type Database = {
           order_item_id: string
           org_id: string
           price_cents: number
-          seller_id: string
+          seller_id: string | null
           status: string
           transfer_fee_cents: number | null
           transfer_id: string | null
@@ -3839,7 +3839,7 @@ export type Database = {
           order_item_id: string
           org_id: string
           price_cents: number
-          seller_id: string
+          seller_id?: string | null
           status?: string
           transfer_fee_cents?: number | null
           transfer_id?: string | null
@@ -3854,7 +3854,7 @@ export type Database = {
           order_item_id?: string
           org_id?: string
           price_cents?: number
-          seller_id?: string
+          seller_id?: string | null
           status?: string
           transfer_fee_cents?: number | null
           transfer_id?: string | null
@@ -6582,6 +6582,15 @@ export type Database = {
         }[]
       }
       fn_complete_transfer: { Args: { p_transfer_id: string }; Returns: Json }
+      fn_delete_account_for_user: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
+      fn_get_account_deletion_status_for_user: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
+      fn_get_my_account_deletion_status: { Args: never; Returns: Json }
       fn_complete_waitlist_after_payment: {
         Args: { p_payment_id: string; p_waitlist_id: string }
         Returns: {

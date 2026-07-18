@@ -134,7 +134,11 @@ export async function getEventDetailById(id: string): Promise<EventDetailData | 
         ).data ?? []).map((i: { order_id: string }) => i.order_id)
       )
       .eq("status", "paid")
-    buyerCount = new Set((paidOrders ?? []).map((o: { buyer_id: string }) => o.buyer_id)).size
+    buyerCount = new Set(
+      (paidOrders ?? [])
+        .map((o) => o.buyer_id)
+        .filter((buyerId): buyerId is string => typeof buyerId === "string"),
+    ).size
   }
 
   // Check if current user has favourited this event + load friends going
@@ -173,7 +177,9 @@ export async function getEventDetailById(id: string): Promise<EventDetailData | 
             .in("status", ["issued", "checked_in"])
           ).data ?? []).map((i: { order_id: string }) => i.order_id)
         )
-      for (const o of friendOrders ?? []) friendPaidBuyerIds.add(o.buyer_id)
+      for (const o of friendOrders ?? []) {
+        if (o.buyer_id) friendPaidBuyerIds.add(o.buyer_id)
+      }
 
       if (friendPaidBuyerIds.size > 0) {
         const { data: friendProfiles } = await supabase
