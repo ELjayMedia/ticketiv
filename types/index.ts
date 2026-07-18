@@ -140,7 +140,7 @@ export interface ArtistRecord {
 export interface OrderRecord {
   id: string
   org_id: string
-  buyer_id: string
+  buyer_id?: string | null
   status: OrderStatus
   channel: SalesChannel
   currency: string
@@ -355,7 +355,7 @@ export interface TicketTransferRecord {
 export interface ResaleListingRecord {
   id: string
   order_item_id: string
-  seller_id: string
+  seller_id?: string | null
   org_id: string
   price_cents: number
   currency: string

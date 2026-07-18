@@ -9,11 +9,13 @@ import { Icon, type IconName } from "@/components/quiet/ui/icon"
 import { Avatar } from "@/components/quiet/ui/primitives"
 import type { AccountSettings } from "@/lib/data/attendee/account-settings"
 import {
+  deleteAccountAction,
   updateAvatarAction,
   updateNotificationPrefsAction,
   updatePasswordAction,
   updateProfileAction,
   type ActionResult,
+  type DeleteAccountResult,
 } from "@/app/(app)/account/settings/actions"
 
 type TabId = "profile" | "notifications" | "security"
@@ -384,6 +386,95 @@ function SecuritySection({ settings }: { settings: AccountSettings }) {
           )}
         </div>
       </Card>
+
+      <DeleteAccountSection settings={settings} />
     </div>
+  )
+}
+
+function DeleteAccountSection({ settings }: { settings: AccountSettings }) {
+  const [pending, startTransition] = useTransition()
+  const [result, setResult] = useState<DeleteAccountResult | null>(null)
+  const [confirmation, setConfirmation] = useState("")
+  const canSubmit = settings.deletion.canDelete && confirmation === "DELETE" && !pending
+
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const formData = new FormData(e.currentTarget)
+    setResult(null)
+    startTransition(async () => {
+      const res = await deleteAccountAction(formData)
+      setResult(res)
+      if (res.ok && res.deleted) {
+        window.location.assign("/")
+      }
+    })
+  }
+
+  return (
+    <Card className="border-danger/40 p-5">
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <div className="flex items-start gap-3">
+          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-danger-soft text-danger">
+            <Icon name="trash" size={16} />
+          </span>
+          <div className="flex flex-col gap-1">
+            <h2 className="text-h3">Delete account</h2>
+            <p className="font-mono text-[11px] leading-relaxed text-ink-3">
+              Your profile and sign-in account will be deleted. Paid order records stay in anonymised form for accounting.
+            </p>
+          </div>
+        </div>
+
+        {settings.deletion.blockers.length > 0 ? (
+          <div className="flex flex-col gap-2 rounded-[var(--radius)] border border-danger/30 bg-danger-soft/50 px-3.5 py-3">
+            <span className="text-[13px] font-semibold text-danger">Deletion is blocked</span>
+            <ul className="flex flex-col gap-1.5">
+              {settings.deletion.blockers.map((blocker) => (
+                <li key={blocker.code} className="flex gap-2 text-[12px] leading-relaxed text-danger">
+                  <Icon name="close" size={13} className="mt-0.5" />
+                  <span>
+                    {blocker.message}
+                    {blocker.count > 1 ? ` (${blocker.count})` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <div className="rounded-[var(--radius)] border border-line bg-bg px-3.5 py-3">
+            <p className="font-mono text-[11px] leading-relaxed text-ink-3">
+              {settings.deletion.retention.orders}
+            </p>
+          </div>
+        )}
+
+        <label className="flex flex-col gap-1.5">
+          <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Confirm deletion</span>
+          <input
+            name="confirmation"
+            value={confirmation}
+            onChange={(e) => setConfirmation(e.target.value)}
+            placeholder="DELETE"
+            autoComplete="off"
+            className="rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-2 font-mono text-[13px] text-ink outline-none transition-colors placeholder:text-ink-3 focus:border-danger focus:ring-2 focus:ring-danger/20"
+          />
+        </label>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <StatusLine result={result} />
+          <Button
+            type="submit"
+            variant="default"
+            size="md"
+            disabled={!canSubmit}
+            className="border-danger bg-danger text-white hover:bg-danger/90"
+          >
+            <Icon name="trash" size={14} />
+            {pending ? "Deleting…" : "Delete account"}
+          </Button>
+        </div>
+      </form>
+    </Card>
   )
 }

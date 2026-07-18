@@ -163,7 +163,7 @@ export async function getTicketById(ticketId: string): Promise<{
 export async function getUserOrders(userId: string): Promise<
   Array<{
     id: string
-    buyer_id: string
+    buyer_id: string | null
     buyer_email: string | null
     status: string
     total_cents: number
@@ -191,7 +191,7 @@ export async function getEventOrders(
 ): Promise<
   Array<{
     id: string
-    buyer_id: string
+    buyer_id: string | null
     buyer_email: string | null
     status: string
     total_cents: number
@@ -264,7 +264,7 @@ export async function createOrder(input: {
 
 export async function getOrderById(orderId: string): Promise<{
   id: string
-  buyer_id: string
+  buyer_id: string | null
   buyer_email: string | null
   status: string
   total_cents: number
@@ -295,7 +295,7 @@ export async function getOrderById(orderId: string): Promise<{
 export async function getMyOrders(): Promise<
   Array<{
     id: string
-    buyer_id: string
+    buyer_id: string | null
     buyer_email: string | null
     status: string
     total_cents: number
