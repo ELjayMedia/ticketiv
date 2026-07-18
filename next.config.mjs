@@ -13,7 +13,7 @@ for (const envVar of optionalEnvVars) {
 const nextConfig = {
   // Workspace packages ship raw TypeScript (ADR 0001 / TICK-328); Next
   // transpiles them instead of expecting prebuilt JS.
-  transpilePackages: ["@ticketiv/shared", "@ticketiv/tokens"],
+  transpilePackages: ["@ticketiv/adapters", "@ticketiv/shared", "@ticketiv/tokens"],
   typescript: {
     ignoreBuildErrors: false,
   },
