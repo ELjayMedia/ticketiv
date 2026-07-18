@@ -32,9 +32,9 @@ describe("@ticketiv/adapters", () => {
     expect(
       getMissingPlatformAdapters(
         { secureStorage },
-        ["secureStorage", "cameraScanner", "nfc"]
+        ["secureStorage", "browserSession", "cameraScanner", "nfc"]
       )
-    ).toEqual(["cameraScanner", "nfc"]);
+    ).toEqual(["browserSession", "cameraScanner", "nfc"]);
   });
 
   it("throws a typed error when required platform adapters are missing", () => {

@@ -25,6 +25,18 @@ export type WalletPassInput = {
   token: string;
 };
 
+export type BrowserSessionPresentation =
+  | "custom_tab"
+  | "auth_session"
+  | "external_browser";
+
+export type BrowserSessionInput = {
+  url: string;
+  callbackUrl?: string | null;
+  presentation?: BrowserSessionPresentation;
+  prefersEphemeralSession?: boolean;
+};
+
 export type ScanFrame = {
   value: string;
   format: "qr" | "barcode" | "unknown";
@@ -62,6 +74,10 @@ export interface WalletPassAdapter {
   addPass(input: WalletPassInput): Promise<void>;
 }
 
+export interface BrowserSessionAdapter {
+  openSession(input: BrowserSessionInput): Promise<void>;
+}
+
 export interface CameraScannerAdapter {
   getPermissionStatus(): Promise<PermissionStatus>;
   requestPermission(): Promise<PermissionStatus>;
@@ -79,6 +95,7 @@ export interface MapAdapter {
 
 export type TicketivPlatformAdapters = {
   secureStorage: SecureStorageAdapter;
+  browserSession?: BrowserSessionAdapter;
   push?: PushAdapter;
   wallet?: WalletPassAdapter;
   cameraScanner?: CameraScannerAdapter;
