@@ -1,0 +1,6 @@
+{
+  "name": "@ticketiv/app-access",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Ticketiv Access staff app (com.ticketiv.access) — React Native. Placeholder package: the Expo/RN project is initialized in TICK-329; see README.md."
+}

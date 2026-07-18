@@ -1,0 +1,10 @@
+{
+  "name": "@ticketiv/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Platform-neutral Ticketiv logic shared by the web app and the React Native apps (TICK-328). Ships raw TypeScript — consumers transpile (Next via transpilePackages, RN via Metro).",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "sideEffects": false
+}

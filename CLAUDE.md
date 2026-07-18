@@ -11,6 +11,16 @@
 | Package manager | **pnpm 10.28** — never use `npm install` or `yarn` |
 | Backend | Supabase (project `radsfmlsjznqvcpogluo`) |
 | Deployment | Vercel |
+| Mobile | React Native (pnpm workspace: `apps/ticketiv`, `apps/access`; shared code in `packages/shared`, tokens in `packages/tokens`) — see `docs/adr/0001-mobile-packaging.md` |
+
+## Monorepo layout
+
+The repo is a pnpm workspace (TICK-328). The Next.js web app still lives at
+the repo root (Vercel builds from root — do not move it without coordinating
+the Vercel root-directory setting). Platform-neutral logic goes in
+`packages/shared` (`@ticketiv/shared`, consumed by web via `transpilePackages`);
+Quiet UI tokens for RN live in `packages/tokens` and must stay in sync with
+the `@theme` block in `app/globals.css`.
 
 ## Design system — Quiet UI
 

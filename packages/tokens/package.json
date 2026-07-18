@@ -1,0 +1,10 @@
+{
+  "name": "@ticketiv/tokens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Quiet UI design tokens as TypeScript constants, mirrored from app/globals.css @theme, for the React Native apps (TICK-328).",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "sideEffects": false
+}
