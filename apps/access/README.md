@@ -5,10 +5,11 @@ Scanning deliberately does **not** live in the consumer app: Access gets
 tighter permissions, a simpler gate UI, and an independent release cycle —
 a consumer update must never destabilise check-in.
 
-This directory is a workspace placeholder created by the monorepo scaffold
-(TICK-328). The actual React Native project is initialized in **TICK-329**,
-Android-first (`playRelease` + `huaweiRelease` flavours); iOS follows later
-(TICK-331) once iPhone gate-scanning is validated at a live event.
+This workspace now contains the TICK-329 Access app core: app identity,
+Android build-target config, deep-link config and scanner session state that
+reuses `@ticketiv/shared` contracts. The full React Native shell is still
+initialized Android-first (`playRelease` + `huaweiRelease` flavours); iOS
+follows later (TICK-331) once iPhone gate-scanning is validated at a live event.
 
 ## Launch feature set
 
