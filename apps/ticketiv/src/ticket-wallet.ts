@@ -1,10 +1,10 @@
+import type { SecureStorageAdapter } from "@ticketiv/adapters";
 import {
   type Currency,
   formatEventDate,
   formatPriceLabel,
   formatTimeRange,
   parseTicketivDeepLink,
-  type SecureStorageAdapter,
 } from "@ticketiv/shared";
 
 export const TICKETIV_WALLET_SCHEMA_VERSION = 1;

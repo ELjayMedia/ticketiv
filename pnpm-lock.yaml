@@ -222,6 +222,9 @@ importers:
 
   apps/access:
     dependencies:
+      '@ticketiv/adapters':
+        specifier: workspace:*
+        version: link:../../packages/adapters
       '@ticketiv/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -231,6 +234,9 @@ importers:
 
   apps/ticketiv:
     dependencies:
+      '@ticketiv/adapters':
+        specifier: workspace:*
+        version: link:../../packages/adapters
       '@ticketiv/shared':
         specifier: workspace:*
         version: link:../../packages/shared

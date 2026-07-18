@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ticketiv/adapters": "workspace:*",
     "@ticketiv/shared": "workspace:*",
     "@ticketiv/tokens": "workspace:*"
   }
