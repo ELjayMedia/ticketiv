@@ -6,8 +6,12 @@ import { NextResponse, type NextRequest } from "next/server"
  *
  * Public routes (no auth needed):
  *   /, /browse, /events/[id], /artists, /categories, /category/*, /organisers,
- *   /host, /marketplace, /sign-in, /login, /verify, /signup, /forgot-password,
+ *   /host, /marketplace, /privacy, /terms, /refund-policy, /data-deletion,
+ *   /support, /help, /sign-in, /login, /verify, /signup, /forgot-password,
  *   /reset-password, /verify-email, /auth/*, /403, /maintenance
+ *
+ * Public APIs with their own verification:
+ *   /api/payments/paystack/webhook, /api/payments/momo/callback
  *
  * Onboarding gate:
  *   /onboarding — requires session, allowed without a handle
@@ -38,6 +42,8 @@ export async function updateSession(request: NextRequest) {
     path === "/api/health" ||
     path.startsWith("/api/health/") ||
     path.startsWith("/api/cron/") ||
+    path === "/api/payments/paystack/webhook" ||
+    path === "/api/payments/momo/callback" ||
     path.includes(".")
   ) {
     return response
@@ -61,6 +67,12 @@ export async function updateSession(request: NextRequest) {
     "/organisers",
     "/host",
     "/marketplace",
+    "/privacy",
+    "/terms",
+    "/refund-policy",
+    "/data-deletion",
+    "/support",
+    "/help",
   ]
   const isPublicBrowsing = publicPrefixes.some((p) => path.startsWith(p))
   const isRootOrEvent =
