@@ -56,6 +56,7 @@ export function createAccessScannerSessionState(
     manifest: input.manifest ?? null,
     localUsedTicketCodes: uniqueStrings([
       ...(input.localUsedTicketCodes ?? []),
+      ...(input.offlineQueue ?? []).map((scan) => scan.code),
       ...(input.manifest ? checkedInTicketCodesFromManifest(input.manifest) : []),
     ]),
     offlineQueue: input.offlineQueue ?? [],
