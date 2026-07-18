@@ -1,84 +1,10 @@
-/**
- * Map a scanner result status to the headline + supporting copy + tone the
- * scanner UI should render. Centralized so the live result panel and the
- * recent-scans feed stay consistent.
- *
- * Statuses cover everything `validateQrCode` returns plus the optimistic
- * client-side branches (offline-queued, manifest-validated).
- */
+export {
+  copyForScannerStatus,
+  statusForScanOutcome,
+} from "@ticketiv/shared"
 
-export type ScannerOutcomeStatus =
-  | "validated"
-  | "duplicate"
-  | "not_found"
-  | "wrong_event"
-  | "revoked"
-  | "refunded"
-  | "not_paid"
-  | "unauthorized"
-  | "offline"
-  | "tapband_unknown"
-  | "tapband_no_entitlement"
-  | "tapband_multiple_entitlements"
-  | "tapband_lost"
-  | "tapband_replaced"
-  | "tapband_unsupported_chip"
-  | "tapband_unauthenticated_chip"
-  | "tapband_reader_error"
-  | "error"
-
-export type ScannerOutcomeTone = "success" | "danger" | "warning" | "muted"
-
-export interface ScannerOutcomeCopy {
-  title: string
-  detail: string
-  tone: ScannerOutcomeTone
-}
-
-const COPY: Record<ScannerOutcomeStatus, ScannerOutcomeCopy> = {
-  validated: { title: "Valid · let them in", detail: "Ticket checked in and recorded.", tone: "success" },
-  offline: { title: "Saved offline", detail: "Scan queued — sync once you reconnect.", tone: "warning" },
-  duplicate: { title: "Already used", detail: "This ticket was already scanned at the gate.", tone: "warning" },
-  wrong_event: { title: "Wrong event", detail: "Ticket belongs to a different event.", tone: "danger" },
-  not_found: { title: "Unknown ticket", detail: "We don't recognise this code.", tone: "danger" },
-  revoked: { title: "Revoked", detail: "Organizer revoked this ticket — do not admit.", tone: "danger" },
-  refunded: { title: "Refunded", detail: "This ticket was refunded and is no longer valid.", tone: "danger" },
-  not_paid: { title: "Not paid", detail: "Payment hasn't completed for this order.", tone: "danger" },
-  unauthorized: { title: "Not authorised", detail: "You're not assigned to scan this event.", tone: "danger" },
-  tapband_unknown: { title: "Unknown TapBand", detail: "Use the attendee QR or manual fallback.", tone: "danger" },
-  tapband_no_entitlement: { title: "No TapBand ticket", detail: "This band has no active ticket for this event.", tone: "danger" },
-  tapband_multiple_entitlements: { title: "Multiple tickets", detail: "Use QR fallback until ticket selection is available.", tone: "warning" },
-  tapband_lost: { title: "Lost TapBand", detail: "This band was reported lost — do not admit.", tone: "danger" },
-  tapband_replaced: { title: "Replaced TapBand", detail: "Use the replacement band or QR fallback.", tone: "danger" },
-  tapband_unsupported_chip: { title: "Unsupported TapBand", detail: "This chip is not supported by this scanner.", tone: "danger" },
-  tapband_unauthenticated_chip: { title: "Unauthenticated TapBand", detail: "The band could not be authenticated.", tone: "danger" },
-  tapband_reader_error: { title: "TapBand read failed", detail: "Try again or switch to QR/manual fallback.", tone: "warning" },
-  error: { title: "Scan error", detail: "Something went wrong. Try again.", tone: "danger" },
-}
-
-export function copyForScannerStatus(status: string | undefined): ScannerOutcomeCopy {
-  if (!status) return COPY.error
-  return COPY[status as ScannerOutcomeStatus] ?? COPY.error
-}
-
-/**
- * Map the raw DB `scans.outcome` text to a display status. The DB column
- * uses a smaller vocabulary than the API response (no `refunded`,
- * `not_paid`, `unauthorized` — those live only at the API layer).
- */
-export function statusForScanOutcome(outcome: string | null | undefined): ScannerOutcomeStatus {
-  switch (outcome) {
-    case "valid":
-      return "validated"
-    case "already_used":
-      return "duplicate"
-    case "wrong_event":
-      return "wrong_event"
-    case "revoked":
-      return "revoked"
-    case "invalid":
-      return "not_found"
-    default:
-      return "error"
-  }
-}
+export type {
+  ScannerOutcomeCopy,
+  ScannerOutcomeStatus,
+  ScannerOutcomeTone,
+} from "@ticketiv/shared"
