@@ -229,7 +229,14 @@ importers:
         specifier: workspace:*
         version: link:../../packages/tokens
 
-  apps/ticketiv: {}
+  apps/ticketiv:
+    dependencies:
+      '@ticketiv/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@ticketiv/tokens':
+        specifier: workspace:*
+        version: link:../../packages/tokens
 
   packages/shared: {}
 
