@@ -238,6 +238,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/tokens
 
+  packages/adapters: {}
+
   packages/shared: {}
 
   packages/tokens: {}

@@ -1,0 +1,14 @@
+{
+  "name": "@ticketiv/adapters",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Platform adapter contracts for Ticketiv React Native apps and shared mobile logic (TICK-328).",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "sideEffects": false,
+  "scripts": {
+    "test": "vitest run src/**/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  }
+}

@@ -26,6 +26,9 @@
       "@/*": [
         "./*"
       ],
+      "@ticketiv/adapters": [
+        "./packages/adapters/src/index.ts"
+      ],
       "@ticketiv/tokens": [
         "./packages/tokens/src/index.ts"
       ]
