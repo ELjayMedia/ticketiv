@@ -1,9 +1,9 @@
+import type { SecureStorageAdapter } from "@ticketiv/adapters";
 import {
   type ScannerManifest,
   type ScannerManifestItem,
   type ScannerManifestItemStatus,
   type ScannerOfflineScanPayload,
-  type SecureStorageAdapter,
 } from "@ticketiv/shared";
 import {
   createAccessAppShellState,

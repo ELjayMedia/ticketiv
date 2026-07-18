@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { SecureStorageAdapter } from "@ticketiv/shared";
+import type { SecureStorageAdapter } from "@ticketiv/adapters";
 import {
   TICKETIV_WALLET_STORAGE_KEY,
   buildTicketivWalletTicketLink,

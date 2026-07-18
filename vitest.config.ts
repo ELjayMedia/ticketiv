@@ -7,6 +7,7 @@ export default defineConfig({
     alias: {
       // Path alias used across the app.
       "@": resolve(__dirname, "."),
+      "@ticketiv/adapters": resolve(__dirname, "packages/adapters/src/index.ts"),
       "@ticketiv/tokens": resolve(__dirname, "packages/tokens/src/index.ts"),
       // "server-only" throws when imported outside an RSC/server bundle; stub it
       // so server modules can be unit-tested in the node environment.

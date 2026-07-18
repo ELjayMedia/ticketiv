@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { ScannerManifest, ScannerManifestItem, SecureStorageAdapter } from "@ticketiv/shared";
+import type { SecureStorageAdapter } from "@ticketiv/adapters";
+import type { ScannerManifest, ScannerManifestItem } from "@ticketiv/shared";
 import { createAccessAppShellState } from "./app-shell";
 import { createAccessPairingState } from "./device-pairing";
 import {
