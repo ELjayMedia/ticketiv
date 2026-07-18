@@ -2,5 +2,6 @@ export * from "./app-config";
 export * from "./app-shell";
 export * from "./device-pairing";
 export * from "./persistence";
+export * from "./scan-coordinator";
 export * from "./scanner-session";
 export * from "./sync";
