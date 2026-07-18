@@ -1,6 +1,11 @@
 import "server-only"
 
 import { createHash } from "crypto"
+import type {
+  ScannerInputMode,
+  ScannerManifestItem as SharedScannerManifestItem,
+  ScannerValidationStatus as SharedScannerValidationStatus,
+} from "@ticketiv/shared"
 import { verifyDeviceScannerAccess } from "@/lib/scanner/device-session-auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
@@ -32,31 +37,13 @@ export interface ValidateTapBandCredentialInput {
   attemptId?: string | null
 }
 
-export type ScannerValidationStatus =
-  | "validated"
-  | "duplicate"
-  | "not_found"
-  | "wrong_event"
-  | "revoked"
-  | "refunded"
-  | "not_paid"
-  | "unauthorized"
-  | "offline"
-  | "tapband_unknown"
-  | "tapband_no_entitlement"
-  | "tapband_multiple_entitlements"
-  | "tapband_lost"
-  | "tapband_replaced"
-  | "tapband_unsupported_chip"
-  | "tapband_unauthenticated_chip"
-  | "tapband_reader_error"
-  | "error"
+export type ScannerValidationStatus = SharedScannerValidationStatus
 
 export interface ValidateQrCodeResult {
   valid: boolean
   status: ScannerValidationStatus
   message: string
-  inputMode?: "qr" | "tapband"
+  inputMode?: ScannerInputMode
   scanId?: string | null
   orderItemId?: string | null
   ticketTypeName?: string | null
@@ -96,6 +83,7 @@ function outcomeToStatus(outcome: string): ValidateQrCodeResult["status"] {
     case "wrong_event": return "wrong_event"
     case "revoked":     return "revoked"
     case "refunded":    return "refunded"
+    case "transferred": return "transferred"
     case "not_paid":    return "not_paid"
     case "unauthorized":return "unauthorized"
     default:            return "error"
@@ -438,13 +426,7 @@ export async function closeDeviceSession(sessionId: string, userId?: string) {
   return data
 }
 
-export interface ScannerManifestItem {
-  ticket_code: string
-  order_item_id: string
-  ticket_type_id: string
-  status: "issued" | "transferred" | "checked_in" | "revoked" | "refunded"
-  already_checked_in: boolean
-}
+export type ScannerManifestItem = SharedScannerManifestItem
 
 export async function loadScannerManifest(eventId: string, userId: string, since?: string): Promise<ScannerManifestItem[]> {
   const supabase = createServerSupabaseClient()

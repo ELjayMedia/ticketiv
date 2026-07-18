@@ -130,6 +130,7 @@ function statusCodeForScannerResult(valid: boolean, status: ScannerValidationSta
     case "wrong_event":
     case "revoked":
     case "refunded":
+    case "transferred":
     case "not_paid":
       return 422
     default:

@@ -1,23 +1,19 @@
 "use client"
 
-export interface ScannerManifestItem {
-  ticket_code: string
-  order_item_id: string
-  ticket_type_id: string
-  status: "issued" | "transferred" | "checked_in" | "revoked" | "refunded"
-  already_checked_in: boolean
-}
+import {
+  checkedInTicketCodesFromManifest,
+  findScannerManifestItem,
+  mergeScannerManifestDelta,
+  type ScannerManifest,
+  type ScannerManifestAccess,
+  type ScannerManifestItem,
+} from "@ticketiv/shared"
 
-export interface ScannerManifest {
-  eventId: string
-  fetchedAt: string
-  items: ScannerManifestItem[]
-}
-
-export interface ScannerManifestAccess {
-  deviceId?: string | null
-  sessionId?: string | null
-}
+export type {
+  ScannerManifest,
+  ScannerManifestAccess,
+  ScannerManifestItem,
+} from "@ticketiv/shared"
 
 const manifestKey = (eventId: string) => `ticketiv_scanner_manifest:${eventId}`
 const usedKey = (eventId: string) => `ticketiv_scanner_local_used:${eventId}`
@@ -60,8 +56,7 @@ export function findInManifest(
   manifest: ScannerManifest | null,
   ticketCode: string,
 ): ScannerManifestItem | null {
-  if (!manifest) return null
-  return manifest.items.find((item) => item.ticket_code === ticketCode) ?? null
+  return findScannerManifestItem(manifest, ticketCode)
 }
 
 function loadUsed(eventId: string): Set<string> {
@@ -92,19 +87,9 @@ export function markLocallyUsed(eventId: string, ticketCode: string) {
 }
 
 export function mergeManifestDelta(existing: ScannerManifest, delta: ScannerManifest): ScannerManifest {
-  const map = new Map(existing.items.map((item) => [item.order_item_id, item]))
-  for (const item of delta.items) {
-    map.set(item.order_item_id, item)
-  }
-  const merged: ScannerManifest = {
-    eventId: existing.eventId,
-    fetchedAt: delta.fetchedAt,
-    items: Array.from(map.values()),
-  }
+  const merged = mergeScannerManifestDelta(existing, delta)
   persistManifest(merged)
-  const serverUsed = new Set(
-    delta.items.filter((item) => item.already_checked_in).map((item) => item.ticket_code),
-  )
+  const serverUsed = new Set(checkedInTicketCodesFromManifest(delta))
   if (serverUsed.size > 0) {
     const localUsed = loadUsed(existing.eventId)
     serverUsed.forEach((code) => localUsed.add(code))
@@ -139,9 +124,7 @@ export async function refreshManifest(eventId: string, access?: ScannerManifestA
     const data = (await response.json()) as ScannerManifest
     persistManifest(data)
     // Seed the locally-used set from the server's truth so reloads stay consistent.
-    const serverUsed = new Set(
-      data.items.filter((item) => item.already_checked_in).map((item) => item.ticket_code),
-    )
+    const serverUsed = new Set(checkedInTicketCodesFromManifest(data))
     const localUsed = loadUsed(eventId)
     serverUsed.forEach((code) => localUsed.add(code))
     persistUsed(eventId, localUsed)

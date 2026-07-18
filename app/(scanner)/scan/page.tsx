@@ -8,10 +8,14 @@ import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
 import { cn } from "@/lib/cn"
+import {
+  evaluateScannerOfflineManifest,
+  type ScannerInputMode,
+  type ScannerOfflineScanPayload,
+} from "@ticketiv/shared"
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats"
 import {
   deltaFetchManifest,
-  findInManifest,
   isLocallyUsed,
   loadManifest,
   markLocallyUsed,
@@ -46,8 +50,6 @@ interface ScanResponse {
   previousScan?: { scanned_at: string } | null
 }
 
-type ScannerInputMode = "qr" | "tapband"
-
 interface NdefReaderLike {
   scan: (options?: { signal?: AbortSignal }) => Promise<void>
   addEventListener: (type: "reading" | "readingerror", listener: (event: Event) => void) => void
@@ -63,14 +65,7 @@ interface NdefReadingEvent extends Event {
   }
 }
 
-interface OfflineScanPayload {
-  code: string
-  eventId: string
-  deviceId: string
-  sessionId: string
-  scannedAt: string
-  location?: string
-}
+type OfflineScanPayload = ScannerOfflineScanPayload
 
 interface RecentScan {
   id: string
@@ -392,42 +387,36 @@ export default function ScannerPage() {
     // Local-first: if we have a manifest, validate against it before
     // hitting the network. Gives sub-50ms response at the gate and keeps
     // the scanner working when connectivity drops mid-event.
-    const manifestHit = findInManifest(manifest, trimmedCode)
-    if (manifestHit) {
-      if (manifestHit.already_checked_in || isLocallyUsed(eventId, trimmedCode)) {
-        setResult({
-          valid: false,
-          status: "duplicate",
-          message: "Already used",
-          previousScan: { scanned_at: scannedAt },
-        })
-        setLoading(false)
-        return
+    const offlineEvaluation = evaluateScannerOfflineManifest({
+      manifest,
+      ticketCode: trimmedCode,
+      eventId,
+      deviceId,
+      sessionId: sessionId ?? `offline-${deviceId}`,
+      scannedAt,
+      locallyUsed: isLocallyUsed(eventId, trimmedCode),
+    })
+    if (offlineEvaluation.action !== "miss" && offlineEvaluation.result) {
+      if (offlineEvaluation.action === "queue" && offlineEvaluation.offlineScan) {
+        markLocallyUsed(eventId, trimmedCode)
+        setOfflineQueue((current) => [...current, offlineEvaluation.offlineScan])
       }
-
-      markLocallyUsed(eventId, trimmedCode)
-      const localScan: OfflineScanPayload = {
-        code: trimmedCode,
-        eventId,
-        deviceId,
-        sessionId: sessionId ?? `offline-${deviceId}`,
-        scannedAt,
-      }
-      setOfflineQueue((current) => [...current, localScan])
 
       setResult({
-        valid: true,
-        status: "validated",
-        message: "Validated locally — queued to sync",
+        valid: offlineEvaluation.result.valid,
+        status: offlineEvaluation.result.status,
+        message: offlineEvaluation.result.message,
+        checkedInAt: offlineEvaluation.result.checkedInAt,
         ticket: {
-          id: manifestHit.order_item_id,
+          id: offlineEvaluation.item.order_item_id,
           event_id: eventId,
-          ticket_type_id: manifestHit.ticket_type_id,
+          ticket_type_id: offlineEvaluation.item.ticket_type_id,
         },
-        scan: { scanned_at: scannedAt },
+        scan: offlineEvaluation.action === "queue" ? { scanned_at: scannedAt } : null,
+        previousScan: offlineEvaluation.action === "duplicate" ? { scanned_at: scannedAt } : null,
       })
       setLoading(false)
-      setCode("")
+      if (offlineEvaluation.action === "queue") setCode("")
       return
     }
 
