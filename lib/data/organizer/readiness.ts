@@ -60,3 +60,7 @@ export function buildOrganizerSetupSteps(status: OrganizerSetupStatus): Organize
 export function needsOrganizerSetup(steps: OrganizerSetupStep[]) {
   return steps.some((step) => !step.done)
 }
+
+export function getNextOrganizerSetupStep(steps: OrganizerSetupStep[]) {
+  return steps.find((step) => !step.done) ?? null
+}

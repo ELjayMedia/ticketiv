@@ -2,6 +2,7 @@ import Link from "next/link"
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Icon } from "@/components/quiet/ui/icon"
 import { cn } from "@/lib/cn"
+import { getNextOrganizerSetupStep } from "@/lib/data/organizer/readiness"
 
 export interface OnboardingStep {
   id: string
@@ -21,6 +22,7 @@ export function OnboardingChecklist({ orgId, steps }: OnboardingChecklistProps) 
   const total = steps.length
   const progressPct = total > 0 ? Math.round((doneCount / total) * 100) : 0
   const allDone = doneCount === total
+  const nextStep = getNextOrganizerSetupStep(steps)
 
   return (
     <Card>
@@ -38,11 +40,17 @@ export function OnboardingChecklist({ orgId, steps }: OnboardingChecklistProps) 
             )}
           </div>
           {/* Progress bar */}
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+          <div
+            className="h-1.5 w-full overflow-hidden rounded-full bg-surface-2"
+            role="progressbar"
+            aria-label="Organizer setup progress"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progressPct}
+          >
             <div
               className="h-full rounded-full bg-accent transition-all duration-500"
               style={{ width: `${progressPct}%` }}
-              aria-label={`${progressPct}% complete`}
             />
           </div>
         </div>
@@ -56,16 +64,25 @@ export function OnboardingChecklist({ orgId, steps }: OnboardingChecklistProps) 
           ))}
         </div>
 
-        {/* Footer link to full guide */}
+        {/* Footer actions */}
         <CardDivider />
-        <div className="flex justify-end">
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
           <Link
             href={`/orgs/${orgId}/onboarding`}
-            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-accent hover:underline"
+            className="inline-flex items-center justify-center gap-1.5 text-[13px] font-medium text-accent hover:underline sm:justify-start"
           >
             View full guide
             <Icon name="arrowR" size={14} />
           </Link>
+          {nextStep && (
+            <Link
+              href={nextStep.href}
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-[var(--radius)] border border-ink bg-ink px-4 py-2 text-[13px] font-semibold text-surface hover:bg-ink-2 sm:w-auto"
+            >
+              Continue setup
+              <Icon name="arrowR" size={14} />
+            </Link>
+          )}
         </div>
       </CardBody>
     </Card>
@@ -82,37 +99,39 @@ function OnboardingStep({
   return (
     <div
       className={cn(
-        "flex items-center gap-4 rounded-[var(--radius)] px-3 py-3 transition-colors",
+        "flex flex-col gap-3 rounded-[var(--radius)] px-3 py-3 transition-colors sm:flex-row sm:items-center sm:gap-4",
         step.done ? "opacity-60" : "hover:bg-bg",
       )}
     >
-      {/* Step indicator */}
-      <div
-        className={cn(
-          "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-[12px] font-semibold",
-          step.done
-            ? "border-accent bg-accent text-white"
-            : "border-line text-ink-3",
-        )}
-      >
-        {step.done ? (
-          <Icon name="check" size={12} strokeWidth={2.5} />
-        ) : (
-          <span>{stepNumber}</span>
-        )}
-      </div>
+      <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
+        {/* Step indicator */}
+        <div
+          className={cn(
+            "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-[12px] font-semibold",
+            step.done
+              ? "border-accent bg-accent text-white"
+              : "border-line text-ink-3",
+          )}
+        >
+          {step.done ? (
+            <Icon name="check" size={12} strokeWidth={2.5} />
+          ) : (
+            <span>{stepNumber}</span>
+          )}
+        </div>
 
-      {/* Content */}
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="text-[13px] font-semibold text-ink">{step.title}</span>
-        <span className="text-[12px] text-ink-3">{step.description}</span>
+        {/* Content */}
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="break-words text-[13px] font-semibold text-ink">{step.title}</span>
+          <span className="break-words text-[12px] leading-relaxed text-ink-3">{step.description}</span>
+        </div>
       </div>
 
       {/* CTA */}
       {!step.done && (
         <Link
           href={step.href}
-          className="shrink-0 inline-flex items-center gap-1 rounded-[var(--radius)] border border-line-2 px-3 py-1.5 text-[12px] font-semibold text-ink hover:bg-bg"
+          className="inline-flex w-full shrink-0 items-center justify-center gap-1 rounded-[var(--radius)] border border-line-2 px-3 py-1.5 text-[12px] font-semibold text-ink hover:bg-bg sm:w-auto"
         >
           Go
           <Icon name="chevR" size={12} />
