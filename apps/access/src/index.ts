@@ -4,5 +4,6 @@ export * from "./camera-scanner";
 export * from "./device-pairing";
 export * from "./persistence";
 export * from "./scan-coordinator";
+export * from "./scanner-screen";
 export * from "./scanner-session";
 export * from "./sync";
