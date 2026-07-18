@@ -1,44 +1,27 @@
 import "server-only"
 
 import { createHash, randomBytes, randomUUID } from "crypto"
+import {
+  formatDeviceSetupCode,
+  normalizeDeviceSetupCode,
+  type ClaimedDeviceSetup,
+  type ClaimDeviceSetupCodeRequest,
+  type DeviceSetupCode,
+  type ProvisionedDeviceRole,
+} from "@ticketiv/shared"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 
-export type ProvisionedDeviceRole = "organizer_scanner" | "organizer_pos" | "organizer_kiosk"
-
-export interface DeviceSetupCode {
-  code: string
-  expiresAt: string
-  label: string
-  deviceRole: ProvisionedDeviceRole
-  maxScansPerMinute: number | null
-}
-
-export interface ClaimDeviceSetupCodeInput {
-  code: string
-  deviceId?: string | null
-  label?: string | null
-}
-
-export interface ClaimedDeviceSetup {
-  device: {
-    id: string
-    label: string | null
-    device_role: ProvisionedDeviceRole
-    max_scans_per_minute: number | null
-  }
-  session: {
-    id: string
-    device_id: string
-    started_at: string | null
-  }
-  event: {
-    id: string
-    title: string
-    starts_at: string | null
-    venue_name: string | null
-  }
-}
+export type ClaimDeviceSetupCodeInput = ClaimDeviceSetupCodeRequest
+export type {
+  ClaimedDeviceSetup,
+  DeviceSetupCode,
+  ProvisionedDeviceRole,
+} from "@ticketiv/shared"
+export {
+  formatDeviceSetupCode as formatSetupCode,
+  normalizeDeviceSetupCode as normalizeSetupCode,
+} from "@ticketiv/shared"
 
 export class DeviceProvisioningError extends Error {
   readonly status: number
@@ -57,17 +40,8 @@ function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
 }
 
-export function normalizeSetupCode(code: string): string {
-  return code.toUpperCase().replace(/[^A-Z0-9]/g, "")
-}
-
-export function formatSetupCode(code: string): string {
-  const normalized = normalizeSetupCode(code)
-  return normalized.length > 3 ? `${normalized.slice(0, 3)}-${normalized.slice(3)}` : normalized
-}
-
 export function hashSetupCode(code: string): string {
-  const normalized = normalizeSetupCode(code)
+  const normalized = normalizeDeviceSetupCode(code)
   return createHash("sha256").update(normalized).digest("hex")
 }
 
@@ -121,7 +95,7 @@ export async function createDeviceSetupCode(input: {
 
     if (!error) {
       return {
-        code: formatSetupCode(rawCode),
+        code: formatDeviceSetupCode(rawCode),
         expiresAt,
         label,
         deviceRole,
@@ -138,7 +112,7 @@ export async function createDeviceSetupCode(input: {
 }
 
 export async function claimDeviceSetupCode(input: ClaimDeviceSetupCodeInput): Promise<ClaimedDeviceSetup> {
-  const normalizedCode = normalizeSetupCode(input.code)
+  const normalizedCode = normalizeDeviceSetupCode(input.code)
   if (normalizedCode.length < 6) {
     throw new DeviceProvisioningError("Enter a valid setup code")
   }
