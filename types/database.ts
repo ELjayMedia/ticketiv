@@ -6855,6 +6855,14 @@ export type Database = {
         }
         Returns: Json
       }
+      fn_preview_promo_code: {
+        Args: {
+          p_channel?: Database["public"]["Enums"]["sales_channel"]
+          p_code: string
+          p_event_id: string
+        }
+        Returns: Json
+      }
       fn_profile_can_read: { Args: { p_user_id: string }; Returns: boolean }
       fn_publish_resale_listing: {
         Args: {
