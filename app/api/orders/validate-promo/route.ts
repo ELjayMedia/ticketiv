@@ -1,7 +1,21 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { clientKey, rateLimit, tooManyRequests } from "@/lib/rate-limit"
+
+// Buyer-facing copy for preview rejections. The RPC reasons mirror
+// fn_apply_promo_code_to_order, which stays the enforcement layer at
+// order time — this endpoint is UI preview only.
+const REASON_COPY: Record<string, string> = {
+  code_required: "Enter a promo code",
+  event_not_found: "Invalid or expired promo code",
+  code_invalid: "Invalid or expired promo code",
+  code_exhausted: "This promo code has reached its usage limit",
+}
 
 export async function POST(req: NextRequest) {
+  const rl = await rateLimit("promo:validate", clientKey(req), 20, 60)
+  if (!rl.allowed) return tooManyRequests(rl)
+
   const { code, eventId } = await req.json()
   if (!code || !eventId) {
     return NextResponse.json({ valid: false, error: "Missing fields" }, { status: 400 })
@@ -10,47 +24,39 @@ export async function POST(req: NextRequest) {
   const supabase = createServerSupabaseClient()
   if (!supabase) return NextResponse.json({ valid: false, error: "Server error" }, { status: 500 })
 
-  // Check for promo_codes table — if it doesn't exist, return a graceful "invalid code" response
-  // Query: find an active promo code for this event or org-wide that matches the code.
-  // Cast to `any` because the promo_codes table may not be in the generated types yet.
-  const { data, error } = await (supabase as any)
-    .from("promo_codes")
-    .select("id, code, discount_type, discount_value, max_uses, used_count, expires_at, event_id, org_id")
-    .ilike("code", code.trim())
-    .eq("is_active", true)
-    .or(`event_id.eq.${eventId},event_id.is.null`)
-    .maybeSingle()
+  // Promo codes live in price_rules (org-manager-only under RLS), so the
+  // preview goes through the read-only SECURITY DEFINER RPC rather than a
+  // direct table read — a direct read in the buyer's session always came
+  // back empty and made every code look invalid.
+  const { data, error } = await supabase.rpc("fn_preview_promo_code", {
+    p_event_id: eventId,
+    p_code: String(code),
+  })
 
-  if (error || !data) {
-    return NextResponse.json({ valid: false, error: "Invalid or expired promo code" })
+  if (error) {
+    console.error("fn_preview_promo_code failed", error)
+    return NextResponse.json({ valid: false, error: "Could not validate code" }, { status: 500 })
   }
 
-  const row = data as {
-    id: string
-    code: string
-    discount_type: string
-    discount_value: number
-    max_uses: number | null
-    used_count: number
-    expires_at: string | null
-    event_id: string | null
-    org_id: string | null
+  const result = (data ?? {}) as {
+    valid?: boolean
+    reason?: string
+    promoId?: string
+    discountType?: "percent" | "fixed"
+    discountValue?: number
   }
 
-  // Check expiry
-  if (row.expires_at && new Date(row.expires_at) < new Date()) {
-    return NextResponse.json({ valid: false, error: "This promo code has expired" })
-  }
-
-  // Check max uses
-  if (row.max_uses !== null && row.used_count >= row.max_uses) {
-    return NextResponse.json({ valid: false, error: "This promo code has reached its usage limit" })
+  if (!result.valid) {
+    return NextResponse.json({
+      valid: false,
+      error: REASON_COPY[result.reason ?? ""] ?? "Invalid or expired promo code",
+    })
   }
 
   return NextResponse.json({
     valid: true,
-    promoId: row.id,
-    discountType: row.discount_type, // "percent" | "fixed"
-    discountValue: row.discount_value, // percent: 0-100, fixed: cents
+    promoId: result.promoId,
+    discountType: result.discountType, // "percent" | "fixed"
+    discountValue: result.discountValue, // percent: 0-100, fixed: cents
   })
 }
