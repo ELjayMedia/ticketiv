@@ -55,6 +55,7 @@ export type TicketivConsumerCheckoutDeepLinkRoute =
   | { route: "event"; slugOrId: string; params: ParsedDeepLinkParams }
   | { route: "tickets"; params: ParsedDeepLinkParams }
   | { route: "auth-callback"; nextPath: string | null; params: ParsedDeepLinkParams }
+  | { route: "account-settings"; params: ParsedDeepLinkParams }
   | { route: "unknown"; path: string; params: ParsedDeepLinkParams };
 
 export type TicketivCheckoutHandoffParseResult =
@@ -148,6 +149,10 @@ export function ticketivConsumerRouteFromDeepLink(
       nextPath: parsed.nextPath,
       params: parsed.params,
     };
+  }
+
+  if (parsed.kind === "account-settings") {
+    return { route: "account-settings", params: parsed.params };
   }
 
   if (parsed.kind === "unknown" && parsed.path === "/tickets") {

@@ -130,7 +130,7 @@ describe("Ticketiv consumer checkout handoff", () => {
     });
   });
 
-  it("routes existing ticket, event, tickets and auth deep links", () => {
+  it("routes existing ticket, event, tickets, settings and auth deep links", () => {
     expect(ticketivConsumerRouteFromDeepLink("https://ticketiv.app/t/token-1")).toEqual({
       route: "ticket-token",
       token: "token-1",
@@ -143,6 +143,10 @@ describe("Ticketiv consumer checkout handoff", () => {
     });
     expect(ticketivConsumerRouteFromDeepLink("ticketiv://tickets")).toEqual({
       route: "tickets",
+      params: {},
+    });
+    expect(ticketivConsumerRouteFromDeepLink("ticketiv://account/settings")).toEqual({
+      route: "account-settings",
       params: {},
     });
     expect(
