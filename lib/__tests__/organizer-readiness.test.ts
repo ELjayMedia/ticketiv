@@ -18,9 +18,9 @@ describe("organizer readiness setup steps", () => {
     })
 
     expect(steps.map((step) => [step.id, step.done])).toEqual([
+      ["event", true],
       ["profile", true],
       ["payout", true],
-      ["event", true],
       ["scanner", false],
       ["team", true],
     ])
@@ -56,10 +56,12 @@ describe("organizer readiness setup steps", () => {
 
     const nextStep = getNextOrganizerSetupStep(steps)
 
+    // A fresh org's motivating job is getting an event on sale — the
+    // checklist leads with event creation, not profile polish.
     expect(nextStep).toMatchObject({
-      id: "profile",
-      title: "Complete your profile",
-      href: "/orgs/org-1/profile",
+      id: "event",
+      title: "Create your first event",
+      href: "/orgs/org-1/events/new",
     })
   })
 })
