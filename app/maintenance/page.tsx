@@ -42,7 +42,7 @@ export default function MaintenancePage() {
               Follow for updates
             </Link>
             <Link
-              href="mailto:support@ticketiv.com"
+              href="mailto:support@ticketiv.app"
               className="inline-flex w-full items-center justify-center gap-1.5 rounded-[var(--radius)] border border-transparent bg-transparent px-4 py-2.5 text-sm font-semibold text-ink-2 transition-colors hover:bg-line/60"
             >
               <Icon name="fileText" size={14} />

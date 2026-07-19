@@ -57,15 +57,15 @@ Bodies stay compact (basic-device safe) and carry the short secure link.
 Live today, sending from `onboarding@resend.dev` (Resend delivers that only to
 the account owner until a domain is verified).
 
-**Action (external, not code):** verify `ticketiv.com` in Resend (add the DKIM
+**Action (external, not code):** verify `ticketiv.app` in Resend (add the DKIM
 / SPF / return-path DNS records Resend provides), then set
-`RESEND_FROM="Ticketiv <tickets@ticketiv.com>"`. No code change needed — the
+`RESEND_FROM="Ticketiv <tickets@ticketiv.app>"`. No code change needed — the
 adapter already reads `RESEND_FROM`.
 
 ## Status vs acceptance
 - ✅ Live WhatsApp adapter (3 providers, template handling, secure link).
 - ✅ Live SMS fallback adapter (3 providers).
 - ✅ Graceful-skip preserved on every channel when unconfigured.
-- ⏳ Resend `ticketiv.com` verification is a dashboard/DNS action (code ready).
+- ⏳ Resend `ticketiv.app` verification is a dashboard/DNS action (code ready).
 - ⏳ Real test sends per provider need credentials (BSP account, Twilio/AT/
   Clickatell keys) — do this in staging before launch.

@@ -1,6 +1,6 @@
 # Buyer support process
 
-Ticketiv's buyer support channel is `support@ticketiv.com`. It is linked from checkout,
+Ticketiv's buyer support channel is `support@ticketiv.app`. It is linked from checkout,
 order confirmation, ticket recovery, and the public support page.
 
 ## SLA

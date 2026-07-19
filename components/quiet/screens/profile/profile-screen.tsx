@@ -256,7 +256,7 @@ export function ProfileScreen({ user, appVersion = "current", tapBand }: Profile
           {
             icon: "share" as IconName,
             label: "Send feedback",
-            href: "mailto:support@ticketiv.com?subject=Ticketiv%20feedback",
+            href: "mailto:support@ticketiv.app?subject=Ticketiv%20feedback",
           },
           { icon: "close" as IconName, label: "Sign out", accent: true, action: "/api/sign-out" },
         ]}

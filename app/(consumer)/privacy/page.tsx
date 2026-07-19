@@ -46,7 +46,7 @@ const SECTIONS: { heading: string; body: string[] }[] = [
   },
   {
     heading: "6. Contact",
-    body: ["Questions about this policy? Email privacy@ticketiv.com."],
+    body: ["Questions about this policy? Email privacy@ticketiv.app."],
   },
 ]
 

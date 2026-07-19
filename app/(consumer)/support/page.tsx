@@ -1,13 +1,15 @@
 import Link from "next/link"
 
+import { SUPPORT_EMAIL, supportMailto } from "@ticketiv/shared"
 import { Card } from "@/components/quiet/ui/card"
 import { Icon, type IconName } from "@/components/quiet/ui/icon"
 
 export const metadata = { title: "Buyer support" }
 
-const SUPPORT_EMAIL = "support@ticketiv.com"
-const SUPPORT_MAILTO =
-  "mailto:support@ticketiv.com?subject=Ticketiv%20buyer%20support&body=Order%20number%3A%0ABuyer%20email%3A%0AEvent%3A%0AWhat%20happened%3A"
+const SUPPORT_MAILTO = supportMailto(
+  "Ticketiv buyer support",
+  "Order number:\nBuyer email:\nEvent:\nWhat happened:"
+)
 
 const CASES: {
   icon: IconName

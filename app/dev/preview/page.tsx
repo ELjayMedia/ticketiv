@@ -60,7 +60,7 @@ export default function PreviewIndexPage() {
 
           <PreviewArtboard label="Discover · / · desktop" wide>
             <BrowserShell
-              url="ticketiv.com"
+              url="ticketiv.app"
               tabs={["Ticketiv · Discover Mbabane", "Calendar"]}
             >
               <DesktopNav />
@@ -82,7 +82,7 @@ export default function PreviewIndexPage() {
 
           <PreviewArtboard label="Event detail · /events/[id] · desktop" wide>
             <BrowserShell
-              url="ticketiv.com/events/tribal-tales"
+              url="ticketiv.app/events/tribal-tales"
               tabs={["Tribal Tales · Ticketiv"]}
             >
               <DesktopNav breadcrumb="Discover > Music > Tribal Tales" />
@@ -106,7 +106,7 @@ export default function PreviewIndexPage() {
 
           <PreviewArtboard label="Checkout · /events/[id]/checkout · desktop" wide>
             <BrowserShell
-              url="ticketiv.com/events/tribal-tales/checkout"
+              url="ticketiv.app/events/tribal-tales/checkout"
               tabs={["Checkout · Ticketiv"]}
             >
               <DesktopCheckout

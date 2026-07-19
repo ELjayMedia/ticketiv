@@ -134,7 +134,7 @@ export default async function OrgOnboardingPage({
               </div>
               <div className="flex flex-wrap gap-2">
                 <Link
-                  href="mailto:support@ticketiv.com"
+                  href="mailto:support@ticketiv.app"
                   className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 px-4 py-2 text-[13px] font-semibold text-ink hover:bg-bg"
                 >
                   <Icon name="fileText" size={14} />
