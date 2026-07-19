@@ -15,10 +15,20 @@ export interface OrganizerSetupStep {
   done: boolean
 }
 
+// Ordered by the organizer's motivating job: get an event on sale first.
+// Profile/payout polish follows — a payout account is required to request
+// payouts (fn_request_payout), not to draft or publish an event.
 export function buildOrganizerSetupSteps(status: OrganizerSetupStatus): OrganizerSetupStep[] {
   const { orgId } = status
 
   return [
+    {
+      id: "event",
+      title: "Create your first event",
+      description: "Set up your event, ticket types, and go live.",
+      href: `/orgs/${orgId}/events/new`,
+      done: status.hasEvent,
+    },
     {
       id: "profile",
       title: "Complete your profile",
@@ -32,13 +42,6 @@ export function buildOrganizerSetupSteps(status: OrganizerSetupStatus): Organize
       description: "Connect a bank account to receive your revenue.",
       href: `/orgs/${orgId}/payouts/accounts`,
       done: status.hasPayoutAccount,
-    },
-    {
-      id: "event",
-      title: "Create your first event",
-      description: "Set up your event, ticket types, and go live.",
-      href: `/orgs/${orgId}/events/new`,
-      done: status.hasEvent,
     },
     {
       id: "scanner",
