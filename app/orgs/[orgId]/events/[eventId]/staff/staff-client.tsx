@@ -226,7 +226,7 @@ export function EventStaffClient({
       </Card>
 
       <p className="text-[12px] text-ink-3">
-        Staff can scan tickets by going to ticketiv.com/scan and selecting this event. Make sure they are added here first.
+        Staff can scan tickets by going to ticketiv.app/scan and selecting this event. Make sure they are added here first.
       </p>
     </div>
   )
