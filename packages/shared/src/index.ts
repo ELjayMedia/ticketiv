@@ -1,3 +1,4 @@
+export * from "./contact";
 export * from "./format";
 export * from "./mobile-auth";
 export * from "./platform-adapters";

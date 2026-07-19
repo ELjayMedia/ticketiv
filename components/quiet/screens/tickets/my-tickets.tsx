@@ -933,7 +933,7 @@ function RefundCta({
         e.preventDefault();
         e.stopPropagation();
         window.open(
-          `mailto:support@ticketiv.com?subject=${encodeURIComponent("Refund Request — Order " + shortId)}`,
+          `mailto:support@ticketiv.app?subject=${encodeURIComponent("Refund Request — Order " + shortId)}`,
         );
       }}
     >

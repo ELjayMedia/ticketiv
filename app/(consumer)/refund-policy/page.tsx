@@ -48,7 +48,7 @@ const SECTIONS: { heading: string; body: string[] }[] = [
   {
     heading: "6. How to request a refund",
     body: [
-      "Open the ticket or order in Ticketiv and use the refund action where available, or email support@ticketiv.com with the order number, event name and reason.",
+      "Open the ticket or order in Ticketiv and use the refund action where available, or email support@ticketiv.app with the order number, event name and reason.",
       "Refund requests should be made before the event starts unless the issue only becomes known later, such as cancellation, payment error or ticket delivery failure.",
       "Approved refunds are normally returned to the original payment method. Provider and bank timelines may vary.",
     ],
@@ -64,7 +64,7 @@ const SECTIONS: { heading: string; body: string[] }[] = [
   {
     heading: "8. Contact",
     body: [
-      "Refund questions can be sent to support@ticketiv.com.",
+      "Refund questions can be sent to support@ticketiv.app.",
       "This policy is a buyer-facing draft and should be reviewed by local counsel before final production launch.",
     ],
   },

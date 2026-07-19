@@ -64,7 +64,7 @@ const SECTIONS: { heading: string; body: string[] }[] = [
   {
     heading: "8. Contact and changes",
     body: [
-      "Questions about these terms can be sent to support@ticketiv.com.",
+      "Questions about these terms can be sent to support@ticketiv.app.",
       "We may update these terms as the product, law or provider requirements change. Material updates should be published before they apply to new purchases.",
     ],
   },

@@ -10,6 +10,20 @@ interface ProfileScreenProps {
   user?: ProfileUser | null;
   appVersion?: string;
   tapBand?: MyTapBandProfile | null;
+  /**
+   * Org workspaces the user belongs to (from getMyContexts, kind "org").
+   * When present, the profile shows dashboard links instead of the
+   * "Organize your own event" onboarding CTA — existing organizers should
+   * land in their workspace, not the self-serve funnel.
+   */
+  orgContexts?: OrgContextLink[];
+}
+
+interface OrgContextLink {
+  key: string;
+  label: string;
+  sublabel?: string;
+  href: string;
 }
 
 interface ProfileUser {
@@ -39,7 +53,7 @@ interface SettingRow {
   description?: string;
 }
 
-export function ProfileScreen({ user, appVersion = "current", tapBand }: ProfileScreenProps) {
+export function ProfileScreen({ user, appVersion = "current", tapBand, orgContexts }: ProfileScreenProps) {
   if (!user) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-bg p-6">
@@ -210,20 +224,41 @@ export function ProfileScreen({ user, appVersion = "current", tapBand }: Profile
 
       <SettingsList title="Your activity" rows={activityRows} />
 
-      <section className="px-5 pb-4">
-        <Link href="/onboarding/organizer">
-          <Card className="border-ink bg-ink p-3.5 text-white">
-            <div className="flex items-center gap-3">
-              <div className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-white"><Icon name="spark" size={18} /></div>
-              <div className="flex flex-1 flex-col gap-0.5">
-                <span className="text-[13px] font-semibold">Organize your own event</span>
-                <span className="font-mono text-[11px] text-white/60">set up in 5 min · 0% commission first event</span>
+      {orgContexts && orgContexts.length > 0 ? (
+        <section className="flex flex-col gap-2.5 px-5 pb-4">
+          {orgContexts.map((org) => (
+            <Link key={org.key} href={org.href}>
+              <Card className="border-ink bg-ink p-3.5 text-white">
+                <div className="flex items-center gap-3">
+                  <div className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-white"><Icon name="trending" size={18} /></div>
+                  <div className="flex flex-1 flex-col gap-0.5">
+                    <span className="text-[13px] font-semibold">{org.label} dashboard</span>
+                    <span className="font-mono text-[11px] text-white/60">
+                      {org.sublabel ? `${org.sublabel} · ` : ""}events, orders & payouts
+                    </span>
+                  </div>
+                  <Icon name="chevR" size={16} className="text-white/60" />
+                </div>
+              </Card>
+            </Link>
+          ))}
+        </section>
+      ) : (
+        <section className="px-5 pb-4">
+          <Link href="/onboarding/organizer">
+            <Card className="border-ink bg-ink p-3.5 text-white">
+              <div className="flex items-center gap-3">
+                <div className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-white"><Icon name="spark" size={18} /></div>
+                <div className="flex flex-1 flex-col gap-0.5">
+                  <span className="text-[13px] font-semibold">Organize your own event</span>
+                  <span className="font-mono text-[11px] text-white/60">set up in 5 min · 0% commission first event</span>
+                </div>
+                <Icon name="chevR" size={16} className="text-white/60" />
               </div>
-              <Icon name="chevR" size={16} className="text-white/60" />
-            </div>
-          </Card>
-        </Link>
-      </section>
+            </Card>
+          </Link>
+        </section>
+      )}
 
       <section className="px-5 pb-4">
         <Link href="/onboarding/talent">
@@ -256,7 +291,7 @@ export function ProfileScreen({ user, appVersion = "current", tapBand }: Profile
           {
             icon: "share" as IconName,
             label: "Send feedback",
-            href: "mailto:support@ticketiv.com?subject=Ticketiv%20feedback",
+            href: "mailto:support@ticketiv.app?subject=Ticketiv%20feedback",
           },
           { icon: "close" as IconName, label: "Sign out", accent: true, action: "/api/sign-out" },
         ]}
