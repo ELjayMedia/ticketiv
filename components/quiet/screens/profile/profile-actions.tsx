@@ -9,7 +9,7 @@ function useShare(handle?: string | null, name?: string) {
 
   const share = useCallback(async () => {
     const origin =
-      typeof window !== "undefined" ? window.location.origin : "https://ticketiv.com"
+      typeof window !== "undefined" ? window.location.origin : "https://ticketiv.app"
     const url = handle ? `${origin}/?ref=${encodeURIComponent(handle)}` : origin
     const text = name
       ? `${name} is on Ticketiv — discover and book events together.`

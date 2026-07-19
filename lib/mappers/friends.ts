@@ -1,5 +1,6 @@
 // Shape FriendsOverview → FriendsScreen props.
 
+import { APP_URL } from "@/lib/env"
 import { PHOTOS } from "@/lib/photos"
 import type { FriendsOverview } from "@/lib/data/attendee/friends"
 
@@ -74,7 +75,19 @@ export interface FriendsScreenProps {
   inviteReward: string
 }
 
-export function mapFriends(o: FriendsOverview, host = "ticketiv.com"): FriendsScreenProps {
+// Invite links must copy as real, working URLs. Prefer the configured public
+// origin; fall back to the production domain — never a placeholder host.
+const DEFAULT_INVITE_HOST = (() => {
+  try {
+    const url = new URL(APP_URL)
+    if (url.hostname !== "localhost" && url.hostname !== "127.0.0.1") return url.host
+  } catch {
+    // unparsable APP_URL — use the production domain
+  }
+  return "ticketiv.app"
+})()
+
+export function mapFriends(o: FriendsOverview, host = DEFAULT_INVITE_HOST): FriendsScreenProps {
   const hero = o.goingTogether
   const goingTogether = hero
     ? {
