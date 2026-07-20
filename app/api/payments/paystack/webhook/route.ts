@@ -12,14 +12,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid Paystack signature" }, { status: 401 })
   }
 
-  let payload: Record<string, unknown>
+  let payload: Record<string, any>
   try {
-    payload = JSON.parse(rawBody) as Record<string, unknown>
+    payload = JSON.parse(rawBody) as Record<string, any>
   } catch {
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 })
   }
 
-  const data = (payload.data ?? {}) as Record<string, unknown>
+  const data = payload.data ?? {}
   const providerEventId = data.id ? String(data.id) : data.reference ? String(data.reference) : null
   if (!providerEventId) {
     return NextResponse.json({ error: "Paystack webhook missing event identifier" }, { status: 400 })
