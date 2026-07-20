@@ -18,7 +18,9 @@ export async function deleteWorkspaceAction(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/login")
 
-  const { error } = await supabase.rpc("fn_delete_organization", {
+  // fn_delete_organization is not in the generated Supabase types yet; cast to
+  // match the repo convention for untyped RPCs (see lib/scanning.ts, etc.).
+  const { error } = await (supabase.rpc as any)("fn_delete_organization", {
     p_org_id: orgId,
     p_confirm_name: confirmation,
   })
