@@ -1,36 +1,36 @@
 import { NextResponse } from "next/server"
 import * as Sentry from "@sentry/nextjs"
 
-import { completePaystackPaymentFromWebhook, verifyPaystackWebhookSignature } from "@/lib/payments"
-import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { completeTrustedPaystackWebhook, verifyTrustedPaystackSignature } from "@/lib/payments/paystack-webhook"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function POST(request: Request) {
   const rawBody = await request.text()
   const signature = request.headers.get("x-paystack-signature")
 
-  if (!(await verifyPaystackWebhookSignature(rawBody, signature))) {
+  if (!(await verifyTrustedPaystackSignature(rawBody, signature))) {
     return NextResponse.json({ error: "Invalid Paystack signature" }, { status: 401 })
   }
 
-  let payload: Record<string, any>
+  let payload: Record<string, unknown>
   try {
-    payload = JSON.parse(rawBody)
+    payload = JSON.parse(rawBody) as Record<string, unknown>
   } catch {
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 })
   }
 
-  const supabase = createServerSupabaseClient()
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase is not configured" }, { status: 500 })
+  const data = (payload.data ?? {}) as Record<string, unknown>
+  const providerEventId = data.id ? String(data.id) : data.reference ? String(data.reference) : null
+  if (!providerEventId) {
+    return NextResponse.json({ error: "Paystack webhook missing event identifier" }, { status: 400 })
   }
 
-  const providerEventId = payload?.data?.id ? String(payload.data.id) : payload?.data?.reference ? String(payload.data.reference) : null
-
-  const { data: existingWebhook, error: existingError } = await supabase
+  const admin = createAdminClient()
+  const { data: existingWebhook, error: existingError } = await admin
     .from("webhooks")
     .select("id, processed_at")
     .eq("provider", "paystack")
-    .eq("provider_event_id", providerEventId as string)
+    .eq("provider_event_id", providerEventId)
     .maybeSingle()
 
   if (existingError) {
@@ -42,41 +42,68 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, duplicate: true })
   }
 
-  const { data: webhook, error: webhookError } = await supabase
-    .from("webhooks")
-    .insert({
-      provider: "paystack",
-      signature,
-      payload,
-      provider_event_id: providerEventId,
-    })
-    .select("id")
-    .single()
+  let webhookId = existingWebhook?.id ?? null
+  if (!webhookId) {
+    const { data: inserted, error: insertError } = await admin
+      .from("webhooks")
+      .insert({
+        provider: "paystack",
+        signature,
+        payload,
+        provider_event_id: providerEventId,
+      })
+      .select("id")
+      .single()
 
-  if (webhookError || !webhook) {
-    console.error("Failed to record Paystack webhook", webhookError)
-    return NextResponse.json({ error: "Unable to record webhook" }, { status: 500 })
+    if (insertError || !inserted) {
+      // A concurrent delivery may have won the unique(provider,event) insert.
+      // Reuse its unprocessed row rather than making every provider retry fail.
+      if (insertError?.code === "23505") {
+        const { data: raced, error: raceError } = await admin
+          .from("webhooks")
+          .select("id, processed_at")
+          .eq("provider", "paystack")
+          .eq("provider_event_id", providerEventId)
+          .single()
+
+        if (raceError || !raced) {
+          console.error("Failed to recover concurrent Paystack webhook", raceError)
+          return NextResponse.json({ error: "Unable to record webhook" }, { status: 500 })
+        }
+        if (raced.processed_at) return NextResponse.json({ ok: true, duplicate: true })
+        webhookId = raced.id
+      } else {
+        console.error("Failed to record Paystack webhook", insertError)
+        return NextResponse.json({ error: "Unable to record webhook" }, { status: 500 })
+      }
+    } else {
+      webhookId = inserted.id
+    }
   }
 
   try {
-    const result = await completePaystackPaymentFromWebhook(payload)
+    const result = await completeTrustedPaystackWebhook(payload)
 
-    const { error: processedError } = await supabase
+    const { error: processedError } = await admin
       .from("webhooks")
       .update({ processed_at: new Date().toISOString() })
-      .eq("id", webhook.id)
+      .eq("id", webhookId!)
 
     if (processedError) {
       console.error("Failed to mark Paystack webhook processed", processedError)
+      throw new Error("Payment completed but webhook audit could not be finalized")
     }
 
     return NextResponse.json({ ok: true, result })
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unable to process webhook"
     console.error("Failed to process Paystack webhook", error)
     Sentry.captureException(error, {
       tags: { area: "paystack-webhook" },
-      extra: { providerEventId, webhookId: webhook?.id },
+      extra: { providerEventId, webhookId },
     })
-    return NextResponse.json({ error: error?.message ?? "Unable to process webhook" }, { status: 400 })
+    // Return 500 for transient processing failures so Paystack retries. The
+    // existing unprocessed audit row is deliberately reused on the next attempt.
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
