@@ -24,10 +24,17 @@ test("an event card leads to an event detail page", async ({ page }) => {
     test.skip(true, "No public events in this environment — needs seeded data (TICK-181 staging).")
   }
 
-  await firstEvent.click()
+  // Navigate via the href rather than clicking: event cards live in horizontally
+  // scrollable rows, so the "first" match can be off-screen / not clickable even
+  // though the link is valid. This keeps the smoke check about routing, not layout.
+  const href = await firstEvent.getAttribute("href")
+  expect(href, "event card should have an href").toBeTruthy()
+  await page.goto(href!)
   await expect(page).toHaveURL(/\/events\//)
   // Event detail should surface a ticket/checkout call-to-action.
-  await expect(page.getByRole("link", { name: /buy|tickets|get tickets|checkout/i }).first()).toBeVisible()
+  await expect(
+    page.getByRole("link", { name: /buy|tickets|get tickets|checkout/i }).first(),
+  ).toBeVisible()
 })
 
 test.describe("authenticated checkout → ticket → scan", () => {
