@@ -6,7 +6,7 @@ import { Card, CardBody } from "@/components/quiet/ui/card"
 import { deleteWorkspaceAction } from "./delete-workspace-action"
 
 export function DeleteWorkspacePanel({ orgId, orgName, error }: { orgId: string; orgName: string; error?: string }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(Boolean(error))
   const [confirmation, setConfirmation] = useState("")
   const matches = confirmation === orgName
 
@@ -24,11 +24,7 @@ export function DeleteWorkspacePanel({ orgId, orgName, error }: { orgId: string;
               Only empty workspaces can be deleted. Workspaces with events, orders, payouts, payout accounts, or resale activity are protected.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="shrink-0 rounded-[var(--radius)] border border-danger px-4 py-2 text-[13px] font-semibold text-danger hover:bg-danger-soft"
-          >
+          <button type="button" onClick={() => setOpen(true)} className="shrink-0 rounded-[var(--radius)] border border-danger px-4 py-2 text-[13px] font-semibold text-danger hover:bg-danger-soft">
             Delete workspace
           </button>
         </CardBody>
@@ -44,14 +40,7 @@ export function DeleteWorkspacePanel({ orgId, orgName, error }: { orgId: string;
             {error && <p className="mt-3 rounded-[var(--radius)] bg-danger-soft p-3 text-[12px] text-danger">{error}</p>}
             <form action={deleteWorkspaceAction} className="mt-4 flex flex-col gap-3">
               <input type="hidden" name="orgId" value={orgId} />
-              <input
-                name="confirmation"
-                value={confirmation}
-                onChange={(event) => setConfirmation(event.target.value)}
-                autoComplete="off"
-                className="h-11 rounded-[var(--radius)] border border-line-2 bg-surface px-3 text-[14px] text-ink outline-none focus:border-ink"
-                placeholder={orgName}
-              />
+              <input name="confirmation" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="off" className="h-11 rounded-[var(--radius)] border border-line-2 bg-surface px-3 text-[14px] text-ink outline-none focus:border-ink" placeholder={orgName} />
               <div className="flex gap-2">
                 <button type="button" onClick={() => setOpen(false)} className="flex-1 rounded-[var(--radius)] border border-line-2 px-4 py-2.5 text-[13px] font-semibold text-ink hover:bg-bg">Cancel</button>
                 <button disabled={!matches} className="flex-1 rounded-[var(--radius)] bg-danger px-4 py-2.5 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">Delete permanently</button>
