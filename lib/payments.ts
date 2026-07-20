@@ -8,7 +8,6 @@ import { completePaidOrder } from "@/lib/orders"
 import { notifyPaymentFailed, notifyPaymentSucceeded, notifyTicketPurchaseSucceeded } from "@/lib/notifications"
 import { deliverTicketsForOrder } from "@/lib/notifications/ticket-delivery"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { buildLedgerEntries, evaluatePaystackWebhookOutcome } from "@/lib/payments-math"
 import { resolvePaymentProvider } from "@/lib/payments/routing"
 
@@ -75,7 +74,12 @@ async function getPaystackSettings(): Promise<PaystackSettings> {
 }
 
 async function getPendingOrder(orderId: string, userId?: string) {
-  const supabase = createServerSupabaseClient()
+  // Service role: callers are trusted, post-verification server contexts — the
+  // checkout server action (scoped to the buyer via userId below), and the
+  // MoMo callback/status routes, which carry no browser session. `orders` has
+  // no anon read grant, so the anon/cookie client would find nothing here.
+  // Buyer scoping is still enforced explicitly when userId is provided.
+  const supabase = createAdminClient()
   if (!supabase) throw new Error("Supabase is not configured")
 
   let query = supabase.from("orders").select("*").eq("id", orderId)
@@ -138,8 +142,22 @@ export async function verifyPaystackWebhookSignature(rawBody: string, signature:
 
 async function writePaymentLedger(order: LiveOrder, paymentId: string) {
   const admin = createAdminClient()
-  const entries = buildLedgerEntries(order, paymentId)
 
+  // Idempotent: ledger_entries has no unique constraint, so a retried
+  // completion (MoMo callback + status polling for the same payment) would
+  // otherwise double-count. Entries are keyed to the payment.
+  const { count, error: countError } = await admin
+    .from("ledger_entries")
+    .select("id", { count: "exact", head: true })
+    .eq("payment_id", paymentId)
+
+  if (countError) {
+    console.error("Failed to check existing ledger entries", countError)
+    throw new Error("Unable to write ledger entries")
+  }
+  if ((count ?? 0) > 0) return
+
+  const entries = buildLedgerEntries(order, paymentId)
   const { error } = await admin.from("ledger_entries").insert(entries)
   if (error) {
     console.error("Failed to write payment ledger entries", error)
@@ -244,24 +262,44 @@ export async function completeVerifiedPayment(input: CompleteVerifiedPaymentInpu
   assertProvider(input.provider)
   const { supabase, order } = await getPendingOrder(input.orderId)
 
-  const { data: payment, error: paymentError } = await supabase
+  // Idempotent insert: payments is unique on (provider, ext_payment_id). MoMo
+  // completion can arrive from both the callback and status polling; a partial
+  // failure (payment written, later step threw) would otherwise conflict here
+  // and never retry. Reuse the existing payment row so the rest can re-run.
+  const { data: existingPayment, error: existingPaymentError } = await supabase
     .from("payments")
-    .insert({
-      order_id: order.id,
-      provider: input.provider,
-      amount_cents: order.total_cents,
-      currency: order.currency,
-      ext_payment_id: input.extPaymentId,
-      payload: input.payload ?? {},
-      status: "succeeded",
-      channel: "online",
-    })
     .select("*")
-    .single()
+    .eq("provider", input.provider)
+    .eq("ext_payment_id", input.extPaymentId)
+    .maybeSingle()
 
-  if (paymentError || !payment) {
-    console.error("Failed to record payment", paymentError)
+  if (existingPaymentError) {
+    console.error("Failed to look up existing payment", existingPaymentError)
     throw new Error("Unable to record payment")
+  }
+
+  let payment = existingPayment
+  if (!payment) {
+    const { data: inserted, error: paymentError } = await supabase
+      .from("payments")
+      .insert({
+        order_id: order.id,
+        provider: input.provider,
+        amount_cents: order.total_cents,
+        currency: order.currency,
+        ext_payment_id: input.extPaymentId,
+        payload: input.payload ?? {},
+        status: "succeeded",
+        channel: "online",
+      })
+      .select("*")
+      .single()
+
+    if (paymentError || !inserted) {
+      console.error("Failed to record payment", paymentError)
+      throw new Error("Unable to record payment")
+    }
+    payment = inserted
   }
 
   const { error: attemptError } = await supabase
@@ -423,7 +461,9 @@ export async function completePaystackPaymentFromWebhook(payload: Record<string,
 
 export async function failPaymentAttempt(orderId: string, provider: PaymentProvider, extRef?: string | null, payload?: Record<string, any>) {
   assertProvider(provider)
-  const supabase = createServerSupabaseClient()
+  // Service role: called from the MoMo callback/status routes, which carry no
+  // browser session; payment_attempts has no anon write grant.
+  const supabase = createAdminClient()
   if (!supabase) throw new Error("Supabase is not configured")
 
   const { data: order } = await supabase.from("orders").select("id, buyer_id").eq("id", orderId).maybeSingle()
