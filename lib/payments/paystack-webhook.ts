@@ -24,6 +24,8 @@ interface WebhookOrder {
   processor_fee_cents?: number | null
 }
 
+type WebhookPayload = Record<string, any>
+
 async function getPaystackWebhookSecret() {
   const admin = createAdminClient()
   const { data } = await admin
@@ -51,7 +53,7 @@ async function loadOrder(orderId: string) {
   const admin = createAdminClient()
   const { data, error } = await admin
     .from("orders")
-    .select("id, org_id, buyer_id, total_cents, currency, status, email, buyer_email, subtotal_cents, platform_fee_cents, processor_fee_cents")
+    .select("*")
     .eq("id", orderId)
     .maybeSingle<WebhookOrder>()
 
@@ -60,7 +62,7 @@ async function loadOrder(orderId: string) {
   return data
 }
 
-async function failAttempt(order: WebhookOrder, reference: string, payload: Record<string, unknown>) {
+async function failAttempt(order: WebhookOrder, reference: string, payload: WebhookPayload) {
   const admin = createAdminClient()
   const { error } = await admin
     .from("payment_attempts")
@@ -74,7 +76,7 @@ async function failAttempt(order: WebhookOrder, reference: string, payload: Reco
   await notifyPaymentFailed({ userId: order.buyer_id, orderId: order.id, provider: "paystack", reference })
 }
 
-async function completeSpecialCheckout(orderId: string, reference: string, payload: Record<string, unknown>) {
+async function completeSpecialCheckout(orderId: string, reference: string, payload: WebhookPayload) {
   const admin = createAdminClient()
   const { data: payments, error } = await admin
     .from("payments")
@@ -85,13 +87,13 @@ async function completeSpecialCheckout(orderId: string, reference: string, paylo
   if (error) throw new Error(`Unable to inspect checkout payment: ${error.message}`)
 
   const payment = (payments ?? []).find((row) => {
-    const kind = (row.payload as Record<string, unknown> | null)?.kind
+    const kind = (row.payload as Record<string, any> | null)?.kind
     return kind === "resale_checkout" || kind === "waitlist_checkout"
   })
   if (!payment) return { handled: false as const }
 
-  const kind = (payment.payload as Record<string, unknown>).kind as "resale_checkout" | "waitlist_checkout"
-  const mergedPayload = { ...(payment.payload as Record<string, unknown>), provider_reference: reference, webhook: payload }
+  const kind = (payment.payload as Record<string, any>).kind as "resale_checkout" | "waitlist_checkout"
+  const mergedPayload = { ...(payment.payload as Record<string, any>), provider_reference: reference, webhook: payload }
   const { error: updateError } = await admin
     .from("payments")
     .update({ status: "succeeded", ext_payment_id: reference, payload: mergedPayload })
@@ -99,20 +101,19 @@ async function completeSpecialCheckout(orderId: string, reference: string, paylo
 
   if (updateError) throw new Error(`Unable to update special checkout payment: ${updateError.message}`)
 
-  const rpc = kind === "resale_checkout"
-    ? "fn_complete_resale_after_payment_webhook"
-    : "fn_complete_waitlist_after_payment_webhook"
-  const { data: result, error: rpcError } = await admin.rpc(rpc, { p_payment_id: payment.id })
-  if (rpcError) throw new Error(`Completion failed: ${rpcError.message}`)
+  const completion = kind === "resale_checkout"
+    ? await admin.rpc("fn_complete_resale_after_payment_webhook", { p_payment_id: payment.id })
+    : await admin.rpc("fn_complete_waitlist_after_payment_webhook", { p_payment_id: payment.id })
+  if (completion.error) throw new Error(`Completion failed: ${completion.error.message}`)
 
-  const row = (Array.isArray(result) ? result[0] : result) as Record<string, unknown> | undefined
+  const row = (Array.isArray(completion.data) ? completion.data[0] : completion.data) as Record<string, any> | undefined
   const deliverOrderId = kind === "resale_checkout" ? row?.buyer_order_id : row?.order_id
   if (deliverOrderId) await deliverTicketsForOrder(String(deliverOrderId))
 
-  return { handled: true as const, kind, result }
+  return { handled: true as const, kind, result: completion.data }
 }
 
-async function getOrCreatePrimaryPayment(order: WebhookOrder, reference: string, payload: Record<string, unknown>) {
+async function getOrCreatePrimaryPayment(order: WebhookOrder, reference: string, payload: WebhookPayload) {
   const admin = createAdminClient()
   const { data: existing, error: lookupError } = await admin
     .from("payments")
@@ -157,7 +158,7 @@ async function ensureLedger(order: WebhookOrder, paymentId: string) {
   if (error) throw new Error(`Unable to write ledger entries: ${error.message}`)
 }
 
-async function completePrimaryCheckout(order: WebhookOrder, reference: string, payload: Record<string, unknown>) {
+async function completePrimaryCheckout(order: WebhookOrder, reference: string, payload: WebhookPayload) {
   const admin = createAdminClient()
   const payment = await getOrCreatePrimaryPayment(order, reference, payload)
 
@@ -182,9 +183,9 @@ async function completePrimaryCheckout(order: WebhookOrder, reference: string, p
   return { payment, order: completed.order, items: completed.items }
 }
 
-export async function completeTrustedPaystackWebhook(payload: Record<string, unknown>) {
-  const data = (payload.data ?? {}) as Record<string, unknown>
-  const metadata = (data.metadata ?? {}) as Record<string, unknown>
+export async function completeTrustedPaystackWebhook(payload: WebhookPayload) {
+  const data = payload.data ?? {}
+  const metadata = data.metadata ?? {}
   const orderId = String(metadata.order_id ?? "")
   const status = String(data.status ?? "")
   const reference = String(data.reference ?? "")
