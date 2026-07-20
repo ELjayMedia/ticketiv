@@ -42,11 +42,10 @@ jobs:
     name: E2E smoke (browser)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # Advisory for now: runs the browser smoke on every PR but does not block
-    # merges. Flip this off (and mark the check required in branch protection)
-    # once PLAYWRIGHT_BASE_URL points at a seeded staging deployment and the
-    # authenticated legs are enabled — then it becomes a true merge gate.
-    continue-on-error: true
+    # Advisory for now: the Playwright step records its real outcome without
+    # failing the job. Remove the step-level continue-on-error (and mark the
+    # check required in branch protection) once PLAYWRIGHT_BASE_URL points at a
+    # seeded staging deployment and the authenticated legs are enabled.
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -74,8 +73,15 @@ jobs:
       # (E2E_TEST_BUYER_EMAIL, E2E_PAYSTACK_TEST_KEY) are configured — see
       # e2e/discovery-to-checkout.spec.ts.
       - name: Run E2E smoke
+        continue-on-error: true
         env:
           PLAYWRIGHT_BASE_URL: ${{ vars.PLAYWRIGHT_BASE_URL || 'https://ticketiv.app' }}
           E2E_TEST_BUYER_EMAIL: ${{ secrets.E2E_TEST_BUYER_EMAIL }}
           E2E_PAYSTACK_TEST_KEY: ${{ secrets.E2E_PAYSTACK_TEST_KEY }}
         run: pnpm test:e2e
+
+      - name: Record advisory E2E result
+        if: always()
+        run: |
+          echo "The browser smoke is advisory until a seeded staging target is configured."
+          echo "A Playwright failure is retained in the step logs but does not fail this CI job."
