@@ -20,7 +20,7 @@ function order(overrides: Partial<LedgerOrderInput> = {}): LedgerOrderInput {
 }
 
 describe("buildLedgerEntries", () => {
-  it("emits gross, both fees (negative), and net", () => {
+  it("emits buyer gross, both fees (negative), and organizer net", () => {
     const entries = buildLedgerEntries(order(), "pay_1")
     const byType = (t: string) => entries.filter((e) => e.type === t)
 
@@ -28,14 +28,13 @@ describe("buildLedgerEntries", () => {
     expect(byType("fee")).toHaveLength(2)
     expect(byType("payment_net")).toHaveLength(1)
 
-    expect(byType("order_gross")[0].amount_cents).toBe(9000)
+    expect(byType("order_gross")[0].amount_cents).toBe(10000)
     expect(byType("fee").map((e) => e.amount_cents).sort((a, b) => a - b)).toEqual([-650, -350].sort((a, b) => a - b))
-    // net = total - platform - processor = 10000 - 650 - 350 = 9000
     expect(byType("payment_net")[0].amount_cents).toBe(9000)
   })
 
-  it("ledger nets out: gross + fees == net for the settled amount", () => {
-    const entries = buildLedgerEntries(order({ subtotal_cents: 10000, platform_fee_cents: 650, processor_fee_cents: 350, total_cents: 10000 }), "pay_1")
+  it("preserves the ledger invariant when total differs from subtotal", () => {
+    const entries = buildLedgerEntries(order(), "pay_1")
     const gross = entries.filter((e) => e.type === "order_gross").reduce((s, e) => s + e.amount_cents, 0)
     const fees = entries.filter((e) => e.type === "fee").reduce((s, e) => s + e.amount_cents, 0)
     const net = entries.filter((e) => e.type === "payment_net").reduce((s, e) => s + e.amount_cents, 0)
@@ -46,9 +45,11 @@ describe("buildLedgerEntries", () => {
     const entries = buildLedgerEntries(order({ platform_fee_cents: 0, processor_fee_cents: 0 }), "pay_1")
     expect(entries.filter((e) => e.type === "fee")).toHaveLength(0)
     expect(entries).toHaveLength(2)
+    expect(entries.find((e) => e.type === "order_gross")?.amount_cents).toBe(10000)
+    expect(entries.find((e) => e.type === "payment_net")?.amount_cents).toBe(10000)
   })
 
-  it("falls back to total_cents when subtotal/fees are null", () => {
+  it("uses total_cents even when subtotal metadata is null", () => {
     const entries = buildLedgerEntries(order({ subtotal_cents: null, platform_fee_cents: null, processor_fee_cents: null, total_cents: 5000 }), "pay_1")
     expect(entries.find((e) => e.type === "order_gross")?.amount_cents).toBe(5000)
     expect(entries.find((e) => e.type === "payment_net")?.amount_cents).toBe(5000)
