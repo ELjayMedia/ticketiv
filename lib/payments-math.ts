@@ -24,18 +24,26 @@ export interface LedgerEntryDraft {
 }
 
 /**
- * Build the double-entry rows for a completed payment. Invariant:
- * order_gross + sum(fee) === payment_net (fees are stored negative), so the
- * entries net to the amount actually settled to the org.
+ * Build settlement ledger rows for a completed payment.
+ *
+ * `order_gross` is the amount collected from the buyer (`total_cents`). Fees are
+ * stored as negative rows, and `payment_net` is the amount remaining for the
+ * organizer after those fees. Invariant:
+ *
+ *   order_gross + sum(fee) === payment_net
+ *
+ * `subtotal_cents` remains useful for order presentation and discount
+ * reconciliation, but it must not be used as the collected gross when buyer
+ * fees are included in `total_cents`.
  */
 export function buildLedgerEntries(order: LedgerOrderInput, paymentId: string): LedgerEntryDraft[] {
-  const subtotal = order.subtotal_cents ?? order.total_cents
+  const gross = order.total_cents
   const platformFee = order.platform_fee_cents ?? 0
   const processorFee = order.processor_fee_cents ?? 0
-  const net = order.total_cents - platformFee - processorFee
+  const net = gross - platformFee - processorFee
 
   return [
-    { org_id: order.org_id, order_id: order.id, payment_id: paymentId, type: "order_gross", amount_cents: subtotal, currency: order.currency, meta: { source: "payment_completion" } },
+    { org_id: order.org_id, order_id: order.id, payment_id: paymentId, type: "order_gross", amount_cents: gross, currency: order.currency, meta: { source: "payment_completion" } },
     ...(platformFee > 0 ? [{ org_id: order.org_id, order_id: order.id, payment_id: paymentId, type: "fee" as const, amount_cents: -platformFee, currency: order.currency, meta: { fee_type: "platform" } }] : []),
     ...(processorFee > 0 ? [{ org_id: order.org_id, order_id: order.id, payment_id: paymentId, type: "fee" as const, amount_cents: -processorFee, currency: order.currency, meta: { fee_type: "processor" } }] : []),
     { org_id: order.org_id, order_id: order.id, payment_id: paymentId, type: "payment_net", amount_cents: net, currency: order.currency, meta: { source: "payment_completion" } },
@@ -47,12 +55,12 @@ export type PaystackWebhookDecision = "fail" | "duplicate" | "amount_mismatch" |
 /**
  * Decide how a Paystack webhook should be handled, given the event status,
  * the current order status, and the provider-reported amount. Pure mirror of
- * the guard sequence in completePaystackPaymentFromWebhook so it can be tested
+ * the guard sequence in the webhook completion path so it can be tested
  * without a DB:
- *   - non-success event           -> fail the attempt
+ *   - non-success event            -> fail the attempt
  *   - order already settled        -> idempotent duplicate (ack, no re-credit)
  *   - amount present but mismatched -> reject (tamper / wrong currency)
- *   - otherwise                     -> proceed to completion
+ *   - otherwise                    -> proceed to completion
  */
 export function evaluatePaystackWebhookOutcome(input: {
   status: string

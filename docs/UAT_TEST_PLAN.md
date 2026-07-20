@@ -1,93 +1,167 @@
-# Ticketiv UAT Test Plan — core journeys
+# Ticketiv UAT Test Plan — release certification
 
-Run on **production** (`https://ticketiv.app`) with real devices. Every test
-lists its pass condition — record pass/fail + a screenshot for launch
-evidence. Ordered so each section feeds the next (the organizer tests create
-the event the attendee tests buy from).
+Run the safe smoke path on **production** (`https://ticketiv.app`) with real
+consumer devices. Run payment failures, webhook replay, concurrency, RLS and
+destructive cases on a seeded **staging** environment that mirrors production
+migrations and configuration. Record pass/fail, deployment commit SHA, tester,
+device/browser, timestamp and evidence for every case.
 
-Prerequisites: live Paystack keys (TICK-61) for the money paths; a test
-card/mobile-money account; two phones (one Android for scanning); a clean
-browser profile or incognito for guest flows.
+## Prerequisites
 
----
+- Live Paystack keys (TICK-61) for final production money-path evidence.
+- Seeded staging with Paystack test mode and controlled webhook replay.
+- Two attendee accounts, two organizations and at least four staff roles.
+- Two Android scanning phones; at least one Huawei/no-GMS device before store sign-off.
+- Clean browser profiles/incognito for guest flows.
+- A seeded settled balance older than the four-day settlement hold for payout tests.
+- Working `support@ticketiv.app` forwarding.
 
-## A. Organizer — first-run journey (do this first)
+## Test data map
 
-| # | Test | Steps | Pass when |
-|---|---|---|---|
-| A1 | Self-serve org creation | Profile → "Organize your own event" → name org, pick SZL → submit | You land directly on **Create event** (not the dashboard) |
-| A2 | First event draft | Enter event name → Continue | Event editor opens at the **basics** step |
-| A3 | Wizard completion | Fill basics, dates, venue; add 2 ticket types (one free, one paid, integer SZL prices); save each step | Each step persists after reload; no step traps you |
-| A4 | Go-live checklist | Open the event's readiness/go-live controls | Checklist reflects reality; publish only possible when required items are done |
-| A5 | Publish | Publish the event | Event appears on public discovery + `/events/[id]` while logged out |
-| A6 | Dashboard truth | Back to org dashboard | Setup checklist leads with "Create your first event" ticked; stats row shows 0 revenue without errors |
-| A7 | Promo rule | Create a price rule with a code (e.g. `UAT10`, 10% off, active, no window) | Rule saves and lists as active |
-| A8 | Team invite | Team → Invite member (second email) → accept from that account | Invitee lands in the org with the assigned role; role gating holds (e.g. staff can't see finance) |
-| A9 | Returning organizer profile | Open `/me` as the org owner | Org dashboard card shows (name + role), **no** "Organize your own event" CTA |
+Do not reuse one ticket across mutually incompatible journeys. Create and label:
 
-## B. Attendee — discovery → ticket in hand
-
-| # | Test | Steps | Pass when |
-|---|---|---|---|
-| B1 | Public discovery | Logged out: browse home, category chips, search for the A5 event | Event found via browse **and** search; card shows price + real signals (no blank labels) |
-| B2 | Event detail | Open the event | Ticket picker shows both ticket types with correct SZL prices (paid type never shows "Free"); tabs (About/Lineup/Venue) switch |
-| B3 | Guest checkout — free ticket | Incognito: select free ticket → checkout as guest (email only) → complete | Confirmation shows; ticket delivered via email link (`/t/[token]`) opens the QR without login |
-| B4 | Guest checkout — paid | Incognito: paid ticket → guest checkout → pay via Paystack (live) | Redirect returns to confirmation; status flips to paid without manual refresh; QR ticket visible |
-| B5 | **Promo code** | Start checkout for the paid ticket, enter `UAT10` (from A7) | Preview shows "Code applied — 10% off"; order total after payment reflects the discount; a wrong code shows "Invalid or expired promo code" |
-| B6 | Hold expiry | Start checkout, wait out the seat-hold timer | Redirected to the event page with the "hold expired" banner; ticket stock not leaked |
-| B7 | Signed-up buyer | Create account (magic link), buy paid ticket | Round-trip returns into the app; ticket appears in **My Tickets** with QR |
-| B8 | Guest claim | From B4's guest email, "Save my tickets" claim flow | Guest order attaches to the new account; ticket in My Tickets |
-| B9 | Ticket utilities | On a ticket: download/save, add to calendar, share | Each action produces the expected artifact; links use `ticketiv.app` |
-| B10 | Transfer | Transfer a ticket to a second account; accept it | Sender loses the QR, recipient gains it; pending state visible both sides |
-| B11 | Refund request path | Ticket detail → refund/dispute CTA | Mail composer opens to `support@ticketiv.app` with order reference (requires mail forwarding to be live) |
-| B12 | Account deletion | Throwaway account with no upcoming tickets: Account settings → delete (`DELETE` confirmation) | Signed out; sign-in fails afterwards; `/data-deletion` page is public |
-| B13 | Deletion blocker | Account holding an upcoming paid ticket attempts deletion | Blocked with the "use, refund, or transfer" explanation — not deleted |
-
-## C. Organizer — sales visibility & money
-
-| # | Test | Steps | Pass when |
-|---|---|---|---|
-| C1 | Orders view | After B4/B7, open org → event → orders | Both orders listed with correct totals; search/pagination works |
-| C2 | Attendees + comp | Attendees list; issue one comp ticket | Comp appears with a QR and 0 revenue impact |
-| C3 | Finance summary | Org → Finance | Gross/fees/net match the ledger for the two sales; **settled vs pending-settlement** split shows (4-day hold); date filter works |
-| C4 | Payout guardrail | Add payout account, request payout > settled balance | Rejected with "funds pending settlement" (not a raw error); request ≤ settled succeeds and shows in admin payout queue |
-| C5 | Promo accounting | Check the discounted order (B5) in orders/finance | Order shows the adjustment line; totals reconcile |
-
-## D. Gate — scanning (Android phone)
-
-| # | Test | Steps | Pass when |
-|---|---|---|---|
-| D1 | Device pairing | Org → event → staff/devices → generate setup code → `/scan/setup` on the phone → enter code | Device registers, session starts, event assigned |
-| D2 | Valid scan | Scan B7's QR at the gate screen | Green "validated"; attendee shows checked-in in org view |
-| D3 | Duplicate scan | Scan the same QR again | "Already scanned" — never a second green |
-| D4 | Wrong/invalid codes | Scan a random QR and a ticket for a different event | "Not found" / "wrong event" outcomes; every attempt logged in scan history |
-| D5 | Offline validation | Airplane mode → scan a valid unscanned ticket | Validates offline; syncs after reconnect; duplicate protection still holds |
-| D6 | Session end | End the device session from the org side | Phone can no longer scan until re-paired |
-
-## E. Cross-cutting
-
-| # | Test | Steps | Pass when |
-|---|---|---|---|
-| E1 | Public compliance URLs | Logged out: `/privacy`, `/terms`, `/refund-policy`, `/data-deletion`, `/support` | All return 200, no login redirect |
-| E2 | Domain hygiene | Copy profile invite link + friends invite link | Both read `ticketiv.app/...` and resolve |
-| E3 | Notifications | After purchase + transfer: bell icon | Order + transfer notifications present; mark-read works |
-| E4 | Waitlist | Set a ticket type to sold out; join waitlist from a second account | Position shown; offer flow triggers when stock returns |
-| E5 | Resale | List B7's ticket for resale; buy it from another account | Seller paid out per resale rules; buyer gets a working QR; original QR dies |
+| Fixture | Purpose |
+|---|---|
+| `TICKET_SCAN` | Valid and duplicate gate scans only |
+| `TICKET_TRANSFER` | Transfer and acceptance only |
+| `TICKET_RESALE` | Resale only; never scan it first |
+| `TICKET_DELETE_BLOCKER` | Upcoming paid-ticket deletion guard |
+| `TICKET_OFFLINE_A` | Offline scan on device A |
+| `TICKET_OFFLINE_RACE` | Same ticket presented to two offline devices |
+| `ORDER_REFUND` | Refund and dispute tests |
+| `ORDER_PROMO` | Promo accounting and redemption limits |
 
 ---
 
-## Known-broken-until (check before filing bugs)
+## A. Organizer — first-run journey
 
-- **B11 depends on** `support@ticketiv.app` mail forwarding being provisioned.
-- **B4/C3/C4 depend on** live Paystack keys (TICK-61); until then run in test mode and re-run for evidence after go-live.
-- TapBand sections are intentionally dormant (TICK-311 parked) — an empty TapBand card on the profile is expected, not a bug.
+| # | Test | Steps | Pass when |
+|---|---|---|---|
+| A1 | Self-serve org creation | Profile → “Organize your own event” → name org, pick SZL → submit | Lands directly on **Create event** |
+| A2 | First event draft | Enter event name → Continue | Event editor opens at **basics** |
+| A3 | Wizard completion | Fill basics, dates, venue; add free and paid ticket types | Every step persists after reload |
+| A4 | Go-live checklist | Open readiness controls | Checklist reflects data; publish remains blocked until requirements pass |
+| A5 | Publish | Publish event | Event appears on discovery and detail while logged out |
+| A6 | Dashboard truth | Return to dashboard | First-event item is complete; zero-revenue state has no errors |
+| A7 | Promo rule | Create `UAT10`, 10% off, active | Rule saves and lists as active |
+| A8 | Team invite | Invite second account and accept | Correct org/role assigned; staff cannot access finance |
+| A9 | Returning profile | Open `/me` as owner | Org card shown; onboarding CTA absent |
+| A10 | Role removal | Remove invited staff while their session is active | Next privileged action is denied; navigation updates after refresh |
+| A11 | Cross-org isolation | Copy event/order/admin URLs into unrelated-org session | No data leaks; response is 403/404 or safe empty state |
 
-## Bug-sweep log (2026-07-19)
+## B. Attendee — discovery to ticket
 
-Verified mechanically against live Supabase before this plan was written:
-- All 38 RPCs called by app code exist live ✓
-- All referenced tables/views exist live ✓ except `promo_codes` (fixed — preview
-  now uses `fn_preview_promo_code` over `price_rules`) and `credential_entitlements`
-  (TapBand, guarded, parked)
-- No route-level client hooks depend on unmounted providers (the
-  `usePermissions`/event-creation bug was fixed in PR #279)
+| # | Test | Steps | Pass when |
+|---|---|---|---|
+| B1 | Public discovery | Logged out: home, category, search | Event found through browse and search; labels are populated |
+| B2 | Event detail | Open event | Correct SZL prices; paid type never says Free; tabs work |
+| B3 | Guest free checkout | Incognito, email-only free order | Confirmation and `/t/[token]` QR work without login |
+| B4 | Guest paid checkout | Incognito, Paystack payment | Return polls to paid; QR appears without manual refresh |
+| B5 | Promo code | Apply `UAT10`; also try invalid code | Correct preview, charged total and adjustment line |
+| B6 | Hold expiry | Allow hold timer to expire | Redirect with expiry message; inventory restored |
+| B7 | Signed-in buyer | Magic-link sign-in and paid purchase | Ticket appears in My Tickets |
+| B8 | Guest claim | Claim B4 guest order | Order attaches once; no duplicate ticket |
+| B9 | Ticket utilities | Download/save, calendar and share | Correct artifacts and `ticketiv.app` links |
+| B10 | Transfer | Use `TICKET_TRANSFER`; accept on second account | Sender QR dies; recipient gains QR; states reconcile |
+| B11 | Refund request | Use `ORDER_REFUND` refund/dispute CTA | Mail composer includes support address and order reference |
+| B12 | Account deletion | Throwaway account, no blockers | User is signed out and cannot sign in; public deletion page works |
+| B13 | Deletion blocker | Use `TICKET_DELETE_BLOCKER` | Deletion blocked with clear resolution options |
+
+## C. Payments, inventory and failure recovery — staging first
+
+| # | Test | Steps | Pass when |
+|---|---|---|---|
+| C1 | Cancelled payment | Abandon/cancel Paystack checkout | Order remains unpaid; retry is offered; stock eventually releases |
+| C2 | Failed then successful retry | Fail first attempt, pay second attempt | One paid order, one ticket set, attempts show failed + succeeded |
+| C3 | Delayed webhook | Hold webhook, return buyer, then deliver | Confirmation waits safely then flips paid when webhook arrives |
+| C4 | Duplicate webhook | Replay identical successful event twice | Second delivery is 200/no-op; no duplicate payment, ledger or ticket |
+| C5 | Retry after processing error | Force completion failure after audit insert, replay event | Existing unprocessed row is reused and completion succeeds |
+| C6 | Amount mismatch | Replay signed event with wrong minor-unit amount | Rejected; order not credited; alert/audit retained |
+| C7 | Malformed signature | Send missing, short and non-hex signatures | Controlled 401; no unhandled 500 |
+| C8 | Double-submit | Double-click pay/submit or send concurrent requests | One logical order/payment attempt chain; no duplicate charge |
+| C9 | Last-ticket race | Two buyers purchase final unit simultaneously | At most one succeeds; loser gets safe sold-out response/refund path |
+| C10 | Promo limit race | Two buyers redeem final allowed `UAT10` use | Redemption cap enforced transactionally |
+| C11 | Ledger invariant | Reconcile gross, fees and net for normal and discounted orders | `gross + negative fees = net`; finance UI matches DB |
+| C12 | Partial completion replay | Simulate payment row written before later failure | Replay finishes once without duplicate ledger/tickets |
+
+## D. Organizer — sales, finance and payouts
+
+| # | Test | Steps | Pass when |
+|---|---|---|---|
+| D1 | Orders view | Open event orders after purchases | Totals, search and pagination are correct |
+| D2 | Attendees + comp | Issue one complimentary ticket | QR appears with zero revenue impact |
+| D3 | Finance summary | Compare UI to ledger | Gross/fees/net and pending/settled split reconcile |
+| D4 | Payout above settled | Request more than settled balance | Friendly “funds pending settlement” rejection |
+| D5 | Valid payout | Use pre-seeded settled balance and request within it | Request succeeds and enters admin queue |
+| D6 | Payout retry | Simulate provider/admin rejection then retry | No double reservation or double payout |
+| D7 | Refund accounting | Complete full and partial refund where supported | Order, payment, refund, ledger and available balance reconcile |
+
+## E. Gate — scanning
+
+Before offline cases, pair each phone online, download the manifest, record its
+version/timestamp and confirm the expected ticket count.
+
+| # | Test | Steps | Pass when |
+|---|---|---|---|
+| E1 | Device pairing | Generate code and pair phone | Device/session/event assignment visible |
+| E2 | Valid scan | Scan `TICKET_SCAN` | Green validation and attendee check-in |
+| E3 | Duplicate scan | Scan `TICKET_SCAN` again | Already scanned; never second green |
+| E4 | Invalid/wrong event | Random QR and other-event ticket | Correct outcomes; all attempts logged |
+| E5 | Offline validation | Airplane mode, scan `TICKET_OFFLINE_A` | Validates, queues and syncs after reconnect |
+| E6 | Two-device offline race | Both offline devices scan `TICKET_OFFLINE_RACE` | Sync detects conflict; reporting identifies duplicate admission risk |
+| E7 | Revoked while offline | Download manifest, revoke ticket, remain offline and scan | Behaviour matches documented stale-manifest policy and is audited |
+| E8 | Remote session end | End device session from organizer side | Online device stops immediately; offline behaviour is documented and bounded |
+| E9 | Camera/network interruption | Deny camera, kill app during sync, reconnect | Recoverable UI; no lost or duplicated scan records |
+
+## F. Waitlist, resale and notifications
+
+| # | Test | Steps | Pass when |
+|---|---|---|---|
+| F1 | Waitlist | Sell out, join, restore stock | Position and offer flow work |
+| F2 | Waitlist payment webhook | Pay accepted offer; replay webhook | Tickets issue once; duplicate is no-op |
+| F3 | Resale | List `TICKET_RESALE`, buy from second account | Buyer QR works; original dies; seller accounting is correct |
+| F4 | Resale webhook retry | Force first completion failure, replay | Ownership completes once and notifications reconcile |
+| F5 | Notifications | Purchase, transfer, waitlist/resale | Bell items appear once; mark-read works |
+| F6 | Email delivery | Test purchase/transfer/waitlist emails | Links resolve, retries do not duplicate entitlements |
+
+## G. Compliance, compatibility and native apps
+
+| # | Test | Steps | Pass when |
+|---|---|---|---|
+| G1 | Public compliance URLs | `/privacy`, `/terms`, `/refund-policy`, `/data-deletion`, `/support` | Public 200 responses |
+| G2 | Domain hygiene | Copy all invite/share/email links | All use `ticketiv.app` and resolve |
+| G3 | Accessibility | Keyboard, screen reader, zoom and focus tests | Checkout and ticket display remain operable |
+| G4 | Browser/device matrix | Safari/iPhone, Chrome/Android, Huawei Browser, slow 3G | Core journey works without layout/data loss |
+| G5 | Consumer app build | Install signed Play/Huawei/iOS build when available | Native discovery, checkout handoff, deep links and offline ticket work |
+| G6 | Access app build | Install signed Play/Huawei build when available | Pairing, camera, encrypted manifest, offline scan and sync work without GMS |
+| G7 | Upgrade | Upgrade from prior release with stored tickets/manifest | Data and sessions migrate safely |
+
+---
+
+## Release gates
+
+### Before paid UAT
+
+- Trusted webhook processing uses service-role or narrowly scoped definer RPCs.
+- Duplicate and failed webhook replay tests pass.
+- Ledger invariant and finance reconciliation pass.
+- Staging and Paystack test mode are configured.
+
+### Before public web launch
+
+- Cross-tenant/RLS suite runs rather than skips.
+- Last-ticket and promo concurrency pass.
+- Two-device offline scan test is signed off.
+- Refund, transfer, waitlist and resale failure cases pass.
+
+### Before app-store submission
+
+- Installable signed builds exist for the target store.
+- Huawei build runs without GMS.
+- Native deep links, secure offline storage, push, permissions and upgrades pass.
+
+## Known dependencies
+
+- B11 depends on `support@ticketiv.app` forwarding.
+- Production B4/D3/D4/D5 require live Paystack keys and real settlement evidence.
+- TapBand remains outside launch certification while TICK-311 is parked.
