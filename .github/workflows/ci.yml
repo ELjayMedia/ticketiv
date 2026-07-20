@@ -21,14 +21,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # corepack must be enabled before setup-node so its `cache: pnpm` step can
+      # resolve the pnpm store path (otherwise: "Unable to locate executable file: pnpm").
+      - name: Enable corepack
+        run: corepack enable
+
       - name: Setup Node 22
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-
-      - name: Enable corepack
-        run: corepack enable
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

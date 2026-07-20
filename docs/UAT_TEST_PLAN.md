@@ -69,6 +69,39 @@ Do not reuse one ticket across mutually incompatible journeys. Create and label:
 
 ## C. Payments, inventory and failure recovery — staging first
 
+### C0. Money-path smoke with a Paystack test card (run before C1–C12)
+
+The DB-layer trigger stack that previously blocked order creation, ticket
+issuance and marking an order paid is fixed
+(`supabase/migrations/20260720120000_fix_order_completion_trigger_stack.sql`).
+Confirm the money path end-to-end before running the failure matrix.
+
+**Step 0 — DB pre-check (no app, no browser, no cost).** Run
+`scripts/verify-money-path.sql` (psql or the Supabase SQL editor) against the
+target environment with a real org/buyer/pricing-plan/ticket-type. It seeds and
+completes a throwaway order inside a rolled-back transaction and asserts:
+`ledger_rows_before_payment = 0`, `order_status = paid`, all items `issued`,
+attempt `succeeded` and linked, exactly one `succeeded` payment, settlement
+`gross == total` and `gross + fee = net`, and idempotent replay
+(`reuses_same_payment = t`, still 1 payment / 4 settlement rows). Nothing
+persists.
+
+**Step 1 — live browser checkout (human + browser required; the agent proxy
+cannot reach `ticketiv.app`).** In a clean incognito profile, open a published
+event → **Get tickets** → pick a ticket type → checkout as guest. Pay with a
+Paystack **test-mode** success card:
+
+- Card `4084 0840 8408 4081`, any future expiry, any CVV, OTP `123456`
+  (use Paystack's current test cards/PINs if these rotate).
+
+**Pass when:** the return screen polls to **paid** and the QR appears without a
+manual refresh, and in the DB the order is `paid`, its `order_items` are
+`issued`, there is one `succeeded` `payments` row, the `payment_attempts` row is
+`succeeded` with `payment_id` set, and `ledger_entries` for that payment are the
+four settlement rows only (`order_gross = total`, two negative `fee` rows,
+`payment_net`; no `payment_id IS NULL` composition rows). Record the SHA,
+Paystack reference and screenshots.
+
 | # | Test | Steps | Pass when |
 |---|---|---|---|
 | C1 | Cancelled payment | Abandon/cancel Paystack checkout | Order remains unpaid; retry is offered; stock eventually releases |
