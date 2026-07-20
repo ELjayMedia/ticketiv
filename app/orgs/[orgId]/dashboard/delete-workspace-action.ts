@@ -9,7 +9,7 @@ export async function deleteWorkspaceAction(formData: FormData) {
   const confirmation = String(formData.get("confirmation") ?? "")
 
   if (!orgId || !confirmation) {
-    redirect(`/orgs/${orgId}/dashboard?deleteError=${encodeURIComponent("Type the workspace name to confirm deletion.")}`)
+    redirect(`/orgs/${orgId}/settings?deleteError=${encodeURIComponent("Type the workspace name to confirm deletion.")}`)
   }
 
   const supabase = createServerSupabaseClient()
@@ -24,7 +24,7 @@ export async function deleteWorkspaceAction(formData: FormData) {
   })
 
   if (error) {
-    redirect(`/orgs/${orgId}/dashboard?deleteError=${encodeURIComponent(error.message)}`)
+    redirect(`/orgs/${orgId}/settings?deleteError=${encodeURIComponent(error.message)}`)
   }
 
   redirect("/organizer")
