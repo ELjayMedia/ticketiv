@@ -19,12 +19,22 @@ export default async function ProfilePage() {
     redirect("/login")
   }
 
+  const hasOrganizerWorkspace = contexts.some((context) => context.kind === "org")
+  const organizerDashboard = hasOrganizerWorkspace
+    ? [{
+        key: "organizer-dashboard",
+        label: "Organizer",
+        sublabel: "Choose a workspace",
+        href: "/organizer",
+      }]
+    : []
+
   return (
     <div className="mx-auto max-w-[480px]">
       <ProfileScreen
         user={mapProfile(profile!)}
         tapBand={tapBand}
-        orgContexts={contexts.filter((c) => c.kind === "org")}
+        orgContexts={organizerDashboard}
       />
     </div>
   )
