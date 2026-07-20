@@ -42,6 +42,11 @@ jobs:
     name: E2E smoke (browser)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Advisory for now: runs the browser smoke on every PR but does not block
+    # merges. Flip this off (and mark the check required in branch protection)
+    # once PLAYWRIGHT_BASE_URL points at a seeded staging deployment and the
+    # authenticated legs are enabled — then it becomes a true merge gate.
+    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4

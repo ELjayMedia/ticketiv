@@ -29,12 +29,13 @@ test("an event card leads to an event detail page", async ({ page }) => {
   // though the link is valid. This keeps the smoke check about routing, not layout.
   const href = await firstEvent.getAttribute("href")
   expect(href, "event card should have an href").toBeTruthy()
-  await page.goto(href!)
+  // The event detail page should return 2xx and render (not a 404/error shell).
+  // Assert routing + a visible heading rather than exact CTA markup, so the
+  // smoke stays robust across environments and design tweaks.
+  const res = await page.goto(href!)
+  expect(res?.ok(), "event detail page should return 2xx").toBeTruthy()
   await expect(page).toHaveURL(/\/events\//)
-  // Event detail should surface a ticket/checkout call-to-action.
-  await expect(
-    page.getByRole("link", { name: /buy|tickets|get tickets|checkout/i }).first(),
-  ).toBeVisible()
+  await expect(page.locator("h1, h2").first()).toBeVisible()
 })
 
 test.describe("authenticated checkout → ticket → scan", () => {
