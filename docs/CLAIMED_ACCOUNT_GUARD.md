@@ -8,6 +8,8 @@ The migration `20260721163000_claimed_account_guard.sql` introduces the canonica
 - `app.require_claimed_account()` raises SQLSTATE `42501` with the stable message `claimed_account_required` otherwise.
 - Missing or malformed identity context fails closed.
 
+The migration `20260721190000_protect_claimed_account_rpcs.sql` applies that boundary to the first high-risk user-facing RPC batch.
+
 ## Usage in RPCs
 
 Call the guard at the start of every user-facing protected RPC, before reading caller-supplied organization, event, order, payout or device identifiers:
@@ -17,6 +19,34 @@ perform app.require_claimed_account();
 ```
 
 This guard supplements, rather than replaces, normal ownership and role checks. A claimed account must still prove the required organization, event or platform capability.
+
+For legacy functions whose bodies should remain unchanged, the rollout uses a guarded-wrapper pattern:
+
+1. Rename the original implementation to `*_unchecked`.
+2. Revoke `PUBLIC`, `anon` and `authenticated` execution on the unchecked implementation.
+3. Expose a fixed-search-path `SECURITY DEFINER` wrapper under the original RPC name.
+4. Run `app.require_claimed_account()` before forwarding the original arguments.
+
+This keeps the existing application contract stable while preventing direct bypass of the guard.
+
+## First protected RPC batch
+
+The following direct user-facing operations now have guarded wrappers:
+
+- `fn_create_organization`
+- `create_event_draft`
+- `fn_delete_organization`
+- `fn_duplicate_event`
+- `fn_transition_event_status`
+- `fn_link_event_artist_by_name`
+- `fn_org_finance_summary`
+- `fn_request_payout`
+- `fn_request_transfer_by_email`
+- `fn_complete_transfer`
+- `get_organizer_kpis`
+- `get_event_kpis`
+
+The unchecked implementations are service-role-only and cannot be executed directly by `authenticated`.
 
 ## Usage in RLS
 
@@ -29,19 +59,20 @@ with check (app.is_claimed_account() and <existing authorization predicate>)
 
 Do not add the guard to guest checkout capabilities such as browsing, inventory reads, ticket holds, guest order creation or payment completion.
 
-## Rollout inventory
+## Remaining rollout inventory
 
 Apply and verify the guard across these protected surfaces:
 
-1. Organization creation, updates, membership and deletion.
-2. Event creation, editing, publishing and deletion.
+1. Organization profile updates and membership management.
+2. Event editing, publishing APIs and deletion paths not covered by the first RPC batch.
 3. Profile changes that establish public or operational identity.
-4. Ticket transfer and refund requests.
-5. Finance reports, payout accounts, payout requests and approvals.
+4. Refund initiation and approval workflows.
+5. Payout-account management and payout approval/processing surfaces.
 6. POS, cashier, scanner and device management.
 7. Complimentary ticket and guest-list administration.
 8. Resale and waitlist seller/organizer controls.
 9. Platform-admin operations.
+10. Direct table mutations and RLS policies that still depend only on `authenticated` or `auth.uid()`.
 
 For every surface, tests must prove:
 
@@ -57,6 +88,7 @@ Run:
 
 ```bash
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/verify-claimed-account.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/verify-claimed-account-protected-rpcs.sql
 ```
 
-The harness verifies anonymous denial, permanent-account allowance and fail-closed behavior when the JWT claim is absent.
+The first harness verifies the canonical identity boundary. The second verifies anonymous denial across the first protected RPC batch and confirms `authenticated` cannot call the unchecked implementations directly.
