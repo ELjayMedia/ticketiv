@@ -8,6 +8,8 @@ The migration `20260721163000_claimed_account_guard.sql` introduces the canonica
 - `app.require_claimed_account()` raises SQLSTATE `42501` with the stable message `claimed_account_required` otherwise.
 - Missing or malformed identity context fails closed.
 
+The migration `20260721190000_protect_claimed_account_rpcs.sql` applies that boundary to the first high-risk user-facing RPC batch.
+
 ## Usage in RPCs
 
 Call the guard at the start of every user-facing protected RPC, before reading caller-supplied organization, event, order, payout or device identifiers:
@@ -18,20 +20,18 @@ perform app.require_claimed_account();
 
 This guard supplements, rather than replaces, normal ownership and role checks. A claimed account must still prove the required organization, event or platform capability.
 
-## Usage in RLS
+For legacy functions whose bodies should remain unchanged, the rollout uses a guarded-wrapper pattern:
 
-For protected table mutations, use the boolean helper in restrictive policies:
+1. Rename the original implementation to `*_unchecked`.
+2. Revoke `PUBLIC`, `anon` and `authenticated` execution on the unchecked implementation.
+3. Expose a fixed-search-path `SECURITY DEFINER` wrapper under the original RPC name.
+4. Run `app.require_claimed_account()` before forwarding the original arguments.
 
-```sql
-using (app.is_claimed_account() and <existing authorization predicate>)
-with check (app.is_claimed_account() and <existing authorization predicate>)
-```
-
-Do not add the guard to guest checkout capabilities such as browsing, inventory reads, ticket holds, guest order creation or payment completion.
+This keeps the existing application contract stable while preventing direct bypass of the guard.
 
 ## Protected RPC batches
 
-The first protected-RPC migration covers organization/event administration, finance and transfers:
+The first protected-RPC migration covers:
 
 - organization creation and deletion
 - event draft creation, duplication and status transitions
@@ -51,7 +51,44 @@ The second operational migration covers:
 - payment-method deactivation/default selection
 - resale listing publication
 
-Each protected RPC preserves its existing implementation under an `*_unchecked` name. `PUBLIC`, `anon` and `authenticated` execution is revoked from the unchecked implementation, and the original name is recreated as a fixed-search-path wrapper that runs `app.require_claimed_account()` first.
+The final migration covers:
+
+- buyer-owned refund initiation and controlled refund transitions
+- payout-account and payout RLS hardening
+- platform-admin-only payout processing transitions
+- device registration and device-session lifecycle RPCs
+- claimed-account platform-admin checks
+- restrictive RLS policies across sensitive mutation tables
+
+Each protected RPC preserves its existing implementation under an `*_unchecked` name where applicable. `PUBLIC`, `anon` and `authenticated` execution is revoked from unchecked implementations, and the original name is recreated as a fixed-search-path wrapper that runs `app.require_claimed_account()` first.
+
+## Usage in RLS
+
+For protected table mutations, use restrictive policies so the claimed-account boundary composes with existing ownership and role policies:
+
+```sql
+create policy claimed_example_update
+on public.example
+as restrictive
+for update
+to authenticated
+using (app.is_claimed_account())
+with check (app.is_claimed_account());
+```
+
+The final hardening migration applies this pattern to refunds, refund items, payout accounts, payouts, devices, device sessions, platform administrators, organization membership, profiles and guest-list mutations.
+
+## Refund and payout boundaries
+
+A refund request now requires all of the following:
+
+- a claimed account
+- `initiated_by = auth.uid()`
+- initial status `requested`
+- no processor reference or processed timestamp
+- ownership of the payment, or finance/admin authority over its organization
+
+Refund processing is performed through `fn_transition_refund`. Payout rows are created through `fn_request_payout` and processed through `fn_transition_payout`; direct authenticated payout mutation is revoked.
 
 ## Explicit exclusions
 
@@ -62,28 +99,21 @@ The following remain available to guest identities where product behavior requir
 - order creation and provider payment completion
 - ticket capability-token delivery
 - resale and waitlist buyer checkout/payment completion
-- guest-order discovery and claim flows
+- guest-order discovery and account-claim flows
 
-## Remaining rollout inventory
+## Required regression coverage
 
-1. Refund initiation and approval paths.
-2. Payout-account creation/update and payout processing/approval.
-3. Device/session provisioning mutations not already routed through guarded scanner RPCs.
-4. Platform-admin operations reachable by authenticated sessions.
-5. Direct RLS/table mutation review for protected tables.
-6. Claimed buyer, organizer, staff, admin and cross-organization persona regression tests.
+Every protected surface must prove:
 
-For every surface, tests must prove:
-
-- Anonymous session denied with `claimed_account_required`.
-- Claimed buyer denied when lacking the relevant role.
-- Authorized claimed organizer/staff/admin allowed.
-- A user in Organization A cannot read or mutate Organization B.
-- Guest checkout and later account claim still work.
+- anonymous session denied with `claimed_account_required`
+- claimed buyer denied when lacking the required operational role
+- authorized claimed organizer, finance user, scanner or admin allowed
+- a user in Organization A cannot read or mutate Organization B
+- guest checkout and later account claim still work
 
 ## Verification
 
-Run:
+Run the generic boundary and protected-RPC checks:
 
 ```bash
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/verify-claimed-account.sql
@@ -91,4 +121,10 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/verify-claimed-account-protec
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/verify-claimed-account-operations.sql
 ```
 
-The migrations have also been executed transactionally against the current Ticketiv Supabase schema and rolled back after anonymous-denial and direct-bypass checks passed.
+Run the seeded persona and cross-organization suite using the fixture variables documented at the top of:
+
+```bash
+scripts/verify-claimed-account-personas.sql
+```
+
+The migrations were also executed transactionally against the current Ticketiv Supabase schema and rolled back after compilation, anonymous-denial and direct-bypass checks passed.
