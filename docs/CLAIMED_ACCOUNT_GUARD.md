@@ -88,6 +88,7 @@ Run:
 ```bash
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/verify-claimed-account.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/verify-claimed-account-protected-rpcs.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/verify-claimed-account-operations.sql
 ```
 
 The migrations have also been executed transactionally against the current Ticketiv Supabase schema and rolled back after anonymous-denial and direct-bypass checks passed.
