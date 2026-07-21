@@ -128,19 +128,32 @@ prunes today.
 
 ---
 
-## 7. Rate limits — **To do**
+## 7. Rate limits — **Partial (foundation built)**
 
-No rate limiting exists today. Abuse-sensitive entry points that need limits:
-`fn_preview_promo_code` (code enumeration), checkout/order creation, ticket
-transfers, resale publication, membership invitations, `fn_scan_ticket`, and
-organization creation.
+**Built.** A shared fixed-window primitive — the `rate_limits` table and
+`public.fn_rate_limit(p_key, p_max, p_window_seconds)` (returns true = allowed)
+plus `fn_rate_limit_gc()` for housekeeping (migration
+`20260720160000_rate_limit_primitive`). `fn_rate_limit` is EXECUTE-revoked from
+PUBLIC, so only trusted SECURITY DEFINER RPCs call it. **First consumer:**
+`fn_create_membership_invite` is limited to **30 invitations / inviter / hour**
+(verified: the 31st call is rejected with `rate_limited`).
 
-**Recommended approach:** a small DB token-bucket (`rate_limits(key, window,
-count)` + a `SECURITY DEFINER` `fn_rate_limit(p_key, p_max, p_window)` that the
-sensitive RPCs call at entry, keyed by `auth.uid()` / IP / org), plus coarse
-edge limits in `middleware.ts` for unauthenticated endpoints
-(promo preview, order creation). Pair with Vercel/WAF limits for network-level
-protection. This is net-new and should ship as its own reviewed change.
+**Apply it to the remaining entry points** by adding, right after the RPC's auth
+check:
+
+```sql
+if not public.fn_rate_limit('<action>:' || v_user::text, <max>, <window_secs>) then
+  raise exception 'rate_limited' using errcode = 'P0001';
+end if;
+```
+
+Targets and suggested limits: checkout/order creation (`fn_create_inventory_protected_order`,
+~10/min), transfers, resale publication, `fn_scan_ticket` (per device/session,
+generous), organization creation. **`fn_preview_promo_code` is anon-callable and
+has no `auth.uid()`** — key it from a server-action/route wrapper that passes the
+client IP (PostgREST does not expose the IP to the function), or apply a coarse
+per-event bucket. Schedule `fn_rate_limit_gc()` from the ops cron. Pair with
+Vercel/WAF network limits for defence in depth.
 
 ---
 
@@ -154,4 +167,4 @@ protection. This is net-new and should ship as its own reviewed change.
 | Backups / RPO-RTO | To do | Supabase PITR + documented drill |
 | Support workflows | Partial | `app/super-admin/*` + runbooks above |
 | Audit retention | To do | scheduled archive+prune job |
-| Rate limits | To do | `fn_rate_limit` + middleware |
+| Rate limits | Partial | `fn_rate_limit` primitive (built) + roll out to remaining RPCs |
