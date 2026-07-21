@@ -148,7 +148,7 @@ declare
 begin
   perform app.require_claimed_account();
 
-  select r.*, o.org_id into v_refund, v_org
+  select r, o.org_id into v_refund, v_org
   from public.refunds r
   join public.payments py on py.id = r.payment_id
   join public.orders o on o.id = py.order_id
@@ -271,7 +271,7 @@ as $$
 declare v_session public.device_sessions; v_org uuid;
 begin
   perform app.require_claimed_account();
-  select ds.*, d.org_id into v_session, v_org
+  select ds, d.org_id into v_session, v_org
   from public.device_sessions ds join public.devices d on d.id=ds.device_id
   where ds.id=p_session_id for update of ds;
   if not found then raise exception 'device_session_not_found' using errcode='P0002'; end if;
