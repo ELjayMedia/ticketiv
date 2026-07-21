@@ -29,66 +29,102 @@ For legacy functions whose bodies should remain unchanged, the rollout uses a gu
 
 This keeps the existing application contract stable while preventing direct bypass of the guard.
 
-## First protected RPC batch
+## Protected RPC batches
 
-The following direct user-facing operations now have guarded wrappers:
+The first protected-RPC migration covers:
 
-- `fn_create_organization`
-- `create_event_draft`
-- `fn_delete_organization`
-- `fn_duplicate_event`
-- `fn_transition_event_status`
-- `fn_link_event_artist_by_name`
-- `fn_org_finance_summary`
-- `fn_request_payout`
-- `fn_request_transfer_by_email`
-- `fn_complete_transfer`
-- `get_organizer_kpis`
-- `get_event_kpis`
+- organization creation and deletion
+- event draft creation, duplication and status transitions
+- event artist management
+- organizer and event KPI reads
+- organization finance summaries and payout requests
+- transfer request and completion
 
-The unchecked implementations are service-role-only and cannot be executed directly by `authenticated`.
+The second operational migration covers:
+
+- membership invite creation, acceptance and revocation
+- complimentary-ticket and guest-list issuance
+- POS charging
+- bulk and individual ticket scanning
+- permanent-account profile updates
+- talent-profile creation
+- payment-method deactivation/default selection
+- resale listing publication
+
+The final migration covers:
+
+- buyer-owned refund initiation and controlled refund transitions
+- payout-account and payout RLS hardening
+- platform-admin-only payout processing transitions
+- device registration and device-session lifecycle RPCs
+- claimed-account platform-admin checks
+- restrictive RLS policies across sensitive mutation tables
+
+Each protected RPC preserves its existing implementation under an `*_unchecked` name where applicable. `PUBLIC`, `anon` and `authenticated` execution is revoked from unchecked implementations, and the original name is recreated as a fixed-search-path wrapper that runs `app.require_claimed_account()` first.
 
 ## Usage in RLS
 
-For protected table mutations, use the boolean helper in restrictive policies:
+For protected table mutations, use restrictive policies so the claimed-account boundary composes with existing ownership and role policies:
 
 ```sql
-using (app.is_claimed_account() and <existing authorization predicate>)
-with check (app.is_claimed_account() and <existing authorization predicate>)
+create policy claimed_example_update
+on public.example
+as restrictive
+for update
+to authenticated
+using (app.is_claimed_account())
+with check (app.is_claimed_account());
 ```
 
-Do not add the guard to guest checkout capabilities such as browsing, inventory reads, ticket holds, guest order creation or payment completion.
+The final hardening migration applies this pattern to refunds, refund items, payout accounts, payouts, devices, device sessions, platform administrators, organization membership, profiles and guest-list mutations.
 
-## Remaining rollout inventory
+## Refund and payout boundaries
 
-Apply and verify the guard across these protected surfaces:
+A refund request now requires all of the following:
 
-1. Organization profile updates and membership management.
-2. Event editing, publishing APIs and deletion paths not covered by the first RPC batch.
-3. Profile changes that establish public or operational identity.
-4. Refund initiation and approval workflows.
-5. Payout-account management and payout approval/processing surfaces.
-6. POS, cashier, scanner and device management.
-7. Complimentary ticket and guest-list administration.
-8. Resale and waitlist seller/organizer controls.
-9. Platform-admin operations.
-10. Direct table mutations and RLS policies that still depend only on `authenticated` or `auth.uid()`.
+- a claimed account
+- `initiated_by = auth.uid()`
+- initial status `requested`
+- no processor reference or processed timestamp
+- ownership of the payment, or finance/admin authority over its organization
 
-For every surface, tests must prove:
+Refund processing is performed through `fn_transition_refund`. Payout rows are created through `fn_request_payout` and processed through `fn_transition_payout`; direct authenticated payout mutation is revoked.
 
-- Anonymous session denied with `claimed_account_required`.
-- Claimed buyer denied when lacking the relevant role.
-- Authorized claimed organizer/staff/admin allowed.
-- A user in Organization A cannot read or mutate Organization B.
-- Guest checkout and later account claim still work.
+## Explicit exclusions
+
+The following remain available to guest identities where product behavior requires it:
+
+- public event discovery and inventory reads
+- ticket holds and ordinary checkout
+- order creation and provider payment completion
+- ticket capability-token delivery
+- resale and waitlist buyer checkout/payment completion
+- guest-order discovery and account-claim flows
+
+## Required regression coverage
+
+Every protected surface must prove:
+
+- anonymous session denied with `claimed_account_required`
+- claimed buyer denied when lacking the required operational role
+- authorized claimed organizer, finance user, scanner or admin allowed
+- a user in Organization A cannot read or mutate Organization B
+- guest checkout and later account claim still work
 
 ## Verification
 
-Run:
+Run the generic boundary and protected-RPC checks:
 
 ```bash
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/verify-claimed-account.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/verify-claimed-account-protected-rpcs.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/verify-claimed-account-operations.sql
 ```
 
-The first harness verifies the canonical identity boundary. The second verifies anonymous denial across the first protected RPC batch and confirms `authenticated` cannot call the unchecked implementations directly.
+Run the seeded persona and cross-organization suite using the fixture variables documented at the top of:
+
+```bash
+scripts/verify-claimed-account-personas.sql
+```
+
+The migrations were also executed transactionally against the current Ticketiv Supabase schema and rolled back after compilation, anonymous-denial and direct-bypass checks passed.
