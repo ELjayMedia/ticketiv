@@ -35,7 +35,9 @@ test("an event card leads to an event detail page", async ({ page }) => {
   const res = await page.goto(href!)
   expect(res?.ok(), "event detail page should return 2xx").toBeTruthy()
   await expect(page).toHaveURL(/\/events\//)
-  await expect(page.locator("h1, h2").first()).toBeVisible()
+  // Assert the event title rendered (has text). Not toBeVisible: the hero
+  // heading is animated/visibility:hidden at first paint on production.
+  await expect(page.locator("h1").first()).toHaveText(/\S/)
 })
 
 test.describe("authenticated checkout → ticket → scan", () => {
