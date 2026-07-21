@@ -9,28 +9,32 @@
 --   -v platform_admin_user='<uuid>' \
 --   -v buyer_payment_id='<uuid>' \
 --   -f scripts/verify-claimed-account-personas.sql
---
--- Required fixtures:
--- * organizer_a_user is owner/admin of org_a and has no role in org_b.
--- * organizer_b_user is owner/admin of org_b and has no role in org_a.
--- * finance_a_user has finance access in org_a only.
--- * platform_admin_user is active in admin_users.
--- * buyer_payment_id belongs to buyer_user and is in org_a.
 
 begin;
 set local role authenticated;
 
+-- Persist psql fixture arguments as transaction-local settings so they are
+-- safely available inside dollar-quoted DO blocks.
+select set_config('tickiv.test.buyer_user', :'buyer_user', true);
+select set_config('tickiv.test.organizer_a_user', :'organizer_a_user', true);
+select set_config('tickiv.test.organizer_b_user', :'organizer_b_user', true);
+select set_config('tickiv.test.finance_a_user', :'finance_a_user', true);
+select set_config('tickiv.test.platform_admin_user', :'platform_admin_user', true);
+select set_config('tickiv.test.org_a', :'org_a', true);
+select set_config('tickiv.test.org_b', :'org_b', true);
+select set_config('tickiv.test.buyer_payment_id', :'buyer_payment_id', true);
+
 -- 1. Anonymous authenticated-role identity must be denied before any lookup.
 select set_config(
   'request.jwt.claims',
-  format('{"sub":"%s","role":"authenticated","is_anonymous":true}', :'buyer_user'),
+  format('{"sub":"%s","role":"authenticated","is_anonymous":true}', current_setting('tickiv.test.buyer_user')),
   true
 );
 
 do $$
 begin
   begin
-    perform public.fn_register_device(:'org_a'::uuid, null, 'anonymous-test', 'scanner_unassigned');
+    perform public.fn_register_device(current_setting('tickiv.test.org_a')::uuid, null, 'anonymous-test', 'scanner_unassigned');
     raise exception 'anonymous identity registered a device';
   exception when insufficient_privilege then
     if sqlerrm <> 'claimed_account_required' then raise; end if;
@@ -48,20 +52,19 @@ $$;
 -- 2. Claimed buyer may request a refund for their own payment.
 select set_config(
   'request.jwt.claims',
-  format('{"sub":"%s","role":"authenticated","is_anonymous":false}', :'buyer_user'),
+  format('{"sub":"%s","role":"authenticated","is_anonymous":false}', current_setting('tickiv.test.buyer_user')),
   true
 );
 
 insert into public.refunds(payment_id, amount_cents, currency, status, initiated_by)
-select p.id, least(p.amount_cents, 1), p.currency, 'requested', :'buyer_user'::uuid
+select p.id, least(p.amount_cents, 1), p.currency, 'requested', current_setting('tickiv.test.buyer_user')::uuid
 from public.payments p
-where p.id = :'buyer_payment_id'::uuid;
+where p.id = current_setting('tickiv.test.buyer_payment_id')::uuid;
 
--- Claimed buyer still cannot provision an organizer device.
 do $$
 begin
   begin
-    perform public.fn_register_device(:'org_a'::uuid, null, 'buyer-test', 'scanner_unassigned');
+    perform public.fn_register_device(current_setting('tickiv.test.org_a')::uuid, null, 'buyer-test', 'scanner_unassigned');
     raise exception 'plain buyer registered an organizer device';
   exception when insufficient_privilege then
     if sqlerrm <> 'not_authorized' then raise; end if;
@@ -72,16 +75,16 @@ $$;
 -- 3. Organizer A can provision inside A but not Organization B.
 select set_config(
   'request.jwt.claims',
-  format('{"sub":"%s","role":"authenticated","is_anonymous":false}', :'organizer_a_user'),
+  format('{"sub":"%s","role":"authenticated","is_anonymous":false}', current_setting('tickiv.test.organizer_a_user')),
   true
 );
 
-select public.fn_register_device(:'org_a'::uuid, null, 'org-a-test', 'scanner_unassigned');
+select public.fn_register_device(current_setting('tickiv.test.org_a')::uuid, null, 'org-a-test', 'scanner_unassigned');
 
 do $$
 begin
   begin
-    perform public.fn_register_device(:'org_b'::uuid, null, 'cross-org-test', 'scanner_unassigned');
+    perform public.fn_register_device(current_setting('tickiv.test.org_b')::uuid, null, 'cross-org-test', 'scanner_unassigned');
     raise exception 'organizer A provisioned a device in organization B';
   exception when insufficient_privilege then
     if sqlerrm <> 'not_authorized' then raise; end if;
@@ -89,24 +92,21 @@ begin
 end;
 $$;
 
--- 4. Finance A can view/transition an org-A refund, but Organization B's
--- organizer cannot operate on that refund.
+-- 4. Finance A can transition an org-A refund, but Organization B cannot.
 select set_config(
   'request.jwt.claims',
-  format('{"sub":"%s","role":"authenticated","is_anonymous":false}', :'finance_a_user'),
+  format('{"sub":"%s","role":"authenticated","is_anonymous":false}', current_setting('tickiv.test.finance_a_user')),
   true
 );
 
 select public.fn_transition_refund(
-  (select r.id from public.refunds r where r.payment_id = :'buyer_payment_id'::uuid order by r.created_at desc limit 1),
-  'processing',
-  null,
-  null
+  (select r.id from public.refunds r where r.payment_id=current_setting('tickiv.test.buyer_payment_id')::uuid order by r.created_at desc limit 1),
+  'processing', null, null
 );
 
 select set_config(
   'request.jwt.claims',
-  format('{"sub":"%s","role":"authenticated","is_anonymous":false}', :'organizer_b_user'),
+  format('{"sub":"%s","role":"authenticated","is_anonymous":false}', current_setting('tickiv.test.organizer_b_user')),
   true
 );
 
@@ -114,7 +114,7 @@ do $$
 begin
   begin
     perform public.fn_transition_refund(
-      (select r.id from public.refunds r where r.payment_id = :'buyer_payment_id'::uuid order by r.created_at desc limit 1),
+      (select r.id from public.refunds r where r.payment_id=current_setting('tickiv.test.buyer_payment_id')::uuid order by r.created_at desc limit 1),
       'cancelled', null, null
     );
     raise exception 'organization B changed organization A refund';
@@ -127,7 +127,7 @@ $$;
 -- 5. Only a claimed platform admin can transition payouts.
 select set_config(
   'request.jwt.claims',
-  format('{"sub":"%s","role":"authenticated","is_anonymous":false}', :'organizer_a_user'),
+  format('{"sub":"%s","role":"authenticated","is_anonymous":false}', current_setting('tickiv.test.organizer_a_user')),
   true
 );
 
@@ -144,12 +144,10 @@ $$;
 
 select set_config(
   'request.jwt.claims',
-  format('{"sub":"%s","role":"authenticated","is_anonymous":false}', :'platform_admin_user'),
+  format('{"sub":"%s","role":"authenticated","is_anonymous":false}', current_setting('tickiv.test.platform_admin_user')),
   true
 );
 
--- A nonexistent ID proves the admin boundary passed and the resource boundary
--- was reached; expected result is payout_not_found rather than not_authorized.
 do $$
 begin
   begin
@@ -161,11 +159,9 @@ begin
 end;
 $$;
 
--- 6. Policy inventory assertions: every protected table must have the
--- restrictive claimed-account policy installed.
+-- 6. Policy inventory assertions.
 do $$
-declare
-  v_missing text;
+declare v_missing text;
 begin
   select string_agg(t.table_name, ', ')
   into v_missing
