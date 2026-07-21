@@ -83,28 +83,30 @@ $$;
 -- authenticated role, preventing bypass of the wrappers.
 do $$
 declare
-  v_name text;
-  v_signature text;
-  v_specs text[][] := array[
-    array['fn_create_organization_unchecked','text, text'],
-    array['create_event_draft_unchecked','uuid, text, text'],
-    array['fn_delete_organization_unchecked','uuid, text'],
-    array['fn_duplicate_event_unchecked','uuid'],
-    array['fn_transition_event_status_unchecked','uuid, text'],
-    array['fn_link_event_artist_by_name_unchecked','uuid, text, text, text, text'],
-    array['fn_org_finance_summary_unchecked','uuid, timestamp with time zone, timestamp with time zone'],
-    array['fn_request_payout_unchecked','uuid, integer'],
-    array['fn_request_transfer_by_email_unchecked','uuid, text'],
-    array['fn_complete_transfer_unchecked','uuid'],
-    array['get_organizer_kpis_unchecked','text'],
-    array['get_event_kpis_unchecked','uuid']
-  ];
+  v_spec record;
 begin
-  foreach v_specs slice 1 in array v_specs loop
-    v_name := v_specs[1];
-    v_signature := v_specs[2];
-    if has_function_privilege('authenticated', format('public.%I(%s)', v_name, v_signature), 'EXECUTE') then
-      raise exception 'authenticated can bypass wrapper via %', v_name;
+  for v_spec in
+    select * from (values
+      ('fn_create_organization_unchecked', 'text, text'),
+      ('create_event_draft_unchecked', 'uuid, text, text'),
+      ('fn_delete_organization_unchecked', 'uuid, text'),
+      ('fn_duplicate_event_unchecked', 'uuid'),
+      ('fn_transition_event_status_unchecked', 'uuid, text'),
+      ('fn_link_event_artist_by_name_unchecked', 'uuid, text, text, text, text'),
+      ('fn_org_finance_summary_unchecked', 'uuid, timestamp with time zone, timestamp with time zone'),
+      ('fn_request_payout_unchecked', 'uuid, integer'),
+      ('fn_request_transfer_by_email_unchecked', 'uuid, text'),
+      ('fn_complete_transfer_unchecked', 'uuid'),
+      ('get_organizer_kpis_unchecked', 'text'),
+      ('get_event_kpis_unchecked', 'uuid')
+    ) as specs(function_name, identity_args)
+  loop
+    if has_function_privilege(
+      'authenticated',
+      format('public.%I(%s)', v_spec.function_name, v_spec.identity_args),
+      'EXECUTE'
+    ) then
+      raise exception 'authenticated can bypass wrapper via %', v_spec.function_name;
     end if;
   end loop;
 end;
