@@ -22,22 +22,23 @@ export default async function OrgEventsPage({
   searchParams: Promise<{ q?: string; status?: string }>
 }) {
   const { orgId } = await params
-  await requireOrgCapability(orgId, "manage")
-  const { q: rawQ, status: rawStatus } = await searchParams
-
+  const returnPath = `/orgs/${orgId}/events`
   const supabase = createServerSupabaseClient()
-  if (!supabase) return redirect("/login")
+
+  if (!supabase) return redirect(`/login?next=${encodeURIComponent(returnPath)}`)
 
   const {
     data: { session },
   } = await supabase.auth.getSession()
-  if (!session) return redirect("/login")
+  if (!session) return redirect(`/login?next=${encodeURIComponent(returnPath)}`)
+
+  await requireOrgCapability(orgId, "manage")
+  const { q: rawQ, status: rawStatus } = await searchParams
 
   const searchQuery = rawQ?.trim() ?? ""
   const statusFilter: StatusFilter =
     (STATUS_OPTIONS.includes(rawStatus as StatusFilter) ? rawStatus : "all") as StatusFilter
 
-  // Base events query with ilike search and status filter
   let query = supabase
     .from("events")
     .select("id, title, description, starts_at, status, cover_image_url")
@@ -54,16 +55,12 @@ export default async function OrgEventsPage({
   const { data: eventsData = [] } = await query
   const events = eventsData ?? []
 
-  // TICK-223: Fetch real sales stats from event_live_stats instead of the
-  // hardcoded `count * 129` formula that was previously used.
-  // TICK-226: Also fetch checked_in_count and capacity for sell-through % and check-in rate.
   const statsMap = new Map<
     string,
     { tickets_sold: number; gross_sales_cents: number; checked_in_count: number }
   >()
   const capacityMap = new Map<string, number>()
 
-  // TICK-227: Determine if user can delete events (owner/admin roles only)
   const OWNER_ROLES = new Set(["organizer_owner", "organizer_admin", "admin"])
   let canDelete = false
   const { data: memberRow } = await supabase
@@ -112,6 +109,13 @@ export default async function OrgEventsPage({
       <div className="container mx-auto flex flex-col gap-8 p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1">
+            <Link
+              href={`/orgs/${orgId}/dashboard`}
+              className="mb-1 inline-flex w-fit items-center gap-1 text-[12px] font-medium text-ink-3 hover:text-ink"
+            >
+              <Icon name="chevL" size={13} />
+              Workspace dashboard
+            </Link>
             <h1 className="text-h1">Events</h1>
             <p className="text-[13px] text-ink-3">
               Create and manage your events, track sales and revenue.
@@ -126,7 +130,6 @@ export default async function OrgEventsPage({
           </Link>
         </div>
 
-        {/* TICK-225: Search + status filter bar */}
         <EventsFilterBar currentQ={searchQuery} currentStatus={statusFilter} />
 
         {events.length === 0 ? (
@@ -134,7 +137,7 @@ export default async function OrgEventsPage({
             <EmptyState
               icon="search"
               title="No events match"
-              description={`Try a different search term or status filter.`}
+              description="Try a different search term or status filter."
               action={{ label: "Clear filters", href: `/orgs/${orgId}/events` }}
               compact
             />
