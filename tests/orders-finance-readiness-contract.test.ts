@@ -21,11 +21,15 @@ describe("organizer order and refund readiness", () => {
     expect(actions).toContain('status: "requested"')
   })
 
-  it("records refund and revocation support actions in the organization audit log", () => {
+  it("records semantic support events using the shared audit_action taxonomy", () => {
     const actions = read("app/orgs/[orgId]/events/[eventId]/orders/actions.ts")
+    const detail = read("app/orgs/[orgId]/events/[eventId]/orders/[orderId]/page.tsx")
     expect(actions).toContain('.from("audit_log")')
-    expect(actions).toContain('action: "refund_requested"')
-    expect(actions).toContain('action: "ticket_revoked"')
+    expect(actions).toContain('action: "other"')
+    expect(actions).toContain('event_type: "refund_requested"')
+    expect(actions).toContain('event_type: "ticket_revoked"')
+    expect(detail).toContain('.eq("action", "other")')
+    expect(detail).toContain("changes?.event_type")
   })
 
   it("exposes payment, ownership, refund and support history on order detail", () => {
