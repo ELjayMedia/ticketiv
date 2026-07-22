@@ -7,14 +7,7 @@ interface ScannerPageProps {
 
 export default async function ScannerPage({ params }: ScannerPageProps) {
   const { orgId, eventId } = await params
-  const { event, accessRole } = await requireEventScannerAccess(orgId, eventId)
+  await requireEventScannerAccess(orgId, eventId)
 
-  return (
-    <ScannerClient
-      orgId={orgId}
-      eventId={eventId}
-      eventTitle={event.title ?? "Event"}
-      accessRole={accessRole}
-    />
-  )
+  return <ScannerClient orgId={orgId} eventId={eventId} />
 }
