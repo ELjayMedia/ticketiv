@@ -9,10 +9,10 @@ export const dynamic = "force-dynamic";
 export default async function FriendsPage() {
   const overview = await getMyFriendsOverview();
   if (!overview) {
-    redirect("/login");
+    redirect("/login?next=/friends");
   }
 
-  const props = mapFriends(overview!);
+  const props = mapFriends(overview);
 
   return (
     <div className="mx-auto max-w-[480px]">

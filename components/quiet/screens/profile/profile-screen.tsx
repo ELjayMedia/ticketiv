@@ -63,7 +63,7 @@ export function ProfileScreen({ user, appVersion = "current", tapBand, orgContex
             Sign in to view your Ticketiv profile, tickets, orders and preferences.
           </p>
           <Link
-            href="/login"
+            href="/login?next=/me"
             className="mt-4 inline-flex items-center justify-center rounded-[var(--radius)] border border-line-2 px-4 py-2 text-[13px] font-semibold text-ink hover:bg-bg"
           >
             Sign in
@@ -117,9 +117,9 @@ export function ProfileScreen({ user, appVersion = "current", tapBand, orgContex
       icon: "arrowUR",
       label: "Transfers",
       value: user.pendingTransfers > 0 ? `${user.pendingTransfers} pending` : "none",
-      href: "/transfers",
+      href: "/tickets",
       accent: user.pendingTransfers > 0,
-      description: "Incoming and outgoing ticket transfers",
+      description: "Manage incoming and outgoing transfers with your tickets",
     },
     {
       icon: "clock",
@@ -329,6 +329,7 @@ function SettingsList({ title, rows, plain }: { title: string; rows: SettingRow[
               {!(r.accent && plain) && <Icon name="chevR" size={14} className="text-ink-3" />}
             </div>
           );
+          if (r.href?.startsWith("mailto:")) return <a key={r.label} href={r.href}>{Inner}</a>;
           if (r.href) return <Link key={r.label} href={r.href}>{Inner}</Link>;
           if (r.action)
             return (

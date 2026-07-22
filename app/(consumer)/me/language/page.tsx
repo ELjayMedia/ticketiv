@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic"
 export default async function LanguagePage() {
   const profile = await getMyProfile()
   if (!profile) {
-    redirect("/login")
+    redirect("/login?next=/me/language")
   }
 
-  return <LanguageScreen current={profile!.locale} />
+  return <LanguageScreen current={profile.locale} />
 }
