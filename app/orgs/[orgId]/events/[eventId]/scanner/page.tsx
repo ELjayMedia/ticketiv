@@ -1,4 +1,5 @@
-import { ScannerClient } from "./scanner-client"
+import { redirect } from "next/navigation"
+
 import { requireEventScannerAccess } from "@/lib/org-management"
 
 interface ScannerPageProps {
@@ -9,5 +10,11 @@ export default async function ScannerPage({ params }: ScannerPageProps) {
   const { orgId, eventId } = await params
   await requireEventScannerAccess(orgId, eventId)
 
-  return <ScannerClient orgId={orgId} eventId={eventId} />
+  const setupParams = new URLSearchParams({
+    orgId,
+    eventId,
+    returnTo: `/orgs/${orgId}/events/${eventId}`,
+  })
+
+  redirect(`/scan/setup?${setupParams.toString()}`)
 }
