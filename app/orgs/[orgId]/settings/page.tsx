@@ -17,14 +17,25 @@ export default async function WorkspaceSettingsPage({
 }) {
   const { orgId } = await params
   const { deleteError } = await searchParams
-  const caps = await getMyOrgCapabilities(orgId)
+  const returnPath = `/orgs/${orgId}/settings`
+  const supabase = createServerSupabaseClient()
 
+  if (!supabase) redirect(`/login?next=${encodeURIComponent(returnPath)}`)
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect(`/login?next=${encodeURIComponent(returnPath)}`)
+
+  const caps = await getMyOrgCapabilities(orgId)
   if (caps.role !== "organizer_owner") redirect(`/orgs/${orgId}/dashboard`)
 
-  const supabase = createServerSupabaseClient()
-  if (!supabase) redirect("/login")
+  const [orgResult, eventsResult] = await Promise.all([
+    supabase.from("organizations").select("name").eq("id", orgId).maybeSingle(),
+    supabase.from("events").select("id", { count: "exact", head: true }).eq("org_id", orgId),
+  ])
 
-  const { data: org } = await supabase.from("organizations").select("name").eq("id", orgId).maybeSingle()
+  const org = orgResult.data
   if (!org) redirect("/403")
 
   return (
@@ -38,7 +49,12 @@ export default async function WorkspaceSettingsPage({
           <p className="mt-1 text-[13px] text-ink-3">Manage permanent settings for {org.name}.</p>
         </div>
 
-        <DeleteWorkspacePanel orgId={orgId} orgName={org.name} error={deleteError ? decodeURIComponent(deleteError) : undefined} />
+        <DeleteWorkspacePanel
+          orgId={orgId}
+          orgName={org.name}
+          eventCount={eventsResult.count ?? 0}
+          error={deleteError ? decodeURIComponent(deleteError) : undefined}
+        />
       </div>
     </main>
   )
