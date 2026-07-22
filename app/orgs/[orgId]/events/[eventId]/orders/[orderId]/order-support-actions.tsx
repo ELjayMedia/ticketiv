@@ -4,20 +4,22 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { revokeTicketAction, initiateRefundAction } from "../actions"
 
-// TICK-49 — Support action buttons (revoke, refund) — gated on org admin
-
 export function OrderSupportActions({
   orgId,
   eventId,
   orderId,
   orderItemId,
   itemStatus,
+  itemPriceCents,
+  currency,
 }: {
   orgId: string
   eventId: string
   orderId: string
   orderItemId: string
   itemStatus: string
+  itemPriceCents: number
+  currency: string
 }) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
@@ -41,12 +43,30 @@ export function OrderSupportActions({
   }
 
   async function handleRefund() {
+    const defaultAmount = (itemPriceCents / 100).toFixed(2)
+    const amountInput = prompt(
+      `Refund amount in ${currency}. Enter the full ticket amount or a smaller partial amount:`,
+      defaultAmount,
+    )
+    if (!amountInput) return
+
+    const amount = Number(amountInput.replace(/,/g, ""))
+    const amountCents = Math.round(amount * 100)
+    if (!Number.isFinite(amount) || amountCents <= 0) {
+      setError("Enter a valid refund amount greater than zero")
+      return
+    }
+
     const reason = prompt("Reason for refund (required):")
-    if (!reason) return
+    if (!reason?.trim()) return
+
+    const label = amountCents === itemPriceCents ? "full" : "partial"
+    if (!confirm(`Request a ${label} refund of ${currency} ${(amountCents / 100).toFixed(2)}?`)) return
+
     setBusy(true)
     setError("")
     try {
-      await initiateRefundAction(orgId, eventId, orderItemId, reason)
+      await initiateRefundAction(orgId, eventId, orderItemId, amountCents, reason)
       router.refresh()
     } catch (e: any) {
       setError(e?.message ?? "Failed to initiate refund")
@@ -77,13 +97,11 @@ export function OrderSupportActions({
             onClick={handleRefund}
             className="rounded-[var(--radius)] border border-line-2 px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-3 transition hover:border-warning hover:text-warning disabled:opacity-50"
           >
-            Refund
+            Request refund
           </button>
         )}
       </div>
-      {error && (
-        <p className="font-mono text-[11px] text-danger">{error}</p>
-      )}
+      {error && <p className="font-mono text-[11px] text-danger">{error}</p>}
     </div>
   )
 }
