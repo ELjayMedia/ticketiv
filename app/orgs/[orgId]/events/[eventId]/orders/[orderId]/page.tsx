@@ -1,17 +1,26 @@
-import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { redirect } from "next/navigation"
 import Link from "next/link"
+import { redirect } from "next/navigation"
 
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { OrderSupportActions } from "./order-support-actions"
 
 export const dynamic = "force-dynamic"
 
-function fmtDate(d: string | null) {
-  if (!d) return "—"
-  return new Intl.DateTimeFormat("en-SZ", { dateStyle: "medium", timeStyle: "short" }).format(new Date(d))
+function fmtDate(value: string | null) {
+  if (!value) return "—"
+  return new Intl.DateTimeFormat("en-SZ", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value))
+}
+
+function Summary({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">{label}</p>
+      <p className={`${mono ? "font-mono text-[12px]" : "text-[14px]"} break-all text-ink`}>{value}</p>
+    </div>
+  )
 }
 
 export default async function OrderDetailPage({
@@ -57,7 +66,9 @@ export default async function OrderDetailPage({
 
   const { data: order } = await supabase
     .from("orders")
-    .select("id, status, total_cents, currency, email, buyer_email, buyer_phone, buyer_id, channel, created_at, item_count, subtotal_cents, platform_fee_cents, processor_fee_cents, org_id")
+    .select(
+      "id, status, total_cents, currency, email, buyer_email, buyer_phone, buyer_id, channel, created_at, item_count, subtotal_cents, platform_fee_cents, processor_fee_cents, org_id",
+    )
     .eq("id", orderId)
     .eq("org_id", orgId)
     .maybeSingle()
@@ -100,7 +111,7 @@ export default async function OrderDetailPage({
   const { data: transfers = [] } = itemIds.length
     ? await supabase
         .from("transfers")
-        .select("id, order_item_id, from_user_id, to_user_id, status, price_cents, created_at")
+        .select("id, order_item_id, from_user_id, to_user_id, status, created_at")
         .in("order_item_id", itemIds)
         .order("created_at", { ascending: false })
     : { data: [] as any[] }
@@ -109,13 +120,17 @@ export default async function OrderDetailPage({
     .from("audit_log")
     .select("id, action, changes, actor_id, created_at")
     .eq("org_id", orgId)
-    .in("action", ["refund_requested", "ticket_revoked"])
+    .eq("action", "other")
+    .in("table_name", ["refunds", "order_items"])
     .order("created_at", { ascending: false })
-    .limit(50)
+    .limit(100)
 
-  const orderAudit = (supportAudit ?? []).filter((entry: any) =>
-    entry.changes?.order_id === orderId || itemIds.includes(entry.changes?.order_item_id),
-  )
+  const orderAudit = (supportAudit ?? []).filter((entry: any) => {
+    const eventType = entry.changes?.event_type
+    const isSupportEvent = eventType === "refund_requested" || eventType === "ticket_revoked"
+    const belongsToOrder = entry.changes?.order_id === orderId || itemIds.includes(entry.changes?.order_item_id)
+    return isSupportEvent && belongsToOrder
+  })
 
   return (
     <main className="flex-1 overflow-auto">
@@ -132,7 +147,11 @@ export default async function OrderDetailPage({
             <p className="text-[13px] text-ink-3">{event.title}</p>
           </div>
           <div className="ml-auto">
-            <Chip size="sm" variant={order.status === "paid" ? "active" : order.status === "refunded" ? "accent" : "muted"} className="capitalize">
+            <Chip
+              size="sm"
+              variant={order.status === "paid" ? "active" : order.status === "refunded" ? "accent" : "muted"}
+              className="capitalize"
+            >
               {order.status}
             </Chip>
           </div>
@@ -148,12 +167,7 @@ export default async function OrderDetailPage({
             <Summary label="Channel" value={order.channel ?? "online"} />
             <Summary label="Ordered" value={fmtDate(order.created_at)} />
             <Summary label="Order reference" value={order.id} mono />
-            <div className="flex flex-col gap-1">
-              <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Total</p>
-              <p className="font-mono text-[18px] font-semibold tabular-nums text-ink">
-                {order.currency ?? "SZL"} {((order.total_cents ?? 0) / 100).toFixed(2)}
-              </p>
-            </div>
+            <Summary label="Total" value={`${order.currency ?? "SZL"} ${((order.total_cents ?? 0) / 100).toFixed(2)}`} mono />
             <Summary
               label="Fees"
               value={`Platform ${((order.platform_fee_cents ?? 0) / 100).toFixed(2)} · Processor ${((order.processor_fee_cents ?? 0) / 100).toFixed(2)}`}
@@ -186,7 +200,7 @@ export default async function OrderDetailPage({
         </Card>
 
         <Card>
-          <CardBody className="flex items-center justify-between px-5 py-4"><p className="text-label">Tickets ({items.length})</p></CardBody>
+          <CardBody className="px-5 py-4"><p className="text-label">Tickets ({items.length})</p></CardBody>
           <CardDivider />
           {items.length === 0 ? (
             <CardBody className="py-8 text-center text-[13px] text-ink-3">No tickets found for this event.</CardBody>
@@ -227,10 +241,10 @@ export default async function OrderDetailPage({
             <CardBody className="px-5 py-4"><p className="text-label">Adjustments</p></CardBody>
             <CardDivider />
             <CardBody className="flex flex-col gap-3 p-5">
-              {(adjustments ?? []).map((adj: any) => (
-                <div key={adj.id} className="flex items-center justify-between gap-3">
-                  <div><p className="text-[13px] font-semibold text-ink">{adj.label ?? adj.type}</p><p className="font-mono text-[11px] text-ink-3">{fmtDate(adj.created_at)}</p></div>
-                  <p className="font-mono text-[14px] font-semibold tabular-nums">{adj.amount_cents >= 0 ? "+" : ""}{(adj.amount_cents / 100).toFixed(2)}</p>
+              {(adjustments ?? []).map((adjustment: any) => (
+                <div key={adjustment.id} className="flex items-center justify-between gap-3">
+                  <div><p className="text-[13px] font-semibold text-ink">{adjustment.label ?? adjustment.type}</p><p className="font-mono text-[11px] text-ink-3">{fmtDate(adjustment.created_at)}</p></div>
+                  <p className="font-mono text-[14px] font-semibold tabular-nums">{adjustment.amount_cents >= 0 ? "+" : ""}{(adjustment.amount_cents / 100).toFixed(2)}</p>
                 </div>
               ))}
             </CardBody>
@@ -275,7 +289,10 @@ export default async function OrderDetailPage({
             <CardDivider />
             <CardBody className="flex flex-col gap-3 p-5">
               {orderAudit.map((entry: any) => (
-                <div key={entry.id} className="flex items-center justify-between gap-3"><p className="text-[13px] font-semibold capitalize text-ink">{entry.action.replace(/_/g, " ")}</p><p className="font-mono text-[11px] text-ink-3">{fmtDate(entry.created_at)}</p></div>
+                <div key={entry.id} className="flex items-center justify-between gap-3">
+                  <p className="text-[13px] font-semibold capitalize text-ink">{String(entry.changes?.event_type ?? entry.action).replace(/_/g, " ")}</p>
+                  <p className="font-mono text-[11px] text-ink-3">{fmtDate(entry.created_at)}</p>
+                </div>
               ))}
             </CardBody>
           </Card>
@@ -283,8 +300,4 @@ export default async function OrderDetailPage({
       </div>
     </main>
   )
-}
-
-function Summary({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
-  return <div className="flex min-w-0 flex-col gap-1"><p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">{label}</p><p className={`${mono ? "font-mono text-[12px]" : "text-[14px]"} break-all text-ink`}>{value}</p></div>
 }
