@@ -1,7 +1,7 @@
 "use server"
 
-import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { revalidatePath } from "next/cache"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 const SUPPORT_ROLES = new Set([
   "admin",
@@ -53,7 +53,9 @@ export async function initiateRefundAction(
   const { supabase, userId } = await requireEventSupportAccess(orgId, eventId)
   const normalizedReason = reason.trim()
   if (!normalizedReason) throw new Error("Refund reason is required")
-  if (!Number.isInteger(amountCents) || amountCents <= 0) throw new Error("Refund amount must be greater than zero")
+  if (!Number.isInteger(amountCents) || amountCents <= 0) {
+    throw new Error("Refund amount must be greater than zero")
+  }
 
   const { data: item } = await supabase
     .from("order_items")
@@ -97,7 +99,9 @@ export async function initiateRefundAction(
   )
   const remainingRefundable = Math.max(0, (payment.amount_cents ?? 0) - alreadyRequested)
   if (amountCents > remainingRefundable) {
-    throw new Error(`Refund exceeds the remaining refundable amount of ${payment.currency ?? order.currency} ${(remainingRefundable / 100).toFixed(2)}`)
+    throw new Error(
+      `Refund exceeds the remaining refundable amount of ${payment.currency ?? order.currency} ${(remainingRefundable / 100).toFixed(2)}`,
+    )
   }
 
   const itemFaceValue = Number((item.ticket_types as any)?.price_cents ?? 0)
@@ -111,7 +115,7 @@ export async function initiateRefundAction(
       payment_id: payment.id,
       amount_cents: amountCents,
       currency: payment.currency ?? order.currency ?? "SZL",
-      type: "organizer_initiated" as any,
+      type: amountCents === itemFaceValue ? "full" : "partial",
       status: "requested",
       initiated_by: userId,
     })
@@ -119,12 +123,14 @@ export async function initiateRefundAction(
     .single()
   if (error) throw new Error(error.message)
 
-  await supabase.from("audit_log").insert({
+  const { error: auditError } = await supabase.from("audit_log").insert({
     org_id: orgId,
     actor_id: userId,
     table_name: "refunds",
-    action: "refund_requested",
+    record_id: refund.id,
+    action: "other",
     changes: {
+      event_type: "refund_requested",
       refund_id: refund.id,
       order_id: order.id,
       order_item_id: orderItemId,
@@ -133,6 +139,7 @@ export async function initiateRefundAction(
       reason: normalizedReason,
     },
   })
+  if (auditError) throw new Error(`Refund created but audit logging failed: ${auditError.message}`)
 
   revalidatePath(`/orgs/${orgId}/events/${eventId}/orders/${order.id}`)
   revalidatePath(`/orgs/${orgId}/finance`)
@@ -144,7 +151,7 @@ export async function revokeTicketAction(orgId: string, eventId: string, orderIt
 
   const { data: item } = await supabase
     .from("order_items")
-    .select("id, status, ticket_type_id, ticket_types!inner(event_id)")
+    .select("id, order_id, status, ticket_type_id, ticket_types!inner(event_id)")
     .eq("id", orderItemId)
     .maybeSingle()
 
@@ -159,14 +166,22 @@ export async function revokeTicketAction(orgId: string, eventId: string, orderIt
     .eq("id", orderItemId)
   if (error) throw new Error(error.message)
 
-  await supabase.from("audit_log").insert({
+  const { error: auditError } = await supabase.from("audit_log").insert({
     org_id: orgId,
     actor_id: userId,
     table_name: "order_items",
-    action: "ticket_revoked",
-    changes: { order_item_id: orderItemId, event_id: eventId },
+    record_id: orderItemId,
+    action: "other",
+    changes: {
+      event_type: "ticket_revoked",
+      order_id: item.order_id,
+      order_item_id: orderItemId,
+      event_id: eventId,
+    },
   })
+  if (auditError) throw new Error(`Ticket revoked but audit logging failed: ${auditError.message}`)
 
+  revalidatePath(`/orgs/${orgId}/events/${eventId}/orders/${item.order_id}`)
   return { ok: true }
 }
 
