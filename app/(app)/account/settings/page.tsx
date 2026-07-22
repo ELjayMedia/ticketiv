@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic"
 export default async function AccountSettingsPage() {
   const settings = await getAccountSettings()
   if (!settings) {
-    redirect("/login")
+    redirect("/login?next=/account/settings")
   }
 
-  return <AccountSettingsScreen settings={settings!} />
+  return <AccountSettingsScreen settings={settings} />
 }
