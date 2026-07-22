@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic"
 export default async function PaymentMethodsPage() {
   const methods = await listMyPaymentMethods()
   if (methods === null) {
-    redirect("/login")
+    redirect("/login?next=/me/payment-methods")
   }
 
-  return <PaymentMethodsScreen methods={methods!} />
+  return <PaymentMethodsScreen methods={methods} />
 }
