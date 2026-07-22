@@ -1,14 +1,26 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 
 import { Card, CardBody } from "@/components/quiet/ui/card"
 import { deleteWorkspaceAction } from "./delete-workspace-action"
 
-export function DeleteWorkspacePanel({ orgId, orgName, error }: { orgId: string; orgName: string; error?: string }) {
+export function DeleteWorkspacePanel({
+  orgId,
+  orgName,
+  eventCount,
+  error,
+}: {
+  orgId: string
+  orgName: string
+  eventCount: number
+  error?: string
+}) {
   const [open, setOpen] = useState(Boolean(error))
   const [confirmation, setConfirmation] = useState("")
   const matches = confirmation === orgName
+  const blockedByEvents = eventCount > 0
 
   return (
     <section className="flex flex-col gap-3">
@@ -23,14 +35,28 @@ export function DeleteWorkspacePanel({ orgId, orgName, error }: { orgId: string;
             <p className="mt-1 text-[12px] leading-relaxed text-ink-3">
               Only empty workspaces can be deleted. Workspaces with events, orders, payouts, payout accounts, or resale activity are protected.
             </p>
+            {blockedByEvents && (
+              <p className="mt-2 text-[12px] font-medium text-danger">
+                This workspace has {eventCount} {eventCount === 1 ? "event" : "events"}. Archive or remove them before deleting the workspace.
+              </p>
+            )}
           </div>
-          <button type="button" onClick={() => setOpen(true)} className="shrink-0 rounded-[var(--radius)] border border-danger px-4 py-2 text-[13px] font-semibold text-danger hover:bg-danger-soft">
-            Delete workspace
-          </button>
+          {blockedByEvents ? (
+            <Link
+              href={`/orgs/${orgId}/events`}
+              className="shrink-0 rounded-[var(--radius)] border border-line-2 px-4 py-2 text-center text-[13px] font-semibold text-ink hover:bg-bg"
+            >
+              Manage events
+            </Link>
+          ) : (
+            <button type="button" onClick={() => setOpen(true)} className="shrink-0 rounded-[var(--radius)] border border-danger px-4 py-2 text-[13px] font-semibold text-danger hover:bg-danger-soft">
+              Delete workspace
+            </button>
+          )}
         </CardBody>
       </Card>
 
-      {open && (
+      {open && !blockedByEvents && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="delete-workspace-title">
           <div className="w-full max-w-md rounded-[var(--radius-lg)] bg-surface p-5 shadow-xl">
             <h2 id="delete-workspace-title" className="text-[18px] font-semibold text-ink">Delete {orgName}?</h2>
