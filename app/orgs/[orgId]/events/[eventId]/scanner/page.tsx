@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation"
 
-import { ScannerClient } from "./scanner-client"
-import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { requireEventScannerAccess } from "@/lib/org-management"
 
 interface ScannerPageProps {
   params: Promise<{ orgId: string; eventId: string }>
@@ -9,15 +8,13 @@ interface ScannerPageProps {
 
 export default async function ScannerPage({ params }: ScannerPageProps) {
   const { orgId, eventId } = await params
-  const supabase = createServerSupabaseClient()
+  await requireEventScannerAccess(orgId, eventId)
 
-  if (!supabase) redirect("/login")
+  const setupParams = new URLSearchParams({
+    orgId,
+    eventId,
+    returnTo: `/orgs/${orgId}/events/${eventId}`,
+  })
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  if (!session) redirect(`/login?redirectTo=${encodeURIComponent(`/orgs/${orgId}/events/${eventId}/scanner`)}`)
-
-  return <ScannerClient orgId={orgId} eventId={eventId} />
+  redirect(`/scan/setup?${setupParams.toString()}`)
 }
