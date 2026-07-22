@@ -15,7 +15,7 @@ export default async function MePage() {
     getMyContexts(),
   ]);
   if (!profile) {
-    redirect("/login");
+    redirect("/login?next=/me");
   }
 
   const hasOrganizerWorkspace = contexts.some((context) => context.kind === "org");
@@ -31,7 +31,7 @@ export default async function MePage() {
   return (
     <div className="mx-auto max-w-[480px]">
       <ProfileScreen
-        user={mapProfile(profile!)}
+        user={mapProfile(profile)}
         tapBand={tapBand}
         orgContexts={organizerDashboard}
       />
