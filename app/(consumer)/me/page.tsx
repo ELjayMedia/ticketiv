@@ -18,22 +18,16 @@ export default async function MePage() {
     redirect("/login?next=/me");
   }
 
-  const hasOrganizerWorkspace = contexts.some((context) => context.kind === "org");
-  const organizerDashboard = hasOrganizerWorkspace
-    ? [{
-        key: "organizer-dashboard",
-        label: "Organizer",
-        sublabel: "Choose a workspace",
-        href: "/organizer",
-      }]
-    : [];
+  const organizerWorkspaces = contexts
+    .filter((context) => context.kind === "org")
+    .map(({ key, label, sublabel, href }) => ({ key, label, sublabel, href }));
 
   return (
     <div className="mx-auto max-w-[480px]">
       <ProfileScreen
         user={mapProfile(profile)}
         tapBand={tapBand}
-        orgContexts={organizerDashboard}
+        orgContexts={organizerWorkspaces}
       />
     </div>
   );
