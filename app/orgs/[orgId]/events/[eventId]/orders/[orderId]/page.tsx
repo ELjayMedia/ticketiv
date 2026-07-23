@@ -74,7 +74,7 @@ export default async function OrderDetailPage({
     .maybeSingle()
   if (!order) return redirect("/403")
 
-  const { data: itemRows = [] } = await supabase
+  const { data: itemRows } = await supabase
     .from("order_items")
     .select(`
       id, ticket_code, status, holder_name, holder_email, holder_phone,
@@ -86,37 +86,41 @@ export default async function OrderDetailPage({
     .order("created_at", { ascending: true })
   const items = (itemRows ?? []) as any[]
 
-  const { data: payments = [] } = await supabase
+  const { data: paymentRows } = await supabase
     .from("payments")
     .select("id, provider, status, amount_cents, currency, ext_payment_id, created_at")
     .eq("order_id", orderId)
     .order("created_at", { ascending: false })
-  const paymentIds = (payments ?? []).map((payment) => payment.id)
+  const payments = paymentRows ?? []
+  const paymentIds = payments.map((payment) => payment.id)
 
-  const { data: refunds = [] } = paymentIds.length
+  const refundResult = paymentIds.length
     ? await supabase
         .from("refunds")
         .select("id, payment_id, amount_cents, currency, status, type, initiated_by, created_at, processed_at")
         .in("payment_id", paymentIds)
         .order("created_at", { ascending: false })
     : { data: [] as any[] }
+  const refunds = refundResult.data ?? []
 
-  const { data: adjustments = [] } = await supabase
+  const { data: adjustmentRows } = await supabase
     .from("order_adjustments")
     .select("id, type, label, amount_cents, created_at")
     .eq("order_id", orderId)
     .order("created_at", { ascending: true })
+  const adjustments = adjustmentRows ?? []
 
   const itemIds = items.map((item) => item.id)
-  const { data: transfers = [] } = itemIds.length
+  const transferResult = itemIds.length
     ? await supabase
         .from("transfers")
         .select("id, order_item_id, from_user_id, to_user_id, status, created_at")
         .in("order_item_id", itemIds)
         .order("created_at", { ascending: false })
     : { data: [] as any[] }
+  const transfers = transferResult.data ?? []
 
-  const { data: supportAudit = [] } = await supabase
+  const { data: auditRows } = await supabase
     .from("audit_log")
     .select("id, action, changes, actor_id, created_at")
     .eq("org_id", orgId)
@@ -124,8 +128,9 @@ export default async function OrderDetailPage({
     .in("table_name", ["refunds", "order_items"])
     .order("created_at", { ascending: false })
     .limit(100)
+  const supportAudit = auditRows ?? []
 
-  const orderAudit = (supportAudit ?? []).filter((entry: any) => {
+  const orderAudit = supportAudit.filter((entry: any) => {
     const eventType = entry.changes?.event_type
     const isSupportEvent = eventType === "refund_requested" || eventType === "ticket_revoked"
     const belongsToOrder = entry.changes?.order_id === orderId || itemIds.includes(entry.changes?.order_item_id)
@@ -183,7 +188,7 @@ export default async function OrderDetailPage({
             <CardBody className="py-8 text-center text-[13px] text-ink-3">No payment attempt is recorded for this order.</CardBody>
           ) : (
             <div className="divide-y divide-line">
-              {payments.map((payment: any) => (
+              {payments.map((payment) => (
                 <div key={payment.id} className="flex flex-wrap items-center justify-between gap-3 p-5">
                   <div>
                     <p className="text-[13px] font-semibold capitalize text-ink">{payment.provider ?? "Payment"}</p>
@@ -206,7 +211,7 @@ export default async function OrderDetailPage({
             <CardBody className="py-8 text-center text-[13px] text-ink-3">No tickets found for this event.</CardBody>
           ) : (
             <div className="divide-y divide-line">
-              {items.map((item: any) => (
+              {items.map((item) => (
                 <div key={item.id} className="flex flex-col gap-3 p-5 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex flex-col gap-1">
                     <p className="font-mono text-[13px] font-semibold text-ink">{item.ticket_code}</p>
@@ -236,12 +241,12 @@ export default async function OrderDetailPage({
           )}
         </Card>
 
-        {(adjustments ?? []).length > 0 && (
+        {adjustments.length > 0 && (
           <Card>
             <CardBody className="px-5 py-4"><p className="text-label">Adjustments</p></CardBody>
             <CardDivider />
             <CardBody className="flex flex-col gap-3 p-5">
-              {(adjustments ?? []).map((adjustment: any) => (
+              {adjustments.map((adjustment) => (
                 <div key={adjustment.id} className="flex items-center justify-between gap-3">
                   <div><p className="text-[13px] font-semibold text-ink">{adjustment.label ?? adjustment.type}</p><p className="font-mono text-[11px] text-ink-3">{fmtDate(adjustment.created_at)}</p></div>
                   <p className="font-mono text-[14px] font-semibold tabular-nums">{adjustment.amount_cents >= 0 ? "+" : ""}{(adjustment.amount_cents / 100).toFixed(2)}</p>
