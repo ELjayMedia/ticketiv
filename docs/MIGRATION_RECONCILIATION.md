@@ -128,8 +128,68 @@ supabase db diff             # expect: no differences
 
 Once `supabase db pull` output is committed and `supabase db reset` applies cleanly, the structural reference file here can be deleted (the pulled migration supersedes it) and TICK-171's acceptance is met.
 
+## 2026-07-23 reconciliation pass
+
+A second sweep compared `supabase_migrations.schema_migrations` against
+`supabase/migrations/` by slug and closed the **post-baseline** drift in the
+DB→repo direction.
+
+### Reconstructed into the repo (were applied on live DB, missing as files)
+
+Rebuilt verbatim from the recorded `statements` column and committed with their
+real live-DB versions so future diffs match by version:
+
+- `20260625175324_profile_rpcs_revoke_anon`
+- `20260627214828_guest_order_claim_fix_filter`
+- `20260720170050_allow_organizer_owner_to_manage_org`
+- `20260720170450_fix_event_draft_venue_and_slug_contract`
+- `20260720173639_allow_authenticated_effective_role_lookup`
+- `20260720175647_add_owner_safe_delete_organization`
+- `20260722230501_remove_overbroad_claimed_account_policies`
+- `20260722234445_harden_remaining_public_rpc_security`
+- `20260722234546_remove_dangerous_client_table_privileges`
+- `20260722234610_remove_remaining_unauthenticated_ticket_writes`
+
+**`rate_limit_rollout` (`20260720161000`)** was applied on the live DB but its
+`statements` array is empty (applied via a path that did not record SQL), so it
+cannot be reconstructed verbatim. Its effect — rate-limiting the seat-hold and
+related RPCs — is superseded by `20260722234445_harden_remaining_public_rpc_security`,
+which redefines `fn_create_seat_hold` with `fn_rate_limit` guarding built in.
+No repo file was fabricated for it; a `db reset` re-establishes the behaviour
+through the later migration.
+
+### Advisor warnings addressed this pass
+
+- `auth_rls_initplan` (2 WARN) → **fixed** in `20260723100000_fix_rls_initplan_refunds_pos_shifts`
+  (wrapped `auth.uid()` in `(select …)` on `refunds_insert` and `pos_shifts_select`).
+- `unindexed_foreign_keys` (8 INFO) → **fixed** in `20260723101000_index_unindexed_foreign_keys`
+  (device_setup_codes ×3, orders ×1, pos_shifts ×4). These now surface transiently
+  as `unused_index` until query traffic exercises them — expected for FK-covering indexes.
+
+### Still pending — repo→DB (migrations in repo, objects absent on live DB)
+
+These create **new, un-launched feature schema** and touch the live scanner data
+path, so they are held for an explicit apply + verify decision (TICK-311, TICK-348):
+
+- TapBand stack (7): `tapband_telemetry_alerts`, `tapband_feature_config`,
+  `tapband_config_outlet_scope`, `tapband_credential_schema`, `tapband_lifecycle_rpcs`,
+  `tapband_scanner_checkin`, `tapband_multiple_entitlement_guard`. App code
+  (super-admin console, `app/api/scanner/validate`, cron alerts, telemetry/config
+  routes) already references tables like `tapband_feature_configs` that do not yet
+  exist on the DB.
+- `20260723090000_pos_receipts_transactions` — creates `pos_receipts` /
+  `pos_transactions`; no app code references them yet.
+
+Known repo-only/superseded files (unchanged from the 2026-06-23 analysis above)
+remain intentionally unapplied: `event_live_stats`, `event_live_stats_maintenance`,
+`fk_indexes`, `rls_policy_cleanup`, `public_event_cards`, `fix_guestlist_issue_rpc`,
+`finance_date_range`.
+
 ## Status
 
+- ✅ Post-baseline DB→repo drift closed (10 files reconstructed; `rate_limit_rollout` documented).
+- ✅ Actionable advisor warnings fixed (RLS initplan ×2, unindexed FKs ×8).
+- ⏳ TapBand + pos_receipts stacks pending an apply/verify decision (see above).
 - ✅ Drift quantified (116 applied vs 40 in-repo) and root cause identified.
 - ✅ Full live-schema inventory captured; `malicious` schema flagged.
 - ✅ Comprehensive public-schema reference committed (enums + tables + constraints + indexes + views + matviews + 191 functions + 96 triggers + 179 RLS policies).
