@@ -166,19 +166,25 @@ through the later migration.
   (device_setup_codes ×3, orders ×1, pos_shifts ×4). These now surface transiently
   as `unused_index` until query traffic exercises them — expected for FK-covering indexes.
 
-### Still pending — repo→DB (migrations in repo, objects absent on live DB)
+### Applied repo→DB this pass (TICK-311, TICK-348)
 
-These create **new, un-launched feature schema** and touch the live scanner data
-path, so they are held for an explicit apply + verify decision (TICK-311, TICK-348):
+With explicit approval, the previously-unapplied repo migrations were applied to
+the live DB in order, each verified:
 
 - TapBand stack (7): `tapband_telemetry_alerts`, `tapband_feature_config`,
   `tapband_config_outlet_scope`, `tapband_credential_schema`, `tapband_lifecycle_rpcs`,
-  `tapband_scanner_checkin`, `tapband_multiple_entitlement_guard`. App code
-  (super-admin console, `app/api/scanner/validate`, cron alerts, telemetry/config
-  routes) already references tables like `tapband_feature_configs` that do not yet
-  exist on the DB.
-- `20260723090000_pos_receipts_transactions` — creates `pos_receipts` /
-  `pos_transactions`; no app code references them yet.
+  `tapband_scanner_checkin`, `tapband_multiple_entitlement_guard`. Creates the 9
+  TapBand tables (telemetry, alerts, feature configs, kill switches, credential
+  batches/inventory/physical/entitlements/taps), 10 `fn_tapband_*` RPCs and the
+  `app.can_*_tapband_*` helpers, all under RLS. TapBand remains disabled by default
+  (seeded `tapband_feature_configs` production row `enabled = false`).
+- `20260723090000_pos_receipts_transactions` — `fn_pos_receipt` and
+  `fn_pos_shift_transactions` (authorization-scoped, service_role/authenticated).
+
+`types/database.ts` was regenerated from the live DB in the same pass; it had been
+missing `device_setup_codes`, `pos_shifts`, `rate_limits` and the four TapBand
+config/telemetry tables. Regeneration is additive (existing table shapes unchanged;
+verified no columns removed).
 
 Known repo-only/superseded files (unchanged from the 2026-06-23 analysis above)
 remain intentionally unapplied: `event_live_stats`, `event_live_stats_maintenance`,
@@ -189,7 +195,7 @@ remain intentionally unapplied: `event_live_stats`, `event_live_stats_maintenanc
 
 - ✅ Post-baseline DB→repo drift closed (10 files reconstructed; `rate_limit_rollout` documented).
 - ✅ Actionable advisor warnings fixed (RLS initplan ×2, unindexed FKs ×8).
-- ⏳ TapBand + pos_receipts stacks pending an apply/verify decision (see above).
+- ✅ TapBand (7) + pos_receipts stacks applied to live DB and `types/database.ts` regenerated.
 - ✅ Drift quantified (116 applied vs 40 in-repo) and root cause identified.
 - ✅ Full live-schema inventory captured; `malicious` schema flagged.
 - ✅ Comprehensive public-schema reference committed (enums + tables + constraints + indexes + views + matviews + 191 functions + 96 triggers + 179 RLS policies).
