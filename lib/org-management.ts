@@ -7,7 +7,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export const ORGANIZER_MANAGER_ROLES = new Set(["admin", "organizer", "organizer_owner", "organizer_admin"])
 
-const EVENT_MANAGER_ROLES = new Set(["organizer_owner", "organizer_admin", "admin", "organizer"])
+export const EVENT_MANAGER_ROLES = new Set(["organizer_owner", "organizer_admin", "admin", "organizer"])
 const EVENT_SCANNER_ROLES = new Set([
   "scanner",
   "organizer_staff",
