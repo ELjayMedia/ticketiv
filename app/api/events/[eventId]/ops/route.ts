@@ -1,41 +1,25 @@
 import { NextResponse, type NextRequest } from "next/server"
 
+import { getAuthenticatedUserId, loadEventManageContext } from "@/lib/api/event-management"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 type RouteContext = { params: Promise<{ eventId: string }> }
-const MANAGER_ROLES = new Set(["admin", "organizer", "organizer_owner", "organizer_admin"])
-
-async function getUserId() {
-  const supabase = createServerSupabaseClient()
-  if (!supabase) return null
-  const { data } = await supabase.auth.getSession()
-  return data.session?.user?.id ?? null
-}
-
-async function canManage(admin: ReturnType<typeof createAdminClient>, event: any, userId: string) {
-  const { data: globalAdmin } = await admin.from("admin_users").select("user_id").eq("user_id", userId).eq("active", true).maybeSingle()
-  if (globalAdmin) return true
-
-  const { data: member } = await admin.from("org_members").select("role").eq("org_id", event.org_id).eq("user_id", userId).maybeSingle()
-  return Boolean(member?.role && MANAGER_ROLES.has(String(member.role)))
-}
 
 export async function GET(_request: NextRequest, context: RouteContext) {
   const { eventId } = await context.params
-  const userId = await getUserId()
+  const userId = await getAuthenticatedUserId()
   if (!userId) return NextResponse.json({ error: "Authentication required" }, { status: 401 })
 
   const admin = createAdminClient()
-  const { data: event, error: eventError } = await admin
-    .from("events")
-    .select("id, org_id, title, status, visibility, category, venue_id, starts_at, ends_at, city, cover_image_url, refund_policy, confirmation_message, venues(id, name, city, address, capacity)")
-    .eq("id", eventId)
-    .maybeSingle()
+  const { allowed, event } = await loadEventManageContext(
+    admin,
+    eventId,
+    userId,
+    "id, org_id, title, status, visibility, category, venue_id, starts_at, ends_at, city, cover_image_url, refund_policy, confirmation_message, venues(id, name, city, address, capacity)",
+  )
 
-  if (eventError) return NextResponse.json({ error: eventError.message }, { status: 400 })
   if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 })
-  if (!(await canManage(admin, event, userId))) return NextResponse.json({ error: "Permission denied" }, { status: 403 })
+  if (!allowed) return NextResponse.json({ error: "Permission denied" }, { status: 403 })
 
   const { data: ticketsRaw } = await admin
     .from("ticket_types")
