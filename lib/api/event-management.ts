@@ -22,13 +22,15 @@ export async function loadEventManageContext(
   userId: string,
   select: string,
 ): Promise<{ allowed: boolean; event: any | null }> {
-  const { data: event, error } = await admin
+  const { data, error } = await admin
     .from("events")
     .select(select)
     .eq("id", eventId)
     .maybeSingle()
 
   if (error) throw error
+
+  const event = data as any | null
   if (!event) return { allowed: false, event: null }
 
   const [{ data: globalAdmin }, { data: member }, { data: staff }] = await Promise.all([
