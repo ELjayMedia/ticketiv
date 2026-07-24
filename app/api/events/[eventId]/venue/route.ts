@@ -1,35 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server"
 
+import { getAuthenticatedUserId, loadEventManageContext } from "@/lib/api/event-management"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 type RouteContext = {
   params: Promise<{ eventId: string }>
-}
-
-const MANAGER_ROLES = new Set(["admin", "organizer", "organizer_owner", "organizer_admin"])
-
-async function getAuthenticatedUserId() {
-  const supabase = createServerSupabaseClient()
-  if (!supabase) return null
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  return session?.user?.id ?? null
-}
-
-async function canManageEvent(admin: ReturnType<typeof createAdminClient>, eventId: string, userId: string) {
-  const { data: event, error } = await admin.from("events").select("id, org_id, venue_id").eq("id", eventId).maybeSingle()
-  if (error) throw error
-  if (!event) return { allowed: false, event: null }
-
-  const { data: adminUser } = await admin.from("admin_users").select("user_id").eq("user_id", userId).eq("active", true).maybeSingle()
-  if (adminUser) return { allowed: true, event }
-
-  const { data: membership } = await admin.from("org_members").select("role").eq("org_id", event.org_id).eq("user_id", userId).maybeSingle()
-  return { allowed: Boolean(membership?.role && MANAGER_ROLES.has(String(membership.role))), event }
 }
 
 function normalizeCapacity(value: unknown) {
@@ -48,7 +23,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (!userId) return NextResponse.json({ error: "Authentication required" }, { status: 401 })
 
   const admin = createAdminClient()
-  const { allowed, event } = await canManageEvent(admin, eventId, userId)
+  const { allowed, event } = await loadEventManageContext(admin, eventId, userId, "id, org_id, venue_id")
   if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 })
   if (!allowed) return NextResponse.json({ error: "You do not have permission to manage this event" }, { status: 403 })
 
@@ -75,7 +50,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (!userId) return NextResponse.json({ error: "Authentication required" }, { status: 401 })
 
   const admin = createAdminClient()
-  const { allowed, event } = await canManageEvent(admin, eventId, userId)
+  const { allowed, event } = await loadEventManageContext(admin, eventId, userId, "id, org_id, venue_id")
   if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 })
   if (!allowed) return NextResponse.json({ error: "You do not have permission to manage this event" }, { status: 403 })
 
