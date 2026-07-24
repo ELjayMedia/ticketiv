@@ -1,30 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server"
 
+import { getAuthenticatedUserId, loadEventManageContext } from "@/lib/api/event-management"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 type RouteContext = { params: Promise<{ eventId: string }> }
 type ScheduleDateInput = { starts_at?: string; ends_at?: string }
-const MANAGER_ROLES = new Set(["admin", "organizer", "organizer_owner", "organizer_admin"])
-
-async function getUserId() {
-  const supabase = createServerSupabaseClient()
-  if (!supabase) return null
-  const { data } = await supabase.auth.getSession()
-  return data.session?.user?.id ?? null
-}
-
-async function loadManageContext(admin: ReturnType<typeof createAdminClient>, eventId: string, userId: string) {
-  const { data: event, error } = await admin.from("events").select("id, org_id, starts_at, ends_at, tz").eq("id", eventId).maybeSingle()
-  if (error) throw error
-  if (!event) return { allowed: false, event: null }
-
-  const { data: globalAdmin } = await admin.from("admin_users").select("user_id").eq("user_id", userId).eq("active", true).maybeSingle()
-  if (globalAdmin) return { allowed: true, event }
-
-  const { data: member } = await admin.from("org_members").select("role").eq("org_id", event.org_id).eq("user_id", userId).maybeSingle()
-  return { allowed: Boolean(member?.role && MANAGER_ROLES.has(String(member.role))), event }
-}
 
 function normalizeDateRows(body: any) {
   const sourceRows = Array.isArray(body.dates) && body.dates.length > 0 ? (body.dates as ScheduleDateInput[]) : [{ starts_at: body.starts_at, ends_at: body.ends_at }]
@@ -48,11 +28,11 @@ function normalizeDateRows(body: any) {
 
 export async function GET(_request: NextRequest, context: RouteContext) {
   const { eventId } = await context.params
-  const userId = await getUserId()
+  const userId = await getAuthenticatedUserId()
   if (!userId) return NextResponse.json({ error: "Authentication required" }, { status: 401 })
 
   const admin = createAdminClient()
-  const { allowed, event } = await loadManageContext(admin, eventId, userId)
+  const { allowed, event } = await loadEventManageContext(admin, eventId, userId, "id, org_id, starts_at, ends_at, tz")
   if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 })
   if (!allowed) return NextResponse.json({ error: "Permission denied" }, { status: 403 })
 
@@ -64,11 +44,11 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
 export async function PUT(request: NextRequest, context: RouteContext) {
   const { eventId } = await context.params
-  const userId = await getUserId()
+  const userId = await getAuthenticatedUserId()
   if (!userId) return NextResponse.json({ error: "Authentication required" }, { status: 401 })
 
   const admin = createAdminClient()
-  const { allowed, event } = await loadManageContext(admin, eventId, userId)
+  const { allowed, event } = await loadEventManageContext(admin, eventId, userId, "id, org_id, starts_at, ends_at, tz")
   if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 })
   if (!allowed) return NextResponse.json({ error: "Permission denied" }, { status: 403 })
 
