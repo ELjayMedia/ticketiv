@@ -170,7 +170,6 @@ export default async function EventStaffPage({ params }: { params: Promise<{ org
               </p>
             </div>
             <DevicesClient
-              orgId={orgId}
               eventId={eventId}
               canManage={canManage}
               initialDevices={initialDevices}
