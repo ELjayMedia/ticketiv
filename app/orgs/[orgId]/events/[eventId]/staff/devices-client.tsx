@@ -6,7 +6,6 @@ import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { FormField } from "@/components/quiet/ui/form"
 import { Icon } from "@/components/quiet/ui/icon"
-import { createClientSupabaseClient } from "@/lib/supabase-client"
 
 // TICK-56 — Device registration and event assignment
 
@@ -37,12 +36,10 @@ const selectClass =
   "rounded-md border border-line-2 bg-surface px-3 py-2.5 text-[14px] font-medium text-ink outline-none transition-shadow duration-100 focus:border-accent focus:ring-[3px] focus:ring-accent-soft"
 
 export function DevicesClient({
-  orgId,
   eventId,
   canManage,
   initialDevices,
 }: {
-  orgId: string
   eventId: string
   canManage: boolean
   initialDevices: DeviceRow[]
@@ -92,14 +89,11 @@ export function DevicesClient({
     if (!confirm("Remove this device? It will no longer be able to scan for this event.")) return
     setRemoving(deviceId)
     try {
-      const supabase = createClientSupabaseClient()
-      const { error: dbError } = await supabase!
-        .from("devices")
-        .update({ event_id: null })
-        .eq("id", deviceId)
-        .eq("org_id", orgId)
-
-      if (dbError) throw dbError
+      const response = await fetch(`/api/events/${eventId}/devices/${deviceId}`, { method: "DELETE" })
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data?.error ?? "Failed to remove device")
+      }
       setDevices((prev) => prev.filter((d) => d.id !== deviceId))
     } catch (e: any) {
       setError(e?.message ?? "Failed to remove device")
