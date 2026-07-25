@@ -1131,6 +1131,17 @@
     },
     {
       "schema": "public",
+      "name": "fn_detect_oversold_ticket_types",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_devices_require_event_for_scanner",
       "arguments": "",
       "securityDefiner": false,
@@ -1242,6 +1253,17 @@
       "name": "fn_events_refresh_search",
       "arguments": "",
       "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_expire_stale_checkout_holds",
+      "arguments": "p_grace interval, p_limit integer",
+      "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
         "postgres",
