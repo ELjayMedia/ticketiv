@@ -2037,6 +2037,17 @@
     },
     {
       "schema": "public",
+      "name": "fn_seed_uat_fixtures",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_seller_completed_resales",
       "arguments": "p_seller_ids uuid[]",
       "securityDefiner": true,
@@ -2221,6 +2232,17 @@
       "schema": "public",
       "name": "fn_tapband_revoke_credential",
       "arguments": "p_credential_id uuid, p_actor_id uuid, p_reason text, p_new_status text, p_attempt_id text, p_metadata jsonb",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_teardown_uat_fixtures",
+      "arguments": "",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
