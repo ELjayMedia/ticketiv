@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server"
 import { joinWaitlist } from "@/lib/waitlist"
+import { isFeatureEnabled } from "@/lib/feature-flags"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { clientKey, rateLimit, tooManyRequests } from "@/lib/rate-limit"
 
 export async function POST(request: Request) {
   try {
+    // TICK-346 — waitlist_enabled is off. 404 rather than 403: a feature that
+    // is not part of the launch should look absent, not merely switched off.
+    if (!(await isFeatureEnabled("waitlist_enabled"))) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 })
+    }
+
     const rl = await rateLimit("waitlist:join", clientKey(request), 10, 60)
     if (!rl.allowed) return tooManyRequests(rl)
 

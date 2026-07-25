@@ -4,11 +4,10 @@ import crypto from "crypto"
 import * as Sentry from "@sentry/nextjs"
 
 import { PAYSTACK_SECRET_KEY } from "@/lib/env"
-import { notifyPaymentFailed, notifyPaymentSucceeded, notifyTicketPurchaseSucceeded } from "@/lib/notifications"
-import { deliverTicketsForOrder } from "@/lib/notifications/ticket-delivery"
-import { completePaidOrder } from "@/lib/orders"
-import { buildLedgerEntries, evaluatePaystackWebhookOutcome } from "@/lib/payments-math"
+import { notifyPaymentFailed } from "@/lib/notifications"
+import { evaluatePaystackWebhookOutcome } from "@/lib/payments-math"
 import { getPaystackSettings } from "@/lib/payments/paystack-config"
+import { drainPaymentOutbox } from "@/lib/payments/outbox"
 import { completeSpecialCheckoutFromWebhook } from "@/lib/payments/special-checkout"
 import { createAdminClient } from "@/lib/supabase/admin"
 
@@ -69,74 +68,52 @@ async function failAttempt(order: WebhookOrder, reference: string, payload: Webh
   await notifyPaymentFailed({ userId: order.buyer_id, orderId: order.id, provider: "paystack", reference })
 }
 
-async function getOrCreatePrimaryPayment(order: WebhookOrder, reference: string, payload: WebhookPayload) {
-  const admin = createAdminClient()
-  const { data: existing, error: lookupError } = await admin
-    .from("payments")
-    .select("id, status")
-    .eq("provider", "paystack")
-    .eq("ext_payment_id", reference)
-    .maybeSingle()
-
-  if (lookupError) throw new Error(`Unable to inspect payment: ${lookupError.message}`)
-  if (existing) return existing
-
-  const { data, error } = await admin
-    .from("payments")
-    .insert({
-      order_id: order.id,
-      provider: "paystack",
-      amount_cents: order.total_cents,
-      currency: order.currency,
-      ext_payment_id: reference,
-      payload,
-      status: "succeeded",
-      channel: "online",
-    })
-    .select("id, status")
-    .single()
-
-  if (error || !data) throw new Error(`Unable to record payment: ${error?.message ?? "unknown error"}`)
-  return data
-}
-
-async function ensureLedger(order: WebhookOrder, paymentId: string) {
-  const admin = createAdminClient()
-  const { count, error: countError } = await admin
-    .from("ledger_entries")
-    .select("id", { count: "exact", head: true })
-    .eq("payment_id", paymentId)
-
-  if (countError) throw new Error(`Unable to inspect ledger: ${countError.message}`)
-  if ((count ?? 0) > 0) return
-
-  const { error } = await admin.from("ledger_entries").insert(buildLedgerEntries(order, paymentId))
-  if (error) throw new Error(`Unable to write ledger entries: ${error.message}`)
-}
-
+/**
+ * Complete a verified primary checkout (TICK-333).
+ *
+ * The payment row, attempt bookkeeping, settlement ledger, ticket issuance,
+ * order status and in-app notifications all happen inside
+ * fn_complete_order_payment, in one transaction. Previously each was its own
+ * round trip, so a crash between any two left the money path in a state no
+ * code expected -- most sharply, items issued under an order still marked
+ * pending, which the retry then refused to touch.
+ *
+ * Ticket delivery is the one effect that cannot be transactional. The RPC
+ * records the intent to send into payment_outbox in the same commit, and it is
+ * drained here, after the transaction has committed.
+ */
 async function completePrimaryCheckout(order: WebhookOrder, reference: string, payload: WebhookPayload) {
   const admin = createAdminClient()
-  const payment = await getOrCreatePrimaryPayment(order, reference, payload)
 
-  const { error: attemptError } = await admin
-    .from("payment_attempts")
-    .update({ status: "succeeded", payment_id: payment.id })
-    .eq("order_id", order.id)
-    .eq("provider", "paystack")
-    .eq("status", "pending")
+  const { data, error } = await admin
+    .rpc("fn_complete_order_payment", {
+      p_order_id: order.id,
+      p_provider: "paystack",
+      p_ext_payment_id: reference,
+      p_amount_cents: order.total_cents,
+      p_currency: order.currency,
+      p_payload: payload,
+    })
+    .maybeSingle<{
+      completed_order_id: string
+      completed_payment_id: string | null
+      already_completed: boolean
+      issued_item_count: number
+    }>()
 
-  if (attemptError) throw new Error(`Unable to update payment attempt: ${attemptError.message}`)
+  if (error) throw new Error(`Unable to complete payment: ${error.message}`)
+  if (!data) throw new Error("Payment completion returned no result")
 
-  await ensureLedger(order, payment.id)
-  const completed = await completePaidOrder(order.id, reference)
+  // Drained even on the already-completed path: a redelivery is exactly when
+  // an entry left behind by an earlier failed send needs another attempt.
+  await drainPaymentOutbox()
 
-  await Promise.all([
-    notifyPaymentSucceeded({ userId: order.buyer_id, orderId: order.id, paymentId: payment.id, amountCents: order.total_cents, currency: order.currency }),
-    notifyTicketPurchaseSucceeded({ userId: order.buyer_id, orderId: order.id, orgId: order.org_id, amountCents: order.total_cents, currency: order.currency, ticketCount: completed.items?.length ?? undefined }),
-  ])
-  await deliverTicketsForOrder(order.id)
-
-  return { payment, order: completed.order, items: completed.items }
+  return {
+    paymentId: data.completed_payment_id,
+    orderId: data.completed_order_id,
+    alreadyCompleted: data.already_completed,
+    issuedItemCount: data.issued_item_count,
+  }
 }
 
 export async function completeTrustedPaystackWebhook(payload: WebhookPayload) {

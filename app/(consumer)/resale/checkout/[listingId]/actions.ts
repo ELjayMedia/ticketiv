@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { completeSpecialCheckoutForBuyer } from "@/lib/payments/special-checkout"
+import { assertFeatureEnabled } from "@/lib/feature-flags"
 
 type CreateResaleCheckoutState = {
   ok: false
@@ -19,6 +20,7 @@ export async function createResaleCheckout(
   _prevState: CreateResaleCheckoutState | null,
   formData: FormData,
 ): Promise<CreateResaleCheckoutState> {
+  await assertFeatureEnabled("resale_enabled")
   const listingId = String(formData.get("listingId") ?? "").trim()
   if (!listingId) return { ok: false, message: "Listing is missing. Please go back and choose a resale ticket again." }
 
@@ -58,6 +60,7 @@ export async function completeResaleCheckout(
   _prevState: CompleteResaleCheckoutState | null,
   formData: FormData,
 ): Promise<CompleteResaleCheckoutState> {
+  await assertFeatureEnabled("resale_enabled")
   const listingId = String(formData.get("listingId") ?? "").trim()
   const paymentId = String(formData.get("paymentId") ?? "").trim()
 

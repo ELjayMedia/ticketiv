@@ -18,7 +18,9 @@
     "typecheck": "tsc --noEmit",
     "check:demo": "bash scripts/check-demo-patterns.sh",
     "check:permissions": "node scripts/check-rpc-permissions.mjs",
-    "check:release": "pnpm lint && pnpm test && pnpm typecheck && pnpm check:demo && pnpm check:permissions && pnpm build"
+    "check:crossorg": "node scripts/check-cross-org-authorization.mjs",
+    "check:routes": "node scripts/check-internal-routes.mjs",
+    "check:release": "pnpm lint && pnpm test && pnpm typecheck && pnpm check:demo && pnpm check:permissions && pnpm check:crossorg && pnpm check:routes && pnpm build"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

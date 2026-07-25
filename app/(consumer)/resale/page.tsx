@@ -1,9 +1,11 @@
+import { notFound } from "next/navigation";
 import { TicketListingsCentre } from "@/components/quiet/screens/resale/resale-centre";
 import {
   getMyTicketListings,
   getPublicEventTicketListings,
   type ResaleSort,
 } from "@/lib/data/attendee/ticket-listings";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 
 export const metadata = { title: "Resale" };
 export const dynamic = "force-dynamic";
@@ -15,6 +17,9 @@ export default async function ResalePage({
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  // TICK-346 — resale_enabled is off: this feature is outside the launch scope.
+  if (!(await isFeatureEnabled("resale_enabled"))) notFound();
+
   const params = (await searchParams) ?? {};
   const ticketId = typeof params.ticketId === "string" ? params.ticketId : null;
   const eventId = typeof params.eventId === "string" ? params.eventId : null;

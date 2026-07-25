@@ -74,7 +74,7 @@ export default async function NotFound() {
               Visit the help center
             </Link>{" "}
             or{" "}
-            <Link href="/contact" className="text-ink underline decoration-line-2 underline-offset-4 hover:decoration-accent">
+            <Link href="/support" className="text-ink underline decoration-line-2 underline-offset-4 hover:decoration-accent">
               contact support
             </Link>
             .

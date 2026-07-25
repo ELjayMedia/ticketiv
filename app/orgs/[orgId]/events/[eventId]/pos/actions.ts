@@ -6,6 +6,7 @@
 
 import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { assertFeatureEnabled } from "@/lib/feature-flags"
 
 export interface ChargeInput {
   orgId: string
@@ -42,6 +43,7 @@ export async function posCharge(input: ChargeInput): Promise<{ orderId: string }
   })
 
   if (error) {
+  await assertFeatureEnabled("pos_enabled")
     console.error("[pos] fn_pos_charge failed", error)
     throw new Error(error.message ?? "Charge failed")
   }

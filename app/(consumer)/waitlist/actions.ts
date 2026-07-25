@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { assertFeatureEnabled } from "@/lib/feature-flags"
 
 type JoinWaitlistResult = {
   ok: false
@@ -36,6 +37,7 @@ function cleanEmail(value: FormDataEntryValue | null): string | null {
 }
 
 export async function joinWaitlist(_prevState: JoinWaitlistResult | null, formData: FormData): Promise<JoinWaitlistResult> {
+  await assertFeatureEnabled("waitlist_enabled")
   const supabase = createServerSupabaseClient()
   if (!supabase) return { ok: false, message: "Ticketiv is temporarily unable to connect. Please try again." }
 

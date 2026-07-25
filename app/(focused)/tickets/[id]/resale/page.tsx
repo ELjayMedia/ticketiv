@@ -5,6 +5,7 @@ import { formatEventDate, formatTimeRange } from "@/lib/format";
 import { getTicketById } from "@/lib/data/attendee/tickets";
 import { resolveResaleCapBps } from "@/lib/resale-cap";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 
 /**
  * `/tickets/[id]/resale`
@@ -50,6 +51,9 @@ export default async function ResalePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  // TICK-346 — resale_enabled is off: this feature is outside the launch scope.
+  if (!(await isFeatureEnabled("resale_enabled"))) notFound();
+
   const { id } = await params;
   const ticket = await getTicketById(id);
   if (!ticket) notFound();
