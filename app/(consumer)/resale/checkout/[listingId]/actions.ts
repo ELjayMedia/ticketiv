@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { deliverTicketsForOrder } from "@/lib/notifications/ticket-delivery"
+import { completeSpecialCheckoutForBuyer } from "@/lib/payments/special-checkout"
 
 type CreateResaleCheckoutState = {
   ok: false
@@ -76,27 +76,36 @@ export async function completeResaleCheckout(
     return { ok: false, message: "Please sign in before completing this resale checkout." }
   }
 
-  const { data, error } = await supabase.rpc("fn_complete_resale_after_payment", {
-    p_listing_id: listingId,
-    p_payment_id: paymentId,
-  })
-
-  if (error) {
-    // The provider webhook may have already completed the transfer (listing
-    // sold). Treat that as success and send the buyer to their tickets.
-    if (error.message?.includes("listing is not active")) {
-      revalidatePath("/tickets")
-      redirect("/tickets?resale=completed")
-    }
+  // Completion itself runs service-role behind a provider verification
+  // (TICK-339) — this action only proves who is asking. The buyer-callable
+  // completion RPCs were revoked, so a forged request cannot reach the RPC.
+  let outcome
+  try {
+    outcome = await completeSpecialCheckoutForBuyer({
+      paymentId,
+      buyerId: user.id,
+      expectedKind: "resale_checkout",
+      expectedSubjectId: listingId,
+    })
+  } catch (error) {
     console.error("[resale-checkout] complete after payment:", error)
-    return { ok: false, message: "Payment is not confirmed yet. Once the provider marks it successful, your ticket transfer can be completed." }
+    return { ok: false, message: "We could not confirm this payment with the provider. Please try again in a moment." }
   }
 
-  const row = Array.isArray(data) ? data[0] : data
-  const ticketId = row?.buyer_order_item_id
+  if (!outcome.ok) {
+    if (outcome.reason === "not_successful" || outcome.reason === "unverifiable") {
+      return { ok: false, message: "Payment is not confirmed yet. Once the provider marks it successful, your ticket transfer can be completed." }
+    }
+    if (outcome.reason === "mismatch") {
+      return { ok: false, message: "This payment does not match the resale checkout. Please contact support before trying again." }
+    }
+    return { ok: false, message: "We could not find this resale checkout for your account." }
+  }
 
-  // Deliver the ticket (best-effort, idempotent vs. the provider webhook).
-  if (row?.buyer_order_id) await deliverTicketsForOrder(String(row.buyer_order_id))
+  const row = (Array.isArray(outcome.result) ? outcome.result[0] : outcome.result) as
+    | { buyer_order_item_id?: string }
+    | undefined
+  const ticketId = row?.buyer_order_item_id
 
   revalidatePath(`/resale/checkout/${listingId}`)
   revalidatePath("/tickets")

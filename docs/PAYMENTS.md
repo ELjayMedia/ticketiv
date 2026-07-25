@@ -104,6 +104,54 @@ lock** (accept every enabled provider), so existing events are unaffected.
   flow directly). Until then the lock is enforced server-side (a forbidden
   attempt is rejected) but the buyer UI doesn't yet pre-filter the options.
 
+## Completion contract (TICK-339)
+
+Nothing may move an order, ticket or ledger row on the strength of a client
+saying a payment succeeded. Every path proves provider authenticity first, and
+the completion step itself always runs under `service_role`.
+
+**Primary checkout.** `POST /api/payments/paystack/webhook` verifies the HMAC
+over the *raw* body before parsing (`verifyTrustedPaystackSignature`), dedupes
+on `webhooks.provider_event_id`, then grades the event with
+`evaluatePaystackWebhookOutcome`: a settled order is an idempotent duplicate
+(ack with 200 so Paystack stops retrying), a mismatched amount is rejected
+without touching state, and only `success + pending + matching amount`
+proceeds. MoMo reaches the same `completeVerifiedPayment` path from its
+callback and status-poll routes, which are service-role and idempotent on the
+payment id.
+
+**Resale and waitlist.** These create their `payments` row up front tagged with
+`payload.kind`, so they settle through
+`fn_complete_{resale,waitlist}_after_payment_webhook` instead of
+`completePaidOrder`. Both are granted to `service_role` alone. Two callers
+reach them, and `lib/payments/special-checkout.ts` is the only module that
+does:
+
+| Caller | How authenticity is proven |
+|---|---|
+| Paystack webhook | HMAC over the raw body, then amount vs `orders.total_cents` |
+| Buyer "complete" action | Session owns the order, then Paystack `transaction/verify` matched on reference, amount **and** currency (`evaluateProviderVerification`) |
+
+The buyer path exists because a buyer can return from the hosted payment page
+before the webhook lands. It fails closed: with no provider reference to verify
+against it refuses and waits for the signed webhook, and a reference, amount or
+currency mismatch is reported to Sentry rather than read as "still pending".
+When the webhook has already settled the payment, the buyer's click just
+re-runs the idempotent RPC — no second provider round-trip.
+
+`fn_complete_resale_after_payment` / `fn_complete_waitlist_after_payment` (the
+two-argument variants that derived the buyer from `auth.uid()`) had EXECUTE
+granted to `authenticated`, which meant PostgREST published them to any signed-in
+session — including an anonymous guest session, which carries the same database
+role. `20260725160000_lock_client_callable_completion_rpcs.sql` revokes those
+grants and asserts, in the migration itself, that no completion RPC is left
+reachable from `anon`, `authenticated` or `PUBLIC`. The functions remain
+callable by `service_role` as a manual support path for a stuck checkout.
+
+Credentials come from one reader, `lib/payments/paystack-config.ts`; the
+`secret_key`/`webhook_secret` columns are `server-only` and must never be
+selected into a browser bundle.
+
 ## Decisions
 
 - **deltapay — REMOVED.** No production contract or verified settlement flow.
