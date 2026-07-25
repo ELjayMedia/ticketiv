@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   buildLedgerEntries,
   evaluatePaystackWebhookOutcome,
+  evaluateProviderVerification,
   type LedgerOrderInput,
 } from "@/lib/payments-math"
 
@@ -86,5 +87,67 @@ describe("evaluatePaystackWebhookOutcome", () => {
 
   it("proceeds when the provider omits the amount (amount = 0)", () => {
     expect(evaluatePaystackWebhookOutcome({ status: "success", orderStatus: "pending", orderTotalCents: 10000, amount: 0 })).toBe("proceed")
+  })
+})
+
+describe("evaluateProviderVerification", () => {
+  // TICK-339 — the gate in front of buyer-initiated resale/waitlist completion,
+  // where there is no signed webhook body to trust.
+  function verified(overrides: Partial<Parameters<typeof evaluateProviderVerification>[0]> = {}) {
+    return {
+      providerStatus: "success",
+      providerReference: "ref_abc",
+      providerAmountCents: 10000,
+      providerCurrency: "SZL",
+      expectedReference: "ref_abc",
+      expectedAmountCents: 10000,
+      expectedCurrency: "SZL",
+      ...overrides,
+    }
+  }
+
+  it("proceeds when status, reference, amount and currency all agree", () => {
+    expect(evaluateProviderVerification(verified())).toBe("proceed")
+  })
+
+  it("accepts a differently-cased provider status and currency", () => {
+    expect(evaluateProviderVerification(verified({ providerStatus: "SUCCESS", providerCurrency: "szl" }))).toBe("proceed")
+  })
+
+  it("rejects any non-success transaction state", () => {
+    for (const status of ["failed", "abandoned", "pending", "reversed", ""]) {
+      expect(evaluateProviderVerification(verified({ providerStatus: status }))).toBe("not_successful")
+    }
+  })
+
+  it("rejects a reference that is not the one we asked about", () => {
+    expect(evaluateProviderVerification(verified({ providerReference: "ref_other" }))).toBe("reference_mismatch")
+  })
+
+  it("rejects a missing reference on either side rather than treating it as a match", () => {
+    expect(evaluateProviderVerification(verified({ providerReference: "" }))).toBe("reference_mismatch")
+    expect(evaluateProviderVerification(verified({ expectedReference: "  " }))).toBe("reference_mismatch")
+  })
+
+  it("rejects an underpayment or an overpayment", () => {
+    expect(evaluateProviderVerification(verified({ providerAmountCents: 9999 }))).toBe("amount_mismatch")
+    expect(evaluateProviderVerification(verified({ providerAmountCents: 10001 }))).toBe("amount_mismatch")
+  })
+
+  it("rejects a missing amount instead of skipping the check", () => {
+    // Unlike the webhook decision, this path pulled the transaction itself, so
+    // an absent amount is a broken response, not an optional field.
+    expect(evaluateProviderVerification(verified({ providerAmountCents: Number.NaN }))).toBe("amount_mismatch")
+  })
+
+  it("rejects a payment settled in a different currency", () => {
+    expect(evaluateProviderVerification(verified({ providerCurrency: "ZAR" }))).toBe("currency_mismatch")
+    expect(evaluateProviderVerification(verified({ providerCurrency: "" }))).toBe("currency_mismatch")
+  })
+
+  it("checks status before anything else so a failed transaction never reads as a mismatch", () => {
+    expect(
+      evaluateProviderVerification(verified({ providerStatus: "failed", providerAmountCents: 1, providerCurrency: "ZAR" })),
+    ).toBe("not_successful")
   })
 })

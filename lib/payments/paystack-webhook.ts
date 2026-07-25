@@ -8,6 +8,8 @@ import { notifyPaymentFailed, notifyPaymentSucceeded, notifyTicketPurchaseSuccee
 import { deliverTicketsForOrder } from "@/lib/notifications/ticket-delivery"
 import { completePaidOrder } from "@/lib/orders"
 import { buildLedgerEntries, evaluatePaystackWebhookOutcome } from "@/lib/payments-math"
+import { getPaystackSettings } from "@/lib/payments/paystack-config"
+import { completeSpecialCheckoutFromWebhook } from "@/lib/payments/special-checkout"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 interface WebhookOrder {
@@ -26,19 +28,10 @@ interface WebhookOrder {
 
 type WebhookPayload = Record<string, any>
 
-async function getPaystackWebhookSecret() {
-  const admin = createAdminClient()
-  const { data } = await admin
-    .from("payment_provider_settings")
-    .select("is_enabled, secret_key, webhook_secret")
-    .eq("provider", "paystack")
-    .maybeSingle()
-
-  return (data?.is_enabled && (data.webhook_secret || data.secret_key)) || PAYSTACK_SECRET_KEY || null
-}
-
 export async function verifyTrustedPaystackSignature(rawBody: string, signature: string | null) {
-  const secret = await getPaystackWebhookSecret().catch(() => PAYSTACK_SECRET_KEY || null)
+  const secret = await getPaystackSettings()
+    .then((settings) => settings.webhookSecret)
+    .catch(() => PAYSTACK_SECRET_KEY || null)
   if (!secret || !signature || !/^[0-9a-f]{128}$/i.test(signature)) return false
 
   const expected = crypto.createHmac("sha512", secret).update(rawBody).digest("hex")
@@ -74,43 +67,6 @@ async function failAttempt(order: WebhookOrder, reference: string, payload: Webh
 
   if (error) throw new Error(`Unable to fail payment attempt: ${error.message}`)
   await notifyPaymentFailed({ userId: order.buyer_id, orderId: order.id, provider: "paystack", reference })
-}
-
-async function completeSpecialCheckout(orderId: string, reference: string, payload: WebhookPayload) {
-  const admin = createAdminClient()
-  const { data: payments, error } = await admin
-    .from("payments")
-    .select("id, status, payload")
-    .eq("order_id", orderId)
-    .order("created_at", { ascending: false })
-
-  if (error) throw new Error(`Unable to inspect checkout payment: ${error.message}`)
-
-  const payment = (payments ?? []).find((row) => {
-    const kind = (row.payload as Record<string, any> | null)?.kind
-    return kind === "resale_checkout" || kind === "waitlist_checkout"
-  })
-  if (!payment) return { handled: false as const }
-
-  const kind = (payment.payload as Record<string, any>).kind as "resale_checkout" | "waitlist_checkout"
-  const mergedPayload = { ...(payment.payload as Record<string, any>), provider_reference: reference, webhook: payload }
-  const { error: updateError } = await admin
-    .from("payments")
-    .update({ status: "succeeded", ext_payment_id: reference, payload: mergedPayload })
-    .eq("id", payment.id)
-
-  if (updateError) throw new Error(`Unable to update special checkout payment: ${updateError.message}`)
-
-  const completion = kind === "resale_checkout"
-    ? await admin.rpc("fn_complete_resale_after_payment_webhook", { p_payment_id: payment.id })
-    : await admin.rpc("fn_complete_waitlist_after_payment_webhook", { p_payment_id: payment.id })
-  if (completion.error) throw new Error(`Completion failed: ${completion.error.message}`)
-
-  const row = (Array.isArray(completion.data) ? completion.data[0] : completion.data) as Record<string, any> | undefined
-  const deliverOrderId = kind === "resale_checkout" ? row?.buyer_order_id : row?.order_id
-  if (deliverOrderId) await deliverTicketsForOrder(String(deliverOrderId))
-
-  return { handled: true as const, kind, result: completion.data }
 }
 
 async function getOrCreatePrimaryPayment(order: WebhookOrder, reference: string, payload: WebhookPayload) {
@@ -213,7 +169,7 @@ export async function completeTrustedPaystackWebhook(payload: WebhookPayload) {
   }
 
   try {
-    const special = await completeSpecialCheckout(orderId, reference, payload)
+    const special = await completeSpecialCheckoutFromWebhook(orderId, reference, payload)
     if (special.handled) return { ok: true, kind: special.kind, result: special.result }
     return await completePrimaryCheckout(order, reference, payload)
   } catch (error) {

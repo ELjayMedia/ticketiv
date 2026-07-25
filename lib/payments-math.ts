@@ -73,3 +73,46 @@ export function evaluatePaystackWebhookOutcome(input: {
   if (input.amount && input.amount !== input.orderTotalCents) return "amount_mismatch"
   return "proceed"
 }
+
+export type ProviderVerificationDecision =
+  | "proceed"
+  | "not_successful"
+  | "reference_mismatch"
+  | "amount_mismatch"
+  | "currency_mismatch"
+
+/**
+ * Decide whether a provider's verify-transaction response authorises completion
+ * (TICK-339). Unlike `evaluatePaystackWebhookOutcome`, which grades a payload
+ * the provider pushed to us, this grades a response we pulled from the provider
+ * for a reference we already hold, so every field is expected to be present and
+ * a missing amount is a rejection rather than a skipped check.
+ *
+ * Both the webhook and the buyer-initiated completion path funnel through the
+ * same service-role completion RPC; this is the gate in front of the buyer path.
+ */
+export function evaluateProviderVerification(input: {
+  providerStatus: string
+  providerReference: string
+  providerAmountCents: number
+  providerCurrency: string
+  expectedReference: string
+  expectedAmountCents: number
+  expectedCurrency: string
+}): ProviderVerificationDecision {
+  if (input.providerStatus?.toLowerCase() !== "success") return "not_successful"
+
+  const providerRef = (input.providerReference ?? "").trim()
+  const expectedRef = (input.expectedReference ?? "").trim()
+  if (!providerRef || !expectedRef || providerRef !== expectedRef) return "reference_mismatch"
+
+  if (!Number.isFinite(input.providerAmountCents) || input.providerAmountCents !== input.expectedAmountCents) {
+    return "amount_mismatch"
+  }
+
+  const providerCurrency = (input.providerCurrency ?? "").trim().toUpperCase()
+  const expectedCurrency = (input.expectedCurrency ?? "").trim().toUpperCase()
+  if (!providerCurrency || !expectedCurrency || providerCurrency !== expectedCurrency) return "currency_mismatch"
+
+  return "proceed"
+}
