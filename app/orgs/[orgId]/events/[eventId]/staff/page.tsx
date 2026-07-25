@@ -39,7 +39,20 @@ export default async function EventStaffPage({ params }: { params: Promise<{ org
     .eq("org_id", orgId)
     .eq("user_id", session.user.id)
     .maybeSingle()
-  const canManage = Boolean(member?.role && MANAGER_ROLES.has(String(member.role)))
+
+  // Platform admins manage every org workspace (the DB RLS already treats them
+  // as org managers via app.is_platform_admin()). read_only_admin is excluded
+  // from mutating controls.
+  const { data: adminRow } = await supabase
+    .from("admin_users")
+    .select("role_tier")
+    .eq("user_id", session.user.id)
+    .eq("active", true)
+    .maybeSingle()
+  const isPlatformManager = Boolean(adminRow?.role_tier && adminRow.role_tier !== "read_only_admin")
+
+  const canManage =
+    isPlatformManager || Boolean(member?.role && MANAGER_ROLES.has(String(member.role)))
 
   const admin = createAdminClient()
 
