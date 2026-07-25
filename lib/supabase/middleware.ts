@@ -186,7 +186,9 @@ export async function updateSession(request: NextRequest) {
       return response
     }
 
-    // Org routes: /orgs/:orgId/* — requires org membership
+    // Org routes: /orgs/:orgId/* — requires org membership, or platform-admin
+    // access. Platform admins manage every org workspace (mirrors the DB RLS,
+    // where app.is_org_manager() already includes app.is_platform_admin()).
     const orgMatch = path.match(/^\/orgs\/([^/]+)/)
     if (orgMatch) {
       const orgId = orgMatch[1]
@@ -198,7 +200,15 @@ export async function updateSession(request: NextRequest) {
           .eq("org_id", orgId)
           .maybeSingle()
         if (!memberRow) {
-          return NextResponse.redirect(new URL("/403", request.url))
+          const { data: adminRow } = await supabase
+            .from("admin_users")
+            .select("user_id")
+            .eq("user_id", user.id)
+            .eq("active", true)
+            .maybeSingle()
+          if (!adminRow) {
+            return NextResponse.redirect(new URL("/403", request.url))
+          }
         }
       } catch {
         return NextResponse.redirect(new URL("/403", request.url))
