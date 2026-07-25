@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { completeSpecialCheckoutForBuyer } from "@/lib/payments/special-checkout"
+import { assertFeatureEnabled } from "@/lib/feature-flags"
 
 type CreateWaitlistCheckoutState = {
   ok: false
@@ -19,6 +20,7 @@ export async function createWaitlistCheckout(
   _prevState: CreateWaitlistCheckoutState | null,
   formData: FormData,
 ): Promise<CreateWaitlistCheckoutState> {
+  await assertFeatureEnabled("waitlist_enabled")
   const waitlistId = String(formData.get("waitlistId") ?? "").trim()
   if (!waitlistId) return { ok: false, message: "Waitlist offer is missing. Please go back and choose the offer again." }
 
@@ -58,6 +60,7 @@ export async function completeWaitlistCheckout(
   _prevState: CompleteWaitlistCheckoutState | null,
   formData: FormData,
 ): Promise<CompleteWaitlistCheckoutState> {
+  await assertFeatureEnabled("waitlist_enabled")
   const waitlistId = String(formData.get("waitlistId") ?? "").trim()
   const paymentId = String(formData.get("paymentId") ?? "").trim()
 
