@@ -42,7 +42,7 @@ export function Header({ user, onLogout }: HeaderProps) {
     }
     // If logged in organizer, go to create event
     if (userRole === "organizer") {
-      router.push("/orgs/new")
+      router.push("/onboarding/organizer")
     } else {
       // Attendees need to complete organizer setup
       router.push("/create")
