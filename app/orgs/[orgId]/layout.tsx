@@ -40,20 +40,32 @@ export default async function OrgLayout({
   }
 
   if (!membership) {
-    const { data: doorStaff } = await supabase
-      .from("event_staff")
-      .select("event_id, events!inner(org_id)")
+    // Platform admins manage every org workspace (the DB RLS already treats them
+    // as org managers via app.is_platform_admin()). Allow them through without an
+    // org_members row.
+    const { data: adminRow } = await supabase
+      .from("admin_users")
+      .select("user_id")
       .eq("user_id", user.id)
       .eq("active", true)
-      .eq("events.org_id", orgId)
-      .limit(1)
       .maybeSingle()
 
-    if (doorStaff) return redirect("/scan")
-    return redirect("/403")
+    if (!adminRow) {
+      const { data: doorStaff } = await supabase
+        .from("event_staff")
+        .select("event_id, events!inner(org_id)")
+        .eq("user_id", user.id)
+        .eq("active", true)
+        .eq("events.org_id", orgId)
+        .limit(1)
+        .maybeSingle()
+
+      if (doorStaff) return redirect("/scan")
+      return redirect("/403")
+    }
   }
 
-  const isOwner = membership.role === "organizer_owner"
+  const isOwner = membership?.role === "organizer_owner"
 
   return (
     <>
