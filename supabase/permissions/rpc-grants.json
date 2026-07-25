@@ -1871,6 +1871,17 @@
     },
     {
       "schema": "public",
+      "name": "fn_record_chargeback",
+      "arguments": "p_payment_id uuid, p_provider_ref text, p_amount_cents integer, p_payload jsonb",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_register_device",
       "arguments": "p_org_id uuid, p_event_id uuid, p_label text, p_device_role device_role",
       "securityDefiner": true,
