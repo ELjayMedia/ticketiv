@@ -41,11 +41,6 @@ export interface CreateOrderResult {
   pricing: OrderPricingBreakdown
 }
 
-export interface CompletePaidOrderResult {
-  order: OrderRecord
-  items: OrderItemRecord[]
-}
-
 export interface UserOrderItem extends OrderItemRecord {
   ticket_type?: TicketTypeRecord | null
   event?: EventRecord | null
@@ -195,83 +190,6 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
         total: 0,
       })),
     },
-  }
-}
-
-export async function completePaidOrder(orderId: string, paymentReference?: string | null): Promise<CompletePaidOrderResult> {
-  // Payment completion can be called from trusted webhook/polling flows where
-  // there is no buyer browser session. Use the service-role client here after
-  // the payment provider has already been verified by the caller.
-  const supabase = createAdminClient()
-
-  const { data: order, error: orderError } = await supabase
-    .from("orders")
-    .select("*")
-    .eq("id", orderId)
-    .maybeSingle<LiveOrder>()
-
-  if (orderError) {
-    console.error("Failed to load order for completion", orderError)
-    throw new Error("Unable to load order")
-  }
-
-  if (!order) throw new Error("Order not found")
-
-  const { data: orderItems, error: orderItemsError } = await supabase
-    .from("order_items")
-    .select("*")
-    .eq("order_id", order.id)
-
-  if (orderItemsError) {
-    console.error("Failed to load order items", orderItemsError)
-    throw new Error("Unable to load order items")
-  }
-
-  if (order.status === "paid") {
-    return { order: order as unknown as OrderRecord, items: (orderItems ?? []) as unknown as OrderItemRecord[] }
-  }
-
-  if (order.status !== "pending") {
-    throw new Error(`Order cannot be completed from status: ${order.status}`)
-  }
-
-  const { error: issueItemsError } = await supabase
-    .from("order_items")
-    .update({ status: "issued" })
-    .eq("order_id", order.id)
-    .eq("status", "pending")
-
-  if (issueItemsError) {
-    console.error("Failed to issue paid tickets", issueItemsError)
-    throw new Error("Unable to issue tickets")
-  }
-
-  const { data: completedOrder, error: completeError } = await supabase
-    .from("orders")
-    .update({ status: "paid" })
-    .eq("id", order.id)
-    .eq("status", "pending")
-    .select("*")
-    .single<LiveOrder>()
-
-  if (completeError || !completedOrder) {
-    console.error("Failed to mark order as paid", completeError)
-    throw new Error("Unable to complete order")
-  }
-
-  const { data: issuedItems, error: issuedItemsError } = await supabase
-    .from("order_items")
-    .select("*")
-    .eq("order_id", order.id)
-
-  if (issuedItemsError) {
-    console.error("Failed to reload issued tickets", issuedItemsError)
-    throw new Error("Unable to load issued tickets")
-  }
-
-  return {
-    order: completedOrder as unknown as OrderRecord,
-    items: (issuedItems ?? []) as unknown as OrderItemRecord[],
   }
 }
 

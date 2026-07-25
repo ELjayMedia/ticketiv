@@ -3658,6 +3658,66 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_outbox: {
+        Row: {
+          attempts: number
+          available_at: string
+          created_at: string
+          id: string
+          last_error: string | null
+          locked_at: string | null
+          order_id: string
+          payload: Json
+          payment_id: string | null
+          status: string
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          available_at?: string
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          locked_at?: string | null
+          order_id: string
+          payload?: Json
+          payment_id?: string | null
+          status?: string
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          available_at?: string
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          locked_at?: string | null
+          order_id?: string
+          payload?: Json
+          payment_id?: string | null
+          status?: string
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_outbox_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_outbox_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount_cents: number
@@ -8408,6 +8468,43 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      fn_complete_order_payment: {
+        Args: {
+          p_amount_cents?: number
+          p_currency?: string
+          p_ext_payment_id: string
+          p_order_id: string
+          p_payload?: Json
+          p_provider: string
+        }
+        Returns: {
+          already_completed: boolean
+          completed_order_id: string
+          completed_payment_id: string
+          issued_item_count: number
+        }[]
+      }
+      fn_claim_payment_outbox: {
+        Args: { p_limit?: number }
+        Returns: {
+          attempts: number
+          available_at: string
+          created_at: string
+          id: string
+          last_error: string | null
+          locked_at: string | null
+          order_id: string
+          payload: Json
+          payment_id: string | null
+          status: string
+          topic: string
+          updated_at: string
+        }[]
+      }
+      fn_resolve_payment_outbox: {
+        Args: { p_error?: string; p_id: string; p_ok: boolean }
+        Returns: undefined
       }
       fn_org_finance_summary: {
         Args: { p_from?: string; p_org_id: string; p_to?: string }

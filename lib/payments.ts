@@ -4,12 +4,10 @@ import { randomUUID } from "crypto"
 import * as Sentry from "@sentry/nextjs"
 
 import { APP_URL } from "@/lib/env"
-import { completePaidOrder } from "@/lib/orders"
-import { notifyPaymentFailed, notifyPaymentSucceeded, notifyTicketPurchaseSucceeded } from "@/lib/notifications"
-import { deliverTicketsForOrder } from "@/lib/notifications/ticket-delivery"
+import { notifyPaymentFailed } from "@/lib/notifications"
+import { drainPaymentOutbox } from "@/lib/payments/outbox"
 import { getPaystackSettings } from "@/lib/payments/paystack-config"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { buildLedgerEntries } from "@/lib/payments-math"
 import { resolvePaymentProvider } from "@/lib/payments/routing"
 
 export type PaymentProvider = "paystack" | "flutterwave" | "manual" | "momo"
@@ -114,39 +112,6 @@ async function initializePaystackTransaction(order: LiveOrder, reference: string
   return payload.data
 }
 
-async function writePaymentLedger(order: LiveOrder, paymentId: string) {
-  const admin = createAdminClient()
-
-  // Idempotent: ledger_entries has no unique constraint, so a retried
-  // completion (MoMo callback + status polling for the same payment) would
-  // otherwise double-count. Entries are keyed to the payment.
-  const { count, error: countError } = await admin
-    .from("ledger_entries")
-    .select("id", { count: "exact", head: true })
-    .eq("payment_id", paymentId)
-
-  if (countError) {
-    console.error("Failed to check existing ledger entries", countError)
-    throw new Error("Unable to write ledger entries")
-  }
-  if ((count ?? 0) > 0) return
-
-  const entries = buildLedgerEntries(order, paymentId)
-  const { error } = await admin.from("ledger_entries").insert(entries)
-  if (error) {
-    console.error("Failed to write payment ledger entries", error)
-    Sentry.captureException(error, { tags: { area: "ledger" }, extra: { orderId: order.id, paymentId } })
-    throw new Error("Unable to write ledger entries")
-  }
-}
-
-/**
- * Effective payment-provider lock for an order: the intersection of the
- * non-empty `events.payment_providers` locks across every event the order
- * touches. Events without a lock impose no constraint. Empty result = no lock.
- * Throws when locked events share no common provider (a misconfiguration —
- * orders are effectively single-event in practice).
- */
 async function getOrderAllowedProviders(orderId: string): Promise<string[]> {
   const admin = createAdminClient()
   const { data, error } = await admin
@@ -232,75 +197,55 @@ export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
   }
 }
 
+/**
+ * Complete a payment whose authenticity the caller has already verified
+ * (TICK-333).
+ *
+ * Routes through the same single transactional RPC as the Paystack webhook.
+ * This path previously repeated the completion by hand -- payment insert,
+ * attempt update, ledger write, then completePaidOrder -- as four separate
+ * transactions, so a failure between any two left the order torn in exactly
+ * the ways the RPC now makes impossible. MoMo makes that likelier than most:
+ * completion arrives from both the callback and status polling, so partial
+ * runs interleave.
+ *
+ * Ticket delivery stays outside the transaction, drained from payment_outbox
+ * after it commits.
+ */
 export async function completeVerifiedPayment(input: CompleteVerifiedPaymentInput) {
   assertProvider(input.provider)
   const { supabase, order } = await getPendingOrder(input.orderId)
 
-  // Idempotent insert: payments is unique on (provider, ext_payment_id). MoMo
-  // completion can arrive from both the callback and status polling; a partial
-  // failure (payment written, later step threw) would otherwise conflict here
-  // and never retry. Reuse the existing payment row so the rest can re-run.
-  const { data: existingPayment, error: existingPaymentError } = await supabase
-    .from("payments")
-    .select("*")
-    .eq("provider", input.provider)
-    .eq("ext_payment_id", input.extPaymentId)
-    .maybeSingle()
+  const { data, error } = await supabase
+    .rpc("fn_complete_order_payment", {
+      p_order_id: order.id,
+      p_provider: input.provider,
+      p_ext_payment_id: input.extPaymentId,
+      p_amount_cents: order.total_cents,
+      p_currency: order.currency,
+      p_payload: input.payload ?? {},
+    })
+    .maybeSingle<{
+      completed_order_id: string
+      completed_payment_id: string | null
+      already_completed: boolean
+      issued_item_count: number
+    }>()
 
-  if (existingPaymentError) {
-    console.error("Failed to look up existing payment", existingPaymentError)
-    throw new Error("Unable to record payment")
+  if (error) {
+    console.error("Failed to complete verified payment", error)
+    throw new Error(`Unable to complete payment: ${error.message}`)
   }
+  if (!data) throw new Error("Payment completion returned no result")
 
-  let payment = existingPayment
-  if (!payment) {
-    const { data: inserted, error: paymentError } = await supabase
-      .from("payments")
-      .insert({
-        order_id: order.id,
-        provider: input.provider,
-        amount_cents: order.total_cents,
-        currency: order.currency,
-        ext_payment_id: input.extPaymentId,
-        payload: input.payload ?? {},
-        status: "succeeded",
-        channel: "online",
-      })
-      .select("*")
-      .single()
+  await drainPaymentOutbox()
 
-    if (paymentError || !inserted) {
-      console.error("Failed to record payment", paymentError)
-      throw new Error("Unable to record payment")
-    }
-    payment = inserted
+  return {
+    paymentId: data.completed_payment_id,
+    orderId: data.completed_order_id,
+    alreadyCompleted: data.already_completed,
+    issuedItemCount: data.issued_item_count,
   }
-
-  const { error: attemptError } = await supabase
-    .from("payment_attempts")
-    .update({ status: "succeeded", payment_id: payment.id })
-    .eq("order_id", order.id)
-    .eq("provider", input.provider)
-    .eq("status", "pending")
-
-  if (attemptError) {
-    console.error("Failed to mark payment attempt as succeeded", attemptError)
-    throw new Error("Unable to update payment attempt")
-  }
-
-  await writePaymentLedger(order, payment.id)
-  const completed = await completePaidOrder(order.id, input.extPaymentId)
-
-  await Promise.all([
-    notifyPaymentSucceeded({ userId: order.buyer_id, orderId: order.id, paymentId: payment.id, amountCents: order.total_cents, currency: order.currency }),
-    notifyTicketPurchaseSucceeded({ userId: order.buyer_id, orderId: order.id, orgId: order.org_id, amountCents: order.total_cents, currency: order.currency, ticketCount: completed.items?.length ?? undefined }),
-  ])
-
-  // Transactional ticket delivery (email now, WhatsApp stub). Best-effort —
-  // never blocks payment completion.
-  await deliverTicketsForOrder(order.id)
-
-  return { payment, order: completed.order, items: completed.items }
 }
 
 export async function failPaymentAttempt(orderId: string, provider: PaymentProvider, extRef?: string | null, payload?: Record<string, any>) {

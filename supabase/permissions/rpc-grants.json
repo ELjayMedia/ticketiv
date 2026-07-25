@@ -798,6 +798,17 @@
     },
     {
       "schema": "public",
+      "name": "fn_claim_payment_outbox",
+      "arguments": "p_limit integer",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_cleanup_anon_users",
       "arguments": "p_dry_run boolean",
       "securityDefiner": true,
@@ -826,6 +837,17 @@
       "searchPathPinned": true,
       "grantees": [
         "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_complete_order_payment",
+      "arguments": "p_order_id uuid, p_provider text, p_ext_payment_id text, p_amount_cents integer, p_currency text, p_payload jsonb",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
         "postgres",
         "service_role"
       ]
@@ -1888,6 +1910,17 @@
       "schema": "public",
       "name": "fn_request_transfer_by_email_unchecked",
       "arguments": "p_order_item_id uuid, p_recipient_email text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_resolve_payment_outbox",
+      "arguments": "p_id uuid, p_ok boolean, p_error text",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
