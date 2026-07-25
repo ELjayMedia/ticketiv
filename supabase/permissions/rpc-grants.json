@@ -1,0 +1,3006 @@
+{
+  "functions": [
+    {
+      "schema": "app",
+      "name": "can_administer_tapband_event",
+      "arguments": "p_event uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "can_delete_event",
+      "arguments": "event_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "can_manage_guestlist_entry",
+      "arguments": "p_event uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "can_read_tapband_credential",
+      "arguments": "p_credential uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "can_read_tapband_entitlement",
+      "arguments": "p_entitlement uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "can_read_tapband_event",
+      "arguments": "p_event uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "can_read_tapband_inventory",
+      "arguments": "p_inventory uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "can_read_tapband_order_item",
+      "arguments": "p_order_item uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "can_read_tapband_tap",
+      "arguments": "p_tap uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "can_record_tapband_event_tap",
+      "arguments": "p_event uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "can_update_guestlist_entry",
+      "arguments": "p_uid uuid, p_event_id uuid, p_created_by uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "fn_check_in",
+      "arguments": "p_event_id uuid, p_code text, p_device_id uuid, p_gate text, p_notes text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": []
+    },
+    {
+      "schema": "app",
+      "name": "fn_purchase_items",
+      "arguments": "p_buyer uuid, p_ticket_type uuid, p_qty integer",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "fn_revoke_item",
+      "arguments": "p_order_item uuid, p_reason text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "gen_ticket_code",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": []
+    },
+    {
+      "schema": "app",
+      "name": "is_claimed_account",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "is_event_public_now",
+      "arguments": "p_event uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": []
+    },
+    {
+      "schema": "app",
+      "name": "is_event_staff_of",
+      "arguments": "p_event uuid, p_roles app_role[]",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "anon",
+        "authenticated",
+        "dashboard_user",
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "is_org_admin_of",
+      "arguments": "p_org uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "anon",
+        "authenticated",
+        "dashboard_user",
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "is_org_finance_viewer",
+      "arguments": "p_org uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "anon",
+        "authenticated",
+        "dashboard_user",
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "is_org_manager",
+      "arguments": "p_org uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "anon",
+        "authenticated",
+        "dashboard_user",
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "is_org_member_of",
+      "arguments": "p_org uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "anon",
+        "authenticated",
+        "dashboard_user",
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "is_org_owner",
+      "arguments": "p_org uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "anon",
+        "authenticated",
+        "dashboard_user",
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "is_platform_admin",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "dashboard_user",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "is_published",
+      "arguments": "e events",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": []
+    },
+    {
+      "schema": "app",
+      "name": "normalize_code",
+      "arguments": "p text",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": []
+    },
+    {
+      "schema": "app",
+      "name": "normalize_ticket_code",
+      "arguments": "code_text text",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": []
+    },
+    {
+      "schema": "app",
+      "name": "org_has_role",
+      "arguments": "p_org uuid, p_roles app_role[]",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "anon",
+        "authenticated",
+        "dashboard_user",
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "recompute_order_totals",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "require_claimed_account",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "uid",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "anon",
+        "authenticated",
+        "dashboard_user",
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "upcase_ticket_code",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": []
+    },
+    {
+      "schema": "app",
+      "name": "validate_scan_org",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "admin_log_action",
+      "arguments": "p_actor_id uuid, p_table_name text, p_record_id text, p_action audit_action, p_changes jsonb, p_org_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "app_audit_if_table_changes",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "attach_app_audit",
+      "arguments": "table_schema text, table_name text",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "can_manage_event",
+      "arguments": "p_event_id uuid, p_user uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "can_manage_org",
+      "arguments": "p_org_id uuid, p_user uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "can_update_ticket_types_by_user",
+      "arguments": "p_user uuid, p_event_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "compute_order_payment_status",
+      "arguments": "p_order_id uuid",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "create_event_draft",
+      "arguments": "p_org_id uuid, p_title text, p_visibility text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "create_event_draft_unchecked",
+      "arguments": "p_org_id uuid, p_title text, p_visibility text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "current_user_org_ids",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "current_user_uid",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "enforce_order_currency_matches_pricing",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "enforce_pricing_plan_org_cohesion",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "ensure_event_metrics_org",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "ensure_event_staff_in_org",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "ensure_transfer_owner",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "event_series_set_updated_at",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_accept_membership_invite",
+      "arguments": "p_token text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_accept_membership_invite_unchecked",
+      "arguments": "p_token text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_admin_schedule_webhook_dispatch",
+      "arguments": "p_function_url text, p_anon_jwt text, p_schedule text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_anon_users_to_delete",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_apply_pricing_to_order",
+      "arguments": "p_order_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_apply_promo_code_to_order",
+      "arguments": "p_order_id uuid, p_code text, p_user_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_array_has_dups",
+      "arguments": "anyarray",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_backfill_event_live_stats",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_bootstrap_ticketiv_user",
+      "arguments": "p_user_id uuid, p_email text, p_phone text, p_display_name text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_bulk_check_in",
+      "arguments": "p_order_item_ids uuid[], p_org_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_bulk_check_in_unchecked",
+      "arguments": "p_order_item_ids uuid[], p_org_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_check_in",
+      "arguments": "p_order_item_id uuid, p_device_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_check_in",
+      "arguments": "p_scan_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_check_in",
+      "arguments": "p_ticket_code text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_check_in",
+      "arguments": "p_ticket_code text, p_device_id uuid, p_gate text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_check_in",
+      "arguments": "p_ticket_code text, p_event_id uuid, p_device_id uuid, p_gate text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_check_reserved_handle",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_claim_email_broadcast",
+      "arguments": "p_org_id uuid, p_event_id uuid, p_recipient_count integer, p_audience text, p_subject text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_claim_guest_orders",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_cleanup_anon_users",
+      "arguments": "p_dry_run boolean",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_cleanup_anonymous_users",
+      "arguments": "p_dry_run boolean",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_close_pos_shift",
+      "arguments": "p_shift_id uuid, p_closing_cash_cents integer, p_notes text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_complete_resale_after_payment",
+      "arguments": "p_listing_id uuid, p_payment_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_complete_resale_after_payment_webhook",
+      "arguments": "p_payment_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_complete_transfer",
+      "arguments": "p_transfer_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_complete_transfer_unchecked",
+      "arguments": "p_transfer_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_complete_waitlist_after_payment",
+      "arguments": "p_waitlist_id uuid, p_payment_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_complete_waitlist_after_payment_webhook",
+      "arguments": "p_payment_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_compute_order_money",
+      "arguments": "p_subtotal_cents integer, p_adjustments_cents integer, p_platform_percent_bps integer, p_processor_percent_bps integer, p_processor_fixed_cents integer, p_min_platform_cents integer, p_max_platform_cents integer, p_fees_paid_by fee_payer",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_create_inventory_protected_order",
+      "arguments": "p_event_id uuid, p_buyer_id uuid, p_buyer_email text, p_items jsonb, p_holder_name text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_create_membership_invite",
+      "arguments": "p_org_id uuid, p_kind text, p_role app_role, p_event_id uuid, p_invited_email text, p_expires_in interval",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_create_membership_invite_unchecked",
+      "arguments": "p_org_id uuid, p_kind text, p_role app_role, p_event_id uuid, p_invited_email text, p_expires_in interval",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_create_organization",
+      "arguments": "p_name text, p_currency text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_create_organization_unchecked",
+      "arguments": "p_name text, p_currency text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_create_resale_checkout_order",
+      "arguments": "p_listing_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_create_seat_hold",
+      "arguments": "p_event_id uuid, p_quantity integer",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_create_seat_hold",
+      "arguments": "p_event_id uuid, p_quantity integer, p_ticket_type_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_create_talent_profile",
+      "arguments": "p_name text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_create_talent_profile_unchecked",
+      "arguments": "p_name text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_create_waitlist_checkout_order",
+      "arguments": "p_waitlist_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_db_slow_queries",
+      "arguments": "p_limit integer, p_min_mean_ms numeric",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_deactivate_payment_method",
+      "arguments": "p_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_deactivate_payment_method_unchecked",
+      "arguments": "p_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_delete_account_for_user",
+      "arguments": "p_user_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_delete_organization",
+      "arguments": "p_org_id uuid, p_confirm_name text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_delete_organization_unchecked",
+      "arguments": "p_org_id uuid, p_confirm_name text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_devices_require_event_for_scanner",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_duplicate_event",
+      "arguments": "p_event_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_duplicate_event_unchecked",
+      "arguments": "p_event_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_end_device_session",
+      "arguments": "p_session_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_enqueue_webhook",
+      "arguments": "p_event_type text, p_payload jsonb, p_org_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_event_artists_refresh_event_search",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_event_category_slug_exists",
+      "arguments": "p_slug text",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_event_is_public_now",
+      "arguments": "p_event_id uuid",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_event_sales_public",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "organiser",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_events_refresh_search",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_export_rpc_permissions",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_feature_flags_touch_last_changed",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_finalize_email_broadcast",
+      "arguments": "p_notification_id uuid, p_sent_count integer, p_failed_count integer",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_find_claimable_guest_orders",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_get_account_deletion_status_for_user",
+      "arguments": "p_user_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_get_my_account_deletion_status",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_get_my_notification_mutes",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_get_my_order_totals",
+      "arguments": "p_order_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_get_my_order_totals_json",
+      "arguments": "p_order_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_get_my_ticketiv_roles",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_get_or_create_artist",
+      "arguments": "p_name text, p_bio text, p_image_url text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_get_or_create_venue",
+      "arguments": "p_name text, p_city text, p_address text, p_tz text, p_capacity integer",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_get_ticketiv_effective_roles",
+      "arguments": "p_user_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_is_event_scanner",
+      "arguments": "p_event_id uuid",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_is_event_staff",
+      "arguments": "p_event_id uuid, p_min_role app_role",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_issue_guestlist",
+      "arguments": "p_guestlist_entry_id uuid, p_allocate integer",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_issue_guestlist_unchecked",
+      "arguments": "p_guestlist_entry_id uuid, p_allocate integer",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_link_event_artist_by_name",
+      "arguments": "p_event_id uuid, p_artist_name text, p_role text, p_bio text, p_image_url text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_link_event_artist_by_name_unchecked",
+      "arguments": "p_event_id uuid, p_artist_name text, p_role text, p_bio text, p_image_url text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_list_my_order_totals",
+      "arguments": "limit_rows integer, offset_rows integer",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_mint_tickets",
+      "arguments": "p_order_item_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_mirror_user_phone_to_profile",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_my_waitlist_positions",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_normalize_email",
+      "arguments": "p text",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_normalize_phone",
+      "arguments": "p text",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_open_pos_shift",
+      "arguments": "p_org_id uuid, p_device_id uuid, p_device_session_id uuid, p_opening_cash_cents integer, p_notes text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_org_finance_summary",
+      "arguments": "p_org_id uuid, p_from timestamp with time zone, p_to timestamp with time zone",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_org_finance_summary_unchecked",
+      "arguments": "p_org_id uuid, p_from timestamp with time zone, p_to timestamp with time zone",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_payment_routing_rules_touch_updated_at",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_pos_charge",
+      "arguments": "p_event_id uuid, p_items jsonb, p_payment_method text, p_buyer_name text, p_buyer_email text, p_buyer_phone text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_pos_charge_unchecked",
+      "arguments": "p_event_id uuid, p_items jsonb, p_payment_method text, p_buyer_name text, p_buyer_email text, p_buyer_phone text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_pos_charge_with_shift",
+      "arguments": "p_shift_id uuid, p_event_id uuid, p_items jsonb, p_payment_method text, p_buyer_name text, p_buyer_email text, p_buyer_phone text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_pos_receipt",
+      "arguments": "p_order_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_pos_shift_summary",
+      "arguments": "p_shift_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_pos_shift_transactions",
+      "arguments": "p_shift_id uuid, p_limit integer",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_prepare_credential_entitlement",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_preview_pricing",
+      "arguments": "p_org_id uuid, p_ticket_type_ids uuid[], p_quantities integer[]",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_preview_promo_code",
+      "arguments": "p_event_id uuid, p_code text, p_channel sales_channel",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_profile_can_read",
+      "arguments": "p_user_id uuid",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_publish_resale_listing",
+      "arguments": "p_order_item_id uuid, p_price_cents integer, p_listing_hours integer",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_publish_resale_listing_unchecked",
+      "arguments": "p_order_item_id uuid, p_price_cents integer, p_listing_hours integer",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_quote_order",
+      "arguments": "p_event_id uuid, p_items jsonb, p_channel sales_channel, p_coupon text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_quote_order",
+      "arguments": "p_items jsonb, p_currency text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_rate_limit",
+      "arguments": "p_key text, p_max integer, p_window_seconds integer",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_rate_limit_gc",
+      "arguments": "p_older_than interval",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_recalculate_event_live_stats",
+      "arguments": "p_event_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_recalculate_event_live_stats_from_order",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_recalculate_event_live_stats_from_order_item",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_recalculate_event_live_stats_from_payment",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_recalculate_event_live_stats_from_scan",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_recalculate_event_live_stats_from_ticket_type",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_register_device",
+      "arguments": "p_org_id uuid, p_event_id uuid, p_label text, p_device_role device_role",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_remove_push_subscription",
+      "arguments": "p_endpoint text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_request_payout",
+      "arguments": "p_org_id uuid, p_amount_cents integer",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_request_payout_unchecked",
+      "arguments": "p_org_id uuid, p_amount_cents integer",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_request_transfer_by_email",
+      "arguments": "p_order_item_id uuid, p_recipient_email text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_request_transfer_by_email_unchecked",
+      "arguments": "p_order_item_id uuid, p_recipient_email text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_revoke_membership_invite",
+      "arguments": "p_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_revoke_membership_invite_unchecked",
+      "arguments": "p_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_rollup_metrics",
+      "arguments": "p_day date",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_scan_ticket",
+      "arguments": "p_ticket_code text, p_event_id uuid, p_scanned_by uuid, p_device_id uuid, p_session_id uuid, p_gate text, p_scanned_at timestamp with time zone, p_attempt_id text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_scan_ticket_unchecked",
+      "arguments": "p_ticket_code text, p_event_id uuid, p_scanned_by uuid, p_device_id uuid, p_session_id uuid, p_gate text, p_scanned_at timestamp with time zone, p_attempt_id text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_search_events",
+      "arguments": "p_query text, p_category text, p_city text, p_starts_after timestamp with time zone, p_starts_before timestamp with time zone, p_max_price_cents integer, p_only_free boolean, p_limit integer, p_offset integer",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_seller_completed_resales",
+      "arguments": "p_seller_ids uuid[]",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_set_default_payment_method",
+      "arguments": "p_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_set_default_payment_method_unchecked",
+      "arguments": "p_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_set_my_avatar_url",
+      "arguments": "p_url text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_set_my_locale",
+      "arguments": "p_locale text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_start_device_session",
+      "arguments": "p_device_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_store_push_subscription",
+      "arguments": "p_endpoint text, p_p256dh text, p_auth text, p_user_agent text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_tapband_activate_credential",
+      "arguments": "p_credential_id uuid, p_actor_id uuid, p_device_id uuid, p_session_id uuid, p_attempt_id text, p_verification_metadata jsonb",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_tapband_actor_can_manage_event",
+      "arguments": "p_actor_id uuid, p_event_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_tapband_actor_is_platform_admin",
+      "arguments": "p_actor_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_tapband_assign_entitlement",
+      "arguments": "p_credential_id uuid, p_order_item_id uuid, p_event_id uuid, p_actor_id uuid, p_assignment_source text, p_attempt_id text, p_metadata jsonb",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_tapband_audit_lifecycle",
+      "arguments": "p_org_id uuid, p_actor_id uuid, p_table_name text, p_record_id uuid, p_action text, p_changes jsonb",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_tapband_customer_credentials",
+      "arguments": "p_user_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_tapband_issue_credential",
+      "arguments": "p_inventory_id uuid, p_user_id uuid, p_credential_public_id text, p_actor_id uuid, p_device_id uuid, p_session_id uuid, p_attempt_id text, p_metadata jsonb",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_tapband_replace_credential",
+      "arguments": "p_old_credential_id uuid, p_new_inventory_id uuid, p_new_credential_public_id text, p_actor_id uuid, p_attempt_id text, p_metadata jsonb",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_tapband_resolve_credential_for_event",
+      "arguments": "p_credential_public_id text, p_event_id uuid, p_actor_id uuid, p_device_id uuid, p_session_id uuid, p_attempt_id text, p_gate text, p_scanned_at timestamp with time zone",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_tapband_revoke_credential",
+      "arguments": "p_credential_id uuid, p_actor_id uuid, p_reason text, p_new_status text, p_attempt_id text, p_metadata jsonb",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_ticket_is_transferable",
+      "arguments": "p_order_item_id uuid",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_ticket_type_remaining",
+      "arguments": "p_event_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_toggle_favourite",
+      "arguments": "p_event_id uuid, p_save boolean",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_toggle_notification_mute",
+      "arguments": "p_type text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_touch_event_live_stats_updated_at",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_touch_tapband_credentials_updated_at",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_touch_tapband_feature_configs_updated_at",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_transition_event_status",
+      "arguments": "p_event_id uuid, p_new_status text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_transition_event_status_unchecked",
+      "arguments": "p_event_id uuid, p_new_status text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_transition_payout",
+      "arguments": "p_payout_id uuid, p_new_status payout_status, p_destination_ref text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_transition_refund",
+      "arguments": "p_refund_id uuid, p_new_status refund_status, p_provider_ref text, p_provider_payload jsonb",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_trg_emit_order_paid",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_trg_emit_payout_paid",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_trg_emit_ticket_transferred",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_update_my_notification_preferences",
+      "arguments": "p_email_opt_in boolean, p_sms_opt_in boolean, p_push_opt_in boolean, p_in_app_opt_in boolean",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_update_my_profile",
+      "arguments": "p_display_name text, p_name text, p_surname text, p_phone text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_update_my_profile_unchecked",
+      "arguments": "p_display_name text, p_name text, p_surname text, p_phone text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_user_connections_set_responded_at",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_webhook_endpoints_touch_updated_at",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "get_event_kpis",
+      "arguments": "p_event_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "get_event_kpis_unchecked",
+      "arguments": "p_event_id uuid",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "get_organizer_kpis",
+      "arguments": "p_range text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "get_organizer_kpis_unchecked",
+      "arguments": "p_range text",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "get_ticket_type_event",
+      "arguments": "ticket_type_uuid uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "get_user_org",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "get_user_orgs",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "get_user_orgs",
+      "arguments": "p_user_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "grant_seeded_super_admin",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "guard_scanner_checkin_only",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "handle_new_user",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "handle_refund_processed",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "has_app_role",
+      "arguments": "r text",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "insert_job_secure",
+      "arguments": "p_kind text, p_payload jsonb, p_run_after timestamp with time zone",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "is_event_organizer",
+      "arguments": "p_user_id uuid, p_event_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "is_org_admin",
+      "arguments": "p_org_id uuid",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "is_org_finance_viewer",
+      "arguments": "p_org_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "is_org_staff",
+      "arguments": "user_uuid uuid, org_uuid uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "is_super_admin",
+      "arguments": "check_user_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "issue_comp_ticket",
+      "arguments": "p_org_id uuid, p_ticket_type_id uuid, p_recipient_email text, p_qty integer, p_note text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "issue_comp_ticket_unchecked",
+      "arguments": "p_org_id uuid, p_ticket_type_id uuid, p_recipient_email text, p_qty integer, p_note text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "issue_order_items_when_order_paid",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "notify_event_change",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "order_items_status_transition_guard",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "order_ledger_summary_fn",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "order_ledger_summary_fn_definer",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "dashboard_user",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "order_ledger_summary_fn_impl",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "order_ledger_summary_for_order",
+      "arguments": "p_order_id uuid",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "prevent_buyer_contact_update",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "prevent_pricing_changes_after_paid",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "prevent_scans_on_refunded_items",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "prevent_totals_change_after_paid",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "resale_listing_guard",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "resale_listings_updated_at",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "run_analyze",
+      "arguments": "schemas text[]",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "scanner_mark_checkin",
+      "arguments": "p_order_item_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "set_event_categories_updated_at",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "set_payment_provider_settings_updated_at",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "set_updated_at",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "slugify_text",
+      "arguments": "p_value text",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "sync_order_status_from_ledger",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "touch_updated_at",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "trg_check_order_currency",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "trg_reprice_order_after_adjustments",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "trg_reprice_order_after_items",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "trg_reprice_order_on_status",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "user_has_org_role",
+      "arguments": "p_org uuid, p_roles text[]",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "validate_event_category_slug",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "validate_scan_and_checkin",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "validate_transfer_order_item_status",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "verify_ticket_signature",
+      "arguments": "ticket_code text, provided_sig text, secret text",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "postgres",
+        "service_role"
+      ]
+    }
+  ]
+}

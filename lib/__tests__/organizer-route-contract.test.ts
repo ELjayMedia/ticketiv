@@ -44,7 +44,10 @@ describe("organizer route contract", () => {
     const page = readFileSync(at("app/orgs/[orgId]/settings/page.tsx"), "utf8")
     const panel = readFileSync(at("app/orgs/[orgId]/dashboard/delete-workspace-panel.tsx"), "utf8")
     expect(page).toContain('select("id", { count: "exact", head: true })')
-    expect(panel).toContain("hasEvents")
+    // The panel takes the count and refuses to offer deletion while it is
+    // non-zero, routing the owner to the events list instead.
+    expect(panel).toContain("eventCount")
+    expect(panel).toContain("blockedByEvents")
     expect(panel).toContain("Manage events")
   })
 })
