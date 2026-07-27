@@ -31,6 +31,12 @@ describe("public Ticketiv URLs", () => {
     expect(buildTicketivPublicUrl("/?ref=smit", "https://ticketiv.com")).toBe(
       "https://ticketiv.app/?ref=smit",
     )
+    expect(buildTicketivPublicUrl("/invite/team-token", "https://ticketiv.com")).toBe(
+      "https://ticketiv.app/invite/team-token",
+    )
+    expect(
+      buildTicketivPublicUrl("/auth/callback?next=/reset-password", "https://ticketiv.com"),
+    ).toBe("https://ticketiv.app/auth/callback?next=/reset-password")
   })
 
   it("keeps local or preview origins when no configured app URL is set", () => {

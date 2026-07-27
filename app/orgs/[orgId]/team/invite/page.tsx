@@ -6,6 +6,7 @@ import Link from "next/link"
 import { Icon } from "@/components/quiet/ui/icon"
 import { Button } from "@/components/quiet/ui/button"
 import { Card } from "@/components/quiet/ui/card"
+import { buildTicketivPublicUrl } from "@/lib/public-url"
 import { createOrgInviteAction } from "./actions"
 
 type OrgRole = "organizer_admin" | "organizer_staff" | "finance"
@@ -34,7 +35,7 @@ export default function TeamInvitePage({ params }: { params: Promise<{ orgId: st
       if (!res.ok || !res.token) {
         setError(res.error ?? "Failed to create invite. Please try again.")
       } else {
-        setInviteLink(`${window.location.origin}/invite/${res.token}`)
+        setInviteLink(buildTicketivPublicUrl(`/invite/${res.token}`, window.location.origin))
       }
     } catch {
       setError("Network error. Please check your connection.")
