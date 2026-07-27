@@ -1,6 +1,6 @@
 // Shape FriendsOverview → FriendsScreen props.
 
-import { APP_URL } from "@/lib/env"
+import { APP_URL } from "@/lib/env-public"
 import { PHOTOS } from "@/lib/photos"
 import type { FriendsOverview } from "@/lib/data/attendee/friends"
 

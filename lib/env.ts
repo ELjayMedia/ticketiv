@@ -1,12 +1,21 @@
-export class MissingEnvironmentVariableError extends Error {
-  readonly variableName: string
+import {
+  getRequiredSupabasePublicConfig,
+  getSupabasePublicConfig,
+  MissingEnvironmentVariableError,
+} from "./env-public"
 
-  constructor(variableName: string) {
-    super(`Missing required environment variable: ${variableName}`)
-    this.name = "MissingEnvironmentVariableError"
-    this.variableName = variableName
-  }
-}
+export {
+  APP_URL,
+  ENABLE_ANALYTICS,
+  ENABLE_DEMO_MODE,
+  getRequiredSupabasePublicConfig,
+  getSupabasePublicConfig,
+  isMissingEnvironmentVariableError,
+  isSupabaseConfigured,
+  MissingEnvironmentVariableError,
+  SUPABASE_ANON_KEY,
+  SUPABASE_URL,
+} from "./env-public"
 
 export function getRequiredServerEnvVar(name: string) {
   const value = process.env[name]
@@ -22,41 +31,7 @@ export function getOptionalServerEnvVar(name: string): string | undefined {
   return process.env[name]
 }
 
-export function isMissingEnvironmentVariableError(error: unknown): error is MissingEnvironmentVariableError {
-  return error instanceof MissingEnvironmentVariableError
-}
-
-// Supabase Configuration
-// These values must be provided through the deployment environment. Do not
-// hardcode fallbacks here: this module is imported by both server and client
-// helpers, and public pages should degrade when config is absent instead of
-// silently binding to stale credentials.
-export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-export const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 export const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-export function getSupabasePublicConfig() {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    return null
-  }
-
-  return {
-    url: SUPABASE_URL,
-    anonKey: SUPABASE_ANON_KEY,
-  }
-}
-
-export function getRequiredSupabasePublicConfig() {
-  const config = getSupabasePublicConfig()
-
-  if (!config) {
-    throw new MissingEnvironmentVariableError(
-      !SUPABASE_URL ? "NEXT_PUBLIC_SUPABASE_URL" : "NEXT_PUBLIC_SUPABASE_ANON_KEY"
-    )
-  }
-
-  return config
-}
 
 export function getSupabaseAdminConfig() {
   const publicConfig = getSupabasePublicConfig()
@@ -84,16 +59,9 @@ export function getRequiredSupabaseAdminConfig() {
   }
 }
 
-export function isSupabaseConfigured() {
-  return Boolean(getSupabasePublicConfig())
-}
-
 export function isSupabaseAdminConfigured() {
   return Boolean(getSupabaseAdminConfig())
 }
-
-// App Configuration
-export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
 
 // Payment Gateway Configuration
 export const DELTAPAY_PUBLIC_KEY = process.env.DELTAPAY_PUBLIC_KEY
@@ -108,7 +76,3 @@ export const FLUTTERWAVE_SECRET_KEY = process.env.FLUTTERWAVE_SECRET_KEY
 
 // Third-party Services
 export const GOOGLE_MAPS_EMBED_KEY = process.env.GOOGLE_MAPS_EMBED_KEY
-
-// Feature Flags
-export const ENABLE_DEMO_MODE = process.env.NEXT_PUBLIC_ENABLE_DEMO_MODE === "true"
-export const ENABLE_ANALYTICS = process.env.NEXT_PUBLIC_ENABLE_ANALYTICS === "true"

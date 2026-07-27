@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
-import { getRequiredSupabasePublicConfig } from "@/lib/env"
+import { getRequiredSupabasePublicConfig } from "@/lib/env-public"
 import type { Database } from "@/types/database"
 
 /**

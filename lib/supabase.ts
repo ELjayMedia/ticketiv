@@ -1,5 +1,5 @@
 import { createBrowserClient } from "@supabase/ssr"
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./env"
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./env-public"
 import type { Database } from "@/types/database"
 
 export function createClient() {
