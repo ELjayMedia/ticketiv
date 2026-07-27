@@ -1794,6 +1794,17 @@
     },
     {
       "schema": "public",
+      "name": "fn_rate_limit_edge",
+      "arguments": "p_bucket text, p_key text, p_max integer, p_window_seconds integer",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_rate_limit_gc",
       "arguments": "p_older_than interval",
       "securityDefiner": true,
