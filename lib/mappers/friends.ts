@@ -2,6 +2,7 @@
 
 import { PHOTOS } from "@/lib/photos"
 import type { FriendsOverview } from "@/lib/data/attendee/friends"
+import { buildTicketivPublicUrl } from "@/lib/public-url"
 
 const FACE_POOL = [
   PHOTOS.face_1,
@@ -74,7 +75,7 @@ export interface FriendsScreenProps {
   inviteReward: string
 }
 
-export function mapFriends(o: FriendsOverview, host = "ticketiv.com"): FriendsScreenProps {
+export function mapFriends(o: FriendsOverview, host?: string | null): FriendsScreenProps {
   const hero = o.goingTogether
   const goingTogether = hero
     ? {
@@ -117,7 +118,9 @@ export function mapFriends(o: FriendsOverview, host = "ticketiv.com"): FriendsSc
       photo: avatarFor(s.id),
       mutualLabel: s.mutualLabel,
     })),
-    inviteLink: o.inviteHandle ? `${host}/r/${o.inviteHandle}` : `${host}/r/you`,
+    inviteLink: o.inviteHandle
+      ? buildTicketivPublicUrl(`/?ref=${encodeURIComponent(o.inviteHandle)}`, host)
+      : buildTicketivPublicUrl("", host),
     inviteReward: "get E100 off when 3 join",
   }
 }

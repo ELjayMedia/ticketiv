@@ -83,7 +83,7 @@ interface BrowserShellProps {
 }
 
 export function BrowserShell({
-  url = "ticketiv.com",
+  url = "ticketiv.app",
   tabs = ["Ticketiv"],
   className,
   children,

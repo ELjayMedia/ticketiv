@@ -2,15 +2,19 @@
 
 import { useCallback, useState } from "react"
 import { Icon, type IconName } from "@/components/quiet/ui/icon"
+import { buildTicketivPublicUrl, getTicketivPublicOrigin } from "@/lib/public-url"
 
 /** Shared share/invite behaviour: Web Share API with clipboard fallback. */
 function useShare(handle?: string | null, name?: string) {
   const [copied, setCopied] = useState(false)
 
   const share = useCallback(async () => {
-    const origin =
-      typeof window !== "undefined" ? window.location.origin : "https://ticketiv.com"
-    const url = handle ? `${origin}/?ref=${encodeURIComponent(handle)}` : origin
+    const origin = getTicketivPublicOrigin(
+      typeof window !== "undefined" ? window.location.origin : null,
+    )
+    const url = handle
+      ? buildTicketivPublicUrl(`/?ref=${encodeURIComponent(handle)}`, origin)
+      : origin
     const text = name
       ? `${name} is on Ticketiv — discover and book events together.`
       : "Discover and book events on Ticketiv."

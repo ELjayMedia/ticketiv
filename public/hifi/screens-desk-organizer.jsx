@@ -3,7 +3,7 @@
 function DeskOrgDashboard() {
   const nav = ORG_NAV.map(n => ({ ...n, on: n.l === 'Overview' }));
   return (
-    <Desk url="ticketiv.com/o/rishabh/dashboard" tab="Dashboard · Ticketiv">
+    <Desk url="ticketiv.app/o/rishabh/dashboard" tab="Dashboard · Ticketiv">
       <Sidebar items={nav} />
       <div className="desk-main">
         <div className="desk-top">
@@ -126,7 +126,7 @@ function DeskOrgDashboard() {
 
 function DeskEventsList() {
   return (
-    <Desk url="ticketiv.com/o/rishabh/events" tab="Events · Ticketiv">
+    <Desk url="ticketiv.app/o/rishabh/events" tab="Events · Ticketiv">
       <Sidebar />
       <div className="desk-main">
         <div className="desk-top">
@@ -214,7 +214,7 @@ function DeskEventsList() {
 
 function DeskEventEditor() {
   return (
-    <Desk url="ticketiv.com/o/rishabh/events/tribal-tales" tab="Edit · Tribal Tales">
+    <Desk url="ticketiv.app/o/rishabh/events/tribal-tales" tab="Edit · Tribal Tales">
       <Sidebar />
       <div className="desk-main">
         <div className="desk-top">
@@ -360,7 +360,7 @@ function DeskEventEditor() {
 
 function DeskOrdersTable() {
   return (
-    <Desk url="ticketiv.com/o/rishabh/orders" tab="Orders · Ticketiv">
+    <Desk url="ticketiv.app/o/rishabh/orders" tab="Orders · Ticketiv">
       <Sidebar items={ORG_NAV.map(n => ({ ...n, on: n.l === 'Orders' }))} />
       <div className="desk-main" style={{ position: 'relative' }}>
         <div className="desk-top">
@@ -468,7 +468,7 @@ function DeskOrdersTable() {
 
 function DeskAnalytics() {
   return (
-    <Desk url="ticketiv.com/o/rishabh/analytics/tribal-tales" tab="Analytics · Tribal Tales">
+    <Desk url="ticketiv.app/o/rishabh/analytics/tribal-tales" tab="Analytics · Tribal Tales">
       <Sidebar items={ORG_NAV.map(n => ({ ...n, on: n.l === 'Analytics' }))} />
       <div className="desk-main">
         <div className="desk-top">
@@ -563,7 +563,7 @@ function DeskAnalytics() {
 
 function DeskScanStation() {
   return (
-    <Desk url="ticketiv.com/o/rishabh/scan/tribal-tales" tab="Scan station · Tribal Tales">
+    <Desk url="ticketiv.app/o/rishabh/scan/tribal-tales" tab="Scan station · Tribal Tales">
       <div className="desk-main" style={{ background: '#1a1815', color: 'var(--paper)' }}>
         <div style={{ padding: '14px 24px', borderBottom: '1.4px solid var(--ink-3)', display: 'flex', alignItems: 'center', gap: 14 }}>
           <div className="col" style={{ gap: 0 }}>
@@ -662,7 +662,7 @@ function DeskScanStation() {
 
 function DeskPayouts() {
   return (
-    <Desk url="ticketiv.com/o/rishabh/payouts" tab="Payouts · Ticketiv">
+    <Desk url="ticketiv.app/o/rishabh/payouts" tab="Payouts · Ticketiv">
       <Sidebar items={ORG_NAV.map(n => ({ ...n, on: n.l === 'Payouts' }))} />
       <div className="desk-main">
         <div className="desk-top">
@@ -747,7 +747,7 @@ function DeskPayouts() {
 
 function DeskSettings() {
   return (
-    <Desk url="ticketiv.com/o/rishabh/settings/team" tab="Team · Settings">
+    <Desk url="ticketiv.app/o/rishabh/settings/team" tab="Team · Settings">
       <Sidebar items={ORG_NAV.map(n => ({ ...n, on: n.l === 'Settings' }))} />
       <div className="desk-main">
         <div className="desk-top">
@@ -833,7 +833,7 @@ function DeskSettings() {
 
 function DeskSuperAdmin() {
   return (
-    <Desk url="admin.ticketiv.com" tab="Super-admin · Ticketiv">
+    <Desk url="admin.ticketiv.app" tab="Super-admin · Ticketiv">
       <Sidebar items={ADMIN_NAV} org="Ticketiv · platform" role="super_admin" />
       <div className="desk-main">
         <div className="desk-top">

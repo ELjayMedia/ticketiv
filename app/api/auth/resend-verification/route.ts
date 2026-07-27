@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { APP_URL } from "@/lib/env"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { clientKey, rateLimit, tooManyRequests } from "@/lib/rate-limit"
 
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
       type: "signup",
       email,
       options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/auth/callback`,
+        emailRedirectTo: `${APP_URL}/auth/callback`,
       },
     })
 

@@ -77,9 +77,9 @@ describe("scanner client results", () => {
   })
 
   it.each([
-    ["https://ticketiv.com/tapband/pub-1", "pub-1"],
-    ["https://ticketiv.com/checkin?credentialPublicId=pub-2", "pub-2"],
-    ["https://ticketiv.com/checkin?credential_public_id=pub-3", "pub-3"],
+    ["https://ticketiv.app/tapband/pub-1", "pub-1"],
+    ["https://ticketiv.app/checkin?credentialPublicId=pub-2", "pub-2"],
+    ["https://ticketiv.app/checkin?credential_public_id=pub-3", "pub-3"],
     ["tapband:pub-4", "pub-4"],
     [" pub-5 ", "pub-5"],
   ])("normalizes credential %s", (input, expected) => {

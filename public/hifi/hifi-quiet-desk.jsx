@@ -4,7 +4,7 @@
 function QuietDeskEvent() {
   const P = HF_PHOTOS;
   return (
-    <HFBrowser url="ticketiv.com/e/tribal-tales-aug-30" tabs={["Tribal Tales · Ticketiv", "Calendar", "Inbox"]}>
+    <HFBrowser url="ticketiv.app/e/tribal-tales-aug-30" tabs={["Tribal Tales · Ticketiv", "Calendar", "Inbox"]}>
       <div className="hf-quiet hf-consumer-desk" style={{ background: '#fafafa', color: HFQ_INK, minHeight: '100%' }}>
         {/* Top nav (slimmed) */}
         <div style={{ borderBottom: `1px solid ${HFQ_LINE}`, background: '#fff', padding: '12px 40px', display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -294,7 +294,7 @@ function QuietDeskEvent() {
 function QuietDeskCheckout() {
   const P = HF_PHOTOS;
   return (
-    <HFBrowser url="ticketiv.com/checkout/RG7352" tabs={["Checkout · Ticketiv"]}>
+    <HFBrowser url="ticketiv.app/checkout/RG7352" tabs={["Checkout · Ticketiv"]}>
       <div className="hf-quiet hf-consumer-desk" style={{ background: '#fafafa', color: HFQ_INK, minHeight: '100%' }}>
         {/* Top nav */}
         <div style={{ borderBottom: `1px solid ${HFQ_LINE}`, background: '#fff', padding: '12px 40px', display: 'flex', alignItems: 'center', gap: 16 }}>
