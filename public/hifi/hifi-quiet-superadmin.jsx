@@ -378,10 +378,10 @@ function QuietDeskSuperAudit() {
     ['09:31:55', 'POST', 'provider.key.rotate',      'DeltaPay · live key', 'Dev S.',      'platform_eng','high', '198.51.100.7', 'Old key archived. Webhook re-sub queued.'],
     ['09:14:02', 'POST', 'org.suspend',              'Studio X',            'Smit M.',     'super_admin', 'warn', '203.0.113.41', 'Chargeback ratio > 1.4% over 30d.'],
     ['08:59:11', 'POST', 'refund.manual',            'ord_RT1942 · ₹3,400', 'Aanya R.',    'support_lead','low',  '198.51.100.21','Customer reported double-charge. Confirmed via Paystack.'],
-    ['08:42:32', 'POST', 'admin.invite',             'rohit@ticketiv.com',  'Aanya R.',    'support_lead','low',  '198.51.100.21','Role: support_agent · IP scope: in_office'],
+    ['08:42:32', 'POST', 'admin.invite',             'rohit@ticketiv.app',  'Aanya R.',    'support_lead','low',  '198.51.100.21','Role: support_agent · IP scope: in_office'],
     ['08:21:50', 'POST', 'webhook.replay',           'pst_evt_8a1f · ×8',   'system',      'cron',        'warn', '—',           'Auto-retry of failed webhooks > 1h old.'],
     ['07:55:13', 'POST', 'feature.kill',             'attendee_chat',       'Aanya R.',    'support_lead','warn', '198.51.100.21','PII concern · 21d on hold.'],
-    ['07:12:08', 'DEL',  'admin.session.revoke',     'rohit@ticketiv.com',  'Smit M.',     'super_admin', 'high', '203.0.113.41', '2 active sessions terminated.'],
+    ['07:12:08', 'DEL',  'admin.session.revoke',     'rohit@ticketiv.app',  'Smit M.',     'super_admin', 'high', '203.0.113.41', '2 active sessions terminated.'],
     ['06:48:00', 'POST', 'db.migration.run',         'v2026.05.21_seating', 'Dev S.',      'platform_eng','high', '198.51.100.7', '4 tables, 0 destructive. RLS re-verified.'],
   ];
   return (
