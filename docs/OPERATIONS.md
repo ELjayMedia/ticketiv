@@ -149,8 +149,23 @@ inventory/pricing work, so a rapid-fire attacker is rejected before touching
 the row locks; it complements the per-ticket-type `per_user_limit` / quota /
 10-minute holds.
 
-**Apply it to the remaining entry points** by adding, right after the RPC's auth
-check:
+**Edge / anon endpoints are covered too.** `lib/rate-limit.ts` (used by the
+promo preview, payment attempt, auth resend, waitlist join, scanner
+provision/validate, search suggest and tapband telemetry routes) prefers
+Upstash Redis but previously **degraded to a no-op when Upstash was
+unconfigured**, silently disabling those limits. It now falls back to the same
+durable Postgres counter via `public.fn_rate_limit_edge(bucket, key, max,
+window)` — a service-role-only `SECURITY DEFINER` wrapper around `fn_rate_limit`
+(migration `20260720162000`, buckets namespaced under `edge:`). The wrapper is
+EXECUTE-revoked from `anon`/`authenticated` and only reachable through the
+server-side admin client, so a browser can't poke the counter. This closes the
+**`fn_preview_promo_code`** anon-enumeration gap: the promo route keys the limit
+by client IP (`clientKey(req)` → 20/min) and it is now enforced without Redis.
+Any DB/config error fails open (allow), preserving availability over
+enforcement.
+
+**Apply the DB primitive to the remaining SECURITY DEFINER entry points** by
+adding, right after the RPC's auth check:
 
 ```sql
 if not public.fn_rate_limit('<action>:' || v_user::text, <max>, <window_secs>) then
@@ -159,10 +174,7 @@ end if;
 ```
 
 Remaining targets and suggested limits: ticket transfers, resale publication,
-`fn_scan_ticket` (per device/session, generous). **`fn_preview_promo_code` is
-anon-callable and has no `auth.uid()`** — key it from a server-action/route
-wrapper that passes the client IP (PostgREST does not expose the IP to the
-function), or apply a coarse per-event bucket. Schedule `fn_rate_limit_gc()`
+`fn_scan_ticket` (per device/session, generous). Schedule `fn_rate_limit_gc()`
 from the ops cron. Pair with Vercel/WAF network limits for defence in depth.
 
 ---
@@ -177,4 +189,4 @@ from the ops cron. Pair with Vercel/WAF network limits for defence in depth.
 | Backups / RPO-RTO | To do | Supabase PITR + documented drill |
 | Support workflows | Partial | `app/super-admin/*` + runbooks above |
 | Audit retention | To do | scheduled archive+prune job |
-| Rate limits | Partial | `fn_rate_limit` on invites + org creation + checkout; roll out to transfers/resale/scan/promo |
+| Rate limits | Partial | `fn_rate_limit` on invites + org creation + checkout; edge routes durable via `fn_rate_limit_edge`; roll out to transfers/resale/scan |
