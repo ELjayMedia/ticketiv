@@ -1,44 +1,18 @@
--- Rate-limit rollout (control #7, batch 2): organization creation + checkout
--- order creation. Uses the fn_rate_limit primitive from
--- 20260720160000_rate_limit_primitive. Bodies are otherwise unchanged from the
--- deployed versions; only the guard block is added right after the entry checks.
+-- Rate-limit rollout (control #7): checkout / order creation.
+--
+-- Dated after main's latest migration (20260725220000) on purpose: these
+-- rate-limit rollouts CREATE OR REPLACE functions that main's claimed-account
+-- refactor (20260721190000 / 20260721210000) and later hardening also touch, so
+-- they must apply LAST on a fresh replay to sit on top of the final bodies.
+--
+-- fn_create_inventory_protected_order is NOT part of the claimed-account
+-- refactor (guest checkout is allowed), so it stays a single monolithic
+-- function. Body reproduced verbatim from the deployed version; only the
+-- fn_rate_limit guard is added, right after the four entry validations and
+-- before any inventory/pricing work, so a rapid-fire caller is rejected before
+-- touching the row locks. Complements the per-ticket per_user_limit / quota /
+-- 10-minute holds. Limit: 10 per buyer per minute.
 
--- Organizations: 5 per creator per hour (spam guard).
-create or replace function public.fn_create_organization(p_name text, p_currency text DEFAULT 'SZL'::text)
- returns jsonb language plpgsql security definer set search_path to 'public'
-as $function$
-declare
-  v_user uuid := (select auth.uid());
-  v_name text := nullif(trim(p_name), '');
-  v_currency text := upper(coalesce(nullif(trim(p_currency), ''), 'SZL'));
-  v_base_slug text; v_slug text; v_suffix integer := 0; v_org_id uuid;
-begin
-  if v_user is null then raise exception 'authentication_required' using errcode = '28000'; end if;
-  if v_name is null then raise exception 'name_required' using errcode = 'P0001'; end if;
-
-  if not public.fn_rate_limit('org_create:' || v_user::text, 5, 3600) then
-    raise exception 'rate_limited: too many organizations created, please try again later' using errcode = 'P0001';
-  end if;
-
-  v_base_slug := trim(both '-' from regexp_replace(lower(v_name), '[^a-z0-9]+', '-', 'g'));
-  if v_base_slug = '' then v_base_slug := 'org'; end if;
-  v_slug := v_base_slug;
-  while exists (select 1 from public.organizations where slug = v_slug) loop
-    v_suffix := v_suffix + 1;
-    v_slug := v_base_slug || '-' || v_suffix::text;
-  end loop;
-
-  insert into public.organizations (name, slug, default_currency)
-  values (v_name, v_slug, v_currency) returning id into v_org_id;
-  insert into public.org_members (org_id, user_id, role)
-  values (v_org_id, v_user, 'organizer_owner');
-
-  return jsonb_build_object('id', v_org_id, 'slug', v_slug, 'name', v_name, 'currency', v_currency);
-end;
-$function$;
-
--- Checkout / order creation: 10 per buyer per minute (rapid-fire hold guard;
--- complements the per-ticket-type per_user_limit / quota / 10-min holds).
 create or replace function public.fn_create_inventory_protected_order(p_event_id uuid, p_buyer_id uuid, p_buyer_email text, p_items jsonb, p_holder_name text DEFAULT NULL::text)
  returns TABLE(order_row jsonb, order_items jsonb)
  language plpgsql security definer set search_path to 'public'

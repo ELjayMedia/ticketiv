@@ -9,9 +9,9 @@
 --
 -- Called ONLY server-side via the service-role admin client, so EXECUTE is
 -- granted to service_role and revoked from anon / authenticated / public — a
--- browser cannot poke the counter directly. Buckets are namespaced under
--- 'edge:' so they can never collide with the internal RPC buckets
--- ('checkout:', 'org_create:', 'invite:').
+-- browser cannot poke the counter. Buckets are namespaced under 'edge:' so they
+-- can never collide with the internal RPC buckets ('checkout:', 'org_create:',
+-- 'invite:', 'transfer:', 'resale_publish:').
 --
 -- Returns jsonb { allowed, remaining, retry_after } so the route can populate
 -- the standard Retry-After / X-RateLimit-* headers.

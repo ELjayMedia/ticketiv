@@ -135,19 +135,25 @@ prunes today.
 plus `fn_rate_limit_gc()` for housekeeping (migration
 `20260720160000_rate_limit_primitive`). `fn_rate_limit`, `fn_rate_limit_gc` and
 `fn_rate_limit_edge` are EXECUTE-revoked from `anon`/`authenticated` and granted
-only to `service_role` (migration `20260720164000` makes this explicit so a
+only to `service_role` (migration `20260726121500` makes this explicit so a
 fresh replay can't leave them anon-callable via Supabase's grant-on-create event
 trigger), so only trusted SECURITY DEFINER RPCs / server-side code call them.
 **Consumers wired** (each verified against prod with a rolled-back test — the
 last allowed call passes, the next is rejected with `rate_limited`):
 
-| RPC | Bucket | Limit | Migration |
+| RPC (guard location) | Bucket | Limit | Migration |
 |---|---|---|---|
-| `fn_create_membership_invite` | `invite:<uid>` | 30 / hour | `20260720160000` |
-| `fn_create_organization` | `org_create:<uid>` | 5 / hour | `20260720161000` |
-| `fn_create_inventory_protected_order` | `checkout:<buyer>` | 10 / min | `20260720161000` |
-| `fn_request_transfer_by_email` | `transfer:<uid>` | 20 / hour | `20260720163000` |
-| `fn_publish_resale_listing` | `resale_publish:<uid>` | 20 / hour | `20260720163000` |
+| `fn_create_membership_invite_unchecked` (worker) | `invite:<uid>` | 30 / hour | `20260720160000` |
+| `fn_create_organization_unchecked` (worker) | `org_create:<uid>` | 5 / hour | `20260726121000` |
+| `fn_create_inventory_protected_order` (monolith) | `checkout:<buyer>` | 10 / min | `20260726120000` |
+| `fn_request_transfer_by_email` (shim) | `transfer:<uid>` | 20 / hour | `20260726121000` |
+| `fn_publish_resale_listing` (shim) | `resale_publish:<uid>` | 20 / hour | `20260726121000` |
+
+The guard sits in the `_unchecked` worker for the claimed-account RPCs (invite,
+org) — main's refactor split those into a `require_claimed_account()` shim over a
+service-role worker, and the worker is the stable body — and in the shim for
+transfers/resale. The rollout migrations are dated after main's claimed-account
+refactor so they apply last on a fresh replay and land on the final bodies.
 
 The checkout guard sits after the four entry validations and before any
 inventory/pricing work, so a rapid-fire attacker is rejected before touching
