@@ -2,7 +2,7 @@
 
 The privileged database surface, who can reach it, and how that is kept from
 drifting. Machine-readable snapshot: `supabase/permissions/rpc-grants.json`
-(256 functions). Checker: `pnpm check:permissions`.
+(265 functions). Checker: `pnpm check:permissions`.
 
 ## Why a database role is not a trust boundary here
 
@@ -25,7 +25,7 @@ that apply:
 | Schema | Security mode | Reachable from a browser role | Count |
 |---|---|---|---|
 | `public` | `SECURITY DEFINER` | yes | 64 |
-| `public` | `SECURITY DEFINER` | no (service_role / owner / triggers) | 104 |
+| `public` | `SECURITY DEFINER` | no (service_role / owner / triggers) | 113 |
 | `public` | `SECURITY INVOKER` | yes | 42 |
 | `public` | `SECURITY INVOKER` | no | 13 |
 | `app` | either | yes | 24 |
@@ -40,7 +40,7 @@ exposed-schema list; its `anon`/`authenticated` grants exist only so that
 `SECURITY INVOKER` RLS policies can call the helpers while running as the end
 user. Revoking them would break RLS evaluation, not tighten it.
 
-Every one of the 192 `SECURITY DEFINER` functions has a pinned `search_path`.
+Every one of the 202 `SECURITY DEFINER` functions has a pinned `search_path`.
 The checker enforces this, so a new definer function without one fails CI.
 
 ## Anonymous-reachable definer functions
@@ -105,6 +105,14 @@ Enforced by name in the checker, because a grant here is a money bug:
   behind verified provider evidence. See the completion contract in
   `docs/PAYMENTS.md` (TICK-339).
 - `fn_export_rpc_permissions` — the exporter behind this document.
+
+## Live-only drift captured on 2026-07-27
+
+The live project had three server-only `public` `SECURITY DEFINER` helpers that
+were absent from source: `fn_rate_limit_edge`, `fn_seed_uat_fixtures`, and
+`fn_teardown_uat_fixtures`. Migration
+`20260727171416_capture_live_uat_rpc_helpers.sql` captures them in source and
+keeps `PUBLIC`, `anon`, and `authenticated` revoked.
 
 ## Drift control
 
