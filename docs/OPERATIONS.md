@@ -143,6 +143,8 @@ passes, the next is rejected with `rate_limited`):
 | `fn_create_membership_invite` | `invite:<uid>` | 30 / hour | `20260720160000` |
 | `fn_create_organization` | `org_create:<uid>` | 5 / hour | `20260720161000` |
 | `fn_create_inventory_protected_order` | `checkout:<buyer>` | 10 / min | `20260720161000` |
+| `fn_request_transfer_by_email` | `transfer:<uid>` | 20 / hour | `20260720163000` |
+| `fn_publish_resale_listing` | `resale_publish:<uid>` | 20 / hour | `20260720163000` |
 
 The checkout guard sits after the four entry validations and before any
 inventory/pricing work, so a rapid-fire attacker is rejected before touching
@@ -173,9 +175,13 @@ if not public.fn_rate_limit('<action>:' || v_user::text, <max>, <window_secs>) t
 end if;
 ```
 
-Remaining targets and suggested limits: ticket transfers, resale publication,
-`fn_scan_ticket` (per device/session, generous). Schedule `fn_rate_limit_gc()`
-from the ops cron. Pair with Vercel/WAF network limits for defence in depth.
+Transfers (`fn_request_transfer_by_email`) and resale publication
+(`fn_publish_resale_listing`) are guarded at **20 / user / hour** each — the
+guard sits between `app.require_claimed_account()` and the `*_unchecked` worker,
+so it blocks recipient-email enumeration and listing spam without touching
+legitimate use. Remaining target: `fn_scan_ticket` (per device/session,
+generous). Schedule `fn_rate_limit_gc()` from the ops cron. Pair with Vercel/WAF
+network limits for defence in depth.
 
 ---
 
@@ -189,4 +195,4 @@ from the ops cron. Pair with Vercel/WAF network limits for defence in depth.
 | Backups / RPO-RTO | To do | Supabase PITR + documented drill |
 | Support workflows | Partial | `app/super-admin/*` + runbooks above |
 | Audit retention | To do | scheduled archive+prune job |
-| Rate limits | Partial | `fn_rate_limit` on invites + org creation + checkout; edge routes durable via `fn_rate_limit_edge`; roll out to transfers/resale/scan |
+| Rate limits | Partial | `fn_rate_limit` on invites + org creation + checkout + transfers + resale; edge routes durable via `fn_rate_limit_edge`; `fn_scan_ticket` remaining |
