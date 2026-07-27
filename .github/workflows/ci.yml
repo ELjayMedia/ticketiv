@@ -48,11 +48,11 @@ jobs:
   e2e-smoke:
     name: E2E smoke (browser)
     runs-on: ubuntu-latest
+    needs: release-gate
     timeout-minutes: 20
-    # Advisory for now: the Playwright step records its real outcome without
-    # failing the job. Remove the step-level continue-on-error (and mark the
-    # check required in branch protection) once PLAYWRIGHT_BASE_URL points at a
-    # seeded staging deployment and the authenticated legs are enabled.
+    # Advisory by default. Set the E2E_STRICT repo variable to "1" once
+    # PLAYWRIGHT_BASE_URL points at seeded staging and branch protection should
+    # block on the browser journey.
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -76,19 +76,36 @@ jobs:
       # on every PR. Set the PLAYWRIGHT_BASE_URL repo variable to the PR preview
       # or a seeded staging URL to gate the PR's own build; it defaults to
       # production as a public-surface smoke. The authenticated checkout ->
-      # ticket -> scan and cross-org legs self-skip until the staging secrets
-      # (E2E_TEST_BUYER_EMAIL, E2E_PAYSTACK_TEST_KEY) are configured — see
-      # e2e/discovery-to-checkout.spec.ts.
+      # ticket -> scan and cross-org legs self-skip until the seeded staging
+      # secrets (E2E_TEST_EVENT_SLUG, E2E_TEST_BUYER_EMAIL,
+      # E2E_PAYSTACK_TEST_KEY) are configured — see e2e/discovery-to-checkout.spec.ts.
       - name: Run E2E smoke
-        continue-on-error: true
+        continue-on-error: ${{ vars.E2E_STRICT != '1' }}
         env:
           PLAYWRIGHT_BASE_URL: ${{ vars.PLAYWRIGHT_BASE_URL || 'https://ticketiv.app' }}
+          E2E_STRICT: ${{ vars.E2E_STRICT || '0' }}
+          E2E_TEST_EVENT_SLUG: ${{ secrets.E2E_TEST_EVENT_SLUG }}
           E2E_TEST_BUYER_EMAIL: ${{ secrets.E2E_TEST_BUYER_EMAIL }}
           E2E_PAYSTACK_TEST_KEY: ${{ secrets.E2E_PAYSTACK_TEST_KEY }}
         run: pnpm test:e2e
 
-      - name: Record advisory E2E result
+      - name: Upload Playwright failure artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts-${{ github.run_attempt }}
+          path: |
+            test-results/e2e
+            playwright-report
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Record E2E enforcement mode
         if: always()
         run: |
-          echo "The browser smoke is advisory until a seeded staging target is configured."
-          echo "A Playwright failure is retained in the step logs but does not fail this CI job."
+          if [ "${{ vars.E2E_STRICT }}" = "1" ]; then
+            echo "E2E_STRICT=1; browser E2E failures block this job."
+          else
+            echo "E2E_STRICT is not enabled; browser E2E is advisory."
+            echo "A Playwright failure is retained in step logs and uploaded artifacts but does not fail this CI job."
+          fi
