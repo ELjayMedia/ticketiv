@@ -1,13 +1,14 @@
 import "server-only"
 
 import webpush from "web-push"
+import { SUPPORT_EMAIL } from "@ticketiv/shared"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY ?? ""
 
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails("mailto:support@ticketiv.com", VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
+  webpush.setVapidDetails(`mailto:${SUPPORT_EMAIL}`, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
 }
 
 export interface PushPayload {

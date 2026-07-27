@@ -3,42 +3,92 @@ name: CI
 on:
   pull_request:
   push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
-    name: Lint, typecheck & build
+  release-gate:
+    name: Release gate
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # corepack must be enabled before setup-node so its `cache: pnpm` step can
+      # resolve the pnpm store path (otherwise: "Unable to locate executable file: pnpm").
+      - name: Enable corepack
+        run: corepack enable
+
       - name: Setup Node 22
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      # The repo is pnpm-only (see CLAUDE.md). corepack pins pnpm to the
-      # version declared in package.json#packageManager (pnpm@10.28.0).
-      - name: Enable corepack (pnpm 10.28.0)
-        run: corepack enable
+          cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: pnpm lint
+      # check:release includes check:permissions. The invariants over the
+      # committed matrix always run; the live drift diff additionally runs when
+      # these secrets are configured, which is what catches a grant applied
+      # straight to the database without a migration (TICK-337).
+      - name: Run release verification
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: pnpm check:release
 
-      - name: Unit tests (TICK-174)
-        run: pnpm test
+  e2e-smoke:
+    name: E2E smoke (browser)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Advisory for now: the Playwright step records its real outcome without
+    # failing the job. Remove the step-level continue-on-error (and mark the
+    # check required in branch protection) once PLAYWRIGHT_BASE_URL points at a
+    # seeded staging deployment and the authenticated legs are enabled.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # TICK-175 — type burndown complete (233 → 0). tsc is now blocking and
-      # next.config.mjs has ignoreBuildErrors:false, so type regressions fail CI.
-      - name: Typecheck
-        run: npx tsc --noEmit
+      - name: Enable corepack
+        run: corepack enable
 
-      - name: Demo-pattern guard (TICK-162)
-        run: bash scripts/check-demo-patterns.sh
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
 
-      - name: Build
-        run: pnpm build
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      # Public-leg journeys (discover -> event detail) run against the target URL
+      # on every PR. Set the PLAYWRIGHT_BASE_URL repo variable to the PR preview
+      # or a seeded staging URL to gate the PR's own build; it defaults to
+      # production as a public-surface smoke. The authenticated checkout ->
+      # ticket -> scan and cross-org legs self-skip until the staging secrets
+      # (E2E_TEST_BUYER_EMAIL, E2E_PAYSTACK_TEST_KEY) are configured — see
+      # e2e/discovery-to-checkout.spec.ts.
+      - name: Run E2E smoke
+        continue-on-error: true
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ vars.PLAYWRIGHT_BASE_URL || 'https://ticketiv.app' }}
+          E2E_TEST_BUYER_EMAIL: ${{ secrets.E2E_TEST_BUYER_EMAIL }}
+          E2E_PAYSTACK_TEST_KEY: ${{ secrets.E2E_PAYSTACK_TEST_KEY }}
+        run: pnpm test:e2e
+
+      - name: Record advisory E2E result
+        if: always()
+        run: |
+          echo "The browser smoke is advisory until a seeded staging target is configured."
+          echo "A Playwright failure is retained in the step logs but does not fail this CI job."

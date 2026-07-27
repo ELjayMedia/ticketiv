@@ -13,7 +13,7 @@ not corrupt orders, tickets, scans, or ledger state.
 | Event supervisor | Makes on-site gate decisions and coordinates staff. | Phone plus Telegram |
 | Payment operator | Checks Paystack/MoMo dashboards, failed attempts, webhooks, and order/payment inconsistencies. | Kaya or Telegram |
 | Scanner lead | Checks scanner devices, offline state, manifest freshness, and gate queues. | Telegram plus phone |
-| Support comms owner | Sends buyer-facing updates and monitors `support@ticketiv.com`. | Kaya, email, or WhatsApp |
+| Support comms owner | Sends buyer-facing updates and monitors `support@ticketiv.app`. | Kaya, email, or WhatsApp |
 | Organizer representative | Approves pause-sales, manual admission, or public event messaging decisions. | Phone plus Telegram |
 
 Before doors open, the event supervisor must confirm the named person for each
@@ -38,7 +38,7 @@ traffic or if there is uncertainty about whether valid buyers can enter.
 1. Incident lead opens the incident room and starts the decision log.
 2. Payment operator checks `/super-admin/payments`, Paystack/MoMo dashboards,
    Sentry, and `webhooks` for a common error.
-3. Support comms owner watches `support@ticketiv.com` for "money debited, no
+3. Support comms owner watches `support@ticketiv.app` for "money debited, no
    ticket" reports and links each report to the relevant order/payment reference.
 4. Organizer representative confirms whether sales should continue, switch rail,
    pause, or move to a manual box-office path.
@@ -109,7 +109,7 @@ until the incident owner confirms the path.
 ### Buyer payment message
 
 > We are investigating a payment issue for this event. If money left your
-> account but no ticket arrived, email support@ticketiv.com with your order
+> account but no ticket arrived, email support@ticketiv.app with your order
 > number, buyer email, amount, and provider reference.
 
 ### Gate queue message

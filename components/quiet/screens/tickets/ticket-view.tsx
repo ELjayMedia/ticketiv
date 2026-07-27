@@ -115,7 +115,7 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
       <div className="flex min-h-dvh items-center justify-center bg-bg p-6">
         <div className="text-center">
           <p className="text-[14px] text-ink-3">Ticket not found.</p>
-          <Link href="/app/tickets" className="mt-3 inline-flex items-center gap-1 text-[13px] text-ink-3 underline-offset-4 hover:underline">
+          <Link href="/tickets" className="mt-3 inline-flex items-center gap-1 text-[13px] text-ink-3 underline-offset-4 hover:underline">
             <Icon name="chevL" size={14} /> My tickets
           </Link>
         </div>

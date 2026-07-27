@@ -1,226 +1,244 @@
-# Ticketiv – Full Stack Event Ticketing Platform
+# Ticketiv
 
-Ticketiv is an African-first ticketing suite that connects organisers, vendors, and fans across the continent. The platform ships with regional payment rails, scalable Supabase persistence, and role-based dashboards so that teams can launch, monetise, and operate live experiences without stitching tools together.
+Ticketiv is an event-ticketing platform for Eswatini and the wider region:
+consumer discovery and checkout, an organizer back office (events, pricing,
+finance, payouts), an offline-first gate scanner, resale and waitlist flows, and
+a super-admin command centre. It runs as a Next.js App-Router application on
+Vercel, backed by Supabase (Postgres + Auth + Storage) with row-level security
+and `SECURITY DEFINER` RPCs for every mutation.
 
-## Tech Stack
+> This README describes the system as it actually is. For agent/contributor
+> conventions (design system, Supabase rules, key RPCs, do-not-do list) see
+> [`CLAUDE.md`](./CLAUDE.md).
 
-- **Authentication**: Supabase Auth login and signup flows
-- **Event Discovery**: Browse, search, and filter events by category
-- **Event Details**: Rich event information with availability tracking
-- **Checkout Flow**: Multi-step ticket purchase with order summary
-- **Ticket Dashboard**: View and manage purchased tickets
-- **Responsive Design**: Mobile-first, works on all devices
-- **Modern UI**: Beautiful gradients, smooth transitions, and consistent design
-| Layer | Technology | Notes |
-| --- | --- | --- |
-| Frontend | Next.js 16 (App Router), React 19, TypeScript | Responsive client with streaming layouts and client/server components. |
-| Styling | Tailwind CSS v4, shadcn/ui, Radix primitives | Design system tuned for dark/light theming and motion. |
-| Data | Supabase (Postgres, Auth, Storage) | Managed Postgres schema, RLS policies, real-time subscriptions. |
-| Payments | DeltaPay, Paystack, Flutterwave adapters | Regional payment orchestration with webhooks for settlement. |
-| Deployment | Vercel (frontend) + Supabase (backend) | Zero-config CI/CD, environment promotion, edge caching. |
+---
 
-> **Deployment notes**: The repository is optimised for Vercel previews backed by a shared Supabase project. Configure staging and production environments with separate Supabase instances and payment credentials, and promote builds once smoke-tests pass.
+## Architecture
 
-- **Framework**: Next.js 16 (App Router)
-- **Styling**: Tailwind CSS v4
-- **UI Components**: shadcn/ui
-- **Language**: TypeScript
-- **Database**: Supabase Postgres
-- **Icons**: Lucide React
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16 (App Router, React Server Components) |
+| Runtime | React 19.2 / Node 22 |
+| Language | TypeScript 5.7+ |
+| Styling | Tailwind CSS 4.x (`@tailwindcss/postcss`) + **Quiet UI**, a bespoke design system (`components/quiet/ui/`) — *not* shadcn/ui |
+| Package manager | **pnpm 10.28** (workspace) — never `npm`/`yarn` |
+| Backend | Supabase (Postgres, Auth, Storage; project `radsfmlsjznqvcpogluo`) |
+| Payments | Paystack (card + provider webhook) and mobile-money (MoMo) callbacks; DeltaPay/Flutterwave adapters are scaffolded but not enabled |
+| Errors | Sentry (`@sentry/nextjs`) |
+| Deployment | Vercel (builds from the repo root) |
 
-### 🎟️ Attendee Experience
-- Curated browse surfaces for events, artists, and categories with rich search and filters.
-- Mobile-ready checkout that handles ticket quantity, tier selection, and secure payments.
-- Personal dashboard for managing upcoming events, downloads, and payment receipts.
+### Monorepo layout
 
-### 🧑‍💼 Organizer Workspace
-- Event management flows covering draft publishing, pricing controls, and inventory.
-- Settlement and payout tracking with reconciliation views for DeltaPay, Paystack, and Flutterwave transactions.
-- Role-aware navigation shared across organiser sub-routes and API handlers for orders/payouts.
+A pnpm workspace. The Next.js web app lives at the **repo root** (Vercel's root
+directory — do not move it without updating the Vercel setting). Platform-neutral
+logic lives in `packages/shared` (`@ticketiv/shared`, consumed by web via
+`transpilePackages`); `packages/tokens` holds Quiet UI tokens for the React
+Native apps (`apps/ticketiv` consumer, `apps/access` staff). See
+`docs/adr/0001-mobile-packaging.md`.
 
-### 📱 Scanner Tools
-- Web-based validation console for QR codes or manual ticket codes via `/scanner/scan`.
-- API endpoints for instant ticket verification and audit logging of entry attempts.
-- Real-time feedback states to keep gate staff moving during peak check-in windows.
+```
+app/
+  (public)/       Public discovery (events, artists, venues, search)
+  (consumer)/     Buyer journeys (tickets, waitlist, resale, notifications)
+  (focused)/      Checkout and post-purchase
+  (scanner)/      Gate scanner (offline-first PWA)
+  (app)/          Auth'd user shell (profile, payments)
+  orgs/[orgId]/   Organizer workspace (events, orders, staff, devices, finance, payouts)
+  super-admin/    Admin command centre (audit, exports, flags, routing, payouts)
+  api/            Route handlers (attendee CSV, exports, scanner, payments/paystack/webhook)
+components/quiet/ Design system primitives, screens, shells
+lib/              supabase/ clients · data/ access layer · scanner/ · payments*
+supabase/
+  migrations/     Timestamped SQL migrations (source of truth for the schema)
+  schema/         Baseline structure snapshot
+scripts/          verify-rls.sql · verify-money-path.sql · smoke/checks
+e2e/              Playwright browser tests
+```
 
-### 🛡️ Platform Administration
-- Supabase policies enforcing least-privilege access for events and tickets.
-- Admin-only tooling hooks for suspending events, refunding orders, and rotating API keys.
-- Observability touchpoints (Supabase logs, Vercel analytics) to monitor platform health.
+### Data-access rules (hard rules)
 
-## Supabase Data Model
+1. **All mutations go through `SECURITY DEFINER` RPCs** — never client-side
+   `insert`/`update` on protected tables.
+2. **Reads are RLS-scoped.** Policies use the canonical `app.*` helpers
+   (`app.is_org_admin_of`, `app.is_platform_admin`, `app.is_event_public_now`,
+   …) and the `(select auth.uid())` scalar pattern.
+3. Three Supabase clients: `createClientSupabaseClient()` (browser / anon or
+   authenticated), `createServerSupabaseClient()` (server components / route
+   handlers, cookie session), `createAdminClient()` (service-role — trusted
+   server + webhooks only, bypasses RLS).
+4. Never expose the service-role key, `details_encrypted` columns, or provider
+   secrets to the browser.
 
-| Table | Purpose | Key Columns |
-| --- | --- | --- |
-| `events` | Stores public event metadata and ticket inventory. | `title`, `description`, `date`, `location`, `price`, `tickets_available`, `category`, `created_at`, `updated_at` |
-| `tickets` | Records purchases and links them to Supabase Auth users. | `user_id`, `event_id`, `quantity`, `total`, `ticket_number`, `purchase_date`, `created_at` |
-| `user_role` enum | Distinguishes attendee vs. admin profiles. | Values: `user`, `admin` |
+---
 
-All tables are protected with Row Level Security. Events are publicly readable, while tickets are only readable/insertable by the owning authenticated user. Indexed columns (`category`, `date`, `user_id`, `event_id`, `created_at`) keep queries fast at scale.
+## Environment matrix
 
-## User Journeys
+Provided via the deployment environment (Vercel) or a local `.env.local`. There
+are no hardcoded fallbacks except `NEXT_PUBLIC_APP_URL`.
 
-- **Attendee**: Discover events → authenticate via Supabase → checkout with preferred regional payment rail → receive ticket confirmation → manage tickets from the dashboard.
-- **Organizer**: Authenticate as organiser → create or edit events → monitor orders and payouts → export reports for finance reconciliation.
-- **Scanner**: Access the scanner console → validate QR code or manual ticket input → check Supabase-backed validity response → admit attendee or flag issue.
-- **Platform Admin**: Authenticate with elevated role → manage global settings, payment credentials, and policy enforcement → audit logs and respond to support tickets.
+| Variable | Scope | Required | Purpose |
+|---|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | public | ✅ | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | public | ✅ | Anon/browser key (RLS-scoped) |
+| `SUPABASE_SERVICE_ROLE_KEY` | server | ✅ (server) | Service-role key for trusted RPCs/webhooks |
+| `NEXT_PUBLIC_APP_URL` | public | – | Canonical app URL (default `http://localhost:3000`) |
+| `PAYSTACK_PUBLIC_KEY` / `PAYSTACK_SECRET_KEY` | server | ✅ (payments) | Paystack API + webhook signature secret |
+| `DELTAPAY_*`, `FLUTTERWAVE_*` | server | – | Scaffolded adapters, not enabled |
+| `GOOGLE_MAPS_EMBED_KEY` | server | – | Venue map embeds |
+| `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` | both | – | Error reporting |
+| `NEXT_PUBLIC_ENABLE_DEMO_MODE` / `NEXT_PUBLIC_ENABLE_ANALYTICS` | public | – | Feature flags |
 
-## Supabase Integration Steps
+Provider keys can also be stored per-provider in the `payment_provider_settings`
+table; the code falls back to env when a provider row is disabled.
 
-1. **Provision Supabase** – Create a project, secure the database password, and note the project URL, anon key, and service role key from **Settings → API**.
-2. **Run the schema** – Execute the SQL from [`SUPABASE_SETUP.md`](SUPABASE_SETUP.md) to create the `user_role` enum, `events`, and `tickets` tables, apply indexes, and register the `update_events_updated_at` trigger.
-3. **Configure Auth** – Enable email sign-in and register redirect URLs for local (`http://localhost:3000/...`) and production domains.
-4. **Seed catalogue data** – Use the provided insert statements (or your own CSV imports) to load initial events so the public marketplace renders meaningful content.
-5. **Wire credentials** – Populate the environment variables described below, ensuring that service role keys stay on the server only.
-6. **Connect the app** – Replace the mock data helpers with Supabase client queries inside the data loaders (`lib/events.ts`, `lib/orders.ts`, etc.), and subscribe to real-time channels where required.
-7. **Validate flows** – Run the end-to-end journeys locally, verifying Supabase rows, payment webhook callbacks, and scanner validation responses before promoting to staging.
+---
 
-## Project Structure
+## Roles and permissions
 
-\`\`\`
-ticketiv/
-├── app/
-│   ├── (app)/checkout/               # Authenticated attendee checkout
-│   ├── (app)/dashboard/              # Attendee ticket management
-│   ├── (auth)/login|signup/          # Supabase-auth powered forms
-│   ├── (organizer)/events|payouts/   # Organizer dashboards and ledgers
-│   ├── (public)/…                    # Marketing, browse, categories, artists
-│   ├── (scanner)/scan/               # Entry validation console
-│   ├── api/                          # Route handlers for orders, payouts, scanner
-│   └── layout.tsx                    # Root layout and providers
-├── components/
-│   ├── events/                       # Cards, sliders, detail sections
-│   ├── forms/                        # Reusable form patterns (auth, organiser)
-│   ├── tickets/                      # Ticket UI fragments
-│   └── ui/                           # shadcn/ui wrappers and primitives
-├── lib/
-│   ├── events.ts            # Event queries (Supabase, server-only)
-│   ├── events-client.ts     # Client-side event queries
-│   ├── orders.ts            # Order creation and ticket minting
-│   ├── pricing.ts           # Fee calculations
-│   ├── scanning.ts          # QR code validation helpers
-│   ├── supabase.ts          # Client Supabase helpers
-│   ├── supabase-server.ts   # Server Supabase helpers
-│   └── utils.ts             # Utility functions
-├── types/
-│   └── index.ts             # TypeScript type definitions
-├── public/                  # Static assets
-├── .env.local               # Environment variables
-├── next.config.mjs          # Next.js configuration
-├── tsconfig.json            # TypeScript configuration
-└── package.json             # Dependencies
+**Platform admin tiers** (in `admin_users.role_tier`), highest to lowest:
+`super_admin` > `finance_admin` > `support_admin` > `event_ops_admin` >
+`read_only_admin`. Gate with `requireAdminRole(...)`; mutations require
+`roleTier !== "read_only_admin"`.
 
-\`\`\`
+**Org / event roles** (`app_role` enum): `organizer_owner`, `organizer_admin`,
+`organizer`, `organizer_staff`, `finance`, `scanner`, `organizer_scanner`,
+`pos`, plus platform/domain roles `admin`, `venue`, `artist`, `attendee`,
+`device`. Membership lives in `org_members` (org-wide) and `event_staff`
+(per-event). Authorization is enforced inside RPCs/policies via the `app.*`
+helpers and legacy `can_manage_org` / `can_manage_event` helpers.
 
-## Pages & Routes
+Guest checkout uses the plain Supabase **`anon`** role (no sign-in), which is
+distinct from anonymous auth.
 
-### Public Routes
-- `/login` - User login
-- `/signup` - Create new account
+---
 
-### Protected Routes (require login)
-- `/browse` - Browse and search events
-- `/events/[id]` - Event details page
-- `/checkout/[id]` - Checkout page
-- `/dashboard` - User's ticket dashboard
+## Payment lifecycle
 
-## Data & Integrations
+Money is stored as **integer cents** in `_cents` columns; display as
+`SZL X,XXX.XX` with locale `en-SZ`.
 
-- **Supabase Auth** handles email/password sign-in and session refresh.
-- **Supabase Postgres** stores events, ticket types, orders, tickets, scans, and device sessions.
-- **Server Components** read data via `lib/events.ts`, while client components use `lib/events-client.ts#getEventsUsingClient` for live filtering.
-- **Checkout** creates orders through `lib/orders.ts`, which inserts order items, calculates Eventbrite-style fees, and invokes the `fn_mint_tickets` RPC to mint tickets.
-- **Scanning** APIs validate QR codes against Supabase data and support offline sync queues.
+1. **Order creation** — `fn_create_inventory_protected_order` (service-role)
+   locks inventory, applies pricing, and creates a `pending` order + items +
+   a `pending` payment and `payment_attempt`. Pricing/fees are computed by
+   `app.recompute_order_totals`; the org's active `pricing_plans` row decides
+   platform/processor fees and who pays them.
+2. **Provider payment** — the buyer pays via Paystack (or a MoMo callback).
+3. **Completion is provider-verified and trusted-only.** The Paystack webhook
+   (`app/api/payments/paystack/webhook`) verifies an HMAC-SHA512 signature, then
+   `completeTrustedPaystackWebhook` (service-role) marks the payment
+   `succeeded`, writes the **settlement ledger** (`order_gross = total`,
+   negative `fee` rows, `payment_net`), issues tickets, and flips the order to
+   `paid`. It is **idempotent**: payments are keyed on `(provider,
+   ext_payment_id)`, ledger rows are written once per payment, and a re-marked
+   order returns early. The `payments` table has no `authenticated`/`anon` write
+   policy, so only trusted server code can record a succeeded payment.
+4. **Finance & payouts** — `fn_org_finance_summary` is the single source of
+   truth for org money (gross/fees/net/available/settled). Payouts go through
+   `fn_request_payout` (gated on org admin + a payout account) into the admin
+   payout queue.
 
-### Environment Variables
+Refunds (`refunds`, `refund_items`) and payouts (`payouts`, `payout_accounts`)
+are modelled as ledger movements. See `docs/PAYMENTS.md` and
+`scripts/verify-money-path.sql` (a rolled-back, read-safe end-to-end money-path
+check runnable against any environment).
 
-Create a `.env.local` file with your Supabase credentials:
+---
 
-\`\`\`
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-\`\`\`
+## State machines
 
-## Deployment
+**Event** (`events.status`, enum `event_status`):
+```
+draft ──publish──▶ published ──▶ archived
+  ▲                   │
+  └───── paused ◀──────┘        (paused = temporarily off sale)
+```
 
-### Deploy to Vercel
+**Order** (`orders.status`, enum `order_status`):
+```
+pending ──payment succeeded──▶ paid ──refund──▶ refunded
+   └──────payment failed──────▶ failed
+```
+Order status is set explicitly by the completion code / RPCs (there is no
+ledger→status auto-sync). Totals are locked once an order is `paid`.
 
-1. Push your repository to GitHub:
-\`\`\`bash
-git add .
-git commit -m "Initial commit"
-git push origin main
-\`\`\`
+**Ticket / order item** (`order_items.status`, enum `order_item_status`):
+```
+pending ──order paid──▶ issued ──scan──▶ checked_in
+                          │  └──transfer/resale──▶ transferred ──scan──▶ checked_in
+                          └──────────────▶ revoked | refunded   (terminal)
+```
+Transitions are enforced by `order_items_status_transition_guard`; gate scans go
+through `fn_scan_ticket`, which authorizes the caller (staff / event_staff /
+device session), is idempotent, and enforces one-time use per ticket.
 
-## Getting Started
+---
 
-### Prerequisites
+## Local development
 
-- Node.js 18+
-- pnpm (recommended) or npm
-- Supabase project with database schema applied
-- Credentials for at least one payment provider (DeltaPay, Paystack, or Flutterwave)
+```bash
+pnpm install                 # install workspace deps
+cp .env.example .env.local   # then fill in the Supabase + Paystack values (see matrix)
+pnpm dev                     # start the web app on http://localhost:3000
+```
 
-### Installation
+Quality gates (the same `check:release` chain runs in CI):
 
-\`\`\`bash
-git clone <your-repo-url>
-cd ticketiv
-pnpm install
-# or npm install
-\`\`\`
+```bash
+pnpm lint          # eslint
+pnpm test          # vitest (unit)
+pnpm typecheck     # tsc --noEmit
+pnpm check:demo    # guards against placeholder/demo patterns
+pnpm build         # next build
+pnpm check:release # all of the above
 
-### Environment Variables
+pnpm test:e2e          # Playwright (see e2e/); set PLAYWRIGHT_BASE_URL to a target
+pnpm test:e2e:install  # install the chromium browser
+```
 
-Create an `.env.local` file and supply the following values:
+The public-leg E2E (discover → event detail) runs against `PLAYWRIGHT_BASE_URL`;
+the authenticated checkout → ticket → scan legs self-skip until a seeded staging
+DB + test-mode Paystack are configured (`E2E_TEST_BUYER_EMAIL`,
+`E2E_PAYSTACK_TEST_KEY`). CI runs both the release gate and an E2E smoke job (see
+`.github/workflows/ci.yml`).
 
-| Variable | Required | Description |
-| --- | --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase project URL used on both client and server. |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Public anon key for client-side requests. |
-| `SUPABASE_SERVICE_ROLE_KEY` | ✅ (server-only) | Service role key for server route handlers and background jobs. |
-| `NEXT_PUBLIC_APP_URL` | ✅ | Base URL for constructing callbacks (e.g., `http://localhost:3000`). |
-| `DELTAPAY_PUBLIC_KEY` | ✅ (if enabled) | Public key for DeltaPay checkout. |
-| `DELTAPAY_SECRET_KEY` | ✅ (server-only) | Secret key for verifying DeltaPay webhooks. |
-| `PAYSTACK_PUBLIC_KEY` | ✅ (if enabled) | Public key for Paystack inline payments. |
-| `PAYSTACK_SECRET_KEY` | ✅ (server-only) | Secret key for Paystack server-side verification. |
-| `FLUTTERWAVE_PUBLIC_KEY` | ✅ (if enabled) | Public key for Flutterwave checkout. |
-| `FLUTTERWAVE_SECRET_KEY` | ✅ (server-only) | Secret key for Flutterwave webhook validation. |
-| `GOOGLE_MAPS_EMBED_KEY` | ✅ (server-only) | Server-side key used by the Google Maps embed proxy. |
-| `NODE_ENV` | Optional | Runtime mode (`development`, `production`). |
+### Test data
 
-> Store server-only secrets in Vercel's encrypted environment variable manager. Never expose service role or payment secret keys in client bundles.
+There is no committed seed pack yet; the live project holds catalogue/setup data
+(events, ticket types, orgs, venues) but little transactional data. Use
+`scripts/verify-rls.sql` and `scripts/verify-money-path.sql` (rolled-back,
+read-safe) to exercise RLS isolation and the money path against a real
+environment without persisting anything, and see `docs/UAT_TEST_PLAN.md` for the
+manual UAT matrix.
 
-Manage events directly in the Supabase `events` table or extend `lib/events.ts` for custom queries.
+---
 
-\`\`\`bash
-pnpm dev
-\`\`\`
+## Database migrations
 
-Visit [http://localhost:3000](http://localhost:3000) and complete the attendee and organiser journeys. Use Supabase Studio to confirm that events and tickets are persisted as expected.
+Migrations live in `supabase/migrations/` as `YYYYMMDDHHMMSS_slug.sql` and are
+the source of truth for the schema. They are applied to the Supabase project via
+the Supabase tooling (`apply_migration`) and recorded in
+`supabase_migrations.schema_migrations`; the repo file and the recorded version
+are kept in lockstep. Do **not** run raw `psql` against production. See
+`docs/MIGRATION_RECONCILIATION.md` and `supabase/MIGRATION_TEMPLATE.md`.
 
-## Deployment
+---
 
-1. Push the repository to GitHub (or your preferred Git provider).
-2. Import the project into Vercel and select the Next.js framework preset.
-3. In Vercel, add all environment variables from the table above for **Production**, **Preview**, and **Development** scopes as needed.
-4. Point your production build at the production Supabase project and live payment credentials; keep staging and preview builds on sandbox keys.
-5. Trigger a deployment. Vercel will build the Next.js app, while Supabase hosts the database and auth services.
-6. Configure Supabase auth redirect URLs for each environment (e.g., `https://<project>.vercel.app/browse`, `https://<project>.vercel.app/dashboard`).
-7. Validate DeltaPay/Paystack/Flutterwave webhook endpoints against your `/api/orders` and `/api/payouts` handlers before announcing availability.
+## Deployment and rollback
 
-## Maintenance Checklist
+- **Deploy:** Vercel builds from the repo root on merge to `main`. Database
+  changes ship as migrations (above) applied to the Supabase project.
+- **Rollback (app):** redeploy a previous successful Vercel build (Vercel →
+  Deployments → Promote), or revert the offending commit and let CI redeploy.
+- **Rollback (schema):** write and apply a forward migration that reverses the
+  change (preferred), or restore from a Supabase point-in-time backup for data
+  loss. Because migrations are timestamp-preserving and recorded, never edit a
+  released migration in place — add a new one.
+- **Release gate:** a PR is mergeable only when the `check:release` CI job is
+  green (lint, unit tests, typecheck, demo-pattern check, build).
 
-- Monitor Supabase logs and RLS policies when adjusting schema migrations.
-- Rotate payment provider keys on a scheduled cadence and update Vercel secrets accordingly.
-- Use Vercel Analytics and Supabase real-time feeds to watch conversion funnels and entry scans in real time.
+---
 
-## Contributing
+## Further reading
 
-Contributions are welcome! Please open an issue or pull request with context about the regions and payment rails you are targeting so we can validate compliance requirements.
-
-## License
-
-MIT License. Use, adapt, and deploy across your event ecosystems.
+`CLAUDE.md` · `docs/PAYMENTS.md` · `docs/RUNBOOK.md` · `docs/UAT_TEST_PLAN.md` ·
+`docs/RBAC_IMPLEMENTATION.md` · `docs/adr/` · `scripts/verify-*.sql`

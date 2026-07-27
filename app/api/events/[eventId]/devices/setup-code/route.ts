@@ -55,7 +55,23 @@ export async function POST(request: NextRequest, context: RouteContext) {
     .maybeSingle()
 
   if (memberError) return NextResponse.json({ error: "Unable to verify organizer access" }, { status: 500 })
-  if (!member?.role || !MANAGER_ROLES.has(String(member.role))) {
+
+  const isOrgManager = Boolean(member?.role && MANAGER_ROLES.has(String(member.role)))
+
+  // Platform admins manage every org's devices (the DB RLS already treats them
+  // as org managers). read_only_admin is excluded from this mutating action.
+  let isPlatformManager = false
+  if (!isOrgManager) {
+    const { data: adminRow } = await supabase
+      .from("admin_users")
+      .select("role_tier")
+      .eq("user_id", session.user.id)
+      .eq("active", true)
+      .maybeSingle()
+    isPlatformManager = Boolean(adminRow?.role_tier && adminRow.role_tier !== "read_only_admin")
+  }
+
+  if (!isOrgManager && !isPlatformManager) {
     return NextResponse.json({ error: "Organizer manager access required" }, { status: 403 })
   }
 

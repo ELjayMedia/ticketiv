@@ -8,8 +8,8 @@ import type { ChannelResult } from "./types"
 // record the intent without failing the surrounding flow (e.g. local/dev).
 //
 // RESEND_FROM defaults to onboarding@resend.dev, which Resend allows before a
-// sending domain is verified (delivers only to the account owner). Once a
-// branded domain is verified (TICK-60), set RESEND_FROM to a branded address.
+// domain is verified (delivers only to the account owner). Once ticketiv.app
+// is verified (TICK-60) set RESEND_FROM to a branded address.
 
 const PROVIDER = "resend"
 

@@ -55,14 +55,14 @@ export function DesktopShell({ children, user, workspace, onLogout }: DesktopShe
     public: [
       { href: "/", label: "Home", icon: Home, shortcut: "H" },
       { href: "/browse", label: "Events", icon: Calendar, shortcut: "E" },
-      { href: user ? "/my-tickets" : "/login", label: "My Tickets", icon: TicketIcon, shortcut: "T" },
+      { href: user ? "/tickets" : "/login", label: "My Tickets", icon: TicketIcon, shortcut: "T" },
       { href: "/organisers", label: "Organisers", icon: Building2, shortcut: "O" },
       { href: "/artists", label: "Artists", icon: Users, shortcut: "A" },
     ],
     app: [
       { href: "/app/home", label: "Home", icon: Home, shortcut: "H" },
       { href: "/browse", label: "Explore", icon: Search, shortcut: "E" },
-      { href: "/my-tickets", label: "My Tickets", icon: TicketIcon, shortcut: "T" },
+      { href: "/tickets", label: "My Tickets", icon: TicketIcon, shortcut: "T" },
       { href: "/payments", label: "Payments", icon: Settings, shortcut: "P" },
     ],
     organizer: [
@@ -187,7 +187,7 @@ export function DesktopShell({ children, user, workspace, onLogout }: DesktopShe
                   ))}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href="/organizations/new">Create Organization</Link>
+                    <Link href="/onboarding/organizer">Create Organization</Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -247,7 +247,7 @@ export function DesktopShell({ children, user, workspace, onLogout }: DesktopShe
                   {(isSuperAdmin || isOrganizer) && <DropdownMenuSeparator />}
 
                   <DropdownMenuItem asChild>
-                    <Link href="/my-tickets">
+                    <Link href="/tickets">
                       <TicketIcon className="h-4 w-4 mr-2" aria-hidden="true" />
                       My Tickets
                     </Link>
@@ -259,7 +259,7 @@ export function DesktopShell({ children, user, workspace, onLogout }: DesktopShe
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href="/settings">
+                    <Link href="/account/settings">
                       <Settings className="h-4 w-4 mr-2" aria-hidden="true" />
                       Settings
                     </Link>

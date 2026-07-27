@@ -293,7 +293,98 @@ export type Database = {
             foreignKeyName: "credential_batches_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
+            referencedRelation: "admin_event_readiness"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_batches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_catalog"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_batches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_summary"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_batches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_batches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "mv_event_sales"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_batches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_artist_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_batches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_kpis"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_batches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_batches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_sales_public"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_batches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_batches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_inbound_transfers"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_batches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_my_tickets"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_batches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_organizer_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_batches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_public_event_cards"
             referencedColumns: ["id"]
           },
           {
@@ -301,6 +392,13 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_batches_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "v_organizer_public"
             referencedColumns: ["id"]
           },
         ]
@@ -375,7 +473,98 @@ export type Database = {
             foreignKeyName: "credential_entitlements_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
+            referencedRelation: "admin_event_readiness"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_entitlements_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_catalog"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_entitlements_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_summary"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_entitlements_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_entitlements_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "mv_event_sales"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_entitlements_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_artist_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_entitlements_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_kpis"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_entitlements_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_entitlements_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_sales_public"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_entitlements_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_entitlements_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_inbound_transfers"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_entitlements_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_my_tickets"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_entitlements_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_organizer_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_entitlements_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_public_event_cards"
             referencedColumns: ["id"]
           },
           {
@@ -384,6 +573,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "order_items"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_entitlements_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_my_tickets"
+            referencedColumns: ["order_item_id"]
           },
         ]
       }
@@ -485,7 +681,98 @@ export type Database = {
             foreignKeyName: "credential_inventory_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
+            referencedRelation: "admin_event_readiness"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_inventory_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_catalog"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_inventory_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_summary"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_inventory_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_inventory_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "mv_event_sales"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_inventory_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_artist_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_inventory_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_kpis"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_inventory_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_inventory_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_sales_public"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_inventory_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_inventory_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_inbound_transfers"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_inventory_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_my_tickets"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_inventory_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_organizer_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_inventory_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_public_event_cards"
             referencedColumns: ["id"]
           },
           {
@@ -493,6 +780,13 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_inventory_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "v_organizer_public"
             referencedColumns: ["id"]
           },
         ]
@@ -590,7 +884,98 @@ export type Database = {
             foreignKeyName: "credential_taps_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
+            referencedRelation: "admin_event_readiness"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_taps_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_catalog"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_taps_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_summary"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_taps_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_taps_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "mv_event_sales"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_taps_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_artist_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_taps_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_kpis"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_taps_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_taps_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_sales_public"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_taps_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_taps_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_inbound_transfers"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_taps_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_my_tickets"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "credential_taps_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_organizer_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_taps_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_public_event_cards"
             referencedColumns: ["id"]
           },
           {
@@ -606,6 +991,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "order_items"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_taps_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_my_tickets"
+            referencedColumns: ["order_item_id"]
           },
         ]
       }
@@ -637,6 +1029,171 @@ export type Database = {
             columns: ["device_id"]
             isOneToOne: false
             referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      device_setup_codes: {
+        Row: {
+          claimed_at: string | null
+          claimed_device_id: string | null
+          code_hash: string
+          created_at: string
+          created_by: string | null
+          device_role: Database["public"]["Enums"]["device_role"]
+          event_id: string | null
+          expires_at: string
+          id: string
+          label: string
+          max_scans_per_minute: number | null
+          org_id: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_device_id?: string | null
+          code_hash: string
+          created_at?: string
+          created_by?: string | null
+          device_role?: Database["public"]["Enums"]["device_role"]
+          event_id?: string | null
+          expires_at?: string
+          id?: string
+          label: string
+          max_scans_per_minute?: number | null
+          org_id: string
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_device_id?: string | null
+          code_hash?: string
+          created_at?: string
+          created_by?: string | null
+          device_role?: Database["public"]["Enums"]["device_role"]
+          event_id?: string | null
+          expires_at?: string
+          id?: string
+          label?: string
+          max_scans_per_minute?: number | null
+          org_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_setup_codes_claimed_device_id_fkey"
+            columns: ["claimed_device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_setup_codes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "admin_event_readiness"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "device_setup_codes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_catalog"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "device_setup_codes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_summary"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "device_setup_codes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_setup_codes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "mv_event_sales"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "device_setup_codes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_artist_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_setup_codes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_kpis"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "device_setup_codes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_setup_codes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_sales_public"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "device_setup_codes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_setup_codes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_inbound_transfers"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "device_setup_codes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_my_tickets"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "device_setup_codes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_organizer_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_setup_codes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_public_event_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_setup_codes_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_setup_codes_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "v_organizer_public"
             referencedColumns: ["id"]
           },
         ]
@@ -1598,7 +2155,7 @@ export type Database = {
           tz: string | null
           unpublish_at: string | null
           updated_at: string | null
-          venue_id: string
+          venue_id: string | null
           visibility: string
         }
         Insert: {
@@ -1631,7 +2188,7 @@ export type Database = {
           tz?: string | null
           unpublish_at?: string | null
           updated_at?: string | null
-          venue_id: string
+          venue_id?: string | null
           visibility?: string
         }
         Update: {
@@ -1664,7 +2221,7 @@ export type Database = {
           tz?: string | null
           unpublish_at?: string | null
           updated_at?: string | null
-          venue_id?: string
+          venue_id?: string | null
           visibility?: string
         }
         Relationships: [
@@ -2664,10 +3221,12 @@ export type Database = {
           buyer_email: string | null
           buyer_id: string | null
           buyer_phone: string | null
+          cashier_user_id: string | null
           channel: Database["public"]["Enums"]["sales_channel"]
           created_at: string
           currency: string
           device_id: string | null
+          device_session_id: string | null
           email: string | null
           fees_paid_by: Database["public"]["Enums"]["fee_payer"] | null
           hold_expires_at: string | null
@@ -2680,6 +3239,7 @@ export type Database = {
           org_id: string
           phone: string | null
           platform_fee_cents: number | null
+          pos_shift_id: string | null
           pricing_plan_id: string | null
           pricing_plan_snapshot: Json | null
           processor_fee_cents: number | null
@@ -2692,10 +3252,12 @@ export type Database = {
           buyer_email?: string | null
           buyer_id?: string | null
           buyer_phone?: string | null
+          cashier_user_id?: string | null
           channel?: Database["public"]["Enums"]["sales_channel"]
           created_at?: string
           currency?: string
           device_id?: string | null
+          device_session_id?: string | null
           email?: string | null
           fees_paid_by?: Database["public"]["Enums"]["fee_payer"] | null
           hold_expires_at?: string | null
@@ -2708,6 +3270,7 @@ export type Database = {
           org_id: string
           phone?: string | null
           platform_fee_cents?: number | null
+          pos_shift_id?: string | null
           pricing_plan_id?: string | null
           pricing_plan_snapshot?: Json | null
           processor_fee_cents?: number | null
@@ -2720,10 +3283,12 @@ export type Database = {
           buyer_email?: string | null
           buyer_id?: string | null
           buyer_phone?: string | null
+          cashier_user_id?: string | null
           channel?: Database["public"]["Enums"]["sales_channel"]
           created_at?: string
           currency?: string
           device_id?: string | null
+          device_session_id?: string | null
           email?: string | null
           fees_paid_by?: Database["public"]["Enums"]["fee_payer"] | null
           hold_expires_at?: string | null
@@ -2736,6 +3301,7 @@ export type Database = {
           org_id?: string
           phone?: string | null
           platform_fee_cents?: number | null
+          pos_shift_id?: string | null
           pricing_plan_id?: string | null
           pricing_plan_snapshot?: Json | null
           processor_fee_cents?: number | null
@@ -2753,6 +3319,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "orders_device_session_id_fkey"
+            columns: ["device_session_id"]
+            isOneToOne: false
+            referencedRelation: "device_sessions"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "orders_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
@@ -2764,6 +3337,13 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "v_organizer_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_pos_shift_id_fkey"
+            columns: ["pos_shift_id"]
+            isOneToOne: false
+            referencedRelation: "pos_shifts"
             referencedColumns: ["id"]
           },
           {
@@ -3078,6 +3658,66 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_outbox: {
+        Row: {
+          attempts: number
+          available_at: string
+          created_at: string
+          id: string
+          last_error: string | null
+          locked_at: string | null
+          order_id: string
+          payload: Json
+          payment_id: string | null
+          status: string
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          available_at?: string
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          locked_at?: string | null
+          order_id: string
+          payload?: Json
+          payment_id?: string | null
+          status?: string
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          available_at?: string
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          locked_at?: string | null
+          order_id?: string
+          payload?: Json
+          payment_id?: string | null
+          status?: string
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_outbox_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_outbox_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount_cents: number
@@ -3332,6 +3972,98 @@ export type Database = {
             columns: ["replacement_of_id"]
             isOneToOne: false
             referencedRelation: "physical_credentials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pos_shifts: {
+        Row: {
+          cash_variance_cents: number | null
+          cashier_user_id: string
+          closed_at: string | null
+          closed_by: string | null
+          closing_cash_cents: number | null
+          closing_notes: string | null
+          created_at: string
+          device_id: string | null
+          device_session_id: string | null
+          expected_cash_cents: number | null
+          id: string
+          opened_at: string
+          opened_by: string
+          opening_cash_cents: number
+          opening_notes: string | null
+          org_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          cash_variance_cents?: number | null
+          cashier_user_id: string
+          closed_at?: string | null
+          closed_by?: string | null
+          closing_cash_cents?: number | null
+          closing_notes?: string | null
+          created_at?: string
+          device_id?: string | null
+          device_session_id?: string | null
+          expected_cash_cents?: number | null
+          id?: string
+          opened_at?: string
+          opened_by: string
+          opening_cash_cents?: number
+          opening_notes?: string | null
+          org_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          cash_variance_cents?: number | null
+          cashier_user_id?: string
+          closed_at?: string | null
+          closed_by?: string | null
+          closing_cash_cents?: number | null
+          closing_notes?: string | null
+          created_at?: string
+          device_id?: string | null
+          device_session_id?: string | null
+          expected_cash_cents?: number | null
+          id?: string
+          opened_at?: string
+          opened_by?: string
+          opening_cash_cents?: number
+          opening_notes?: string | null
+          org_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_shifts_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_shifts_device_session_id_fkey"
+            columns: ["device_session_id"]
+            isOneToOne: false
+            referencedRelation: "device_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_shifts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_shifts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "v_organizer_public"
             referencedColumns: ["id"]
           },
         ]
@@ -3706,6 +4438,24 @@ export type Database = {
           p256dh?: string
           user_agent?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      rate_limits: {
+        Row: {
+          bucket: string
+          hits: number
+          window_start: string
+        }
+        Insert: {
+          bucket: string
+          hits?: number
+          window_start: string
+        }
+        Update: {
+          bucket?: string
+          hits?: number
+          window_start?: string
         }
         Relationships: []
       }
@@ -4539,6 +5289,751 @@ export type Database = {
             columns: ["series_id"]
             isOneToOne: false
             referencedRelation: "event_series"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tapband_alerts: {
+        Row: {
+          alert_key: string
+          correlation_id: string | null
+          created_at: string
+          details: Json
+          device_id: string | null
+          event_id: string | null
+          first_seen_at: string
+          id: string
+          last_seen_at: string
+          message: string
+          org_id: string | null
+          resolved_at: string | null
+          severity: string
+          status: string
+          title: string
+        }
+        Insert: {
+          alert_key: string
+          correlation_id?: string | null
+          created_at?: string
+          details?: Json
+          device_id?: string | null
+          event_id?: string | null
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          message: string
+          org_id?: string | null
+          resolved_at?: string | null
+          severity: string
+          status?: string
+          title: string
+        }
+        Update: {
+          alert_key?: string
+          correlation_id?: string | null
+          created_at?: string
+          details?: Json
+          device_id?: string | null
+          event_id?: string | null
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          message?: string
+          org_id?: string | null
+          resolved_at?: string | null
+          severity?: string
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tapband_alerts_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_alerts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "admin_event_readiness"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_alerts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_catalog"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_alerts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_summary"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_alerts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_alerts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "mv_event_sales"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_alerts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_artist_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_alerts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_kpis"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_alerts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_alerts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_sales_public"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_alerts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_alerts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_inbound_transfers"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_alerts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_my_tickets"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_alerts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_organizer_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_alerts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_public_event_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_alerts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_alerts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "v_organizer_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tapband_feature_configs: {
+        Row: {
+          activation_enabled: boolean
+          allowed_chip_families: string[]
+          allowed_key_versions: string[]
+          created_at: string
+          created_by: string | null
+          credential_lookup_enabled: boolean
+          desfire_secure_mode_enabled: boolean
+          effective_within_seconds: number
+          enabled: boolean
+          environment: string
+          event_id: string | null
+          id: string
+          lost_replacement_enabled: boolean
+          manifest_validity_seconds: number
+          notes: string | null
+          offline_manifest_issuance_enabled: boolean
+          offline_nfc_scanning_enabled: boolean
+          online_nfc_scanning_enabled: boolean
+          org_id: string | null
+          outlet_id: string | null
+          outlet_lookup_enabled: boolean
+          outlet_sales_enabled: boolean
+          outlet_verification_requirement: string
+          product_visibility_enabled: boolean
+          provisioning_enabled: boolean
+          public_client_config: Json
+          qr_fallback_enabled: boolean
+          replacement_fee_cents: number
+          replacement_fee_waiver_enabled: boolean
+          supported_entry_zones: string[]
+          tap_debounce_ms: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          activation_enabled?: boolean
+          allowed_chip_families?: string[]
+          allowed_key_versions?: string[]
+          created_at?: string
+          created_by?: string | null
+          credential_lookup_enabled?: boolean
+          desfire_secure_mode_enabled?: boolean
+          effective_within_seconds?: number
+          enabled?: boolean
+          environment?: string
+          event_id?: string | null
+          id?: string
+          lost_replacement_enabled?: boolean
+          manifest_validity_seconds?: number
+          notes?: string | null
+          offline_manifest_issuance_enabled?: boolean
+          offline_nfc_scanning_enabled?: boolean
+          online_nfc_scanning_enabled?: boolean
+          org_id?: string | null
+          outlet_id?: string | null
+          outlet_lookup_enabled?: boolean
+          outlet_sales_enabled?: boolean
+          outlet_verification_requirement?: string
+          product_visibility_enabled?: boolean
+          provisioning_enabled?: boolean
+          public_client_config?: Json
+          qr_fallback_enabled?: boolean
+          replacement_fee_cents?: number
+          replacement_fee_waiver_enabled?: boolean
+          supported_entry_zones?: string[]
+          tap_debounce_ms?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          activation_enabled?: boolean
+          allowed_chip_families?: string[]
+          allowed_key_versions?: string[]
+          created_at?: string
+          created_by?: string | null
+          credential_lookup_enabled?: boolean
+          desfire_secure_mode_enabled?: boolean
+          effective_within_seconds?: number
+          enabled?: boolean
+          environment?: string
+          event_id?: string | null
+          id?: string
+          lost_replacement_enabled?: boolean
+          manifest_validity_seconds?: number
+          notes?: string | null
+          offline_manifest_issuance_enabled?: boolean
+          offline_nfc_scanning_enabled?: boolean
+          online_nfc_scanning_enabled?: boolean
+          org_id?: string | null
+          outlet_id?: string | null
+          outlet_lookup_enabled?: boolean
+          outlet_sales_enabled?: boolean
+          outlet_verification_requirement?: string
+          product_visibility_enabled?: boolean
+          provisioning_enabled?: boolean
+          public_client_config?: Json
+          qr_fallback_enabled?: boolean
+          replacement_fee_cents?: number
+          replacement_fee_waiver_enabled?: boolean
+          supported_entry_zones?: string[]
+          tap_debounce_ms?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tapband_feature_configs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "admin_event_readiness"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_feature_configs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_catalog"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_feature_configs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_summary"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_feature_configs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_feature_configs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "mv_event_sales"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_feature_configs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_artist_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_feature_configs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_kpis"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_feature_configs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_feature_configs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_sales_public"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_feature_configs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_feature_configs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_inbound_transfers"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_feature_configs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_my_tickets"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_feature_configs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_organizer_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_feature_configs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_public_event_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_feature_configs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_feature_configs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "v_organizer_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tapband_kill_switches: {
+        Row: {
+          capability: string | null
+          created_at: string
+          created_by: string | null
+          enabled: boolean
+          ends_at: string | null
+          environment: string
+          event_id: string | null
+          id: string
+          org_id: string | null
+          reason: string
+          reason_code: string
+          revoked_at: string | null
+          revoked_by: string | null
+          starts_at: string
+          switch_type: string
+          target_ref: string | null
+        }
+        Insert: {
+          capability?: string | null
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          ends_at?: string | null
+          environment?: string
+          event_id?: string | null
+          id?: string
+          org_id?: string | null
+          reason: string
+          reason_code: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          starts_at?: string
+          switch_type: string
+          target_ref?: string | null
+        }
+        Update: {
+          capability?: string | null
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          ends_at?: string | null
+          environment?: string
+          event_id?: string | null
+          id?: string
+          org_id?: string | null
+          reason?: string
+          reason_code?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          starts_at?: string
+          switch_type?: string
+          target_ref?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tapband_kill_switches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "admin_event_readiness"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_kill_switches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_catalog"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_kill_switches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_summary"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_kill_switches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_kill_switches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "mv_event_sales"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_kill_switches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_artist_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_kill_switches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_kpis"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_kill_switches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_kill_switches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_sales_public"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_kill_switches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_kill_switches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_inbound_transfers"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_kill_switches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_my_tickets"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_kill_switches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_organizer_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_kill_switches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_public_event_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_kill_switches_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_kill_switches_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "v_organizer_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tapband_telemetry_events: {
+        Row: {
+          actor_hash: string | null
+          channel: string | null
+          correlation_id: string | null
+          credential_hash: string | null
+          device_id: string | null
+          event_id: string | null
+          event_type: string
+          id: string
+          ingested_at: string
+          latency_ms: number | null
+          metadata: Json
+          occurred_at: string
+          org_id: string | null
+          outcome: string | null
+          reader_id: string | null
+          serial_hash: string | null
+          severity: string
+        }
+        Insert: {
+          actor_hash?: string | null
+          channel?: string | null
+          correlation_id?: string | null
+          credential_hash?: string | null
+          device_id?: string | null
+          event_id?: string | null
+          event_type: string
+          id?: string
+          ingested_at?: string
+          latency_ms?: number | null
+          metadata?: Json
+          occurred_at?: string
+          org_id?: string | null
+          outcome?: string | null
+          reader_id?: string | null
+          serial_hash?: string | null
+          severity?: string
+        }
+        Update: {
+          actor_hash?: string | null
+          channel?: string | null
+          correlation_id?: string | null
+          credential_hash?: string | null
+          device_id?: string | null
+          event_id?: string | null
+          event_type?: string
+          id?: string
+          ingested_at?: string
+          latency_ms?: number | null
+          metadata?: Json
+          occurred_at?: string
+          org_id?: string | null
+          outcome?: string | null
+          reader_id?: string | null
+          serial_hash?: string | null
+          severity?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tapband_telemetry_events_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_telemetry_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "admin_event_readiness"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_telemetry_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_catalog"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_telemetry_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_summary"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_telemetry_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_telemetry_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "mv_event_sales"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_telemetry_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_artist_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_telemetry_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_kpis"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_telemetry_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_telemetry_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_sales_public"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_telemetry_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_telemetry_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_inbound_transfers"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_telemetry_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_my_tickets"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tapband_telemetry_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_organizer_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_telemetry_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "v_public_event_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_telemetry_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tapband_telemetry_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "v_organizer_public"
             referencedColumns: ["id"]
           },
         ]
@@ -6472,9 +7967,17 @@ export type Database = {
         Args: { p_org_id: string; p_title: string; p_visibility?: string }
         Returns: string
       }
+      create_event_draft_unchecked: {
+        Args: { p_org_id: string; p_title: string; p_visibility?: string }
+        Returns: string
+      }
       current_user_org_ids: { Args: never; Returns: string[] }
       current_user_uid: { Args: never; Returns: string }
       fn_accept_membership_invite: { Args: { p_token: string }; Returns: Json }
+      fn_accept_membership_invite_unchecked: {
+        Args: { p_token: string }
+        Returns: Json
+      }
       fn_admin_schedule_webhook_dispatch: {
         Args: {
           p_anon_jwt: string
@@ -6509,6 +8012,13 @@ export type Database = {
         Returns: Json
       }
       fn_bulk_check_in: {
+        Args: { p_order_item_ids: string[]; p_org_id: string }
+        Returns: {
+          checked_count: number
+          skipped_count: number
+        }[]
+      }
+      fn_bulk_check_in_unchecked: {
         Args: { p_order_item_ids: string[]; p_org_id: string }
         Returns: {
           checked_count: number
@@ -6562,6 +8072,14 @@ export type Database = {
         Args: { p_dry_run?: boolean }
         Returns: Json
       }
+      fn_close_pos_shift: {
+        Args: {
+          p_closing_cash_cents: number
+          p_notes?: string
+          p_shift_id: string
+        }
+        Returns: Json
+      }
       fn_complete_resale_after_payment: {
         Args: { p_listing_id: string; p_payment_id: string }
         Returns: {
@@ -6582,15 +8100,10 @@ export type Database = {
         }[]
       }
       fn_complete_transfer: { Args: { p_transfer_id: string }; Returns: Json }
-      fn_delete_account_for_user: {
-        Args: { p_user_id: string }
+      fn_complete_transfer_unchecked: {
+        Args: { p_transfer_id: string }
         Returns: Json
       }
-      fn_get_account_deletion_status_for_user: {
-        Args: { p_user_id: string }
-        Returns: Json
-      }
-      fn_get_my_account_deletion_status: { Args: never; Returns: Json }
       fn_complete_waitlist_after_payment: {
         Args: { p_payment_id: string; p_waitlist_id: string }
         Returns: {
@@ -6652,7 +8165,42 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      fn_create_membership_invite_unchecked: {
+        Args: {
+          p_event_id?: string
+          p_expires_in?: string
+          p_invited_email?: string
+          p_kind: string
+          p_org_id: string
+          p_role: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: {
+          accepted_at: string | null
+          accepted_by: string | null
+          created_at: string
+          created_by: string
+          event_id: string | null
+          expires_at: string
+          id: string
+          invited_email: string | null
+          kind: string
+          org_id: string
+          revoked_at: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          token: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "membership_invites"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       fn_create_organization: {
+        Args: { p_currency?: string; p_name: string }
+        Returns: Json
+      }
+      fn_create_organization_unchecked: {
         Args: { p_currency?: string; p_name: string }
         Returns: Json
       }
@@ -6677,6 +8225,10 @@ export type Database = {
             Returns: string
           }
       fn_create_talent_profile: { Args: { p_name: string }; Returns: Json }
+      fn_create_talent_profile_unchecked: {
+        Args: { p_name: string }
+        Returns: Json
+      }
       fn_create_waitlist_checkout_order: {
         Args: { p_waitlist_id: string }
         Returns: {
@@ -6687,7 +8239,6 @@ export type Database = {
           waitlist_id: string
         }[]
       }
-      fn_current_user_id: { Args: never; Returns: string }
       fn_db_slow_queries: {
         Args: { p_limit?: number; p_min_mean_ms?: number }
         Returns: {
@@ -6702,7 +8253,40 @@ export type Database = {
         Args: { p_id: string }
         Returns: undefined
       }
+      fn_deactivate_payment_method_unchecked: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
+      fn_delete_account_for_user: { Args: { p_user_id: string }; Returns: Json }
+      fn_delete_organization: {
+        Args: { p_confirm_name: string; p_org_id: string }
+        Returns: undefined
+      }
+      fn_delete_organization_unchecked: {
+        Args: { p_confirm_name: string; p_org_id: string }
+        Returns: undefined
+      }
       fn_duplicate_event: { Args: { p_event_id: string }; Returns: Json }
+      fn_duplicate_event_unchecked: {
+        Args: { p_event_id: string }
+        Returns: Json
+      }
+      fn_end_device_session: {
+        Args: { p_session_id: string }
+        Returns: {
+          device_id: string
+          ended_at: string | null
+          id: string
+          started_at: string | null
+          user_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "device_sessions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       fn_enqueue_webhook: {
         Args: { p_event_type: string; p_org_id?: string; p_payload: Json }
         Returns: number
@@ -6739,6 +8323,11 @@ export type Database = {
           total_cents: number
         }[]
       }
+      fn_get_account_deletion_status_for_user: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
+      fn_get_my_account_deletion_status: { Args: never; Returns: Json }
       fn_get_my_notification_mutes: { Args: never; Returns: string[] }
       fn_get_my_order_totals: {
         Args: { p_order_id: string }
@@ -6796,12 +8385,25 @@ export type Database = {
         }
         Returns: boolean
       }
-      fn_is_org_member: { Args: { p_org_id: string }; Returns: boolean }
       fn_issue_guestlist: {
         Args: { p_allocate?: number; p_guestlist_entry_id: string }
         Returns: Json
       }
+      fn_issue_guestlist_unchecked: {
+        Args: { p_allocate?: number; p_guestlist_entry_id: string }
+        Returns: Json
+      }
       fn_link_event_artist_by_name: {
+        Args: {
+          p_artist_name: string
+          p_bio?: string
+          p_event_id: string
+          p_image_url?: string
+          p_role?: string
+        }
+        Returns: string
+      }
+      fn_link_event_artist_by_name_unchecked: {
         Args: {
           p_artist_name: string
           p_bio?: string
@@ -6832,8 +8434,84 @@ export type Database = {
       }
       fn_normalize_email: { Args: { p: string }; Returns: string }
       fn_normalize_phone: { Args: { p: string }; Returns: string }
+      fn_open_pos_shift: {
+        Args: {
+          p_device_id?: string
+          p_device_session_id?: string
+          p_notes?: string
+          p_opening_cash_cents?: number
+          p_org_id: string
+        }
+        Returns: {
+          cash_variance_cents: number | null
+          cashier_user_id: string
+          closed_at: string | null
+          closed_by: string | null
+          closing_cash_cents: number | null
+          closing_notes: string | null
+          created_at: string
+          device_id: string | null
+          device_session_id: string | null
+          expected_cash_cents: number | null
+          id: string
+          opened_at: string
+          opened_by: string
+          opening_cash_cents: number
+          opening_notes: string | null
+          org_id: string
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "pos_shifts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fn_complete_order_payment: {
+        Args: {
+          p_amount_cents?: number
+          p_currency?: string
+          p_ext_payment_id: string
+          p_order_id: string
+          p_payload?: Json
+          p_provider: string
+        }
+        Returns: {
+          already_completed: boolean
+          completed_order_id: string
+          completed_payment_id: string
+          issued_item_count: number
+        }[]
+      }
+      fn_claim_payment_outbox: {
+        Args: { p_limit?: number }
+        Returns: {
+          attempts: number
+          available_at: string
+          created_at: string
+          id: string
+          last_error: string | null
+          locked_at: string | null
+          order_id: string
+          payload: Json
+          payment_id: string | null
+          status: string
+          topic: string
+          updated_at: string
+        }[]
+      }
+      fn_resolve_payment_outbox: {
+        Args: { p_error?: string; p_id: string; p_ok: boolean }
+        Returns: undefined
+      }
       fn_org_finance_summary: {
-        Args: { p_from?: string | null; p_org_id: string; p_to?: string | null }
+        Args: { p_from?: string; p_org_id: string; p_to?: string }
+        Returns: Json
+      }
+      fn_org_finance_summary_unchecked: {
+        Args: { p_from?: string; p_org_id: string; p_to?: string }
         Returns: Json
       }
       fn_pos_charge: {
@@ -6847,6 +8525,35 @@ export type Database = {
         }
         Returns: Json
       }
+      fn_pos_charge_unchecked: {
+        Args: {
+          p_buyer_email?: string
+          p_buyer_name?: string
+          p_buyer_phone?: string
+          p_event_id: string
+          p_items: Json
+          p_payment_method: string
+        }
+        Returns: Json
+      }
+      fn_pos_charge_with_shift: {
+        Args: {
+          p_buyer_email?: string
+          p_buyer_name?: string
+          p_buyer_phone?: string
+          p_event_id: string
+          p_items: Json
+          p_payment_method: string
+          p_shift_id: string
+        }
+        Returns: Json
+      }
+      fn_pos_receipt: { Args: { p_order_id: string }; Returns: Json }
+      fn_pos_shift_summary: { Args: { p_shift_id: string }; Returns: Json }
+      fn_pos_shift_transactions: {
+        Args: { p_limit?: number; p_shift_id: string }
+        Returns: Json
+      }
       fn_preview_pricing: {
         Args: {
           p_org_id: string
@@ -6855,8 +8562,31 @@ export type Database = {
         }
         Returns: Json
       }
+      fn_preview_promo_code: {
+        Args: {
+          p_channel?: Database["public"]["Enums"]["sales_channel"]
+          p_code: string
+          p_event_id: string
+        }
+        Returns: Json
+      }
       fn_profile_can_read: { Args: { p_user_id: string }; Returns: boolean }
       fn_publish_resale_listing: {
+        Args: {
+          p_listing_hours?: number
+          p_order_item_id: string
+          p_price_cents: number
+        }
+        Returns: {
+          currency: string
+          listing_expires_at: string
+          listing_id: string
+          order_item_id: string
+          price_cents: number
+          transfer_fee_cents: number
+        }[]
+      }
+      fn_publish_resale_listing_unchecked: {
         Args: {
           p_listing_hours?: number
           p_order_item_id: string
@@ -6882,6 +8612,11 @@ export type Database = {
             Returns: Json
           }
         | { Args: { p_currency?: string; p_items: Json }; Returns: Json }
+      fn_rate_limit: {
+        Args: { p_key: string; p_max: number; p_window_seconds: number }
+        Returns: boolean
+      }
+      fn_rate_limit_gc: { Args: { p_older_than?: string }; Returns: number }
       fn_recalculate_event_live_stats: {
         Args: { p_event_id: string }
         Returns: {
@@ -6903,6 +8638,31 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      fn_register_device: {
+        Args: {
+          p_device_role: Database["public"]["Enums"]["device_role"]
+          p_event_id: string
+          p_label: string
+          p_org_id: string
+        }
+        Returns: {
+          created_at: string | null
+          device_role: Database["public"]["Enums"]["device_role"]
+          event_id: string | null
+          id: string
+          label: string | null
+          last_seen_at: string | null
+          max_scans_per_minute: number | null
+          org_id: string
+          registered_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "devices"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       fn_remove_push_subscription: {
         Args: { p_endpoint: string }
         Returns: undefined
@@ -6911,7 +8671,15 @@ export type Database = {
         Args: { p_amount_cents: number; p_org_id: string }
         Returns: Json
       }
+      fn_request_payout_unchecked: {
+        Args: { p_amount_cents: number; p_org_id: string }
+        Returns: Json
+      }
       fn_request_transfer_by_email: {
+        Args: { p_order_item_id: string; p_recipient_email: string }
+        Returns: Json
+      }
+      fn_request_transfer_by_email_unchecked: {
         Args: { p_order_item_id: string; p_recipient_email: string }
         Returns: Json
       }
@@ -6919,8 +8687,25 @@ export type Database = {
         Args: { p_id: string }
         Returns: undefined
       }
+      fn_revoke_membership_invite_unchecked: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
       fn_rollup_metrics: { Args: { p_day: string }; Returns: undefined }
       fn_scan_ticket: {
+        Args: {
+          p_attempt_id?: string
+          p_device_id?: string
+          p_event_id: string
+          p_gate?: string
+          p_scanned_at?: string
+          p_scanned_by: string
+          p_session_id?: string
+          p_ticket_code: string
+        }
+        Returns: Json
+      }
+      fn_scan_ticket_unchecked: {
         Args: {
           p_attempt_id?: string
           p_device_id?: string
@@ -6973,8 +8758,28 @@ export type Database = {
         Args: { p_id: string }
         Returns: undefined
       }
+      fn_set_default_payment_method_unchecked: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
       fn_set_my_avatar_url: { Args: { p_url: string }; Returns: undefined }
       fn_set_my_locale: { Args: { p_locale: string }; Returns: undefined }
+      fn_start_device_session: {
+        Args: { p_device_id: string }
+        Returns: {
+          device_id: string
+          ended_at: string | null
+          id: string
+          started_at: string | null
+          user_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "device_sessions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       fn_store_push_subscription: {
         Args: {
           p_auth: string
@@ -7056,7 +8861,7 @@ export type Database = {
       }
       fn_tapband_resolve_credential_for_event: {
         Args: {
-          p_actor_id: string | null
+          p_actor_id: string
           p_attempt_id?: string
           p_credential_public_id: string
           p_device_id?: string
@@ -7098,6 +8903,61 @@ export type Database = {
         Args: { p_event_id: string; p_new_status: string }
         Returns: Json
       }
+      fn_transition_event_status_unchecked: {
+        Args: { p_event_id: string; p_new_status: string }
+        Returns: Json
+      }
+      fn_transition_payout: {
+        Args: {
+          p_destination_ref?: string
+          p_new_status: Database["public"]["Enums"]["payout_status"]
+          p_payout_id: string
+        }
+        Returns: {
+          amount_cents: number
+          created_at: string | null
+          currency: string
+          destination_ref: string | null
+          id: string
+          org_id: string
+          paid_at: string | null
+          provider: string
+          status: Database["public"]["Enums"]["payout_status"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "payouts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fn_transition_refund: {
+        Args: {
+          p_new_status: Database["public"]["Enums"]["refund_status"]
+          p_provider_payload?: Json
+          p_provider_ref?: string
+          p_refund_id: string
+        }
+        Returns: {
+          amount_cents: number
+          created_at: string | null
+          currency: string
+          id: string
+          initiated_by: string | null
+          payment_id: string
+          processed_at: string | null
+          provider_payload: Json | null
+          provider_ref: string | null
+          status: Database["public"]["Enums"]["refund_status"]
+          type: Database["public"]["Enums"]["refund_type"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "refunds"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       fn_update_my_notification_preferences: {
         Args: {
           p_email_opt_in?: boolean
@@ -7116,8 +8976,22 @@ export type Database = {
         }
         Returns: undefined
       }
+      fn_update_my_profile_unchecked: {
+        Args: {
+          p_display_name?: string
+          p_name?: string
+          p_phone?: string
+          p_surname?: string
+        }
+        Returns: undefined
+      }
       get_event_kpis: { Args: { p_event_id: string }; Returns: Json }
+      get_event_kpis_unchecked: { Args: { p_event_id: string }; Returns: Json }
       get_organizer_kpis: { Args: { p_range?: string }; Returns: Json }
+      get_organizer_kpis_unchecked: {
+        Args: { p_range?: string }
+        Returns: Json
+      }
       get_ticket_type_event: {
         Args: { ticket_type_uuid: string }
         Returns: string
@@ -7141,35 +9015,28 @@ export type Database = {
         Args: { p_kind: string; p_payload: Json; p_run_after?: string }
         Returns: string
       }
-      is_admin: { Args: never; Returns: boolean }
       is_event_organizer: {
         Args: { p_event_id: string; p_user_id: string }
         Returns: boolean
       }
-      is_event_staff: {
-        Args: { event_uuid: string; user_uuid: string }
-        Returns: boolean
-      }
-      is_global_admin: { Args: { p_user: string }; Returns: boolean }
-      is_order_item_buyer: { Args: { order_item_id: string }; Returns: boolean }
-      is_order_item_org_member: {
-        Args: { order_item_id: string }
-        Returns: boolean
-      }
-      is_org_admin:
-        | { Args: { p_org_id: string }; Returns: boolean }
-        | { Args: { org_uuid: string; user_uuid: string }; Returns: boolean }
+      is_org_admin: { Args: { p_org_id: string }; Returns: boolean }
       is_org_finance_viewer: { Args: { p_org_id: string }; Returns: boolean }
-      is_org_member: {
-        Args: { p_org_id: string; p_user: string }
-        Returns: boolean
-      }
       is_org_staff: {
         Args: { org_uuid: string; user_uuid: string }
         Returns: boolean
       }
       is_super_admin: { Args: { check_user_id?: string }; Returns: boolean }
       issue_comp_ticket: {
+        Args: {
+          p_note?: string
+          p_org_id: string
+          p_qty?: number
+          p_recipient_email: string
+          p_ticket_type_id: string
+        }
+        Returns: string
+      }
+      issue_comp_ticket_unchecked: {
         Args: {
           p_note?: string
           p_org_id: string
@@ -7224,8 +9091,6 @@ export type Database = {
         Args: { p_order_item_id: string }
         Returns: undefined
       }
-      show_limit: { Args: never; Returns: number }
-      show_trgm: { Args: { "": string }; Returns: string[] }
       slugify_text: { Args: { p_value: string }; Returns: string }
       user_has_org_role: {
         Args: { p_org: string; p_roles: string[] }

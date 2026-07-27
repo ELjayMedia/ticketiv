@@ -51,6 +51,49 @@ describe("buildEventReconciliation", () => {
     expect(result.paidTicketCount).toBe(2)
   })
 
+  it("reconciles buyer-paid fees where total exceeds subtotal", () => {
+    // Live pricing config: fees are added on top of the ticket subtotal, so
+    // total (10950) > subtotal (10000). The settlement ledger records
+    // order_gross = total, negative fees and payment_net = total - fees.
+    const result = buildEventReconciliation(baseInput({
+      stats: {
+        ticketsSold: 1,
+        grossSalesCents: 10950,
+        successfulPayments: 1,
+        failedPayments: 0,
+        checkedInCount: 0,
+        updatedAt: "2026-07-20T00:00:00.000Z",
+      },
+      orders: [
+        {
+          id: "ord_1",
+          status: "paid",
+          totalCents: 10950,
+          subtotalCents: 10000,
+          platformFeeCents: 750,
+          processorFeeCents: 200,
+          currency: "SZL",
+        },
+      ],
+      orderItems: [
+        { id: "item_1", orderId: "ord_1", status: "issued", refundedAt: null, revokedAt: null },
+      ],
+      ledgerEntries: [
+        { orderId: "ord_1", type: "order_gross", amountCents: 10950, currency: "SZL" },
+        { orderId: "ord_1", type: "fee", amountCents: -750, currency: "SZL" },
+        { orderId: "ord_1", type: "fee", amountCents: -200, currency: "SZL" },
+        { orderId: "ord_1", type: "payment_net", amountCents: 10000, currency: "SZL" },
+      ],
+      payments: [{ id: "pay_1", orderId: "ord_1", status: "succeeded", amountCents: 10950 }],
+    }))
+
+    expect(result.status).toBe("ok")
+    expect(result.expectedGrossCents).toBe(10950)
+    expect(result.expectedFeeCents).toBe(950)
+    expect(result.expectedNetCents).toBe(10000)
+    expect(result.checks.find((check) => check.key === "ledger")?.status).toBe("ok")
+  })
+
   it("flags ledger and stats mismatches before payout review", () => {
     const result = buildEventReconciliation(baseInput({
       stats: {

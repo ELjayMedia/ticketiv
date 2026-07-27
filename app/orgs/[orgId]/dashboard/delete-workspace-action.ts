@@ -1,0 +1,33 @@
+"use server"
+
+import { redirect } from "next/navigation"
+
+import { createServerSupabaseClient } from "@/lib/supabase-server"
+
+export async function deleteWorkspaceAction(formData: FormData) {
+  const orgId = String(formData.get("orgId") ?? "")
+  const confirmation = String(formData.get("confirmation") ?? "")
+
+  if (!orgId || !confirmation) {
+    redirect(`/orgs/${orgId}/settings?deleteError=${encodeURIComponent("Type the workspace name to confirm deletion.")}`)
+  }
+
+  const supabase = createServerSupabaseClient()
+  if (!supabase) redirect("/login")
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect("/login")
+
+  // fn_delete_organization is not in the generated Supabase types yet; cast to
+  // match the repo convention for untyped RPCs (see lib/scanning.ts, etc.).
+  const { error } = await (supabase.rpc as any)("fn_delete_organization", {
+    p_org_id: orgId,
+    p_confirm_name: confirmation,
+  })
+
+  if (error) {
+    redirect(`/orgs/${orgId}/settings?deleteError=${encodeURIComponent(error.message)}`)
+  }
+
+  redirect("/organizer")
+}

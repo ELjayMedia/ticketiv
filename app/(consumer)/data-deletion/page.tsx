@@ -68,7 +68,7 @@ export default function DataDeletionPage() {
               subject so the request can be verified.
             </p>
             <Link
-              href="mailto:support@ticketiv.com?subject=Ticketiv%20data%20deletion"
+              href="mailto:support@ticketiv.app?subject=Ticketiv%20data%20deletion"
               className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-accent"
             >
               Email support

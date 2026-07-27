@@ -61,12 +61,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
   const type = row.type ?? "generic"
   const payload = row.payload ?? {}
   const eventTitle = asText(payload.eventTitle) ?? asText(payload.event_title)
-  const ticketId = asText(payload.ticketId) ?? asText(payload.ticket_id) ?? asText(payload.orderItemId) ?? asText(payload.order_item_id)
-  const transferId = asText(payload.transferId) ?? asText(payload.transfer_id)
-  const waitlistId = asText(payload.waitlistId) ?? asText(payload.waitlist_id)
-  const resaleId = asText(payload.resaleId) ?? asText(payload.resale_id) ?? asText(payload.listingId) ?? asText(payload.listing_id)
-  const refundId = asText(payload.refundId) ?? asText(payload.refund_id)
-  const eventId = asText(payload.eventId) ?? asText(payload.event_id) ?? asText(payload.eventSlug) ?? asText(payload.event_slug)
+  const eventSlug = asText(payload.eventSlug) ?? asText(payload.event_slug)
   const explicitTitle = asText(payload.title)
   const explicitMessage = asText(payload.message) ?? asText(payload.body)
   const base = baseFields(row)
@@ -81,8 +76,8 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
       message: explicitMessage ?? (eventTitle ? `There is a transfer update for ${eventTitle}.` : "You have a ticket transfer update."),
       createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
       ...base,
-      actionHref: transferId ? `/transfers?transferId=${encodeURIComponent(transferId)}` : "/transfers",
-      actionLabel: "View transfer",
+      actionHref: "/tickets",
+      actionLabel: "View transfers",
       actionKind: "transfer",
     }
   }
@@ -97,7 +92,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
       message: explicitMessage ?? (eventTitle ? `There is a waitlist update for ${eventTitle}.` : "Your waitlist status has changed."),
       createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
       ...base,
-      actionHref: waitlistId ? `/waitlist?waitlistId=${encodeURIComponent(waitlistId)}` : "/waitlist",
+      actionHref: "/waitlist",
       actionLabel: "View waitlist",
       actionKind: "waitlist",
     }
@@ -113,8 +108,8 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
       message: explicitMessage ?? (eventTitle ? `There is a listing update for ${eventTitle}.` : "Your ticket listing has an update."),
       createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
       ...base,
-      actionHref: resaleId ? `/resale?listingId=${encodeURIComponent(resaleId)}` : "/resale",
-      actionLabel: "View listing",
+      actionHref: "/resale",
+      actionLabel: "View listings",
       actionKind: "resale",
     }
   }
@@ -129,8 +124,8 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
       message: explicitMessage ?? (eventTitle ? `There is a refund update for ${eventTitle}.` : "Your refund status has changed."),
       createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
       ...base,
-      actionHref: refundId ? `/orders?refundId=${encodeURIComponent(refundId)}` : "/orders",
-      actionLabel: "View order",
+      actionHref: "/orders",
+      actionLabel: "View orders",
       actionKind: "refund",
     }
   }
@@ -145,8 +140,8 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
       message: explicitMessage ?? (eventTitle ? `${eventTitle} has an update.` : "An event you follow has an update."),
       createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
       ...base,
-      actionHref: eventId ? `/events/${encodeURIComponent(eventId)}` : "/",
-      actionLabel: "View event",
+      actionHref: eventSlug ? `/events/${encodeURIComponent(eventSlug)}` : "/",
+      actionLabel: eventSlug ? "View event" : "Discover events",
       actionKind: "event",
     }
   }
@@ -161,8 +156,8 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
       message: explicitMessage ?? (eventTitle ? `Your ticket for ${eventTitle} has an update.` : "Your ticket has an update."),
       createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
       ...base,
-      actionHref: ticketId ? `/tickets/${encodeURIComponent(ticketId)}` : "/tickets",
-      actionLabel: "View ticket",
+      actionHref: "/tickets",
+      actionLabel: "View tickets",
       actionKind: "ticket",
     }
   }

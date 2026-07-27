@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { assertFeatureEnabled } from "@/lib/feature-flags"
 
 type PublishResaleListingState = {
   ok: false
@@ -26,6 +27,7 @@ export async function publishResaleListing(
   _prevState: PublishResaleListingState | null,
   formData: FormData,
 ): Promise<PublishResaleListingState> {
+  await assertFeatureEnabled("resale_enabled")
   const ticketId = String(formData.get("ticketId") ?? "").trim()
   const priceCents = cleanMoneyToCents(formData.get("price"))
   const listingHours = cleanHours(formData.get("expiresIn"))

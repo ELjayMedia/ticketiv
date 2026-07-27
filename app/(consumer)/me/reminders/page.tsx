@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic"
 export default async function RemindersPage() {
   const settings = await getAccountSettings()
   if (!settings) {
-    redirect("/login")
+    redirect("/login?next=/me/reminders")
   }
 
-  return <RemindersScreen initial={settings!.notifications} />
+  return <RemindersScreen initial={settings.notifications} />
 }

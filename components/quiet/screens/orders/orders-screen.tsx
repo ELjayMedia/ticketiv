@@ -6,7 +6,6 @@ import { EmptyState } from "@/components/quiet/ui/empty-state";
 import { formatPrice, formatEventDate, type Currency } from "@/lib/format";
 import type { OrderListItem } from "@/lib/data/attendee/orders";
 
-/* ── Order status helpers ────────────────────────────────────── */
 const STATUS_LABEL: Record<string, string> = {
   paid: "Confirmed",
   pending: "Processing",
@@ -25,7 +24,6 @@ const STATUS_VARIANT: Record<string, "accent" | "muted" | "default"> = {
   awaiting_payment: "default",
 };
 
-/* ── Component ───────────────────────────────────────────────── */
 interface OrdersScreenProps {
   orders: OrderListItem[];
 }
@@ -70,7 +68,6 @@ export function OrdersScreen({ orders }: OrdersScreenProps) {
   );
 }
 
-/* ── Single order row ──────────────────────────────────────────── */
 function OrderRow({ order }: { order: OrderListItem }) {
   const statusLabel = STATUS_LABEL[order.status] ?? order.status;
   const statusVariant = STATUS_VARIANT[order.status] ?? "default";
@@ -87,65 +84,71 @@ function OrderRow({ order }: { order: OrderListItem }) {
     : null;
 
   return (
-    <Link href={`/orders/${order.id}`} className="block">
-      <Card className="flex gap-3 p-3.5 hover:border-line-2 transition-colors">
-        {/* Event thumbnail */}
-        <div className="relative h-[68px] w-[68px] shrink-0 overflow-hidden rounded-[var(--radius-md)] bg-surface-2">
-          {order.cover_image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={order.cover_image_url}
-              alt=""
-              className="h-full w-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-ink-4">
-              <Icon name="ticket" size={24} strokeWidth={1.4} />
-            </div>
+    <Card className="flex gap-3 p-3.5">
+      <div className="relative h-[68px] w-[68px] shrink-0 overflow-hidden rounded-[var(--radius-md)] bg-surface-2">
+        {order.cover_image_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={order.cover_image_url}
+            alt=""
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-ink-4">
+            <Icon name="ticket" size={24} strokeWidth={1.4} />
+          </div>
+        )}
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex items-start justify-between gap-2">
+          <p className="truncate text-[14px] font-semibold leading-snug">
+            {order.event_title ?? "Ticket order"}
+          </p>
+          <Chip variant={statusVariant} size="sm" className="shrink-0">
+            {statusLabel}
+          </Chip>
+        </div>
+
+        <div className="flex items-center gap-1.5 font-mono text-[11px] text-ink-3">
+          {eventDate && (
+            <>
+              <Icon name="cal" size={11} />
+              <span>{eventDate}</span>
+              <span className="text-line-2">·</span>
+            </>
           )}
+          {order.venue_name && (
+            <>
+              <Icon name="pin" size={11} />
+              <span className="truncate">{order.venue_name}</span>
+              <span className="text-line-2">·</span>
+            </>
+          )}
+          <Icon name="ticket" size={11} />
+          <span>
+            {order.ticket_count} ticket{order.ticket_count !== 1 ? "s" : ""}
+          </span>
         </div>
 
-        {/* Details */}
-        <div className="flex flex-1 flex-col gap-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <p className="truncate text-[14px] font-semibold leading-snug">
-              {order.event_title ?? "Ticket order"}
-            </p>
-            <Chip variant={statusVariant} size="sm" className="shrink-0">
-              {statusLabel}
-            </Chip>
-          </div>
-
-          <div className="flex items-center gap-1.5 font-mono text-[11px] text-ink-3">
-            {eventDate && (
-              <>
-                <Icon name="cal" size={11} />
-                <span>{eventDate}</span>
-                <span className="text-line-2">·</span>
-              </>
-            )}
-            {order.venue_name && (
-              <>
-                <Icon name="pin" size={11} />
-                <span className="truncate">{order.venue_name}</span>
-                <span className="text-line-2">·</span>
-              </>
-            )}
-            <Icon name="ticket" size={11} />
-            <span>
-              {order.ticket_count} ticket{order.ticket_count !== 1 ? "s" : ""}
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-[13px] font-semibold tabular-nums">
-              {formatPrice(order.total_cents, currency)}
-            </span>
-            <span className="font-mono text-[11px] text-ink-4">{orderedDate}</span>
-          </div>
+        <div className="flex items-center justify-between">
+          <span className="font-mono text-[13px] font-semibold tabular-nums">
+            {formatPrice(order.total_cents, currency)}
+          </span>
+          <span className="font-mono text-[11px] text-ink-4">{orderedDate}</span>
         </div>
-      </Card>
-    </Link>
+
+        {order.status === "paid" && order.ticket_count > 0 && (
+          <Link
+            href="/tickets"
+            className="mt-1 inline-flex w-fit items-center gap-1 text-[11px] font-semibold text-accent"
+          >
+            View tickets
+            <Icon name="chevR" size={12} />
+          </Link>
+        )}
+      </div>
+    </Card>
   );
 }

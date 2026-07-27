@@ -1,6 +1,8 @@
 import type React from "react"
+import Link from "next/link"
 import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { Icon } from "@/components/quiet/ui/icon"
 
 /**
  * Org-scoped layout
@@ -16,27 +18,19 @@ export default async function OrgLayout({
 }) {
   const { orgId } = await params
 
-  // Verify org membership server-side
   const supabase = createServerSupabaseClient()
-  if (!supabase) {
-    return redirect("/login")
-  }
+  if (!supabase) return redirect("/login")
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (!session) {
-    return redirect("/login")
-  }
+  if (!user) return redirect("/login")
 
-  const userId = session.user.id
-
-  // Check if user is a member of this org
   const { data: membership, error: queryError } = await supabase
     .from("org_members")
     .select("org_id, role")
-    .eq("user_id", userId)
+    .eq("user_id", user.id)
     .eq("org_id", orgId)
     .maybeSingle()
 
@@ -46,26 +40,46 @@ export default async function OrgLayout({
   }
 
   if (!membership) {
-    // Door staff (event_staff only, not an org member) shouldn't see the org
-    // workspace — send them straight to Scan instead of a dead 403. (TICK-277)
-    const { data: doorStaff } = await supabase
-      .from("event_staff")
-      .select("event_id, events!inner(org_id)")
-      .eq("user_id", userId)
+    // Platform admins manage every org workspace (the DB RLS already treats them
+    // as org managers via app.is_platform_admin()). Allow them through without an
+    // org_members row.
+    const { data: adminRow } = await supabase
+      .from("admin_users")
+      .select("user_id")
+      .eq("user_id", user.id)
       .eq("active", true)
-      .eq("events.org_id", orgId)
-      .limit(1)
       .maybeSingle()
 
-    if (doorStaff) {
-      return redirect("/scan")
-    }
+    if (!adminRow) {
+      const { data: doorStaff } = await supabase
+        .from("event_staff")
+        .select("event_id, events!inner(org_id)")
+        .eq("user_id", user.id)
+        .eq("active", true)
+        .eq("events.org_id", orgId)
+        .limit(1)
+        .maybeSingle()
 
-    console.warn("[v0] User is not a member of org:", userId, orgId)
-    return redirect("/403")
+      if (doorStaff) return redirect("/scan")
+      return redirect("/403")
+    }
   }
 
-  console.log("[v0] Org layout access granted. User role:", membership.role)
+  const isOwner = membership?.role === "organizer_owner"
 
-  return <>{children}</>
+  return (
+    <>
+      {children}
+      {isOwner && (
+        <Link
+          href={`/orgs/${orgId}/settings`}
+          className="fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 rounded-full border border-line-2 bg-surface px-4 py-2.5 text-[13px] font-semibold text-ink shadow-lg hover:bg-bg"
+          aria-label="Workspace settings"
+        >
+          <Icon name="settings" size={15} />
+          Workspace settings
+        </Link>
+      )}
+    </>
+  )
 }

@@ -1,15 +1,13 @@
 import "server-only"
 
-import crypto, { randomUUID } from "crypto"
+import { randomUUID } from "crypto"
 import * as Sentry from "@sentry/nextjs"
 
-import { APP_URL, PAYSTACK_SECRET_KEY } from "@/lib/env"
-import { completePaidOrder } from "@/lib/orders"
-import { notifyPaymentFailed, notifyPaymentSucceeded, notifyTicketPurchaseSucceeded } from "@/lib/notifications"
-import { deliverTicketsForOrder } from "@/lib/notifications/ticket-delivery"
+import { APP_URL } from "@/lib/env"
+import { notifyPaymentFailed } from "@/lib/notifications"
+import { drainPaymentOutbox } from "@/lib/payments/outbox"
+import { getPaystackSettings } from "@/lib/payments/paystack-config"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { buildLedgerEntries, evaluatePaystackWebhookOutcome } from "@/lib/payments-math"
 import { resolvePaymentProvider } from "@/lib/payments/routing"
 
 export type PaymentProvider = "paystack" | "flutterwave" | "manual" | "momo"
@@ -34,12 +32,6 @@ type PaystackInitializeResponse = {
   data?: { authorization_url: string; access_code: string; reference: string }
 }
 
-type PaystackSettings = {
-  secretKey: string
-  webhookSecret?: string | null
-  callbackUrl?: string | null
-}
-
 export interface CreatePaymentAttemptInput {
   orderId: string
   /** Client preference. When omitted/unknown, payment_routing_rules decides. */
@@ -61,21 +53,13 @@ function assertProvider(provider: string): asserts provider is PaymentProvider {
   if (!["paystack", "flutterwave", "manual", "momo"].includes(provider)) throw new Error("Unsupported payment provider")
 }
 
-async function getPaystackSettings(): Promise<PaystackSettings> {
-  const admin = createAdminClient()
-  const { data } = await admin
-    .from("payment_provider_settings")
-    .select("is_enabled, secret_key, webhook_secret, callback_url")
-    .eq("provider", "paystack")
-    .maybeSingle()
-
-  const secretKey = data?.is_enabled && data.secret_key ? data.secret_key : PAYSTACK_SECRET_KEY
-  if (!secretKey) throw new Error("Missing Paystack secret key")
-  return { secretKey, webhookSecret: data?.webhook_secret ?? null, callbackUrl: data?.callback_url ?? null }
-}
-
 async function getPendingOrder(orderId: string, userId?: string) {
-  const supabase = createServerSupabaseClient()
+  // Service role: callers are trusted, post-verification server contexts — the
+  // checkout server action (scoped to the buyer via userId below), and the
+  // MoMo callback/status routes, which carry no browser session. `orders` has
+  // no anon read grant, so the anon/cookie client would find nothing here.
+  // Buyer scoping is still enforced explicitly when userId is provided.
+  const supabase = createAdminClient()
   if (!supabase) throw new Error("Supabase is not configured")
 
   let query = supabase.from("orders").select("*").eq("id", orderId)
@@ -100,6 +84,7 @@ function getBuyerEmail(order: LiveOrder) {
 
 async function initializePaystackTransaction(order: LiveOrder, reference: string, returnUrl?: string | null) {
   const settings = await getPaystackSettings()
+  if (!settings.secretKey) throw new Error("Missing Paystack secret key")
   // The buyer is sent here by Paystack after the hosted page. The webhook
   // is what actually moves the order to "paid"; this URL just lands them
   // on the confirmation page which polls until the webhook completes.
@@ -127,34 +112,6 @@ async function initializePaystackTransaction(order: LiveOrder, reference: string
   return payload.data
 }
 
-export async function verifyPaystackWebhookSignature(rawBody: string, signature: string | null) {
-  const settings = await getPaystackSettings().catch(() => null)
-  const secretKey = settings?.webhookSecret || settings?.secretKey || PAYSTACK_SECRET_KEY
-  if (!secretKey || !signature) return false
-
-  const expected = crypto.createHmac("sha512", secretKey).update(rawBody).digest("hex")
-  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
-}
-
-async function writePaymentLedger(order: LiveOrder, paymentId: string) {
-  const admin = createAdminClient()
-  const entries = buildLedgerEntries(order, paymentId)
-
-  const { error } = await admin.from("ledger_entries").insert(entries)
-  if (error) {
-    console.error("Failed to write payment ledger entries", error)
-    Sentry.captureException(error, { tags: { area: "ledger" }, extra: { orderId: order.id, paymentId } })
-    throw new Error("Unable to write ledger entries")
-  }
-}
-
-/**
- * Effective payment-provider lock for an order: the intersection of the
- * non-empty `events.payment_providers` locks across every event the order
- * touches. Events without a lock impose no constraint. Empty result = no lock.
- * Throws when locked events share no common provider (a misconfiguration —
- * orders are effectively single-event in practice).
- */
 async function getOrderAllowedProviders(orderId: string): Promise<string[]> {
   const admin = createAdminClient()
   const { data, error } = await admin
@@ -240,190 +197,62 @@ export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
   }
 }
 
+/**
+ * Complete a payment whose authenticity the caller has already verified
+ * (TICK-333).
+ *
+ * Routes through the same single transactional RPC as the Paystack webhook.
+ * This path previously repeated the completion by hand -- payment insert,
+ * attempt update, ledger write, then completePaidOrder -- as four separate
+ * transactions, so a failure between any two left the order torn in exactly
+ * the ways the RPC now makes impossible. MoMo makes that likelier than most:
+ * completion arrives from both the callback and status polling, so partial
+ * runs interleave.
+ *
+ * Ticket delivery stays outside the transaction, drained from payment_outbox
+ * after it commits.
+ */
 export async function completeVerifiedPayment(input: CompleteVerifiedPaymentInput) {
   assertProvider(input.provider)
   const { supabase, order } = await getPendingOrder(input.orderId)
 
-  const { data: payment, error: paymentError } = await supabase
-    .from("payments")
-    .insert({
-      order_id: order.id,
-      provider: input.provider,
-      amount_cents: order.total_cents,
-      currency: order.currency,
-      ext_payment_id: input.extPaymentId,
-      payload: input.payload ?? {},
-      status: "succeeded",
-      channel: "online",
+  const { data, error } = await supabase
+    .rpc("fn_complete_order_payment", {
+      p_order_id: order.id,
+      p_provider: input.provider,
+      p_ext_payment_id: input.extPaymentId,
+      p_amount_cents: order.total_cents,
+      p_currency: order.currency,
+      p_payload: input.payload ?? {},
     })
-    .select("*")
-    .single()
-
-  if (paymentError || !payment) {
-    console.error("Failed to record payment", paymentError)
-    throw new Error("Unable to record payment")
-  }
-
-  const { error: attemptError } = await supabase
-    .from("payment_attempts")
-    .update({ status: "succeeded", payment_id: payment.id })
-    .eq("order_id", order.id)
-    .eq("provider", input.provider)
-    .eq("status", "pending")
-
-  if (attemptError) {
-    console.error("Failed to mark payment attempt as succeeded", attemptError)
-    throw new Error("Unable to update payment attempt")
-  }
-
-  await writePaymentLedger(order, payment.id)
-  const completed = await completePaidOrder(order.id, input.extPaymentId)
-
-  await Promise.all([
-    notifyPaymentSucceeded({ userId: order.buyer_id, orderId: order.id, paymentId: payment.id, amountCents: order.total_cents, currency: order.currency }),
-    notifyTicketPurchaseSucceeded({ userId: order.buyer_id, orderId: order.id, orgId: order.org_id, amountCents: order.total_cents, currency: order.currency, ticketCount: completed.items?.length ?? undefined }),
-  ])
-
-  // Transactional ticket delivery (email now, WhatsApp stub). Best-effort —
-  // never blocks payment completion.
-  await deliverTicketsForOrder(order.id)
-
-  return { payment, order: completed.order, items: completed.items }
-}
-
-/**
- * Resale and waitlist checkouts create their `payments` row up front (tagged
- * with payload.kind), unlike the primary flow which inserts the payment on
- * success. When a verified webhook arrives for one of these orders we update
- * that existing row to succeeded and hand off to the matching idempotent
- * service-role completion function — never the primary completePaidOrder path.
- *
- * Returns { handled: false } when the order is a normal primary checkout so
- * the caller can fall through.
- */
-async function completeProviderCheckoutByKind(orderId: string, reference: string, payload: Record<string, any>) {
-  const admin = createAdminClient()
-
-  const { data: payments, error } = await admin
-    .from("payments")
-    .select("id, status, payload")
-    .eq("order_id", orderId)
-    .order("created_at", { ascending: false })
+    .maybeSingle<{
+      completed_order_id: string
+      completed_payment_id: string | null
+      already_completed: boolean
+      issued_item_count: number
+    }>()
 
   if (error) {
-    console.error("[webhook] lookup resale/waitlist payment failed", error)
-    return { handled: false as const }
+    console.error("Failed to complete verified payment", error)
+    throw new Error(`Unable to complete payment: ${error.message}`)
   }
+  if (!data) throw new Error("Payment completion returned no result")
 
-  const payment = (payments ?? []).find((p) => {
-    const k = (p.payload as Record<string, any>)?.kind
-    return k === "resale_checkout" || k === "waitlist_checkout"
-  })
-  if (!payment) return { handled: false as const }
+  await drainPaymentOutbox()
 
-  const kind = (payment.payload as Record<string, any>)?.kind as string
-
-  // Mark the existing payment succeeded (idempotent — already-succeeded is fine).
-  const mergedPayload = { ...(payment.payload as Record<string, any>), provider_reference: reference, webhook: payload }
-  const { error: updateError } = await admin
-    .from("payments")
-    .update({ status: "succeeded", ext_payment_id: reference, payload: mergedPayload })
-    .eq("id", payment.id)
-
-  if (updateError) {
-    console.error("[webhook] mark resale/waitlist payment succeeded failed", updateError)
-    throw new Error("Unable to update payment")
+  return {
+    paymentId: data.completed_payment_id,
+    orderId: data.completed_order_id,
+    alreadyCompleted: data.already_completed,
+    issuedItemCount: data.issued_item_count,
   }
-
-  const rpc = kind === "resale_checkout" ? "fn_complete_resale_after_payment_webhook" : "fn_complete_waitlist_after_payment_webhook"
-  const { data: result, error: rpcError } = await admin.rpc(rpc, { p_payment_id: payment.id })
-
-  if (rpcError) {
-    // Leave the payment marked succeeded so a retry can re-attempt completion,
-    // but surface the failure so the webhook returns non-2xx and the provider
-    // redelivers.
-    console.error(`[webhook] ${rpc} failed`, rpcError)
-    Sentry.captureException(rpcError, { tags: { area: "payment-completion", rpc }, extra: { orderId, paymentId: payment.id } })
-    throw new Error(`Completion failed: ${rpcError.message}`)
-  }
-
-  // Deliver the ticket (email now, WhatsApp/SMS-ready). Best-effort and
-  // idempotent — safe across webhook redeliveries and the buyer-facing
-  // completion action. resale → buyer_order_id, waitlist → order_id.
-  const row = Array.isArray(result) ? result[0] : result
-  const rowAny = row as Record<string, unknown> | undefined
-  const deliverOrderId = kind === "resale_checkout" ? rowAny?.buyer_order_id : rowAny?.order_id
-  if (deliverOrderId) await deliverTicketsForOrder(String(deliverOrderId))
-
-  return { handled: true as const, kind, paymentId: payment.id, result }
-}
-
-export async function completePaystackPaymentFromWebhook(payload: Record<string, any>) {
-  const data = payload?.data ?? {}
-  const metadata = data?.metadata ?? {}
-  const orderId = String(metadata.order_id ?? "")
-  const status = String(data.status ?? "")
-  const reference = String(data.reference ?? "")
-
-  if (!orderId) throw new Error("Paystack webhook missing order_id metadata")
-  if (!reference) throw new Error("Paystack webhook missing reference")
-
-  if (status !== "success") {
-    await failPaymentAttempt(orderId, "paystack", reference, payload)
-    return { ok: true, status }
-  }
-
-  // TICK-178 — webhook hardening. Look the order up once via service role so we
-  // can (1) ack redeliveries for an already-settled order (idempotent no-op,
-  // returns 200 so the provider stops retrying) and (2) verify the provider
-  // amount matches what we charged before crediting anything. The decision
-  // itself is pure (evaluatePaystackWebhookOutcome) and unit-tested.
-  const amount = Number(data.amount ?? 0)
-  const admin = createAdminClient()
-  const { data: orderRow, error: orderLookupError } = await admin
-    .from("orders")
-    .select("id, status, total_cents")
-    .eq("id", orderId)
-    .maybeSingle<{ id: string; status: string; total_cents: number }>()
-
-  if (orderLookupError) {
-    console.error("[webhook] order lookup failed", orderLookupError)
-    throw new Error("Unable to load order")
-  }
-  if (!orderRow) throw new Error("Order not found")
-
-  const outcome = evaluatePaystackWebhookOutcome({
-    status,
-    orderStatus: orderRow.status,
-    orderTotalCents: orderRow.total_cents,
-    amount,
-  })
-
-  // Already settled (paid/refunded/failed) — acknowledge so Paystack stops
-  // redelivering instead of throwing "not payable" -> 400 -> infinite retry.
-  if (outcome === "duplicate") {
-    return { ok: true, duplicate: true, status: orderRow.status }
-  }
-
-  // Reject tampered/mismatched amounts. data.amount is in minor units (cents),
-  // same unit as total_cents. Skip only when the provider omits the amount.
-  if (outcome === "amount_mismatch") {
-    console.error("[webhook] amount mismatch", { orderId, amount, expected: orderRow.total_cents })
-    throw new Error(`Paystack amount ${amount} does not match order total ${orderRow.total_cents}`)
-  }
-
-  // Resale / waitlist orders complete through their dedicated idempotent path.
-  const kindResult = await completeProviderCheckoutByKind(orderId, reference, payload)
-  if (kindResult.handled) {
-    return { ok: true, kind: kindResult.kind, result: kindResult.result }
-  }
-
-  return completeVerifiedPayment({ orderId, provider: "paystack", extPaymentId: reference, payload })
 }
 
 export async function failPaymentAttempt(orderId: string, provider: PaymentProvider, extRef?: string | null, payload?: Record<string, any>) {
   assertProvider(provider)
-  const supabase = createServerSupabaseClient()
+  // Service role: called from the MoMo callback/status routes, which carry no
+  // browser session; payment_attempts has no anon write grant.
+  const supabase = createAdminClient()
   if (!supabase) throw new Error("Supabase is not configured")
 
   const { data: order } = await supabase.from("orders").select("id, buyer_id").eq("id", orderId).maybeSingle()

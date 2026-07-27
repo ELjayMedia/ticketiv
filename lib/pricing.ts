@@ -177,7 +177,7 @@ export async function previewOrder({
 
   // Apply promo code discount (if provided)
   if (promoCode) {
-    // In production, this would call validatePromoCode() from lib/promo-codes.ts
+    // Promo preview/apply live in fn_preview_promo_code / fn_apply_promo_code_to_order.
     // For now, we'll add a placeholder
     const discountAmount = 0 // This would be calculated from validatePromoCode()
     if (discountAmount > 0) {
@@ -209,7 +209,7 @@ export async function applyPromoCodeAdjustment(
   eventId: string,
   subtotal: number,
 ): Promise<OrderAdjustment | null> {
-  // This would integrate with lib/promo-codes.ts validatePromoCode()
+  // This would integrate with fn_preview_promo_code / fn_apply_promo_code_to_order
   // and map to order_adjustments table
   // Implementation depends on Supabase RPC or direct validation
 

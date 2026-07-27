@@ -113,7 +113,11 @@ function netTotal(order: ReconciliationOrder): number {
 }
 
 function grossTotal(order: ReconciliationOrder): number {
-  return order.subtotalCents ?? order.totalCents
+  // Gross collected == what the buyer paid (total), matching the settlement
+  // ledger's order_gross row (buildLedgerEntries writes order_gross = total).
+  // Using subtotal here silently mismatched whenever fees are buyer-paid
+  // (total > subtotal), which is the live pricing config.
+  return order.totalCents
 }
 
 export function buildEventReconciliation(input: EventReconciliationInput): EventReconciliationResult {

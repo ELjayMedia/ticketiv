@@ -44,8 +44,10 @@ export default function OrganizerOnboardingPage() {
       return
     }
     setDone(true)
-    // Land in the new org's dashboard, which surfaces the next-step checklist.
-    router.push(`/orgs/${result.orgId}/dashboard`)
+    // Continue straight into creating the first event — the wizard is the
+    // rest of organizer onboarding. The dashboard checklist (event → profile
+    // → payout → scanner → team) picks up from there.
+    router.push(`/orgs/${result.orgId}/events/new`)
   }
 
   return (

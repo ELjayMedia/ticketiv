@@ -75,6 +75,8 @@ export interface FriendsScreenProps {
   inviteReward: string
 }
 
+// Invite links must copy as real, working URLs. Prefer the configured public
+// origin; fall back to the production domain — never a placeholder host.
 export function mapFriends(o: FriendsOverview, host?: string | null): FriendsScreenProps {
   const hero = o.goingTogether
   const goingTogether = hero
