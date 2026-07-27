@@ -110,7 +110,8 @@ export function FriendsScreen({
     : cfg.activity;
 
   function handleCopyInviteLink() {
-    const url = cfg.inviteLink.startsWith("http") ? cfg.inviteLink : `https://${cfg.inviteLink}`;
+    const url = cfg.inviteLink;
+    if (!url) return;
     if (navigator.clipboard) {
       navigator.clipboard.writeText(url).then(() => {
         setCopied(true);

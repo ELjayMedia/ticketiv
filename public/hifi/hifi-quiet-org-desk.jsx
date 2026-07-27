@@ -109,7 +109,7 @@ function QOBadge({ k, children }) {
 function QuietDeskOrgDash() {
   const P = HF_PHOTOS;
   return (
-    <HFBrowser url="admin.ticketiv.com/o/rishabh" tabs={["Overview · Ticketiv admin"]}>
+    <HFBrowser url="admin.ticketiv.app/o/rishabh" tabs={["Overview · Ticketiv admin"]}>
       <div className="hf-quiet" style={{ background: '#fafafa', display: 'flex', minHeight: '100%' }}>
         <QOSidebar active="dash"/>
         <div style={{ flex: 1, overflow: 'auto' }}>
@@ -265,7 +265,7 @@ function QuietDeskOrgDash() {
 // ─── Events list table ───
 function QuietDeskEvents() {
   return (
-    <HFBrowser url="admin.ticketiv.com/o/rishabh/events" tabs={["Events · Ticketiv admin"]}>
+    <HFBrowser url="admin.ticketiv.app/o/rishabh/events" tabs={["Events · Ticketiv admin"]}>
       <div className="hf-quiet" style={{ background: '#fafafa', display: 'flex', minHeight: '100%' }}>
         <QOSidebar active="events"/>
         <div style={{ flex: 1, overflow: 'auto' }}>
@@ -357,7 +357,7 @@ function QuietDeskEvents() {
 // ─── Event editor (tabbed) ───
 function QuietDeskEventEdit() {
   return (
-    <HFBrowser url="admin.ticketiv.com/o/rishabh/events/tribal-tales" tabs={["Edit · Tribal Tales"]}>
+    <HFBrowser url="admin.ticketiv.app/o/rishabh/events/tribal-tales" tabs={["Edit · Tribal Tales"]}>
       <div className="hf-quiet" style={{ background: '#fafafa', display: 'flex', minHeight: '100%' }}>
         <QOSidebar active="events"/>
         <div style={{ flex: 1, overflow: 'auto' }}>
@@ -546,7 +546,7 @@ function QuietDeskEventEdit() {
 function QuietDeskOrders() {
   const P = HF_PHOTOS;
   return (
-    <HFBrowser url="admin.ticketiv.com/o/rishabh/orders" tabs={["Orders · Ticketiv admin"]}>
+    <HFBrowser url="admin.ticketiv.app/o/rishabh/orders" tabs={["Orders · Ticketiv admin"]}>
       <div className="hf-quiet" style={{ background: '#fafafa', display: 'flex', minHeight: '100%', position: 'relative' }}>
         <QOSidebar active="orders"/>
         <div style={{ flex: 1, overflow: 'auto' }}>
@@ -711,7 +711,7 @@ function QuietDeskOrders() {
 // ─── Analytics ───
 function QuietDeskAnalytics() {
   return (
-    <HFBrowser url="admin.ticketiv.com/o/rishabh/analytics/tribal-tales" tabs={["Analytics · Tribal Tales"]}>
+    <HFBrowser url="admin.ticketiv.app/o/rishabh/analytics/tribal-tales" tabs={["Analytics · Tribal Tales"]}>
       <div className="hf-quiet" style={{ background: '#fafafa', display: 'flex', minHeight: '100%' }}>
         <QOSidebar active="analytics"/>
         <div style={{ flex: 1, overflow: 'auto' }}>
@@ -883,7 +883,7 @@ function QuietDeskAnalytics() {
 // ─── Payouts ───
 function QuietDeskPayouts() {
   return (
-    <HFBrowser url="admin.ticketiv.com/o/rishabh/payouts" tabs={["Payouts · Ticketiv admin"]}>
+    <HFBrowser url="admin.ticketiv.app/o/rishabh/payouts" tabs={["Payouts · Ticketiv admin"]}>
       <div className="hf-quiet" style={{ background: '#fafafa', display: 'flex', minHeight: '100%' }}>
         <QOSidebar active="payouts"/>
         <div style={{ flex: 1, overflow: 'auto' }}>
@@ -988,7 +988,7 @@ function QuietDeskPayouts() {
 // ─── Team & roles ───
 function QuietDeskTeam() {
   return (
-    <HFBrowser url="admin.ticketiv.com/o/rishabh/settings/team" tabs={["Team · Ticketiv admin"]}>
+    <HFBrowser url="admin.ticketiv.app/o/rishabh/settings/team" tabs={["Team · Ticketiv admin"]}>
       <div className="hf-quiet" style={{ background: '#fafafa', display: 'flex', minHeight: '100%' }}>
         <QOSidebar active="team"/>
         <div style={{ flex: 1, overflow: 'auto' }}>
@@ -1079,7 +1079,7 @@ function QuietDeskTeam() {
 // ─── Scanner station (desktop kiosk) ───
 function QuietDeskScan() {
   return (
-    <HFBrowser url="admin.ticketiv.com/o/rishabh/scan/tribal-tales" tabs={["Scan station · Tribal Tales"]}>
+    <HFBrowser url="admin.ticketiv.app/o/rishabh/scan/tribal-tales" tabs={["Scan station · Tribal Tales"]}>
       <div style={{ background: HFQ_INK, color: '#fff', minHeight: '100%', display: 'flex', flexDirection: 'column' }} className="hf-quiet">
         <div style={{ padding: '16px 32px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: 16 }}>
           <div className="hf-col" style={{ gap: 2 }}>
@@ -1188,7 +1188,7 @@ function QuietDeskScan() {
 // ─── Super-admin platform overview ───
 function QuietDeskSuperAdmin() {
   return (
-    <HFBrowser url="admin.ticketiv.com/_platform" tabs={["Platform · Ticketiv super-admin"]}>
+    <HFBrowser url="admin.ticketiv.app/_platform" tabs={["Platform · Ticketiv super-admin"]}>
       <div className="hf-quiet" style={{ background: '#fafafa', display: 'flex', minHeight: '100%' }}>
         <div style={{ width: 220, background: '#fff', borderRight: `1px solid ${HFQ_LINE}`, padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 4, overflow: 'auto', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px 12px' }}>

@@ -1,6 +1,6 @@
 // Shared desktop chrome + side nav, used by every desktop screen.
 
-function Desk({ url = "ticketiv.com", tab = "Ticketiv", w = 1280, h = 800, variant = "", children }) {
+function Desk({ url = "ticketiv.app", tab = "Ticketiv", w = 1280, h = 800, variant = "", children }) {
   return (
     <div className={`desk ${variant}`} style={{ width: w, height: h }}>
       <div className="desk-chrome">
