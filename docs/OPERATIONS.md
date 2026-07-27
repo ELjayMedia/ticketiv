@@ -134,9 +134,20 @@ prunes today.
 `public.fn_rate_limit(p_key, p_max, p_window_seconds)` (returns true = allowed)
 plus `fn_rate_limit_gc()` for housekeeping (migration
 `20260720160000_rate_limit_primitive`). `fn_rate_limit` is EXECUTE-revoked from
-PUBLIC, so only trusted SECURITY DEFINER RPCs call it. **First consumer:**
-`fn_create_membership_invite` is limited to **30 invitations / inviter / hour**
-(verified: the 31st call is rejected with `rate_limited`).
+PUBLIC, so only trusted SECURITY DEFINER RPCs call it. **Consumers wired so far**
+(each verified against prod with a rolled-back test — the last allowed call
+passes, the next is rejected with `rate_limited`):
+
+| RPC | Bucket | Limit | Migration |
+|---|---|---|---|
+| `fn_create_membership_invite` | `invite:<uid>` | 30 / hour | `20260720160000` |
+| `fn_create_organization` | `org_create:<uid>` | 5 / hour | `20260720161000` |
+| `fn_create_inventory_protected_order` | `checkout:<buyer>` | 10 / min | `20260720161000` |
+
+The checkout guard sits after the four entry validations and before any
+inventory/pricing work, so a rapid-fire attacker is rejected before touching
+the row locks; it complements the per-ticket-type `per_user_limit` / quota /
+10-minute holds.
 
 **Apply it to the remaining entry points** by adding, right after the RPC's auth
 check:
@@ -147,13 +158,12 @@ if not public.fn_rate_limit('<action>:' || v_user::text, <max>, <window_secs>) t
 end if;
 ```
 
-Targets and suggested limits: checkout/order creation (`fn_create_inventory_protected_order`,
-~10/min), transfers, resale publication, `fn_scan_ticket` (per device/session,
-generous), organization creation. **`fn_preview_promo_code` is anon-callable and
-has no `auth.uid()`** — key it from a server-action/route wrapper that passes the
-client IP (PostgREST does not expose the IP to the function), or apply a coarse
-per-event bucket. Schedule `fn_rate_limit_gc()` from the ops cron. Pair with
-Vercel/WAF network limits for defence in depth.
+Remaining targets and suggested limits: ticket transfers, resale publication,
+`fn_scan_ticket` (per device/session, generous). **`fn_preview_promo_code` is
+anon-callable and has no `auth.uid()`** — key it from a server-action/route
+wrapper that passes the client IP (PostgREST does not expose the IP to the
+function), or apply a coarse per-event bucket. Schedule `fn_rate_limit_gc()`
+from the ops cron. Pair with Vercel/WAF network limits for defence in depth.
 
 ---
 
@@ -167,4 +177,4 @@ Vercel/WAF network limits for defence in depth.
 | Backups / RPO-RTO | To do | Supabase PITR + documented drill |
 | Support workflows | Partial | `app/super-admin/*` + runbooks above |
 | Audit retention | To do | scheduled archive+prune job |
-| Rate limits | Partial | `fn_rate_limit` primitive (built) + roll out to remaining RPCs |
+| Rate limits | Partial | `fn_rate_limit` on invites + org creation + checkout; roll out to transfers/resale/scan/promo |
