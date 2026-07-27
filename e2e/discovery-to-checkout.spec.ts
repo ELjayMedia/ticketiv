@@ -30,14 +30,21 @@ test("discover page renders event cards", async ({ page }) => {
 
 test("an event card leads to an event detail page", async ({ page }) => {
   test.skip(
-    LOCAL_WITHOUT_SUPABASE,
+    LOCAL_WITHOUT_SUPABASE && !STRICT_E2E,
     "Local event detail needs Supabase env; deployed/seeded targets still run this smoke.",
   )
 
   await page.goto("/")
   const firstEvent = page.locator('a[href^="/events/"]').first()
 
-  if ((await firstEvent.count()) === 0) {
+  const eventCardCount = await firstEvent.count()
+  if (eventCardCount === 0) {
+    if (STRICT_E2E) {
+      expect(
+        eventCardCount,
+        "Strict E2E requires at least one public seeded event card.",
+      ).toBeGreaterThan(0)
+    }
     test.skip(true, "No public events in this environment — needs seeded data (TICK-181 staging).")
   }
 
@@ -66,11 +73,13 @@ test.describe("seeded guest checkout → hosted payment handoff", () => {
   const missing = missingSeededCheckoutEnv()
 
   test.skip(
-    missing.length > 0,
+    missing.length > 0 && !STRICT_E2E,
     `Requires seeded staging env: ${missing.join(", ")}.`,
   )
 
   test("creates a checkout attempt for the seeded event", async ({ page }) => {
+    expect(missing, "Seeded checkout environment must be complete.").toEqual([])
+
     const eventSlug = process.env.E2E_TEST_EVENT_SLUG!
     const buyerEmail = process.env.E2E_TEST_BUYER_EMAIL!
 
