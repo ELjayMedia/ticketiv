@@ -114,6 +114,14 @@ were absent from source: `fn_rate_limit_edge`, `fn_seed_uat_fixtures`, and
 `20260727171416_capture_live_uat_rpc_helpers.sql` captures them in source and
 keeps `PUBLIC`, `anon`, and `authenticated` revoked.
 
+## Live cross-org proof on 2026-07-27
+
+The live project also passed the TICK-337 two-tenant authorization harness:
+15 cross-org or anonymous privilege-escalation attempts were refused, zero were
+allowed, zero needed manual review, and two positive controls succeeded for the
+legitimate org owner. The harness runs inside one transaction and rolls back
+its orgs, auth users, event, order, and ticket item.
+
 ## Drift control
 
 `pnpm check:permissions` runs in `check:release`, so it gates every PR.
