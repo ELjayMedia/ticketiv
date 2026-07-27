@@ -7,6 +7,7 @@ import {
   describeDeploymentSafety,
   extractSupabaseProjectRef,
   getDeploymentSafetyBanner,
+  normalizeAppOrigin,
 } from "@/lib/deployment-safety"
 
 const previewEnv = {
@@ -47,6 +48,17 @@ describe("deployment safety", () => {
 
   it("allows a coherent preview configuration that stays on test-mode payments", () => {
     expect(assertDeploymentSafety(previewEnv).issues).toEqual([])
+  })
+
+  it("normalizes host-only app URLs to a safe https origin", () => {
+    expect(normalizeAppOrigin("ticketiv.app")).toBe("https://ticketiv.app")
+    expect(normalizeAppOrigin("www.ticketiv.app")).toBe("https://www.ticketiv.app")
+    expect(
+      assertDeploymentSafety({
+        ...previewEnv,
+        NEXT_PUBLIC_APP_URL: "ticketiv.app",
+      }).issues,
+    ).toEqual([])
   })
 
   it("fails fast when a preview deployment contains a live Paystack secret or override", () => {

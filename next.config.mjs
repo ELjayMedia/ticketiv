@@ -31,7 +31,7 @@ function assertManagedDeploymentSafety() {
   }
 
   if (env.NEXT_PUBLIC_APP_URL && !appHost) {
-    issues.push("NEXT_PUBLIC_APP_URL must be an absolute https? URL.")
+    issues.push("NEXT_PUBLIC_APP_URL must be an absolute https? URL or bare hostname.")
   }
 
   if (vercelEnv === "production" && appHost && appHost !== "ticketiv.app") {
@@ -70,7 +70,7 @@ function parseHttpsHostname(value) {
 }
 
 function normalizeAppHost(value) {
-  const url = parseUrl(value)
+  const url = parseHttpUrl(value, { allowBareHostname: true })
   if (!url || (url.protocol !== "https:" && url.protocol !== "http:")) return null
   return url.hostname.toLowerCase().replace(/^www\./, "")
 }
@@ -84,6 +84,26 @@ function parseUrl(value) {
   } catch {
     return null
   }
+}
+
+function parseHttpUrl(value, options = {}) {
+  const raw = value?.trim()
+  if (!raw) return null
+
+  const candidate = options.allowBareHostname && isBareHttpHostname(raw) ? `https://${raw}` : raw
+
+  try {
+    return new URL(candidate)
+  } catch {
+    return null
+  }
+}
+
+function isBareHttpHostname(value) {
+  if (value.includes("://") || value.includes("@") || /\s/.test(value)) return false
+  return /^(localhost|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]*)(?::\d+)?(?:[/?#].*)?$/i.test(
+    value,
+  )
 }
 
 /** @type {import('next').NextConfig} */

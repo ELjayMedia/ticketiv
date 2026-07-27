@@ -49,7 +49,8 @@ export function extractSupabaseProjectRef(value: string | null | undefined) {
 
 export function describeDeploymentSafety(env: EnvBag = process.env): DeploymentSafetyReport {
   const deploymentEnvironment = resolveDeploymentEnvironment(env)
-  const appHost = normalizeAppHost(env.NEXT_PUBLIC_APP_URL)
+  const appOrigin = normalizeAppOrigin(env.NEXT_PUBLIC_APP_URL)
+  const appHost = appOrigin ? new URL(appOrigin).hostname.toLowerCase().replace(/^www\./, "") : null
   const supabaseProjectRef = extractSupabaseProjectRef(env.NEXT_PUBLIC_SUPABASE_URL)
   const usesProductionSupabase = supabaseProjectRef === TICKETIV_PRODUCTION_SUPABASE_REF
   const issues: string[] = []
@@ -67,8 +68,8 @@ export function describeDeploymentSafety(env: EnvBag = process.env): DeploymentS
     issues.push("NEXT_PUBLIC_SUPABASE_URL must be a valid Supabase project URL.")
   }
 
-  if (env.NEXT_PUBLIC_APP_URL && !appHost) {
-    issues.push("NEXT_PUBLIC_APP_URL must be an absolute https? URL.")
+  if (env.NEXT_PUBLIC_APP_URL && !appOrigin) {
+    issues.push("NEXT_PUBLIC_APP_URL must be an absolute https? URL or bare hostname.")
   }
 
   if (deploymentEnvironment === "production" && appHost && appHost !== TICKETIV_PRODUCTION_HOST) {
@@ -135,10 +136,31 @@ function parseUrl(value: string | null | undefined) {
   }
 }
 
-function normalizeAppHost(value: string | null | undefined) {
-  const url = parseUrl(value)
+export function normalizeAppOrigin(value: string | null | undefined): string | null {
+  const url = parseHttpUrl(value, { allowBareHostname: true })
   if (!url || (url.protocol !== "https:" && url.protocol !== "http:")) return null
-  return url.hostname.toLowerCase().replace(/^www\./, "")
+  return url.origin
+}
+
+function parseHttpUrl(value: string | null | undefined, options?: { allowBareHostname?: boolean }) {
+  const raw = value?.trim()
+  if (!raw) return null
+
+  const candidate =
+    options?.allowBareHostname && isBareHttpHostname(raw) ? `https://${raw}` : raw
+
+  try {
+    return new URL(candidate)
+  } catch {
+    return null
+  }
+}
+
+function isBareHttpHostname(value: string) {
+  if (value.includes("://") || value.includes("@") || /\s/.test(value)) return false
+  return /^(localhost|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]*)(?::\d+)?(?:[/?#].*)?$/i.test(
+    value,
+  )
 }
 
 function formatDeploymentLabel(deploymentEnvironment: DeploymentEnvironment) {

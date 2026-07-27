@@ -93,7 +93,29 @@ export function isSupabaseAdminConfigured() {
 }
 
 // App Configuration
-export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+export const APP_URL = normalizeAppOrigin(process.env.NEXT_PUBLIC_APP_URL) ?? "http://localhost:3000"
+
+function normalizeAppOrigin(value: string | null | undefined): string | null {
+  const raw = value?.trim()
+  if (!raw) return null
+
+  const candidate = isBareHttpHostname(raw) ? `https://${raw}` : raw
+
+  try {
+    const url = new URL(candidate)
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null
+    return url.origin
+  } catch {
+    return null
+  }
+}
+
+function isBareHttpHostname(value: string) {
+  if (value.includes("://") || value.includes("@") || /\s/.test(value)) return false
+  return /^(localhost|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]*)(?::\d+)?(?:[/?#].*)?$/i.test(
+    value,
+  )
+}
 
 // Payment Gateway Configuration
 export const DELTAPAY_PUBLIC_KEY = process.env.DELTAPAY_PUBLIC_KEY
