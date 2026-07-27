@@ -4,6 +4,8 @@ export type AccessStoreTarget = "play" | "huawei";
 
 export type AccessAndroidBuildVariant = "playRelease" | "huaweiRelease";
 
+export type AccessIosBuildVariant = "iosRelease";
+
 export type AccessNativeCapability =
   | "camera-scanning"
   | "secure-storage"
@@ -12,6 +14,7 @@ export type AccessNativeCapability =
   | "device-pairing"
   | "remote-session-termination"
   | "nfc-feature-flag"
+  | "apns-push"
   | "fcm-push"
   | "hms-push";
 
@@ -21,6 +24,15 @@ export type AccessAndroidBuildTarget = {
   artifactName: string;
   pushProvider: "fcm" | "hms";
   requiresGoogleMobileServices: boolean;
+  capabilities: AccessNativeCapability[];
+};
+
+export type AccessIosBuildTarget = {
+  store: "app-store";
+  variant: AccessIosBuildVariant;
+  artifactName: string;
+  bundleIdentifier: string;
+  pushProvider: "apns";
   capabilities: AccessNativeCapability[];
 };
 
@@ -66,6 +78,29 @@ export const ACCESS_ANDROID_TARGETS: Record<AccessStoreTarget, AccessAndroidBuil
   },
 };
 
+export const ACCESS_IOS_TARGET: AccessIosBuildTarget = {
+  store: "app-store",
+  variant: "iosRelease",
+  artifactName: "ticketiv-access-ios-release.ipa",
+  bundleIdentifier: ACCESS_APP_ID,
+  pushProvider: "apns",
+  capabilities: [
+    "camera-scanning",
+    "secure-storage",
+    "offline-manifest",
+    "background-sync",
+    "device-pairing",
+    "remote-session-termination",
+    "apns-push",
+  ],
+};
+
+export const ACCESS_NATIVE_RELEASE_TARGETS = [
+  { platform: "android", ...ACCESS_ANDROID_TARGETS.play },
+  { platform: "android", ...ACCESS_ANDROID_TARGETS.huawei },
+  { platform: "ios", ...ACCESS_IOS_TARGET },
+] as const;
+
 export const ACCESS_APP_THEME = {
   colors: {
     bg: colors.bg,
@@ -89,6 +124,8 @@ export const ACCESS_APP_CONFIG = {
   scheme: ACCESS_SCHEME,
   androidPackage: ACCESS_APP_ID,
   androidTargets: ACCESS_ANDROID_TARGETS,
+  iosBundleIdentifier: ACCESS_APP_ID,
+  iosTarget: ACCESS_IOS_TARGET,
   theme: ACCESS_APP_THEME,
 } as const;
 
@@ -112,6 +149,24 @@ export function resolveAccessAndroidTarget(value: string | null | undefined): Ac
   }
 
   throw new Error(`Unsupported Ticketiv Access Android target: ${value}`);
+}
+
+export function resolveAccessIosTarget(value: string | null | undefined): AccessIosBuildTarget {
+  const normalized = (value ?? "ios")
+    .trim()
+    .toLowerCase()
+    .replace(/[-_\s]/g, "");
+
+  if (
+    !normalized ||
+    normalized === "ios" ||
+    normalized === "appstore" ||
+    normalized === "iosrelease"
+  ) {
+    return ACCESS_IOS_TARGET;
+  }
+
+  throw new Error(`Unsupported Ticketiv Access iOS target: ${value}`);
 }
 
 export function buildAccessDeepLink(path = "/scan/setup"): string {

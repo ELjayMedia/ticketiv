@@ -24,3 +24,6 @@ flag (TICK-294). Outlet sales come later.
 - Reuse the scanner manifest/session/outcome logic (`lib/scanner/`) through
   `@ticketiv/shared` as it gets extracted — do not fork validation rules.
 - Must run on Huawei devices without GMS.
+- App Store metadata is pinned in `src/app-config.ts` as `iosRelease`
+  (`ticketiv-access-ios-release.ipa`, `com.ticketiv.access`) for the later
+  TICK-331 iPhone validation/build step.
