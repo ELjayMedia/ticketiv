@@ -128,15 +128,18 @@ prunes today.
 
 ---
 
-## 7. Rate limits — **Partial (foundation built)**
+## 7. Rate limits — **Built (core paths covered)**
 
 **Built.** A shared fixed-window primitive — the `rate_limits` table and
 `public.fn_rate_limit(p_key, p_max, p_window_seconds)` (returns true = allowed)
 plus `fn_rate_limit_gc()` for housekeeping (migration
-`20260720160000_rate_limit_primitive`). `fn_rate_limit` is EXECUTE-revoked from
-PUBLIC, so only trusted SECURITY DEFINER RPCs call it. **Consumers wired so far**
-(each verified against prod with a rolled-back test — the last allowed call
-passes, the next is rejected with `rate_limited`):
+`20260720160000_rate_limit_primitive`). `fn_rate_limit`, `fn_rate_limit_gc` and
+`fn_rate_limit_edge` are EXECUTE-revoked from `anon`/`authenticated` and granted
+only to `service_role` (migration `20260720164000` makes this explicit so a
+fresh replay can't leave them anon-callable via Supabase's grant-on-create event
+trigger), so only trusted SECURITY DEFINER RPCs / server-side code call them.
+**Consumers wired** (each verified against prod with a rolled-back test — the
+last allowed call passes, the next is rejected with `rate_limited`):
 
 | RPC | Bucket | Limit | Migration |
 |---|---|---|---|
@@ -179,9 +182,18 @@ Transfers (`fn_request_transfer_by_email`) and resale publication
 (`fn_publish_resale_listing`) are guarded at **20 / user / hour** each — the
 guard sits between `app.require_claimed_account()` and the `*_unchecked` worker,
 so it blocks recipient-email enumeration and listing spam without touching
-legitimate use. Remaining target: `fn_scan_ticket` (per device/session,
-generous). Schedule `fn_rate_limit_gc()` from the ops cron. Pair with Vercel/WAF
-network limits for defence in depth.
+legitimate use.
+
+**`fn_scan_ticket` is intentionally left to the edge, not DB-guarded.** Gate
+scanning is high-throughput and offline-first, so a per-call DB counter would
+risk throttling legitimate scan bursts; the scanner is already covered at the
+edge by the `scanner:provision` and `scanner:validate` route limits, which are
+now durable via the edge fallback above.
+
+**Housekeeping is scheduled.** `fn_rate_limit_gc()` runs on every ops-alerts
+cron pass (`app/api/cron/ops-alerts/route.ts`, every 5 min, best-effort) so
+`public.rate_limits` self-prunes expired windows. Pair all of the above with
+Vercel/WAF network limits for defence in depth.
 
 ---
 
@@ -195,4 +207,4 @@ network limits for defence in depth.
 | Backups / RPO-RTO | To do | Supabase PITR + documented drill |
 | Support workflows | Partial | `app/super-admin/*` + runbooks above |
 | Audit retention | To do | scheduled archive+prune job |
-| Rate limits | Partial | `fn_rate_limit` on invites + org creation + checkout + transfers + resale; edge routes durable via `fn_rate_limit_edge`; `fn_scan_ticket` remaining |
+| Rate limits | Built | `fn_rate_limit` on invites/org/checkout/transfer/resale; edge routes durable via `fn_rate_limit_edge`; gc scheduled in ops cron |
