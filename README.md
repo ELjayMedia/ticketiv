@@ -186,6 +186,7 @@ Quality gates (the same `check:release` chain runs in CI):
 ```bash
 pnpm lint          # eslint
 pnpm test          # vitest (unit)
+pnpm check:mobile  # mobile app/adapters package tests + typechecks
 pnpm typecheck     # tsc --noEmit
 pnpm check:demo    # guards against placeholder/demo patterns
 pnpm build         # next build

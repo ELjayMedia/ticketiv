@@ -83,7 +83,7 @@ function QuietDeskSuperOrgs() {
     ["Sunrise Open Mic",  'sun',  'Starter',  '14', '₹46k',   0.7,  ['—'],                               'paid',    'IND', 'Self-serve'],
   ];
   return (
-    <HFBrowser url="admin.ticketiv.com/_platform/orgs" tabs={["Organizations · super-admin"]}>
+    <HFBrowser url="admin.ticketiv.app/_platform/orgs" tabs={["Organizations · super-admin"]}>
       <div className="hf-quiet" style={{ background: '#fafafa', display: 'flex', minHeight: '100%' }}>
         <QSASidebar active="orgs"/>
         <div style={{ flex: 1, overflow: 'auto' }}>
@@ -176,7 +176,7 @@ function QuietDeskSuperOrgs() {
 // ─── 2) Providers (payments) ───
 function QuietDeskSuperProviders() {
   return (
-    <HFBrowser url="admin.ticketiv.com/_platform/providers" tabs={["Providers · super-admin"]}>
+    <HFBrowser url="admin.ticketiv.app/_platform/providers" tabs={["Providers · super-admin"]}>
       <div className="hf-quiet" style={{ background: '#fafafa', display: 'flex', minHeight: '100%' }}>
         <QSASidebar active="providers"/>
         <div style={{ flex: 1, overflow: 'auto' }}>
@@ -299,7 +299,7 @@ function QuietDeskSuperFlags() {
     ['custom_domain',          'live',    100, 'White-label org subdomain → custom CNAME.',                   ['Pro plan'],                                   'platform/dns',       'Smit M.',  '60d ago'],
   ];
   return (
-    <HFBrowser url="admin.ticketiv.com/_platform/flags" tabs={["Feature flags · super-admin"]}>
+    <HFBrowser url="admin.ticketiv.app/_platform/flags" tabs={["Feature flags · super-admin"]}>
       <div className="hf-quiet" style={{ background: '#fafafa', display: 'flex', minHeight: '100%' }}>
         <QSASidebar active="flags"/>
         <div style={{ flex: 1, overflow: 'auto' }}>
@@ -378,14 +378,14 @@ function QuietDeskSuperAudit() {
     ['09:31:55', 'POST', 'provider.key.rotate',      'DeltaPay · live key', 'Dev S.',      'platform_eng','high', '198.51.100.7', 'Old key archived. Webhook re-sub queued.'],
     ['09:14:02', 'POST', 'org.suspend',              'Studio X',            'Smit M.',     'super_admin', 'warn', '203.0.113.41', 'Chargeback ratio > 1.4% over 30d.'],
     ['08:59:11', 'POST', 'refund.manual',            'ord_RT1942 · ₹3,400', 'Aanya R.',    'support_lead','low',  '198.51.100.21','Customer reported double-charge. Confirmed via Paystack.'],
-    ['08:42:32', 'POST', 'admin.invite',             'rohit@ticketiv.com',  'Aanya R.',    'support_lead','low',  '198.51.100.21','Role: support_agent · IP scope: in_office'],
+    ['08:42:32', 'POST', 'admin.invite',             'rohit@ticketiv.app',  'Aanya R.',    'support_lead','low',  '198.51.100.21','Role: support_agent · IP scope: in_office'],
     ['08:21:50', 'POST', 'webhook.replay',           'pst_evt_8a1f · ×8',   'system',      'cron',        'warn', '—',           'Auto-retry of failed webhooks > 1h old.'],
     ['07:55:13', 'POST', 'feature.kill',             'attendee_chat',       'Aanya R.',    'support_lead','warn', '198.51.100.21','PII concern · 21d on hold.'],
-    ['07:12:08', 'DEL',  'admin.session.revoke',     'rohit@ticketiv.com',  'Smit M.',     'super_admin', 'high', '203.0.113.41', '2 active sessions terminated.'],
+    ['07:12:08', 'DEL',  'admin.session.revoke',     'rohit@ticketiv.app',  'Smit M.',     'super_admin', 'high', '203.0.113.41', '2 active sessions terminated.'],
     ['06:48:00', 'POST', 'db.migration.run',         'v2026.05.21_seating', 'Dev S.',      'platform_eng','high', '198.51.100.7', '4 tables, 0 destructive. RLS re-verified.'],
   ];
   return (
-    <HFBrowser url="admin.ticketiv.com/_platform/audit" tabs={["Audit log · super-admin"]}>
+    <HFBrowser url="admin.ticketiv.app/_platform/audit" tabs={["Audit log · super-admin"]}>
       <div className="hf-quiet" style={{ background: '#fafafa', display: 'flex', minHeight: '100%' }}>
         <QSASidebar active="audit"/>
         <div style={{ flex: 1, overflow: 'auto' }}>
@@ -510,7 +510,7 @@ function QuietDeskSuperJobs() {
     ['fraud_score_recompute',   'risk',      3,    18600, 0,  99.7, 'ok',      [2,3,3,2,3,4,3,3,3,3,3,3]],
   ];
   return (
-    <HFBrowser url="admin.ticketiv.com/_platform/jobs" tabs={["Jobs queue · super-admin"]}>
+    <HFBrowser url="admin.ticketiv.app/_platform/jobs" tabs={["Jobs queue · super-admin"]}>
       <div className="hf-quiet" style={{ background: '#fafafa', display: 'flex', minHeight: '100%' }}>
         <QSASidebar active="jobs"/>
         <div style={{ flex: 1, overflow: 'auto' }}>
@@ -641,7 +641,7 @@ function QuietDeskSuperWebhooks() {
     ['09:38:59', 'evt_8a14',  'paystack.dispute.opened', 'Studio X',         '200', '152 ms', 1, 'ok'],
   ];
   return (
-    <HFBrowser url="admin.ticketiv.com/_platform/webhooks" tabs={["Webhooks · super-admin"]}>
+    <HFBrowser url="admin.ticketiv.app/_platform/webhooks" tabs={["Webhooks · super-admin"]}>
       <div className="hf-quiet" style={{ background: '#fafafa', display: 'flex', minHeight: '100%' }}>
         <QSASidebar active="webhooks"/>
         <div style={{ flex: 1, overflow: 'auto' }}>
@@ -671,9 +671,9 @@ function QuietDeskSuperWebhooks() {
                   <span className="hf-mono" style={{ fontSize: 10, color: HFQ_INK_3 }}>signed · HMAC</span>
                 </div>
                 {[
-                  ['paystack.webhook',    'inbound',  '✓', '12,492', 98.8, 'https://api.ticketiv.com/hooks/paystack'],
-                  ['deltapay.webhook',    'inbound',  '✓', '2,220',  94.2, 'https://api.ticketiv.com/hooks/deltapay'],
-                  ['flutterwave.webhook', 'inbound',  '✓', '622',    99.1, 'https://api.ticketiv.com/hooks/flutter'],
+                  ['paystack.webhook',    'inbound',  '✓', '12,492', 98.8, 'https://api.ticketiv.app/hooks/paystack'],
+                  ['deltapay.webhook',    'inbound',  '✓', '2,220',  94.2, 'https://api.ticketiv.app/hooks/deltapay'],
+                  ['flutterwave.webhook', 'inbound',  '✓', '622',    99.1, 'https://api.ticketiv.app/hooks/flutter'],
                   ['slack.ops.alerts',    'outbound', '✓', '188',    100,  'hooks.slack.com/services/T0…'],
                   ['orgs.zapier',         'outbound', '✓', '40',     97.5, 'org-defined · 8 orgs'],
                   ['analytics.snowplow',  'outbound', '!',  '4,820', 92.1, 'collector.snowplow.io'],
@@ -745,7 +745,7 @@ function QuietDeskSuperDB() {
     ['payouts',        '2,108',   '12 MB',    '8 rls',   '4 idx', 'ok',     0.4,  4.2],
   ];
   return (
-    <HFBrowser url="admin.ticketiv.com/_platform/db" tabs={["DB · super-admin"]}>
+    <HFBrowser url="admin.ticketiv.app/_platform/db" tabs={["DB · super-admin"]}>
       <div className="hf-quiet" style={{ background: '#fafafa', display: 'flex', minHeight: '100%' }}>
         <QSASidebar active="db"/>
         <div style={{ flex: 1, overflow: 'auto' }}>

@@ -20,11 +20,15 @@ describe("env APP_URL", () => {
     expect(APP_URL).toBe("https://ticketiv.app")
   })
 
-  it("falls back to localhost when the configured app URL is invalid", async () => {
+  // APP_URL now derives from getTicketivPublicOrigin(), whose documented default
+  // is the canonical public origin rather than localhost (see
+  // lib/__tests__/public-url.test.ts). An unusable value must still not be
+  // trusted verbatim — that is what this asserts.
+  it("falls back to the canonical public origin when the configured app URL is invalid", async () => {
     process.env.NEXT_PUBLIC_APP_URL = "mailto:support@ticketiv.app"
 
     const { APP_URL } = await import("@/lib/env")
 
-    expect(APP_URL).toBe("http://localhost:3000")
+    expect(APP_URL).toBe("https://ticketiv.app")
   })
 })

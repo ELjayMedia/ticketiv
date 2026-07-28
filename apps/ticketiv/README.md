@@ -12,6 +12,9 @@ on a development machine with the Android SDK / Xcode available.
 - Android product flavours: `playRelease` (FCM, Google Wallet) and
   `huaweiRelease` (HMS Push, no Google Wallet). Core app identical; **no
   unconditional Google Play Services dependency**.
+- App Store metadata is pinned in `src/app-config.ts` as `iosRelease`
+  (`ticketiv-ios-release.ipa`, `com.ticketiv.app`) so the native shell has one
+  release matrix to consume when TICK-318 initializes it.
 - Checkout uses external processors (Paystack etc.) — never Play Billing /
   Apple IAP for event tickets.
 - Shared logic comes from `@ticketiv/shared`; design tokens from

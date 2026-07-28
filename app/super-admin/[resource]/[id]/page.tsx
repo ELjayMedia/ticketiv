@@ -6,6 +6,7 @@ import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { FormField } from "@/components/quiet/ui/form"
 import { Icon, type IconName } from "@/components/quiet/ui/icon"
 import { ResourceForm } from "@/components/super-admin/ResourceForm"
+import { getOrgPayoutReconciliationBlock } from "@/lib/data/admin/reconciliation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getAdminResource } from "@/lib/super-admin/resources"
 import { requireAdminRole } from "@/lib/super-admin/auth"
@@ -120,10 +121,11 @@ export default async function SuperAdminEditResourcePage({
   const showTicketTypeActions = canUseBusinessActions && resource.key === "ticket-types"
   const showDeviceActions = canUseBusinessActions && resource.key === "devices"
   const showPayoutActions = canUseBusinessActions && resource.key === "payouts"
-  const rec = data as { status?: unknown; sales_status?: unknown; event_id?: unknown; device_role?: unknown }
+  const rec = data as { status?: unknown; sales_status?: unknown; event_id?: unknown; device_role?: unknown; org_id?: unknown }
   const eventStatus = typeof rec.status === "string" ? rec.status : null
   const salesStatus = typeof rec.sales_status === "string" ? rec.sales_status : "on_sale"
   const payoutStatus = typeof rec.status === "string" ? rec.status : null
+  const payoutOrgId = typeof rec.org_id === "string" ? rec.org_id : null
   const assignedEventId = typeof rec.event_id === "string" ? rec.event_id : null
   const deviceRole = typeof rec.device_role === "string" ? rec.device_role : null
   const isPublished = eventStatus === "published"
@@ -136,6 +138,15 @@ export default async function SuperAdminEditResourcePage({
   const isPayoutPaid = payoutStatus === "paid"
   const isPayoutFailed = payoutStatus === "failed"
   const isPayoutCancelled = payoutStatus === "cancelled"
+  const canMarkPayoutProcessing = payoutStatus === "requested" || isPayoutFailed
+  const canMarkPayoutPaid = isPayoutProcessing
+  const canMarkPayoutFailed = payoutStatus === "requested" || isPayoutProcessing
+  const canCancelPayout = payoutStatus === "requested" || isPayoutProcessing || isPayoutFailed
+  const payoutReconciliationBlock = showPayoutActions && payoutOrgId
+    ? await getOrgPayoutReconciliationBlock(payoutOrgId)
+    : null
+  const isPayoutReconciliationBlocked = Boolean(payoutReconciliationBlock?.blocked)
+  const payoutBlockTitle = payoutReconciliationBlock?.blockedEvents[0]?.title ?? null
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
@@ -286,35 +297,58 @@ export default async function SuperAdminEditResourcePage({
             </p>
           </CardBody>
           <CardDivider />
+          {isPayoutReconciliationBlocked ? (
+            <>
+              <CardBody className="border-b border-line bg-danger/5 px-5 py-4">
+                <p className="inline-flex items-center gap-2 text-[13px] font-semibold text-danger">
+                  <Icon name="bell" size={14} />
+                  Payout approval blocked by reconciliation
+                </p>
+                <p className="mt-1 text-[12px] leading-5 text-ink-3">
+                  Resolve {payoutReconciliationBlock?.blockedEvents.length ?? 0} ended event
+                  {(payoutReconciliationBlock?.blockedEvents.length ?? 0) === 1 ? "" : "s"} before marking this payout processing or paid.
+                  {payoutBlockTitle ? ` First blocker: ${payoutBlockTitle}.` : ""}
+                </p>
+              </CardBody>
+            </>
+          ) : null}
           <CardBody className="grid gap-4 p-5 md:grid-cols-2">
             <form action={markPayoutProcessing}>
               <ActionTile icon="clock" title="Mark processing" description="Use when finance has started reviewing or preparing the payout.">
-                <FormField label="Note" name="note" placeholder="Optional finance note" disabled={isPayoutProcessing || isPayoutPaid} />
-                <Button type="submit" disabled={isPayoutProcessing || isPayoutPaid} variant="outline" size="md" block>
-                  {isPayoutProcessing ? "Already processing" : "Mark processing"}
+                <FormField label="Note" name="note" placeholder="Optional finance note" disabled={!canMarkPayoutProcessing || isPayoutReconciliationBlocked} />
+                <Button type="submit" disabled={!canMarkPayoutProcessing || isPayoutReconciliationBlocked} variant="outline" size="md" block>
+                  {isPayoutProcessing
+                    ? "Already processing"
+                    : isPayoutReconciliationBlocked
+                      ? "Blocked by reconciliation"
+                      : "Mark processing"}
                 </Button>
               </ActionTile>
             </form>
             <form action={markPayoutPaid}>
               <ActionTile icon="check" title="Mark paid" description="Confirms internal status after payout settlement has been verified.">
-                <FormField label="Note" name="note" placeholder="Optional settlement reference" disabled={isPayoutPaid} />
-                <Button type="submit" disabled={isPayoutPaid} variant="primary" size="md" block>
-                  {isPayoutPaid ? "Already paid" : "Mark paid"}
+                <FormField label="Note" name="note" placeholder="Optional settlement reference" disabled={!canMarkPayoutPaid || isPayoutReconciliationBlocked} />
+                <Button type="submit" disabled={!canMarkPayoutPaid || isPayoutReconciliationBlocked} variant="primary" size="md" block>
+                  {isPayoutPaid
+                    ? "Already paid"
+                    : isPayoutReconciliationBlocked
+                      ? "Blocked by reconciliation"
+                      : "Mark paid"}
                 </Button>
               </ActionTile>
             </form>
             <form action={markPayoutFailed}>
               <ActionTile icon="close" title="Mark failed" description="Use when finance or the provider reports that settlement failed.">
-                <FormField label="Note" name="note" placeholder="Failure reason" disabled={isPayoutFailed || isPayoutPaid} />
-                <Button type="submit" disabled={isPayoutFailed || isPayoutPaid} variant="outline" size="md" block>
+                <FormField label="Note" name="note" placeholder="Failure reason" disabled={!canMarkPayoutFailed} />
+                <Button type="submit" disabled={!canMarkPayoutFailed} variant="outline" size="md" block>
                   {isPayoutFailed ? "Already failed" : "Mark failed"}
                 </Button>
               </ActionTile>
             </form>
             <form action={cancelPayout}>
               <ActionTile icon="close" title="Cancel payout" description="Stops this payout request from active finance processing.">
-                <FormField label="Note" name="note" placeholder="Cancellation reason" disabled={isPayoutCancelled || isPayoutPaid} />
-                <Button type="submit" disabled={isPayoutCancelled || isPayoutPaid} variant="outline" size="md" block>
+                <FormField label="Note" name="note" placeholder="Cancellation reason" disabled={!canCancelPayout} />
+                <Button type="submit" disabled={!canCancelPayout} variant="outline" size="md" block>
                   {isPayoutCancelled ? "Already cancelled" : "Cancel payout"}
                 </Button>
               </ActionTile>

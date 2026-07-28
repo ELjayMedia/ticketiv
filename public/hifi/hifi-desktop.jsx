@@ -4,7 +4,7 @@
 function LoudDesktop() {
   const P = HF_PHOTOS;
   return (
-    <HFBrowser url="ticketiv.com" tabs={["Ticketiv · Discover Ahmedabad", "BookMyShow", "Spotify"]}>
+    <HFBrowser url="ticketiv.app" tabs={["Ticketiv · Discover Ahmedabad", "BookMyShow", "Spotify"]}>
       <div className="hf-loud" style={{ background: HFL_PAPER, color: HFL_INK, minHeight: '100%' }}>
         {/* Top nav */}
         <div style={{ borderBottom: '1.5px solid ' + HFL_INK, background: HFL_PAPER, padding: '14px 32px', display: 'flex', alignItems: 'center', gap: 24 }}>
@@ -185,7 +185,7 @@ function QuietDesktop() {
     { p: P.singer_red,     badge: "Tonight",        title: "Stand-up · A.Khan",     meta: "Fri 25 Jul · 21:30 · Comedy Club",         cta: "Get tickets", price: "₹350"        },
   ];
   return (
-    <HFBrowser url="ticketiv.com" tabs={["Ticketiv · Discover", "Acme co", "Inbox · Gmail"]}>
+    <HFBrowser url="ticketiv.app" tabs={["Ticketiv · Discover", "Acme co", "Inbox · Gmail"]}>
       <div className="hf-quiet hf-consumer-desk" style={{ background: '#fafafa', color: HFQ_INK, minHeight: '100%' }}>
         {/* Top nav */}
         <div style={{ borderBottom: `1px solid ${HFQ_LINE}`, background: '#ffffff', padding: '14px 24px', display: 'flex', alignItems: 'center', gap: 24 }}>

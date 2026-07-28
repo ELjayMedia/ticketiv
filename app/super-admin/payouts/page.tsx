@@ -4,6 +4,7 @@ import { Card, CardBody } from "@/components/quiet/ui/card"
 import { Button } from "@/components/quiet/ui/button"
 import { Icon } from "@/components/quiet/ui/icon"
 import { getPostEventReconciliationOverview } from "@/lib/data/admin/reconciliation"
+import { buildPayoutReconciliationBlock, type PayoutReconciliationBlock } from "@/lib/reconciliation"
 import { buildSettlementSummary, type SettlementSummary } from "@/lib/settlement"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { requireAdminRole } from "@/lib/super-admin/auth"
@@ -69,41 +70,68 @@ function TransitionForm({
   payoutId,
   label,
   variant,
+  disabled,
 }: {
   action: (payoutId: string, formData?: FormData) => Promise<void>
   payoutId: string
   label: string
   variant: "accent" | "default" | "danger"
+  disabled?: boolean
 }) {
   return (
     <form action={action.bind(null, payoutId)}>
-      <Button type="submit" size="xs" variant={variant === "danger" ? "default" : variant}>
+      <Button type="submit" size="xs" variant={variant === "danger" ? "default" : variant} disabled={disabled}>
         {label}
       </Button>
     </form>
   )
 }
 
-function actionsFor(status: PayoutStatus, payoutId: string) {
+function blockCopy(block: PayoutReconciliationBlock | undefined) {
+  if (!block?.blocked) return null
+  const firstEvent = block.blockedEvents[0]
+  const more = block.blockedEvents.length > 1 ? ` + ${block.blockedEvents.length - 1} more` : ""
+  return `${firstEvent.title}${more}`
+}
+
+function actionsFor(status: PayoutStatus, payoutId: string, reconciliationBlocked: boolean) {
   switch (status) {
     case "requested":
       return (
         <>
-          <TransitionForm action={markPayoutProcessingAction} payoutId={payoutId} label="Start processing" variant="accent" />
+          <TransitionForm
+            action={markPayoutProcessingAction}
+            payoutId={payoutId}
+            label={reconciliationBlocked ? "Blocked" : "Start processing"}
+            variant="accent"
+            disabled={reconciliationBlocked}
+          />
           <TransitionForm action={cancelPayoutAction} payoutId={payoutId} label="Cancel" variant="default" />
         </>
       )
     case "processing":
       return (
         <>
-          <TransitionForm action={markPayoutPaidAction} payoutId={payoutId} label="Mark paid" variant="accent" />
+          <TransitionForm
+            action={markPayoutPaidAction}
+            payoutId={payoutId}
+            label={reconciliationBlocked ? "Blocked" : "Mark paid"}
+            variant="accent"
+            disabled={reconciliationBlocked}
+          />
           <TransitionForm action={markPayoutFailedAction} payoutId={payoutId} label="Mark failed" variant="default" />
         </>
       )
     case "failed":
       return (
         <>
-          <TransitionForm action={markPayoutProcessingAction} payoutId={payoutId} label="Retry processing" variant="accent" />
+          <TransitionForm
+            action={markPayoutProcessingAction}
+            payoutId={payoutId}
+            label={reconciliationBlocked ? "Blocked" : "Retry processing"}
+            variant="accent"
+            disabled={reconciliationBlocked}
+          />
           <TransitionForm action={cancelPayoutAction} payoutId={payoutId} label="Cancel" variant="default" />
         </>
       )
@@ -118,7 +146,7 @@ export default async function SuperAdminPayoutsPage() {
   const { roleTier } = await requireAdminRole(["super_admin", "finance_admin", "read_only_admin"])
   const canTransition = roleTier === "super_admin"
   const admin = createAdminClient()
-  const reconciliation = await getPostEventReconciliationOverview({ limit: 40 })
+  const reconciliation = await getPostEventReconciliationOverview({ limit: 120 })
 
   const { data, error } = await admin
     .from("payouts")
@@ -149,6 +177,15 @@ export default async function SuperAdminPayoutsPage() {
   }))
   const orgIds = Array.from(new Set(rows.map((row) => row.org_id)))
   const settlementByOrg = new Map<string, SettlementSummary>()
+  const payoutBlockByOrg = new Map<string, PayoutReconciliationBlock>()
+
+  for (const orgId of orgIds) {
+    payoutBlockByOrg.set(orgId, buildPayoutReconciliationBlock({
+      events: reconciliation.events,
+      orgId,
+      generatedAt: reconciliation.generatedAt,
+    }))
+  }
 
   if (orgIds.length > 0) {
     const [ledgerRes, payoutBalanceRes] = await Promise.all([
@@ -302,6 +339,9 @@ export default async function SuperAdminPayoutsPage() {
             <Card className="overflow-hidden">
               {list.map((row, i) => {
                 const settlement = settlementByOrg.get(row.org_id)
+                const reconciliationBlock = payoutBlockByOrg.get(row.org_id)
+                const isReconciliationBlocked = Boolean(reconciliationBlock?.blocked)
+                const blockedBy = blockCopy(reconciliationBlock)
                 return (
                 <div
                   key={row.id}
@@ -320,9 +360,15 @@ export default async function SuperAdminPayoutsPage() {
                         {money(settlement.pendingSettlementCents, row.currency)} · {settlement.settlementHoldDays}-day buffer
                       </span>
                     )}
+                    {blockedBy && (
+                      <span className="mt-1 inline-flex w-fit items-center gap-1.5 rounded-[var(--radius)] border border-danger/30 bg-danger/5 px-2 py-1 text-[11px] font-semibold text-danger">
+                        <Icon name="bell" size={12} />
+                        Reconciliation block: {blockedBy}
+                      </span>
+                    )}
                   </div>
                   <span className="font-mono text-[14px] font-semibold">{money(row.amount_cents, row.currency)}</span>
-                  {canTransition && <div className="flex items-center gap-2">{actionsFor(row.status, row.id)}</div>}
+                  {canTransition && <div className="flex items-center gap-2">{actionsFor(row.status, row.id, isReconciliationBlocked)}</div>}
                 </div>
                 )
               })}

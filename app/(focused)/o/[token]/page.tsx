@@ -10,11 +10,12 @@ import {
 import { TokenRecoveryScreen } from "@/components/quiet/screens/tickets/token-recovery"
 import { APP_URL } from "@/lib/env"
 import { ticketDisplayStatus, type TicketDisplayStatus } from "@/lib/mappers/tickets"
+import { getTicketivPublicOrigin } from "@/lib/public-url"
 import { MyTicketsViewSchema, type MyTicketsView } from "@/lib/schemas/views"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { issueTicketToken, verifyOrderToken } from "@/lib/ticket-tokens"
 
-const TICKET_BASE_URL = process.env.NEXT_PUBLIC_TICKET_BASE_URL ?? APP_URL
+const TICKET_BASE_URL = getTicketivPublicOrigin(process.env.NEXT_PUBLIC_TICKET_BASE_URL ?? APP_URL)
 
 // TICK-77 — Order-level capability-token route.
 //

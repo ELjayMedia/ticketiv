@@ -1,13 +1,25 @@
 import { test, expect } from "@playwright/test"
 
-// TICK-174 — buyer happy path: discover → event detail → checkout reachable.
+// TICK-334 — buyer happy path: discover → event detail → checkout reachable.
 //
 // This is the public, unauthenticated leg of the journey and runs against any
 // deployed preview (PLAYWRIGHT_BASE_URL) or a local dev server. The final
-// payment + "ticket visible" + "scan" legs require a seeded DB and a
-// test-mode Paystack key; those steps are gated below and skip cleanly until a
-// staging environment exists (TICK-181). Keeping the skip explicit means the
-// suite is honest about coverage rather than silently passing.
+// payment + "ticket visible" + "scan" legs require a seeded DB, a known event
+// and a test-mode Paystack key. Strict mode turns missing seeded prerequisites
+// into a failure so the same suite can become blocking when staging is ready.
+
+const STRICT_E2E = process.env.E2E_STRICT === "1"
+const LOCAL_WITHOUT_SUPABASE =
+  !process.env.PLAYWRIGHT_BASE_URL && !process.env.NEXT_PUBLIC_SUPABASE_URL
+const SEEDED_CHECKOUT_ENV = [
+  "E2E_TEST_EVENT_SLUG",
+  "E2E_TEST_BUYER_EMAIL",
+  "E2E_PAYSTACK_TEST_KEY",
+] as const
+
+function missingSeededCheckoutEnv() {
+  return SEEDED_CHECKOUT_ENV.filter((key) => !process.env[key]?.trim())
+}
 
 test("discover page renders event cards", async ({ page }) => {
   const res = await page.goto("/")
@@ -17,10 +29,22 @@ test("discover page renders event cards", async ({ page }) => {
 })
 
 test("an event card leads to an event detail page", async ({ page }) => {
+  test.skip(
+    LOCAL_WITHOUT_SUPABASE && !STRICT_E2E,
+    "Local event detail needs Supabase env; deployed/seeded targets still run this smoke.",
+  )
+
   await page.goto("/")
   const firstEvent = page.locator('a[href^="/events/"]').first()
 
-  if ((await firstEvent.count()) === 0) {
+  const eventCardCount = await firstEvent.count()
+  if (eventCardCount === 0) {
+    if (STRICT_E2E) {
+      expect(
+        eventCardCount,
+        "Strict E2E requires at least one public seeded event card.",
+      ).toBeGreaterThan(0)
+    }
     test.skip(true, "No public events in this environment — needs seeded data (TICK-181 staging).")
   }
 
@@ -40,19 +64,42 @@ test("an event card leads to an event detail page", async ({ page }) => {
   await expect(page.locator("h1").first()).toHaveText(/\S/)
 })
 
-test.describe("authenticated checkout → ticket → scan", () => {
+test("seeded checkout prerequisites are present when strict E2E is enabled", async () => {
+  test.skip(!STRICT_E2E, "Set E2E_STRICT=1 once seeded staging is ready to make credentialed checkout blocking.")
+  expect(missingSeededCheckoutEnv()).toEqual([])
+})
+
+test.describe("seeded guest checkout → hosted payment handoff", () => {
+  const missing = missingSeededCheckoutEnv()
+
   test.skip(
-    !process.env.E2E_TEST_BUYER_EMAIL || !process.env.E2E_PAYSTACK_TEST_KEY,
-    "Requires a seeded staging DB + test-mode Paystack (E2E_TEST_BUYER_EMAIL, E2E_PAYSTACK_TEST_KEY). Wire up under TICK-181 staging.",
+    missing.length > 0 && !STRICT_E2E,
+    `Requires seeded staging env: ${missing.join(", ")}.`,
   )
 
-  test("buyer completes a test-mode purchase and sees the ticket", async () => {
-    // Implemented once staging exists:
-    //  1. sign in as E2E_TEST_BUYER_EMAIL (OTP test inbox)
-    //  2. open a seeded event, add a ticket, go to checkout
-    //  3. pay via Paystack test card, return to confirmation
-    //  4. assert the order completes and the ticket QR is visible at /my-tickets
-    //  5. validate the ticket via the scanner endpoint and assert one-time use
-    expect(true).toBe(true)
+  test("creates a checkout attempt for the seeded event", async ({ page }) => {
+    expect(missing, "Seeded checkout environment must be complete.").toEqual([])
+
+    const eventSlug = process.env.E2E_TEST_EVENT_SLUG!
+    const buyerEmail = process.env.E2E_TEST_BUYER_EMAIL!
+
+    await page.goto(`/events/${encodeURIComponent(eventSlug)}`)
+    await expect(page.locator("h1").first()).toHaveText(/\S/)
+
+    const checkoutCta = page.getByRole("button", { name: /continue|get tickets/i }).last()
+    await expect(checkoutCta).toBeEnabled()
+    await checkoutCta.click()
+    await page.waitForURL(/\/events\/[^/]+\/checkout/)
+
+    await page.getByLabel(/send ticket to|email/i).first().fill(buyerEmail)
+    await page.locator('input[type="checkbox"]').last().check()
+
+    const paymentCta = page.getByRole("button", { name: /pay|continue to payment/i }).last()
+    await expect(paymentCta).toBeEnabled()
+    await paymentCta.click()
+
+    await page.waitForURL(/checkout\.paystack\.com|\/orders\/[^/]+\/confirmation/, {
+      timeout: 30_000,
+    })
   })
 })

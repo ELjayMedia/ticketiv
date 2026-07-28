@@ -1,6 +1,7 @@
 import "server-only"
 
 import { APP_URL } from "@/lib/env"
+import { getTicketivPublicOrigin } from "@/lib/public-url"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendTransactionalNotification } from "@/lib/notifications/transactional"
 import { issueOrderToken, issueTicketToken } from "@/lib/ticket-tokens"
@@ -22,7 +23,7 @@ const SHORT_DATE = new Intl.DateTimeFormat("en-SZ", { dateStyle: "medium", timeS
 
 // Public ticket links prefer an explicit base (lets links point at the live
 // domain even from preview/runtime contexts) and fall back to APP_URL.
-const TICKET_BASE_URL = process.env.NEXT_PUBLIC_TICKET_BASE_URL ?? APP_URL
+const TICKET_BASE_URL = getTicketivPublicOrigin(process.env.NEXT_PUBLIC_TICKET_BASE_URL ?? APP_URL)
 
 function moneySzl(cents: number, currency: string) {
   return `${currency} ${(cents / 100).toLocaleString("en-SZ", { minimumFractionDigits: 2 })}`

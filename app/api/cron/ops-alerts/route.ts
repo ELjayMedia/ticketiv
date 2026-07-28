@@ -96,11 +96,24 @@ export async function GET(request: Request) {
     )
   }
 
+  // Housekeeping: prune expired rate-limit windows so public.rate_limits stays
+  // small. Best-effort — a gc hiccup must never fail the alert run.
+  let rateLimitGcPruned: number | null = null
+  try {
+    // fn_rate_limit_gc is service-role-only and not in the generated RPC types;
+    // cast per the repo's untyped-RPC convention. Empty args = default 1-day TTL.
+    const { data } = await (admin.rpc as any)("fn_rate_limit_gc", {})
+    rateLimitGcPruned = typeof data === "number" ? data : null
+  } catch (error) {
+    console.error("[ops-alerts] rate_limit gc failed", error)
+  }
+
   return NextResponse.json({
     ok: !hasAlert(checks),
     checkedAt: now.toISOString(),
     checks,
     alertDelivery,
+    rateLimitGcPruned,
   })
 }
 
