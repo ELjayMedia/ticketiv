@@ -32,7 +32,7 @@ internal-only (our ledger vs our orders), not internal-vs-provider.
 
 ---
 
-## 2. Webhook replay, idempotency & dead-letter — **Partial**
+## 2. Webhook replay, idempotency & dead-letter — **Built**
 
 **Built.** Idempotency is enforced two ways: `payments (provider,
 ext_payment_id)` is unique (a redelivered success reuses the payment, no double
@@ -46,11 +46,38 @@ only** — a browser cannot finalize a payment (see the money-path work).
 the lag threshold are surfaced by the ops-alerts cron and by
 `scripts/ops-reconciliation.sql` check #8.
 
-**Gap (To do).** A **safe replay tool**: an admin action / RPC that re-runs
-`completeTrustedPaystackWebhook` for a stored (verified) `webhooks.payload`,
-guarded by the existing idempotency so replay is safe. Today reprocessing is
-manual (re-POST the stored payload to the webhook route). Add an admin
-"reprocess" button over the dead-letter list.
+**Replay tool.** The super-admin webhooks page (`/super-admin/webhooks` →
+**Inbound** tab) shows a **Reprocess** button on every `PENDING` row, backed by
+the `replayInboundWebhook` server action. Safety rests on three properties:
+
+1. **The payload is never supplied by the caller.** The action takes only a row
+   id and reads `webhooks.payload` — the body this system already HMAC-verified
+   at receipt. There is deliberately no "replay arbitrary JSON" affordance, so an
+   admin cannot inject or edit a payment event.
+2. **It re-runs the same trusted path** as the live route
+   (`completeTrustedPaystackWebhook`), so a replay cannot take a shortcut the
+   normal delivery would not.
+3. **Replay is idempotent by construction** — verified against production with a
+   rolled-back double-completion: the second run returned
+   `already_completed = true`, leaving **1** payment row (no double charge),
+   ledger gross equal to the order total (not doubled), and the ticket issued
+   once.
+
+Only unprocessed rows are eligible (a processed row would be a no-op, so the
+button refuses it rather than implying it did something). The action is gated to
+non-`read_only_admin` tiers, writes an `audit_log` entry on both success and
+failure, and on failure leaves `processed_at` NULL so the row stays in the
+dead-letter list.
+
+**Procedure.** Dead letters appear in the ops-alerts cron and
+`scripts/ops-reconciliation.sql` #8. Investigate the underlying failure first
+(the stored payload and Sentry breadcrumbs say why completion threw), fix the
+cause, then hit **Reprocess**. If replay fails again the row stays pending and
+the error is recorded in `audit_log`.
+
+**Gap (To do).** Replay currently handles **Paystack** only — the sole provider
+with a completion path. Other providers are rejected with a clear message; add a
+handler alongside `completeTrustedPaystackWebhook` when a second provider ships.
 
 ---
 
@@ -247,7 +274,7 @@ Vercel/WAF network limits for defence in depth.
 | Control | Status | Primary artifact |
 |---|---|---|
 | Reconciliation | Partial | `scripts/ops-reconciliation.sql`, `fn_org_finance_summary` |
-| Webhook idempotency/replay | Partial | `webhooks`/`payments` unique keys; replay tool = to do |
+| Webhook idempotency/replay | Built | `webhooks`/`payments` unique keys + admin Reprocess on the dead-letter list (Paystack only) |
 | Alerting | Built | `api/cron/ops-alerts` + `fn_ops_reconciliation_counts` (order/payout/async checks); scanner backlog needs a heartbeat column |
 | Backups / RPO-RTO | To do | Supabase PITR + documented drill |
 | Support workflows | Partial | `app/super-admin/*` + runbooks above |
