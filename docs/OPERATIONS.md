@@ -54,7 +54,7 @@ manual (re-POST the stored payload to the webhook route). Add an admin
 
 ---
 
-## 3. Alerting — **Partial**
+## 3. Alerting — **Built (core conditions covered)**
 
 **Built.** `app/api/cron/ops-alerts/route.ts` runs every 5 min
 (`.github/workflows/ops-alerts.yml` → secured `CRON_SECRET` endpoint) and alerts
@@ -62,16 +62,34 @@ manual (re-POST the stored payload to the webhook route). Add an admin
 (unprocessed webhooks older than N min), **payment success-rate** below a
 threshold over a rolling window, and **health-URL** failures.
 
-**Gap (To do).** Extend the cron with the remaining conditions — the detection
-SQL already exists in `scripts/ops-reconciliation.sql`:
-- **Inconsistent order states** (checks #1, #2, #4, #9, #10).
-- **Payout errors / over-draw** (check #7; plus `payouts.status = 'failed'`).
-- **Scanner sync backlog** (device_sessions active but `last_seen_at` stale, or
-  a spike in offline/unsynced scans).
-- **Failed jobs** (e.g., notifications/outbox rows stuck `pending`).
+**Reconciliation conditions** now run in the same cron via
+`public.fn_ops_reconciliation_counts()` — a service-role-only `SECURITY DEFINER`
+function that returns anomaly **counts** (0 = healthy), so the cron gets them in
+one call instead of expressing multi-table joins through PostgREST. Three
+`evaluate*` checks in `lib/ops/health-alerts.ts` turn those counts into alerts:
+- **`order-state-consistency`** (critical) — money/order/ledger integrity,
+  mirroring `scripts/ops-reconciliation.sql` #1–#6, #9–#11 (succeeded-but-unpaid,
+  paid-without-settlement-ledger, broken ledger invariant, unissued paid tickets,
+  duplicate succeeded payments, refund-without-ledger, issued-on-unpaid, etc.).
+- **`payout-integrity`** — over-draw (#7, critical) + `payouts.status = 'failed'`
+  (warning).
+- **`stuck-async-work`** — overdue `payment_outbox` (critical, payment
+  finalization stuck) + stuck `notifications` and dead-lettered `jobs` (warning).
 
-Add each as an `evaluate*` in `lib/ops/health-alerts.ts` and include it in the
-cron's `checks` array. Delivery already exists (`postOpsAlert`).
+A reconciliation-query failure degrades to a single **skipped** check, never
+failing the alert run. Delivery is unchanged (`postOpsAlert`).
+
+> **UAT caveat.** As of writing, `fn_ops_reconciliation_counts()` returns
+> non-zero values **solely from the UAT seed fixtures** (`fn_seed_uat_fixtures`,
+> `da7a…` rows seeded 2026-07-25): 2 paid orders without a settlement ledger, 1
+> overdue payment-outbox row, 3 stuck notifications. Run
+> `fn_teardown_uat_fixtures` (and remove the UAT scaffolding — see the RPC-matrix
+> note) before launch so the alerts reflect real customer activity only.
+
+**Gap (To do).** **Scanner sync backlog** — `device_sessions` has no
+`last_seen_at` and `scans` has no server-side "unsynced" flag, so a meaningful
+backlog signal needs a schema addition (e.g. a heartbeat column) before it can
+be added as a fourth `evaluate*`.
 
 ---
 
@@ -209,7 +227,7 @@ Vercel/WAF network limits for defence in depth.
 |---|---|---|
 | Reconciliation | Partial | `scripts/ops-reconciliation.sql`, `fn_org_finance_summary` |
 | Webhook idempotency/replay | Partial | `webhooks`/`payments` unique keys; replay tool = to do |
-| Alerting | Partial | `api/cron/ops-alerts`; extend with reconciliation checks |
+| Alerting | Built | `api/cron/ops-alerts` + `fn_ops_reconciliation_counts` (order/payout/async checks); scanner backlog needs a heartbeat column |
 | Backups / RPO-RTO | To do | Supabase PITR + documented drill |
 | Support workflows | Partial | `app/super-admin/*` + runbooks above |
 | Audit retention | To do | scheduled archive+prune job |

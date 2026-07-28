@@ -3,11 +3,16 @@ import { NextResponse } from "next/server"
 import {
   buildOpsAlertPayload,
   evaluateHealthUrls,
+  evaluateOrderStateConsistency,
   evaluatePaymentSuccessRate,
+  evaluatePayoutIntegrity,
+  evaluateStuckAsyncWork,
   evaluateWebhookLag,
   hasAlert,
   postOpsAlert,
   type HealthUrlResult,
+  type OpsAlertCheck,
+  type ReconciliationCounts,
 } from "@/lib/ops/health-alerts"
 import { APP_URL, getSupabaseAdminConfig } from "@/lib/env"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -56,7 +61,7 @@ export async function GET(request: Request) {
   const webhookCutoff = new Date(now.getTime() - webhookLagMinutes * 60_000).toISOString()
   const admin = createAdminClient()
 
-  const [attemptsRes, staleWebhooksRes, healthResults] = await Promise.all([
+  const [attemptsRes, staleWebhooksRes, healthResults, reconciliationRes] = await Promise.all([
     admin
       .from("payment_attempts")
       .select("status, provider")
@@ -70,6 +75,12 @@ export async function GET(request: Request) {
       .order("received_at", { ascending: true })
       .limit(50),
     checkHealthUrls(readHealthUrls(), healthTimeoutMs),
+    // fn_ops_reconciliation_counts is service-role-only and not in the generated
+    // RPC types; cast per the repo's untyped-RPC convention.
+    (admin.rpc as any)("fn_ops_reconciliation_counts") as Promise<{
+      data: ReconciliationCounts | null
+      error: { message: string } | null
+    }>,
   ])
 
   if (attemptsRes.error) {
@@ -86,6 +97,7 @@ export async function GET(request: Request) {
       minSuccessRate: paymentSuccessRateMin,
     }),
     evaluateWebhookLag(staleWebhooksRes.data ?? [], webhookLagMinutes),
+    ...reconciliationChecks(reconciliationRes.data, reconciliationRes.error),
   ]
 
   let alertDelivery: Awaited<ReturnType<typeof postOpsAlert>> | null = null
@@ -115,6 +127,31 @@ export async function GET(request: Request) {
     alertDelivery,
     rateLimitGcPruned,
   })
+}
+
+// Turn the reconciliation-counts RPC result into alert checks. A query failure
+// degrades to a single skipped check rather than failing the whole alert run.
+function reconciliationChecks(
+  counts: ReconciliationCounts | null,
+  error: { message: string } | null
+): OpsAlertCheck[] {
+  if (error || !counts) {
+    return [
+      {
+        key: "reconciliation-counts",
+        status: "skipped",
+        severity: "info",
+        title: "Reconciliation checks skipped",
+        message: `fn_ops_reconciliation_counts unavailable${error ? `: ${error.message}` : ""}.`,
+        details: { error: error?.message ?? null },
+      },
+    ]
+  }
+  return [
+    evaluateOrderStateConsistency(counts),
+    evaluatePayoutIntegrity(counts),
+    evaluateStuckAsyncWork(counts),
+  ]
 }
 
 async function checkHealthUrls(urls: string[], timeoutMs: number): Promise<HealthUrlResult[]> {

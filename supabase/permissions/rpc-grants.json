@@ -1578,6 +1578,17 @@
     },
     {
       "schema": "public",
+      "name": "fn_ops_reconciliation_counts",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_org_finance_summary",
       "arguments": "p_org_id uuid, p_from timestamp with time zone, p_to timestamp with time zone",
       "securityDefiner": true,
