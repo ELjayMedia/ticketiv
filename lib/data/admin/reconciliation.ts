@@ -1,8 +1,10 @@
 import "server-only"
 
 import {
+  buildPayoutReconciliationBlock,
   buildEventReconciliation,
   type EventReconciliationResult,
+  type PayoutReconciliationBlock,
   type ReconciliationLedgerEntry,
   type ReconciliationOrder,
   type ReconciliationOrderItem,
@@ -380,4 +382,17 @@ export async function getPostEventReconciliationOverview(options?: {
       openPayoutCents,
     },
   }
+}
+
+export async function getOrgPayoutReconciliationBlock(
+  orgId: string,
+  options?: { limit?: number },
+): Promise<PayoutReconciliationBlock> {
+  const overview = await getPostEventReconciliationOverview({ limit: options?.limit ?? 120 })
+
+  return buildPayoutReconciliationBlock({
+    events: overview.events,
+    orgId,
+    generatedAt: overview.generatedAt,
+  })
 }

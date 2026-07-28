@@ -128,18 +128,55 @@ prunes today.
 
 ---
 
-## 7. Rate limits — **Partial (foundation built)**
+## 7. Rate limits — **Built (core paths covered)**
 
 **Built.** A shared fixed-window primitive — the `rate_limits` table and
 `public.fn_rate_limit(p_key, p_max, p_window_seconds)` (returns true = allowed)
 plus `fn_rate_limit_gc()` for housekeeping (migration
-`20260720160000_rate_limit_primitive`). `fn_rate_limit` is EXECUTE-revoked from
-PUBLIC, so only trusted SECURITY DEFINER RPCs call it. **First consumer:**
-`fn_create_membership_invite` is limited to **30 invitations / inviter / hour**
-(verified: the 31st call is rejected with `rate_limited`).
+`20260720160000_rate_limit_primitive`). `fn_rate_limit`, `fn_rate_limit_gc` and
+`fn_rate_limit_edge` are EXECUTE-revoked from `anon`/`authenticated` and granted
+only to `service_role` (migration `20260726121500` makes this explicit so a
+fresh replay can't leave them anon-callable via Supabase's grant-on-create event
+trigger), so only trusted SECURITY DEFINER RPCs / server-side code call them.
+**Consumers wired** (each verified against prod with a rolled-back test — the
+last allowed call passes, the next is rejected with `rate_limited`):
 
-**Apply it to the remaining entry points** by adding, right after the RPC's auth
-check:
+| RPC (guard location) | Bucket | Limit | Migration |
+|---|---|---|---|
+| `fn_create_membership_invite_unchecked` (worker) | `invite:<uid>` | 30 / hour | `20260720160000` |
+| `fn_create_organization_unchecked` (worker) | `org_create:<uid>` | 5 / hour | `20260726121000` |
+| `fn_create_inventory_protected_order` (monolith) | `checkout:<buyer>` | 10 / min | `20260726120000` |
+| `fn_request_transfer_by_email` (shim) | `transfer:<uid>` | 20 / hour | `20260726121000` |
+| `fn_publish_resale_listing` (shim) | `resale_publish:<uid>` | 20 / hour | `20260726121000` |
+
+The guard sits in the `_unchecked` worker for the claimed-account RPCs (invite,
+org) — main's refactor split those into a `require_claimed_account()` shim over a
+service-role worker, and the worker is the stable body — and in the shim for
+transfers/resale. The rollout migrations are dated after main's claimed-account
+refactor so they apply last on a fresh replay and land on the final bodies.
+
+The checkout guard sits after the four entry validations and before any
+inventory/pricing work, so a rapid-fire attacker is rejected before touching
+the row locks; it complements the per-ticket-type `per_user_limit` / quota /
+10-minute holds.
+
+**Edge / anon endpoints are covered too.** `lib/rate-limit.ts` (used by the
+promo preview, payment attempt, auth resend, waitlist join, scanner
+provision/validate, search suggest and tapband telemetry routes) prefers
+Upstash Redis but previously **degraded to a no-op when Upstash was
+unconfigured**, silently disabling those limits. It now falls back to the same
+durable Postgres counter via `public.fn_rate_limit_edge(bucket, key, max,
+window)` — a service-role-only `SECURITY DEFINER` wrapper around `fn_rate_limit`
+(migration `20260720162000`, buckets namespaced under `edge:`). The wrapper is
+EXECUTE-revoked from `anon`/`authenticated` and only reachable through the
+server-side admin client, so a browser can't poke the counter. This closes the
+**`fn_preview_promo_code`** anon-enumeration gap: the promo route keys the limit
+by client IP (`clientKey(req)` → 20/min) and it is now enforced without Redis.
+Any DB/config error fails open (allow), preserving availability over
+enforcement.
+
+**Apply the DB primitive to the remaining SECURITY DEFINER entry points** by
+adding, right after the RPC's auth check:
 
 ```sql
 if not public.fn_rate_limit('<action>:' || v_user::text, <max>, <window_secs>) then
@@ -147,12 +184,21 @@ if not public.fn_rate_limit('<action>:' || v_user::text, <max>, <window_secs>) t
 end if;
 ```
 
-Targets and suggested limits: checkout/order creation (`fn_create_inventory_protected_order`,
-~10/min), transfers, resale publication, `fn_scan_ticket` (per device/session,
-generous), organization creation. **`fn_preview_promo_code` is anon-callable and
-has no `auth.uid()`** — key it from a server-action/route wrapper that passes the
-client IP (PostgREST does not expose the IP to the function), or apply a coarse
-per-event bucket. Schedule `fn_rate_limit_gc()` from the ops cron. Pair with
+Transfers (`fn_request_transfer_by_email`) and resale publication
+(`fn_publish_resale_listing`) are guarded at **20 / user / hour** each — the
+guard sits between `app.require_claimed_account()` and the `*_unchecked` worker,
+so it blocks recipient-email enumeration and listing spam without touching
+legitimate use.
+
+**`fn_scan_ticket` is intentionally left to the edge, not DB-guarded.** Gate
+scanning is high-throughput and offline-first, so a per-call DB counter would
+risk throttling legitimate scan bursts; the scanner is already covered at the
+edge by the `scanner:provision` and `scanner:validate` route limits, which are
+now durable via the edge fallback above.
+
+**Housekeeping is scheduled.** `fn_rate_limit_gc()` runs on every ops-alerts
+cron pass (`app/api/cron/ops-alerts/route.ts`, every 5 min, best-effort) so
+`public.rate_limits` self-prunes expired windows. Pair all of the above with
 Vercel/WAF network limits for defence in depth.
 
 ---
@@ -167,4 +213,4 @@ Vercel/WAF network limits for defence in depth.
 | Backups / RPO-RTO | To do | Supabase PITR + documented drill |
 | Support workflows | Partial | `app/super-admin/*` + runbooks above |
 | Audit retention | To do | scheduled archive+prune job |
-| Rate limits | Partial | `fn_rate_limit` primitive (built) + roll out to remaining RPCs |
+| Rate limits | Built | `fn_rate_limit` on invites/org/checkout/transfer/resale; edge routes durable via `fn_rate_limit_edge`; gc scheduled in ops cron |

@@ -79,7 +79,7 @@ function HFPhone({ time = "9:41", className = "", children, scrollable = true })
 }
 
 // ── Browser shell for desktop hi-fi ──
-function HFBrowser({ url = "ticketiv.com", tabs = ["Ticketiv"], children }) {
+function HFBrowser({ url = "ticketiv.app", tabs = ["Ticketiv"], children }) {
   return (
     <div className="hf-browser hf">
       <div className="hf-chrome">

@@ -13,15 +13,18 @@
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:mobile": "pnpm --filter @ticketiv/app-consumer test && pnpm --filter @ticketiv/app-access test && pnpm --filter @ticketiv/adapters test",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install --with-deps chromium",
     "typecheck": "tsc --noEmit",
+    "typecheck:mobile": "pnpm --filter @ticketiv/app-consumer typecheck && pnpm --filter @ticketiv/app-access typecheck && pnpm --filter @ticketiv/adapters typecheck",
     "check:demo": "bash scripts/check-demo-patterns.sh",
+    "check:mobile": "pnpm test:mobile && pnpm typecheck:mobile",
     "check:permissions": "node scripts/check-rpc-permissions.mjs",
     "check:service-role": "node scripts/check-service-role-boundary.mjs",
     "check:crossorg": "node scripts/check-cross-org-authorization.mjs",
     "check:routes": "node scripts/check-internal-routes.mjs",
-    "check:release": "pnpm lint && pnpm test && pnpm typecheck && pnpm check:demo && pnpm check:permissions && pnpm check:service-role && pnpm check:crossorg && pnpm check:routes && pnpm build"
+    "check:release": "pnpm lint && pnpm test && pnpm typecheck && pnpm check:demo && pnpm check:mobile && pnpm check:permissions && pnpm check:service-role && pnpm check:crossorg && pnpm check:routes && pnpm build"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

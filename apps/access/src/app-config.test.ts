@@ -4,9 +4,12 @@ import {
   ACCESS_ANDROID_TARGETS,
   ACCESS_APP_CONFIG,
   ACCESS_APP_ID,
+  ACCESS_IOS_TARGET,
+  ACCESS_NATIVE_RELEASE_TARGETS,
   ACCESS_SCHEME,
   buildAccessDeepLink,
   resolveAccessAndroidTarget,
+  resolveAccessIosTarget,
 } from "./app-config";
 
 describe("Ticketiv Access app config", () => {
@@ -16,6 +19,7 @@ describe("Ticketiv Access app config", () => {
       slug: "ticketiv-access",
       scheme: "ticketiv-access",
       androidPackage: "com.ticketiv.access",
+      iosBundleIdentifier: "com.ticketiv.access",
     });
     expect(ACCESS_APP_ID).toBe("com.ticketiv.access");
     expect(ACCESS_SCHEME).toBe("ticketiv-access");
@@ -43,6 +47,32 @@ describe("Ticketiv Access app config", () => {
     expect(ACCESS_ANDROID_TARGETS.huawei.capabilities).toContain("hms-push");
     expect(ACCESS_ANDROID_TARGETS.huawei.capabilities).not.toContain("fcm-push");
     expect(ACCESS_ANDROID_TARGETS.huawei.requiresGoogleMobileServices).toBe(false);
+  });
+
+  it("pins the App Store build target", () => {
+    expect(resolveAccessIosTarget("app-store")).toEqual(ACCESS_IOS_TARGET);
+    expect(ACCESS_IOS_TARGET).toMatchObject({
+      store: "app-store",
+      variant: "iosRelease",
+      artifactName: "ticketiv-access-ios-release.ipa",
+      bundleIdentifier: "com.ticketiv.access",
+      pushProvider: "apns",
+    });
+    expect(ACCESS_IOS_TARGET.capabilities).toContain("apns-push");
+    expect(ACCESS_IOS_TARGET.capabilities).toContain("camera-scanning");
+  });
+
+  it("documents the full native release matrix", () => {
+    expect(ACCESS_NATIVE_RELEASE_TARGETS.map((target) => target.variant)).toEqual([
+      "playRelease",
+      "huaweiRelease",
+      "iosRelease",
+    ]);
+    expect(ACCESS_NATIVE_RELEASE_TARGETS.map((target) => target.artifactName)).toEqual([
+      "ticketiv-access-play-release.aab",
+      "ticketiv-access-huawei-release.aab",
+      "ticketiv-access-ios-release.ipa",
+    ]);
   });
 
   it("builds Ticketiv Access deep links", () => {

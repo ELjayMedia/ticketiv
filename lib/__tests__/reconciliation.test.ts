@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 
-import { buildEventReconciliation, type EventReconciliationInput } from "@/lib/reconciliation"
+import {
+  buildEventReconciliation,
+  buildPayoutReconciliationBlock,
+  type EventReconciliationInput,
+} from "@/lib/reconciliation"
 
 function baseInput(overrides: Partial<EventReconciliationInput> = {}): EventReconciliationInput {
   return {
@@ -129,5 +133,61 @@ describe("buildEventReconciliation", () => {
     expect(result.stuckPaymentAttemptCount).toBe(1)
     expect(result.orphanedPaymentAttemptCount).toBe(1)
     expect(result.checks.find((check) => check.key === "payments")?.status).toBe("danger")
+  })
+
+  it("builds a payout block from unresolved reconciliation evidence for the matching org", () => {
+    const blockedEvent = {
+      ...buildEventReconciliation(baseInput({
+        ledgerEntries: [
+          { orderId: "ord_1", type: "order_gross", amountCents: 10000, currency: "SZL" },
+          { orderId: "ord_1", type: "fee", amountCents: -700, currency: "SZL" },
+          { orderId: "ord_1", type: "payment_net", amountCents: 9300, currency: "SZL" },
+        ],
+      })),
+      title: "Blocked launch night",
+      orgId: "org_1",
+      orgName: "Ticketiv",
+      currency: "SZL",
+      startsAt: "2026-07-16T18:00:00.000Z",
+      endsAt: "2026-07-16T23:00:00.000Z",
+      openPayoutCount: 1,
+      openPayoutCents: 9000,
+    }
+    const otherOrgBlockedEvent = { ...blockedEvent, eventId: "evt_other", orgId: "org_2" }
+
+    const block = buildPayoutReconciliationBlock({
+      events: [blockedEvent, otherOrgBlockedEvent],
+      orgId: "org_1",
+      generatedAt: "2026-07-17T00:00:00.000Z",
+    })
+
+    expect(block.blocked).toBe(true)
+    expect(block.generatedAt).toBe("2026-07-17T00:00:00.000Z")
+    expect(block.blockedEvents).toHaveLength(1)
+    expect(block.blockedEvents[0].title).toBe("Blocked launch night")
+    expect(block.blockedEvents[0].blockingChecks.map((check) => check.key)).toContain("ledger")
+    expect(block.blockedEvents[0].blockingChecks.map((check) => check.key)).not.toContain("payout_review")
+  })
+
+  it("does not block payout approval when the org's ended events reconcile", () => {
+    const readyEvent = {
+      ...buildEventReconciliation(baseInput()),
+      title: "Ready launch night",
+      orgId: "org_1",
+      orgName: "Ticketiv",
+      currency: "SZL",
+      startsAt: "2026-07-16T18:00:00.000Z",
+      endsAt: "2026-07-16T23:00:00.000Z",
+      openPayoutCount: 1,
+      openPayoutCents: 9000,
+    }
+
+    const block = buildPayoutReconciliationBlock({
+      events: [readyEvent],
+      orgId: "org_1",
+    })
+
+    expect(block.blocked).toBe(false)
+    expect(block.blockedEvents).toHaveLength(0)
   })
 })

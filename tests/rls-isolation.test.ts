@@ -24,7 +24,21 @@ const B_EMAIL = process.env.TEST_USER_B_EMAIL
 const B_PASSWORD = process.env.TEST_USER_B_PASSWORD
 const ORG_A_ID = process.env.TEST_ORG_A_ID
 
-const configured = Boolean(URL && ANON && A_EMAIL && A_PASSWORD && B_EMAIL && B_PASSWORD && ORG_A_ID)
+const REQUIRED_ENV = [
+  "TEST_SUPABASE_URL",
+  "TEST_SUPABASE_ANON_KEY",
+  "TEST_USER_A_EMAIL",
+  "TEST_USER_A_PASSWORD",
+  "TEST_USER_B_EMAIL",
+  "TEST_USER_B_PASSWORD",
+  "TEST_ORG_A_ID",
+] as const
+
+function missingRlsEnv() {
+  return REQUIRED_ENV.filter((key) => !process.env[key]?.trim())
+}
+
+const configured = missingRlsEnv().length === 0
 
 async function signedInClient(email: string, password: string): Promise<SupabaseClient> {
   const client = createClient(URL!, ANON!, { auth: { persistSession: false } })
@@ -71,6 +85,7 @@ describe.skipIf(!configured)("RLS cross-tenant isolation", () => {
 // the integration cases are skipped for lack of a test project.
 describe("RLS isolation harness", () => {
   it(configured ? "is configured against a test project" : "is present but skipped (no TEST_SUPABASE_* env)", () => {
-    expect(true).toBe(true)
+    if (configured) expect(missingRlsEnv()).toEqual([])
+    else expect(missingRlsEnv().length).toBeGreaterThan(0)
   })
 })

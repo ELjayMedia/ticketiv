@@ -184,7 +184,7 @@ begin
     exception when others then v_res := sqlerrm; end;
     v_label := 'fn_claim_email_broadcast(orgB)';
     if v_res = 'ALLOWED' then v_fail := v_fail + 1; v_out := v_out || format(E'\n  FAIL  %-38s succeeded', v_label);
-    elsif v_res ~* 'not allowed|not_authorized|forbidden|permission|denied|authoriz|insufficient|not found' then v_pass := v_pass + 1; v_out := v_out || format(E'\n  PASS  %-38s %s', v_label, v_res);
+    elsif v_res ~* 'not allowed|not_authorized|forbidden|permission|denied|authoriz|only org|insufficient|not found' then v_pass := v_pass + 1; v_out := v_out || format(E'\n  PASS  %-38s %s', v_label, v_res);
     else v_odd := v_odd + 1; v_out := v_out || format(E'\n  ????  %-38s %s', v_label, v_res); end if;
 
     -- 11. Delete someone else's organization outright.

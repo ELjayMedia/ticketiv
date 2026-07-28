@@ -1,3 +1,5 @@
+import { getTicketivPublicOrigin } from "@/lib/public-url"
+
 export class MissingEnvironmentVariableError extends Error {
   readonly variableName: string
 
@@ -43,7 +45,11 @@ export function isSupabaseConfigured() {
   return Boolean(getSupabasePublicConfig())
 }
 
-export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+// Normalized on main: canonicalizes bare hosts / legacy ticketiv.com and falls
+// back to the public origin, rather than trusting NEXT_PUBLIC_APP_URL verbatim.
+// public-url.ts is dependency-free and browser-safe, so it is fine to reach from
+// this client-importable module.
+export const APP_URL = getTicketivPublicOrigin()
 
 export const ENABLE_DEMO_MODE = process.env.NEXT_PUBLIC_ENABLE_DEMO_MODE === "true"
 export const ENABLE_ANALYTICS = process.env.NEXT_PUBLIC_ENABLE_ANALYTICS === "true"

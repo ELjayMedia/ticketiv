@@ -2,19 +2,29 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest"
 
 import { clientKey, rateLimit, tooManyRequests } from "@/lib/rate-limit"
 
-describe("rate-limit (unconfigured = no-op)", () => {
-  const saved = { url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN }
+describe("rate-limit (no backend = no-op)", () => {
+  const saved = {
+    url: process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    supaUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  }
 
   beforeEach(() => {
+    // No Upstash AND no service-role DB client → the fallback must allow.
     delete process.env.UPSTASH_REDIS_REST_URL
     delete process.env.UPSTASH_REDIS_REST_TOKEN
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL
   })
   afterEach(() => {
     process.env.UPSTASH_REDIS_REST_URL = saved.url
     process.env.UPSTASH_REDIS_REST_TOKEN = saved.token
+    process.env.SUPABASE_SERVICE_ROLE_KEY = saved.serviceKey
+    process.env.NEXT_PUBLIC_SUPABASE_URL = saved.supaUrl
   })
 
-  it("allows every request when Upstash env is absent", async () => {
+  it("allows every request when no rate-limit backend is configured", async () => {
     const r = await rateLimit("test", "ip:1.2.3.4", 1, 60)
     expect(r.allowed).toBe(true)
     const r2 = await rateLimit("test", "ip:1.2.3.4", 1, 60)
