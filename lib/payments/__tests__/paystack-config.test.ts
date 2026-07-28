@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { assertPaystackModeAllowed, resolvePaystackKeyMode } from "@/lib/payments/paystack-config"
+import { assertPaystackModeAllowed, resolvePaystackKeyMode } from "@/lib/payments/paystack-key-mode"
 
 describe("resolvePaystackKeyMode", () => {
   it("recognises test and live secret keys", () => {
@@ -23,20 +23,24 @@ describe("assertPaystackModeAllowed", () => {
   // TICK-61 — UAT and production share one environment, so a live key must not
   // be usable until someone deliberately turns live mode on.
   it("throws on a live key when live mode is not allowed", () => {
-    expect(() => assertPaystackModeAllowed("sk_live_abc123", false)).toThrow(/PAYSTACK_ALLOW_LIVE_MODE/)
+    expect(() => assertPaystackModeAllowed("sk_live_abc123", false, "production")).toThrow(/PAYSTACK_ALLOW_LIVE_MODE/)
   })
 
-  it("allows a live key once live mode is explicitly enabled", () => {
-    expect(() => assertPaystackModeAllowed("sk_live_abc123", true)).not.toThrow()
+  it("allows a live key once live mode is explicitly enabled in production", () => {
+    expect(() => assertPaystackModeAllowed("sk_live_abc123", true, "production")).not.toThrow()
+  })
+
+  it("blocks a live key in preview even if the live-mode override is present", () => {
+    expect(() => assertPaystackModeAllowed("sk_live_abc123", true, "preview")).toThrow(/outside Vercel production/)
   })
 
   it("never blocks a test key", () => {
-    expect(() => assertPaystackModeAllowed("sk_test_abc123", false)).not.toThrow()
-    expect(() => assertPaystackModeAllowed("sk_test_abc123", true)).not.toThrow()
+    expect(() => assertPaystackModeAllowed("sk_test_abc123", false, "preview")).not.toThrow()
+    expect(() => assertPaystackModeAllowed("sk_test_abc123", true, "production")).not.toThrow()
   })
 
   it("does not block a missing or unrecognised key, which fails later for its own reasons", () => {
-    expect(() => assertPaystackModeAllowed(null, false)).not.toThrow()
-    expect(() => assertPaystackModeAllowed("", false)).not.toThrow()
+    expect(() => assertPaystackModeAllowed(null, false, "preview")).not.toThrow()
+    expect(() => assertPaystackModeAllowed("", false, "preview")).not.toThrow()
   })
 })
