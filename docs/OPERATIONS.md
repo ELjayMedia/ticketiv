@@ -135,14 +135,35 @@ above (today several are multi-step or manual).
 
 ---
 
-## 6. Audit retention — **To do**
+## 6. Audit retention — **Partial (audit_log built; scans deferred)**
 
-`audit_log` (financial + admin actions) and `scans` grow unbounded. Define a
-retention policy — proposed: **keep 24 months hot**, archive older rows to cold
-storage (a `audit_log_archive` table or object storage export), then delete.
-Implement as a scheduled RPC (pg_cron or the ops cron) that archives+prunes on a
-cutoff, and document the legal retention minimum for financial records. Nothing
-prunes today.
+**Built.** `audit_log` (financial + admin actions) is kept to a rolling window
+(default **24 months**) with older rows moved to a cold `audit_log_archive`
+table rather than hard-deleted, so the legal retention minimum for financial
+records is preserved while the hot table stays small (migration
+`20260728130000_audit_log_retention`).
+
+- `public.fn_archive_audit_log(p_retention interval default '24 months',
+  p_batch_limit integer default 10000)` archives one batch of rows older than the
+  cutoff and prunes them in a **single snapshot** (the INSERT sees pre-delete
+  rows), so a crash never deletes without archiving; it returns the batch counts.
+  Service-role only (revoked from anon/authenticated).
+- `audit_log_archive` mirrors `audit_log` (primary key preserved), has RLS on and
+  no client grants — reachable only through the SECURITY DEFINER function or
+  service_role.
+- Scheduled daily at **03:30 UTC** via **pg_cron** (`ticketiv-audit-log-retention`;
+  the migration schedules it only where pg_cron is present, so a fresh replay
+  without the extension skips it cleanly).
+
+Verified with a rolled-back run: a 30-day cutoff archived 32 old rows and pruned
+them (hot 63 → 31, archive 0 → 32) with every pruned row present in the archive.
+
+**Gap (To do).** **`scans` retention.** `scans` also grows unbounded but carries
+delete-sensitive triggers (a live-stats recalc, refund guard, org validation), so
+pruning it needs a trigger-interaction review (and likely a longer, operational —
+not financial — retention). Also decide whether the cold archive should
+eventually export to object storage and purge, and record the legal retention
+minimum for financial records.
 
 ---
 
@@ -230,5 +251,5 @@ Vercel/WAF network limits for defence in depth.
 | Alerting | Built | `api/cron/ops-alerts` + `fn_ops_reconciliation_counts` (order/payout/async checks); scanner backlog needs a heartbeat column |
 | Backups / RPO-RTO | To do | Supabase PITR + documented drill |
 | Support workflows | Partial | `app/super-admin/*` + runbooks above |
-| Audit retention | To do | scheduled archive+prune job |
+| Audit retention | Partial | `fn_archive_audit_log` + `audit_log_archive`, daily pg_cron; scans deferred (delete-sensitive triggers) |
 | Rate limits | Built | `fn_rate_limit` on invites/org/checkout/transfer/resale; edge routes durable via `fn_rate_limit_edge`; gc scheduled in ops cron |
