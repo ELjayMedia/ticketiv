@@ -74,7 +74,11 @@ export async function startCheckoutAction(input: StartCheckoutInput): Promise<St
       }
     }
 
-    const requestedProvider = input.provider ?? cookieProvider ?? effectiveProviders[0]
+    // A cookie can be stale after moving between events. Only preserve it when
+    // it is effective for this event; an explicit provider remains strict and
+    // is rejected rather than silently switched.
+    const cookieSelection = effectiveProviders.find((provider) => provider === cookieProvider)
+    const requestedProvider = input.provider ?? cookieSelection ?? effectiveProviders[0]
     const provider = await assertPaymentProviderAvailableForEvent(input.eventId, requestedProvider)
 
     const order = await createOrder({
