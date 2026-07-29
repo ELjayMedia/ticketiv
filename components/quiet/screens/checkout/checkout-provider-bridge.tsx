@@ -63,8 +63,25 @@ export function CheckoutProviderBridge({
       setSelectedProvider(input.value as CheckoutProviderMethod["id"])
     }
 
+    // Quiet's original mobile artboard included a saved-card affordance. This
+    // checkout chooses a payment rail and never stores card details, so remove
+    // that control without coupling the shared screen to provider policy.
+    const hideSavedMethodControl = () => {
+      const button = [...root.querySelectorAll("button")].find((candidate) =>
+        candidate.textContent?.includes("Add new payment method"),
+      )
+      if (button) button.hidden = true
+    }
+
+    hideSavedMethodControl()
+    const observer = new MutationObserver(hideSavedMethodControl)
+    observer.observe(root, { childList: true, subtree: true })
     root.addEventListener("change", onChange)
-    return () => root.removeEventListener("change", onChange)
+
+    return () => {
+      observer.disconnect()
+      root.removeEventListener("change", onChange)
+    }
   }, [methods])
 
   return (
