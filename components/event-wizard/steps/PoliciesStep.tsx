@@ -5,25 +5,31 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 
-const PROVIDER_LABELS: Record<string, string> = {
-  paystack: "Card / bank (Paystack)",
-  momo: "MTN MoMo",
-  flutterwave: "Flutterwave",
-  manual: "Manual / cash",
+interface ProviderOption {
+  id: string
+  label: string
+  sub: string
+  enabled: boolean
+  operational: boolean
+  warning: string | null
 }
 
 export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving: () => void }) {
   const [refundPolicy, setRefundPolicy] = useState("")
   const [attendeeFields, setAttendeeFields] = useState("")
   const [confirmationMessage, setConfirmationMessage] = useState("")
-  const [availableProviders, setAvailableProviders] = useState<string[]>([])
+  const [providerOptions, setProviderOptions] = useState<ProviderOption[]>([])
   const [selectedProviders, setSelectedProviders] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
 
-  function toggleProvider(p: string) {
-    setSelectedProviders((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]))
+  function toggleProvider(option: ProviderOption) {
+    setSelectedProviders((current) => {
+      const selected = current.includes(option.id)
+      if (!selected && (!option.enabled || !option.operational)) return current
+      return selected ? current.filter((provider) => provider !== option.id) : [...current, option.id]
+    })
   }
 
   useEffect(() => {
@@ -40,7 +46,7 @@ export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving:
       setRefundPolicy(payload.event?.refund_policy ?? "")
       setAttendeeFields(Array.isArray(payload.event?.attendee_fields) ? payload.event.attendee_fields.join(", ") : "")
       setConfirmationMessage(payload.event?.confirmation_message ?? "")
-      setAvailableProviders(Array.isArray(payload.availableProviders) ? payload.availableProviders : [])
+      setProviderOptions(Array.isArray(payload.providerOptions) ? payload.providerOptions : [])
       setSelectedProviders(Array.isArray(payload.event?.payment_providers) ? payload.event.payment_providers : [])
     } catch (err: any) {
       console.error("[v0] Error loading policies:", err)
@@ -66,6 +72,7 @@ export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving:
       setAttendeeFields(Array.isArray(payload.event?.attendee_fields) ? payload.event.attendee_fields.join(", ") : "")
       setConfirmationMessage(payload.event?.confirmation_message ?? "")
       if (Array.isArray(payload.event?.payment_providers)) setSelectedProviders(payload.event.payment_providers)
+      if (Array.isArray(payload.providerOptions)) setProviderOptions(payload.providerOptions)
     } catch (err: any) {
       console.error("[v0] Error saving policies:", err)
       setError(err?.message || "Failed to save policies")
@@ -75,6 +82,10 @@ export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving:
   }
 
   if (loading) return <div className="p-2 text-sm text-muted-foreground">Loading policies...</div>
+
+  const selectedUnavailable = providerOptions.filter(
+    (option) => selectedProviders.includes(option.id) && (!option.enabled || !option.operational),
+  )
 
   return (
     <div className="space-y-4">
@@ -95,31 +106,45 @@ export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving:
       </div>
 
       <div>
-        <label className="text-sm font-medium">Payment providers</label>
+        <label className="text-sm font-medium">Payment methods accepted for this event</label>
         <p className="mt-1 text-xs text-muted-foreground">
-          Lock this event to specific payment platforms. Leave all unselected to accept every available provider.
+          Only Ticketiv-supported methods appear here. Leave every option unselected to accept all currently enabled methods.
         </p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {availableProviders.length === 0 ? (
-            <span className="text-xs text-muted-foreground">No payment providers are currently available.</span>
+        <div className="mt-2 flex flex-col gap-2">
+          {providerOptions.length === 0 ? (
+            <span className="text-xs text-muted-foreground">No Ticketiv payment methods are currently configured.</span>
           ) : (
-            availableProviders.map((p) => {
-              const active = selectedProviders.includes(p)
+            providerOptions.map((option) => {
+              const active = selectedProviders.includes(option.id)
+              const unavailable = !option.enabled || !option.operational
               return (
                 <button
-                  key={p}
+                  key={option.id}
                   type="button"
-                  onClick={() => toggleProvider(p)}
+                  onClick={() => toggleProvider(option)}
                   disabled={saving}
                   aria-pressed={active}
                   className={
-                    "rounded-full border px-3 py-1.5 text-sm transition-colors disabled:opacity-60 " +
+                    "rounded-lg border px-3 py-2 text-left transition-colors disabled:opacity-60 " +
                     (active
-                      ? "border-ink bg-ink text-surface"
-                      : "border-line-2 bg-surface text-ink hover:border-ink")
+                      ? unavailable
+                        ? "border-amber-500 bg-amber-50"
+                        : "border-ink bg-ink text-surface"
+                      : unavailable
+                        ? "border-line bg-muted/40 text-muted-foreground"
+                        : "border-line-2 bg-surface text-ink hover:border-ink")
                   }
                 >
-                  {PROVIDER_LABELS[p] ?? p}
+                  <span className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-medium">{option.label}</span>
+                    {unavailable && (
+                      <span className="rounded-full border border-amber-500/40 bg-amber-50 px-2 py-0.5 text-[10px] font-medium uppercase text-amber-800">
+                        Not operational
+                      </span>
+                    )}
+                  </span>
+                  <span className="mt-0.5 block text-xs opacity-75">{option.sub}</span>
+                  {option.warning && <span className="mt-1 block text-xs text-amber-700">{option.warning}</span>}
                 </button>
               )
             })
@@ -127,14 +152,21 @@ export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving:
         </div>
         <p className="mt-1.5 text-xs text-muted-foreground">
           {selectedProviders.length === 0
-            ? "Accepting all available providers."
-            : `Locked to: ${selectedProviders.map((p) => PROVIDER_LABELS[p] ?? p).join(", ")}.`}
+            ? "Accept all currently enabled methods."
+            : `Buyers will be offered: ${selectedProviders
+                .map((provider) => providerOptions.find((option) => option.id === provider)?.label ?? provider)
+                .join(", ")}.`}
         </p>
+        {selectedUnavailable.length > 0 && (
+          <p className="mt-2 rounded-md border border-amber-500/40 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Remove the non-operational method before saving, or ask Ticketiv platform administration to complete its configuration.
+          </p>
+        )}
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      <Button onClick={save} disabled={saving} className="w-full">
+      <Button onClick={save} disabled={saving || selectedUnavailable.length > 0} className="w-full">
         {saving ? "Saving policies..." : "Save policies"}
       </Button>
     </div>
