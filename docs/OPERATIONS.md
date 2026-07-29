@@ -32,7 +32,7 @@ internal-only (our ledger vs our orders), not internal-vs-provider.
 
 ---
 
-## 2. Webhook replay, idempotency & dead-letter — **Partial**
+## 2. Webhook replay, idempotency & dead-letter — **Built**
 
 **Built.** Idempotency is enforced two ways: `payments (provider,
 ext_payment_id)` is unique (a redelivered success reuses the payment, no double
@@ -46,15 +46,42 @@ only** — a browser cannot finalize a payment (see the money-path work).
 the lag threshold are surfaced by the ops-alerts cron and by
 `scripts/ops-reconciliation.sql` check #8.
 
-**Gap (To do).** A **safe replay tool**: an admin action / RPC that re-runs
-`completeTrustedPaystackWebhook` for a stored (verified) `webhooks.payload`,
-guarded by the existing idempotency so replay is safe. Today reprocessing is
-manual (re-POST the stored payload to the webhook route). Add an admin
-"reprocess" button over the dead-letter list.
+**Replay tool.** The super-admin webhooks page (`/super-admin/webhooks` →
+**Inbound** tab) shows a **Reprocess** button on every `PENDING` row, backed by
+the `replayInboundWebhook` server action. Safety rests on three properties:
+
+1. **The payload is never supplied by the caller.** The action takes only a row
+   id and reads `webhooks.payload` — the body this system already HMAC-verified
+   at receipt. There is deliberately no "replay arbitrary JSON" affordance, so an
+   admin cannot inject or edit a payment event.
+2. **It re-runs the same trusted path** as the live route
+   (`completeTrustedPaystackWebhook`), so a replay cannot take a shortcut the
+   normal delivery would not.
+3. **Replay is idempotent by construction** — verified against production with a
+   rolled-back double-completion: the second run returned
+   `already_completed = true`, leaving **1** payment row (no double charge),
+   ledger gross equal to the order total (not doubled), and the ticket issued
+   once.
+
+Only unprocessed rows are eligible (a processed row would be a no-op, so the
+button refuses it rather than implying it did something). The action is gated to
+non-`read_only_admin` tiers, writes an `audit_log` entry on both success and
+failure, and on failure leaves `processed_at` NULL so the row stays in the
+dead-letter list.
+
+**Procedure.** Dead letters appear in the ops-alerts cron and
+`scripts/ops-reconciliation.sql` #8. Investigate the underlying failure first
+(the stored payload and Sentry breadcrumbs say why completion threw), fix the
+cause, then hit **Reprocess**. If replay fails again the row stays pending and
+the error is recorded in `audit_log`.
+
+**Gap (To do).** Replay currently handles **Paystack** only — the sole provider
+with a completion path. Other providers are rejected with a clear message; add a
+handler alongside `completeTrustedPaystackWebhook` when a second provider ships.
 
 ---
 
-## 3. Alerting — **Partial**
+## 3. Alerting — **Built (core conditions covered)**
 
 **Built.** `app/api/cron/ops-alerts/route.ts` runs every 5 min
 (`.github/workflows/ops-alerts.yml` → secured `CRON_SECRET` endpoint) and alerts
@@ -62,16 +89,34 @@ manual (re-POST the stored payload to the webhook route). Add an admin
 (unprocessed webhooks older than N min), **payment success-rate** below a
 threshold over a rolling window, and **health-URL** failures.
 
-**Gap (To do).** Extend the cron with the remaining conditions — the detection
-SQL already exists in `scripts/ops-reconciliation.sql`:
-- **Inconsistent order states** (checks #1, #2, #4, #9, #10).
-- **Payout errors / over-draw** (check #7; plus `payouts.status = 'failed'`).
-- **Scanner sync backlog** (device_sessions active but `last_seen_at` stale, or
-  a spike in offline/unsynced scans).
-- **Failed jobs** (e.g., notifications/outbox rows stuck `pending`).
+**Reconciliation conditions** now run in the same cron via
+`public.fn_ops_reconciliation_counts()` — a service-role-only `SECURITY DEFINER`
+function that returns anomaly **counts** (0 = healthy), so the cron gets them in
+one call instead of expressing multi-table joins through PostgREST. Three
+`evaluate*` checks in `lib/ops/health-alerts.ts` turn those counts into alerts:
+- **`order-state-consistency`** (critical) — money/order/ledger integrity,
+  mirroring `scripts/ops-reconciliation.sql` #1–#6, #9–#11 (succeeded-but-unpaid,
+  paid-without-settlement-ledger, broken ledger invariant, unissued paid tickets,
+  duplicate succeeded payments, refund-without-ledger, issued-on-unpaid, etc.).
+- **`payout-integrity`** — over-draw (#7, critical) + `payouts.status = 'failed'`
+  (warning).
+- **`stuck-async-work`** — overdue `payment_outbox` (critical, payment
+  finalization stuck) + stuck `notifications` and dead-lettered `jobs` (warning).
 
-Add each as an `evaluate*` in `lib/ops/health-alerts.ts` and include it in the
-cron's `checks` array. Delivery already exists (`postOpsAlert`).
+A reconciliation-query failure degrades to a single **skipped** check, never
+failing the alert run. Delivery is unchanged (`postOpsAlert`).
+
+> **UAT caveat.** As of writing, `fn_ops_reconciliation_counts()` returns
+> non-zero values **solely from the UAT seed fixtures** (`fn_seed_uat_fixtures`,
+> `da7a…` rows seeded 2026-07-25): 2 paid orders without a settlement ledger, 1
+> overdue payment-outbox row, 3 stuck notifications. Run
+> `fn_teardown_uat_fixtures` (and remove the UAT scaffolding — see the RPC-matrix
+> note) before launch so the alerts reflect real customer activity only.
+
+**Gap (To do).** **Scanner sync backlog** — `device_sessions` has no
+`last_seen_at` and `scans` has no server-side "unsynced" flag, so a meaningful
+backlog signal needs a schema addition (e.g. a heartbeat column) before it can
+be added as a fourth `evaluate*`.
 
 ---
 
@@ -117,14 +162,35 @@ above (today several are multi-step or manual).
 
 ---
 
-## 6. Audit retention — **To do**
+## 6. Audit retention — **Partial (audit_log built; scans deferred)**
 
-`audit_log` (financial + admin actions) and `scans` grow unbounded. Define a
-retention policy — proposed: **keep 24 months hot**, archive older rows to cold
-storage (a `audit_log_archive` table or object storage export), then delete.
-Implement as a scheduled RPC (pg_cron or the ops cron) that archives+prunes on a
-cutoff, and document the legal retention minimum for financial records. Nothing
-prunes today.
+**Built.** `audit_log` (financial + admin actions) is kept to a rolling window
+(default **24 months**) with older rows moved to a cold `audit_log_archive`
+table rather than hard-deleted, so the legal retention minimum for financial
+records is preserved while the hot table stays small (migration
+`20260728130000_audit_log_retention`).
+
+- `public.fn_archive_audit_log(p_retention interval default '24 months',
+  p_batch_limit integer default 10000)` archives one batch of rows older than the
+  cutoff and prunes them in a **single snapshot** (the INSERT sees pre-delete
+  rows), so a crash never deletes without archiving; it returns the batch counts.
+  Service-role only (revoked from anon/authenticated).
+- `audit_log_archive` mirrors `audit_log` (primary key preserved), has RLS on and
+  no client grants — reachable only through the SECURITY DEFINER function or
+  service_role.
+- Scheduled daily at **03:30 UTC** via **pg_cron** (`ticketiv-audit-log-retention`;
+  the migration schedules it only where pg_cron is present, so a fresh replay
+  without the extension skips it cleanly).
+
+Verified with a rolled-back run: a 30-day cutoff archived 32 old rows and pruned
+them (hot 63 → 31, archive 0 → 32) with every pruned row present in the archive.
+
+**Gap (To do).** **`scans` retention.** `scans` also grows unbounded but carries
+delete-sensitive triggers (a live-stats recalc, refund guard, org validation), so
+pruning it needs a trigger-interaction review (and likely a longer, operational —
+not financial — retention). Also decide whether the cold archive should
+eventually export to object storage and purge, and record the legal retention
+minimum for financial records.
 
 ---
 
@@ -208,9 +274,9 @@ Vercel/WAF network limits for defence in depth.
 | Control | Status | Primary artifact |
 |---|---|---|
 | Reconciliation | Partial | `scripts/ops-reconciliation.sql`, `fn_org_finance_summary` |
-| Webhook idempotency/replay | Partial | `webhooks`/`payments` unique keys; replay tool = to do |
-| Alerting | Partial | `api/cron/ops-alerts`; extend with reconciliation checks |
+| Webhook idempotency/replay | Built | `webhooks`/`payments` unique keys + admin Reprocess on the dead-letter list (Paystack only) |
+| Alerting | Built | `api/cron/ops-alerts` + `fn_ops_reconciliation_counts` (order/payout/async checks); scanner backlog needs a heartbeat column |
 | Backups / RPO-RTO | To do | Supabase PITR + documented drill |
 | Support workflows | Partial | `app/super-admin/*` + runbooks above |
-| Audit retention | To do | scheduled archive+prune job |
+| Audit retention | Partial | `fn_archive_audit_log` + `audit_log_archive`, daily pg_cron; scans deferred (delete-sensitive triggers) |
 | Rate limits | Built | `fn_rate_limit` on invites/org/checkout/transfer/resale; edge routes durable via `fn_rate_limit_edge`; gc scheduled in ops cron |

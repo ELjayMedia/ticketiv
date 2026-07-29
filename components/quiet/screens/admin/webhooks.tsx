@@ -13,6 +13,7 @@ import {
   toggleWebhookEndpoint,
   scheduleWebhookDispatcher,
   triggerWebhookDispatch,
+  replayInboundWebhook,
 } from "@/app/super-admin/webhooks/actions"
 
 type Tab = "outbound" | "inbound"
@@ -50,6 +51,23 @@ export function WebhooksScreen({ overview }: { overview: WebhooksOverview }) {
     if (!confirm(`Delete endpoint ${url}?`)) return
     setBusy(id)
     try { await deleteWebhookEndpoint(id) } finally { setBusy(null) }
+  }
+
+  // Dead-letter reprocessing. Replay re-runs the stored (already
+  // signature-verified) payload through the same trusted completion path, and
+  // completion is idempotent, so this is safe to retry.
+  const [replayMsg, setReplayMsg] = React.useState<Record<string, string>>({})
+  const replay = async (id: string, eventId: string | null) => {
+    if (!confirm(`Reprocess webhook ${eventId ?? id}?\n\nThis re-runs the stored payment event. Completion is idempotent, so an already-credited payment will not be double-counted.`)) return
+    setBusy(id)
+    try {
+      const res = await replayInboundWebhook(id)
+      setReplayMsg((prev) => ({ ...prev, [id]: res.message }))
+    } catch (err) {
+      setReplayMsg((prev) => ({ ...prev, [id]: err instanceof Error ? err.message : "Replay failed" }))
+    } finally {
+      setBusy(null)
+    }
   }
 
   return (
@@ -206,8 +224,8 @@ export function WebhooksScreen({ overview }: { overview: WebhooksOverview }) {
           <div className="border-b border-line px-4 py-3.5">
             <span className="text-h3">Inbound (provider callbacks)</span>
           </div>
-          <div className="grid grid-cols-[0.8fr_1fr_2fr_1fr_0.8fr] gap-2 border-b border-line bg-bg px-4 py-2.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-ink-3">
-            <span>Provider</span><span>Event ID</span><span>Signature</span><span>Received</span><span>Processed</span>
+          <div className="grid grid-cols-[0.8fr_1fr_1.2fr_1fr_0.8fr_1.4fr] gap-2 border-b border-line bg-bg px-4 py-2.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-ink-3">
+            <span>Provider</span><span>Event ID</span><span>Signature</span><span>Received</span><span>Processed</span><span>Action</span>
           </div>
           {overview.inbound.length === 0 ? (
             <div className="px-4 py-10 text-center font-mono text-xs text-ink-3">
@@ -217,7 +235,7 @@ export function WebhooksScreen({ overview }: { overview: WebhooksOverview }) {
             overview.inbound.map((w, i, arr) => (
               <div
                 key={w.id}
-                className={`grid grid-cols-[0.8fr_1fr_2fr_1fr_0.8fr] items-center gap-2 px-4 py-2.5 text-xs ${
+                className={`grid grid-cols-[0.8fr_1fr_1.2fr_1fr_0.8fr_1.4fr] items-center gap-2 px-4 py-2.5 text-xs ${
                   i < arr.length - 1 ? "border-b border-line" : ""
                 }`}
               >
@@ -233,6 +251,25 @@ export function WebhooksScreen({ overview }: { overview: WebhooksOverview }) {
                   }`}
                 >
                   {w.processed_at ? "DONE" : "PENDING"}
+                </span>
+                <span className="flex items-center gap-2">
+                  {w.processed_at ? (
+                    <span className="font-mono text-[10px] text-ink-4">—</span>
+                  ) : (
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      disabled={busy === w.id}
+                      onClick={() => replay(w.id, w.provider_event_id)}
+                    >
+                      {busy === w.id ? "Working…" : "Reprocess"}
+                    </Button>
+                  )}
+                  {replayMsg[w.id] && (
+                    <span className="truncate font-mono text-[10px] text-ink-3" title={replayMsg[w.id]}>
+                      {replayMsg[w.id]}
+                    </span>
+                  )}
                 </span>
               </div>
             ))
