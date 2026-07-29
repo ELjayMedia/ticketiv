@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { resolveEffectivePaymentProviders } from "@/lib/payments/availability"
+import { resolveEffectivePaymentProviders } from "@/lib/payments/availability-core"
 
 describe("resolveEffectivePaymentProviders", () => {
   const operational = ["paystack", "momo"] as const
