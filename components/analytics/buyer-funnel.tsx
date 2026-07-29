@@ -11,6 +11,7 @@ type BuyerFunnelEvent =
   | "add_to_checkout"
   | "checkout_start"
   | "checkout_error"
+  | "payment_method_selected"
   | "payment_redirect"
   | "payment_success"
   | "payment_failure"
