@@ -22,7 +22,7 @@ export default async function MomoPaymentPage({
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect(`/login?returnTo=${encodeURIComponent(`/orders/${orderId}/momo`)}`)
+    redirect(`/login?next=${encodeURIComponent(`/orders/${orderId}/momo`)}`)
   }
 
   const { data: order, error } = await supabase
