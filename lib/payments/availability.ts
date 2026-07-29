@@ -1,9 +1,13 @@
 import "server-only"
 
+import {
+  resolveEffectivePaymentProviders,
+  type CheckoutPaymentProvider,
+} from "@/lib/payments/availability-core"
 import { getPaystackSettings } from "@/lib/payments/paystack-config"
 import { createAdminClient } from "@/lib/supabase/admin"
 
-export type CheckoutPaymentProvider = "paystack" | "momo"
+export type { CheckoutPaymentProvider } from "@/lib/payments/availability-core"
 
 export interface CheckoutPaymentMethod {
   id: CheckoutPaymentProvider
@@ -109,27 +113,6 @@ export async function getOrganizerPaymentProviderOptions(): Promise<OrganizerPay
 export async function getOperationalPaymentProviders(): Promise<CheckoutPaymentProvider[]> {
   const options = await getOrganizerPaymentProviderOptions()
   return options.filter((option) => option.enabled && option.operational).map((option) => option.id)
-}
-
-/**
- * Apply one or more event-level allow-lists to the currently operational
- * providers. An empty event list means "all operational methods". A non-empty
- * list containing only unsupported/unavailable providers intentionally resolves
- * to no methods rather than accidentally removing the organizer lock.
- */
-export function resolveEffectivePaymentProviders(
-  operational: CheckoutPaymentProvider[],
-  eventProviderLists: string[][],
-): CheckoutPaymentProvider[] {
-  let effective = [...operational]
-
-  for (const rawList of eventProviderLists) {
-    if (rawList.length === 0) continue
-    const eventLock = rawList.map(String).filter(isCheckoutProvider)
-    effective = effective.filter((provider) => eventLock.includes(provider))
-  }
-
-  return effective
 }
 
 export async function getEffectivePaymentProvidersForEvent(
