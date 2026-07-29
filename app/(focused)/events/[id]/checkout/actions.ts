@@ -1,11 +1,20 @@
 "use server"
 
+import { cookies } from "next/headers"
+
 import { createOrder } from "@/lib/orders"
 import { createPaymentAttempt, type PaymentProvider } from "@/lib/payments"
+import {
+  assertPaymentProviderAvailableForEvent,
+  getEffectivePaymentProvidersForEvent,
+  type CheckoutPaymentProvider,
+} from "@/lib/payments/availability"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { ensureCheckoutIdentity } from "@/lib/auth/checkout-identity"
 import { APP_URL } from "@/lib/env"
+
+const PAYMENT_PROVIDER_COOKIE = "ticketiv_payment_provider"
 
 export interface StartCheckoutInput {
   eventId: string
@@ -24,7 +33,13 @@ export interface PromoApplyResult {
 }
 
 export type StartCheckoutResult =
-  | { ok: true; orderId: string; checkoutUrl: string | null; promo: PromoApplyResult | null }
+  | {
+      ok: true
+      orderId: string
+      checkoutUrl: string | null
+      provider: CheckoutPaymentProvider
+      promo: PromoApplyResult | null
+    }
   | { ok: false; error: string }
 
 export async function startCheckoutAction(input: StartCheckoutInput): Promise<StartCheckoutResult> {
@@ -40,10 +55,28 @@ export async function startCheckoutAction(input: StartCheckoutInput): Promise<St
   const items = (input.items ?? []).filter((i) => i.ticketTypeId && i.quantity > 0)
   if (items.length === 0) return { ok: false, error: "Select at least one ticket." }
 
-  const provider: PaymentProvider = input.provider ?? "paystack"
   const promoCode = input.promoCode?.trim() || null
 
   try {
+    // The UI bridge writes the buyer's selection to a short-lived first-party
+    // cookie. Explicit callers can still pass provider directly. Either way the
+    // requested key is revalidated against the event lock and current platform
+    // operational state before an order or provider attempt is created.
+    const cookieStore = await cookies()
+    const cookieProvider = cookieStore.get(PAYMENT_PROVIDER_COOKIE)?.value ?? null
+    const effectiveProviders = await getEffectivePaymentProvidersForEvent(input.eventId)
+
+    if (effectiveProviders.length === 0) {
+      return {
+        ok: false,
+        error:
+          "Checkout is unavailable because this event has no active payment method. Please contact the organizer.",
+      }
+    }
+
+    const requestedProvider = input.provider ?? cookieProvider ?? effectiveProviders[0]
+    const provider = await assertPaymentProviderAvailableForEvent(input.eventId, requestedProvider)
+
     const order = await createOrder({
       eventId: input.eventId,
       purchaserId: identity.userId,
@@ -60,6 +93,19 @@ export async function startCheckoutAction(input: StartCheckoutInput): Promise<St
       promo = await runApplyPromoCode(order.order.id, promoCode, identity.userId)
     }
 
+    // MoMo needs an Eswatini MSISDN, which is collected on the dedicated
+    // approval screen. Do not create a placeholder/fake provider attempt here;
+    // /api/payments/momo/create creates the real request-to-pay and attempt.
+    if (provider === "momo") {
+      return {
+        ok: true,
+        orderId: order.order.id,
+        checkoutUrl: `/orders/${order.order.id}/momo`,
+        provider,
+        promo,
+      }
+    }
+
     const attempt = await createPaymentAttempt({
       orderId: order.order.id,
       provider,
@@ -67,7 +113,13 @@ export async function startCheckoutAction(input: StartCheckoutInput): Promise<St
       returnUrl: `${APP_URL}/orders/${order.order.id}/confirmation`,
     })
 
-    return { ok: true, orderId: order.order.id, checkoutUrl: attempt.payment.checkoutUrl, promo }
+    return {
+      ok: true,
+      orderId: order.order.id,
+      checkoutUrl: attempt.payment.checkoutUrl,
+      provider,
+      promo,
+    }
   } catch (error: any) {
     console.error("startCheckoutAction failed", error)
     return { ok: false, error: error?.message ?? "Unable to start checkout" }
