@@ -20,6 +20,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://ticketiv.app"),
   title: {
     default: "Ticketiv — Discover what's on",
     template: "%s · Ticketiv",
