@@ -111,15 +111,21 @@ export async function getOperationalPaymentProviders(): Promise<CheckoutPaymentP
   return options.filter((option) => option.enabled && option.operational).map((option) => option.id)
 }
 
-function effectiveFromEventLists(
+/**
+ * Apply one or more event-level allow-lists to the currently operational
+ * providers. An empty event list means "all operational methods". A non-empty
+ * list containing only unsupported/unavailable providers intentionally resolves
+ * to no methods rather than accidentally removing the organizer lock.
+ */
+export function resolveEffectivePaymentProviders(
   operational: CheckoutPaymentProvider[],
   eventProviderLists: string[][],
-) {
+): CheckoutPaymentProvider[] {
   let effective = [...operational]
 
   for (const rawList of eventProviderLists) {
+    if (rawList.length === 0) continue
     const eventLock = rawList.map(String).filter(isCheckoutProvider)
-    if (eventLock.length === 0) continue
     effective = effective.filter((provider) => eventLock.includes(provider))
   }
 
@@ -147,7 +153,7 @@ export async function getEffectivePaymentProvidersForEvent(
     ? event.payment_providers.map(String)
     : []
 
-  return effectiveFromEventLists(operational, [eventList])
+  return resolveEffectivePaymentProviders(operational, [eventList])
 }
 
 export async function getEffectivePaymentMethodsForEvent(
@@ -207,7 +213,7 @@ export async function assertPaymentProviderAvailableForOrder(
   }
 
   const operational = await getOperationalPaymentProviders()
-  const effective = effectiveFromEventLists(operational, [...eventLists.values()])
+  const effective = resolveEffectivePaymentProviders(operational, [...eventLists.values()])
 
   if (!effective.includes(requested)) {
     throw new Error("This event does not accept that payment method. Choose another option.")
