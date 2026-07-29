@@ -103,6 +103,7 @@ export function MomoPaymentClient({
       return
     }
 
+    setReferenceId(null)
     setState("starting")
     const response = await fetch("/api/payments/momo/create", {
       method: "POST",
@@ -144,6 +145,7 @@ export function MomoPaymentClient({
   }
 
   const busy = state === "starting" || state === "pending"
+  const lockNumber = busy || (Boolean(referenceId) && state !== "failed")
 
   return (
     <main className="flex min-h-dvh items-center justify-center bg-bg px-5 py-10">
@@ -174,7 +176,7 @@ export function MomoPaymentClient({
             value={msisdn}
             onChange={(event) => setMsisdn(event.target.value)}
             placeholder="76 123 456"
-            disabled={busy || Boolean(referenceId)}
+            disabled={lockNumber}
             className="rounded-md border border-line-2 bg-surface px-3 py-3 text-[15px] outline-none focus:border-accent focus:ring-[3px] focus:ring-accent-soft disabled:opacity-60"
           />
           <span className="font-mono text-[10px] text-ink-3">Eswatini numbers may be entered with or without +268.</span>
@@ -195,7 +197,7 @@ export function MomoPaymentClient({
         <button
           type="button"
           onClick={state === "timed_out" ? checkAgain : startPayment}
-          disabled={busy || (Boolean(referenceId) && state !== "timed_out")}
+          disabled={busy}
           className="mt-5 w-full rounded-md bg-accent px-4 py-3 text-[14px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {state === "starting"
