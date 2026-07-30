@@ -37,12 +37,13 @@ export function useEventLiveStats(
       return
     }
 
+    const requestedEventId = eventId
     let cancelled = false
     let channel: ReturnType<typeof supabase.channel> | null = null
     setStatus("loading")
 
     async function startSubscription() {
-      let resolvedEventId = eventId
+      let resolvedEventId = requestedEventId
 
       // Public checkout components receive the event slug while organizer and
       // scanner surfaces pass the UUID. Resolve a slug once before querying or
