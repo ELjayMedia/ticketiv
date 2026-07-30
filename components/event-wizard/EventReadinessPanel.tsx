@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 
-const WIZARD_STEPS = new Set(["basics", "schedule", "venue", "tickets", "policies", "publish"])
+const WIZARD_STEPS = new Set(["basics", "lineup", "schedule", "venue", "tickets", "policies", "publish"])
 
 type ReadinessItem = {
   key: string
@@ -32,6 +32,7 @@ function actionFor(item: ReadinessItem, orgId: string, eventId: string): Readine
       policy: "Add policy",
       title: "Edit basics",
       category: "Choose category",
+      lineup: "Add lineup",
       date: "Set dates",
       venue: "Choose venue",
       tickets: "Add tickets",
