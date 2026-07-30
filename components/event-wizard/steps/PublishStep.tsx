@@ -139,7 +139,7 @@ export function PublishStep({ event, onSaving }: { event: any; onSaving: () => v
               <p className="mt-1 text-sm text-muted-foreground">
                 Use the Fix actions in the readiness checklist. They open the exact wizard step or workspace screen needed.
               </p>
-              {firstBlockerHref ? (
+              {firstBlocker && firstBlockerHref ? (
                 <Link
                   href={firstBlockerHref}
                   className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-amber-600/30 px-3 py-2 text-sm font-medium text-amber-900 transition-colors hover:bg-amber-500/10"
