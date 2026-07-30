@@ -37,7 +37,7 @@ export function useEventLiveStats(
       return
     }
 
-    const requestedEventId = eventId
+    const requestedEventId: string = eventId
     let cancelled = false
     let channel: ReturnType<typeof supabase.channel> | null = null
     setStatus("loading")
