@@ -31,6 +31,16 @@
 --
 -- This script does not delete auth.users or profiles. Use the product account
 -- deletion path for throwaway tester accounts after UAT evidence is captured.
+--
+-- SCOPE — this script is NOT the only UAT cleanup path:
+--   * THIS script handles UAT runs that carry an explicit `uat-...` run marker
+--     in their data (the convention documented above). It matches on that
+--     marker, so unmarked fixtures are invisible to it.
+--   * public.fn_teardown_uat_fixtures() handles the original seeded fixture set
+--     created by public.fn_seed_uat_fixtures() — the two `da7a0000-...` orgs and
+--     their events/orders/payments/ledger. Those rows carry no run marker, so
+--     this script cannot reach them; use the teardown function instead.
+-- Reach for whichever matches how the data was created. See docs/OPERATIONS.md #6.
 
 BEGIN;
 
