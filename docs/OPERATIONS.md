@@ -106,12 +106,21 @@ one call instead of expressing multi-table joins through PostgREST. Three
 A reconciliation-query failure degrades to a single **skipped** check, never
 failing the alert run. Delivery is unchanged (`postOpsAlert`).
 
-> **UAT caveat.** As of writing, `fn_ops_reconciliation_counts()` returns
-> non-zero values **solely from the UAT seed fixtures** (`fn_seed_uat_fixtures`,
-> `da7a…` rows seeded 2026-07-25): 2 paid orders without a settlement ledger, 1
-> overdue payment-outbox row, 3 stuck notifications. Run
-> `fn_teardown_uat_fixtures` (and remove the UAT scaffolding — see the RPC-matrix
-> note) before launch so the alerts reflect real customer activity only.
+> **Baseline (2026-07-30).** `fn_teardown_uat_fixtures()` has been run and
+> **all 14 counts read 0**. The UAT seed fixtures that previously made these
+> alerts fire (2 paid orders without a settlement ledger, 1 overdue
+> payment-outbox row, stuck notifications) are gone, so any future non-zero
+> value reflects real activity. Note the database now holds **no transactional
+> data at all** — a true pre-launch zero baseline.
+
+**`in_app` notifications are deliberately excluded** from `stuck_notifications`
+(migration `20260730200000`). `lib/notifications.ts` `emitNotification` inserts
+in-app rows with `status = 'pending'` and nothing ever transitions them — the
+in-app lifecycle is `read_at`, not `status`. Counting them would flag every
+in-app notification older than the threshold as stuck, firing the alert
+permanently under real traffic and training people to ignore it. Only dispatched
+channels (email/sms/push), which get real `sent`/`failed` statuses from
+`lib/notifications/transactional.ts`, are counted.
 
 **Gap (To do).** **Scanner sync backlog** — `device_sessions` has no
 `last_seen_at` and `scans` has no server-side "unsynced" flag, so a meaningful
@@ -185,12 +194,32 @@ records is preserved while the hot table stays small (migration
 Verified with a rolled-back run: a 30-day cutoff archived 32 old rows and pruned
 them (hot 63 → 31, archive 0 → 32) with every pruned row present in the archive.
 
+**UAT fixture cleanup — two paths, don't confuse them.** Dev/UAT/prod share one
+Supabase project, so test rows are production rows. There are two distinct
+cleanup mechanisms and each only reaches its own data:
+
+| Data | Tool | Matches on |
+|---|---|---|
+| UAT runs you marked (`uat-YYYYMMDD-name` in names/emails/refs) | `scripts/cleanup-uat-fixtures.sql` | the exact run marker; dry-run by default |
+| The original seeded fixture set from `fn_seed_uat_fixtures()` (`da7a0000-…` orgs) | `public.fn_teardown_uat_fixtures()` | hard-coded fixture org/user ids |
+
+The seeded `da7a…` fixtures carry **no** run marker, so the marker script cannot
+see them — use the teardown function for those. `fn_teardown_uat_fixtures()` was
+run on **2026-07-30**, clearing 6 orders / 3 payments / 5 ledger rows / 1 payout
+/ 1 refund / 1 scan across both fixture orgs, and reconciliation now reads 0
+across the board.
+
 **Gap (To do).** **`scans` retention.** `scans` also grows unbounded but carries
 delete-sensitive triggers (a live-stats recalc, refund guard, org validation), so
 pruning it needs a trigger-interaction review (and likely a longer, operational —
 not financial — retention). Also decide whether the cold archive should
 eventually export to object storage and purge, and record the legal retention
-minimum for financial records.
+minimum for financial records. Separately, `fn_seed_uat_fixtures` /
+`fn_teardown_uat_fixtures` exist on the database with **no migration backing
+them** and are absent from `supabase/permissions/rpc-grants.json`, so the
+live-drift half of `check:permissions` will flag them once CI can run again —
+decide whether to back them with a migration, drop them, or adopt them into the
+snapshot.
 
 ---
 
