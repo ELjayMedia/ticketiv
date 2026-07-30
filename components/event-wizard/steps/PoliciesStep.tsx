@@ -137,7 +137,7 @@ export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving:
                   key={option.id}
                   type="button"
                   onClick={() => toggleProvider(option)}
-                  disabled={saving || unavailable}
+                  disabled={saving || (unavailable && !active)}
                   aria-pressed={active}
                   className={
                     "rounded-lg border px-3 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 " +
@@ -153,7 +153,7 @@ export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving:
                   <span className="flex items-center justify-between gap-3">
                     <span className="text-sm font-medium">{option.label}</span>
                     <span className="rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase">
-                      {unavailable ? "Not operational" : active ? "Selected" : "Available"}
+                      {active && unavailable ? "Remove" : unavailable ? "Not operational" : active ? "Selected" : "Available"}
                     </span>
                   </span>
                   <span className="mt-0.5 block text-xs opacity-75">{option.sub}</span>
