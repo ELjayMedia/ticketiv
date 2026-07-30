@@ -20,7 +20,11 @@ function slugify(value: string) {
 }
 
 async function loadManageContext(admin: ReturnType<typeof createAdminClient>, eventId: string, userId: string) {
-  const { data: event, error } = await admin.from("events").select("id, org_id, slug").eq("id", eventId).maybeSingle()
+  const { data: event, error } = await admin
+    .from("events")
+    .select("id, org_id, slug, cover_image_url")
+    .eq("id", eventId)
+    .maybeSingle()
   if (error) throw error
   if (!event) return { allowed: false, event: null }
 
@@ -66,9 +70,11 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   const title = typeof body.title === "string" ? body.title.trim() : ""
   const description = typeof body.description === "string" ? body.description.trim() : ""
   const category = typeof body.category === "string" && body.category.trim() ? body.category.trim() : null
-  const coverImageUrl = typeof body.cover_image_url === "string" && body.cover_image_url.trim()
-    ? body.cover_image_url.trim()
-    : null
+  const coverImageUrl = Object.prototype.hasOwnProperty.call(body, "cover_image_url")
+    ? typeof body.cover_image_url === "string" && body.cover_image_url.trim()
+      ? body.cover_image_url.trim()
+      : null
+    : event.cover_image_url
 
   if (!title) return NextResponse.json({ error: "Event title is required" }, { status: 400 })
 
