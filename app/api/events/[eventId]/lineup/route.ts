@@ -94,14 +94,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
   })
 
-  const query = normalizeArtistQuery(request.nextUrl.searchParams.get("q") ?? "")
+  const query = safeSearchTerm(normalizeArtistQuery(request.nextUrl.searchParams.get("q") ?? ""))
   let suggestions: ReturnType<typeof publicArtist>[] = []
 
   if (query.length >= 2) {
     const { data: artists, error: artistError } = await admin
       .from("artists")
       .select("id, name, slug, bio, image_url, primary_user_id")
-      .ilike("name_key", `%${safeSearchTerm(query)}%`)
+      .ilike("name_key", `%${query}%`)
       .order("name", { ascending: true })
       .limit(8)
 
