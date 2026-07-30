@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 
 import { EventReadinessPanel } from "@/components/event-wizard/EventReadinessPanel"
 import { BasicsStep } from "@/components/event-wizard/steps/BasicsStep"
+import { LineupStep } from "@/components/event-wizard/steps/LineupStep"
 import { PoliciesStep } from "@/components/event-wizard/steps/PoliciesStep"
 import { PublishStep } from "@/components/event-wizard/steps/PublishStep"
 import { ScheduleStep } from "@/components/event-wizard/steps/ScheduleStep"
@@ -19,6 +20,7 @@ import { useEventRealtime } from "@/hooks/use-event-realtime"
 
 const STEPS = [
   { key: "basics", label: "Basics" },
+  { key: "lineup", label: "Lineup" },
   { key: "schedule", label: "Dates" },
   { key: "venue", label: "Venue" },
   { key: "tickets", label: "Tickets" },
@@ -156,6 +158,7 @@ export default function EventWizardClient({ orgId, eventId }: { orgId: string; e
               {step === "basics" && (
                 <BasicsStep event={event} onSaving={handleSaving} onError={() => setSaveState("error")} />
               )}
+              {step === "lineup" && <LineupStep eventId={eventId} onSaving={handleSaving} />}
               {step === "schedule" && <ScheduleStep eventId={eventId} onSaving={handleSaving} />}
               {step === "venue" && <VenueStep eventId={eventId} onSaving={handleSaving} />}
               {step === "tickets" && <TicketsStep eventId={eventId} onSaving={handleSaving} />}
