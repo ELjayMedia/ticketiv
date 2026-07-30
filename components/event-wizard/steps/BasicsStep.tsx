@@ -138,7 +138,7 @@ export function BasicsStep({
 
       const formData = new FormData()
       formData.append("file", file)
-      formData.append("bucket", "event-covers")
+      formData.append("eventId", event.id)
 
       const uploadResponse = await fetch("/api/uploads", { method: "POST", body: formData })
       const uploadPayload = await uploadResponse.json().catch(() => ({}))
