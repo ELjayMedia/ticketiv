@@ -65,7 +65,7 @@ export async function getOrgEventKPIs(orgId: string): Promise<EventKPIsView[]> {
       .from("v_event_kpis")
       .select("*")
       .eq("org_id", orgId)
-      .order("event_date", { ascending: false })
+      .order("tickets_issued", { ascending: false })
 
     if (error) {
       console.error("[v0] Error fetching org KPIs:", error)
@@ -88,4 +88,3 @@ export async function getOrgEventKPIs(orgId: string): Promise<EventKPIsView[]> {
     return []
   }
 }
-
