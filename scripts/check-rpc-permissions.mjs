@@ -11,16 +11,22 @@
 //      what catches a grant applied straight to the database without a
 //      migration.
 //
+// Small migrations may record their new functions in rpc-grants.additions.json
+// so the permission change stays reviewable without replacing the large base
+// snapshot. `--write` folds all live functions back into the base snapshot and
+// clears the additions file.
+//
 // Regenerate the snapshot deliberately, and only alongside the migration that
 // changed the surface:
 //   node scripts/check-rpc-permissions.mjs --write
 
-import { readFileSync, writeFileSync } from "node:fs"
+import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { dirname, resolve } from "node:path"
 
 const here = dirname(fileURLToPath(import.meta.url))
 const SNAPSHOT_PATH = resolve(here, "../supabase/permissions/rpc-grants.json")
+const SNAPSHOT_ADDITIONS_PATH = resolve(here, "../supabase/permissions/rpc-grants.additions.json")
 
 const BROWSER_ROLES = ["PUBLIC", "anon", "authenticated"]
 
@@ -52,8 +58,19 @@ const NEVER_CLIENT_CALLABLE = [
   "fn_export_rpc_permissions",
 ]
 
+function readSnapshotFunctions(path) {
+  if (!existsSync(path)) return []
+  const parsed = JSON.parse(readFileSync(path, "utf8"))
+  return Array.isArray(parsed.functions) ? parsed.functions : []
+}
+
 function loadSnapshot() {
-  return JSON.parse(readFileSync(SNAPSHOT_PATH, "utf8")).functions
+  const merged = normalise([
+    ...readSnapshotFunctions(SNAPSHOT_PATH),
+    ...readSnapshotFunctions(SNAPSHOT_ADDITIONS_PATH),
+  ])
+  const byKey = new Map(merged.map((fn) => [`${fn.schema}.${fn.name}(${fn.arguments})`, fn]))
+  return [...byKey.values()]
 }
 
 function normalise(rows) {
@@ -148,6 +165,9 @@ async function main() {
       process.exit(1)
     }
     writeFileSync(SNAPSHOT_PATH, `${JSON.stringify({ functions: live }, null, 2)}\n`)
+    if (existsSync(SNAPSHOT_ADDITIONS_PATH)) {
+      writeFileSync(SNAPSHOT_ADDITIONS_PATH, `${JSON.stringify({ functions: [] }, null, 2)}\n`)
+    }
     console.log(`Wrote ${live.length} functions to supabase/permissions/rpc-grants.json`)
     const failures = checkInvariants(live)
     if (failures.length) {
@@ -158,7 +178,7 @@ async function main() {
     return
   }
 
-  const snapshot = normalise(loadSnapshot())
+  const snapshot = loadSnapshot()
   const failures = checkInvariants(snapshot)
 
   if (failures.length) {
@@ -176,7 +196,7 @@ async function main() {
 
   const drift = diff(snapshot, live)
   if (drift.length) {
-    console.error("\nLive RPC permissions have drifted from supabase/permissions/rpc-grants.json:")
+    console.error("\nLive RPC permissions have drifted from the committed permission records:")
     for (const d of drift) console.error(`  ${d}`)
     console.error("\nIf the change is intended, land the migration that made it and regenerate with --write.")
     process.exit(1)
