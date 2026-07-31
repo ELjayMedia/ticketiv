@@ -7,8 +7,8 @@ import { NextResponse, type NextRequest } from "next/server"
  * Public routes (no auth needed):
  *   /, /browse, /events/[id], /artists, /categories, /category/*, /organisers,
  *   /host, /marketplace, /privacy, /terms, /refund-policy, /data-deletion,
- *   /support, /help, /sign-in, /login, /verify, /signup, /forgot-password,
- *   /reset-password, /verify-email, /auth/*, /403, /maintenance
+ *   /support, /help, /sign-in, /login, /verify, /signup, /organizer/register,
+ *   /forgot-password, /reset-password, /verify-email, /auth/*, /403, /maintenance
  *
  * Public APIs with their own verification:
  *   /api/payments/paystack/webhook, /api/payments/momo/callback
@@ -53,6 +53,7 @@ export async function updateSession(request: NextRequest) {
     "/sign-in",
     "/login",
     "/signup",
+    "/organizer/register",
     "/verify",
     "/forgot-password",
     "/reset-password",
