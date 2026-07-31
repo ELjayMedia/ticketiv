@@ -10,6 +10,7 @@ import { FormField } from "@/components/quiet/ui/form"
 import { Icon } from "@/components/quiet/ui/icon"
 import {
   ORGANIZER_SIGNUP_STORAGE_KEY,
+  isValidEmail,
   normalizeOrganizerSignup,
   validateOrganizerSignup,
   type OrganizerSignupPayload,
@@ -82,6 +83,12 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const copy = getAuthCopy(mode)
+  const signupReady = Boolean(
+    organizer.firstName.trim() &&
+    organizer.surname.trim() &&
+    organizer.phone.trim() &&
+    organizer.email.trim(),
+  )
 
   function updateOrganizer(field: keyof OrganizerSignupPayload, value: string) {
     setOrganizer((current) => ({ ...current, [field]: value }))
@@ -92,7 +99,7 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
     e.preventDefault()
     setError(null)
 
-    const signupPayload = normalizeOrganizerSignup({ ...organizer, email: organizer.email })
+    const signupPayload = normalizeOrganizerSignup(organizer)
     const normalizedEmail = mode === "signup" ? signupPayload.email : email.trim().toLowerCase()
 
     if (mode === "signup") {
@@ -101,7 +108,7 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
         setError(validationError)
         return
       }
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    } else if (!isValidEmail(normalizedEmail)) {
       setError("Enter a valid email address, for example name@example.com.")
       return
     }
@@ -162,11 +169,18 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
           <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 font-mono text-[11px] font-medium uppercase tracking-wider text-ink-3">
             {copy.badge}
           </span>
-          <ol className="grid gap-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-3 sm:grid-cols-3">
-            <li><span className="font-semibold text-ink">1.</span> Your details</li>
-            <li><span className="font-semibold text-ink">2.</span> Email code</li>
-            <li><span className="font-semibold text-ink">3.</span> Organizer setup</li>
-          </ol>
+          {mode === "signup" ? (
+            <ol className="grid gap-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-3 sm:grid-cols-3">
+              <li><span className="font-semibold text-ink">1.</span> Your details</li>
+              <li><span className="font-semibold text-ink">2.</span> Email code</li>
+              <li><span className="font-semibold text-ink">3.</span> Organizer setup</li>
+            </ol>
+          ) : (
+            <ol className="grid gap-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-3 sm:grid-cols-2">
+              <li><span className="font-semibold text-ink">1.</span> Enter email</li>
+              <li><span className="font-semibold text-ink">2.</span> Verify login</li>
+            </ol>
+          )}
         </CardBody>
       </Card>
 
@@ -263,7 +277,7 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
           type="submit"
           variant="primary"
           size="md"
-          disabled={busy || (mode === "login" ? !email : false)}
+          disabled={busy || (mode === "login" ? !email : !signupReady)}
           block
         >
           {busy ? copy.busy : copy.submit}
