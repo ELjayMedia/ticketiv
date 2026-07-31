@@ -1,7 +1,6 @@
 import Link from "next/link"
-import { Suspense } from "react"
 import { Logo } from "@/components/Logo"
-import { SignInForm } from "@/components/SignInForm"
+import { OrganizerRegisterForm } from "@/components/OrganizerRegisterForm"
 
 export const metadata = { title: "Register as an organizer" }
 
@@ -26,8 +25,8 @@ export default function OrganizerRegisterPage() {
               <p className="mt-1 text-[12px] text-ink-3">Enter the latest six-digit code sent to the organizer email.</p>
             </div>
             <div className="rounded-[var(--radius-md)] border border-line bg-bg p-4">
-              <p className="text-[13px] font-semibold text-ink">3. Create the organization</p>
-              <p className="mt-1 text-[12px] text-ink-3">Continue into event setup, payouts and team access.</p>
+              <p className="text-[13px] font-semibold text-ink">3. Secure the account and continue</p>
+              <p className="mt-1 text-[12px] text-ink-3">New organizers choose a password; signed-in users keep their existing password.</p>
             </div>
           </div>
         </div>
@@ -40,8 +39,8 @@ export default function OrganizerRegisterPage() {
         <div>
           <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Organizer registration</p>
           <h1 className="mt-3 text-[32px] font-semibold leading-[1.05] tracking-tight text-ink">Start hosting on Ticketiv.</h1>
-          <p className="mt-3 text-[14px] leading-6 text-ink-3">We verify organizer email ownership before enabling organizer tools.</p>
-          <div className="mt-8"><Suspense fallback={null}><SignInForm mode="organizer" /></Suspense></div>
+          <p className="mt-3 text-[14px] leading-6 text-ink-3">We verify organizer email ownership before creating the organizer profile.</p>
+          <div className="mt-8"><OrganizerRegisterForm /></div>
           <p className="mt-8 font-mono text-[11px] text-ink-3">Avoid requesting several codes in a row to prevent email rate limits.</p>
         </div>
       </section>
