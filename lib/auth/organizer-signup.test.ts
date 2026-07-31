@@ -23,9 +23,11 @@ describe("organizer signup validation", () => {
     expect(validateOrganizerSignup({ ...validPayload, email: "bad-email" })).toContain("valid email")
   })
 
-  it("keeps ID number optional", () => {
+  it("keeps ID number optional but validates it when supplied", () => {
     expect(validateOrganizerSignup(validPayload)).toBeNull()
     expect(validateOrganizerSignup({ ...validPayload, idNumber: "123456789" })).toBeNull()
+    expect(validateOrganizerSignup({ ...validPayload, idNumber: "12" })).toContain("leave the field blank")
+    expect(validateOrganizerSignup({ ...validPayload, idNumber: "1".repeat(65) })).toContain("64 characters")
   })
 
   it("normalizes contact details before submission", () => {
