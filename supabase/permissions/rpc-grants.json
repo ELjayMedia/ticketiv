@@ -1178,6 +1178,31 @@
     },
     {
       "schema": "public",
+      "name": "fn_dispute_counts",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_disputes_touch_updated_at",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_duplicate_event",
       "arguments": "p_event_id uuid",
       "securityDefiner": true,
@@ -1582,6 +1607,17 @@
         "PUBLIC",
         "anon",
         "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_open_dispute",
+      "arguments": "p_kind dispute_kind, p_order_id uuid, p_payment_id uuid, p_reason text, p_amount_cents integer, p_raised_by uuid, p_dedupe_key text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
         "postgres",
         "service_role"
       ]
@@ -2391,6 +2427,17 @@
         "PUBLIC",
         "anon",
         "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_transition_dispute",
+      "arguments": "p_dispute_id uuid, p_status dispute_status, p_resolution text, p_refund_id uuid, p_assigned_to uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
         "postgres",
         "service_role"
       ]

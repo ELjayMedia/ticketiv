@@ -243,7 +243,7 @@ Until it has been run, RPO/RTO above are objectives, not measured facts.
 
 ---
 
-## 5. Support / admin workflows — **Partial (tooling exists; runbooks below)**
+## 5. Support / admin workflows — **Built**
 
 The super-admin command centre (`app/super-admin/*`) covers payments, payouts,
 exports, audit and flags. Documented workflows:
@@ -260,8 +260,42 @@ exports, audit and flags. Documented workflows:
 - **Event cancellation:** pause then archive the event (`published → archived`);
   batch-refund outstanding paid orders; notify buyers.
 
-**Gap (To do).** A first-class "dispute" object/queue and one-click flows for the
-above (today several are multi-step or manual).
+**Dispute queue** (migration `20260730230000`). Previously a dispute existed only
+as a sequence of manual steps — an admin found the payment, refunded or revoked,
+and the fact that a customer had disputed anything survived only in someone's
+memory. "What is outstanding right now?" was unanswerable, which is the question
+support actually needs.
+
+- **`disputes`** is the *case*, not the money movement: it references the order
+  and payment, carries its own lifecycle
+  (`open → investigating → awaiting_customer → resolved | rejected`), and links
+  to the refund that settled it. Refunds remain the money record. Service-role
+  only, RLS on.
+- **`fn_open_dispute`** is idempotent on `dedupe_key`, so a redelivered webhook
+  or a double-clicked admin action cannot create duplicate cases.
+  **`fn_transition_dispute`** stamps `resolved_at` on terminal states and
+  **refuses to reopen a closed dispute** — enforced in the database, not just the
+  UI.
+- **Chargebacks auto-open a dispute.** `fn_record_chargeback` now calls
+  `fn_open_dispute` with a `chargeback:<payment_id>` dedupe key. Without this the
+  queue would miss exactly the cases where money has already been clawed back,
+  and a redelivered chargeback webhook still yields one case.
+- **Queue UI:** `/super-admin/disputes` — open/investigating/unassigned/stale
+  counts, "Take" (assign to me), "Resolve" and "Reject" with a resolution note.
+  Gated to non-`read_only_admin`; every transition writes `audit_log`.
+- **`fn_dispute_counts()`** exposes queue health (including `unassigned_open` and
+  `stale_open > 7 days`) for the ops surface.
+
+Verified with rolled-back tests: opening twice with one dedupe key produced a
+single case; the lifecycle stamped `resolved_at`; reopening a closed dispute was
+refused; and a chargeback opened exactly one dispute (kind `chargeback`, amount
+carried) alongside the reversal ledger entry and the order flipping to
+`refunded`.
+
+**Gap (To do).** Resolving a dispute records the outcome — it does **not** move
+money. The refund is still issued from the payment first, then the dispute
+resolved. Wiring "resolve + refund" into one action would remove that last
+two-step, but it deliberately keeps money movement explicit for now.
 
 ---
 
@@ -420,6 +454,6 @@ Vercel/WAF network limits for defence in depth.
 | Webhook idempotency/replay | Built | `webhooks`/`payments` unique keys + admin Reprocess on the dead-letter list (Paystack only) |
 | Alerting | Built | `api/cron/ops-alerts` + `fn_ops_reconciliation_counts` (order/payout/async checks); scanner backlog needs a heartbeat column |
 | Backups / RPO-RTO | Partial | runbook written (incl. PAYOUT_ENCRYPTION_KEY / storage / cron caveats); PITR confirmation + drill outstanding |
-| Support workflows | Partial | `app/super-admin/*` + runbooks above |
+| Support workflows | Built | `app/super-admin/*` + `/super-admin/disputes` queue; chargebacks auto-open a case |
 | Audit & scan retention | Built | `fn_archive_audit_log` + `fn_archive_scans` with cold archives, daily pg_cron; scan archiving is stat-neutral |
 | Rate limits | Built | `fn_rate_limit` on invites/org/checkout/transfer/resale; edge routes durable via `fn_rate_limit_edge`; gc scheduled in ops cron |
