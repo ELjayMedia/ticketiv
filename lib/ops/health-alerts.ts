@@ -255,6 +255,83 @@ export function evaluateStuckAsyncWork(counts: ReconciliationCounts): OpsAlertCh
   }
 }
 
+/**
+ * Provider-settlement counts from public.fn_provider_settlement_counts().
+ * `hoursSinceLastIngest` is -1 when nothing has ever been ingested.
+ */
+export interface SettlementCounts {
+  settlement_items_unmatched?: number
+  settlement_amount_mismatch?: number
+  settlement_internal_imbalance?: number
+  succeeded_payments_never_settled?: number
+  hours_since_last_settlement_ingest?: number
+}
+
+/**
+ * Compares what the provider says it settled against what we recorded. Any
+ * mismatch here is a real-money difference (a fee we did not model, a
+ * transaction reversed provider-side, money that never arrived), so it is
+ * critical. Staleness is only a warning: it means we have stopped *looking*,
+ * not that money is known-wrong.
+ */
+export function evaluateProviderSettlement(
+  counts: SettlementCounts,
+  staleAfterHours = 48,
+): OpsAlertCheck {
+  const categories = {
+    settlement_items_unmatched: count(counts.settlement_items_unmatched),
+    settlement_amount_mismatch: count(counts.settlement_amount_mismatch),
+    settlement_internal_imbalance: count(counts.settlement_internal_imbalance),
+    succeeded_payments_never_settled: count(counts.succeeded_payments_never_settled),
+  }
+  const total = Object.values(categories).reduce((sum, n) => sum + n, 0)
+  const hours = Number(counts.hours_since_last_settlement_ingest ?? -1)
+  const neverIngested = hours < 0
+  const stale = !neverIngested && hours >= staleAfterHours
+  const details = { total, categories: nonZero(categories), hoursSinceLastIngest: hours }
+
+  if (total > 0) {
+    return {
+      key: "provider-settlement",
+      status: "alert",
+      severity: "critical",
+      title: "Provider settlement mismatch",
+      message: `${total} settlement discrepancy row(s) between the provider and our records.`,
+      details,
+    }
+  }
+  if (neverIngested) {
+    // Before the first ingest there is nothing to compare; say so rather than
+    // implying the books reconcile against the provider.
+    return {
+      key: "provider-settlement",
+      status: "skipped",
+      severity: "info",
+      title: "Provider settlement not yet ingested",
+      message: "No settlement data ingested yet — provider comparison is not running.",
+      details,
+    }
+  }
+  if (stale) {
+    return {
+      key: "provider-settlement",
+      status: "alert",
+      severity: "warning",
+      title: "Provider settlement data is stale",
+      message: `Last settlement ingest was ${hours}h ago (threshold ${staleAfterHours}h).`,
+      details,
+    }
+  }
+  return {
+    key: "provider-settlement",
+    status: "ok",
+    severity: "info",
+    title: "Provider settlement reconciled",
+    message: "Provider settlement matches our payments, and ingest is current.",
+    details,
+  }
+}
+
 export function hasAlert(checks: OpsAlertCheck[]) {
   return checks.some((check) => check.status === "alert")
 }

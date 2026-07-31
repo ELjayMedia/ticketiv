@@ -5,6 +5,7 @@ import {
   evaluateHealthUrls,
   evaluateOrderStateConsistency,
   evaluatePaymentSuccessRate,
+  evaluateProviderSettlement,
   evaluatePayoutIntegrity,
   evaluateStuckAsyncWork,
   evaluateWebhookLag,
@@ -13,6 +14,7 @@ import {
   type HealthUrlResult,
   type OpsAlertCheck,
   type ReconciliationCounts,
+  type SettlementCounts,
 } from "@/lib/ops/health-alerts"
 import { APP_URL, getSupabaseAdminConfig } from "@/lib/env"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -61,7 +63,7 @@ export async function GET(request: Request) {
   const webhookCutoff = new Date(now.getTime() - webhookLagMinutes * 60_000).toISOString()
   const admin = createAdminClient()
 
-  const [attemptsRes, staleWebhooksRes, healthResults, reconciliationRes] = await Promise.all([
+  const [attemptsRes, staleWebhooksRes, healthResults, reconciliationRes, settlementRes] = await Promise.all([
     admin
       .from("payment_attempts")
       .select("status, provider")
@@ -81,6 +83,10 @@ export async function GET(request: Request) {
       data: ReconciliationCounts | null
       error: { message: string } | null
     }>,
+    (admin.rpc as any)("fn_provider_settlement_counts") as Promise<{
+      data: SettlementCounts | null
+      error: { message: string } | null
+    }>,
   ])
 
   if (attemptsRes.error) {
@@ -98,6 +104,7 @@ export async function GET(request: Request) {
     }),
     evaluateWebhookLag(staleWebhooksRes.data ?? [], webhookLagMinutes),
     ...reconciliationChecks(reconciliationRes.data, reconciliationRes.error),
+    ...settlementChecks(settlementRes.data, settlementRes.error),
   ]
 
   let alertDelivery: Awaited<ReturnType<typeof postOpsAlert>> | null = null
@@ -152,6 +159,27 @@ function reconciliationChecks(
     evaluatePayoutIntegrity(counts),
     evaluateStuckAsyncWork(counts),
   ]
+}
+
+// Same degrade-to-skipped contract as reconciliationChecks: a settlement query
+// failure must not take down the whole alert run.
+function settlementChecks(
+  counts: SettlementCounts | null,
+  error: { message: string } | null
+): OpsAlertCheck[] {
+  if (error || !counts) {
+    return [
+      {
+        key: "provider-settlement",
+        status: "skipped",
+        severity: "info",
+        title: "Provider settlement check skipped",
+        message: `fn_provider_settlement_counts unavailable${error ? `: ${error.message}` : ""}.`,
+        details: { error: error?.message ?? null },
+      },
+    ]
+  }
+  return [evaluateProviderSettlement(counts, readPositiveNumber("OPS_ALERT_SETTLEMENT_STALE_HOURS", 48))]
 }
 
 async function checkHealthUrls(urls: string[], timeoutMs: number): Promise<HealthUrlResult[]> {

@@ -7,7 +7,7 @@ and satisfy `sum(order_gross) + sum(fee) = sum(payment_net)`.
 
 ---
 
-## 1. Payment reconciliation — **Partial**
+## 1. Payment reconciliation — **Built**
 
 **Built.** `fn_org_finance_summary(org)` is the single source of truth for org
 money (gross/fees/net/available/settled). Per-event and payout reconciliation
@@ -24,11 +24,47 @@ rows — empty = healthy. As of the last run, **all checks pass (0 anomalies)**.
 batch, (b) daily, and (c) as a pre-real-money gate. Investigate any non-empty
 result before releasing funds.
 
-**Gap (To do).** Comparison against **provider settlement reports** (Paystack
-settlements: gross received, provider fees, payout to bank). That requires
-ingesting Paystack's settlement API/CSV into a `provider_settlements` table and
-reconciling it against `payments`/`payouts`. Until then, reconciliation is
-internal-only (our ledger vs our orders), not internal-vs-provider.
+**Provider settlement reconciliation** (migration `20260730210000`) closes the
+internal-only gap. Internal checks catch our own bugs; they cannot catch a
+difference between what the provider actually settled and what we believe we
+earned — a fee we did not model, a transaction reversed provider-side, or a
+settlement that never arrived. Those are the differences that cost real money.
+
+- **`provider_settlements`** (one row per settlement batch) and
+  **`provider_settlement_items`** (the transactions inside it, matched to
+  `payments` by `(provider, ext_payment_id)` — the same key the webhook writes).
+  Both are provider-reported facts, kept deliberately **separate from our money
+  tables** so the two can be compared rather than conflated. Service-role only.
+- **`fn_upsert_provider_settlement(...)`** ingests idempotently (keyed on
+  `(provider, ext_settlement_id)` and `(settlement_id, ext_payment_id)`), so
+  retries and overlapping date windows update in place. An item that matches no
+  payment is **recorded with a NULL `payment_id`, not rejected** — "the provider
+  settled something we have no payment for" is precisely the anomaly worth
+  alerting on.
+- **`fn_provider_settlement_counts()`** returns the comparison as counts:
+  unmatched items, per-transaction amount mismatch, batches where
+  `gross - fees <> net`, succeeded payments never settled (7-day grace), and
+  hours since the last ingest.
+- **Ingestion:** `lib/payments/paystack-settlements.ts` →
+  `app/api/cron/settlements` (`CRON_SECRET`-secured), scheduled **daily** by
+  `.github/workflows/settlement-ingest.yml`. Daily rather than every 5 minutes
+  because settlements land at most once a day and the Paystack settlement API is
+  paginated and rate limited. A missed day self-heals via the multi-day lookback.
+- **Alerting:** the ops-alerts cron surfaces this as `provider-settlement` —
+  **critical** on any mismatch, **warning** when ingest is merely stale
+  (`OPS_ALERT_SETTLEMENT_STALE_HOURS`, default 48), and **skipped** before the
+  first ingest so it never implies the books reconcile when nothing has been
+  compared yet.
+
+Verified with a rolled-back test: a batch with one matching and one unknown
+transaction reported 1 matched / 1 unmatched, re-ingesting produced no
+duplicates, and the amount-mismatch, internal-imbalance and unmatched detectors
+each fired on purpose-built rows.
+
+**Gap (To do).** Payout-to-bank confirmation: we compare provider settlement
+against our `payments`, but the final leg (settlement → organizer bank account)
+still relies on `payouts.status`. Ingesting provider transfer/payout records
+would close that last hop.
 
 ---
 
@@ -129,27 +165,85 @@ be added as a fourth `evaluate*`.
 
 ---
 
-## 4. Backups & recovery (RPO/RTO) — **To do (mostly documentation + drill)**
+## 4. Backups & recovery (RPO/RTO) — **Runbook built; drill outstanding**
 
-Supabase provides automated daily backups and, on Pro/managed plans,
-**Point-in-Time Recovery (PITR)**. Confirm PITR is enabled for project
-`radsfmlsjznqvcpogluo` in the Supabase dashboard (Database → Backups).
+Project `radsfmlsjznqvcpogluo` ("Ticketiv"), region **eu-west-1**, Postgres
+**17.6.1**, **383 MB**, 210 migrations applied.
 
-**Objectives (proposed — confirm with the business):**
-- **RPO ≤ 5 minutes** (PITR WAL) for financial tables; ≤ 24h (daily snapshot)
-  otherwise.
-- **RTO ≤ 2 hours** to restore into a new project + repoint `NEXT_PUBLIC_*` /
-  service-role env and redeploy.
+### Read this first: what a database restore does NOT bring back
 
-**Recovery drill (do once before launch, then quarterly):** restore a PITR
-snapshot into a scratch project, run `scripts/verify-rls.sql` and
-`scripts/ops-reconciliation.sql` against it, and record the actual
-recovery time. Document the runbook: who has Supabase owner access, where env
-values live, and the Vercel promote/rollback steps.
+A Postgres restore is not a full recovery. Three things live outside it, and two
+of them are unrecoverable if lost:
+
+1. **`PAYOUT_ENCRYPTION_KEY` — the sharpest edge.** Organizer bank details are
+   stored encrypted in `payout_accounts.details_encrypted`, keyed by this env
+   var (`lib/payout-crypto.ts`). **Lose the key and a perfect database restore
+   still yields unreadable payout accounts** — every organizer would have to
+   re-enter bank details before any payout could run. Back this key up
+   separately from both the database and Vercel, and treat rotating it as a
+   migration, not a config change.
+2. **Storage buckets** (`avatars`, `event-covers`) are object storage, **not**
+   covered by a Postgres PITR restore. They need their own backup/copy step.
+3. **`supabase_vault` secrets** are encrypted with a project-scoped key, so they
+   do not necessarily survive a restore into a *new* project. Re-seed them.
+
+### Objectives (proposed — confirm with the business)
+- **RPO ≤ 5 minutes** for financial tables (requires PITR); ≤ 24h on daily
+  snapshots alone.
+- **RTO ≤ 2 hours.** At 383 MB the data restore itself is minutes — RTO is
+  dominated by repointing env, redeploying and DNS, not by data volume.
+
+### Prerequisite (cannot be verified from here)
+**Confirm PITR is enabled** for the project in the Supabase dashboard
+(Database → Backups). PITR is a paid-plan feature; without it the RPO is the
+daily snapshot (up to 24h of lost orders), which is not compatible with the
+RPO above. This is the one item that must be checked by a human with dashboard
+access.
+
+### Restore procedure
+1. **Restore** the snapshot / PITR timestamp into a new project (same region,
+   eu-west-1, to keep latency and any data-residency assumptions).
+2. **Re-create the 7 `pg_cron` jobs** — they are database state and must be
+   verified after any cross-project restore:
+   `anon-user-cleanup` (`0 2 * * *`), `nightly_rollup_metrics` (`0 2 * * *`),
+   `daily_analyze_public_schema` (`0 3 * * *`),
+   `ticketiv-audit-log-retention` (`30 3 * * *`),
+   `ticketiv-scans-retention` (`45 3 * * *`),
+   `expire-stale-checkout-holds` (`*/5 * * * *`),
+   `monitoring.capture_slow_queries_hourly` (`0 * * * *`).
+   The retention jobs are re-created by their migrations; the others are not.
+3. **Confirm extensions** exist: `pg_cron`, `pg_net`, `pgcrypto`, `pg_trgm`,
+   `btree_gist`, `uuid-ossp`, `pg_stat_statements`, `supabase_vault`, `hypopg`,
+   `index_advisor`.
+4. **Restore storage** buckets `avatars` and `event-covers`.
+5. **Repoint env** and redeploy. The must-change set:
+   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+   `SUPABASE_SERVICE_ROLE_KEY`. Carry over unchanged (do **not** regenerate):
+   `PAYOUT_ENCRYPTION_KEY`, `PAYSTACK_SECRET_KEY`, `CRON_SECRET`,
+   `OPS_ALERT_WEBHOOK_URL`. Full inventory: `.env.example` (51 vars).
+6. **Re-point the Paystack webhook** at the restored deployment, or completions
+   will silently stop arriving.
+
+### Verify the restore (do not declare recovery without this)
+Run, in order, and require all four to be clean:
+- `scripts/verify-rls.sql` — policies survived the restore.
+- `scripts/ops-reconciliation.sql` — money integrity.
+- `select public.fn_ops_reconciliation_counts();` — all 14 counts `0`.
+- `select public.fn_provider_settlement_counts();` — provider comparison intact.
+
+### Drill — **outstanding**
+Do this once before launch, then quarterly: restore into a scratch project, walk
+the procedure above, run the four verifications, and **record the wall-clock
+time** to validate (or correct) the RTO ≤ 2h objective. Also record who holds
+Supabase owner access and where `PAYOUT_ENCRYPTION_KEY` is escrowed.
+
+**Gap (To do).** The drill itself — it needs Supabase dashboard access to create
+a scratch project and trigger a restore, so it cannot be automated from the repo.
+Until it has been run, RPO/RTO above are objectives, not measured facts.
 
 ---
 
-## 5. Support / admin workflows — **Partial (tooling exists; runbooks below)**
+## 5. Support / admin workflows — **Built**
 
 The super-admin command centre (`app/super-admin/*`) covers payments, payouts,
 exports, audit and flags. Documented workflows:
@@ -166,12 +260,46 @@ exports, audit and flags. Documented workflows:
 - **Event cancellation:** pause then archive the event (`published → archived`);
   batch-refund outstanding paid orders; notify buyers.
 
-**Gap (To do).** A first-class "dispute" object/queue and one-click flows for the
-above (today several are multi-step or manual).
+**Dispute queue** (migration `20260730230000`). Previously a dispute existed only
+as a sequence of manual steps — an admin found the payment, refunded or revoked,
+and the fact that a customer had disputed anything survived only in someone's
+memory. "What is outstanding right now?" was unanswerable, which is the question
+support actually needs.
+
+- **`disputes`** is the *case*, not the money movement: it references the order
+  and payment, carries its own lifecycle
+  (`open → investigating → awaiting_customer → resolved | rejected`), and links
+  to the refund that settled it. Refunds remain the money record. Service-role
+  only, RLS on.
+- **`fn_open_dispute`** is idempotent on `dedupe_key`, so a redelivered webhook
+  or a double-clicked admin action cannot create duplicate cases.
+  **`fn_transition_dispute`** stamps `resolved_at` on terminal states and
+  **refuses to reopen a closed dispute** — enforced in the database, not just the
+  UI.
+- **Chargebacks auto-open a dispute.** `fn_record_chargeback` now calls
+  `fn_open_dispute` with a `chargeback:<payment_id>` dedupe key. Without this the
+  queue would miss exactly the cases where money has already been clawed back,
+  and a redelivered chargeback webhook still yields one case.
+- **Queue UI:** `/super-admin/disputes` — open/investigating/unassigned/stale
+  counts, "Take" (assign to me), "Resolve" and "Reject" with a resolution note.
+  Gated to non-`read_only_admin`; every transition writes `audit_log`.
+- **`fn_dispute_counts()`** exposes queue health (including `unassigned_open` and
+  `stale_open > 7 days`) for the ops surface.
+
+Verified with rolled-back tests: opening twice with one dedupe key produced a
+single case; the lifecycle stamped `resolved_at`; reopening a closed dispute was
+refused; and a chargeback opened exactly one dispute (kind `chargeback`, amount
+carried) alongside the reversal ledger entry and the order flipping to
+`refunded`.
+
+**Gap (To do).** Resolving a dispute records the outcome — it does **not** move
+money. The refund is still issued from the payment first, then the dispute
+resolved. Wiring "resolve + refund" into one action would remove that last
+two-step, but it deliberately keeps money movement explicit for now.
 
 ---
 
-## 6. Audit retention — **Partial (audit_log built; scans deferred)**
+## 6. Audit & scan retention — **Built**
 
 **Built.** `audit_log` (financial + admin actions) is kept to a rolling window
 (default **24 months**) with older rows moved to a cold `audit_log_archive`
@@ -209,12 +337,32 @@ run on **2026-07-30**, clearing 6 orders / 3 payments / 5 ledger rows / 1 payout
 / 1 refund / 1 scan across both fixture orgs, and reconciliation now reads 0
 across the board.
 
-**Gap (To do).** **`scans` retention.** `scans` also grows unbounded but carries
-delete-sensitive triggers (a live-stats recalc, refund guard, org validation), so
-pruning it needs a trigger-interaction review (and likely a longer, operational —
-not financial — retention). Also decide whether the cold archive should
-eventually export to object storage and purge, and record the legal retention
-minimum for financial records. Separately, `fn_seed_uat_fixtures` /
+**`scans` retention** (migration `20260730220000`) is now built too, and the
+trigger concern that deferred it turned out to be real: of the four triggers on
+`scans`, three are BEFORE INSERT (irrelevant to archiving), but
+`trg_recalc_event_live_stats_scans` fires **AFTER DELETE** and recalculates
+`event_live_stats`, whose `checked_in_count` / `last_scan_at` are derived by
+**counting `public.scans`**. Pruning naively would have silently reset historical
+attendance for past events to zero.
+
+Rather than suppress the trigger during the prune (stateful, and wrong the moment
+any later recalc runs), archiving was made **stat-neutral**: the recalc now counts
+`scans` **union** `scans_archive`, so an archived scan still counts toward its
+event. Verified with a rolled-back test — 3 scans (2 `valid`) gave
+`checked_in_count = 2`; after archiving all 3, live rows were 0 and
+`checked_in_count` was **still 2**, with `last_scan_at` preserved.
+
+- `public.fn_archive_scans(p_retention default '12 months', p_batch_limit)` —
+  copy-then-delete in a single snapshot, service-role only. Only scans belonging
+  to events that have **already ended** are eligible, so an in-flight gate is
+  never touched.
+- Scheduled daily at **03:45 UTC** via pg_cron (`ticketiv-scans-retention`).
+- Retention is operational, not financial: scans are gate telemetry, and the
+  durable record of who was admitted is `order_items.status = 'checked_in'`.
+
+**Gap (To do).** Decide whether the cold archives should eventually export to
+object storage and purge, and record the legal retention minimum for financial
+records. Separately, `fn_seed_uat_fixtures` /
 `fn_teardown_uat_fixtures` exist on the database with **no migration backing
 them** and are absent from `supabase/permissions/rpc-grants.json`, so the
 live-drift half of `check:permissions` will flag them once CI can run again —
@@ -302,10 +450,10 @@ Vercel/WAF network limits for defence in depth.
 
 | Control | Status | Primary artifact |
 |---|---|---|
-| Reconciliation | Partial | `scripts/ops-reconciliation.sql`, `fn_org_finance_summary` |
+| Reconciliation | Built | `scripts/ops-reconciliation.sql`, `fn_org_finance_summary`, `provider_settlements` + daily ingest |
 | Webhook idempotency/replay | Built | `webhooks`/`payments` unique keys + admin Reprocess on the dead-letter list (Paystack only) |
 | Alerting | Built | `api/cron/ops-alerts` + `fn_ops_reconciliation_counts` (order/payout/async checks); scanner backlog needs a heartbeat column |
-| Backups / RPO-RTO | To do | Supabase PITR + documented drill |
-| Support workflows | Partial | `app/super-admin/*` + runbooks above |
-| Audit retention | Partial | `fn_archive_audit_log` + `audit_log_archive`, daily pg_cron; scans deferred (delete-sensitive triggers) |
+| Backups / RPO-RTO | Partial | runbook written (incl. PAYOUT_ENCRYPTION_KEY / storage / cron caveats); PITR confirmation + drill outstanding |
+| Support workflows | Built | `app/super-admin/*` + `/super-admin/disputes` queue; chargebacks auto-open a case |
+| Audit & scan retention | Built | `fn_archive_audit_log` + `fn_archive_scans` with cold archives, daily pg_cron; scan archiving is stat-neutral |
 | Rate limits | Built | `fn_rate_limit` on invites/org/checkout/transfer/resale; edge routes durable via `fn_rate_limit_edge`; gc scheduled in ops cron |

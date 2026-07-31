@@ -1,0 +1,45 @@
+name: Settlement ingest
+
+# Provider settlement ingestion (operational control #1).
+#
+# Daily, not every-5-minutes: settlements land at most once a day and the
+# Paystack settlement API is paginated and rate limited, so frequent polling
+# would burn Actions minutes for nothing. The ops-alerts cron reads whatever
+# this ingested and alerts on both mismatches and staleness, so a missed run
+# surfaces on its own.
+#
+# Ingestion is idempotent and uses a multi-day lookback, so a skipped day
+# self-heals on the next run.
+on:
+  schedule:
+    - cron: "20 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trigger:
+    name: Trigger production settlement ingest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Call secured cron endpoint
+        env:
+          SETTLEMENT_CRON_URL: ${{ secrets.SETTLEMENT_CRON_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$SETTLEMENT_CRON_URL" ]; then
+            echo "SETTLEMENT_CRON_URL secret is required (e.g. https://ticketiv.app/api/cron/settlements)" >&2
+            exit 1
+          fi
+
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET secret is required" >&2
+            exit 1
+          fi
+
+          curl --fail-with-body --silent --show-error --max-time 120 --retry 2 --retry-delay 10 \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            "$SETTLEMENT_CRON_URL"

@@ -657,6 +657,17 @@
     },
     {
       "schema": "public",
+      "name": "fn_archive_scans",
+      "arguments": "p_retention interval, p_batch_limit integer",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_array_has_dups",
       "arguments": "anyarray",
       "securityDefiner": false,
@@ -1167,6 +1178,31 @@
     },
     {
       "schema": "public",
+      "name": "fn_dispute_counts",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_disputes_touch_updated_at",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_duplicate_event",
       "arguments": "p_event_id uuid",
       "securityDefiner": true,
@@ -1577,6 +1613,17 @@
     },
     {
       "schema": "public",
+      "name": "fn_open_dispute",
+      "arguments": "p_kind dispute_kind, p_order_id uuid, p_payment_id uuid, p_reason text, p_amount_cents integer, p_raised_by uuid, p_dedupe_key text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_open_pos_shift",
       "arguments": "p_org_id uuid, p_device_id uuid, p_device_session_id uuid, p_opening_cash_cents integer, p_notes text",
       "securityDefiner": true,
@@ -1754,6 +1801,17 @@
         "PUBLIC",
         "anon",
         "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_provider_settlement_counts",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
         "postgres",
         "service_role"
       ]
@@ -2274,6 +2332,17 @@
     },
     {
       "schema": "public",
+      "name": "fn_teardown_uat_fixtures",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_ticket_is_transferable",
       "arguments": "p_order_item_id uuid",
       "securityDefiner": false,
@@ -2282,17 +2351,6 @@
         "PUBLIC",
         "anon",
         "authenticated",
-        "postgres",
-        "service_role"
-      ]
-    },
-    {
-      "schema": "public",
-      "name": "fn_teardown_uat_fixtures",
-      "arguments": "",
-      "securityDefiner": true,
-      "searchPathPinned": true,
-      "grantees": [
         "postgres",
         "service_role"
       ]
@@ -2369,6 +2427,17 @@
         "PUBLIC",
         "anon",
         "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_transition_dispute",
+      "arguments": "p_dispute_id uuid, p_status dispute_status, p_resolution text, p_refund_id uuid, p_assigned_to uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
         "postgres",
         "service_role"
       ]
@@ -2481,6 +2550,17 @@
       "schema": "public",
       "name": "fn_update_my_profile_unchecked",
       "arguments": "p_display_name text, p_name text, p_surname text, p_phone text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_upsert_provider_settlement",
+      "arguments": "p_provider text, p_ext_settlement_id text, p_status text, p_currency text, p_gross_cents integer, p_fees_cents integer, p_net_cents integer, p_settled_at timestamp with time zone, p_payload jsonb, p_items jsonb",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [

@@ -6,6 +6,7 @@ import {
   evaluateOrderStateConsistency,
   evaluatePaymentSuccessRate,
   evaluatePayoutIntegrity,
+  evaluateProviderSettlement,
   evaluateStuckAsyncWork,
   evaluateWebhookLag,
   hasAlert,
@@ -123,6 +124,38 @@ describe("health-alerts", () => {
       severity: "warning",
     })
     expect(evaluateStuckAsyncWork({}).status).toBe("ok")
+  })
+
+  it("skips the settlement check until data has been ingested", () => {
+    const check = evaluateProviderSettlement({ hours_since_last_settlement_ingest: -1 })
+    expect(check.status).toBe("skipped")
+    expect(check.severity).toBe("info")
+  })
+
+  it("treats any provider settlement mismatch as critical", () => {
+    const check = evaluateProviderSettlement({
+      settlement_items_unmatched: 1,
+      settlement_amount_mismatch: 2,
+      hours_since_last_settlement_ingest: 1,
+    })
+    expect(check.status).toBe("alert")
+    expect(check.severity).toBe("critical")
+    expect(check.details.total).toBe(3)
+    expect(check.details.categories).toEqual({
+      settlement_items_unmatched: 1,
+      settlement_amount_mismatch: 2,
+    })
+  })
+
+  it("warns (not criticals) when settlement data is merely stale", () => {
+    const check = evaluateProviderSettlement({ hours_since_last_settlement_ingest: 72 }, 48)
+    expect(check.status).toBe("alert")
+    expect(check.severity).toBe("warning")
+  })
+
+  it("is healthy when settlement matches and ingest is current", () => {
+    const check = evaluateProviderSettlement({ hours_since_last_settlement_ingest: 3 }, 48)
+    expect(check.status).toBe("ok")
   })
 
   it("builds a compact payload from alerting checks only", () => {
