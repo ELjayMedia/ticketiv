@@ -8,32 +8,16 @@ import { Button } from "@/components/quiet/ui/button"
 import { Card, CardBody } from "@/components/quiet/ui/card"
 import { FormField } from "@/components/quiet/ui/form"
 import { Icon } from "@/components/quiet/ui/icon"
+import {
+  ORGANIZER_SIGNUP_STORAGE_KEY,
+  isValidEmail,
+  normalizeOrganizerSignup,
+  validateOrganizerSignup,
+  type OrganizerSignupPayload,
+} from "@/lib/auth/organizer-signup"
 import { createClient } from "@/lib/supabase/client"
 
 type AuthMode = "login" | "signup"
-
-const ROLE_CARDS = [
-  {
-    label: "Attendee",
-    description: "Buy tickets, save events and manage your QR tickets.",
-  },
-  {
-    label: "Organizer",
-    description: "Unlocked when this email is linked to an organiser or event owner record.",
-  },
-  {
-    label: "Scanner",
-    description: "Unlocked when this user is added to event staff for access control.",
-  },
-  {
-    label: "Talent",
-    description: "Unlocked when this user is connected to an artist, speaker or performer profile.",
-  },
-]
-
-function isValidEmail(input: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.trim())
-}
 
 function explainAuthError(message: string, mode: AuthMode) {
   const lower = message.toLowerCase()
@@ -47,76 +31,134 @@ function explainAuthError(message: string, mode: AuthMode) {
   }
 
   if (lower.includes("signup") || lower.includes("signups")) {
-    return mode === "signup" ? message : "We could not find that Ticketiv account. Create an account first, then log in."
+    return mode === "signup"
+      ? message
+      : "We could not find a Ticketiv account for that email. Register as an organizer if this is your first time using Ticketiv."
   }
 
-  return mode === "login" ? "We could not send a code for that email. Create an account first, then log in." : message
+  return mode === "login"
+    ? "We could not send a login code for that email. Check the address and try again."
+    : message
 }
 
 function getAuthCopy(mode: AuthMode) {
   if (mode === "signup") {
     return {
-      badge: "Step 1 of 2",
-      submit: "Send my code",
+      badge: "Organizer registration",
+      submit: "Send verification code",
       busy: "Sending code…",
-      help: "Enter your email and we’ll send a 6-digit code. Once verified, your Ticketiv ID is created as an Attendee first.",
-      note: "Use an email you can access now. The code expires, and repeated requests may trigger Supabase rate limits.",
-      alternate: "Already have a Ticketiv ID?",
+      help: "We’ll send a 6-digit code to verify the email before organizer tools are unlocked.",
+      note: "Use an email and phone number you control. They will be used for account and event-operation notices.",
+      alternate: "Already have a Ticketiv account?",
       alternateCta: "Log in",
       alternateHref: "/login",
     }
   }
 
   return {
-    badge: "Secure login",
+    badge: "Account login",
     submit: "Send login code",
     busy: "Sending code…",
-    help: "Use the same email address linked to your Ticketiv ID. We’ll send a 6-digit login code.",
-    note: "Do not request multiple codes at once. Use the most recent code in your inbox.",
-    alternate: "New to Ticketiv?",
-    alternateCta: "Create an account",
+    help: "We’ll send a 6-digit code to the email already linked to your Ticketiv account.",
+    note: "Logging in restores existing access only. It will not create an account or grant organizer permissions.",
+    alternate: "New organizer?",
+    alternateCta: "Register as an organizer",
     alternateHref: "/signup",
   }
+}
+
+const emptyOrganizerSignup: OrganizerSignupPayload = {
+  firstName: "",
+  surname: "",
+  phone: "",
+  email: "",
+  idNumber: "",
 }
 
 export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
   const router = useRouter()
   const search = useSearchParams()
   const [email, setEmail] = useState("")
+  const [organizer, setOrganizer] = useState<OrganizerSignupPayload>(emptyOrganizerSignup)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const copy = getAuthCopy(mode)
+  const signupReady = Boolean(
+    organizer.firstName.trim() &&
+    organizer.surname.trim() &&
+    organizer.phone.trim() &&
+    organizer.email.trim(),
+  )
+
+  function updateOrganizer(field: keyof OrganizerSignupPayload, value: string) {
+    setOrganizer((current) => ({ ...current, [field]: value }))
+    setError(null)
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
 
-    const normalizedEmail = email.trim().toLowerCase()
-    if (!isValidEmail(normalizedEmail)) {
+    const signupPayload = normalizeOrganizerSignup(organizer)
+    const normalizedEmail = mode === "signup" ? signupPayload.email : email.trim().toLowerCase()
+
+    if (mode === "signup") {
+      const validationError = validateOrganizerSignup(signupPayload)
+      if (validationError) {
+        setError(validationError)
+        return
+      }
+    } else if (!isValidEmail(normalizedEmail)) {
       setError("Enter a valid email address, for example name@example.com.")
       return
     }
 
     const supabase = createClient()
     const shouldCreateUser = mode === "signup"
-    const redirectTo = search?.get("redirectTo") || search?.get("from")
+    const requestedRedirect = search?.get("redirectTo") || search?.get("from")
+    const redirectTo =
+      requestedRedirect && requestedRedirect.startsWith("/") && !requestedRedirect.startsWith("//")
+        ? requestedRedirect
+        : mode === "signup"
+          ? "/onboarding/organizer"
+          : undefined
+
+    if (mode === "signup") {
+      window.sessionStorage.setItem(
+        ORGANIZER_SIGNUP_STORAGE_KEY,
+        JSON.stringify(signupPayload),
+      )
+    }
 
     setBusy(true)
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error: authError } = await supabase.auth.signInWithOtp({
       email: normalizedEmail,
-      options: { shouldCreateUser },
+      options: {
+        shouldCreateUser,
+        data:
+          mode === "signup"
+            ? {
+                first_name: signupPayload.firstName,
+                surname: signupPayload.surname,
+                phone: signupPayload.phone,
+                signup_intent: "organizer",
+              }
+            : undefined,
+      },
     })
     setBusy(false)
 
-    if (error) {
-      setError(explainAuthError(error.message, mode))
+    if (authError) {
+      if (mode === "signup") {
+        window.sessionStorage.removeItem(ORGANIZER_SIGNUP_STORAGE_KEY)
+      }
+      setError(explainAuthError(authError.message, mode))
       return
     }
 
     const params = new URLSearchParams({ to: normalizedEmail, mode })
-    if (redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")) {
-      params.set("redirectTo", redirectTo)
-    }
+    if (mode === "signup") params.set("intent", "organizer")
+    if (redirectTo) params.set("redirectTo", redirectTo)
     router.push(`/verify?${params.toString()}`)
   }
 
@@ -127,38 +169,105 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
           <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 font-mono text-[11px] font-medium uppercase tracking-wider text-ink-3">
             {copy.badge}
           </span>
-          <ol className="grid gap-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-3 sm:grid-cols-3">
-            <li><span className="font-semibold text-ink">1.</span> Enter email</li>
-            <li><span className="font-semibold text-ink">2.</span> Get code</li>
-            <li><span className="font-semibold text-ink">3.</span> Verify ID</li>
-          </ol>
+          {mode === "signup" ? (
+            <ol className="grid gap-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-3 sm:grid-cols-3">
+              <li><span className="font-semibold text-ink">1.</span> Your details</li>
+              <li><span className="font-semibold text-ink">2.</span> Email code</li>
+              <li><span className="font-semibold text-ink">3.</span> Organizer setup</li>
+            </ol>
+          ) : (
+            <ol className="grid gap-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-3 sm:grid-cols-3">
+              <li><span className="font-semibold text-ink">1.</span> Your email</li>
+              <li><span className="font-semibold text-ink">2.</span> Email code</li>
+              <li><span className="font-semibold text-ink">3.</span> Continue</li>
+            </ol>
+          )}
         </CardBody>
       </Card>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-5">
-        <FormField
-          label="Email address"
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          placeholder="you@example.com"
-          value={email}
-          onChange={(e) => { setEmail(e.target.value); setError(null) }}
-          required
-          hint="We’ll send a 6-digit code to this inbox."
-        />
+        {mode === "signup" ? (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                label="First name *"
+                autoComplete="given-name"
+                placeholder="First name"
+                value={organizer.firstName}
+                onChange={(e) => updateOrganizer("firstName", e.target.value)}
+                required
+              />
+              <FormField
+                label="Surname *"
+                autoComplete="family-name"
+                placeholder="Surname"
+                value={organizer.surname}
+                onChange={(e) => updateOrganizer("surname", e.target.value)}
+                required
+              />
+            </div>
+
+            <FormField
+              label="Phone number *"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="e.g. +268 7600 0000"
+              value={organizer.phone}
+              onChange={(e) => updateOrganizer("phone", e.target.value)}
+              required
+              hint="Include your country code where possible."
+            />
+
+            <FormField
+              label="Email address *"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              value={organizer.email}
+              onChange={(e) => updateOrganizer("email", e.target.value)}
+              required
+              hint="The organizer verification code will be sent here."
+            />
+
+            <FormField
+              label="ID number (optional)"
+              autoComplete="off"
+              placeholder="National ID or passport number"
+              value={organizer.idNumber}
+              onChange={(e) => updateOrganizer("idNumber", e.target.value)}
+              maxLength={64}
+              hint="Optional for now. It is stored privately and can support later payout or identity checks."
+            />
+          </>
+        ) : (
+          <FormField
+            label="Email address *"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => { setEmail(e.target.value); setError(null) }}
+            required
+            hint="The login code will be sent here."
+          />
+        )}
 
         <div className="flex flex-col gap-1.5 text-[12px] leading-5 text-ink-3">
           <p>{copy.help}</p>
           <p>{copy.note}</p>
         </div>
 
-        {mode === "signup" && (
-          <div className="flex items-start gap-2 rounded-[var(--radius-md)] border border-line bg-bg px-3 py-2.5 text-[12px] text-ink-2">
-            <Icon name="check" size={14} className="mt-0.5 text-accent" />
-            <span>No password needed for now. Your email becomes the first identity attached to your Ticketiv profile.</span>
-          </div>
-        )}
+        <div className="flex items-start gap-2 rounded-[var(--radius-md)] border border-line bg-bg px-3 py-2.5 text-[12px] text-ink-2">
+          <Icon name="check" size={14} className="mt-0.5 text-accent" />
+          <span>
+            {mode === "signup"
+              ? "Email verification is required for organizer registration. Attendees do not need to register here to browse or buy tickets."
+              : "One email can carry attendee, organizer, staff and talent access. Ticketiv restores only the roles already linked to it."}
+          </span>
+        </div>
 
         {error && (
           <div role="alert" className="flex items-start gap-2 rounded-[var(--radius-md)] border border-danger/30 bg-danger-soft px-3 py-2.5 text-[12px] text-danger">
@@ -167,27 +276,17 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
           </div>
         )}
 
-        <Button type="submit" variant="primary" size="md" disabled={busy || !email} block>
+        <Button
+          type="submit"
+          variant="primary"
+          size="md"
+          disabled={busy || (mode === "login" ? !email : !signupReady)}
+          block
+        >
           {busy ? copy.busy : copy.submit}
           <Icon name="arrowR" size={14} />
         </Button>
       </form>
-
-      {mode === "signup" && (
-        <Card flat className="bg-bg">
-          <CardBody className="flex flex-col gap-3">
-            <p className="text-h3">What your Ticketiv ID can unlock</p>
-            <div className="grid gap-2">
-              {ROLE_CARDS.map((role) => (
-                <div key={role.label} className="rounded-[var(--radius-md)] border border-line bg-surface p-3">
-                  <p className="text-[13px] font-semibold text-ink">{role.label}</p>
-                  <p className="text-[12px] text-ink-3">{role.description}</p>
-                </div>
-              ))}
-            </div>
-          </CardBody>
-        </Card>
-      )}
 
       <p className="text-center text-[13px] text-ink-3">
         {copy.alternate}{" "}

@@ -1,0 +1,16 @@
+{
+  "functions": [
+    {
+      "schema": "public",
+      "name": "fn_complete_organizer_signup",
+      "arguments": "p_first_name text, p_surname text, p_phone text, p_id_number text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    }
+  ]
+}
