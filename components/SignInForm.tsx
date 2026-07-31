@@ -33,11 +33,11 @@ function explainAuthError(message: string, mode: AuthMode) {
   if (lower.includes("signup") || lower.includes("signups")) {
     return mode === "signup"
       ? message
-      : "We could not find that Ticketiv account. Organizer registration is available from the sign-up page."
+      : "We could not find a Ticketiv account for that email. Register as an organizer if this is your first time using Ticketiv."
   }
 
   return mode === "login"
-    ? "We could not send a code for that email. Check the address and try again."
+    ? "We could not send a login code for that email. Check the address and try again."
     : message
 }
 
@@ -56,12 +56,12 @@ function getAuthCopy(mode: AuthMode) {
   }
 
   return {
-    badge: "Secure login",
+    badge: "Account login",
     submit: "Send login code",
     busy: "Sending code…",
-    help: "Use the email address linked to your Ticketiv ID. We’ll send a 6-digit login code.",
-    note: "Do not request multiple codes at once. Use the most recent code in your inbox.",
-    alternate: "Planning to host an event?",
+    help: "We’ll send a 6-digit code to the email already linked to your Ticketiv account.",
+    note: "Logging in restores existing access only. It will not create an account or grant organizer permissions.",
+    alternate: "New organizer?",
     alternateCta: "Register as an organizer",
     alternateHref: "/signup",
   }
@@ -176,9 +176,10 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
               <li><span className="font-semibold text-ink">3.</span> Organizer setup</li>
             </ol>
           ) : (
-            <ol className="grid gap-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-3 sm:grid-cols-2">
-              <li><span className="font-semibold text-ink">1.</span> Enter email</li>
-              <li><span className="font-semibold text-ink">2.</span> Verify login</li>
+            <ol className="grid gap-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-3 sm:grid-cols-3">
+              <li><span className="font-semibold text-ink">1.</span> Your email</li>
+              <li><span className="font-semibold text-ink">2.</span> Email code</li>
+              <li><span className="font-semibold text-ink">3.</span> Continue</li>
             </ol>
           )}
         </CardBody>
@@ -242,7 +243,7 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
           </>
         ) : (
           <FormField
-            label="Email address"
+            label="Email address *"
             type="email"
             inputMode="email"
             autoComplete="email"
@@ -250,7 +251,7 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
             value={email}
             onChange={(e) => { setEmail(e.target.value); setError(null) }}
             required
-            hint="We’ll send a 6-digit login code to this inbox."
+            hint="The login code will be sent here."
           />
         )}
 
@@ -259,12 +260,14 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
           <p>{copy.note}</p>
         </div>
 
-        {mode === "signup" && (
-          <div className="flex items-start gap-2 rounded-[var(--radius-md)] border border-line bg-bg px-3 py-2.5 text-[12px] text-ink-2">
-            <Icon name="check" size={14} className="mt-0.5 text-accent" />
-            <span>Email verification is required for organizer registration. Attendees do not need to register here to browse or buy tickets.</span>
-          </div>
-        )}
+        <div className="flex items-start gap-2 rounded-[var(--radius-md)] border border-line bg-bg px-3 py-2.5 text-[12px] text-ink-2">
+          <Icon name="check" size={14} className="mt-0.5 text-accent" />
+          <span>
+            {mode === "signup"
+              ? "Email verification is required for organizer registration. Attendees do not need to register here to browse or buy tickets."
+              : "One email can carry attendee, organizer, staff and talent access. Ticketiv restores only the roles already linked to it."}
+          </span>
+        </div>
 
         {error && (
           <div role="alert" className="flex items-start gap-2 rounded-[var(--radius-md)] border border-danger/30 bg-danger-soft px-3 py-2.5 text-[12px] text-danger">
