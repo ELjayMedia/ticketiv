@@ -38,7 +38,9 @@ export default async function DiscoverPage() {
           thisWeekTotal={events.length}
         />
       </div>
-      <div className="hidden md:block">
+      {/* Desktop search is owned by the persistent top navigation. Hide the
+          discover screen's legacy inline form while retaining its filter tools. */}
+      <div className="hidden md:block [&>div>form]:hidden">
         <DesktopDiscover
           events={events.slice(0, 9)}
           editorPick={editorPick}
