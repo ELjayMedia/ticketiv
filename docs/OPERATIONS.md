@@ -165,23 +165,81 @@ be added as a fourth `evaluate*`.
 
 ---
 
-## 4. Backups & recovery (RPO/RTO) — **To do (mostly documentation + drill)**
+## 4. Backups & recovery (RPO/RTO) — **Runbook built; drill outstanding**
 
-Supabase provides automated daily backups and, on Pro/managed plans,
-**Point-in-Time Recovery (PITR)**. Confirm PITR is enabled for project
-`radsfmlsjznqvcpogluo` in the Supabase dashboard (Database → Backups).
+Project `radsfmlsjznqvcpogluo` ("Ticketiv"), region **eu-west-1**, Postgres
+**17.6.1**, **383 MB**, 210 migrations applied.
 
-**Objectives (proposed — confirm with the business):**
-- **RPO ≤ 5 minutes** (PITR WAL) for financial tables; ≤ 24h (daily snapshot)
-  otherwise.
-- **RTO ≤ 2 hours** to restore into a new project + repoint `NEXT_PUBLIC_*` /
-  service-role env and redeploy.
+### Read this first: what a database restore does NOT bring back
 
-**Recovery drill (do once before launch, then quarterly):** restore a PITR
-snapshot into a scratch project, run `scripts/verify-rls.sql` and
-`scripts/ops-reconciliation.sql` against it, and record the actual
-recovery time. Document the runbook: who has Supabase owner access, where env
-values live, and the Vercel promote/rollback steps.
+A Postgres restore is not a full recovery. Three things live outside it, and two
+of them are unrecoverable if lost:
+
+1. **`PAYOUT_ENCRYPTION_KEY` — the sharpest edge.** Organizer bank details are
+   stored encrypted in `payout_accounts.details_encrypted`, keyed by this env
+   var (`lib/payout-crypto.ts`). **Lose the key and a perfect database restore
+   still yields unreadable payout accounts** — every organizer would have to
+   re-enter bank details before any payout could run. Back this key up
+   separately from both the database and Vercel, and treat rotating it as a
+   migration, not a config change.
+2. **Storage buckets** (`avatars`, `event-covers`) are object storage, **not**
+   covered by a Postgres PITR restore. They need their own backup/copy step.
+3. **`supabase_vault` secrets** are encrypted with a project-scoped key, so they
+   do not necessarily survive a restore into a *new* project. Re-seed them.
+
+### Objectives (proposed — confirm with the business)
+- **RPO ≤ 5 minutes** for financial tables (requires PITR); ≤ 24h on daily
+  snapshots alone.
+- **RTO ≤ 2 hours.** At 383 MB the data restore itself is minutes — RTO is
+  dominated by repointing env, redeploying and DNS, not by data volume.
+
+### Prerequisite (cannot be verified from here)
+**Confirm PITR is enabled** for the project in the Supabase dashboard
+(Database → Backups). PITR is a paid-plan feature; without it the RPO is the
+daily snapshot (up to 24h of lost orders), which is not compatible with the
+RPO above. This is the one item that must be checked by a human with dashboard
+access.
+
+### Restore procedure
+1. **Restore** the snapshot / PITR timestamp into a new project (same region,
+   eu-west-1, to keep latency and any data-residency assumptions).
+2. **Re-create the 7 `pg_cron` jobs** — they are database state and must be
+   verified after any cross-project restore:
+   `anon-user-cleanup` (`0 2 * * *`), `nightly_rollup_metrics` (`0 2 * * *`),
+   `daily_analyze_public_schema` (`0 3 * * *`),
+   `ticketiv-audit-log-retention` (`30 3 * * *`),
+   `ticketiv-scans-retention` (`45 3 * * *`),
+   `expire-stale-checkout-holds` (`*/5 * * * *`),
+   `monitoring.capture_slow_queries_hourly` (`0 * * * *`).
+   The retention jobs are re-created by their migrations; the others are not.
+3. **Confirm extensions** exist: `pg_cron`, `pg_net`, `pgcrypto`, `pg_trgm`,
+   `btree_gist`, `uuid-ossp`, `pg_stat_statements`, `supabase_vault`, `hypopg`,
+   `index_advisor`.
+4. **Restore storage** buckets `avatars` and `event-covers`.
+5. **Repoint env** and redeploy. The must-change set:
+   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+   `SUPABASE_SERVICE_ROLE_KEY`. Carry over unchanged (do **not** regenerate):
+   `PAYOUT_ENCRYPTION_KEY`, `PAYSTACK_SECRET_KEY`, `CRON_SECRET`,
+   `OPS_ALERT_WEBHOOK_URL`. Full inventory: `.env.example` (51 vars).
+6. **Re-point the Paystack webhook** at the restored deployment, or completions
+   will silently stop arriving.
+
+### Verify the restore (do not declare recovery without this)
+Run, in order, and require all four to be clean:
+- `scripts/verify-rls.sql` — policies survived the restore.
+- `scripts/ops-reconciliation.sql` — money integrity.
+- `select public.fn_ops_reconciliation_counts();` — all 14 counts `0`.
+- `select public.fn_provider_settlement_counts();` — provider comparison intact.
+
+### Drill — **outstanding**
+Do this once before launch, then quarterly: restore into a scratch project, walk
+the procedure above, run the four verifications, and **record the wall-clock
+time** to validate (or correct) the RTO ≤ 2h objective. Also record who holds
+Supabase owner access and where `PAYOUT_ENCRYPTION_KEY` is escrowed.
+
+**Gap (To do).** The drill itself — it needs Supabase dashboard access to create
+a scratch project and trigger a restore, so it cannot be automated from the repo.
+Until it has been run, RPO/RTO above are objectives, not measured facts.
 
 ---
 
@@ -361,7 +419,7 @@ Vercel/WAF network limits for defence in depth.
 | Reconciliation | Built | `scripts/ops-reconciliation.sql`, `fn_org_finance_summary`, `provider_settlements` + daily ingest |
 | Webhook idempotency/replay | Built | `webhooks`/`payments` unique keys + admin Reprocess on the dead-letter list (Paystack only) |
 | Alerting | Built | `api/cron/ops-alerts` + `fn_ops_reconciliation_counts` (order/payout/async checks); scanner backlog needs a heartbeat column |
-| Backups / RPO-RTO | To do | Supabase PITR + documented drill |
+| Backups / RPO-RTO | Partial | runbook written (incl. PAYOUT_ENCRYPTION_KEY / storage / cron caveats); PITR confirmation + drill outstanding |
 | Support workflows | Partial | `app/super-admin/*` + runbooks above |
 | Audit & scan retention | Built | `fn_archive_audit_log` + `fn_archive_scans` with cold archives, daily pg_cron; scan archiving is stat-neutral |
 | Rate limits | Built | `fn_rate_limit` on invites/org/checkout/transfer/resale; edge routes durable via `fn_rate_limit_edge`; gc scheduled in ops cron |
