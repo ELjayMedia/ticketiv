@@ -1,5 +1,25 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
+import {
+  isExpectedSignedOutAuthError,
+  isStaleSupabaseRefreshTokenError,
+  isSupabaseAuthTokenCookie,
+} from "@/lib/supabase/auth-errors"
+
+function redirectToLogin(request: NextRequest, from: string) {
+  const url = request.nextUrl.clone()
+  url.pathname = "/login"
+  url.searchParams.set("from", from)
+  return NextResponse.redirect(url)
+}
+
+function clearSupabaseAuthTokenCookies(request: NextRequest, response: NextResponse) {
+  for (const { name } of request.cookies.getAll()) {
+    if (isSupabaseAuthTokenCookie(name)) {
+      response.cookies.delete(name)
+    }
+  }
+}
 
 /**
  * Refreshes the Supabase session and enforces auth gates.
@@ -143,10 +163,7 @@ export async function updateSession(request: NextRequest) {
     // /onboarding — requires session, allowed without handle
     if (path.startsWith("/onboarding")) {
       if (!user) {
-        const url = request.nextUrl.clone()
-        url.pathname = "/login"
-        url.searchParams.set("from", path)
-        return NextResponse.redirect(url)
+        return redirectToLogin(request, path)
       }
       if (await hasHandle()) {
         return NextResponse.redirect(new URL("/", request.url))
@@ -156,10 +173,7 @@ export async function updateSession(request: NextRequest) {
 
     // All other routes require auth
     if (!user) {
-      const url = request.nextUrl.clone()
-      url.pathname = "/login"
-      url.searchParams.set("from", path)
-      return NextResponse.redirect(url)
+      return redirectToLogin(request, path)
     }
 
     // Handle gate for app/profile/payment/order/ticket routes
@@ -219,6 +233,14 @@ export async function updateSession(request: NextRequest) {
 
     return response
   } catch (err) {
+    if (isExpectedSignedOutAuthError(err)) {
+      const redirect = redirectToLogin(request, path)
+      if (isStaleSupabaseRefreshTokenError(err)) {
+        clearSupabaseAuthTokenCookies(request, redirect)
+      }
+      return redirect
+    }
+
     // Any unexpected failure: pass through rather than 500 the entire app.
     console.error("[middleware] error:", err)
     return response
