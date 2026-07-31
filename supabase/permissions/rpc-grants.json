@@ -1760,6 +1760,17 @@
     },
     {
       "schema": "public",
+      "name": "fn_provider_settlement_counts",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_publish_resale_listing",
       "arguments": "p_order_item_id uuid, p_price_cents integer, p_listing_hours integer",
       "securityDefiner": true,
@@ -2274,6 +2285,17 @@
     },
     {
       "schema": "public",
+      "name": "fn_teardown_uat_fixtures",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_ticket_is_transferable",
       "arguments": "p_order_item_id uuid",
       "securityDefiner": false,
@@ -2282,17 +2304,6 @@
         "PUBLIC",
         "anon",
         "authenticated",
-        "postgres",
-        "service_role"
-      ]
-    },
-    {
-      "schema": "public",
-      "name": "fn_teardown_uat_fixtures",
-      "arguments": "",
-      "securityDefiner": true,
-      "searchPathPinned": true,
-      "grantees": [
         "postgres",
         "service_role"
       ]
@@ -2481,6 +2492,17 @@
       "schema": "public",
       "name": "fn_update_my_profile_unchecked",
       "arguments": "p_display_name text, p_name text, p_surname text, p_phone text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_upsert_provider_settlement",
+      "arguments": "p_provider text, p_ext_settlement_id text, p_status text, p_currency text, p_gross_cents integer, p_fees_cents integer, p_net_cents integer, p_settled_at timestamp with time zone, p_payload jsonb, p_items jsonb",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [

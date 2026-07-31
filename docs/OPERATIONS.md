@@ -7,7 +7,7 @@ and satisfy `sum(order_gross) + sum(fee) = sum(payment_net)`.
 
 ---
 
-## 1. Payment reconciliation — **Partial**
+## 1. Payment reconciliation — **Built**
 
 **Built.** `fn_org_finance_summary(org)` is the single source of truth for org
 money (gross/fees/net/available/settled). Per-event and payout reconciliation
@@ -24,11 +24,47 @@ rows — empty = healthy. As of the last run, **all checks pass (0 anomalies)**.
 batch, (b) daily, and (c) as a pre-real-money gate. Investigate any non-empty
 result before releasing funds.
 
-**Gap (To do).** Comparison against **provider settlement reports** (Paystack
-settlements: gross received, provider fees, payout to bank). That requires
-ingesting Paystack's settlement API/CSV into a `provider_settlements` table and
-reconciling it against `payments`/`payouts`. Until then, reconciliation is
-internal-only (our ledger vs our orders), not internal-vs-provider.
+**Provider settlement reconciliation** (migration `20260730210000`) closes the
+internal-only gap. Internal checks catch our own bugs; they cannot catch a
+difference between what the provider actually settled and what we believe we
+earned — a fee we did not model, a transaction reversed provider-side, or a
+settlement that never arrived. Those are the differences that cost real money.
+
+- **`provider_settlements`** (one row per settlement batch) and
+  **`provider_settlement_items`** (the transactions inside it, matched to
+  `payments` by `(provider, ext_payment_id)` — the same key the webhook writes).
+  Both are provider-reported facts, kept deliberately **separate from our money
+  tables** so the two can be compared rather than conflated. Service-role only.
+- **`fn_upsert_provider_settlement(...)`** ingests idempotently (keyed on
+  `(provider, ext_settlement_id)` and `(settlement_id, ext_payment_id)`), so
+  retries and overlapping date windows update in place. An item that matches no
+  payment is **recorded with a NULL `payment_id`, not rejected** — "the provider
+  settled something we have no payment for" is precisely the anomaly worth
+  alerting on.
+- **`fn_provider_settlement_counts()`** returns the comparison as counts:
+  unmatched items, per-transaction amount mismatch, batches where
+  `gross - fees <> net`, succeeded payments never settled (7-day grace), and
+  hours since the last ingest.
+- **Ingestion:** `lib/payments/paystack-settlements.ts` →
+  `app/api/cron/settlements` (`CRON_SECRET`-secured), scheduled **daily** by
+  `.github/workflows/settlement-ingest.yml`. Daily rather than every 5 minutes
+  because settlements land at most once a day and the Paystack settlement API is
+  paginated and rate limited. A missed day self-heals via the multi-day lookback.
+- **Alerting:** the ops-alerts cron surfaces this as `provider-settlement` —
+  **critical** on any mismatch, **warning** when ingest is merely stale
+  (`OPS_ALERT_SETTLEMENT_STALE_HOURS`, default 48), and **skipped** before the
+  first ingest so it never implies the books reconcile when nothing has been
+  compared yet.
+
+Verified with a rolled-back test: a batch with one matching and one unknown
+transaction reported 1 matched / 1 unmatched, re-ingesting produced no
+duplicates, and the amount-mismatch, internal-imbalance and unmatched detectors
+each fired on purpose-built rows.
+
+**Gap (To do).** Payout-to-bank confirmation: we compare provider settlement
+against our `payments`, but the final leg (settlement → organizer bank account)
+still relies on `payouts.status`. Ingesting provider transfer/payout records
+would close that last hop.
 
 ---
 
@@ -302,7 +338,7 @@ Vercel/WAF network limits for defence in depth.
 
 | Control | Status | Primary artifact |
 |---|---|---|
-| Reconciliation | Partial | `scripts/ops-reconciliation.sql`, `fn_org_finance_summary` |
+| Reconciliation | Built | `scripts/ops-reconciliation.sql`, `fn_org_finance_summary`, `provider_settlements` + daily ingest |
 | Webhook idempotency/replay | Built | `webhooks`/`payments` unique keys + admin Reprocess on the dead-letter list (Paystack only) |
 | Alerting | Built | `api/cron/ops-alerts` + `fn_ops_reconciliation_counts` (order/payout/async checks); scanner backlog needs a heartbeat column |
 | Backups / RPO-RTO | To do | Supabase PITR + documented drill |
