@@ -207,7 +207,7 @@ above (today several are multi-step or manual).
 
 ---
 
-## 6. Audit retention — **Partial (audit_log built; scans deferred)**
+## 6. Audit & scan retention — **Built**
 
 **Built.** `audit_log` (financial + admin actions) is kept to a rolling window
 (default **24 months**) with older rows moved to a cold `audit_log_archive`
@@ -245,12 +245,32 @@ run on **2026-07-30**, clearing 6 orders / 3 payments / 5 ledger rows / 1 payout
 / 1 refund / 1 scan across both fixture orgs, and reconciliation now reads 0
 across the board.
 
-**Gap (To do).** **`scans` retention.** `scans` also grows unbounded but carries
-delete-sensitive triggers (a live-stats recalc, refund guard, org validation), so
-pruning it needs a trigger-interaction review (and likely a longer, operational —
-not financial — retention). Also decide whether the cold archive should
-eventually export to object storage and purge, and record the legal retention
-minimum for financial records. Separately, `fn_seed_uat_fixtures` /
+**`scans` retention** (migration `20260730220000`) is now built too, and the
+trigger concern that deferred it turned out to be real: of the four triggers on
+`scans`, three are BEFORE INSERT (irrelevant to archiving), but
+`trg_recalc_event_live_stats_scans` fires **AFTER DELETE** and recalculates
+`event_live_stats`, whose `checked_in_count` / `last_scan_at` are derived by
+**counting `public.scans`**. Pruning naively would have silently reset historical
+attendance for past events to zero.
+
+Rather than suppress the trigger during the prune (stateful, and wrong the moment
+any later recalc runs), archiving was made **stat-neutral**: the recalc now counts
+`scans` **union** `scans_archive`, so an archived scan still counts toward its
+event. Verified with a rolled-back test — 3 scans (2 `valid`) gave
+`checked_in_count = 2`; after archiving all 3, live rows were 0 and
+`checked_in_count` was **still 2**, with `last_scan_at` preserved.
+
+- `public.fn_archive_scans(p_retention default '12 months', p_batch_limit)` —
+  copy-then-delete in a single snapshot, service-role only. Only scans belonging
+  to events that have **already ended** are eligible, so an in-flight gate is
+  never touched.
+- Scheduled daily at **03:45 UTC** via pg_cron (`ticketiv-scans-retention`).
+- Retention is operational, not financial: scans are gate telemetry, and the
+  durable record of who was admitted is `order_items.status = 'checked_in'`.
+
+**Gap (To do).** Decide whether the cold archives should eventually export to
+object storage and purge, and record the legal retention minimum for financial
+records. Separately, `fn_seed_uat_fixtures` /
 `fn_teardown_uat_fixtures` exist on the database with **no migration backing
 them** and are absent from `supabase/permissions/rpc-grants.json`, so the
 live-drift half of `check:permissions` will flag them once CI can run again —
@@ -343,5 +363,5 @@ Vercel/WAF network limits for defence in depth.
 | Alerting | Built | `api/cron/ops-alerts` + `fn_ops_reconciliation_counts` (order/payout/async checks); scanner backlog needs a heartbeat column |
 | Backups / RPO-RTO | To do | Supabase PITR + documented drill |
 | Support workflows | Partial | `app/super-admin/*` + runbooks above |
-| Audit retention | Partial | `fn_archive_audit_log` + `audit_log_archive`, daily pg_cron; scans deferred (delete-sensitive triggers) |
+| Audit & scan retention | Built | `fn_archive_audit_log` + `fn_archive_scans` with cold archives, daily pg_cron; scan archiving is stat-neutral |
 | Rate limits | Built | `fn_rate_limit` on invites/org/checkout/transfer/resale; edge routes durable via `fn_rate_limit_edge`; gc scheduled in ops cron |

@@ -657,6 +657,17 @@
     },
     {
       "schema": "public",
+      "name": "fn_archive_scans",
+      "arguments": "p_retention interval, p_batch_limit integer",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_array_has_dups",
       "arguments": "anyarray",
       "securityDefiner": false,
