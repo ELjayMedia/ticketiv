@@ -21,6 +21,14 @@ function clearSupabaseAuthTokenCookies(request: NextRequest, response: NextRespo
   }
 }
 
+function recoverSignedOutSession(request: NextRequest, path: string, error: unknown) {
+  const redirect = redirectToLogin(request, path)
+  if (isStaleSupabaseRefreshTokenError(error)) {
+    clearSupabaseAuthTokenCookies(request, redirect)
+  }
+  return redirect
+}
+
 /**
  * Refreshes the Supabase session and enforces auth gates.
  *
@@ -143,7 +151,15 @@ export async function updateSession(request: NextRequest) {
     // IMPORTANT: do not run code between createServerClient() and getUser().
     const {
       data: { user },
+      error: userError,
     } = await supabase.auth.getUser()
+
+    if (userError) {
+      if (isExpectedSignedOutAuthError(userError)) {
+        return recoverSignedOutSession(request, path, userError)
+      }
+      throw userError
+    }
 
     // Authed user landing on onboarding should be moved forward only after auth.
     async function hasHandle(): Promise<boolean> {
@@ -234,11 +250,7 @@ export async function updateSession(request: NextRequest) {
     return response
   } catch (err) {
     if (isExpectedSignedOutAuthError(err)) {
-      const redirect = redirectToLogin(request, path)
-      if (isStaleSupabaseRefreshTokenError(err)) {
-        clearSupabaseAuthTokenCookies(request, redirect)
-      }
-      return redirect
+      return recoverSignedOutSession(request, path, err)
     }
 
     // Any unexpected failure: pass through rather than 500 the entire app.

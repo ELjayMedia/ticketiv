@@ -49,6 +49,34 @@ describe("Supabase middleware session recovery", () => {
     expect(response.cookies.get("theme")).toBeUndefined()
   })
 
+  it("clears stale auth cookies when getUser returns an error result", async () => {
+    mocks.createServerClient.mockReturnValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: null },
+          error: {
+            name: "AuthApiError",
+            code: "refresh_token_not_found",
+            message: "Invalid Refresh Token: Refresh Token Not Found",
+          },
+        }),
+      },
+    })
+    const request = new NextRequest("https://ticketiv.app/orgs/org-1/dashboard", {
+      headers: {
+        cookie: "sb-radsfmlsjznqvcpogluo-auth-token=stale",
+      },
+    })
+
+    const response = await updateSession(request)
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get("location")).toBe(
+      "https://ticketiv.app/login?from=%2Forgs%2Forg-1%2Fdashboard",
+    )
+    expect(response.cookies.get("sb-radsfmlsjznqvcpogluo-auth-token")?.value).toBe("")
+  })
+
   it("keeps unexpected middleware failures visible", async () => {
     const error = new Error("Auth service unavailable")
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined)
