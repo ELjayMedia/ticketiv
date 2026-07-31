@@ -1,4 +1,5 @@
 export const ORGANIZER_SIGNUP_STORAGE_KEY = "ticketiv:organizer-signup"
+export const ORGANIZER_WAS_AUTHENTICATED_STORAGE_KEY = "ticketiv:organizer-was-authenticated"
 
 export interface OrganizerSignupPayload {
   firstName: string
