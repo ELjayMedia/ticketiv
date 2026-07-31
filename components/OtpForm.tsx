@@ -5,9 +5,22 @@ import { useRouter, useSearchParams } from "next/navigation"
 
 import { Button } from "@/components/quiet/ui/button"
 import { Icon } from "@/components/quiet/ui/icon"
+import {
+  ORGANIZER_SIGNUP_STORAGE_KEY,
+  normalizeOrganizerSignup,
+  validateOrganizerSignup,
+  type OrganizerSignupPayload,
+} from "@/lib/auth/organizer-signup"
 import { createClient } from "@/lib/supabase/client"
 
 const RESEND_COOLDOWN_SECONDS = 60
+
+interface OrganizerSignupRpcClient {
+  rpc(
+    name: string,
+    args: Record<string, string | null>,
+  ): Promise<{ error: { message: string } | null }>
+}
 
 function explainOtpError(message: string) {
   const lower = message.toLowerCase()
@@ -23,11 +36,35 @@ function explainOtpError(message: string) {
   return message
 }
 
+function readOrganizerSignup(): OrganizerSignupPayload | null {
+  const raw = window.sessionStorage.getItem(ORGANIZER_SIGNUP_STORAGE_KEY)
+  if (!raw) return null
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<OrganizerSignupPayload>
+    if (
+      typeof parsed.firstName !== "string" ||
+      typeof parsed.surname !== "string" ||
+      typeof parsed.phone !== "string" ||
+      typeof parsed.email !== "string" ||
+      typeof parsed.idNumber !== "string"
+    ) {
+      return null
+    }
+
+    const normalized = normalizeOrganizerSignup(parsed as OrganizerSignupPayload)
+    return validateOrganizerSignup(normalized) ? null : normalized
+  } catch {
+    return null
+  }
+}
+
 export function OtpForm() {
   const router = useRouter()
   const search = useSearchParams()
   const to = search?.get("to") ?? ""
   const mode = search?.get("mode") === "signup" ? "signup" : "login"
+  const isOrganizerSignup = mode === "signup" && search?.get("intent") === "organizer"
 
   const [digits, setDigits] = useState<string[]>(Array(6).fill(""))
   const [busy, setBusy] = useState(false)
@@ -80,6 +117,32 @@ export function OtpForm() {
       throw new Error(userError?.message || "Unable to load verified user")
     }
 
+    if (isOrganizerSignup) {
+      const signup = readOrganizerSignup()
+      if (!signup) {
+        throw new Error("Your organizer registration details are no longer available. Return to sign-up and enter them again.")
+      }
+
+      if (signup.email !== to.trim().toLowerCase()) {
+        throw new Error("The verified email does not match the organizer registration. Return to sign-up and try again.")
+      }
+
+      const rpcClient = supabase as unknown as OrganizerSignupRpcClient
+      const { error: completionError } = await rpcClient.rpc("fn_complete_organizer_signup", {
+        p_first_name: signup.firstName,
+        p_surname: signup.surname,
+        p_phone: signup.phone,
+        p_id_number: signup.idNumber || null,
+      })
+
+      if (completionError) {
+        throw new Error(completionError.message)
+      }
+
+      window.sessionStorage.removeItem(ORGANIZER_SIGNUP_STORAGE_KEY)
+      return
+    }
+
     const { error: bootstrapError } = await supabase.rpc("fn_bootstrap_ticketiv_user", {
       p_user_id: user.id,
       p_email: user.email ?? to,
@@ -107,13 +170,18 @@ export function OtpForm() {
       return
     }
 
+    if (mode === "signup" && !isOrganizerSignup) {
+      setError("This sign-up link is incomplete. Return to organizer registration and start again.")
+      return
+    }
+
     setBusy(true)
     const supabase = createClient()
-    const { error } = await supabase.auth.verifyOtp({ email: to, token, type: "email" })
+    const { error: verifyError } = await supabase.auth.verifyOtp({ email: to, token, type: "email" })
 
-    if (error) {
+    if (verifyError) {
       setBusy(false)
-      setError(explainOtpError(error.message))
+      setError(explainOtpError(verifyError.message))
       return
     }
 
@@ -127,24 +195,48 @@ export function OtpForm() {
 
     setBusy(false)
 
-    const redirectTo = search?.get("redirectTo") || search?.get("from")
-    router.push((redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//") ? redirectTo : "/") as "/")
+    const requestedRedirect = search?.get("redirectTo") || search?.get("from")
+    const redirectTo =
+      requestedRedirect && requestedRedirect.startsWith("/") && !requestedRedirect.startsWith("//")
+        ? requestedRedirect
+        : isOrganizerSignup
+          ? "/onboarding/organizer"
+          : "/"
+
+    router.push(redirectTo as "/")
     router.refresh()
   }
 
   async function resend() {
     if (!to || cooldown > 0) return
     setError(null)
+
+    const signup = isOrganizerSignup ? readOrganizerSignup() : null
+    if (isOrganizerSignup && !signup) {
+      setError("Your organizer registration details are no longer available. Return to sign-up and enter them again.")
+      return
+    }
+
     setResending(true)
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error: resendError } = await supabase.auth.signInWithOtp({
       email: to,
-      options: { shouldCreateUser: mode === "signup" },
+      options: {
+        shouldCreateUser: mode === "signup",
+        data: signup
+          ? {
+              first_name: signup.firstName,
+              surname: signup.surname,
+              phone: signup.phone,
+              signup_intent: "organizer",
+            }
+          : undefined,
+      },
     })
     setResending(false)
 
-    if (error) {
-      setError(explainOtpError(error.message))
+    if (resendError) {
+      setError(explainOtpError(resendError.message))
       return
     }
 
@@ -152,7 +244,7 @@ export function OtpForm() {
     refs.current[0]?.focus()
     setResent(true)
     setCooldown(RESEND_COOLDOWN_SECONDS)
-    setTimeout(() => setResent(false), 4000)
+    window.setTimeout(() => setResent(false), 4000)
   }
 
   return (
@@ -201,7 +293,11 @@ export function OtpForm() {
         disabled={busy || digits.some((d) => !d)}
         block
       >
-        {busy ? "Verifying…" : mode === "signup" ? "Verify and create account" : "Verify and log in"}
+        {busy
+          ? "Verifying…"
+          : isOrganizerSignup
+            ? "Verify and continue as organizer"
+            : "Verify and log in"}
       </Button>
 
       <div className="flex flex-col items-center gap-1 pt-2 text-[13px] text-ink-3">
