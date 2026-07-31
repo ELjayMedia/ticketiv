@@ -7,6 +7,7 @@ import { Button } from "@/components/quiet/ui/button"
 import { Icon } from "@/components/quiet/ui/icon"
 import {
   ORGANIZER_SIGNUP_STORAGE_KEY,
+  ORGANIZER_WAS_AUTHENTICATED_STORAGE_KEY,
   normalizeOrganizerSignup,
   validateOrganizerSignup,
   type OrganizerSignupPayload,
@@ -100,6 +101,7 @@ export function OtpForm() {
     })
     if (completionError) throw new Error(completionError.message)
     window.sessionStorage.removeItem(ORGANIZER_SIGNUP_STORAGE_KEY)
+    window.sessionStorage.removeItem(ORGANIZER_WAS_AUTHENTICATED_STORAGE_KEY)
   }
 
   async function onSubmit(event: React.FormEvent) {
@@ -116,6 +118,14 @@ export function OtpForm() {
     if (verifyError) {
       setBusy(false)
       setError(explainOtpError(verifyError.message))
+      return
+    }
+
+    const wasAuthenticated = window.sessionStorage.getItem(ORGANIZER_WAS_AUTHENTICATED_STORAGE_KEY) === "1"
+    if (!wasAuthenticated) {
+      setBusy(false)
+      router.push("/organizer/set-password")
+      router.refresh()
       return
     }
 
@@ -171,7 +181,7 @@ export function OtpForm() {
       </div>
       {resent && <div className="rounded-[var(--radius-md)] border border-line bg-bg px-3 py-2.5 text-[12px] text-ink-2">New organizer verification code sent.</div>}
       {error && <div role="alert" className="flex items-start gap-2 rounded-[var(--radius-md)] border border-danger/30 bg-danger-soft px-3 py-2.5 text-[12px] text-danger"><Icon name="close" size={14} className="mt-0.5" /><span>{error}</span></div>}
-      <Button type="submit" variant="primary" size="md" disabled={busy || digits.some((digit) => !digit) || !isOrganizerSignup} block>{busy ? "Verifying…" : "Verify and continue as organizer"}</Button>
+      <Button type="submit" variant="primary" size="md" disabled={busy || digits.some((digit) => !digit) || !isOrganizerSignup} block>{busy ? "Verifying…" : "Verify organizer email"}</Button>
       <div className="flex flex-col items-center gap-1 pt-2 text-[13px] text-ink-3">
         <span>Didn’t get it?</span>
         <button type="button" onClick={resend} disabled={resending || cooldown > 0} className="font-semibold text-ink underline-offset-4 hover:underline disabled:opacity-60">{resending ? "Sending…" : cooldown > 0 ? `Resend in ${cooldown}s` : "Resend code"}</button>
