@@ -38,7 +38,11 @@ export function validateOrganizerSignup(
     return "Enter a valid email address, for example name@example.com."
   }
 
-  if (payload.idNumber.trim().length > 64) {
+  const idNumberLength = payload.idNumber.trim().length
+  if (idNumberLength > 0 && idNumberLength < 4) {
+    return "Enter a valid ID or passport number, or leave the field blank."
+  }
+  if (idNumberLength > 64) {
     return "ID number must be 64 characters or fewer."
   }
 
