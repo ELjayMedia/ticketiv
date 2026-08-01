@@ -5,6 +5,7 @@ import { SaveMyTicketsCard } from "@/components/quiet/screens/tickets/save-my-ti
 import { PaymentOutcomeTracker } from "@/components/analytics/buyer-funnel";
 import { getOrderForBuyer } from "@/lib/data/attendee/orders";
 import { mapConfirmation } from "@/lib/mappers/confirmation";
+import { reconcileVerifiedPaystackReturn } from "@/lib/payments/paystack-return";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 /**
@@ -24,10 +25,35 @@ export const fetchCache = "force-no-store";
 
 export default async function ConfirmationPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ orderId: string }>;
+  searchParams: Promise<{ reference?: string; trxref?: string }>;
 }) {
   const { orderId } = await params;
+  const { reference, trxref } = await searchParams;
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = supabase ? await supabase.auth.getUser() : { data: { user: null } };
+
+  const paystackReference = reference ?? trxref ?? null;
+  if (user && paystackReference) {
+    try {
+      await reconcileVerifiedPaystackReturn({
+        orderId,
+        reference: paystackReference,
+        userId: user.id,
+      });
+    } catch (error) {
+      console.error("[payments] Paystack return reconciliation failed", {
+        orderId,
+        reference: paystackReference,
+        message: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+
   const order = await getOrderForBuyer(orderId);
   if (!order) notFound();
 
@@ -35,10 +61,6 @@ export default async function ConfirmationPage({
 
   // Prompt anonymous buyers to save their tickets to a recoverable account
   // right at the "ticket ready" moment — the highest-intent point in the flow.
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = supabase ? await supabase.auth.getUser() : { data: { user: null } };
   const isAnonymous = Boolean(user && (user as { is_anonymous?: boolean }).is_anonymous);
   const defaultClaimEmail = order.buyer_email ?? "";
 

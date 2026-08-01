@@ -1,6 +1,28 @@
 import { describe, expect, it } from "vitest"
 
-import { resolveEffectivePaymentProviders } from "@/lib/payments/availability-core"
+import {
+  filterProvidersByCurrencies,
+  providerSupportsCurrencies,
+  resolveEffectivePaymentProviders,
+} from "@/lib/payments/availability-core"
+
+describe("provider currency support", () => {
+  it("offers Paystack for its published ZAR currency but not SZL", () => {
+    expect(providerSupportsCurrencies("paystack", ["ZAR"])).toBe(true)
+    expect(providerSupportsCurrencies("paystack", ["SZL"])).toBe(false)
+  })
+
+  it("offers the Eswatini MoMo adapter for SZL but not ZAR", () => {
+    expect(providerSupportsCurrencies("momo", ["SZL"])).toBe(true)
+    expect(providerSupportsCurrencies("momo", ["ZAR"])).toBe(false)
+  })
+
+  it("rejects a provider when any order currency is unsupported", () => {
+    expect(filterProvidersByCurrencies(["paystack", "momo"], ["ZAR"])).toEqual(["paystack"])
+    expect(filterProvidersByCurrencies(["paystack", "momo"], ["SZL"])).toEqual(["momo"])
+    expect(filterProvidersByCurrencies(["paystack", "momo"], ["ZAR", "SZL"])).toEqual([])
+  })
+})
 
 describe("resolveEffectivePaymentProviders", () => {
   const operational = ["paystack", "momo"] as const

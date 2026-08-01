@@ -50,7 +50,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 })
   if (!ok) return NextResponse.json({ error: "Not allowed" }, { status: 403 })
 
-  const providerOptions = await getOrganizerPaymentProviderOptions()
+  const providerOptions = await getOrganizerPaymentProviderOptions(eventId)
   return NextResponse.json({
     event,
     providerOptions,
@@ -76,7 +76,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   const attendeeFields = listFrom(body.attendee_fields)
   const paymentProviders = providersFrom(body.payment_providers)
 
-  const providerOptions = await getOrganizerPaymentProviderOptions()
+  const providerOptions = await getOrganizerPaymentProviderOptions(eventId)
   const unavailable = paymentProviders.filter((provider) => {
     const option = providerOptions.find((candidate) => candidate.id === provider)
     return !option?.enabled || !option.operational

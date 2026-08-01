@@ -194,7 +194,8 @@ export async function updateSession(request: NextRequest) {
 
     // Handle gate for app/profile/payment/order/ticket routes
     const requiresHandle = ["/app/", "/profile", "/payments", "/checkout/", "/orders/", "/tickets/"]
-    if (requiresHandle.some((p) => path.startsWith(p))) {
+    const isOrderConfirmation = /^\/orders\/[^/]+\/confirmation$/.test(path)
+    if (!isOrderConfirmation && requiresHandle.some((p) => path.startsWith(p))) {
       if (!(await hasHandle())) {
         return NextResponse.redirect(new URL("/onboarding", request.url))
       }

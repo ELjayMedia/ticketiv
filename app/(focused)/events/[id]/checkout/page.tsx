@@ -11,6 +11,10 @@ import {
   bookingFeeFor,
 } from "@/lib/mappers/checkout";
 import { getEffectivePaymentMethodsForEvent } from "@/lib/payments/availability";
+import {
+  createPaymentChannelUnavailableError,
+  reportPaymentChannelUnavailable,
+} from "@/lib/payments/errors";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -32,7 +36,7 @@ async function fetchCheckoutExtras(eventId: string) {
   const supabase = await createServerSupabaseClient();
   if (!supabase)
     return {
-      ticketTypes: [] as Array<{ id: string; name: string; price_cents: number; remaining: number | null; sales_status: string | null }>,
+      ticketTypes: [] as Array<{ id: string; name: string; price_cents: number; currency: string; remaining: number | null; sales_status: string | null }>,
       plan: null as { platform_fixed_cents: number | null; platform_percent_bps: number | null } | null,
       orgId: null as string | null,
     };
@@ -48,7 +52,7 @@ async function fetchCheckoutExtras(eventId: string) {
   const [ttRes, remainingRes, planRes] = await Promise.all([
     supabase
       .from("ticket_types")
-      .select("id, name, price_cents, quota, sales_status")
+      .select("id, name, price_cents, currency, quota, sales_status")
       .eq("event_id", eventId)
       // Hidden ticket types are organizer-only (comp / employee / unpublished).
       // They should never appear in the public listing or be reachable by URL.
@@ -82,6 +86,7 @@ async function fetchCheckoutExtras(eventId: string) {
       id: t.id,
       name: t.name,
       price_cents: t.price_cents,
+      currency: t.currency,
       sales_status: t.sales_status,
       remaining: remainingMap.get(t.id) ?? null,
     })),
@@ -160,6 +165,11 @@ export default async function CheckoutPage({
   const bookingFee = bookingFeeFor(plan, subtotalForFirst);
 
   if (paymentMethods.length === 0) {
+    const unavailable = createPaymentChannelUnavailableError("no_matching_route", {
+      eventId: row.id,
+      eventSlug: row.slug,
+    });
+    reportPaymentChannelUnavailable(unavailable);
     return (
       <>
         <CheckoutStartTracker
@@ -175,6 +185,7 @@ export default async function CheckoutPage({
             <p className="mt-3 text-[14px] leading-6 text-ink-3">
               Ticket sales for this event are temporarily unavailable because the organizer has not enabled an operational Ticketiv-supported payment method.
             </p>
+            <p className="mt-2 font-mono text-[11px] text-ink-3">Reference: {unavailable.correlationId}</p>
             <div className="mt-5 flex justify-center gap-2">
               <Link href={`/events/${id}`} className="rounded-md border border-line-2 px-4 py-2 text-[13px] font-semibold hover:bg-bg">
                 Back to event
@@ -229,6 +240,7 @@ export default async function CheckoutPage({
             ticketTypeName={firstSellable?.name ?? "General"}
             quantity={1}
             subtotalMinor={subtotalForFirst}
+            currency={firstSellable?.currency}
             bookingFeeMinor={bookingFee}
             vatRate={0.15}
             holdSeconds={holdSeconds}

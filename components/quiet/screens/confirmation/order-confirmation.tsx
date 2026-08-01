@@ -3,6 +3,7 @@ import { Icon, type IconName } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo } from "@/components/quiet/ui/primitives";
 import { formatPrice } from "@/lib/format";
+import type { Currency } from "@/lib/format";
 
 /* ──────────────────────────────────────────────────────────────
  * Order confirmation · `/orders/[orderId]/confirmation`
@@ -30,6 +31,7 @@ interface OrderConfirmationProps {
     ticketTypeName: string;
     quantity: number;
     totalMinor: number;
+    currency: Currency;
     paymentDescription: string;
     receiptEmail: string;
     eventSlug: string | null;
@@ -156,7 +158,7 @@ export function OrderConfirmation({ order }: OrderConfirmationProps) {
                   <div className="flex flex-col">
                     <span className="text-label">Total</span>
                     <span className="mt-0.5 font-mono text-[13px] font-semibold">
-                      {formatPrice(order.totalMinor)}
+                      {formatPrice(order.totalMinor, order.currency)}
                     </span>
                     <span className="font-mono text-[10px] text-ink-3">
                       {order.paymentDescription}

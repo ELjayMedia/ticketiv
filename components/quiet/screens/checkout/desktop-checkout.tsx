@@ -9,6 +9,7 @@ import { Button } from "@/components/quiet/ui/button";
 import { FormField, Stepper } from "@/components/quiet/ui/form";
 import { useRouter } from "next/navigation";
 import { formatPrice, formatHoldTimer } from "@/lib/format";
+import type { Currency } from "@/lib/format";
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
 import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/actions";
 import { describePromoFailure } from "@/lib/checkout/promo-copy";
@@ -41,6 +42,7 @@ interface DesktopCheckoutProps {
   ticketTypeName: string;
   quantity: number;
   subtotalMinor: number;
+  currency?: Currency;
   bookingFeeMinor: number;
   vatRate: number;
   appliedPromo?: { code: string; description: string; savedMinor: number };
@@ -67,6 +69,7 @@ export function DesktopCheckout({
   ticketTypeName,
   quantity,
   subtotalMinor,
+  currency = "SZL",
   bookingFeeMinor,
   vatRate,
   appliedPromo,
@@ -397,7 +400,7 @@ export function DesktopCheckout({
                   </span>
                   <span className="font-mono text-[11px] text-ink-3">
                     {activePromo.description} · saved{" "}
-                    {formatPrice(activePromo.savedMinor)}
+                    {formatPrice(activePromo.savedMinor, currency)}
                   </span>
                 </div>
                 <button
@@ -498,24 +501,24 @@ export function DesktopCheckout({
           <div className="flex flex-col gap-1 py-3">
             <SummaryRow
               label={`${quantity} × ${ticketTypeName}`}
-              value={formatPrice(subtotalMinor)}
+              value={formatPrice(subtotalMinor, currency)}
             />
-            <SummaryRow label="Booking fee" value={formatPrice(bookingFeeMinor)} />
+            <SummaryRow label="Booking fee" value={formatPrice(bookingFeeMinor, currency)} />
             <SummaryRow
               label={`VAT ${Math.round(vatRate * 100)}%`}
-              value={formatPrice(vat)}
+              value={formatPrice(vat, currency)}
             />
             {activePromo && (
               <SummaryRow
                 label={activePromo.code}
-                value={`−${formatPrice(discount)}`}
+                value={`−${formatPrice(discount, currency)}`}
                 accent
               />
             )}
             {validatedPromo && promoDiscount > 0 && (
               <SummaryRow
                 label="Promo"
-                value={`−${formatPrice(promoDiscount)}`}
+                value={`−${formatPrice(promoDiscount, currency)}`}
                 accent
               />
             )}
@@ -526,7 +529,7 @@ export function DesktopCheckout({
           <div className="mt-3 flex items-center">
             <span className="flex-1 text-[14px] font-semibold">Total</span>
             <span className="font-mono text-[20px] font-semibold">
-              {formatPrice(total)}
+              {formatPrice(total, currency)}
             </span>
           </div>
 
