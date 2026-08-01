@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import {
   TICKETIV_PUBLIC_ORIGIN,
   buildTicketivPublicUrl,
+  getTicketivCanonicalRedirect,
   getTicketivPublicOrigin,
   normalizePublicOrigin,
 } from "@/lib/public-url"
@@ -39,11 +40,42 @@ describe("public Ticketiv URLs", () => {
     ).toBe("https://ticketiv.app/auth/callback?next=/reset-password")
   })
 
-  it("keeps local or preview origins when no configured app URL is set", () => {
+  it("keeps local origins but canonicalizes Vercel deployment hosts", () => {
     expect(getTicketivPublicOrigin("http://localhost:3000")).toBe("http://localhost:3000")
     expect(buildTicketivPublicUrl("scan", "https://preview.vercel.app")).toBe(
-      "https://preview.vercel.app/scan",
+      "https://ticketiv.app/scan",
     )
+    expect(
+      buildTicketivPublicUrl(
+        "/auth/callback?next=/reset-password",
+        "https://v0-ticketiv-eljaymedia.vercel.app",
+      ),
+    ).toBe("https://ticketiv.app/auth/callback?next=/reset-password")
+  })
+
+  it("canonicalizes a configured Vercel deployment host", () => {
+    process.env.NEXT_PUBLIC_APP_URL = "https://v0-ticketiv-eljaymedia.vercel.app"
+
+    expect(buildTicketivPublicUrl("/auth/callback?next=/reset-password")).toBe(
+      "https://ticketiv.app/auth/callback?next=/reset-password",
+    )
+  })
+
+  it("redirects stable legacy hosts while preserving paths and branch previews", () => {
+    expect(
+      getTicketivCanonicalRedirect(
+        "https://v0-ticketiv-eljaymedia.vercel.app/forgot-password?from=email",
+      ),
+    ).toBe("https://ticketiv.app/forgot-password?from=email")
+    expect(getTicketivCanonicalRedirect("https://www.ticketiv.app/profile")).toBe(
+      "https://ticketiv.app/profile",
+    )
+    expect(
+      getTicketivCanonicalRedirect(
+        "https://v0-ticketiv-git-agent-tick-354-password-recov-2227a1-eljaymedia.vercel.app/forgot-password",
+      ),
+    ).toBeNull()
+    expect(getTicketivCanonicalRedirect("http://localhost:3000/forgot-password")).toBeNull()
   })
 
   it("prefers a configured public app URL and still canonicalizes ticketiv.com", () => {
