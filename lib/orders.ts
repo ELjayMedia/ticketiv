@@ -67,6 +67,7 @@ type LiveOrder = {
   item_count?: number | null
   platform_fee_cents?: number | null
   processor_fee_cents?: number | null
+  organizer_net_cents?: number | null
   buyer_email?: string | null
   buyer_phone?: string | null
 }
@@ -168,8 +169,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
 
   const subtotalCents = order.subtotal_cents ?? order.total_cents ?? 0
   const platformFeeCents = order.platform_fee_cents ?? 0
-  const processorFeeCents = order.processor_fee_cents ?? 0
-  const totalCents = order.total_cents ?? subtotalCents + platformFeeCents + processorFeeCents
+  const totalCents = order.total_cents ?? subtotalCents
   const itemCount = order.item_count ?? createdItems.length
   const currency = order.currency || "SZL"
 
@@ -178,7 +178,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
     items: createdItems as unknown as OrderItemRecord[],
     pricing: {
       subtotal: centsToMajor(subtotalCents),
-      fees: centsToMajor(platformFeeCents + processorFeeCents),
+      fees: centsToMajor(platformFeeCents),
       total: centsToMajor(totalCents),
       currency,
       lineItems: normalizedItems.map((item) => ({

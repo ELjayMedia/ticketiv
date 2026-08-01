@@ -11,6 +11,7 @@ export interface LedgerOrderInput {
   subtotal_cents?: number | null
   platform_fee_cents?: number | null
   processor_fee_cents?: number | null
+  organizer_net_cents?: number | null
 }
 
 export interface LedgerEntryDraft {
@@ -26,9 +27,10 @@ export interface LedgerEntryDraft {
 /**
  * Build settlement ledger rows for a completed payment.
  *
- * `order_gross` is the amount collected from the buyer (`total_cents`). Fees are
- * stored as negative rows, and `payment_net` is the amount remaining for the
- * organizer after those fees. Invariant:
+ * `order_gross` is the amount collected from the buyer (`total_cents`). The
+ * platform commission is the single organizer-side deduction; processor cost
+ * is absorbed inside that commission and stays on the order for internal
+ * reconciliation. `payment_net` is the organizer's snapshotted net. Invariant:
  *
  *   order_gross + sum(fee) === payment_net
  *
@@ -39,13 +41,11 @@ export interface LedgerEntryDraft {
 export function buildLedgerEntries(order: LedgerOrderInput, paymentId: string): LedgerEntryDraft[] {
   const gross = order.total_cents
   const platformFee = order.platform_fee_cents ?? 0
-  const processorFee = order.processor_fee_cents ?? 0
-  const net = gross - platformFee - processorFee
+  const net = order.organizer_net_cents ?? gross - platformFee
 
   return [
     { org_id: order.org_id, order_id: order.id, payment_id: paymentId, type: "order_gross", amount_cents: gross, currency: order.currency, meta: { source: "payment_completion" } },
     ...(platformFee > 0 ? [{ org_id: order.org_id, order_id: order.id, payment_id: paymentId, type: "fee" as const, amount_cents: -platformFee, currency: order.currency, meta: { fee_type: "platform" } }] : []),
-    ...(processorFee > 0 ? [{ org_id: order.org_id, order_id: order.id, payment_id: paymentId, type: "fee" as const, amount_cents: -processorFee, currency: order.currency, meta: { fee_type: "processor" } }] : []),
     { org_id: order.org_id, order_id: order.id, payment_id: paymentId, type: "payment_net", amount_cents: net, currency: order.currency, meta: { source: "payment_completion" } },
   ]
 }
