@@ -1,7 +1,18 @@
 export const TICKETIV_PUBLIC_ORIGIN = "https://ticketiv.app"
 export const TICKETIV_PUBLIC_HOST = "ticketiv.app"
 
-const LEGACY_TICKETIV_HOSTS = new Set(["ticketiv.com", "www.ticketiv.com"])
+const NON_CANONICAL_TICKETIV_HOSTS = new Set([
+  "ticketiv.com",
+  "www.ticketiv.com",
+  "www.ticketiv.app",
+  "v0-ticketiv.vercel.app",
+  "v0-ticketiv-eljaymedia.vercel.app",
+  "v0-ticketiv-git-main-eljaymedia.vercel.app",
+])
+
+function isVercelDeploymentHost(hostname: string): boolean {
+  return hostname === "vercel.app" || hostname.endsWith(".vercel.app")
+}
 
 export function normalizePublicOrigin(value: string | null | undefined): string | null {
   const trimmed = value?.trim()
@@ -12,8 +23,23 @@ export function normalizePublicOrigin(value: string | null | undefined): string 
   try {
     const url = new URL(candidate)
     if (url.protocol !== "https:" && url.protocol !== "http:") return null
-    if (LEGACY_TICKETIV_HOSTS.has(url.hostname)) return TICKETIV_PUBLIC_ORIGIN
+    if (NON_CANONICAL_TICKETIV_HOSTS.has(url.hostname) || isVercelDeploymentHost(url.hostname)) {
+      return TICKETIV_PUBLIC_ORIGIN
+    }
     return url.origin
+  } catch {
+    return null
+  }
+}
+
+export function getTicketivCanonicalRedirect(value: string): string | null {
+  try {
+    const url = new URL(value)
+    if (!NON_CANONICAL_TICKETIV_HOSTS.has(url.hostname)) return null
+
+    url.protocol = "https:"
+    url.host = TICKETIV_PUBLIC_HOST
+    return url.toString()
   } catch {
     return null
   }
