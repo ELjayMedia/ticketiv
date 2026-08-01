@@ -1,6 +1,7 @@
 import { unstable_noStore as noStore } from "next/cache"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { isUserAdmin } from "@/lib/data/admin"
+import { isExpectedSignedOutAuthError } from "@/lib/supabase/auth-errors"
 
 export interface UserProfile {
   id: string
@@ -76,7 +77,9 @@ export async function getCurrentUserProfile(): Promise<UserSession | null> {
     } = await supabase.auth.getUser()
 
     if (userError) {
-      console.error("[auth] getUser error:", userError)
+      if (!isExpectedSignedOutAuthError(userError)) {
+        console.error("[auth] getUser error:", userError)
+      }
       return null
     }
 
@@ -110,6 +113,8 @@ export async function getCurrentUserProfile(): Promise<UserSession | null> {
       },
     }
   } catch (error: any) {
+    if (isExpectedSignedOutAuthError(error)) return null
+
     // During static prerender Next.js throws DYNAMIC_SERVER_USAGE when cookies()
     // is accessed.  Treat that as "no authenticated user" so the build succeeds.
     if (error?.digest === "DYNAMIC_SERVER_USAGE") return null
