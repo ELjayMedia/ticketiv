@@ -19,8 +19,9 @@ export interface CheckoutIdentity {
   isAnonymous: boolean
 }
 
-export async function ensureCheckoutIdentity(): Promise<CheckoutIdentity | null> {
-  const supabase = createServerSupabaseClient()
+export async function ensureCheckoutIdentity(
+  supabase = createServerSupabaseClient(),
+): Promise<CheckoutIdentity | null> {
   if (!supabase) return null
 
   const {
