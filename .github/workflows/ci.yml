@@ -41,6 +41,7 @@ jobs:
       # straight to the database without a migration (TICK-337).
       - name: Run release verification
         env:
+          NODE_OPTIONS: --max-old-space-size=4096
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: pnpm check:release
