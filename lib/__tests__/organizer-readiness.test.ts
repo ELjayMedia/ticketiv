@@ -12,7 +12,8 @@ describe("organizer readiness setup steps", () => {
       orgId: "org-1",
       hasProfile: true,
       hasPayoutAccount: true,
-      hasEvent: true,
+      hasAnyEvent: true,
+      hasPublishedEvent: true,
       hasDevice: false,
       hasTeam: true,
     })
@@ -35,7 +36,8 @@ describe("organizer readiness setup steps", () => {
       orgId: "org-1",
       hasProfile: true,
       hasPayoutAccount: true,
-      hasEvent: true,
+      hasAnyEvent: true,
+      hasPublishedEvent: true,
       hasDevice: true,
       hasTeam: true,
     })
@@ -49,7 +51,8 @@ describe("organizer readiness setup steps", () => {
       orgId: "org-1",
       hasProfile: false,
       hasPayoutAccount: false,
-      hasEvent: false,
+      hasAnyEvent: false,
+      hasPublishedEvent: false,
       hasDevice: false,
       hasTeam: false,
     })
@@ -62,6 +65,25 @@ describe("organizer readiness setup steps", () => {
       id: "event",
       title: "Create your first event",
       href: "/orgs/org-1/events/new",
+    })
+  })
+
+  it("keeps a draft-only organizer on the event list until an event is published", () => {
+    const steps = buildOrganizerSetupSteps({
+      orgId: "org-1",
+      hasProfile: true,
+      hasPayoutAccount: true,
+      hasAnyEvent: true,
+      hasPublishedEvent: false,
+      hasDevice: true,
+      hasTeam: true,
+    })
+
+    expect(getNextOrganizerSetupStep(steps)).toMatchObject({
+      id: "event",
+      title: "Publish your first event",
+      href: "/orgs/org-1/events",
+      done: false,
     })
   })
 })
