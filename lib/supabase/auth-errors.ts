@@ -13,7 +13,11 @@ export function isStaleSupabaseRefreshTokenError(error: unknown): boolean {
   const code = stringValue(authError.code).toLowerCase()
   const message = stringValue(authError.message).toLowerCase()
 
-  return code === "refresh_token_not_found" || message.includes("invalid refresh token")
+  return (
+    code === "refresh_token_not_found" ||
+    message.includes("invalid refresh token") ||
+    message.includes("refresh token is not valid")
+  )
 }
 
 export function isExpectedSignedOutAuthError(error: unknown): boolean {

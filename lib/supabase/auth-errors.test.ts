@@ -20,6 +20,12 @@ describe("Supabase auth error classification", () => {
         message: "Invalid Refresh Token: Refresh Token Not Found",
       }),
     ).toBe(true)
+    expect(
+      isStaleSupabaseRefreshTokenError({
+        code: "validation_failed",
+        message: "Refresh token is not valid",
+      }),
+    ).toBe(true)
   })
 
   it("does not hide unexpected authentication failures", () => {
