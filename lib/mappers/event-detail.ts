@@ -6,6 +6,7 @@
  */
 
 import { PHOTOS } from "@/lib/photos";
+import { asCurrency } from "@/lib/currency";
 import { formatEventDate, formatTimeRange } from "@/lib/format";
 import { formatRefundWindow, resolveRefundPolicy } from "@/lib/refund-policy";
 import type { EventPublicView } from "@/lib/schemas/views";
@@ -112,6 +113,7 @@ export function mapEventDetail(row: EventPublicView, input: MapInput = {}): Mobi
       photo: row.organizer_logo_url ?? PHOTOS.face_6,
     },
     goingFriends: mapFriends(input.friends),
+    currency: asCurrency(row.currency),
     fromPriceMinor: row.min_price_cents ?? null,
     ticketTypes: (input.ticketTypes ?? []).map((t) => ({
       id: t.id,

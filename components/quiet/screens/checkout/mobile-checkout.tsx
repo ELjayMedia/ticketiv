@@ -12,6 +12,7 @@ import {
 import { Modal, ModalContent, ModalFooter } from "@/components/quiet/ui/modal";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatPrice, formatHoldTimer, formatScarcityLabel } from "@/lib/format";
+import type { Currency } from "@/lib/format";
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
 import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/actions";
 import { describePromoFailure } from "@/lib/checkout/promo-copy";
@@ -43,6 +44,7 @@ export interface MobileCheckoutProps {
     id: string;
     name: string;
     priceMinor: number;
+    currency?: Currency;
     remaining: number | null;
     sublabel?: string;
   }>;
@@ -239,6 +241,7 @@ export function MobileCheckout({
   }, [holdRemaining]);
 
   const selectedTicket = ticketTypes.find((t) => t.id === ticketTypeId);
+  const currency = selectedTicket?.currency ?? ticketTypes[0]?.currency ?? "SZL";
   const subtotal = (selectedTicket?.priceMinor ?? 0) * quantity;
   const fee = bookingFeeMinor;
   const vat = Math.round(subtotal * vatRate);
@@ -321,7 +324,7 @@ export function MobileCheckout({
                         (soldOut ? "line-through" : "")
                       }
                     >
-                      {formatPrice(t.priceMinor)}
+                      {formatPrice(t.priceMinor, t.currency ?? currency)}
                     </span>
                   }
                 />
@@ -401,7 +404,7 @@ export function MobileCheckout({
                 </span>
                 <span className="font-mono text-[11px] text-ink-3">
                   {activePromo.description} · saved{" "}
-                  {formatPrice(activePromo.savedMinor)}
+                  {formatPrice(activePromo.savedMinor, currency)}
                 </span>
               </div>
               <button
@@ -524,20 +527,20 @@ export function MobileCheckout({
         {/* Summary */}
         <section className="px-5 pb-4">
           <Card className="bg-bg p-3.5" flat>
-            <SummaryRow label={`${quantity} × ${selectedTicket?.name ?? "—"}`} value={formatPrice(subtotal)} />
-            <SummaryRow label="Booking fee" value={formatPrice(fee)} />
-            <SummaryRow label={`VAT ${Math.round(vatRate * 100)}%`} value={formatPrice(vat)} />
+            <SummaryRow label={`${quantity} × ${selectedTicket?.name ?? "—"}`} value={formatPrice(subtotal, currency)} />
+            <SummaryRow label="Booking fee" value={formatPrice(fee, currency)} />
+            <SummaryRow label={`VAT ${Math.round(vatRate * 100)}%`} value={formatPrice(vat, currency)} />
             {activePromo && (
               <SummaryRow
                 label={activePromo.code}
-                value={`−${formatPrice(discount)}`}
+                value={`−${formatPrice(discount, currency)}`}
                 accent
               />
             )}
             {validatedPromo && promoDiscount > 0 && (
               <SummaryRow
                 label="Promo"
-                value={`−${formatPrice(promoDiscount)}`}
+                value={`−${formatPrice(promoDiscount, currency)}`}
                 accent
               />
             )}
@@ -545,7 +548,7 @@ export function MobileCheckout({
             <div className="flex items-center">
               <span className="flex-1 text-[14px] font-semibold">Total</span>
               <span className="font-mono text-[16px] font-semibold">
-                {formatPrice(total)}
+                {formatPrice(total, currency)}
               </span>
             </div>
           </Card>
@@ -612,7 +615,7 @@ export function MobileCheckout({
         <div className="flex flex-col">
           <span className="text-label">Total</span>
           <span className="font-mono text-[18px] font-semibold leading-none">
-            {formatPrice(total)}
+            {formatPrice(total, currency)}
           </span>
         </div>
         <button
@@ -621,7 +624,7 @@ export function MobileCheckout({
           disabled={!accepted || holdRemaining <= 0 || submitting || !buyerEmail.trim()}
           className="flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {submitting ? "Starting payment…" : `Pay ${formatPrice(total)}`}
+          {submitting ? "Starting payment…" : `Pay ${formatPrice(total, currency)}`}
           {!submitting && <Icon name="arrowR" size={16} />}
         </button>
       </div>

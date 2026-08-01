@@ -5,6 +5,11 @@ import * as Sentry from "@sentry/nextjs"
 
 import { APP_URL } from "@/lib/env"
 import { notifyPaymentFailed } from "@/lib/notifications"
+import { assertPaymentProviderAvailableForOrder } from "@/lib/payments/availability"
+import {
+  createPaymentChannelUnavailableError,
+  reportPaymentChannelUnavailable,
+} from "@/lib/payments/errors"
 import { drainPaymentOutbox } from "@/lib/payments/outbox"
 import { getPaystackSettings } from "@/lib/payments/paystack-config"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -30,6 +35,8 @@ type PaystackInitializeResponse = {
   status: boolean
   message: string
   data?: { authorization_url: string; access_code: string; reference: string }
+  code?: string
+  type?: string
 }
 
 export interface CreatePaymentAttemptInput {
@@ -84,29 +91,67 @@ function getBuyerEmail(order: LiveOrder) {
 
 async function initializePaystackTransaction(order: LiveOrder, reference: string, returnUrl?: string | null) {
   const settings = await getPaystackSettings()
-  if (!settings.secretKey) throw new Error("Missing Paystack secret key")
+  if (!settings.secretKey) {
+    const error = createPaymentChannelUnavailableError("missing_configuration", {
+      provider: "paystack",
+      orderId: order.id,
+      currency: order.currency,
+      missing: "secret_key",
+    })
+    reportPaymentChannelUnavailable(error)
+    throw error
+  }
   // The buyer is sent here by Paystack after the hosted page. The webhook
   // is what actually moves the order to "paid"; this URL just lands them
   // on the confirmation page which polls until the webhook completes.
   const callbackUrl = returnUrl ?? settings.callbackUrl ?? `${APP_URL}/orders/${order.id}/confirmation`
 
-  const response = await fetch("https://api.paystack.co/transaction/initialize", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${settings.secretKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email: getBuyerEmail(order),
-      amount: order.total_cents,
+  let response: Response
+  try {
+    response = await fetch("https://api.paystack.co/transaction/initialize", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${settings.secretKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: getBuyerEmail(order),
+        amount: order.total_cents,
+        currency: order.currency,
+        reference,
+        callback_url: callbackUrl,
+        metadata: { order_id: order.id, org_id: order.org_id, buyer_id: order.buyer_id },
+      }),
+    })
+  } catch {
+    const error = createPaymentChannelUnavailableError("provider_rejected_initialization", {
+      provider: "paystack",
+      orderId: order.id,
       currency: order.currency,
-      reference,
-      callback_url: callbackUrl,
-      metadata: { order_id: order.id, org_id: order.org_id, buyer_id: order.buyer_id },
-    }),
-  })
+      providerMessage: "Provider request failed",
+    })
+    reportPaymentChannelUnavailable(error)
+    throw error
+  }
 
-  const payload = (await response.json()) as PaystackInitializeResponse
+  const payload = (await response.json().catch(() => ({
+    status: false,
+    message: "Provider returned an invalid response",
+  }))) as PaystackInitializeResponse
   if (!response.ok || !payload.status || !payload.data?.authorization_url) {
-    console.error("Paystack initialization failed", payload)
-    throw new Error(payload.message || "Unable to initialize Paystack payment")
+    const error = createPaymentChannelUnavailableError("provider_rejected_initialization", {
+      provider: "paystack",
+      orderId: order.id,
+      currency: order.currency,
+      httpStatus: response.status,
+      providerCode: payload.code ?? null,
+      providerType: payload.type ?? null,
+      providerMessage: payload.message || "Unable to initialize Paystack payment",
+    })
+    reportPaymentChannelUnavailable(error)
+    Sentry.captureMessage("Payment provider rejected initialization", {
+      level: "error",
+      tags: { area: "payment-initialization", provider: "paystack" },
+      extra: { correlationId: error.correlationId, orderId: order.id, currency: order.currency },
+    })
+    throw error
   }
 
   return payload.data
@@ -144,7 +189,7 @@ export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
   const { supabase, order } = await getPendingOrder(input.orderId, input.userId)
   // Provider selection runs through payment_routing_rules, constrained by any
   // event-level lock: an explicit, known, *permitted* client choice wins;
-  // otherwise the rules (then the lock / paystack) decide.
+  // otherwise the active rules decide.
   const allowedProviders = await getOrderAllowedProviders(order.id)
   const provider = await resolvePaymentProvider({
     currency: order.currency,
@@ -153,6 +198,7 @@ export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
     allowedProviders,
   })
   assertProvider(provider)
+  await assertPaymentProviderAvailableForOrder(order.id, provider)
   const { count, error: countError } = await supabase.from("payment_attempts").select("id", { count: "exact", head: true }).eq("order_id", order.id)
 
   if (countError) {

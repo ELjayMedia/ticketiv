@@ -133,6 +133,10 @@ export async function completeTrustedPaystackWebhook(payload: WebhookPayload) {
   }
 
   const amount = Number(data.amount ?? 0)
+  const currency = String(data.currency ?? "").toUpperCase()
+  if (currency !== order.currency.toUpperCase()) {
+    throw new Error(`Paystack currency ${currency || "missing"} does not match order currency ${order.currency}`)
+  }
   const outcome = evaluatePaystackWebhookOutcome({
     status,
     orderStatus: order.status,

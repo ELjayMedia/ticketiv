@@ -19,6 +19,7 @@ import {
   formatLineupLabel,
   formatScarcityLabel,
 } from "@/lib/format";
+import type { Currency } from "@/lib/format";
 import { ExpandableText } from "./expandable-text";
 
 export interface MobileEventProps {
@@ -39,6 +40,7 @@ export interface MobileEventData {
   lineup: ReadonlyArray<{ name: string; role: string; photo: string; headliner?: boolean }>;
   organizer: { name: string; handle: string; eventsHosted: number; rating: number; verified: boolean; photo: string };
   goingFriends: { count: number; names: string[]; photos: string[] };
+  currency?: Currency;
   fromPriceMinor: number | null;
   ticketTypes?: ReadonlyArray<{ id: string; name: string; priceMinor: number; remaining: number | null }>;
   attendeeCount?: number | null;
@@ -239,7 +241,7 @@ export function MobileEvent({ event }: MobileEventProps) {
                         {scarcity && <span className="mt-0.5 font-mono text-[10px] font-semibold uppercase text-accent">{scarcity}</span>}
                         {soldOut && <span className="mt-0.5 font-mono text-[10px] font-semibold uppercase text-ink-3">Sold out</span>}
                       </div>
-                      <span className={"font-mono text-[14px] font-semibold " + (soldOut ? "line-through" : "")}>{formatPrice(t.priceMinor)}</span>
+                      <span className={"font-mono text-[14px] font-semibold " + (soldOut ? "line-through" : "")}>{formatPrice(t.priceMinor, event.currency ?? "SZL")}</span>
                     </button>
                   </li>
                 );
@@ -305,7 +307,7 @@ export function MobileEvent({ event }: MobileEventProps) {
         </div>
       ) : (
         <div className="sticky bottom-0 flex items-center gap-3 border-t border-line bg-surface px-5 py-3.5 pb-7">
-          <div className="flex flex-col"><span className="text-label">From</span><span className="font-mono text-[20px] font-semibold leading-none">{formatPrice(event.fromPriceMinor)}</span></div>
+          <div className="flex flex-col"><span className="text-label">From</span><span className="font-mono text-[20px] font-semibold leading-none">{formatPrice(event.fromPriceMinor, event.currency ?? "SZL")}</span></div>
           <form action={createSeatHoldAction} className="flex flex-1">
             <input type="hidden" name="eventSlug" value={event.id} />
             <input type="hidden" name="quantity" value="1" />

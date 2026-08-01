@@ -9,6 +9,10 @@ import {
   getEffectivePaymentProvidersForEvent,
   type CheckoutPaymentProvider,
 } from "@/lib/payments/availability"
+import {
+  createPaymentChannelUnavailableError,
+  reportPaymentChannelUnavailable,
+} from "@/lib/payments/errors"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { ensureCheckoutIdentity } from "@/lib/auth/checkout-identity"
@@ -67,10 +71,14 @@ export async function startCheckoutAction(input: StartCheckoutInput): Promise<St
     const effectiveProviders = await getEffectivePaymentProvidersForEvent(input.eventId)
 
     if (effectiveProviders.length === 0) {
+      const unavailable = createPaymentChannelUnavailableError("no_matching_route", {
+        eventId: input.eventId,
+        requestedProvider: input.provider ?? cookieProvider,
+      })
+      reportPaymentChannelUnavailable(unavailable)
       return {
         ok: false,
-        error:
-          "Checkout is unavailable because this event has no active payment method. Please contact the organizer.",
+        error: unavailable.message,
       }
     }
 

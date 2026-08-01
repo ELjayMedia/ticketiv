@@ -1,6 +1,8 @@
 import "server-only"
 
 import {
+  filterProvidersByCurrencies,
+  providerSupportsCurrencies,
   resolveEffectivePaymentProviders,
   type CheckoutPaymentProvider,
 } from "@/lib/payments/availability-core"
@@ -67,8 +69,28 @@ async function getProviderSettingMap() {
   return new Map((data ?? []).map((row) => [String(row.provider), Boolean(row.is_enabled)]))
 }
 
-export async function getOrganizerPaymentProviderOptions(): Promise<OrganizerPaymentProviderOption[]> {
+async function getEventCurrencies(eventId: string): Promise<string[] | null> {
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from("ticket_types")
+    .select("currency")
+    .eq("event_id", eventId)
+
+  if (error) {
+    console.error("[payments] Failed to load event currencies", { eventId, code: error.code })
+    return null
+  }
+
+  return [...new Set((data ?? []).map((row) => String(row.currency ?? "").trim().toUpperCase()).filter(Boolean))]
+}
+
+export async function getOrganizerPaymentProviderOptions(
+  eventId?: string,
+): Promise<OrganizerPaymentProviderOption[]> {
   const settings = await getProviderSettingMap()
+  const currencies = eventId ? await getEventCurrencies(eventId) : []
+  const currencyStateAvailable = currencies !== null
+  const eventCurrencies = currencies ?? []
 
   let paystackHasCredentials = false
   try {
@@ -83,15 +105,22 @@ export async function getOrganizerPaymentProviderOptions(): Promise<OrganizerPay
     : paystackHasCredentials
   const momoEnabled = settings.has("momo") ? settings.get("momo") === true : true
   const momoHasCredentials = isMomoOperational()
+  const paystackSupportsEvent = currencyStateAvailable && providerSupportsCurrencies("paystack", eventCurrencies)
+  const momoSupportsEvent = currencyStateAvailable && providerSupportsCurrencies("momo", eventCurrencies)
+  const currencyLabel = eventCurrencies.join(", ")
 
   return [
     {
       ...methodFor("paystack"),
       enabled: paystackEnabled,
-      operational: paystackEnabled && paystackHasCredentials,
+      operational: paystackEnabled && paystackHasCredentials && paystackSupportsEvent,
       warning:
         paystackEnabled && !paystackHasCredentials
           ? "Paystack is enabled but its production credentials are incomplete."
+          : !currencyStateAvailable
+            ? "Ticketiv could not verify this event's currency, so Paystack is unavailable."
+          : paystackEnabled && !paystackSupportsEvent
+            ? `Paystack does not support this event's ${currencyLabel} currency. Use ZAR pricing or another operational method.`
           : !paystackEnabled
             ? "Paystack is disabled by Ticketiv platform administration."
             : null,
@@ -99,10 +128,14 @@ export async function getOrganizerPaymentProviderOptions(): Promise<OrganizerPay
     {
       ...methodFor("momo"),
       enabled: momoEnabled,
-      operational: momoEnabled && momoHasCredentials,
+      operational: momoEnabled && momoHasCredentials && momoSupportsEvent,
       warning:
         momoEnabled && !momoHasCredentials
           ? "MTN MoMo is enabled but its Collections credentials are incomplete."
+          : !currencyStateAvailable
+            ? "Ticketiv could not verify this event's currency, so MTN MoMo is unavailable."
+          : momoEnabled && !momoSupportsEvent
+            ? `MTN MoMo does not support this event's ${currencyLabel} currency.`
           : !momoEnabled
             ? "MTN MoMo is disabled by Ticketiv platform administration."
             : null,
@@ -110,9 +143,14 @@ export async function getOrganizerPaymentProviderOptions(): Promise<OrganizerPay
   ]
 }
 
-export async function getOperationalPaymentProviders(): Promise<CheckoutPaymentProvider[]> {
+export async function getOperationalPaymentProviders(
+  currencies: string[] = [],
+): Promise<CheckoutPaymentProvider[]> {
   const options = await getOrganizerPaymentProviderOptions()
-  return options.filter((option) => option.enabled && option.operational).map((option) => option.id)
+  const operational = options
+    .filter((option) => option.enabled && option.operational)
+    .map((option) => option.id)
+  return filterProvidersByCurrencies(operational, currencies)
 }
 
 export async function getEffectivePaymentProvidersForEvent(
@@ -131,7 +169,9 @@ export async function getEffectivePaymentProvidersForEvent(
   }
   if (!event) return []
 
-  const operational = await getOperationalPaymentProviders()
+  const currencies = await getEventCurrencies(eventId)
+  if (currencies === null) return []
+  const operational = await getOperationalPaymentProviders(currencies)
   const eventList = Array.isArray(event.payment_providers)
     ? event.payment_providers.map(String)
     : []
@@ -173,7 +213,7 @@ export async function assertPaymentProviderAvailableForOrder(
   const admin = createAdminClient()
   const { data, error } = await admin
     .from("order_items")
-    .select("ticket_types(events(id, payment_providers))")
+    .select("ticket_types(currency, events(id, payment_providers))")
     .eq("order_id", orderId)
 
   if (error) {
@@ -182,6 +222,7 @@ export async function assertPaymentProviderAvailableForOrder(
   }
 
   const eventLists = new Map<string, string[]>()
+  const currencies: string[] = []
   for (const row of (data ?? []) as any[]) {
     const event = row?.ticket_types?.events
     if (!event?.id) continue
@@ -189,13 +230,14 @@ export async function assertPaymentProviderAvailableForOrder(
       String(event.id),
       Array.isArray(event.payment_providers) ? event.payment_providers.map(String) : [],
     )
+    if (row?.ticket_types?.currency) currencies.push(String(row.ticket_types.currency))
   }
 
   if (eventLists.size === 0) {
     throw new Error("Unable to verify this payment method right now.")
   }
 
-  const operational = await getOperationalPaymentProviders()
+  const operational = await getOperationalPaymentProviders(currencies)
   const effective = resolveEffectivePaymentProviders(operational, [...eventLists.values()])
 
   if (!effective.includes(requested)) {
