@@ -67,7 +67,7 @@ export default async function OrderDetailPage({
   const { data: order } = await supabase
     .from("orders")
     .select(
-      "id, status, total_cents, currency, email, buyer_email, buyer_phone, buyer_id, channel, created_at, item_count, subtotal_cents, platform_fee_cents, processor_fee_cents, org_id",
+      "id, status, total_cents, currency, email, buyer_email, buyer_phone, buyer_id, channel, created_at, item_count, subtotal_cents, platform_fee_cents, processor_fee_cents, organizer_net_cents, org_id",
     )
     .eq("id", orderId)
     .eq("org_id", orgId)
@@ -173,9 +173,10 @@ export default async function OrderDetailPage({
             <Summary label="Ordered" value={fmtDate(order.created_at)} />
             <Summary label="Order reference" value={order.id} mono />
             <Summary label="Total" value={`${order.currency ?? "SZL"} ${((order.total_cents ?? 0) / 100).toFixed(2)}`} mono />
+            <Summary label="Platform fee" value={`${order.currency ?? "SZL"} ${((order.platform_fee_cents ?? 0) / 100).toFixed(2)}`} mono />
             <Summary
-              label="Fees"
-              value={`Platform ${((order.platform_fee_cents ?? 0) / 100).toFixed(2)} · Processor ${((order.processor_fee_cents ?? 0) / 100).toFixed(2)}`}
+              label="Organizer net"
+              value={`${order.currency ?? "SZL"} ${((order.organizer_net_cents ?? (order.total_cents ?? 0) - (order.platform_fee_cents ?? 0)) / 100).toFixed(2)}`}
               mono
             />
           </CardBody>

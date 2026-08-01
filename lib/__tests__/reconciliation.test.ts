@@ -25,6 +25,7 @@ function baseInput(overrides: Partial<EventReconciliationInput> = {}): EventReco
         subtotalCents: 10000,
         platformFeeCents: 700,
         processorFeeCents: 300,
+        organizerNetCents: 9300,
         currency: "SZL",
       },
     ],
@@ -35,8 +36,7 @@ function baseInput(overrides: Partial<EventReconciliationInput> = {}): EventReco
     ledgerEntries: [
       { orderId: "ord_1", type: "order_gross", amountCents: 10000, currency: "SZL" },
       { orderId: "ord_1", type: "fee", amountCents: -700, currency: "SZL" },
-      { orderId: "ord_1", type: "fee", amountCents: -300, currency: "SZL" },
-      { orderId: "ord_1", type: "payment_net", amountCents: 9000, currency: "SZL" },
+      { orderId: "ord_1", type: "payment_net", amountCents: 9300, currency: "SZL" },
     ],
     payments: [{ id: "pay_1", orderId: "ord_1", status: "succeeded", amountCents: 10000 }],
     paymentAttempts: [{ id: "att_1", orderId: "ord_1", status: "succeeded", paymentId: "pay_1" }],
@@ -50,19 +50,18 @@ describe("buildEventReconciliation", () => {
 
     expect(result.status).toBe("ok")
     expect(result.expectedGrossCents).toBe(10000)
-    expect(result.expectedFeeCents).toBe(1000)
-    expect(result.expectedNetCents).toBe(9000)
+    expect(result.expectedFeeCents).toBe(700)
+    expect(result.expectedNetCents).toBe(9300)
     expect(result.paidTicketCount).toBe(2)
   })
 
   it("reconciles buyer-paid fees where total exceeds subtotal", () => {
-    // Live pricing config: fees are added on top of the ticket subtotal, so
-    // total (10950) > subtotal (10000). The settlement ledger records
-    // order_gross = total, negative fees and payment_net = total - fees.
+    // Buyer-paid commission is added on top of the ticket subtotal. Processor
+    // cost remains inside that commission and does not reduce organizer net.
     const result = buildEventReconciliation(baseInput({
       stats: {
         ticketsSold: 1,
-        grossSalesCents: 10950,
+        grossSalesCents: 10750,
         successfulPayments: 1,
         failedPayments: 0,
         checkedInCount: 0,
@@ -72,10 +71,11 @@ describe("buildEventReconciliation", () => {
         {
           id: "ord_1",
           status: "paid",
-          totalCents: 10950,
+          totalCents: 10750,
           subtotalCents: 10000,
           platformFeeCents: 750,
-          processorFeeCents: 200,
+          processorFeeCents: 215,
+          organizerNetCents: 10000,
           currency: "SZL",
         },
       ],
@@ -83,17 +83,16 @@ describe("buildEventReconciliation", () => {
         { id: "item_1", orderId: "ord_1", status: "issued", refundedAt: null, revokedAt: null },
       ],
       ledgerEntries: [
-        { orderId: "ord_1", type: "order_gross", amountCents: 10950, currency: "SZL" },
+        { orderId: "ord_1", type: "order_gross", amountCents: 10750, currency: "SZL" },
         { orderId: "ord_1", type: "fee", amountCents: -750, currency: "SZL" },
-        { orderId: "ord_1", type: "fee", amountCents: -200, currency: "SZL" },
         { orderId: "ord_1", type: "payment_net", amountCents: 10000, currency: "SZL" },
       ],
-      payments: [{ id: "pay_1", orderId: "ord_1", status: "succeeded", amountCents: 10950 }],
+      payments: [{ id: "pay_1", orderId: "ord_1", status: "succeeded", amountCents: 10750 }],
     }))
 
     expect(result.status).toBe("ok")
-    expect(result.expectedGrossCents).toBe(10950)
-    expect(result.expectedFeeCents).toBe(950)
+    expect(result.expectedGrossCents).toBe(10750)
+    expect(result.expectedFeeCents).toBe(750)
     expect(result.expectedNetCents).toBe(10000)
     expect(result.checks.find((check) => check.key === "ledger")?.status).toBe("ok")
   })
@@ -110,8 +109,8 @@ describe("buildEventReconciliation", () => {
       },
       ledgerEntries: [
         { orderId: "ord_1", type: "order_gross", amountCents: 10000, currency: "SZL" },
-        { orderId: "ord_1", type: "fee", amountCents: -700, currency: "SZL" },
-        { orderId: "ord_1", type: "payment_net", amountCents: 9300, currency: "SZL" },
+        { orderId: "ord_1", type: "fee", amountCents: -650, currency: "SZL" },
+        { orderId: "ord_1", type: "payment_net", amountCents: 9350, currency: "SZL" },
       ],
     }))
 
@@ -140,8 +139,8 @@ describe("buildEventReconciliation", () => {
       ...buildEventReconciliation(baseInput({
         ledgerEntries: [
           { orderId: "ord_1", type: "order_gross", amountCents: 10000, currency: "SZL" },
-          { orderId: "ord_1", type: "fee", amountCents: -700, currency: "SZL" },
-          { orderId: "ord_1", type: "payment_net", amountCents: 9300, currency: "SZL" },
+          { orderId: "ord_1", type: "fee", amountCents: -650, currency: "SZL" },
+          { orderId: "ord_1", type: "payment_net", amountCents: 9350, currency: "SZL" },
         ],
       })),
       title: "Blocked launch night",

@@ -3233,6 +3233,7 @@ export type Database = {
           id: string
           item_count: number | null
           order_currency: string | null
+          organizer_net_cents: number | null
           order_platform_fee_cents: number | null
           order_price_cents: number | null
           order_processor_fee_cents: number | null
@@ -3264,6 +3265,7 @@ export type Database = {
           id?: string
           item_count?: number | null
           order_currency?: string | null
+          organizer_net_cents?: number | null
           order_platform_fee_cents?: number | null
           order_price_cents?: number | null
           order_processor_fee_cents?: number | null
@@ -3295,6 +3297,7 @@ export type Database = {
           id?: string
           item_count?: number | null
           order_currency?: string | null
+          organizer_net_cents?: number | null
           order_platform_fee_cents?: number | null
           order_price_cents?: number | null
           order_processor_fee_cents?: number | null

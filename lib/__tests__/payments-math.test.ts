@@ -16,22 +16,23 @@ function order(overrides: Partial<LedgerOrderInput> = {}): LedgerOrderInput {
     subtotal_cents: 9000,
     platform_fee_cents: 650,
     processor_fee_cents: 350,
+    organizer_net_cents: 9350,
     ...overrides,
   }
 }
 
 describe("buildLedgerEntries", () => {
-  it("emits buyer gross, both fees (negative), and organizer net", () => {
+  it("deducts one platform commission and keeps processor cost internal", () => {
     const entries = buildLedgerEntries(order(), "pay_1")
     const byType = (t: string) => entries.filter((e) => e.type === t)
 
     expect(byType("order_gross")).toHaveLength(1)
-    expect(byType("fee")).toHaveLength(2)
+    expect(byType("fee")).toHaveLength(1)
     expect(byType("payment_net")).toHaveLength(1)
 
     expect(byType("order_gross")[0].amount_cents).toBe(10000)
-    expect(byType("fee").map((e) => e.amount_cents).sort((a, b) => a - b)).toEqual([-650, -350].sort((a, b) => a - b))
-    expect(byType("payment_net")[0].amount_cents).toBe(9000)
+    expect(byType("fee")[0]).toMatchObject({ amount_cents: -650, meta: { fee_type: "platform" } })
+    expect(byType("payment_net")[0].amount_cents).toBe(9350)
   })
 
   it("preserves the ledger invariant when total differs from subtotal", () => {
@@ -43,7 +44,7 @@ describe("buildLedgerEntries", () => {
   })
 
   it("omits fee rows when there are no fees", () => {
-    const entries = buildLedgerEntries(order({ platform_fee_cents: 0, processor_fee_cents: 0 }), "pay_1")
+    const entries = buildLedgerEntries(order({ platform_fee_cents: 0, processor_fee_cents: 0, organizer_net_cents: 10000 }), "pay_1")
     expect(entries.filter((e) => e.type === "fee")).toHaveLength(0)
     expect(entries).toHaveLength(2)
     expect(entries.find((e) => e.type === "order_gross")?.amount_cents).toBe(10000)
@@ -51,9 +52,24 @@ describe("buildLedgerEntries", () => {
   })
 
   it("uses total_cents even when subtotal metadata is null", () => {
-    const entries = buildLedgerEntries(order({ subtotal_cents: null, platform_fee_cents: null, processor_fee_cents: null, total_cents: 5000 }), "pay_1")
+    const entries = buildLedgerEntries(order({ subtotal_cents: null, platform_fee_cents: null, processor_fee_cents: null, organizer_net_cents: null, total_cents: 5000 }), "pay_1")
     expect(entries.find((e) => e.type === "order_gross")?.amount_cents).toBe(5000)
     expect(entries.find((e) => e.type === "payment_net")?.amount_cents).toBe(5000)
+  })
+
+  it("uses the snapshotted organizer net instead of deducting processor cost twice", () => {
+    const entries = buildLedgerEntries(order({
+      total_cents: 3500,
+      platform_fee_cents: 228,
+      processor_fee_cents: 202,
+      organizer_net_cents: 3272,
+      currency: "ZAR",
+    }), "pay_1")
+
+    expect(entries.find((entry) => entry.type === "payment_net")?.amount_cents).toBe(3272)
+    expect(entries.filter((entry) => entry.type === "fee")).toEqual([
+      expect.objectContaining({ amount_cents: -228, meta: { fee_type: "platform" } }),
+    ])
   })
 
   it("carries org/order/payment ids and currency onto every row", () => {

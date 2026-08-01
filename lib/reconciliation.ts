@@ -10,6 +10,7 @@ export interface ReconciliationOrder {
   subtotalCents: number | null
   platformFeeCents: number | null
   processorFeeCents: number | null
+  organizerNetCents?: number | null
   currency: string
 }
 
@@ -138,11 +139,11 @@ function checkStatus(condition: boolean): ReconciliationStatus {
 }
 
 function feeTotal(order: ReconciliationOrder): number {
-  return (order.platformFeeCents ?? 0) + (order.processorFeeCents ?? 0)
+  return order.platformFeeCents ?? 0
 }
 
 function netTotal(order: ReconciliationOrder): number {
-  return order.totalCents - feeTotal(order)
+  return order.organizerNetCents ?? order.totalCents - feeTotal(order)
 }
 
 function grossTotal(order: ReconciliationOrder): number {
