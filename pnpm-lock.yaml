@@ -274,6 +274,9 @@ importers:
       '@types/react':
         specifier: 19.2.15
         version: 19.2.15
+      hermes-compiler:
+        specifier: 250829098.0.10
+        version: 250829098.0.10
 
   apps/ticketiv:
     dependencies:
