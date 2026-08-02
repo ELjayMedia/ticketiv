@@ -39,11 +39,16 @@ export default async function OrgOnboardingPage({
     return redirect("/403")
   }
 
-  const [eventsRes, payoutAccountsRes, staffRes, devicesRes] = await Promise.all([
+  const [eventsRes, publishedEventsRes, payoutAccountsRes, staffRes, devicesRes] = await Promise.all([
     supabase
       .from("events")
       .select("id", { count: "exact", head: true })
       .eq("org_id", orgId),
+    supabase
+      .from("events")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", orgId)
+      .eq("status", "published"),
     supabase
       .from("payout_accounts")
       .select("id", { count: "exact", head: true })
@@ -60,7 +65,8 @@ export default async function OrgOnboardingPage({
 
   const hasProfile = !!(org.bio && org.logo)
   const hasPayoutAccount = (payoutAccountsRes.count ?? 0) > 0
-  const hasEvent = (eventsRes.count ?? 0) > 0
+  const hasAnyEvent = (eventsRes.count ?? 0) > 0
+  const hasPublishedEvent = (publishedEventsRes.count ?? 0) > 0
   const hasDevice = (devicesRes.count ?? 0) > 0
   const hasTeam = (staffRes.count ?? 0) > 1
 
@@ -68,7 +74,8 @@ export default async function OrgOnboardingPage({
     orgId,
     hasProfile,
     hasPayoutAccount,
-    hasEvent,
+    hasAnyEvent,
+    hasPublishedEvent,
     hasDevice,
     hasTeam,
   })

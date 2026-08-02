@@ -101,7 +101,8 @@ export default async function OrgDashboardPage({ params }: { params: Promise<{ o
     orgId,
     hasProfile: missingProfileFields.length === 0,
     hasPayoutAccount: (payoutAccountsRes.count ?? 0) > 0,
-    hasEvent: events.length > 0,
+    hasAnyEvent: events.length > 0,
+    hasPublishedEvent: publishedEvents.length > 0,
     hasDevice: (devicesRes.count ?? 0) > 0,
     hasTeam: staffCount > 1,
   }).filter((step) => {

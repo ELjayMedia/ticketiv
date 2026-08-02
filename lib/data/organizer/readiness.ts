@@ -2,7 +2,8 @@ export interface OrganizerSetupStatus {
   orgId: string
   hasProfile: boolean
   hasPayoutAccount: boolean
-  hasEvent: boolean
+  hasAnyEvent: boolean
+  hasPublishedEvent: boolean
   hasDevice: boolean
   hasTeam: boolean
 }
@@ -19,15 +20,17 @@ export interface OrganizerSetupStep {
 // Profile/payout polish follows — a payout account is required to request
 // payouts (fn_request_payout), not to draft or publish an event.
 export function buildOrganizerSetupSteps(status: OrganizerSetupStatus): OrganizerSetupStep[] {
-  const { orgId } = status
+  const { orgId, hasAnyEvent } = status
 
   return [
     {
       id: "event",
-      title: "Create your first event",
-      description: "Set up your event, ticket types, and go live.",
-      href: `/orgs/${orgId}/events/new`,
-      done: status.hasEvent,
+      title: hasAnyEvent ? "Publish your first event" : "Create your first event",
+      description: hasAnyEvent
+        ? "Finish your draft, add ticket types, and go live."
+        : "Set up your event, ticket types, and go live.",
+      href: hasAnyEvent ? `/orgs/${orgId}/events` : `/orgs/${orgId}/events/new`,
+      done: status.hasPublishedEvent,
     },
     {
       id: "profile",
