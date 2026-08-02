@@ -16,6 +16,20 @@ next-env.d.ts
 
 # production
 /build
+**/android/.gradle/
+**/android/.kotlin/
+**/android/.cxx/
+**/android/local.properties
+**/android/**/build/
+**/.artifacts/
+*.aab
+*.apk
+*.keystore
+!apps/access/android/app/debug.keystore
+
+# Metro
+*.jsbundle
+.metro-health-check*
 
 # misc
 .DS_Store
