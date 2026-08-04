@@ -62,7 +62,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (!ticketCode) return NextResponse.json({ error: "Ticket code is required" }, { status: 400 })
 
   const admin = createAdminClient()
-  const { data, error } = await (admin.rpc as any)("fn_scan_ticket", {
+  // fn_scan_ticket is the *claimed-account* shim: it runs
+  // app.require_claimed_account(), which needs auth.uid() from a user JWT. This
+  // client is service-role and has no auth.uid(), so calling the shim raises
+  // `claimed_account_required` and every scan 500s. Call the worker instead —
+  // it keeps the real authorization (service_role is allowed through its caller
+  // guard, and it still verifies p_scanned_by is event staff), and this route
+  // has already required an authenticated session above and passes that user as
+  // p_scanned_by.
+  const { data, error } = await (admin.rpc as any)("fn_scan_ticket_unchecked", {
     p_ticket_code: ticketCode,
     p_event_id:    eventId,
     p_scanned_by:  userId,
@@ -74,7 +82,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   })
 
   if (error) {
-    console.error("fn_scan_ticket error", error)
+    console.error("fn_scan_ticket_unchecked error", error)
     return NextResponse.json({ error: "Scan failed" }, { status: 500 })
   }
 

@@ -211,12 +211,21 @@ export async function validateQrCode(input: ValidateQrCodeInput): Promise<Valida
     return { valid: true, status: "offline", message: "Scan stored offline" }
   }
 
-  const supabase = input.userId ? createServerSupabaseClient() : createAdminClient()
+  // Two callers, two entry points. A signed-in staff user goes through the
+  // claimed-account shim (fn_scan_ticket) on their own JWT. A device/offline
+  // sync has no user session, so it runs service-role — and the shim's
+  // app.require_claimed_account() would raise `claimed_account_required`
+  // because service-role has no auth.uid(). Service-role therefore calls the
+  // worker, which keeps the authorization that matters (its caller guard
+  // permits service_role, and it still verifies p_scanned_by is event staff).
+  const asServiceRole = !input.userId
+  const supabase = asServiceRole ? createAdminClient() : createServerSupabaseClient()
   if (!supabase) {
     return { valid: false, status: "error", message: "Supabase is not configured" }
   }
 
-  const { data, error } = await (supabase.rpc as any)("fn_scan_ticket", {
+  const scanFn = asServiceRole ? "fn_scan_ticket_unchecked" : "fn_scan_ticket"
+  const { data, error } = await (supabase.rpc as any)(scanFn, {
     p_ticket_code: input.code,
     p_event_id:    input.eventId,
     p_scanned_by:  input.userId ?? null,
@@ -228,7 +237,7 @@ export async function validateQrCode(input: ValidateQrCodeInput): Promise<Valida
   })
 
   if (error) {
-    console.error("fn_scan_ticket error", error)
+    console.error(`${scanFn} error`, error)
     return { valid: false, status: "error", message: "Scan failed" }
   }
 
