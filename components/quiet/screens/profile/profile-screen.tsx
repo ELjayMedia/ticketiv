@@ -17,6 +17,19 @@ interface ProfileScreenProps {
    * land in their workspace, not the self-serve funnel.
    */
   orgContexts?: OrgContextLink[];
+  /**
+   * The platform admin context (from getMyContexts, kind "admin"), present
+   * only for super admins. Same reasoning as orgContexts: a super admin has
+   * no use for the self-serve "organize your own event" funnel, so the CTA
+   * slot points at the command centre instead.
+   */
+  adminContext?: AdminContextLink | null;
+}
+
+interface AdminContextLink {
+  label: string;
+  sublabel?: string;
+  href: string;
 }
 
 interface OrgContextLink {
@@ -53,7 +66,7 @@ interface SettingRow {
   description?: string;
 }
 
-export function ProfileScreen({ user, appVersion = "current", tapBand, orgContexts }: ProfileScreenProps) {
+export function ProfileScreen({ user, appVersion = "current", tapBand, orgContexts, adminContext }: ProfileScreenProps) {
   if (!user) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-bg p-6">
@@ -224,6 +237,25 @@ export function ProfileScreen({ user, appVersion = "current", tapBand, orgContex
 
       <SettingsList title="Your activity" rows={activityRows} />
 
+      {adminContext ? (
+        <section className="px-5 pb-4">
+          <Link href={adminContext.href}>
+            <Card className="border-ink bg-ink p-3.5 text-white">
+              <div className="flex items-center gap-3">
+                <div className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-white"><Icon name="settings" size={18} /></div>
+                <div className="flex flex-1 flex-col gap-0.5">
+                  <span className="text-[13px] font-semibold">{adminContext.label}</span>
+                  <span className="font-mono text-[11px] text-white/60">
+                    {adminContext.sublabel ?? "platform operations, payments & payouts"}
+                  </span>
+                </div>
+                <Icon name="chevR" size={16} className="text-white/60" />
+              </div>
+            </Card>
+          </Link>
+        </section>
+      ) : null}
+
       {orgContexts && orgContexts.length > 0 ? (
         <section className="flex flex-col gap-2.5 px-5 pb-4">
           {orgContexts.map((org) => (
@@ -243,7 +275,7 @@ export function ProfileScreen({ user, appVersion = "current", tapBand, orgContex
             </Link>
           ))}
         </section>
-      ) : (
+      ) : adminContext ? null : (
         <section className="px-5 pb-4">
           <Link href="/onboarding/organizer">
             <Card className="border-ink bg-ink p-3.5 text-white">
