@@ -119,6 +119,17 @@ handler alongside `completeTrustedPaystackWebhook` when a second provider ships.
 
 ## 3. Alerting — **Built (core conditions covered)**
 
+> **Correction (2026-08-04).** This section previously read "Built" while the
+> control had **never executed in production**. The GitHub Actions workflow that
+> held the schedule required the repo secrets `OPS_ALERT_CRON_URL` and
+> `CRON_SECRET`; neither was ever set, so every run since 2026-07-18 exited 1 at
+> the first guard without calling the endpoint. GitHub also throttled the `*/5`
+> schedule hard — 247 runs in 17 days, roughly one every 100 minutes rather than
+> every 5. "The code exists" was being read as "the control runs"; treat a
+> control as built only once you have seen a successful invocation.
+> `.github/workflows/settlement-ingest.yml` reads the same unset `CRON_SECRET`
+> and fails the same way.
+
 **Built.** `app/api/cron/ops-alerts/route.ts` runs every 5 min (scheduled by the
 `ticketiv-ops-alerts` **pg_cron** job → secured `CRON_SECRET` endpoint) and alerts
 (to `OPS_ALERT_WEBHOOK_URL`) on: **failed payment callbacks / webhook lag**
@@ -157,14 +168,33 @@ deployment. `lib/__tests__/ops-alert-schedule.test.ts` guards both homes — no
 sub-daily cron may reappear in `.github/workflows/` or `vercel.json`.
 
 **Configuration is in Vault, not in the migration**, so rotating the secret is a
-one-line update rather than a schema change, and it never enters git:
+one-line update rather than a schema change, and it never enters git.
+
+The secret value must match `CRON_SECRET` in the Vercel project **exactly** —
+`/api/cron/ops-alerts` returns 401 both when the token is wrong *and* when
+`CRON_SECRET` is unset server-side, so a 401 does not tell you which side is
+wrong. Check Vercel first.
+
+Use the guarded form. A bare `create_secret('<placeholder>', …)` is genuinely
+easy to run verbatim, and it stores the placeholder text as your secret — the
+job then 401s instead of reporting itself unconfigured, which is the harder
+failure to read:
 
 ```sql
-select vault.create_secret('https://ticketiv.app/api/cron/ops-alerts', 'ops_alert_cron_url');
-select vault.create_secret('<the CRON_SECRET set in Vercel>',          'ops_alert_cron_secret');
--- rotate later:
-select vault.update_secret(id, '<new value>') from vault.secrets where name = 'ops_alert_cron_secret';
+do $$
+declare
+  -- ▼ replace this value only ▼
+  v_secret text := 'PASTE_CRON_SECRET_HERE';
+begin
+  if v_secret = 'PASTE_CRON_SECRET_HERE' or v_secret like '<%>' then
+    raise exception 'Placeholder not replaced — paste the real CRON_SECRET from Vercel';
+  end if;
+  perform vault.create_secret(v_secret, 'ops_alert_cron_secret');
+end $$;
 ```
+
+The URL is not a secret and is seeded already:
+`select vault.create_secret('https://ticketiv.app/api/cron/ops-alerts', 'ops_alert_cron_url');`
 
 Until both secrets exist the job **fails on every tick** (visible in
 `cron.job_run_details`). That is deliberate — alerting that has silently stopped
@@ -177,13 +207,24 @@ therefore resolves the previous request against `net._http_response` and records
 the real outcome in `public.ops_cron_runs` (30-day window):
 
 ```sql
--- recent deliveries; ok = false or a null status_code means the endpoint failed
-select requested_at, status_code, ok, error
-from public.ops_cron_runs
-where job = 'ops-alerts'
-order by requested_at desc
+-- Recent deliveries. ops_cron_runs.status_code is filled in by the *next* tick,
+-- so join net._http_response to read the newest run too — otherwise the most
+-- recent row always shows NULL and reads like a failure when it is just pending.
+select r.requested_at,
+       coalesce(r.status_code, resp.status_code)                       as status_code,
+       coalesce(r.ok, resp.status_code between 200 and 299)            as ok,
+       coalesce(r.error, resp.error_msg)                               as error
+from public.ops_cron_runs r
+left join net._http_response resp on resp.id = r.request_id
+where r.job = 'ops-alerts'
+order by r.requested_at desc
 limit 20;
 ```
+
+Note the SQL editor runs a whole batch in one transaction, so
+`fn_ops_alerts_tick()` followed by a `select` in the same run always shows NULL —
+pg_net only dispatches the queued request after commit. Run the tick, then the
+query, as two separate executions.
 
 Manual run (this replaced the workflow's **Run workflow** button):
 `select public.fn_ops_alerts_tick();`
