@@ -9,6 +9,7 @@ import { Button } from "@/components/quiet/ui/button"
 import { FormField } from "@/components/quiet/ui/form"
 import { Icon } from "@/components/quiet/ui/icon"
 import { Logo } from "@/components/Logo"
+import { buildTicketivPublicUrl } from "@/lib/public-url"
 import { createClient } from "@/lib/supabase"
 
 export default function ForgotPasswordPage() {
@@ -43,7 +44,10 @@ export default function ForgotPasswordPage() {
       }
 
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+        redirectTo: buildTicketivPublicUrl(
+          "/auth/callback?next=/reset-password",
+          window.location.origin,
+        ),
       })
 
       if (resetError) {

@@ -786,7 +786,7 @@ function QuietFriends() {
               </div>
             </div>
             <div style={{ background: '#fafafa', borderRadius: 8, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="hf-mono" style={{ fontSize: 12, flex: 1, color: HFQ_INK }}>ticketiv.com/r/smit</span>
+              <span className="hf-mono" style={{ fontSize: 12, flex: 1, color: HFQ_INK }}>ticketiv.app/?ref=smit</span>
               <button className="hf-btn xs"><HFIcon name="copy" size={12}/> Copy</button>
             </div>
           </div>

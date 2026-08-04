@@ -3,10 +3,13 @@
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 
+import { getOrgPayoutReconciliationBlock } from "@/lib/data/admin/reconciliation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { requireAdminRole } from "@/lib/super-admin/auth"
 
 type PayoutStatus = "requested" | "processing" | "paid" | "failed" | "cancelled"
+
+const RECONCILIATION_GATED_PAYOUT_STATUSES = new Set<PayoutStatus>(["processing", "paid"])
 
 const ALLOWED_PAYOUT_TRANSITIONS: Record<PayoutStatus, PayoutStatus[]> = {
   requested: ["processing", "cancelled", "failed"],
@@ -36,6 +39,11 @@ function payoutPatchFor(nextStatus: PayoutStatus) {
   return patch
 }
 
+function payoutBlockMessage(blockedEventCount: number, nextStatus: PayoutStatus) {
+  const eventLabel = blockedEventCount === 1 ? "ended event" : "ended events"
+  return `Payout approval is blocked by unresolved reconciliation on ${blockedEventCount} ${eventLabel}. Resolve post-event reconciliation before marking this payout ${nextStatus}.`
+}
+
 async function setPayoutStatus(payoutId: string, nextStatus: PayoutStatus, formData?: FormData) {
   const { user } = await requireAdminRole(["super_admin", "finance_admin"])
   const admin = createAdminClient()
@@ -58,6 +66,47 @@ async function setPayoutStatus(payoutId: string, nextStatus: PayoutStatus, formD
     revalidatePath("/super-admin/payouts")
     revalidatePath(`/super-admin/payouts/${payoutId}`)
     redirect("/super-admin/payouts?status=finance_updated")
+  }
+
+  if (RECONCILIATION_GATED_PAYOUT_STATUSES.has(nextStatus)) {
+    const block = await getOrgPayoutReconciliationBlock(payout.org_id)
+
+    if (block.blocked) {
+      const blockedEvents = block.blockedEvents.map((event) => ({
+        event_id: event.eventId,
+        title: event.title,
+        blocking_checks: event.blockingChecks.map((check) => ({
+          key: check.key,
+          label: check.label,
+          status: check.status,
+          detail: check.detail,
+        })),
+        expected_net_cents: event.expectedNetCents,
+        ledger_net_cents: event.ledgerNetCents,
+      }))
+
+      const { error: auditError } = await admin.from("audit_log").insert({
+        org_id: payout.org_id,
+        actor_id: user.id,
+        table_name: "payouts",
+        record_id: payoutId,
+        action: "other",
+        changes: {
+          business_action: "payout_transition_blocked_by_reconciliation",
+          previous_status: currentStatus,
+          attempted_status: nextStatus,
+          amount_cents: payout.amount_cents,
+          currency: payout.currency,
+          generated_at: block.generatedAt,
+          blocked_events: blockedEvents,
+          note,
+        },
+      })
+
+      if (auditError) console.error("[finance-actions] failed to audit reconciliation block:", auditError)
+
+      throw new Error(payoutBlockMessage(block.blockedEvents.length, nextStatus))
+    }
   }
 
   const patch = payoutPatchFor(nextStatus)

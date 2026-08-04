@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 
+import { getOrganizerPaymentProviderOptions } from "@/lib/payments/availability"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
@@ -12,7 +13,7 @@ async function getUserId() {
   return data.session?.user?.id ?? null
 }
 
-const KNOWN_PROVIDERS = ["paystack", "flutterwave", "manual", "momo"] as const
+const SUPPORTED_EVENT_PROVIDERS = ["paystack", "momo"] as const
 
 async function canEdit(admin: ReturnType<typeof createAdminClient>, eventId: string, userId: string) {
   const { data: event, error } = await admin.from("events").select("id, org_id, refund_policy, attendee_fields, confirmation_message, payment_providers").eq("id", eventId).maybeSingle()
@@ -33,21 +34,10 @@ function listFrom(value: unknown) {
   return []
 }
 
-/** Allowed-provider list from the request body, constrained to known keys. */
 function providersFrom(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   const set = new Set(value.map(String).map((x) => x.trim().toLowerCase()))
-  return KNOWN_PROVIDERS.filter((p) => set.has(p))
-}
-
-/** Enabled payment providers the organizer may lock the event to. */
-async function getAvailableProviders(admin: ReturnType<typeof createAdminClient>): Promise<string[]> {
-  const { data } = await admin.from("payment_provider_settings").select("provider, is_enabled").eq("is_enabled", true)
-  const enabled = new Set((data ?? []).map((r) => String((r as { provider: string }).provider)))
-  // MoMo is env-configured (not a payment_provider_settings row) but is a real
-  // rail in Eswatini — always offer it. Constrain to the known set.
-  enabled.add("momo")
-  return KNOWN_PROVIDERS.filter((p) => enabled.has(p))
+  return SUPPORTED_EVENT_PROVIDERS.filter((provider) => set.has(provider))
 }
 
 export async function GET(_request: NextRequest, context: RouteContext) {
@@ -59,7 +49,15 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   const { ok, event } = await canEdit(admin, eventId, userId)
   if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 })
   if (!ok) return NextResponse.json({ error: "Not allowed" }, { status: 403 })
-  return NextResponse.json({ event, availableProviders: await getAvailableProviders(admin) })
+
+  const providerOptions = await getOrganizerPaymentProviderOptions(eventId)
+  return NextResponse.json({
+    event,
+    providerOptions,
+    availableProviders: providerOptions
+      .filter((option) => option.enabled && option.operational)
+      .map((option) => option.id),
+  })
 }
 
 export async function PUT(request: NextRequest, context: RouteContext) {
@@ -76,10 +74,25 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   const refundPolicy = typeof body.refund_policy === "string" ? body.refund_policy.trim() : ""
   const confirmationMessage = typeof body.confirmation_message === "string" ? body.confirmation_message.trim() : ""
   const attendeeFields = listFrom(body.attendee_fields)
-  // Restrict the lock to providers that are actually available right now, so an
-  // organizer can't lock an event to a disabled rail.
-  const available = new Set(await getAvailableProviders(admin))
-  const paymentProviders = providersFrom(body.payment_providers).filter((p) => available.has(p))
+  const paymentProviders = providersFrom(body.payment_providers)
+
+  const providerOptions = await getOrganizerPaymentProviderOptions(eventId)
+  const unavailable = paymentProviders.filter((provider) => {
+    const option = providerOptions.find((candidate) => candidate.id === provider)
+    return !option?.enabled || !option.operational
+  })
+
+  if (unavailable.length > 0) {
+    const labels = unavailable.map(
+      (provider) => providerOptions.find((option) => option.id === provider)?.label ?? provider,
+    )
+    return NextResponse.json(
+      {
+        error: `${labels.join(", ")} is not production-operational. Ask Ticketiv platform administration to complete or enable its configuration before saving it for this event.`,
+      },
+      { status: 400 },
+    )
+  }
 
   const changes = {
     before: {
@@ -114,5 +127,5 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     changes: { section: "policies", ...changes } as never,
   })
 
-  return NextResponse.json({ event: updatedEvent })
+  return NextResponse.json({ event: updatedEvent, providerOptions })
 }

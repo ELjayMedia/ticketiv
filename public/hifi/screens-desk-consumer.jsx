@@ -12,7 +12,7 @@ function DeskDiscover() {
     { t: "Tech Talks", d: "Tue 29 Jul", v: "BlueSpace", p: "₹150" },
   ];
   return (
-    <Desk url="ticketiv.com/ahmedabad" tab="Discover · Ahmedabad" variant="desk-consumer">
+    <Desk url="ticketiv.app/ahmedabad" tab="Discover · Ahmedabad" variant="desk-consumer">
       <div className="desk-main">
         {/* top bar */}
         <div style={{ borderBottom: '1.4px solid var(--ink)', padding: '10px 22px', display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -102,7 +102,7 @@ function DeskDiscover() {
 
 function DeskEventDetail() {
   return (
-    <Desk url="ticketiv.com/e/tribal-tales-aug-30" tab="Tribal Tales · Ticketiv" variant="desk-consumer">
+    <Desk url="ticketiv.app/e/tribal-tales-aug-30" tab="Tribal Tales · Ticketiv" variant="desk-consumer">
       <div className="desk-main">
         <div style={{ padding: '8px 22px', borderBottom: '1.4px solid var(--ink)', display: 'flex', alignItems: 'center', gap: 10 }}>
           <span className="muted tiny">‹ Discover / Music /</span>
@@ -242,7 +242,7 @@ function DeskEventDetail() {
 
 function DeskCheckout() {
   return (
-    <Desk url="ticketiv.com/checkout/RG7352" tab="Checkout · Ticketiv" variant="desk-consumer">
+    <Desk url="ticketiv.app/checkout/RG7352" tab="Checkout · Ticketiv" variant="desk-consumer">
       <div className="desk-main">
         <div style={{ padding: '10px 22px', borderBottom: '1.4px solid var(--ink)', display: 'flex', alignItems: 'center', gap: 14 }}>
           <span className="muted tiny">‹ back to event</span>
@@ -352,7 +352,7 @@ function DeskCheckout() {
 
 function DeskMyAccount() {
   return (
-    <Desk url="ticketiv.com/account/tickets" tab="My account · Ticketiv" variant="desk-consumer">
+    <Desk url="ticketiv.app/account/tickets" tab="My account · Ticketiv" variant="desk-consumer">
       <div className="desk-main">
         <div style={{ padding: '10px 22px', borderBottom: '1.4px solid var(--ink)', display: 'flex', alignItems: 'center', gap: 14 }}>
           <div className="brand" style={{ fontFamily: 'var(--font-script)', fontSize: 22, fontWeight: 700, padding: 0, border: 0, display: 'flex', alignItems: 'center', gap: 6 }}>

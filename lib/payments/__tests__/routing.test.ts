@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest"
 
-import { matchRoutingRule, normaliseAllowed, type RoutingRule } from "@/lib/payments/routing"
+import { PaymentChannelUnavailableError } from "@/lib/payments/errors"
+import {
+  matchRoutingRule,
+  normaliseAllowed,
+  ProviderNotAllowedError,
+  selectPaymentProvider,
+  type RoutingRule,
+} from "@/lib/payments/routing"
 
 const rule = (r: Partial<RoutingRule>): RoutingRule => ({
   priority: 100,
@@ -31,6 +38,15 @@ describe("matchRoutingRule", () => {
     expect(matchRoutingRule(rules, { currency: "SZL" })?.provider).toBe("momo")
   })
 
+  it("uses specificity and provider key to resolve equal priorities deterministically", () => {
+    const rules = [
+      rule({ currency: null, provider: "paystack", priority: 10 }),
+      rule({ currency: "ZAR", provider: "paystack", priority: 10 }),
+      rule({ currency: "ZAR", provider: "momo", priority: 10 }),
+    ]
+    expect(matchRoutingRule(rules, { currency: "ZAR" })?.provider).toBe("momo")
+  })
+
   it("treats null currency/country as wildcard", () => {
     const rules = [rule({ currency: null, country_code: null, provider: "paystack" })]
     expect(matchRoutingRule(rules, { currency: "USD" })?.provider).toBe("paystack")
@@ -51,6 +67,57 @@ describe("matchRoutingRule", () => {
   it("is case-insensitive on currency and country", () => {
     const rules = [rule({ currency: "szl", country_code: "sz", provider: "momo" })]
     expect(matchRoutingRule(rules, { currency: "SZL", countryCode: "SZ" })?.provider).toBe("momo")
+  })
+})
+
+describe("selectPaymentProvider", () => {
+  it("selects an active Paystack route", () => {
+    expect(
+      selectPaymentProvider([rule({ currency: "ZAR", provider: "paystack" })], {
+        currency: "ZAR",
+      }),
+    ).toBe("paystack")
+  })
+
+  it("rejects a client choice disabled by the event", () => {
+    expect(() =>
+      selectPaymentProvider([], {
+        currency: "ZAR",
+        requested: "paystack",
+        allowedProviders: ["momo"],
+      }),
+    ).toThrow(ProviderNotAllowedError)
+  })
+
+  it("rejects an inactive provider instead of falling back to it", () => {
+    expect(() =>
+      selectPaymentProvider([rule({ currency: "ZAR", provider: "paystack", is_active: false })], {
+        currency: "ZAR",
+      }),
+    ).toThrow(PaymentChannelUnavailableError)
+  })
+
+  it("returns a controlled correlation reference when routing configuration is missing", () => {
+    try {
+      selectPaymentProvider([], { currency: "ZAR" })
+      throw new Error("Expected payment routing to fail")
+    } catch (error) {
+      expect(error).toBeInstanceOf(PaymentChannelUnavailableError)
+      expect((error as PaymentChannelUnavailableError).reason).toBe("no_matching_route")
+      expect((error as PaymentChannelUnavailableError).correlationId).toMatch(/^PAY-[A-F0-9]{8}$/)
+    }
+  })
+
+  it("skips a higher-priority route excluded by the event lock", () => {
+    expect(
+      selectPaymentProvider(
+        [
+          rule({ currency: "SZL", provider: "paystack", priority: 1 }),
+          rule({ currency: "SZL", provider: "momo", priority: 10 }),
+        ],
+        { currency: "SZL", allowedProviders: ["momo"] },
+      ),
+    ).toBe("momo")
   })
 })
 

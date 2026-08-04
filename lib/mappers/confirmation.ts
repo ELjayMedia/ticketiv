@@ -5,6 +5,8 @@
  */
 
 import { PHOTOS } from "@/lib/photos";
+import { asCurrency } from "@/lib/currency";
+import type { Currency } from "@/lib/format";
 import type { BuyerOrder } from "@/lib/data/attendee/orders";
 
 export type ConfirmationState = "paid" | "pending" | "failed" | "refunded";
@@ -26,6 +28,7 @@ export interface ConfirmationProps {
   ticketTypeName: string;
   quantity: number;
   totalMinor: number;
+  currency: Currency;
   paymentDescription: string;
   receiptEmail: string;
   /** Slug of the event so failed/pending states can offer a retry CTA. */
@@ -95,6 +98,7 @@ export function mapConfirmation(order: BuyerOrder): ConfirmationProps {
     ticketTypeName: ticketName,
     quantity: order.items.length,
     totalMinor: order.total_cents,
+    currency: asCurrency(order.currency),
     paymentDescription: copy.paymentDescription,
     receiptEmail: order.buyer_email ?? "",
     eventSlug: first?.event_slug ?? null,

@@ -262,7 +262,7 @@ export function DesktopEvent({ event }: DesktopEventProps) {
               <div className="text-label">FROM</div>
               <div className="mt-0.5 flex items-baseline gap-1">
                 <span className="font-mono text-[36px] font-semibold leading-none">
-                  {event.fromPriceMinor == null ? "—" : formatPrice(event.fromPriceMinor)}
+                  {event.fromPriceMinor == null ? "—" : formatPrice(event.fromPriceMinor, event.currency ?? "SZL")}
                 </span>
                 <span className="font-mono text-[12px] text-ink-3">/ ticket</span>
               </div>
@@ -295,7 +295,7 @@ export function DesktopEvent({ event }: DesktopEventProps) {
                           {scarcity && <span className="mt-0.5 font-mono text-[10px] font-semibold uppercase text-accent">{scarcity}</span>}
                           {soldOut && <span className="mt-0.5 font-mono text-[10px] font-semibold uppercase text-ink-3">Sold out</span>}
                         </div>
-                        <span className={"font-mono text-[14px] font-semibold " + (soldOut ? "line-through" : "")}>{formatPrice(t.priceMinor)}</span>
+                        <span className={"font-mono text-[14px] font-semibold " + (soldOut ? "line-through" : "")}>{formatPrice(t.priceMinor, event.currency ?? "SZL")}</span>
                       </button>
                     </li>
                   );

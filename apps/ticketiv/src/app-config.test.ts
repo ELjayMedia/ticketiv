@@ -4,9 +4,12 @@ import {
   TICKETIV_ANDROID_TARGETS,
   TICKETIV_APP_CONFIG,
   TICKETIV_APP_ID,
+  TICKETIV_IOS_TARGET,
+  TICKETIV_NATIVE_RELEASE_TARGETS,
   TICKETIV_SCHEME,
   buildTicketivDeepLink,
   resolveTicketivAndroidTarget,
+  resolveTicketivIosTarget,
 } from "./app-config";
 
 describe("Ticketiv consumer app config", () => {
@@ -16,6 +19,7 @@ describe("Ticketiv consumer app config", () => {
       slug: "ticketiv",
       scheme: "ticketiv",
       androidPackage: "com.ticketiv.app",
+      iosBundleIdentifier: "com.ticketiv.app",
     });
     expect(TICKETIV_APP_ID).toBe("com.ticketiv.app");
     expect(TICKETIV_SCHEME).toBe("ticketiv");
@@ -47,6 +51,33 @@ describe("Ticketiv consumer app config", () => {
     expect(TICKETIV_ANDROID_TARGETS.huawei.capabilities).not.toContain("fcm-push");
     expect(TICKETIV_ANDROID_TARGETS.huawei.capabilities).not.toContain("google-wallet");
     expect(TICKETIV_ANDROID_TARGETS.huawei.requiresGoogleMobileServices).toBe(false);
+  });
+
+  it("pins the App Store build target", () => {
+    expect(resolveTicketivIosTarget("app-store")).toEqual(TICKETIV_IOS_TARGET);
+    expect(TICKETIV_IOS_TARGET).toMatchObject({
+      store: "app-store",
+      variant: "iosRelease",
+      artifactName: "ticketiv-ios-release.ipa",
+      bundleIdentifier: "com.ticketiv.app",
+      pushProvider: "apns",
+      walletProvider: "apple-wallet",
+    });
+    expect(TICKETIV_IOS_TARGET.capabilities).toContain("apns-push");
+    expect(TICKETIV_IOS_TARGET.capabilities).toContain("apple-wallet");
+  });
+
+  it("documents the full native release matrix", () => {
+    expect(TICKETIV_NATIVE_RELEASE_TARGETS.map((target) => target.variant)).toEqual([
+      "playRelease",
+      "huaweiRelease",
+      "iosRelease",
+    ]);
+    expect(TICKETIV_NATIVE_RELEASE_TARGETS.map((target) => target.artifactName)).toEqual([
+      "ticketiv-play-release.aab",
+      "ticketiv-huawei-release.aab",
+      "ticketiv-ios-release.ipa",
+    ]);
   });
 
   it("builds Ticketiv deep links", () => {

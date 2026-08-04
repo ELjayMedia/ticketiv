@@ -1,5 +1,33 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
+import {
+  isExpectedSignedOutAuthError,
+  isStaleSupabaseRefreshTokenError,
+  isSupabaseAuthTokenCookie,
+} from "@/lib/supabase/auth-errors"
+
+function redirectToLogin(request: NextRequest, from: string) {
+  const url = request.nextUrl.clone()
+  url.pathname = "/login"
+  url.searchParams.set("from", from)
+  return NextResponse.redirect(url)
+}
+
+function clearSupabaseAuthTokenCookies(request: NextRequest, response: NextResponse) {
+  for (const { name } of request.cookies.getAll()) {
+    if (isSupabaseAuthTokenCookie(name)) {
+      response.cookies.delete(name)
+    }
+  }
+}
+
+function recoverSignedOutSession(request: NextRequest, path: string, error: unknown) {
+  const redirect = redirectToLogin(request, path)
+  if (isStaleSupabaseRefreshTokenError(error)) {
+    clearSupabaseAuthTokenCookies(request, redirect)
+  }
+  return redirect
+}
 
 /**
  * Refreshes the Supabase session and enforces auth gates.
@@ -7,8 +35,8 @@ import { NextResponse, type NextRequest } from "next/server"
  * Public routes (no auth needed):
  *   /, /browse, /events/[id], /artists, /categories, /category/*, /organisers,
  *   /host, /marketplace, /privacy, /terms, /refund-policy, /data-deletion,
- *   /support, /help, /sign-in, /login, /verify, /signup, /forgot-password,
- *   /reset-password, /verify-email, /auth/*, /403, /maintenance
+ *   /support, /help, /sign-in, /login, /verify, /signup, /organizer/register,
+ *   /forgot-password, /reset-password, /verify-email, /auth/*, /403, /maintenance
  *
  * Public APIs with their own verification:
  *   /api/payments/paystack/webhook, /api/payments/momo/callback
@@ -53,6 +81,7 @@ export async function updateSession(request: NextRequest) {
     "/sign-in",
     "/login",
     "/signup",
+    "/organizer/register",
     "/verify",
     "/forgot-password",
     "/reset-password",
@@ -122,7 +151,15 @@ export async function updateSession(request: NextRequest) {
     // IMPORTANT: do not run code between createServerClient() and getUser().
     const {
       data: { user },
+      error: userError,
     } = await supabase.auth.getUser()
+
+    if (userError) {
+      if (isExpectedSignedOutAuthError(userError)) {
+        return recoverSignedOutSession(request, path, userError)
+      }
+      throw userError
+    }
 
     // Authed user landing on onboarding should be moved forward only after auth.
     async function hasHandle(): Promise<boolean> {
@@ -142,10 +179,7 @@ export async function updateSession(request: NextRequest) {
     // /onboarding — requires session, allowed without handle
     if (path.startsWith("/onboarding")) {
       if (!user) {
-        const url = request.nextUrl.clone()
-        url.pathname = "/login"
-        url.searchParams.set("from", path)
-        return NextResponse.redirect(url)
+        return redirectToLogin(request, path)
       }
       if (await hasHandle()) {
         return NextResponse.redirect(new URL("/", request.url))
@@ -155,15 +189,13 @@ export async function updateSession(request: NextRequest) {
 
     // All other routes require auth
     if (!user) {
-      const url = request.nextUrl.clone()
-      url.pathname = "/login"
-      url.searchParams.set("from", path)
-      return NextResponse.redirect(url)
+      return redirectToLogin(request, path)
     }
 
     // Handle gate for app/profile/payment/order/ticket routes
     const requiresHandle = ["/app/", "/profile", "/payments", "/checkout/", "/orders/", "/tickets/"]
-    if (requiresHandle.some((p) => path.startsWith(p))) {
+    const isOrderConfirmation = /^\/orders\/[^/]+\/confirmation$/.test(path)
+    if (!isOrderConfirmation && requiresHandle.some((p) => path.startsWith(p))) {
       if (!(await hasHandle())) {
         return NextResponse.redirect(new URL("/onboarding", request.url))
       }
@@ -218,6 +250,10 @@ export async function updateSession(request: NextRequest) {
 
     return response
   } catch (err) {
+    if (isExpectedSignedOutAuthError(err)) {
+      return recoverSignedOutSession(request, path, err)
+    }
+
     // Any unexpected failure: pass through rather than 500 the entire app.
     console.error("[middleware] error:", err)
     return response

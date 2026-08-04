@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 
 import { notifyEventChanged, notifyEventPublished } from "@/lib/notifications"
+import { getEffectivePaymentProvidersForEvent } from "@/lib/payments/availability"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
@@ -17,7 +18,7 @@ async function getUserId() {
 async function loadManageContext(admin: ReturnType<typeof createAdminClient>, eventId: string, userId: string) {
   const { data: event, error } = await admin
     .from("events")
-    .select("id, org_id, title, category, venue_id, starts_at, ends_at, status, visibility, cover_image_url, refund_policy, confirmation_message")
+    .select("id, org_id, title, category, venue_id, starts_at, ends_at, status, visibility, cover_image_url, refund_policy, confirmation_message, payment_providers")
     .eq("id", eventId)
     .maybeSingle()
   if (error) throw error
@@ -56,12 +57,14 @@ async function buildReadiness(admin: ReturnType<typeof createAdminClient>, event
     { count: staffCount },
     { count: payoutCount },
     { data: liveStatsRow },
+    effectivePaymentProviders,
   ] = await Promise.all([
     admin.from("ticket_types").select("id, sales_status").eq("event_id", eventId),
     admin.from("event_dates").select("id", { count: "exact", head: true }).eq("event_id", eventId),
     admin.from("event_staff").select("event_id", { count: "exact", head: true }).eq("event_id", eventId).eq("active", true),
     admin.from("payout_accounts").select("id", { count: "exact", head: true }).eq("org_id", orgId),
     admin.from("event_live_stats").select("event_id").eq("event_id", eventId).maybeSingle(),
+    getEffectivePaymentProvidersForEvent(eventId),
   ])
 
   const tickets = ticketIdRows ?? []
@@ -134,6 +137,14 @@ async function buildReadiness(admin: ReturnType<typeof createAdminClient>, event
       recommended: false,
       step: "tickets",
       hint: "Enable the online channel on at least one ticket type so buyers can purchase from the public page.",
+    },
+    {
+      key: "payment_method",
+      label: "Operational payment method",
+      complete: effectivePaymentProviders.length > 0,
+      recommended: false,
+      step: "policies",
+      hint: "Choose at least one Ticketiv-supported payment method whose platform credentials are operational.",
     },
     {
       key: "image",
@@ -217,7 +228,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     .from("events")
     .update({ status: nextStatus, published_at: publish ? new Date().toISOString() : null, visibility: publish ? "public" : event.visibility })
     .eq("id", eventId)
-    .select("id, org_id, title, category, venue_id, starts_at, ends_at, status, visibility, cover_image_url, refund_policy, confirmation_message")
+    .select("id, org_id, title, category, venue_id, starts_at, ends_at, status, visibility, cover_image_url, refund_policy, confirmation_message, payment_providers")
     .maybeSingle()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })

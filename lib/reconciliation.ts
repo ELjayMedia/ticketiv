@@ -10,6 +10,7 @@ export interface ReconciliationOrder {
   subtotalCents: number | null
   platformFeeCents: number | null
   processorFeeCents: number | null
+  organizerNetCents?: number | null
   currency: string
 }
 
@@ -90,6 +91,39 @@ export interface EventReconciliationResult {
   checks: EventReconciliationCheck[]
 }
 
+export interface PayoutReconciliationBlockEvent {
+  eventId: string
+  title: string
+  orgId: string
+  orgName: string
+  currency: string
+  startsAt: string | null
+  endsAt: string | null
+  blockingChecks: EventReconciliationCheck[]
+  expectedNetCents: number
+  ledgerNetCents: number
+  openPayoutCount: number
+  openPayoutCents: number
+}
+
+export interface PayoutReconciliationBlock {
+  orgId: string
+  blocked: boolean
+  generatedAt: string | null
+  blockedEvents: PayoutReconciliationBlockEvent[]
+}
+
+export interface PayoutBlockableReconciliationEvent extends EventReconciliationResult {
+  title: string
+  orgId: string
+  orgName: string
+  currency: string
+  startsAt: string | null
+  endsAt: string | null
+  openPayoutCount: number
+  openPayoutCents: number
+}
+
 function sum<T>(rows: T[], getValue: (row: T) => number): number {
   return rows.reduce((total, row) => total + getValue(row), 0)
 }
@@ -105,11 +139,11 @@ function checkStatus(condition: boolean): ReconciliationStatus {
 }
 
 function feeTotal(order: ReconciliationOrder): number {
-  return (order.platformFeeCents ?? 0) + (order.processorFeeCents ?? 0)
+  return order.platformFeeCents ?? 0
 }
 
 function netTotal(order: ReconciliationOrder): number {
-  return order.totalCents - feeTotal(order)
+  return order.organizerNetCents ?? order.totalCents - feeTotal(order)
 }
 
 function grossTotal(order: ReconciliationOrder): number {
@@ -118,6 +152,52 @@ function grossTotal(order: ReconciliationOrder): number {
   // Using subtotal here silently mismatched whenever fees are buyer-paid
   // (total > subtotal), which is the live pricing config.
   return order.totalCents
+}
+
+function payoutBlockingChecks(event: PayoutBlockableReconciliationEvent): EventReconciliationCheck[] {
+  const failedEvidenceChecks = event.checks.filter((check) => {
+    return check.status === "danger" && check.key !== "owner" && check.key !== "payout_review"
+  })
+
+  if (failedEvidenceChecks.length > 0) return failedEvidenceChecks
+
+  return event.checks.filter((check) => check.key === "payout_review" && check.status !== "ok")
+}
+
+export function buildPayoutReconciliationBlock({
+  events,
+  orgId,
+  generatedAt = null,
+}: {
+  events: PayoutBlockableReconciliationEvent[]
+  orgId: string
+  generatedAt?: string | null
+}): PayoutReconciliationBlock {
+  const blockedEvents = events
+    .filter((event) => event.orgId === orgId)
+    .map((event) => ({ event, blockingChecks: payoutBlockingChecks(event) }))
+    .filter(({ blockingChecks }) => blockingChecks.length > 0)
+    .map(({ event, blockingChecks }) => ({
+      eventId: event.eventId,
+      title: event.title,
+      orgId: event.orgId,
+      orgName: event.orgName,
+      currency: event.currency,
+      startsAt: event.startsAt,
+      endsAt: event.endsAt,
+      blockingChecks,
+      expectedNetCents: event.expectedNetCents,
+      ledgerNetCents: event.ledgerNetCents,
+      openPayoutCount: event.openPayoutCount,
+      openPayoutCents: event.openPayoutCents,
+    }))
+
+  return {
+    orgId,
+    blocked: blockedEvents.length > 0,
+    generatedAt,
+    blockedEvents,
+  }
 }
 
 export function buildEventReconciliation(input: EventReconciliationInput): EventReconciliationResult {

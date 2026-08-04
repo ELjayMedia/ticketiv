@@ -1,37 +1,44 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
-import { useEventRealtime } from "@/hooks/use-event-realtime"
 import Link from "next/link"
-
-import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
-import { Chip } from "@/components/quiet/ui/chip"
-import { Icon } from "@/components/quiet/ui/icon"
+import { useRouter, useSearchParams } from "next/navigation"
 
 import { EventReadinessPanel } from "@/components/event-wizard/EventReadinessPanel"
 import { BasicsStep } from "@/components/event-wizard/steps/BasicsStep"
-import { VenueStep } from "@/components/event-wizard/steps/VenueStep"
+import { LineupStep } from "@/components/event-wizard/steps/LineupStep"
+import { PoliciesStep } from "@/components/event-wizard/steps/PoliciesStep"
+import { PublishStep } from "@/components/event-wizard/steps/PublishStep"
 import { ScheduleStep } from "@/components/event-wizard/steps/ScheduleStep"
 import { TicketsStep } from "@/components/event-wizard/steps/TicketsStep"
-import { PublishStep } from "@/components/event-wizard/steps/PublishStep"
+import { VenueStep } from "@/components/event-wizard/steps/VenueStep"
+import { Card, CardBody } from "@/components/quiet/ui/card"
+import { Icon } from "@/components/quiet/ui/icon"
+import { useEventRealtime } from "@/hooks/use-event-realtime"
 
 // TICK-48 — Event editor shell (Quiet UI)
 
 const STEPS = [
   { key: "basics", label: "Basics" },
+  { key: "lineup", label: "Lineup" },
   { key: "schedule", label: "Dates" },
   { key: "venue", label: "Venue" },
   { key: "tickets", label: "Tickets" },
+  { key: "policies", label: "Payments & policies" },
   { key: "publish", label: "Publish" },
 ] as const
 
 type StepKey = (typeof STEPS)[number]["key"]
 
+function isStepKey(value: string): value is StepKey {
+  return STEPS.some((step) => step.key === value)
+}
+
 export default function EventWizardClient({ orgId, eventId }: { orgId: string; eventId: string }) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const step = (searchParams?.get("step") ?? "basics") as StepKey
+  const requestedStep = searchParams?.get("step") ?? "basics"
+  const step: StepKey = isStepKey(requestedStep) ? requestedStep : "basics"
 
   const [event, setEvent] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -58,23 +65,23 @@ export default function EventWizardClient({ orgId, eventId }: { orgId: string; e
 
   const onRealtimeChange = useCallback((payload: any) => {
     if (payload?.eventType === "UPDATE" || payload?.eventType === "INSERT") {
-      setEvent((prev: any) => ({ ...(prev ?? {}), ...(payload.new ?? {}) }))
+      setEvent((previous: any) => ({ ...(previous ?? {}), ...(payload.new ?? {}) }))
       setSaveState("saved")
-      setReadinessRefreshKey((prev) => prev + 1)
+      setReadinessRefreshKey((previous) => previous + 1)
       setTimeout(() => setSaveState("idle"), 1500)
     }
   }, [])
 
   useEventRealtime({ eventId, onChange: onRealtimeChange })
 
-  function go(next: string) {
+  function go(next: StepKey) {
     router.push(`/orgs/${orgId}/events/${eventId}/edit?step=${next}`)
   }
 
   function handleSaving() {
     setSaveState("saving")
     setTimeout(() => {
-      setReadinessRefreshKey((prev) => prev + 1)
+      setReadinessRefreshKey((previous) => previous + 1)
     }, 600)
   }
 
@@ -92,9 +99,7 @@ export default function EventWizardClient({ orgId, eventId }: { orgId: string; e
         <Card className="border-danger/30">
           <CardBody className="flex flex-col gap-2 p-5">
             <h2 className="text-h2">Access denied</h2>
-            <p className="text-[13px] text-ink-3">
-              Event not found or you don't have permission to edit it.
-            </p>
+            <p className="text-[13px] text-ink-3">Event not found or you don't have permission to edit it.</p>
             <Link href={`/orgs/${orgId}/events`} className="text-[13px] text-accent underline-offset-4 hover:underline">
               Back to events
             </Link>
@@ -106,18 +111,17 @@ export default function EventWizardClient({ orgId, eventId }: { orgId: string; e
 
   return (
     <div className="flex flex-col gap-0">
-      {/* Editor header */}
-      <div className="border-b border-line bg-surface px-6 py-4">
+      <div className="border-b border-line bg-surface px-4 py-4 sm:px-6">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <Link
               href={`/orgs/${orgId}/events/${eventId}`}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-3 transition-colors hover:bg-bg hover:text-ink"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink-3 transition-colors hover:bg-bg hover:text-ink"
             >
               <Icon name="chevL" size={16} />
             </Link>
-            <div className="flex flex-col gap-0.5">
-              <h1 className="text-[15px] font-semibold text-ink">{event.title ?? "Untitled event"}</h1>
+            <div className="min-w-0 flex flex-col gap-0.5">
+              <h1 className="truncate text-[15px] font-semibold text-ink">{event.title ?? "Untitled event"}</h1>
               <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
                 {event.status ?? "draft"}
                 {saveState === "saving" && " · Saving…"}
@@ -126,50 +130,45 @@ export default function EventWizardClient({ orgId, eventId }: { orgId: string; e
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-1">
-            {STEPS.map((s) => (
+
+          <div className="-mx-1 flex max-w-full gap-1 overflow-x-auto px-1 pb-1 sm:mx-0 sm:pb-0">
+            {STEPS.map((wizardStep) => (
               <button
-                key={s.key}
-                onClick={() => go(s.key)}
+                key={wizardStep.key}
+                type="button"
+                onClick={() => go(wizardStep.key)}
                 className={[
-                  "rounded-full px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider transition-colors",
-                  s.key === step
+                  "shrink-0 rounded-full px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider transition-colors",
+                  wizardStep.key === step
                     ? "bg-ink text-surface"
                     : "border border-line-2 text-ink-3 hover:bg-bg hover:text-ink",
                 ].join(" ")}
               >
-                {s.label}
+                {wizardStep.label}
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Editor body */}
-      <div className="mx-auto grid w-full max-w-7xl gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+      <div className="mx-auto grid w-full max-w-7xl gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
         <div className="space-y-0">
           <Card>
             <CardBody className="p-5">
               {step === "basics" && (
                 <BasicsStep event={event} onSaving={handleSaving} onError={() => setSaveState("error")} />
               )}
-              {step === "schedule" && (
-                <ScheduleStep eventId={eventId} onSaving={handleSaving} />
-              )}
-              {step === "venue" && (
-                <VenueStep eventId={eventId} onSaving={handleSaving} />
-              )}
-              {step === "tickets" && (
-                <TicketsStep eventId={eventId} onSaving={handleSaving} />
-              )}
-              {step === "publish" && (
-                <PublishStep event={event} onSaving={handleSaving} />
-              )}
+              {step === "lineup" && <LineupStep eventId={eventId} onSaving={handleSaving} />}
+              {step === "schedule" && <ScheduleStep eventId={eventId} onSaving={handleSaving} />}
+              {step === "venue" && <VenueStep eventId={eventId} onSaving={handleSaving} />}
+              {step === "tickets" && <TicketsStep eventId={eventId} onSaving={handleSaving} />}
+              {step === "policies" && <PoliciesStep eventId={eventId} onSaving={handleSaving} />}
+              {step === "publish" && <PublishStep event={event} onSaving={handleSaving} />}
             </CardBody>
           </Card>
         </div>
 
-        <EventReadinessPanel eventId={eventId} refreshKey={readinessRefreshKey} />
+        <EventReadinessPanel orgId={orgId} eventId={eventId} refreshKey={readinessRefreshKey} />
       </div>
     </div>
   )

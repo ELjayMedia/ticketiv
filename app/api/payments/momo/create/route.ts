@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { normaliseMsisdn, requestMomoPayment } from "@/lib/payments/momo"
+import { assertPaymentProviderAvailableForOrder } from "@/lib/payments/availability"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export async function POST(request: Request) {
@@ -49,6 +50,11 @@ export async function POST(request: Request) {
     if (order.status !== "pending") {
       return NextResponse.json({ error: `Order is not payable from status: ${order.status}` }, { status: 409 })
     }
+
+    // Do not trust the fact that a buyer reached this route. Re-resolve the
+    // order's event lock and current platform operational state so a crafted
+    // request cannot invoke MoMo for a Paystack-only or disabled event.
+    await assertPaymentProviderAvailableForOrder(order.id, "momo")
 
     let msisdn: string
     try {

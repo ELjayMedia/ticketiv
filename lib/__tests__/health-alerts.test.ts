@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest"
 import {
   buildOpsAlertPayload,
   evaluateHealthUrls,
+  evaluateOrderStateConsistency,
   evaluatePaymentSuccessRate,
+  evaluatePayoutIntegrity,
+  evaluateProviderSettlement,
+  evaluateStuckAsyncWork,
   evaluateWebhookLag,
   hasAlert,
 } from "@/lib/ops/health-alerts"
@@ -75,6 +79,83 @@ describe("health-alerts", () => {
 
     expect(check.status).toBe("alert")
     expect(check.details.checked).toBe(2)
+  })
+
+  it("keeps order-state consistency healthy when all counts are zero", () => {
+    const check = evaluateOrderStateConsistency({})
+    expect(check.status).toBe("ok")
+    expect(check.details.total).toBe(0)
+  })
+
+  it("raises a critical alert with only the non-zero order-state categories", () => {
+    const check = evaluateOrderStateConsistency({
+      paid_order_no_settlement_ledger: 2,
+      issued_ticket_on_unpaid_order: 1,
+      succeeded_payment_order_not_paid: 0,
+    })
+    expect(check.status).toBe("alert")
+    expect(check.severity).toBe("critical")
+    expect(check.details.total).toBe(3)
+    expect(check.details.categories).toEqual({
+      paid_order_no_settlement_ledger: 2,
+      issued_ticket_on_unpaid_order: 1,
+    })
+  })
+
+  it("treats payout over-draw as critical and failed payouts as a warning", () => {
+    expect(evaluatePayoutIntegrity({ payout_overdraw_orgs: 1, failed_payouts: 3 })).toMatchObject({
+      status: "alert",
+      severity: "critical",
+    })
+    expect(evaluatePayoutIntegrity({ payout_overdraw_orgs: 0, failed_payouts: 2 })).toMatchObject({
+      status: "alert",
+      severity: "warning",
+    })
+    expect(evaluatePayoutIntegrity({}).status).toBe("ok")
+  })
+
+  it("flags a stuck payment outbox as critical, other async backlog as warning", () => {
+    expect(evaluateStuckAsyncWork({ stuck_payment_outbox: 1 })).toMatchObject({
+      status: "alert",
+      severity: "critical",
+    })
+    expect(evaluateStuckAsyncWork({ stuck_notifications: 3, deadletter_jobs: 1 })).toMatchObject({
+      status: "alert",
+      severity: "warning",
+    })
+    expect(evaluateStuckAsyncWork({}).status).toBe("ok")
+  })
+
+  it("skips the settlement check until data has been ingested", () => {
+    const check = evaluateProviderSettlement({ hours_since_last_settlement_ingest: -1 })
+    expect(check.status).toBe("skipped")
+    expect(check.severity).toBe("info")
+  })
+
+  it("treats any provider settlement mismatch as critical", () => {
+    const check = evaluateProviderSettlement({
+      settlement_items_unmatched: 1,
+      settlement_amount_mismatch: 2,
+      hours_since_last_settlement_ingest: 1,
+    })
+    expect(check.status).toBe("alert")
+    expect(check.severity).toBe("critical")
+    expect(check.details.total).toBe(3)
+    expect(check.details.categories).toEqual({
+      settlement_items_unmatched: 1,
+      settlement_amount_mismatch: 2,
+    })
+  })
+
+  it("warns (not criticals) when settlement data is merely stale", () => {
+    const check = evaluateProviderSettlement({ hours_since_last_settlement_ingest: 72 }, 48)
+    expect(check.status).toBe("alert")
+    expect(check.severity).toBe("warning")
+  })
+
+  it("is healthy when settlement matches and ingest is current", () => {
+    const check = evaluateProviderSettlement({ hours_since_last_settlement_ingest: 3 }, 48)
+    expect(check.status).toBe("ok")
   })
 
   it("builds a compact payload from alerting checks only", () => {

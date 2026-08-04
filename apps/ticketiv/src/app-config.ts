@@ -4,6 +4,8 @@ export type TicketivConsumerStoreTarget = "play" | "huawei";
 
 export type TicketivConsumerAndroidBuildVariant = "playRelease" | "huaweiRelease";
 
+export type TicketivConsumerIosBuildVariant = "iosRelease";
+
 export type TicketivConsumerNativeCapability =
   | "event-discovery"
   | "hosted-checkout"
@@ -14,6 +16,8 @@ export type TicketivConsumerNativeCapability =
   | "transaction-history"
   | "secure-storage"
   | "universal-links"
+  | "apple-wallet"
+  | "apns-push"
   | "google-wallet"
   | "fcm-push"
   | "hms-push"
@@ -26,6 +30,16 @@ export type TicketivConsumerAndroidBuildTarget = {
   pushProvider: "fcm" | "hms";
   walletProvider: "google-wallet" | "in-app-ticket";
   requiresGoogleMobileServices: boolean;
+  capabilities: TicketivConsumerNativeCapability[];
+};
+
+export type TicketivConsumerIosBuildTarget = {
+  store: "app-store";
+  variant: TicketivConsumerIosBuildVariant;
+  artifactName: string;
+  bundleIdentifier: string;
+  pushProvider: "apns";
+  walletProvider: "apple-wallet";
   capabilities: TicketivConsumerNativeCapability[];
 };
 
@@ -82,6 +96,34 @@ export const TICKETIV_ANDROID_TARGETS: Record<
   },
 };
 
+export const TICKETIV_IOS_TARGET: TicketivConsumerIosBuildTarget = {
+  store: "app-store",
+  variant: "iosRelease",
+  artifactName: "ticketiv-ios-release.ipa",
+  bundleIdentifier: TICKETIV_APP_ID,
+  pushProvider: "apns",
+  walletProvider: "apple-wallet",
+  capabilities: [
+    "event-discovery",
+    "hosted-checkout",
+    "offline-tickets",
+    "qr-display",
+    "ticket-transfer",
+    "refunds",
+    "transaction-history",
+    "secure-storage",
+    "universal-links",
+    "apple-wallet",
+    "apns-push",
+  ],
+};
+
+export const TICKETIV_NATIVE_RELEASE_TARGETS = [
+  { platform: "android", ...TICKETIV_ANDROID_TARGETS.play },
+  { platform: "android", ...TICKETIV_ANDROID_TARGETS.huawei },
+  { platform: "ios", ...TICKETIV_IOS_TARGET },
+] as const;
+
 export const TICKETIV_APP_THEME = {
   colors: {
     bg: colors.bg,
@@ -106,6 +148,8 @@ export const TICKETIV_APP_CONFIG = {
   scheme: TICKETIV_SCHEME,
   androidPackage: TICKETIV_APP_ID,
   androidTargets: TICKETIV_ANDROID_TARGETS,
+  iosBundleIdentifier: TICKETIV_APP_ID,
+  iosTarget: TICKETIV_IOS_TARGET,
   theme: TICKETIV_APP_THEME,
 } as const;
 
@@ -131,6 +175,26 @@ export function resolveTicketivAndroidTarget(
   }
 
   throw new Error(`Unsupported Ticketiv Android target: ${value}`);
+}
+
+export function resolveTicketivIosTarget(
+  value: string | null | undefined
+): TicketivConsumerIosBuildTarget {
+  const normalized = (value ?? "ios")
+    .trim()
+    .toLowerCase()
+    .replace(/[-_\s]/g, "");
+
+  if (
+    !normalized ||
+    normalized === "ios" ||
+    normalized === "appstore" ||
+    normalized === "iosrelease"
+  ) {
+    return TICKETIV_IOS_TARGET;
+  }
+
+  throw new Error(`Unsupported Ticketiv iOS target: ${value}`);
 }
 
 export function buildTicketivDeepLink(path = "/tickets"): string {

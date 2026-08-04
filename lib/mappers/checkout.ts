@@ -5,13 +5,15 @@
  */
 
 import { PHOTOS } from "@/lib/photos";
-import { formatEventDate, formatTimeRange } from "@/lib/format";
+import { formatEventDate, formatTimeRange, type Currency } from "@/lib/format";
+import { asCurrency } from "@/lib/currency";
 import type { EventPublicView } from "@/lib/schemas/views";
 
 export interface CheckoutTicketTypeRow {
   id: string;
   name: string;
   price_cents: number;
+  currency: string;
   remaining: number | null;
   sales_status?: string | null;
 }
@@ -20,6 +22,7 @@ export interface CheckoutTicketTypeProp {
   id: string;
   name: string;
   priceMinor: number;
+  currency: Currency;
   remaining: number | null;
   sublabel?: string;
 }
@@ -53,6 +56,7 @@ export function mapCheckoutTicketType(t: CheckoutTicketTypeRow): CheckoutTicketT
     id: t.id,
     name: t.name,
     priceMinor: t.price_cents,
+    currency: asCurrency(t.currency),
     remaining: t.remaining,
     sublabel,
   };

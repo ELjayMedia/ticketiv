@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { MobileCheckout } from "@/components/quiet/screens/checkout/mobile-checkout";
 import { DesktopCheckout } from "@/components/quiet/screens/checkout/desktop-checkout";
+import { CheckoutProviderBridge } from "@/components/quiet/screens/checkout/checkout-provider-bridge";
 import { CheckoutStartTracker } from "@/components/analytics/buyer-funnel";
 import { getPublicEventBySlug } from "@/lib/adapters/events";
 import {
@@ -8,6 +10,11 @@ import {
   mapCheckoutTicketType,
   bookingFeeFor,
 } from "@/lib/mappers/checkout";
+import { getEffectivePaymentMethodsForEvent } from "@/lib/payments/availability";
+import {
+  createPaymentChannelUnavailableError,
+  reportPaymentChannelUnavailable,
+} from "@/lib/payments/errors";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -29,7 +36,7 @@ async function fetchCheckoutExtras(eventId: string) {
   const supabase = await createServerSupabaseClient();
   if (!supabase)
     return {
-      ticketTypes: [] as Array<{ id: string; name: string; price_cents: number; remaining: number | null; sales_status: string | null }>,
+      ticketTypes: [] as Array<{ id: string; name: string; price_cents: number; currency: string; remaining: number | null; sales_status: string | null }>,
       plan: null as { platform_fixed_cents: number | null; platform_percent_bps: number | null } | null,
       orgId: null as string | null,
     };
@@ -45,7 +52,7 @@ async function fetchCheckoutExtras(eventId: string) {
   const [ttRes, remainingRes, planRes] = await Promise.all([
     supabase
       .from("ticket_types")
-      .select("id, name, price_cents, quota, sales_status")
+      .select("id, name, price_cents, currency, quota, sales_status")
       .eq("event_id", eventId)
       // Hidden ticket types are organizer-only (comp / employee / unpublished).
       // They should never appear in the public listing or be reachable by URL.
@@ -79,6 +86,7 @@ async function fetchCheckoutExtras(eventId: string) {
       id: t.id,
       name: t.name,
       price_cents: t.price_cents,
+      currency: t.currency,
       sales_status: t.sales_status,
       remaining: remainingMap.get(t.id) ?? null,
     })),
@@ -137,7 +145,10 @@ export default async function CheckoutPage({
   if (!row) notFound();
 
   const sharedProps = mapCheckoutEvent(row);
-  const { ticketTypes, plan } = await fetchCheckoutExtras(row.id);
+  const [{ ticketTypes, plan }, paymentMethods] = await Promise.all([
+    fetchCheckoutExtras(row.id),
+    getEffectivePaymentMethodsForEvent(row.id),
+  ]);
 
   // Prefill the buyer-email field when the buyer is already signed in (and
   // their account carries a real address — not an anonymous guest from a
@@ -153,6 +164,42 @@ export default async function CheckoutPage({
   const subtotalForFirst = firstSellable ? firstSellable.priceMinor : 0;
   const bookingFee = bookingFeeFor(plan, subtotalForFirst);
 
+  if (paymentMethods.length === 0) {
+    const unavailable = createPaymentChannelUnavailableError("no_matching_route", {
+      eventId: row.id,
+      eventSlug: row.slug,
+    });
+    reportPaymentChannelUnavailable(unavailable);
+    return (
+      <>
+        <CheckoutStartTracker
+          eventId={row.id}
+          eventSlug={row.slug}
+          ticketTypeCount={mappedTypes.length}
+          hasHold={Boolean(holdCode)}
+        />
+        <main className="flex min-h-dvh items-center justify-center bg-bg px-5 py-12">
+          <div className="w-full max-w-lg rounded-[var(--radius-lg)] border border-line bg-surface p-6 text-center">
+            <p className="font-mono text-[11px] font-semibold uppercase text-danger">Checkout paused</p>
+            <h1 className="mt-2 text-[24px] font-semibold tracking-[-0.03em]">No active payment method</h1>
+            <p className="mt-3 text-[14px] leading-6 text-ink-3">
+              Ticket sales for this event are temporarily unavailable because the organizer has not enabled an operational Ticketiv-supported payment method.
+            </p>
+            <p className="mt-2 font-mono text-[11px] text-ink-3">Reference: {unavailable.correlationId}</p>
+            <div className="mt-5 flex justify-center gap-2">
+              <Link href={`/events/${id}`} className="rounded-md border border-line-2 px-4 py-2 text-[13px] font-semibold hover:bg-bg">
+                Back to event
+              </Link>
+              <Link href="/support" className="rounded-md bg-accent px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90">
+                Contact support
+              </Link>
+            </div>
+          </div>
+        </main>
+      </>
+    );
+  }
+
   return (
     <>
       <CheckoutStartTracker
@@ -162,29 +209,44 @@ export default async function CheckoutPage({
         hasHold={Boolean(holdCode)}
       />
       <div className="h-dvh md:hidden">
-        <MobileCheckout
-          {...sharedProps}
-          eventUuid={row.id}
-          ticketTypes={mappedTypes}
-          bookingFeeMinor={bookingFee}
-          holdSeconds={holdSeconds}
-          defaultBuyerEmail={defaultBuyerEmail}
-          defaultTicketTypeId={firstSellable?.id}
-        />
+        <CheckoutProviderBridge
+          methods={paymentMethods}
+          eventId={row.id}
+          eventSlug={row.slug}
+        >
+          <MobileCheckout
+            {...sharedProps}
+            eventUuid={row.id}
+            ticketTypes={mappedTypes}
+            paymentMethods={paymentMethods}
+            bookingFeeMinor={bookingFee}
+            holdSeconds={holdSeconds}
+            defaultBuyerEmail={defaultBuyerEmail}
+            defaultTicketTypeId={firstSellable?.id}
+          />
+        </CheckoutProviderBridge>
       </div>
       <div className="hidden md:block">
-        <DesktopCheckout
-          {...sharedProps}
-          eventUuid={row.id}
-          ticketTypeId={firstSellable?.id ?? ""}
-          ticketTypeName={firstSellable?.name ?? "General"}
-          quantity={1}
-          subtotalMinor={subtotalForFirst}
-          bookingFeeMinor={bookingFee}
-          vatRate={0.15}
-          holdSeconds={holdSeconds}
-          defaultBuyerEmail={defaultBuyerEmail}
-        />
+        <CheckoutProviderBridge
+          methods={paymentMethods}
+          eventId={row.id}
+          eventSlug={row.slug}
+          showDesktopPicker
+        >
+          <DesktopCheckout
+            {...sharedProps}
+            eventUuid={row.id}
+            ticketTypeId={firstSellable?.id ?? ""}
+            ticketTypeName={firstSellable?.name ?? "General"}
+            quantity={1}
+            subtotalMinor={subtotalForFirst}
+            currency={firstSellable?.currency}
+            bookingFeeMinor={bookingFee}
+            vatRate={0.15}
+            holdSeconds={holdSeconds}
+            defaultBuyerEmail={defaultBuyerEmail}
+          />
+        </CheckoutProviderBridge>
       </div>
     </>
   );

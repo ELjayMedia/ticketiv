@@ -7,7 +7,7 @@ and satisfy `sum(order_gross) + sum(fee) = sum(payment_net)`.
 
 ---
 
-## 1. Payment reconciliation — **Partial**
+## 1. Payment reconciliation — **Built**
 
 **Built.** `fn_org_finance_summary(org)` is the single source of truth for org
 money (gross/fees/net/available/settled). Per-event and payout reconciliation
@@ -24,15 +24,51 @@ rows — empty = healthy. As of the last run, **all checks pass (0 anomalies)**.
 batch, (b) daily, and (c) as a pre-real-money gate. Investigate any non-empty
 result before releasing funds.
 
-**Gap (To do).** Comparison against **provider settlement reports** (Paystack
-settlements: gross received, provider fees, payout to bank). That requires
-ingesting Paystack's settlement API/CSV into a `provider_settlements` table and
-reconciling it against `payments`/`payouts`. Until then, reconciliation is
-internal-only (our ledger vs our orders), not internal-vs-provider.
+**Provider settlement reconciliation** (migration `20260730210000`) closes the
+internal-only gap. Internal checks catch our own bugs; they cannot catch a
+difference between what the provider actually settled and what we believe we
+earned — a fee we did not model, a transaction reversed provider-side, or a
+settlement that never arrived. Those are the differences that cost real money.
+
+- **`provider_settlements`** (one row per settlement batch) and
+  **`provider_settlement_items`** (the transactions inside it, matched to
+  `payments` by `(provider, ext_payment_id)` — the same key the webhook writes).
+  Both are provider-reported facts, kept deliberately **separate from our money
+  tables** so the two can be compared rather than conflated. Service-role only.
+- **`fn_upsert_provider_settlement(...)`** ingests idempotently (keyed on
+  `(provider, ext_settlement_id)` and `(settlement_id, ext_payment_id)`), so
+  retries and overlapping date windows update in place. An item that matches no
+  payment is **recorded with a NULL `payment_id`, not rejected** — "the provider
+  settled something we have no payment for" is precisely the anomaly worth
+  alerting on.
+- **`fn_provider_settlement_counts()`** returns the comparison as counts:
+  unmatched items, per-transaction amount mismatch, batches where
+  `gross - fees <> net`, succeeded payments never settled (7-day grace), and
+  hours since the last ingest.
+- **Ingestion:** `lib/payments/paystack-settlements.ts` →
+  `app/api/cron/settlements` (`CRON_SECRET`-secured), scheduled **daily** by
+  `.github/workflows/settlement-ingest.yml`. Daily rather than every 5 minutes
+  because settlements land at most once a day and the Paystack settlement API is
+  paginated and rate limited. A missed day self-heals via the multi-day lookback.
+- **Alerting:** the ops-alerts cron surfaces this as `provider-settlement` —
+  **critical** on any mismatch, **warning** when ingest is merely stale
+  (`OPS_ALERT_SETTLEMENT_STALE_HOURS`, default 48), and **skipped** before the
+  first ingest so it never implies the books reconcile when nothing has been
+  compared yet.
+
+Verified with a rolled-back test: a batch with one matching and one unknown
+transaction reported 1 matched / 1 unmatched, re-ingesting produced no
+duplicates, and the amount-mismatch, internal-imbalance and unmatched detectors
+each fired on purpose-built rows.
+
+**Gap (To do).** Payout-to-bank confirmation: we compare provider settlement
+against our `payments`, but the final leg (settlement → organizer bank account)
+still relies on `payouts.status`. Ingesting provider transfer/payout records
+would close that last hop.
 
 ---
 
-## 2. Webhook replay, idempotency & dead-letter — **Partial**
+## 2. Webhook replay, idempotency & dead-letter — **Built**
 
 **Built.** Idempotency is enforced two ways: `payments (provider,
 ext_payment_id)` is unique (a redelivered success reuses the payment, no double
@@ -46,15 +82,42 @@ only** — a browser cannot finalize a payment (see the money-path work).
 the lag threshold are surfaced by the ops-alerts cron and by
 `scripts/ops-reconciliation.sql` check #8.
 
-**Gap (To do).** A **safe replay tool**: an admin action / RPC that re-runs
-`completeTrustedPaystackWebhook` for a stored (verified) `webhooks.payload`,
-guarded by the existing idempotency so replay is safe. Today reprocessing is
-manual (re-POST the stored payload to the webhook route). Add an admin
-"reprocess" button over the dead-letter list.
+**Replay tool.** The super-admin webhooks page (`/super-admin/webhooks` →
+**Inbound** tab) shows a **Reprocess** button on every `PENDING` row, backed by
+the `replayInboundWebhook` server action. Safety rests on three properties:
+
+1. **The payload is never supplied by the caller.** The action takes only a row
+   id and reads `webhooks.payload` — the body this system already HMAC-verified
+   at receipt. There is deliberately no "replay arbitrary JSON" affordance, so an
+   admin cannot inject or edit a payment event.
+2. **It re-runs the same trusted path** as the live route
+   (`completeTrustedPaystackWebhook`), so a replay cannot take a shortcut the
+   normal delivery would not.
+3. **Replay is idempotent by construction** — verified against production with a
+   rolled-back double-completion: the second run returned
+   `already_completed = true`, leaving **1** payment row (no double charge),
+   ledger gross equal to the order total (not doubled), and the ticket issued
+   once.
+
+Only unprocessed rows are eligible (a processed row would be a no-op, so the
+button refuses it rather than implying it did something). The action is gated to
+non-`read_only_admin` tiers, writes an `audit_log` entry on both success and
+failure, and on failure leaves `processed_at` NULL so the row stays in the
+dead-letter list.
+
+**Procedure.** Dead letters appear in the ops-alerts cron and
+`scripts/ops-reconciliation.sql` #8. Investigate the underlying failure first
+(the stored payload and Sentry breadcrumbs say why completion threw), fix the
+cause, then hit **Reprocess**. If replay fails again the row stays pending and
+the error is recorded in `audit_log`.
+
+**Gap (To do).** Replay currently handles **Paystack** only — the sole provider
+with a completion path. Other providers are rejected with a clear message; add a
+handler alongside `completeTrustedPaystackWebhook` when a second provider ships.
 
 ---
 
-## 3. Alerting — **Partial**
+## 3. Alerting — **Built (core conditions covered)**
 
 **Built.** `app/api/cron/ops-alerts/route.ts` runs every 5 min
 (`.github/workflows/ops-alerts.yml` → secured `CRON_SECRET` endpoint) and alerts
@@ -62,40 +125,125 @@ manual (re-POST the stored payload to the webhook route). Add an admin
 (unprocessed webhooks older than N min), **payment success-rate** below a
 threshold over a rolling window, and **health-URL** failures.
 
-**Gap (To do).** Extend the cron with the remaining conditions — the detection
-SQL already exists in `scripts/ops-reconciliation.sql`:
-- **Inconsistent order states** (checks #1, #2, #4, #9, #10).
-- **Payout errors / over-draw** (check #7; plus `payouts.status = 'failed'`).
-- **Scanner sync backlog** (device_sessions active but `last_seen_at` stale, or
-  a spike in offline/unsynced scans).
-- **Failed jobs** (e.g., notifications/outbox rows stuck `pending`).
+**Reconciliation conditions** now run in the same cron via
+`public.fn_ops_reconciliation_counts()` — a service-role-only `SECURITY DEFINER`
+function that returns anomaly **counts** (0 = healthy), so the cron gets them in
+one call instead of expressing multi-table joins through PostgREST. Three
+`evaluate*` checks in `lib/ops/health-alerts.ts` turn those counts into alerts:
+- **`order-state-consistency`** (critical) — money/order/ledger integrity,
+  mirroring `scripts/ops-reconciliation.sql` #1–#6, #9–#11 (succeeded-but-unpaid,
+  paid-without-settlement-ledger, broken ledger invariant, unissued paid tickets,
+  duplicate succeeded payments, refund-without-ledger, issued-on-unpaid, etc.).
+- **`payout-integrity`** — over-draw (#7, critical) + `payouts.status = 'failed'`
+  (warning).
+- **`stuck-async-work`** — overdue `payment_outbox` (critical, payment
+  finalization stuck) + stuck `notifications` and dead-lettered `jobs` (warning).
 
-Add each as an `evaluate*` in `lib/ops/health-alerts.ts` and include it in the
-cron's `checks` array. Delivery already exists (`postOpsAlert`).
+A reconciliation-query failure degrades to a single **skipped** check, never
+failing the alert run. Delivery is unchanged (`postOpsAlert`).
+
+> **Baseline (2026-07-30).** `fn_teardown_uat_fixtures()` has been run and
+> **all 14 counts read 0**. The UAT seed fixtures that previously made these
+> alerts fire (2 paid orders without a settlement ledger, 1 overdue
+> payment-outbox row, stuck notifications) are gone, so any future non-zero
+> value reflects real activity. Note the database now holds **no transactional
+> data at all** — a true pre-launch zero baseline.
+
+**`in_app` notifications are deliberately excluded** from `stuck_notifications`
+(migration `20260730200000`). `lib/notifications.ts` `emitNotification` inserts
+in-app rows with `status = 'pending'` and nothing ever transitions them — the
+in-app lifecycle is `read_at`, not `status`. Counting them would flag every
+in-app notification older than the threshold as stuck, firing the alert
+permanently under real traffic and training people to ignore it. Only dispatched
+channels (email/sms/push), which get real `sent`/`failed` statuses from
+`lib/notifications/transactional.ts`, are counted.
+
+**Gap (To do).** **Scanner sync backlog** — `device_sessions` has no
+`last_seen_at` and `scans` has no server-side "unsynced" flag, so a meaningful
+backlog signal needs a schema addition (e.g. a heartbeat column) before it can
+be added as a fourth `evaluate*`.
 
 ---
 
-## 4. Backups & recovery (RPO/RTO) — **To do (mostly documentation + drill)**
+## 4. Backups & recovery (RPO/RTO) — **Runbook built; drill outstanding**
 
-Supabase provides automated daily backups and, on Pro/managed plans,
-**Point-in-Time Recovery (PITR)**. Confirm PITR is enabled for project
-`radsfmlsjznqvcpogluo` in the Supabase dashboard (Database → Backups).
+Project `radsfmlsjznqvcpogluo` ("Ticketiv"), region **eu-west-1**, Postgres
+**17.6.1**, **383 MB**, 210 migrations applied.
 
-**Objectives (proposed — confirm with the business):**
-- **RPO ≤ 5 minutes** (PITR WAL) for financial tables; ≤ 24h (daily snapshot)
-  otherwise.
-- **RTO ≤ 2 hours** to restore into a new project + repoint `NEXT_PUBLIC_*` /
-  service-role env and redeploy.
+### Read this first: what a database restore does NOT bring back
 
-**Recovery drill (do once before launch, then quarterly):** restore a PITR
-snapshot into a scratch project, run `scripts/verify-rls.sql` and
-`scripts/ops-reconciliation.sql` against it, and record the actual
-recovery time. Document the runbook: who has Supabase owner access, where env
-values live, and the Vercel promote/rollback steps.
+A Postgres restore is not a full recovery. Three things live outside it, and two
+of them are unrecoverable if lost:
+
+1. **`PAYOUT_ENCRYPTION_KEY` — the sharpest edge.** Organizer bank details are
+   stored encrypted in `payout_accounts.details_encrypted`, keyed by this env
+   var (`lib/payout-crypto.ts`). **Lose the key and a perfect database restore
+   still yields unreadable payout accounts** — every organizer would have to
+   re-enter bank details before any payout could run. Back this key up
+   separately from both the database and Vercel, and treat rotating it as a
+   migration, not a config change.
+2. **Storage buckets** (`avatars`, `event-covers`) are object storage, **not**
+   covered by a Postgres PITR restore. They need their own backup/copy step.
+3. **`supabase_vault` secrets** are encrypted with a project-scoped key, so they
+   do not necessarily survive a restore into a *new* project. Re-seed them.
+
+### Objectives (proposed — confirm with the business)
+- **RPO ≤ 5 minutes** for financial tables (requires PITR); ≤ 24h on daily
+  snapshots alone.
+- **RTO ≤ 2 hours.** At 383 MB the data restore itself is minutes — RTO is
+  dominated by repointing env, redeploying and DNS, not by data volume.
+
+### Prerequisite (cannot be verified from here)
+**Confirm PITR is enabled** for the project in the Supabase dashboard
+(Database → Backups). PITR is a paid-plan feature; without it the RPO is the
+daily snapshot (up to 24h of lost orders), which is not compatible with the
+RPO above. This is the one item that must be checked by a human with dashboard
+access.
+
+### Restore procedure
+1. **Restore** the snapshot / PITR timestamp into a new project (same region,
+   eu-west-1, to keep latency and any data-residency assumptions).
+2. **Re-create the 7 `pg_cron` jobs** — they are database state and must be
+   verified after any cross-project restore:
+   `anon-user-cleanup` (`0 2 * * *`), `nightly_rollup_metrics` (`0 2 * * *`),
+   `daily_analyze_public_schema` (`0 3 * * *`),
+   `ticketiv-audit-log-retention` (`30 3 * * *`),
+   `ticketiv-scans-retention` (`45 3 * * *`),
+   `expire-stale-checkout-holds` (`*/5 * * * *`),
+   `monitoring.capture_slow_queries_hourly` (`0 * * * *`).
+   The retention jobs are re-created by their migrations; the others are not.
+3. **Confirm extensions** exist: `pg_cron`, `pg_net`, `pgcrypto`, `pg_trgm`,
+   `btree_gist`, `uuid-ossp`, `pg_stat_statements`, `supabase_vault`, `hypopg`,
+   `index_advisor`.
+4. **Restore storage** buckets `avatars` and `event-covers`.
+5. **Repoint env** and redeploy. The must-change set:
+   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+   `SUPABASE_SERVICE_ROLE_KEY`. Carry over unchanged (do **not** regenerate):
+   `PAYOUT_ENCRYPTION_KEY`, `PAYSTACK_SECRET_KEY`, `CRON_SECRET`,
+   `OPS_ALERT_WEBHOOK_URL`. Full inventory: `.env.example` (51 vars).
+6. **Re-point the Paystack webhook** at the restored deployment, or completions
+   will silently stop arriving.
+
+### Verify the restore (do not declare recovery without this)
+Run, in order, and require all four to be clean:
+- `scripts/verify-rls.sql` — policies survived the restore.
+- `scripts/ops-reconciliation.sql` — money integrity.
+- `select public.fn_ops_reconciliation_counts();` — all 14 counts `0`.
+- `select public.fn_provider_settlement_counts();` — provider comparison intact.
+
+### Drill — **outstanding**
+Do this once before launch, then quarterly: restore into a scratch project, walk
+the procedure above, run the four verifications, and **record the wall-clock
+time** to validate (or correct) the RTO ≤ 2h objective. Also record who holds
+Supabase owner access and where `PAYOUT_ENCRYPTION_KEY` is escrowed.
+
+**Gap (To do).** The drill itself — it needs Supabase dashboard access to create
+a scratch project and trigger a restore, so it cannot be automated from the repo.
+Until it has been run, RPO/RTO above are objectives, not measured facts.
 
 ---
 
-## 5. Support / admin workflows — **Partial (tooling exists; runbooks below)**
+## 5. Support / admin workflows — **Built**
 
 The super-admin command centre (`app/super-admin/*`) covers payments, payouts,
 exports, audit and flags. Documented workflows:
@@ -112,34 +260,166 @@ exports, audit and flags. Documented workflows:
 - **Event cancellation:** pause then archive the event (`published → archived`);
   batch-refund outstanding paid orders; notify buyers.
 
-**Gap (To do).** A first-class "dispute" object/queue and one-click flows for the
-above (today several are multi-step or manual).
+**Dispute queue** (migration `20260730230000`). Previously a dispute existed only
+as a sequence of manual steps — an admin found the payment, refunded or revoked,
+and the fact that a customer had disputed anything survived only in someone's
+memory. "What is outstanding right now?" was unanswerable, which is the question
+support actually needs.
+
+- **`disputes`** is the *case*, not the money movement: it references the order
+  and payment, carries its own lifecycle
+  (`open → investigating → awaiting_customer → resolved | rejected`), and links
+  to the refund that settled it. Refunds remain the money record. Service-role
+  only, RLS on.
+- **`fn_open_dispute`** is idempotent on `dedupe_key`, so a redelivered webhook
+  or a double-clicked admin action cannot create duplicate cases.
+  **`fn_transition_dispute`** stamps `resolved_at` on terminal states and
+  **refuses to reopen a closed dispute** — enforced in the database, not just the
+  UI.
+- **Chargebacks auto-open a dispute.** `fn_record_chargeback` now calls
+  `fn_open_dispute` with a `chargeback:<payment_id>` dedupe key. Without this the
+  queue would miss exactly the cases where money has already been clawed back,
+  and a redelivered chargeback webhook still yields one case.
+- **Queue UI:** `/super-admin/disputes` — open/investigating/unassigned/stale
+  counts, "Take" (assign to me), "Resolve" and "Reject" with a resolution note.
+  Gated to non-`read_only_admin`; every transition writes `audit_log`.
+- **`fn_dispute_counts()`** exposes queue health (including `unassigned_open` and
+  `stale_open > 7 days`) for the ops surface.
+
+Verified with rolled-back tests: opening twice with one dedupe key produced a
+single case; the lifecycle stamped `resolved_at`; reopening a closed dispute was
+refused; and a chargeback opened exactly one dispute (kind `chargeback`, amount
+carried) alongside the reversal ledger entry and the order flipping to
+`refunded`.
+
+**Gap (To do).** Resolving a dispute records the outcome — it does **not** move
+money. The refund is still issued from the payment first, then the dispute
+resolved. Wiring "resolve + refund" into one action would remove that last
+two-step, but it deliberately keeps money movement explicit for now.
 
 ---
 
-## 6. Audit retention — **To do**
+## 6. Audit & scan retention — **Built**
 
-`audit_log` (financial + admin actions) and `scans` grow unbounded. Define a
-retention policy — proposed: **keep 24 months hot**, archive older rows to cold
-storage (a `audit_log_archive` table or object storage export), then delete.
-Implement as a scheduled RPC (pg_cron or the ops cron) that archives+prunes on a
-cutoff, and document the legal retention minimum for financial records. Nothing
-prunes today.
+**Built.** `audit_log` (financial + admin actions) is kept to a rolling window
+(default **24 months**) with older rows moved to a cold `audit_log_archive`
+table rather than hard-deleted, so the legal retention minimum for financial
+records is preserved while the hot table stays small (migration
+`20260728130000_audit_log_retention`).
+
+- `public.fn_archive_audit_log(p_retention interval default '24 months',
+  p_batch_limit integer default 10000)` archives one batch of rows older than the
+  cutoff and prunes them in a **single snapshot** (the INSERT sees pre-delete
+  rows), so a crash never deletes without archiving; it returns the batch counts.
+  Service-role only (revoked from anon/authenticated).
+- `audit_log_archive` mirrors `audit_log` (primary key preserved), has RLS on and
+  no client grants — reachable only through the SECURITY DEFINER function or
+  service_role.
+- Scheduled daily at **03:30 UTC** via **pg_cron** (`ticketiv-audit-log-retention`;
+  the migration schedules it only where pg_cron is present, so a fresh replay
+  without the extension skips it cleanly).
+
+Verified with a rolled-back run: a 30-day cutoff archived 32 old rows and pruned
+them (hot 63 → 31, archive 0 → 32) with every pruned row present in the archive.
+
+**UAT fixture cleanup — two paths, don't confuse them.** Dev/UAT/prod share one
+Supabase project, so test rows are production rows. There are two distinct
+cleanup mechanisms and each only reaches its own data:
+
+| Data | Tool | Matches on |
+|---|---|---|
+| UAT runs you marked (`uat-YYYYMMDD-name` in names/emails/refs) | `scripts/cleanup-uat-fixtures.sql` | the exact run marker; dry-run by default |
+| The original seeded fixture set from `fn_seed_uat_fixtures()` (`da7a0000-…` orgs) | `public.fn_teardown_uat_fixtures()` | hard-coded fixture org/user ids |
+
+The seeded `da7a…` fixtures carry **no** run marker, so the marker script cannot
+see them — use the teardown function for those. `fn_teardown_uat_fixtures()` was
+run on **2026-07-30**, clearing 6 orders / 3 payments / 5 ledger rows / 1 payout
+/ 1 refund / 1 scan across both fixture orgs, and reconciliation now reads 0
+across the board.
+
+**`scans` retention** (migration `20260730220000`) is now built too, and the
+trigger concern that deferred it turned out to be real: of the four triggers on
+`scans`, three are BEFORE INSERT (irrelevant to archiving), but
+`trg_recalc_event_live_stats_scans` fires **AFTER DELETE** and recalculates
+`event_live_stats`, whose `checked_in_count` / `last_scan_at` are derived by
+**counting `public.scans`**. Pruning naively would have silently reset historical
+attendance for past events to zero.
+
+Rather than suppress the trigger during the prune (stateful, and wrong the moment
+any later recalc runs), archiving was made **stat-neutral**: the recalc now counts
+`scans` **union** `scans_archive`, so an archived scan still counts toward its
+event. Verified with a rolled-back test — 3 scans (2 `valid`) gave
+`checked_in_count = 2`; after archiving all 3, live rows were 0 and
+`checked_in_count` was **still 2**, with `last_scan_at` preserved.
+
+- `public.fn_archive_scans(p_retention default '12 months', p_batch_limit)` —
+  copy-then-delete in a single snapshot, service-role only. Only scans belonging
+  to events that have **already ended** are eligible, so an in-flight gate is
+  never touched.
+- Scheduled daily at **03:45 UTC** via pg_cron (`ticketiv-scans-retention`).
+- Retention is operational, not financial: scans are gate telemetry, and the
+  durable record of who was admitted is `order_items.status = 'checked_in'`.
+
+**Gap (To do).** Decide whether the cold archives should eventually export to
+object storage and purge, and record the legal retention minimum for financial
+records. Separately, `fn_seed_uat_fixtures` /
+`fn_teardown_uat_fixtures` exist on the database with **no migration backing
+them** and are absent from `supabase/permissions/rpc-grants.json`, so the
+live-drift half of `check:permissions` will flag them once CI can run again —
+decide whether to back them with a migration, drop them, or adopt them into the
+snapshot.
 
 ---
 
-## 7. Rate limits — **Partial (foundation built)**
+## 7. Rate limits — **Built (core paths covered)**
 
 **Built.** A shared fixed-window primitive — the `rate_limits` table and
 `public.fn_rate_limit(p_key, p_max, p_window_seconds)` (returns true = allowed)
 plus `fn_rate_limit_gc()` for housekeeping (migration
-`20260720160000_rate_limit_primitive`). `fn_rate_limit` is EXECUTE-revoked from
-PUBLIC, so only trusted SECURITY DEFINER RPCs call it. **First consumer:**
-`fn_create_membership_invite` is limited to **30 invitations / inviter / hour**
-(verified: the 31st call is rejected with `rate_limited`).
+`20260720160000_rate_limit_primitive`). `fn_rate_limit`, `fn_rate_limit_gc` and
+`fn_rate_limit_edge` are EXECUTE-revoked from `anon`/`authenticated` and granted
+only to `service_role` (migration `20260726121500` makes this explicit so a
+fresh replay can't leave them anon-callable via Supabase's grant-on-create event
+trigger), so only trusted SECURITY DEFINER RPCs / server-side code call them.
+**Consumers wired** (each verified against prod with a rolled-back test — the
+last allowed call passes, the next is rejected with `rate_limited`):
 
-**Apply it to the remaining entry points** by adding, right after the RPC's auth
-check:
+| RPC (guard location) | Bucket | Limit | Migration |
+|---|---|---|---|
+| `fn_create_membership_invite_unchecked` (worker) | `invite:<uid>` | 30 / hour | `20260720160000` |
+| `fn_create_organization_unchecked` (worker) | `org_create:<uid>` | 5 / hour | `20260726121000` |
+| `fn_create_inventory_protected_order` (monolith) | `checkout:<buyer>` | 10 / min | `20260726120000` |
+| `fn_request_transfer_by_email` (shim) | `transfer:<uid>` | 20 / hour | `20260726121000` |
+| `fn_publish_resale_listing` (shim) | `resale_publish:<uid>` | 20 / hour | `20260726121000` |
+
+The guard sits in the `_unchecked` worker for the claimed-account RPCs (invite,
+org) — main's refactor split those into a `require_claimed_account()` shim over a
+service-role worker, and the worker is the stable body — and in the shim for
+transfers/resale. The rollout migrations are dated after main's claimed-account
+refactor so they apply last on a fresh replay and land on the final bodies.
+
+The checkout guard sits after the four entry validations and before any
+inventory/pricing work, so a rapid-fire attacker is rejected before touching
+the row locks; it complements the per-ticket-type `per_user_limit` / quota /
+10-minute holds.
+
+**Edge / anon endpoints are covered too.** `lib/rate-limit.ts` (used by the
+promo preview, payment attempt, auth resend, waitlist join, scanner
+provision/validate, search suggest and tapband telemetry routes) prefers
+Upstash Redis but previously **degraded to a no-op when Upstash was
+unconfigured**, silently disabling those limits. It now falls back to the same
+durable Postgres counter via `public.fn_rate_limit_edge(bucket, key, max,
+window)` — a service-role-only `SECURITY DEFINER` wrapper around `fn_rate_limit`
+(migration `20260720162000`, buckets namespaced under `edge:`). The wrapper is
+EXECUTE-revoked from `anon`/`authenticated` and only reachable through the
+server-side admin client, so a browser can't poke the counter. This closes the
+**`fn_preview_promo_code`** anon-enumeration gap: the promo route keys the limit
+by client IP (`clientKey(req)` → 20/min) and it is now enforced without Redis.
+Any DB/config error fails open (allow), preserving availability over
+enforcement.
+
+**Apply the DB primitive to the remaining SECURITY DEFINER entry points** by
+adding, right after the RPC's auth check:
 
 ```sql
 if not public.fn_rate_limit('<action>:' || v_user::text, <max>, <window_secs>) then
@@ -147,12 +427,21 @@ if not public.fn_rate_limit('<action>:' || v_user::text, <max>, <window_secs>) t
 end if;
 ```
 
-Targets and suggested limits: checkout/order creation (`fn_create_inventory_protected_order`,
-~10/min), transfers, resale publication, `fn_scan_ticket` (per device/session,
-generous), organization creation. **`fn_preview_promo_code` is anon-callable and
-has no `auth.uid()`** — key it from a server-action/route wrapper that passes the
-client IP (PostgREST does not expose the IP to the function), or apply a coarse
-per-event bucket. Schedule `fn_rate_limit_gc()` from the ops cron. Pair with
+Transfers (`fn_request_transfer_by_email`) and resale publication
+(`fn_publish_resale_listing`) are guarded at **20 / user / hour** each — the
+guard sits between `app.require_claimed_account()` and the `*_unchecked` worker,
+so it blocks recipient-email enumeration and listing spam without touching
+legitimate use.
+
+**`fn_scan_ticket` is intentionally left to the edge, not DB-guarded.** Gate
+scanning is high-throughput and offline-first, so a per-call DB counter would
+risk throttling legitimate scan bursts; the scanner is already covered at the
+edge by the `scanner:provision` and `scanner:validate` route limits, which are
+now durable via the edge fallback above.
+
+**Housekeeping is scheduled.** `fn_rate_limit_gc()` runs on every ops-alerts
+cron pass (`app/api/cron/ops-alerts/route.ts`, every 5 min, best-effort) so
+`public.rate_limits` self-prunes expired windows. Pair all of the above with
 Vercel/WAF network limits for defence in depth.
 
 ---
@@ -161,10 +450,10 @@ Vercel/WAF network limits for defence in depth.
 
 | Control | Status | Primary artifact |
 |---|---|---|
-| Reconciliation | Partial | `scripts/ops-reconciliation.sql`, `fn_org_finance_summary` |
-| Webhook idempotency/replay | Partial | `webhooks`/`payments` unique keys; replay tool = to do |
-| Alerting | Partial | `api/cron/ops-alerts`; extend with reconciliation checks |
-| Backups / RPO-RTO | To do | Supabase PITR + documented drill |
-| Support workflows | Partial | `app/super-admin/*` + runbooks above |
-| Audit retention | To do | scheduled archive+prune job |
-| Rate limits | Partial | `fn_rate_limit` primitive (built) + roll out to remaining RPCs |
+| Reconciliation | Built | `scripts/ops-reconciliation.sql`, `fn_org_finance_summary`, `provider_settlements` + daily ingest |
+| Webhook idempotency/replay | Built | `webhooks`/`payments` unique keys + admin Reprocess on the dead-letter list (Paystack only) |
+| Alerting | Built | `api/cron/ops-alerts` + `fn_ops_reconciliation_counts` (order/payout/async checks); scanner backlog needs a heartbeat column |
+| Backups / RPO-RTO | Partial | runbook written (incl. PAYOUT_ENCRYPTION_KEY / storage / cron caveats); PITR confirmation + drill outstanding |
+| Support workflows | Built | `app/super-admin/*` + `/super-admin/disputes` queue; chargebacks auto-open a case |
+| Audit & scan retention | Built | `fn_archive_audit_log` + `fn_archive_scans` with cold archives, daily pg_cron; scan archiving is stat-neutral |
+| Rate limits | Built | `fn_rate_limit` on invites/org/checkout/transfer/resale; edge routes durable via `fn_rate_limit_edge`; gc scheduled in ops cron |

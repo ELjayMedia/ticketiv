@@ -1,8 +1,10 @@
 import "server-only"
 
 import {
+  buildPayoutReconciliationBlock,
   buildEventReconciliation,
   type EventReconciliationResult,
+  type PayoutReconciliationBlock,
   type ReconciliationLedgerEntry,
   type ReconciliationOrder,
   type ReconciliationOrderItem,
@@ -69,6 +71,7 @@ type OrderRow = {
   subtotal_cents: number | null
   platform_fee_cents: number | null
   processor_fee_cents: number | null
+  organizer_net_cents: number | null
   currency: string
 }
 
@@ -134,6 +137,7 @@ function mapOrder(row: OrderRow): ReconciliationOrder {
     subtotalCents: row.subtotal_cents ?? null,
     platformFeeCents: row.platform_fee_cents ?? null,
     processorFeeCents: row.processor_fee_cents ?? null,
+    organizerNetCents: row.organizer_net_cents ?? null,
     currency: row.currency ?? "SZL",
   }
 }
@@ -271,7 +275,7 @@ export async function getPostEventReconciliationOverview(options?: {
     orderIds.length
       ? admin
           .from("orders")
-          .select("id, status, total_cents, subtotal_cents, platform_fee_cents, processor_fee_cents, currency")
+          .select("id, status, total_cents, subtotal_cents, platform_fee_cents, processor_fee_cents, organizer_net_cents, currency")
           .in("id", orderIds)
           .limit(20000)
       : Promise.resolve({ data: [], error: null }),
@@ -380,4 +384,17 @@ export async function getPostEventReconciliationOverview(options?: {
       openPayoutCents,
     },
   }
+}
+
+export async function getOrgPayoutReconciliationBlock(
+  orgId: string,
+  options?: { limit?: number },
+): Promise<PayoutReconciliationBlock> {
+  const overview = await getPostEventReconciliationOverview({ limit: options?.limit ?? 120 })
+
+  return buildPayoutReconciliationBlock({
+    events: overview.events,
+    orgId,
+    generatedAt: overview.generatedAt,
+  })
 }

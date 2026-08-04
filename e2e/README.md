@@ -1,14 +1,12 @@
-# End-to-end tests (Playwright) — TICK-174
+# End-to-end tests (Playwright) — TICK-334
 
-The Playwright harness (`playwright.config.ts`, specs in this dir) is committed
-and ready, but `@playwright/test` is **not** added to `package.json` yet — that
-requires regenerating `pnpm-lock.yaml`, which must be done where pnpm can reach
-the registry (not in the offline session that authored this).
+The Playwright harness (`playwright.config.ts`, specs in this dir) is committed,
+`@playwright/test` is pinned in `package.json`, and CI runs the browser smoke
+after the release gate.
 
 ## One-time setup
 ```bash
-pnpm add -D @playwright/test     # updates package.json + pnpm-lock.yaml
-pnpm test:e2e:install            # installs the Chromium browser (+ deps)
+pnpm test:e2e:install
 ```
 
 ## Running
@@ -20,13 +18,33 @@ pnpm test:e2e
 PLAYWRIGHT_BASE_URL="https://<preview>.vercel.app" pnpm test:e2e
 ```
 
+## Strict seeded checkout
+
+The public smoke runs on every target. The checkout/payment leg is intentionally
+gated until a disposable seeded staging target exists.
+
+```bash
+E2E_STRICT=1 \
+E2E_TEST_EVENT_SLUG="seeded-event-slug" \
+E2E_TEST_BUYER_EMAIL="buyer@example.test" \
+E2E_PAYSTACK_TEST_KEY="pk_test_..." \
+PLAYWRIGHT_BASE_URL="https://<seeded-staging>.vercel.app" \
+pnpm test:e2e
+```
+
+`E2E_STRICT=1` fails fast when any seeded prerequisite is missing. Leave it off
+for advisory public-surface smoke runs.
+
 ## Coverage status
-- ✅ Public happy path (no auth): discover → event detail → checkout CTA.
+- ✅ Public happy path (no auth): discover → event detail on desktop and mobile.
   Skips the event-detail leg automatically when the target has no seeded
   public events.
-- ⏳ Authenticated checkout → ticket → scan: written but `test.skip`-gated on
-  `E2E_TEST_BUYER_EMAIL` + `E2E_PAYSTACK_TEST_KEY`. Enable once the TICK-181
-  staging environment (seeded DB + test-mode Paystack) exists.
+- ✅ Strict-mode preflight: missing seeded checkout env fails when
+  `E2E_STRICT=1`.
+- ⏳ Seeded guest checkout → hosted payment handoff: runs only with
+  `E2E_TEST_EVENT_SLUG`, `E2E_TEST_BUYER_EMAIL` and `E2E_PAYSTACK_TEST_KEY`.
+- ⏳ Payment completion → issued ticket → scan/retry still needs the seeded
+  staging fixture and provider return automation.
 
 ## Related
 - Unit suites (`pnpm test`, vitest): money-path math + webhook idempotency

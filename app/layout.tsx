@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter_Tight, JetBrains_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
+import { DeploymentEnvironmentBanner } from "@/components/deployment-environment-banner";
 import { SearchOverlayProvider } from "@/components/quiet/search/search-overlay";
 
 const interTight = Inter_Tight({
@@ -19,6 +20,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://ticketiv.app"),
   title: {
     default: "Ticketiv — Discover what's on",
     template: "%s · Ticketiv",
@@ -51,6 +53,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${interTight.variable} ${jetbrainsMono.variable}`}>
       <body className="bg-bg text-ink antialiased">
+        <DeploymentEnvironmentBanner />
         <SearchOverlayProvider>{children}</SearchOverlayProvider>
         <Analytics />
       </body>

@@ -279,7 +279,7 @@ export default async function OrgFinancePage({
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <KpiTile label="Gross sales" value={fmt(summary.gross_cents, summary.currency)} icon="wallet" tone="positive" />
               <KpiTile
-                label="Platform + processor fees"
+                label="Platform fee"
                 value={fmt(summary.fees_cents, summary.currency)}
                 icon="trending"
                 tone="warning"

@@ -186,6 +186,7 @@ Quality gates (the same `check:release` chain runs in CI):
 ```bash
 pnpm lint          # eslint
 pnpm test          # vitest (unit)
+pnpm check:mobile  # mobile app/adapters package tests + typechecks
 pnpm typecheck     # tsc --noEmit
 pnpm check:demo    # guards against placeholder/demo patterns
 pnpm build         # next build
@@ -208,7 +209,9 @@ There is no committed seed pack yet; the live project holds catalogue/setup data
 `scripts/verify-rls.sql` and `scripts/verify-money-path.sql` (rolled-back,
 read-safe) to exercise RLS isolation and the money path against a real
 environment without persisting anything, and see `docs/UAT_TEST_PLAN.md` for the
-manual UAT matrix.
+manual UAT matrix. For manual UAT data that must persist long enough to capture
+evidence, mark every row-producing journey with a lowercase `uat-...` run id and
+dry-run `scripts/cleanup-uat-fixtures.sql` before applying cleanup.
 
 ---
 

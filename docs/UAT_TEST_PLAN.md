@@ -18,7 +18,15 @@ device/browser, timestamp and evidence for every case.
 
 ## Test data map
 
-Do not reuse one ticket across mutually incompatible journeys. Create and label:
+Do not reuse one ticket across mutually incompatible journeys. Before each run,
+choose one lowercase fixture marker such as `uat-20260727-money` and put that
+exact marker into every UAT fixture name/slug/description, buyer email
+(`buyer+uat-20260727-money@ticketiv.app`), ticket code, payment reference, scan
+note/gate, webhook payload or JSON metadata that the run creates. After evidence
+is recorded, dry-run `scripts/cleanup-uat-fixtures.sql` with that marker before
+applying cleanup.
+
+Create and label:
 
 | Fixture | Purpose |
 |---|---|

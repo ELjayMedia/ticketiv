@@ -3,11 +3,18 @@ import { NextResponse } from "next/server"
 import {
   buildOpsAlertPayload,
   evaluateHealthUrls,
+  evaluateOrderStateConsistency,
   evaluatePaymentSuccessRate,
+  evaluateProviderSettlement,
+  evaluatePayoutIntegrity,
+  evaluateStuckAsyncWork,
   evaluateWebhookLag,
   hasAlert,
   postOpsAlert,
   type HealthUrlResult,
+  type OpsAlertCheck,
+  type ReconciliationCounts,
+  type SettlementCounts,
 } from "@/lib/ops/health-alerts"
 import { APP_URL, getSupabaseAdminConfig } from "@/lib/env"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -56,7 +63,7 @@ export async function GET(request: Request) {
   const webhookCutoff = new Date(now.getTime() - webhookLagMinutes * 60_000).toISOString()
   const admin = createAdminClient()
 
-  const [attemptsRes, staleWebhooksRes, healthResults] = await Promise.all([
+  const [attemptsRes, staleWebhooksRes, healthResults, reconciliationRes, settlementRes] = await Promise.all([
     admin
       .from("payment_attempts")
       .select("status, provider")
@@ -70,6 +77,16 @@ export async function GET(request: Request) {
       .order("received_at", { ascending: true })
       .limit(50),
     checkHealthUrls(readHealthUrls(), healthTimeoutMs),
+    // fn_ops_reconciliation_counts is service-role-only and not in the generated
+    // RPC types; cast per the repo's untyped-RPC convention.
+    (admin.rpc as any)("fn_ops_reconciliation_counts") as Promise<{
+      data: ReconciliationCounts | null
+      error: { message: string } | null
+    }>,
+    (admin.rpc as any)("fn_provider_settlement_counts") as Promise<{
+      data: SettlementCounts | null
+      error: { message: string } | null
+    }>,
   ])
 
   if (attemptsRes.error) {
@@ -86,6 +103,8 @@ export async function GET(request: Request) {
       minSuccessRate: paymentSuccessRateMin,
     }),
     evaluateWebhookLag(staleWebhooksRes.data ?? [], webhookLagMinutes),
+    ...reconciliationChecks(reconciliationRes.data, reconciliationRes.error),
+    ...settlementChecks(settlementRes.data, settlementRes.error),
   ]
 
   let alertDelivery: Awaited<ReturnType<typeof postOpsAlert>> | null = null
@@ -96,12 +115,71 @@ export async function GET(request: Request) {
     )
   }
 
+  // Housekeeping: prune expired rate-limit windows so public.rate_limits stays
+  // small. Best-effort — a gc hiccup must never fail the alert run.
+  let rateLimitGcPruned: number | null = null
+  try {
+    // fn_rate_limit_gc is service-role-only and not in the generated RPC types;
+    // cast per the repo's untyped-RPC convention. Empty args = default 1-day TTL.
+    const { data } = await (admin.rpc as any)("fn_rate_limit_gc", {})
+    rateLimitGcPruned = typeof data === "number" ? data : null
+  } catch (error) {
+    console.error("[ops-alerts] rate_limit gc failed", error)
+  }
+
   return NextResponse.json({
     ok: !hasAlert(checks),
     checkedAt: now.toISOString(),
     checks,
     alertDelivery,
+    rateLimitGcPruned,
   })
+}
+
+// Turn the reconciliation-counts RPC result into alert checks. A query failure
+// degrades to a single skipped check rather than failing the whole alert run.
+function reconciliationChecks(
+  counts: ReconciliationCounts | null,
+  error: { message: string } | null
+): OpsAlertCheck[] {
+  if (error || !counts) {
+    return [
+      {
+        key: "reconciliation-counts",
+        status: "skipped",
+        severity: "info",
+        title: "Reconciliation checks skipped",
+        message: `fn_ops_reconciliation_counts unavailable${error ? `: ${error.message}` : ""}.`,
+        details: { error: error?.message ?? null },
+      },
+    ]
+  }
+  return [
+    evaluateOrderStateConsistency(counts),
+    evaluatePayoutIntegrity(counts),
+    evaluateStuckAsyncWork(counts),
+  ]
+}
+
+// Same degrade-to-skipped contract as reconciliationChecks: a settlement query
+// failure must not take down the whole alert run.
+function settlementChecks(
+  counts: SettlementCounts | null,
+  error: { message: string } | null
+): OpsAlertCheck[] {
+  if (error || !counts) {
+    return [
+      {
+        key: "provider-settlement",
+        status: "skipped",
+        severity: "info",
+        title: "Provider settlement check skipped",
+        message: `fn_provider_settlement_counts unavailable${error ? `: ${error.message}` : ""}.`,
+        details: { error: error?.message ?? null },
+      },
+    ]
+  }
+  return [evaluateProviderSettlement(counts, readPositiveNumber("OPS_ALERT_SETTLEMENT_STALE_HOURS", 48))]
 }
 
 async function checkHealthUrls(urls: string[], timeoutMs: number): Promise<HealthUrlResult[]> {

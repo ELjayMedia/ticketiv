@@ -6,13 +6,18 @@
 //      chose "MoMo" vs "Card" should get it).
 //   2. Otherwise the highest-priority active rule matching the order's
 //      currency (and country, when supplied) decides.
-//   3. Otherwise fall back to FALLBACK_PROVIDER ("paystack").
 // Rules never override an explicit valid choice — they supply the default.
+// An unmatched request is a controlled failure; there is no unconditional
+// provider fallback because that can select a disabled or incompatible rail.
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { PaymentProvider } from "@/lib/payments"
+import {
+  createPaymentChannelUnavailableError,
+  PaymentChannelUnavailableError,
+  reportPaymentChannelUnavailable,
+} from "@/lib/payments/errors"
 
 export const KNOWN_PROVIDERS: PaymentProvider[] = ["paystack", "flutterwave", "manual", "momo"]
-const FALLBACK_PROVIDER: PaymentProvider = "paystack"
 
 export interface RoutingRule {
   priority: number | null
@@ -60,25 +65,40 @@ export function matchRoutingRule(
   rules: RoutingRule[],
   ctx: RoutingContext,
 ): { provider: string; fallback: string | null } | null {
+  const allowed = normaliseAllowed(ctx.allowedProviders)
+  const permits = (provider: string | null) =>
+    isKnown(provider) && (allowed.length === 0 || allowed.includes(provider))
+
   const candidates = rules
     .filter((r) => r.is_active !== false)
     .filter((r) => r.currency == null || r.currency.toUpperCase() === ctx.currency.toUpperCase())
     .filter((r) => r.country_code == null || (ctx.countryCode != null && r.country_code.toUpperCase() === ctx.countryCode.toUpperCase()))
-    .sort((a, b) => (a.priority ?? Number.MAX_SAFE_INTEGER) - (b.priority ?? Number.MAX_SAFE_INTEGER))
+    .filter((r) => permits(r.provider) || permits(r.fallback_provider))
+    .sort((a, b) => {
+      const priority = (a.priority ?? Number.MAX_SAFE_INTEGER) - (b.priority ?? Number.MAX_SAFE_INTEGER)
+      if (priority !== 0) return priority
+
+      const specificityA = Number(a.currency != null) + Number(a.country_code != null)
+      const specificityB = Number(b.currency != null) + Number(b.country_code != null)
+      if (specificityA !== specificityB) return specificityB - specificityA
+
+      const provider = a.provider.localeCompare(b.provider)
+      if (provider !== 0) return provider
+      return String(a.fallback_provider ?? "").localeCompare(String(b.fallback_provider ?? ""))
+    })
 
   const top = candidates[0]
   return top ? { provider: top.provider, fallback: top.fallback_provider } : null
 }
 
 /**
- * Resolve the provider to charge with. `requested` (from the client) wins when
- * it is a known provider; otherwise routing rules / fallback decide. Falls back
- * gracefully (to the requested value or paystack) on any lookup error so
- * checkout never breaks because the rules table is unreadable.
+ * Pure provider selection after routing rules have been loaded. Throws a
+ * controlled error when no configured route survives the event lock.
  */
-export async function resolvePaymentProvider(
+export function selectPaymentProvider(
+  rules: RoutingRule[],
   ctx: RoutingContext & { requested?: string | null },
-): Promise<PaymentProvider> {
+): PaymentProvider {
   const allowed = normaliseAllowed(ctx.allowedProviders)
   const permits = (p: PaymentProvider) => allowed.length === 0 || allowed.includes(p)
 
@@ -90,7 +110,22 @@ export async function resolvePaymentProvider(
     throw new ProviderNotAllowedError(allowed)
   }
 
-  let routed: PaymentProvider = FALLBACK_PROVIDER
+  const matched = matchRoutingRule(rules, ctx)
+  if (matched && isKnown(matched.provider) && permits(matched.provider)) return matched.provider
+  if (matched && isKnown(matched.fallback) && permits(matched.fallback)) return matched.fallback
+
+  throw createPaymentChannelUnavailableError("no_matching_route", {
+    currency: ctx.currency.toUpperCase(),
+    countryCode: ctx.countryCode?.toUpperCase() ?? null,
+    allowedProviders: allowed,
+    activeRuleCount: rules.filter((rule) => rule.is_active !== false).length,
+  })
+}
+
+/** Load active rules and resolve the provider to charge with. */
+export async function resolvePaymentProvider(
+  ctx: RoutingContext & { requested?: string | null },
+): Promise<PaymentProvider> {
   try {
     const admin = createAdminClient()
     const { data, error } = await admin
@@ -98,17 +133,23 @@ export async function resolvePaymentProvider(
       .select("priority, country_code, currency, provider, fallback_provider, is_active")
       .eq("is_active", true)
 
-    if (!error && data) {
-      const matched = matchRoutingRule(data as RoutingRule[], ctx)
-      if (matched && isKnown(matched.provider)) routed = matched.provider
-      else if (matched && isKnown(matched.fallback)) routed = matched.fallback
+    if (error) {
+      throw createPaymentChannelUnavailableError("routing_configuration_unavailable", {
+        currency: ctx.currency.toUpperCase(),
+        databaseCode: error.code ?? null,
+      })
     }
-  } catch {
-    routed = FALLBACK_PROVIDER
-  }
 
-  // Apply the event lock to the routed default: keep it if permitted, otherwise
-  // fall back to the first allowed provider.
-  if (permits(routed)) return routed
-  return allowed[0]
+    return selectPaymentProvider((data ?? []) as RoutingRule[], ctx)
+  } catch (error) {
+    if (error instanceof ProviderNotAllowedError) throw error
+    const controlled =
+      error instanceof PaymentChannelUnavailableError
+        ? error
+        : createPaymentChannelUnavailableError("routing_configuration_unavailable", {
+            currency: ctx.currency.toUpperCase(),
+          })
+    reportPaymentChannelUnavailable(controlled)
+    throw controlled
+  }
 }

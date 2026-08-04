@@ -16,7 +16,8 @@
 //
 // Exit codes:
 //   0  every case refused (or skipped for missing credentials)
-//   1  a cross-tenant action succeeded, or a positive control failed
+//   1  a cross-tenant action succeeded, a positive control failed, or a
+//      refusal did not reach a recognizable authorization decision
 
 import { readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
@@ -74,14 +75,11 @@ if (failed > 0) {
 }
 
 if (review > 0) {
-  // Not a failure, but never let it pass silently: a call refused for a reason
-  // that is not an authorization decision has not been proven safe. This is
-  // exactly how the app_role = text bug in fn_transition_event_status and
-  // fn_duplicate_event was found.
-  console.warn(
+  console.error(
     `\n${review} case(s) were refused for a non-authorization reason and need reading. ` +
       "A function that errors before reaching its authorization check is not proven safe.",
   )
+  process.exit(1)
 }
 
 console.log("\nNo cross-tenant action succeeded.")

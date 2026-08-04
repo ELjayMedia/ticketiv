@@ -1,5 +1,5 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js"
-import { getSupabasePublicConfig } from "./env"
+import { getSupabasePublicConfig } from "./env-public"
 
 /**
  * Cookie-free Supabase client for cacheable public reads.

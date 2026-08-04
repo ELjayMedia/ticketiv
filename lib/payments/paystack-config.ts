@@ -1,44 +1,21 @@
 import "server-only"
 
 import { PAYSTACK_SECRET_KEY } from "@/lib/env"
+import {
+  assertPaystackModeAllowed,
+  resolvePaystackKeyMode,
+  type PaystackKeyMode,
+} from "@/lib/payments/paystack-key-mode"
 import { createAdminClient } from "@/lib/supabase/admin"
+
+export { assertPaystackModeAllowed, resolvePaystackKeyMode }
+export type { PaystackKeyMode }
 
 export interface PaystackSettings {
   /** null when Paystack is disabled and no env fallback is configured. */
   secretKey: string | null
   webhookSecret: string | null
   callbackUrl: string | null
-}
-
-export type PaystackKeyMode = "test" | "live" | "unknown"
-
-export function resolvePaystackKeyMode(secretKey: string | null | undefined): PaystackKeyMode {
-  const key = (secretKey ?? "").trim()
-  if (key.startsWith("sk_test_")) return "test"
-  if (key.startsWith("sk_live_")) return "live"
-  return "unknown"
-}
-
-/**
- * Refuse to charge real cards until the money path has passed UAT.
- *
- * Production, UAT and preview all run against the same Supabase project and the
- * same Vercel project (see docs/adr/0002-shared-supabase-environment.md), so a
- * live key configured anywhere is a live key everywhere — including on a
- * preview deployment built from a feature branch. Until the money path is
- * signed off, a live key is far more likely to be a mistake than an intent.
- *
- * Going live is therefore a deliberate two-part action: set an `sk_live_` key
- * *and* set PAYSTACK_ALLOW_LIVE_MODE=true. Neither alone charges anyone.
- */
-export function assertPaystackModeAllowed(secretKey: string | null | undefined, allowLive: boolean) {
-  if (resolvePaystackKeyMode(secretKey) === "live" && !allowLive) {
-    throw new Error(
-      "Refusing to use a live Paystack key: PAYSTACK_ALLOW_LIVE_MODE is not set to \"true\". " +
-        "Ticketiv runs UAT against the same environment as production, so live keys stay disabled " +
-        "until the money path is signed off (TICK-61).",
-    )
-  }
 }
 
 function liveModeAllowed() {

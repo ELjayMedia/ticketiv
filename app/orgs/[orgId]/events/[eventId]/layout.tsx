@@ -1,13 +1,17 @@
 import type React from "react"
 import { redirect } from "next/navigation"
+
+import { ORGANIZER_MANAGER_ROLES } from "@/lib/org-management"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 /**
- * Event edit layout
- * Enforces that user has edit access to the event
- * Requires event_staff role OR org admin status
+ * Event workspace layout.
+ *
+ * Allows platform admins, organizer managers, and active event staff while
+ * confirming that the event belongs to the organization in the URL.
  */
-export default async function EventEditLayout({
+export default async function EventWorkspaceLayout({
   params,
   children,
 }: {
@@ -17,49 +21,58 @@ export default async function EventEditLayout({
   const { orgId, eventId } = await params
 
   const supabase = createServerSupabaseClient()
-  if (!supabase) {
-    return redirect("/login")
-  }
+  if (!supabase) redirect("/login")
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
 
-  if (!session) {
-    return redirect("/login")
-  }
+  if (authError || !user) redirect("/login")
 
-  const userId = session.user.id
+  // Use the server-only admin client after authenticating the caller. The
+  // event_staff table is intentionally hidden from direct authenticated reads,
+  // so an RLS-backed lookup here would incorrectly deny legitimate staff.
+  const admin = createAdminClient()
 
-  // Check if user is org admin
-  const { data: orgMember } = await supabase
+  const { data: event, error: eventError } = await admin
+    .from("events")
+    .select("id, org_id")
+    .eq("id", eventId)
+    .maybeSingle()
+
+  if (eventError || !event || event.org_id !== orgId) redirect("/403")
+
+  const { data: globalAdmin } = await admin
+    .from("admin_users")
+    .select("user_id")
+    .eq("user_id", user.id)
+    .eq("active", true)
+    .maybeSingle()
+
+  if (globalAdmin) return <>{children}</>
+
+  const { data: orgMember } = await admin
     .from("org_members")
     .select("role")
-    .eq("user_id", userId)
+    .eq("user_id", user.id)
     .eq("org_id", orgId)
     .maybeSingle()
 
-  const isOrgAdmin = orgMember?.role === "admin" || orgMember?.role === "organizer"
-
-  // If org admin, allow access
-  if (isOrgAdmin) {
-    console.log("[v0] Org admin event edit access granted:", eventId)
+  if (orgMember?.role && ORGANIZER_MANAGER_ROLES.has(String(orgMember.role))) {
     return <>{children}</>
   }
 
-  // Otherwise check event_staff
-  const { data: eventStaff } = await supabase
+  const { data: eventStaff } = await admin
     .from("event_staff")
     .select("role")
-    .eq("user_id", userId)
+    .eq("user_id", user.id)
     .eq("event_id", eventId)
+    .eq("active", true)
     .maybeSingle()
 
-  if (!eventStaff) {
-    console.warn("[v0] User denied event edit access:", userId, eventId)
-    return redirect("/403")
-  }
+  if (eventStaff) return <>{children}</>
 
-  console.log("[v0] Event staff edit access granted:", eventId)
-  return <>{children}</>
+  console.warn("[event-workspace] User denied event access:", user.id, eventId)
+  redirect("/403")
 }

@@ -1,8 +1,8 @@
 // Shape FriendsOverview → FriendsScreen props.
 
-import { APP_URL } from "@/lib/env"
 import { PHOTOS } from "@/lib/photos"
 import type { FriendsOverview } from "@/lib/data/attendee/friends"
+import { buildTicketivPublicUrl } from "@/lib/public-url"
 
 const FACE_POOL = [
   PHOTOS.face_1,
@@ -77,17 +77,7 @@ export interface FriendsScreenProps {
 
 // Invite links must copy as real, working URLs. Prefer the configured public
 // origin; fall back to the production domain — never a placeholder host.
-const DEFAULT_INVITE_HOST = (() => {
-  try {
-    const url = new URL(APP_URL)
-    if (url.hostname !== "localhost" && url.hostname !== "127.0.0.1") return url.host
-  } catch {
-    // unparsable APP_URL — use the production domain
-  }
-  return "ticketiv.app"
-})()
-
-export function mapFriends(o: FriendsOverview, host = DEFAULT_INVITE_HOST): FriendsScreenProps {
+export function mapFriends(o: FriendsOverview, host?: string | null): FriendsScreenProps {
   const hero = o.goingTogether
   const goingTogether = hero
     ? {
@@ -130,7 +120,9 @@ export function mapFriends(o: FriendsOverview, host = DEFAULT_INVITE_HOST): Frie
       photo: avatarFor(s.id),
       mutualLabel: s.mutualLabel,
     })),
-    inviteLink: o.inviteHandle ? `${host}/r/${o.inviteHandle}` : `${host}/r/you`,
+    inviteLink: o.inviteHandle
+      ? buildTicketivPublicUrl(`/?ref=${encodeURIComponent(o.inviteHandle)}`, host)
+      : buildTicketivPublicUrl("", host),
     inviteReward: "get E100 off when 3 join",
   }
 }
