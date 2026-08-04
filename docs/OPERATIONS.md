@@ -119,8 +119,8 @@ handler alongside `completeTrustedPaystackWebhook` when a second provider ships.
 
 ## 3. Alerting — **Built (core conditions covered)**
 
-**Built.** `app/api/cron/ops-alerts/route.ts` runs every 5 min
-(`.github/workflows/ops-alerts.yml` → secured `CRON_SECRET` endpoint) and alerts
+**Built.** `app/api/cron/ops-alerts/route.ts` runs every 5 min (scheduled by the
+`ticketiv-ops-alerts` **pg_cron** job → secured `CRON_SECRET` endpoint) and alerts
 (to `OPS_ALERT_WEBHOOK_URL`) on: **failed payment callbacks / webhook lag**
 (unprocessed webhooks older than N min), **payment success-rate** below a
 threshold over a rolling window, and **health-URL** failures.
@@ -141,6 +141,57 @@ one call instead of expressing multi-table joins through PostgREST. Three
 
 A reconciliation-query failure degrades to a single **skipped** check, never
 failing the alert run. Delivery is unchanged (`postOpsAlert`).
+
+### Where the 5-minute schedule lives (and why)
+
+The cadence moved from GitHub Actions to **pg_cron** (migration
+`20260804060000`). It ran on a GitHub-hosted runner every 5 minutes, and Actions
+bills per *started* minute — ~8,640 runs/month against a 2,000-minute
+private-repo allowance, i.e. the alert schedule alone was four times the entire
+free budget and crowded out CI.
+
+**Vercel Cron is not an option on this account.** The Vercel plan is Hobby, which
+triggers cron jobs at most **once per day**; a 5-minute cadence cannot be
+expressed there, and a `vercel.json` that asks for one fails the *production*
+deployment. `lib/__tests__/ops-alert-schedule.test.ts` guards both homes — no
+sub-daily cron may reappear in `.github/workflows/` or `vercel.json`.
+
+**Configuration is in Vault, not in the migration**, so rotating the secret is a
+one-line update rather than a schema change, and it never enters git:
+
+```sql
+select vault.create_secret('https://ticketiv.app/api/cron/ops-alerts', 'ops_alert_cron_url');
+select vault.create_secret('<the CRON_SECRET set in Vercel>',          'ops_alert_cron_secret');
+-- rotate later:
+select vault.update_secret(id, '<new value>') from vault.secrets where name = 'ops_alert_cron_secret';
+```
+
+Until both secrets exist the job **fails on every tick** (visible in
+`cron.job_run_details`). That is deliberate — alerting that has silently stopped
+is the failure this control exists to prevent.
+
+**Checking that alerting actually ran.** `pg_net` is fire-and-forget:
+`net.http_get()` returns as soon as the request is *queued*, so
+`cron.job_run_details` shows success even when the endpoint is down. Each tick
+therefore resolves the previous request against `net._http_response` and records
+the real outcome in `public.ops_cron_runs` (30-day window):
+
+```sql
+-- recent deliveries; ok = false or a null status_code means the endpoint failed
+select requested_at, status_code, ok, error
+from public.ops_cron_runs
+where job = 'ops-alerts'
+order by requested_at desc
+limit 20;
+```
+
+Manual run (this replaced the workflow's **Run workflow** button):
+`select public.fn_ops_alerts_tick();`
+
+> **Known limit.** A scheduler cannot alert on its own death — true of the
+> retired workflow too. If `pg_cron` itself stops, nothing here fires; the
+> external signal is `ops_cron_runs` going quiet. Surfacing that on the
+> super-admin ops page is the follow-up.
 
 > **Baseline (2026-07-30).** `fn_teardown_uat_fixtures()` has been run and
 > **all 14 counts read 0**. The UAT seed fixtures that previously made these
@@ -203,15 +254,20 @@ access.
 ### Restore procedure
 1. **Restore** the snapshot / PITR timestamp into a new project (same region,
    eu-west-1, to keep latency and any data-residency assumptions).
-2. **Re-create the 7 `pg_cron` jobs** — they are database state and must be
+2. **Re-create the 8 `pg_cron` jobs** — they are database state and must be
    verified after any cross-project restore:
    `anon-user-cleanup` (`0 2 * * *`), `nightly_rollup_metrics` (`0 2 * * *`),
    `daily_analyze_public_schema` (`0 3 * * *`),
    `ticketiv-audit-log-retention` (`30 3 * * *`),
    `ticketiv-scans-retention` (`45 3 * * *`),
    `expire-stale-checkout-holds` (`*/5 * * * *`),
+   `ticketiv-ops-alerts` (`*/5 * * * *`),
    `monitoring.capture_slow_queries_hourly` (`0 * * * *`).
-   The retention jobs are re-created by their migrations; the others are not.
+   The retention and ops-alerts jobs are re-created by their migrations; the
+   others are not. **`ticketiv-ops-alerts` also needs its Vault secrets
+   re-seeded** (`ops_alert_cron_url`, `ops_alert_cron_secret`) — Vault contents
+   do not survive into a new project, and without them alerting is dead while
+   the job logs a failure every 5 minutes.
 3. **Confirm extensions** exist: `pg_cron`, `pg_net`, `pgcrypto`, `pg_trgm`,
    `btree_gist`, `uuid-ossp`, `pg_stat_statements`, `supabase_vault`, `hypopg`,
    `index_advisor`.
