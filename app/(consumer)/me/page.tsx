@@ -22,12 +22,21 @@ export default async function MePage() {
     .filter((context) => context.kind === "org")
     .map(({ key, label, sublabel, href }) => ({ key, label, sublabel, href }));
 
+  // getMyContexts already resolves the platform-admin context for super admins
+  // (kind "admin", href /super-admin). It was being filtered out here, so a
+  // super admin with no organizations saw the self-serve "organize your own
+  // event" funnel instead of a way into the command centre.
+  const admin = contexts.find((context) => context.kind === "admin");
+
   return (
     <div className="mx-auto max-w-[480px]">
       <ProfileScreen
         user={mapProfile(profile)}
         tapBand={tapBand}
         orgContexts={organizerWorkspaces}
+        adminContext={
+          admin ? { label: "Super admin dashboard", sublabel: admin.sublabel, href: admin.href } : null
+        }
       />
     </div>
   );
