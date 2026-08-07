@@ -204,15 +204,23 @@ failure to read:
 ```sql
 do $$
 declare
-  -- ▼ replace this value only ▼
-  v_secret text := 'PASTE_CRON_SECRET_HERE';
+  -- ▼ edit this ONE line. Do not find-and-replace the placeholder text: the
+  --   check below compares against it, so replacing it everywhere makes the
+  --   guard compare the value to itself and it raises no matter what you paste.
+  v_secret text := 'PASTE' || '_CRON_SECRET_HERE';
 begin
-  if v_secret = 'PASTE_CRON_SECRET_HERE' or v_secret like '<%>' then
-    raise exception 'Placeholder not replaced — paste the real CRON_SECRET from Vercel';
+  if v_secret !~ '^[0-9a-f]{64}$' then
+    raise exception 'Expected a 64-character hex CRON_SECRET (openssl rand -hex 32), got % characters',
+      length(v_secret);
   end if;
   perform vault.create_secret(v_secret, 'ops_alert_cron_secret');
 end $$;
 ```
+
+The check validates the *shape* of the value rather than comparing it to the
+placeholder, so it survives a careless replace-all: the split-string placeholder
+fails the pattern, and so does anything else that is not a 64-character hex
+string. Generate matching values with `openssl rand -hex 32`.
 
 The URL is not a secret and is seeded already:
 `select vault.create_secret('https://ticketiv.app/api/cron/ops-alerts', 'ops_alert_cron_url');`
