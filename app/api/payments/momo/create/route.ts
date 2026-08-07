@@ -2,7 +2,11 @@ import { NextResponse } from "next/server"
 
 import { normaliseMsisdn, requestMomoPayment } from "@/lib/payments/momo"
 import { assertPaymentProviderAvailableForOrder } from "@/lib/payments/availability"
+import { momoAcceptsAmountCents } from "@/lib/payments/availability-core"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+
+const MAX_ATTEMPT_INSERT_TRIES = 3
 
 export async function POST(request: Request) {
   try {
@@ -63,34 +67,95 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Enter a valid Eswatini mobile number" }, { status: 400 })
     }
 
-    // MoMo Collections amounts are whole SZL units (no cents).
-    const amount = Math.round(order.total_cents / 100)
+    // requestMomoPayment always bills in SZL. assertPaymentProviderAvailableForOrder
+    // filters on ticket_types.currency; this re-checks the order row itself, so a
+    // divergence between the two can never bill a ZAR order as SZL.
+    const orderCurrency = String(order.currency ?? "").trim().toUpperCase()
+    if (orderCurrency !== "SZL") {
+      return NextResponse.json(
+        { error: "MTN MoMo can only collect SZL payments. Choose another payment method." },
+        { status: 409 },
+      )
+    }
 
-    const referenceId = await requestMomoPayment({
-      amount,
-      msisdn,
-      externalId: order.id,
-      payerMessage: "Ticketiv ticket purchase",
-      payeeNote: `Order ${order.id}`,
-    })
+    // MoMo Collections has no minor unit. Rounding here would charge an amount
+    // the order does not record — see momoAcceptsAmountCents.
+    if (!momoAcceptsAmountCents(order.total_cents)) {
+      console.error("[MoMo] Order total is not a whole SZL amount", {
+        orderId: order.id,
+        totalCents: order.total_cents,
+      })
+      return NextResponse.json(
+        {
+          error:
+            "MTN MoMo can only collect whole Lilangeni amounts, and this order includes cents. Choose another payment method.",
+        },
+        { status: 409 },
+      )
+    }
 
-    const { count } = await supabase
-      .from("payment_attempts")
-      .select("id", { count: "exact", head: true })
-      .eq("order_id", order.id)
+    const amount = order.total_cents / 100
 
-    const { error: attemptError } = await supabase.from("payment_attempts").insert({
-      order_id: order.id,
-      provider: "momo",
-      attempt_no: (count ?? 0) + 1,
-      status: "pending",
-      ext_ref: referenceId,
-      payload: { msisdn, amount_cents: order.total_cents, currency: order.currency },
-    })
+    // Record the attempt BEFORE asking for money. The reverse order loses the
+    // charge if the insert fails or races the (order_id, provider, attempt_no)
+    // unique constraint: MoMo would hold a real pending debit with no ext_ref
+    // row for the callback or the status poll to match, and reconciliation
+    // would never see it. Failing before the request costs nothing.
+    const referenceId = crypto.randomUUID()
+    let attemptRecorded = false
+    let lastAttemptError: unknown = null
 
-    if (attemptError) {
-      console.error("[MoMo] Failed to record payment attempt", attemptError)
+    for (let tries = 0; tries < MAX_ATTEMPT_INSERT_TRIES && !attemptRecorded; tries += 1) {
+      const { count } = await supabase
+        .from("payment_attempts")
+        .select("id", { count: "exact", head: true })
+        .eq("order_id", order.id)
+        .eq("provider", "momo")
+
+      const { error: attemptError } = await supabase.from("payment_attempts").insert({
+        order_id: order.id,
+        provider: "momo",
+        attempt_no: (count ?? 0) + 1,
+        status: "pending",
+        ext_ref: referenceId,
+        payload: { msisdn, amount_cents: order.total_cents, currency: orderCurrency },
+      })
+
+      if (!attemptError) {
+        attemptRecorded = true
+        break
+      }
+
+      lastAttemptError = attemptError
+      // 23505 = unique violation: a concurrent attempt took this number. Recount.
+      if (attemptError.code !== "23505") break
+    }
+
+    if (!attemptRecorded) {
+      console.error("[MoMo] Failed to record payment attempt", lastAttemptError)
       return NextResponse.json({ error: "Unable to record payment attempt" }, { status: 500 })
+    }
+
+    try {
+      await requestMomoPayment({
+        referenceId,
+        amount,
+        msisdn,
+        externalId: order.id,
+        payerMessage: "Ticketiv ticket purchase",
+        payeeNote: `Order ${order.id}`,
+      })
+    } catch (error) {
+      // The debit was never accepted, so close the attempt rather than leaving a
+      // pending row the status poll would chase forever. Buyers cannot update
+      // payment_attempts under RLS, so this needs the service-role client.
+      const admin = createAdminClient()
+      const { error: closeError } = await admin
+        .from("payment_attempts")
+        .update({ status: "failed" })
+        .eq("ext_ref", referenceId)
+      if (closeError) console.error("[MoMo] Failed to close attempt after request error", closeError)
+      throw error
     }
 
     return NextResponse.json({ referenceId, status: "pending" })

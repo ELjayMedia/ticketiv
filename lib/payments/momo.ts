@@ -23,6 +23,10 @@ async function getMomoToken(): Promise<string> {
 }
 
 export interface MomoRequestParams {
+  // Supplied by the caller so the payment_attempts row can be written *before*
+  // the debit is requested — otherwise a failed insert orphans a real charge
+  // that nothing can match on ext_ref.
+  referenceId: string
   amount: number // in SZL (whole number, no cents)
   msisdn: string // normalised to 268XXXXXXXX
   externalId: string // your payment_attempt ID
@@ -31,9 +35,12 @@ export interface MomoRequestParams {
 }
 
 export async function requestMomoPayment(params: MomoRequestParams): Promise<string> {
-  // Returns the MoMo referenceId (UUID) — store this on payment_attempts
+  // Returns the MoMo referenceId (UUID) — already stored on payment_attempts
+  if (!Number.isInteger(params.amount) || params.amount <= 0) {
+    throw new Error(`MoMo amount must be a whole positive SZL value, got ${params.amount}`)
+  }
   const token = await getMomoToken()
-  const referenceId = crypto.randomUUID()
+  const referenceId = params.referenceId
   const res = await fetch(`${MOMO_BASE_URL}/collection/v1_0/requesttopay`, {
     method: "POST",
     headers: {

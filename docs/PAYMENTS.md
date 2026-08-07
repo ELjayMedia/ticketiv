@@ -21,7 +21,7 @@ idempotency is provable without a DB:
 | Provider | State | Notes |
 |---|---|---|
 | **Paystack** | ✅ Production | Card/bank. Webhook → ledger → delivery, amount-verified, idempotent. |
-| **MTN MoMo** | 🟡 Sandbox-complete | Full create → poll/callback → ledger → delivery, idempotent. Needs production credentials + the `swaziland` target environment to go live. |
+| **MTN MoMo** | 🟡 Sandbox-complete | Full create → poll/callback → ledger → delivery, idempotent. Needs production credentials + the `swaziland` target environment to go live — `evaluateMomoConfig` now refuses to present MoMo until `MOMO_ENVIRONMENT` and `MOMO_BASE_URL` are both set and neither points at the sandbox in production. |
 | **deltapay** | ⚠️ Decision pending | Routes (`/api/payments/deltapay/*`) + `lib/deltapay.ts` exist and are referenced by the admin routing screen, but the rail is **not production-verified**. See decision below. |
 | **PayPal** | ⛔ Not integrated | Out of scope for the Eswatini-first launch. See decision below. |
 
@@ -39,9 +39,16 @@ MoMo Collections is implemented end-to-end and works on sandbox today
    - `MOMO_ENVIRONMENT=swaziland`
    - `MOMO_COLLECTIONS_PRIMARY_KEY`, `MOMO_API_USER`, `MOMO_API_KEY`
    - `MOMO_CALLBACK_URL=https://<app>/api/payments/momo/callback`
-3. **Currency:** Collections amounts are whole **SZL** units — the create route
-   already converts `total_cents / 100` (rounded). Confirm rounding policy with
-   finance for sub-unit prices (currently `Math.round`).
+3. **Currency:** Collections amounts are whole **SZL** units. The create route
+   **refuses** an order whose total is not a whole Lilangeni amount rather than
+   rounding it (`momoAcceptsAmountCents`). Rounding was the previous behaviour
+   and it is a money bug: `fn_compute_order_money` adds a rounded basis-point
+   platform fee, so a SZL 99.00 ticket with a 6.5% buyer-paid fee bills 10,544
+   cents — `Math.round(10544/100)` charges SZL 105 against an order recording
+   SZL 105.44, and no provider settlement can ever reconcile against it. If
+   buyer-paid percentage fees are enabled for an SZL event, price the tickets so
+   the **buyer total** lands on whole Lilangeni, or MoMo will decline the order
+   at the point of payment.
 4. **Completion model:** two paths, both idempotent and converging on
    `completeVerifiedPayment`:
    - **Poll** — client calls `GET /api/payments/momo/status?referenceId=…`.
