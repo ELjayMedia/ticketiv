@@ -129,6 +129,27 @@ handler alongside `completeTrustedPaystackWebhook` when a second provider ships.
 > control as built only once you have seen a successful invocation.
 > `.github/workflows/settlement-ingest.yml` reads the same unset `CRON_SECRET`
 > and fails the same way.
+>
+> **Resolved 2026-08-07 17:34 UTC — first successful invocation on record.**
+> `CRON_SECRET` was generated, set in Vercel, matched into Vault, and the project
+> redeployed. The pg_cron job returned **HTTP 200, `ok: true`**, with all seven
+> checks reporting (`health-url-checks`, `order-state-consistency`,
+> `payout-integrity`, `stuck-async-work`, `webhook-processing-lag` all **ok**;
+> `payment-success-rate` and `provider-settlement` **skipped** for want of data).
+> `fn_rate_limit_gc()` pruned **28** expired rate-limit windows on that first
+> pass — housekeeping that had never once run. pg_cron also honours the cadence
+> exactly: ticks landed at :05, :10, :15, :20, :25, :30.
+
+> ⚠️ **The delivery leg is still unproven.** A healthy system never calls
+> `postOpsAlert`, so a green run says nothing about whether an alert would reach
+> a human. If `OPS_ALERT_WEBHOOK_URL` is unset, `postOpsAlert` returns
+> `{sent: false, skipped: true}` and the alert is **discarded silently** — no
+> error, no retry, and `ok: true` either way. Confirm the variable is set in
+> Vercel, then force one real alert (e.g. insert a `webhooks` row with
+> `processed_at` null and `received_at` older than the lag threshold, run
+> `select public.fn_ops_alerts_tick();`, confirm the message arrives, then delete
+> the row). Until that has been seen once, treat alerting as instrumented but
+> not delivered.
 
 **Built.** `app/api/cron/ops-alerts/route.ts` runs every 5 min (scheduled by the
 `ticketiv-ops-alerts` **pg_cron** job → secured `CRON_SECRET` endpoint) and alerts
