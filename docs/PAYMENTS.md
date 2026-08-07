@@ -25,6 +25,49 @@ idempotency is provable without a DB:
 | **deltapay** | ⚠️ Decision pending | Routes (`/api/payments/deltapay/*`) + `lib/deltapay.ts` exist and are referenced by the admin routing screen, but the rail is **not production-verified**. See decision below. |
 | **PayPal** | ⛔ Not integrated | Out of scope for the Eswatini-first launch. See decision below. |
 
+## MTN MoMo — where the sandbox credentials come from
+
+`MOMO_COLLECTIONS_PRIMARY_KEY` is issued by the portal (Collections product →
+**Primary Key**). `MOMO_API_USER` and `MOMO_API_KEY` are **not** issued to you —
+in the sandbox you create them yourself against the provisioning API, using the
+subscription key you already have. There is nothing to find in the portal UI,
+which is the usual reason this step stalls.
+
+```bash
+export MOMO_SUB_KEY='<Collections primary key>'
+export MOMO_API_USER="$(uuidgen | tr 'A-Z' 'a-z')"   # you choose this; it IS the user id
+
+# 1. Create the API user. providerCallbackHost is a bare host, no scheme.
+curl -i -X POST https://sandbox.momodeveloper.mtn.com/v1_0/apiuser \
+  -H "X-Reference-Id: $MOMO_API_USER" \
+  -H "Ocp-Apim-Subscription-Key: $MOMO_SUB_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"providerCallbackHost":"ticketiv.app"}'      # expect 201 Created, empty body
+
+# 2. Mint its API key.
+curl -s -X POST "https://sandbox.momodeveloper.mtn.com/v1_0/apiuser/$MOMO_API_USER/apikey" \
+  -H "Ocp-Apim-Subscription-Key: $MOMO_SUB_KEY"     # -> {"apiKey":"..."}  = MOMO_API_KEY
+
+# 3. Confirm it exists.
+curl -s "https://sandbox.momodeveloper.mtn.com/v1_0/apiuser/$MOMO_API_USER" \
+  -H "Ocp-Apim-Subscription-Key: $MOMO_SUB_KEY"     # -> {"providerCallbackHost":"...","targetEnvironment":"sandbox"}
+```
+
+`MOMO_API_USER` is the UUID from step 1; `MOMO_API_KEY` is the `apiKey` from
+step 2. Both are sandbox-only and are invalidated if you regenerate the
+subscription key.
+
+**These endpoints do not exist in production.** For the `swaziland` target
+environment MTN provisions the API user during commercial onboarding and issues
+the key to you — you cannot self-serve it, so do not expect this flow to work
+once `MOMO_ENVIRONMENT=swaziland`.
+
+**Sandbox belongs on preview, not production.** `evaluateMomoConfig` refuses to
+present MoMo when a production deployment points at the sandbox host, so sandbox
+credentials on the production project will (correctly) leave MoMo hidden at
+checkout. Test the rail on a Vercel **preview** deployment, where `VERCEL_ENV`
+is not `production` and a coherent sandbox configuration is allowed.
+
 ## MTN MoMo — production go-live checklist
 
 MoMo Collections is implemented end-to-end and works on sandbox today
