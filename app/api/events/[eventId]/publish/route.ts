@@ -140,11 +140,12 @@ async function buildReadiness(admin: ReturnType<typeof createAdminClient>, event
     },
     {
       key: "payment_method",
-      label: "Operational payment method",
+      label: "Operational payment method for paid sales",
       complete: effectivePaymentProviders.length > 0,
-      recommended: false,
+      recommended: true,
       step: "policies",
-      hint: "Choose at least one Ticketiv-supported payment method whose platform credentials are operational.",
+      hint:
+        "You can publish the event before payments are ready, but paid checkout stays unavailable until Ticketiv has an operational method for this currency.",
     },
     {
       key: "image",
