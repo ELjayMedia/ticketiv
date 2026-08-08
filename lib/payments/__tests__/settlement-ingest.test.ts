@@ -57,7 +57,7 @@ describe("Paystack settlement accounting", () => {
     expect(source).toContain("page=${page}")
     expect(source).toContain("if (batch.length < PER_PAGE) break")
     expect(source).toContain("exceeds the ${MAX_PAGES * PER_PAGE}-transaction ingest safety limit")
-    expect(source).toContain("exceeds the ${MAX_PAGES * PER_PAGE}-batch ingest safety limit")
+    expect(source).toContain("exceed the ${MAX_PAGES * PER_PAGE}-batch ingest safety limit")
     expect(source).not.toContain(
       "a failure here must not lose the batch itself, so record the settlement with no items",
     )
