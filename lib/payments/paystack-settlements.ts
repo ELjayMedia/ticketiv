@@ -78,6 +78,11 @@ async function fetchSettlementTransactions(
     if (!Array.isArray(batch) || batch.length === 0) break
     transactions.push(...batch)
     if (batch.length < PER_PAGE) break
+    if (page === MAX_PAGES) {
+      throw new Error(
+        `Paystack settlement ${settlementId} exceeds the ${MAX_PAGES * PER_PAGE}-transaction ingest safety limit`,
+      )
+    }
   }
 
   return transactions
@@ -165,6 +170,11 @@ export async function ingestPaystackSettlements(options?: {
       }
 
       if (batch.length < PER_PAGE) break
+      if (page === MAX_PAGES) {
+        throw new Error(
+          `Paystack settlements exceed the ${MAX_PAGES * PER_PAGE}-batch ingest safety limit`,
+        )
+      }
     }
 
     return { ok: true, settlements, items, unmatched }
