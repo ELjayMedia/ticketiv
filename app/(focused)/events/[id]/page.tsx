@@ -49,9 +49,10 @@ async function fetchEventExtras(eventId: string, organizerId: string | null) {
       .eq("event_id", eventId)
       .order("price_cents", { ascending: true }),
     supabase
-      .from("v_event_lineup_public")
-      .select("artist_id, artist_name, artist_slug, artist_image_url, role")
-      .eq("event_id", eventId),
+      .from("events")
+      .select("event_artists(role, artist:artist_id(id, name, slug, image_url))")
+      .eq("id", eventId)
+      .maybeSingle(),
     supabase.from("events").select("refund_policy").eq("id", eventId).maybeSingle(),
     supabase
       .from("event_live_stats")
@@ -73,9 +74,26 @@ async function fetchEventExtras(eventId: string, organizerId: string | null) {
   if (lineupRes.error) console.error("[event-detail] lineup:", lineupRes.error);
   if (eventRes.error) console.error("[event-detail] refund_policy:", eventRes.error);
 
+  type LineupEventRow = {
+    event_artists: Array<{
+      role: string | null;
+      artist: { id: string; name: string; slug: string | null; image_url: string | null } | null;
+    }> | null;
+  };
+  const lineupEvent = lineupRes.data as unknown as LineupEventRow | null;
+  const lineup = (lineupEvent?.event_artists ?? [])
+    .filter((entry) => entry.artist != null)
+    .map((entry) => ({
+      artist_id: entry.artist!.id,
+      artist_name: entry.artist!.name,
+      artist_slug: entry.artist!.slug,
+      artist_image_url: entry.artist!.image_url,
+      role: entry.role,
+    }));
+
   return {
     ticketTypes: ttRes.data ?? [],
-    lineup: (lineupRes.data ?? []) as EventLineupRow[],
+    lineup,
     // Friends-going is user-scoped, so keep it out of the cached public RSC
     // payload. A client/user-scoped enhancement can hydrate this later.
     friends: [] as EventFriendRow[],
