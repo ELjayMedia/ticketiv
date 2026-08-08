@@ -46,6 +46,7 @@ export interface MobileCheckoutProps {
     priceMinor: number;
     currency?: Currency;
     remaining: number | null;
+    perUserLimit: number | null;
     sublabel?: string;
   }>;
   paymentMethods?: ReadonlyArray<{
@@ -241,6 +242,17 @@ export function MobileCheckout({
   }, [holdRemaining]);
 
   const selectedTicket = ticketTypes.find((t) => t.id === ticketTypeId);
+  const configuredLimit = selectedTicket?.perUserLimit ?? null;
+  const availabilityLimit = selectedTicket?.remaining ?? null;
+  const effectiveLimit =
+    configuredLimit != null && availabilityLimit != null
+      ? Math.min(configuredLimit, availabilityLimit)
+      : configuredLimit ?? availabilityLimit ?? Number.MAX_SAFE_INTEGER;
+
+  React.useEffect(() => {
+    setQuantity((current) => Math.max(1, Math.min(current, effectiveLimit)));
+  }, [effectiveLimit]);
+
   const currency = selectedTicket?.currency ?? ticketTypes[0]?.currency ?? "SZL";
   const subtotal = (selectedTicket?.priceMinor ?? 0) * quantity;
   const fee = bookingFeeMinor;
@@ -352,12 +364,12 @@ export function MobileCheckout({
         <section className="px-5 pb-4">
           <Card className="flex items-center gap-3 px-3 py-2.5" flat>
             <span className="flex-1 text-[13px] font-medium">Quantity</span>
-            <span className="font-mono text-[10px] text-ink-3">max 4</span>
+            <span className="font-mono text-[10px] text-ink-3">{configuredLimit == null ? "No purchase limit" : `max ${configuredLimit}`}</span>
             <QuantityStepper
               value={quantity}
               onChange={setQuantity}
               min={1}
-              max={Math.min(4, selectedTicket?.remaining ?? 4)}
+              max={effectiveLimit}
             />
           </Card>
         </section>
