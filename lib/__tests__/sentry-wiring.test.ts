@@ -53,6 +53,31 @@ describe("Sentry wiring", () => {
     expect(config).toContain("telemetry: false")
   })
 
+  it("resolves org and project without depending on env being set", () => {
+    // Leaving these to env alone warned six times per build ("No org provided.
+    // Will not upload source maps.") and shipped minified production traces.
+    // Neither slug is a secret — both appear in every Sentry URL.
+    const config = read("next.config.mjs")
+    expect(config).toMatch(/process\.env\.SENTRY_ORG\s*\|\|\s*"eljaymedia-5k"/)
+    expect(config).toMatch(/process\.env\.SENTRY_PROJECT\s*\|\|\s*"ticketiv"/)
+  })
+
+  it("turns upload off outright when there is no token, rather than warning", () => {
+    const config = read("next.config.mjs")
+    expect(config).toContain("sourcemaps: { disable: !sentryUploadEnabled }")
+    expect(config).toContain("release: { create: sentryUploadEnabled }")
+  })
+
+  it("lets @sentry/cli run its postinstall, or there is no uploader binary", () => {
+    // pnpm 10 blocks build scripts by default. @sentry/cli's postinstall is what
+    // fetches the CLI binary that performs the upload, so leaving it ignored
+    // means source maps silently never ship even with a valid token.
+    const pkg = JSON.parse(read("package.json")) as {
+      pnpm?: { onlyBuiltDependencies?: string[] }
+    }
+    expect(pkg.pnpm?.onlyBuiltDependencies ?? []).toContain("@sentry/cli")
+  })
+
   it("flushes the delivery check, because captured is not sent in serverless", () => {
     const route = read("app/api/health/sentry/route.ts")
     expect(route).toContain("Sentry.flush(")
