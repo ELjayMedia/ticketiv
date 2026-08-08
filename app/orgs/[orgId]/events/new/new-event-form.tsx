@@ -8,6 +8,7 @@ import { Card, CardBody } from "@/components/quiet/ui/card"
 import { FormField } from "@/components/quiet/ui/form"
 import { Icon } from "@/components/quiet/ui/icon"
 import { createClientSupabaseClient } from "@/lib/supabase-client"
+import posthog from "posthog-js"
 
 const textareaClass =
   "min-h-24 resize-none rounded-md border border-line-2 bg-surface px-3 py-2.5 text-[14px] font-medium text-ink placeholder:text-ink-4 outline-none transition-shadow duration-100 focus:border-accent focus:ring-[3px] focus:ring-accent-soft"
@@ -36,6 +37,7 @@ export function NewEventForm({ orgId }: { orgId: string }) {
         p_visibility: "private",
       })
       if (rpcError) throw rpcError
+      posthog.capture("event_draft_created", { organization_id: orgId })
       router.push(`/orgs/${orgId}/events/${data}/edit?step=basics`)
     } catch (err: any) {
       setError(err?.message || "Failed to create event. Please try again.")

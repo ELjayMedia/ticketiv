@@ -10,6 +10,7 @@ import { Card } from "@/components/quiet/ui/card";
 import { Photo, Avatar } from "@/components/quiet/ui/primitives";
 import { Button } from "@/components/quiet/ui/button";
 import { formatPrice } from "@/lib/format";
+import posthog from "posthog-js";
 
 /* ──────────────────────────────────────────────────────────────
  * `/tickets/[id]/transfer` — port of QuietTransfer
@@ -240,6 +241,7 @@ export function Transfer({
             if (!result) {
               setTransferError("Transfer request failed. Please try again.");
             } else {
+              posthog.capture("ticket_transfer_requested", { ticket_id: ticket.id });
               router.push(`/tickets/${ticket.id}`);
             }
           }}

@@ -11,6 +11,7 @@ import {
   ModalClose,
 } from "@/components/quiet/ui/modal"
 import { transitionEventStatus } from "../../actions"
+import posthog from "posthog-js"
 
 interface EventStatusControlsProps {
   orgId: string
@@ -43,6 +44,7 @@ export function EventStatusControls({
       }
       setPauseOpen(false)
       setArchiveOpen(false)
+      posthog.capture("event_status_changed", { event_id: eventId, status: newStatus })
       onSuccess()
     } catch (err: any) {
       setError(err?.message ?? "Unexpected error")
