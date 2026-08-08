@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Icon } from "@/components/quiet/ui/icon"
 import { duplicateEvent } from "../actions"
+import posthog from "posthog-js"
 
 interface DuplicateEventButtonProps {
   orgId: string
@@ -26,6 +27,7 @@ export function DuplicateEventButton({ orgId, eventId, asMenuItem }: DuplicateEv
         alert(result.error ?? "Failed to duplicate event.")
         return
       }
+      posthog.capture("event_duplicated", { organization_id: orgId, source_event_id: eventId })
       router.push(`/orgs/${orgId}/events/${result.newEventId}/edit`)
     } finally {
       setLoading(false)

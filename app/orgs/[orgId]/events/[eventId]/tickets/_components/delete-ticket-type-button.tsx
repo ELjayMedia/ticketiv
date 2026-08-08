@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Icon } from "@/components/quiet/ui/icon"
+import posthog from "posthog-js"
 
 export function DeleteTicketTypeButton({
   eventId,
@@ -22,6 +23,7 @@ export function DeleteTicketTypeButton({
         method: "DELETE",
       })
       if (res.ok) {
+        posthog.capture("ticket_type_deleted", { event_id: eventId, ticket_type_id: ticketTypeId })
         router.refresh()
       } else {
         const body = await res.json().catch(() => ({}))

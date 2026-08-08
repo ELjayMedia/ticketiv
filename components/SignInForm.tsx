@@ -16,6 +16,7 @@ import {
   type OrganizerSignupPayload,
 } from "@/lib/auth/organizer-signup"
 import { createClient } from "@/lib/supabase/client"
+import posthog from "posthog-js"
 
 type AuthMode = "login" | "signup" | "organizer"
 
@@ -173,6 +174,7 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
         return
       }
 
+      posthog.capture("organizer_verification_requested")
       const params = new URLSearchParams({
         to: signupPayload.email,
         intent: "organizer",
@@ -214,6 +216,7 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
       }
 
       setBusy(false)
+      posthog.capture("login_completed")
       const redirectTo = safeRedirect(search?.get("redirectTo") || search?.get("from"), "/")
       router.push(redirectTo as "/")
       router.refresh()
@@ -272,6 +275,7 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
     }
 
     setBusy(false)
+    posthog.capture("account_signup_completed")
     router.push("/")
     router.refresh()
   }

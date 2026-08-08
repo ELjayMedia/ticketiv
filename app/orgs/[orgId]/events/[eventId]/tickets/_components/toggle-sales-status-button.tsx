@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Icon } from "@/components/quiet/ui/icon"
+import posthog from "posthog-js"
 
 export function ToggleSalesStatusButton({
   eventId,
@@ -33,6 +34,7 @@ export function ToggleSalesStatusButton({
         body: JSON.stringify({ sales_status: next }),
       })
       if (res.ok) {
+        posthog.capture("ticket_type_sales_status_changed", { event_id: eventId, ticket_type_id: ticketTypeId, status: next })
         router.refresh()
       } else {
         const body = await res.json().catch(() => ({}))

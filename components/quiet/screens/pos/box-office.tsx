@@ -7,6 +7,7 @@ import { Button } from "@/components/quiet/ui/button"
 import { Icon } from "@/components/quiet/ui/icon"
 import { createClientSupabaseClient } from "@/lib/supabase-client"
 import type { POSEventContext, POSTicketType } from "@/lib/data/organizer/pos"
+import posthog from "posthog-js"
 
 type PayMethod = "cash" | "upi" | "card" | "comp"
 type POSShift = { id: string; org_id: string; cashier_user_id: string; status: "open" | "closed"; opening_cash_cents: number; opened_at: string; device_id: string | null; device_session_id: string | null }
@@ -90,7 +91,7 @@ export function BoxOffice({ ctx }: BoxOfficeProps) {
     try {
       const { data, error } = await supabase.rpc("fn_open_pos_shift", { p_org_id: ctx.orgId, p_device_id: null, p_device_session_id: null, p_opening_cash_cents: openingCashCents, p_notes: `Opened from ${ctx.deviceLabel}` })
       if (error) throw new Error(error.message)
-      setShift(data as POSShift); await refreshShift(data.id); setFlash("Shift opened")
+      setShift(data as POSShift); await refreshShift(data.id); posthog.capture("pos_shift_opened", { organization_id: ctx.orgId, event_id: ctx.eventId }); setFlash("Shift opened")
     } catch (err) { setFlash(err instanceof Error ? err.message : "Could not open shift") } finally { setBusy(false) }
   }
 
@@ -103,6 +104,7 @@ export function BoxOffice({ ctx }: BoxOfficeProps) {
       const orderId = data?.order_id as string | undefined
       await refreshShift(shift.id)
       if (orderId) await loadReceipt(orderId)
+      posthog.capture("pos_charge_completed", { organization_id: ctx.orgId, event_id: ctx.eventId, item_count: itemCount, payment_method: method, total_minor: subtotalCents })
       setQty({}); setBuyerName(""); setFlash("Charged and receipt ready ✓")
     } catch (err) { setFlash(err instanceof Error ? err.message : "Charge failed") } finally { setBusy(false) }
   }
@@ -115,7 +117,7 @@ export function BoxOffice({ ctx }: BoxOfficeProps) {
     try {
       const { data, error } = await supabase.rpc("fn_close_pos_shift", { p_shift_id: shift.id, p_closing_cash_cents: counted, p_notes: `Closed from ${ctx.deviceLabel}` })
       if (error) throw new Error(error.message)
-      setSummary(data as ShiftSummary); setShift(null); setShowClose(false); setClosingCash(""); setTransactions([]); setFlash("Shift closed and reconciled")
+      setSummary(data as ShiftSummary); setShift(null); setShowClose(false); setClosingCash(""); setTransactions([]); posthog.capture("pos_shift_closed", { organization_id: ctx.orgId, event_id: ctx.eventId, order_count: data.order_count }); setFlash("Shift closed and reconciled")
     } catch (err) { setFlash(err instanceof Error ? err.message : "Could not close shift") } finally { setBusy(false) }
   }
 

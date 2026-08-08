@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/quiet/ui/icon";
 import { formatPriceLabel, formatVenueLabel, type Currency } from "@/lib/format";
+import { createClient } from "@/lib/supabase";
+import posthog from "posthog-js";
 
 const ALLOWED_CURRENCIES: ReadonlySet<Currency> = new Set<Currency>([
   "SZL",
@@ -78,6 +80,52 @@ export function SearchOverlayProvider({ children }: { children: React.ReactNode 
   const [isOpen, setIsOpen] = React.useState(false);
   const open = React.useCallback(() => setIsOpen(true), []);
   const close = React.useCallback(() => setIsOpen(false), []);
+  const identifiedUserId = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    const supabase = createClient();
+    if (!supabase) return;
+
+    let active = true;
+
+    const synchronizeIdentity = (user: { id: string; email?: string | null; user_metadata?: Record<string, unknown> } | null) => {
+      if (!active) return;
+
+      if (!user) {
+        if (identifiedUserId.current) {
+          posthog.reset();
+          identifiedUserId.current = null;
+        }
+        return;
+      }
+
+      if (identifiedUserId.current === user.id) return;
+      if (identifiedUserId.current) posthog.reset();
+
+      const displayName = typeof user.user_metadata?.display_name === "string"
+        ? user.user_metadata.display_name
+        : undefined;
+
+      posthog.identify(user.id, {
+        email: user.email ?? undefined,
+        name: displayName,
+      });
+      identifiedUserId.current = user.id;
+    };
+
+    void supabase.auth.getSession().then(({ data: { session } }) => {
+      synchronizeIdentity(session?.user ?? null);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      synchronizeIdentity(session?.user ?? null);
+    });
+
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
   // Global ⌘K / Ctrl+K shortcut.
   React.useEffect(() => {
