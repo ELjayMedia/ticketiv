@@ -62,6 +62,9 @@ export interface MobileCheckoutProps {
   vatRate?: number;
   /** Buyer's email; prefilled for signed-in users, empty for guests. */
   defaultBuyerEmail?: string;
+  /** Signed-in buyer profile defaults. */
+  defaultBuyerName?: string;
+  defaultBuyerPhone?: string;
   /** Ticket type pre-selected from the event detail page hold. */
   defaultTicketTypeId?: string;
 }
@@ -81,6 +84,8 @@ export function MobileCheckout({
   bookingFeeMinor = 10000,
   vatRate = 0.15,
   defaultBuyerEmail = "",
+  defaultBuyerName = "",
+  defaultBuyerPhone = "",
   defaultTicketTypeId,
 }: MobileCheckoutProps) {
   const router = useRouter();
@@ -121,8 +126,8 @@ export function MobileCheckout({
   >(null);
   const [isApplyingPromo, setIsApplyingPromo] = React.useState(false);
   const [validatedPromo, setValidatedPromo] = React.useState<PromoResult | null>(null);
-  const [attendeeName, setAttendeeName] = React.useState("");
-  const [attendeePhone, setAttendeePhone] = React.useState("");
+  const [attendeeName, setAttendeeName] = React.useState(defaultBuyerName);
+  const [attendeePhone, setAttendeePhone] = React.useState(defaultBuyerPhone);
 
   async function handleApplyPromo() {
     const code = promoInput.trim().toUpperCase();
