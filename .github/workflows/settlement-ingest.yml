@@ -2,17 +2,14 @@ name: Settlement ingest
 
 # Provider settlement ingestion (operational control #1).
 #
-# Daily, not every-5-minutes: settlements land at most once a day and the
-# Paystack settlement API is paginated and rate limited, so frequent polling
-# would burn Actions minutes for nothing. The ops-alerts cron reads whatever
-# this ingested and alerts on both mismatches and staleness, so a missed run
-# surfaces on its own.
+# The daily schedule now lives in Supabase pg_cron
+# (ticketiv-settlement-ingest -> fn_settlement_ingest_tick). Keeping GitHub
+# Actions on the stopwatch made the control depend on repository secrets that
+# were never configured. This workflow is manual fallback only.
 #
 # Ingestion is idempotent and uses a multi-day lookback, so a skipped day
 # self-heals on the next run.
 on:
-  schedule:
-    - cron: "20 4 * * *"
   workflow_dispatch:
 
 permissions:
