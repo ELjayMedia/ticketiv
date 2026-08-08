@@ -158,6 +158,20 @@ export default async function CheckoutPage({
     data: { user },
   } = supabase ? await supabase.auth.getUser() : { data: { user: null } };
   const defaultBuyerEmail = user?.email ?? "";
+  let defaultBuyerName =
+    (user?.user_metadata?.full_name as string | undefined) ??
+    (user?.user_metadata?.name as string | undefined) ??
+    "";
+  const defaultBuyerPhone = user?.phone ?? "";
+
+  if (user) {
+    const { data: profile } = await supabase!
+      .from("profiles")
+      .select("display_name")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    defaultBuyerName = profile?.display_name ?? defaultBuyerName;
+  }
 
   const mappedTypes = ticketTypes.map(mapCheckoutTicketType);
   const holdType = holdTicketTypeId ? mappedTypes.find((t) => t.id === holdTicketTypeId) : null;
@@ -223,6 +237,8 @@ export default async function CheckoutPage({
             bookingFeeMinor={bookingFee}
             holdSeconds={holdSeconds}
             defaultBuyerEmail={defaultBuyerEmail}
+            defaultBuyerName={defaultBuyerName}
+            defaultBuyerPhone={defaultBuyerPhone}
             defaultTicketTypeId={firstSellable?.id}
           />
         </CheckoutProviderBridge>
