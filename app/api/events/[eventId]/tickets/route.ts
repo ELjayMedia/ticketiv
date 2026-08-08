@@ -2,6 +2,10 @@ import { NextResponse, type NextRequest } from "next/server"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import {
+  isSupportedTicketCurrency,
+  normalizeTicketCurrency,
+} from "@/lib/payments/ticket-currency"
 
 type RouteContext = { params: Promise<{ eventId: string }> }
 
@@ -32,7 +36,7 @@ function parseTicketPayload(body: any) {
   const price = Number(body.price)
   const quota = Number.parseInt(String(body.quota ?? ""), 10)
   const perUserLimit = body.per_user_limit == null || body.per_user_limit === "" ? 10 : Number.parseInt(String(body.per_user_limit), 10)
-  const currency = typeof body.currency === "string" && /^[A-Z]{3}$/.test(body.currency.toUpperCase()) ? body.currency.toUpperCase() : "SZL"
+  const currency = normalizeTicketCurrency(body.currency)
   const salesStatus = typeof body.sales_status === "string" ? body.sales_status : "on_sale"
   const isReservedSeating = Boolean(body.is_reserved_seating)
   const onlineQuota = body.online_quota == null || body.online_quota === "" ? quota : Number.parseInt(String(body.online_quota), 10)
@@ -44,6 +48,7 @@ function parseTicketPayload(body: any) {
 function validateTicketPayload(input: ReturnType<typeof parseTicketPayload>) {
   if (!input.name) return "Ticket name is required"
   if (!Number.isFinite(input.price) || input.price < 0) return "Ticket price must be zero or more"
+  if (!isSupportedTicketCurrency(input.currency)) return "Choose ZAR for Paystack or SZL for MTN MoMo"
   if (!Number.isFinite(input.quota) || input.quota < 0) return "Ticket quantity must be zero or more"
   if (!Number.isFinite(input.perUserLimit) || input.perUserLimit < 0) return "Per-user limit must be zero or more"
   if (!SALES_STATUSES.has(input.salesStatus)) return "Invalid ticket sales status"
