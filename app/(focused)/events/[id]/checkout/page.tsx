@@ -36,7 +36,7 @@ async function fetchCheckoutExtras(eventId: string) {
   const supabase = await createServerSupabaseClient();
   if (!supabase)
     return {
-      ticketTypes: [] as Array<{ id: string; name: string; price_cents: number; currency: string; remaining: number | null; sales_status: string | null }>,
+      ticketTypes: [] as Array<{ id: string; name: string; price_cents: number; currency: string; remaining: number | null; sales_status: string | null; per_user_limit: number | null }>,
       plan: null as { platform_fixed_cents: number | null; platform_percent_bps: number | null } | null,
       orgId: null as string | null,
     };
@@ -52,7 +52,7 @@ async function fetchCheckoutExtras(eventId: string) {
   const [ttRes, remainingRes, planRes] = await Promise.all([
     supabase
       .from("ticket_types")
-      .select("id, name, price_cents, currency, quota, sales_status")
+      .select("id, name, price_cents, currency, quota, sales_status, per_user_limit")
       .eq("event_id", eventId)
       // Hidden ticket types are organizer-only (comp / employee / unpublished).
       // They should never appear in the public listing or be reachable by URL.
@@ -88,6 +88,7 @@ async function fetchCheckoutExtras(eventId: string) {
       price_cents: t.price_cents,
       currency: t.currency,
       sales_status: t.sales_status,
+      per_user_limit: t.per_user_limit,
       remaining: remainingMap.get(t.id) ?? null,
     })),
     plan: planRes.data ?? null,
