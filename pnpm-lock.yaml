@@ -295,6 +295,49 @@ importers:
       '@ticketiv/tokens':
         specifier: workspace:*
         version: link:../../packages/tokens
+      react:
+        specifier: 19.2.3
+        version: 19.2.3
+      react-native:
+        specifier: 0.85.3
+        version: 0.85.3(@babel/core@7.29.7)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.7))(@types/react@19.2.15)(react@19.2.3)
+      react-native-safe-area-context:
+        specifier: 5.5.2
+        version: 5.5.2(react-native@0.85.3(@babel/core@7.29.7)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.7))(@types/react@19.2.15)(react@19.2.3))(react@19.2.3)
+    devDependencies:
+      '@babel/core':
+        specifier: 7.29.7
+        version: 7.29.7
+      '@babel/runtime':
+        specifier: 7.29.2
+        version: 7.29.2
+      '@react-native-community/cli':
+        specifier: 20.1.0
+        version: 20.1.0(typescript@5.9.3)
+      '@react-native-community/cli-platform-android':
+        specifier: 20.1.0
+        version: 20.1.0
+      '@react-native/babel-preset':
+        specifier: 0.85.3
+        version: 0.85.3(@babel/core@7.29.7)
+      '@react-native/codegen':
+        specifier: 0.85.3
+        version: 0.85.3(@babel/core@7.29.7)
+      '@react-native/gradle-plugin':
+        specifier: 0.85.3
+        version: 0.85.3
+      '@react-native/metro-config':
+        specifier: 0.85.3
+        version: 0.85.3(@babel/core@7.29.7)
+      '@react-native/typescript-config':
+        specifier: 0.85.3
+        version: 0.85.3
+      '@types/react':
+        specifier: 19.2.15
+        version: 19.2.15
+      hermes-compiler:
+        specifier: 250829098.0.10
+        version: 250829098.0.10
 
   packages/adapters: {}
 
