@@ -14,13 +14,25 @@ const PROD_MOMO = {
   apiUser: "user",
   apiKey: "secret",
   baseUrl: "https://proxy.momoapi.mtn.com",
-  environment: "swaziland",
+  environment: "mtnswaziland",
   deploymentEnv: "production",
 }
 
 describe("evaluateMomoConfig", () => {
   it("accepts a complete production configuration", () => {
     expect(evaluateMomoConfig(PROD_MOMO)).toEqual({ operational: true, problems: [] })
+  })
+
+  it("rejects the legacy target name that MTN does not accept", () => {
+    const state = evaluateMomoConfig({
+      ...PROD_MOMO,
+      environment: "swaziland",
+    })
+
+    expect(state.operational).toBe(false)
+    expect(state.problems.join(" ")).toContain(
+      'MOMO_ENVIRONMENT must be "mtnswaziland"',
+    )
   })
 
   it("refuses to call MoMo operational when only the credentials are set", () => {
@@ -61,7 +73,7 @@ describe("evaluateMomoConfig", () => {
   it("catches a half-migrated configuration where the two settings disagree", () => {
     const state = evaluateMomoConfig({
       ...PROD_MOMO,
-      environment: "swaziland",
+      environment: "mtnswaziland",
       baseUrl: "https://sandbox.momodeveloper.mtn.com",
     })
 

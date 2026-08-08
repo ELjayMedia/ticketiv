@@ -1,4 +1,4 @@
-// MTN MoMo Collections API (Eswatini / swaziland environment)
+// MTN MoMo Collections API (Eswatini / mtnswaziland environment)
 // Credentials come from env vars — never hardcode.
 const MOMO_BASE_URL =
   process.env.MOMO_BASE_URL ?? "https://sandbox.momodeveloper.mtn.com"
@@ -6,7 +6,7 @@ const MOMO_SUBSCRIPTION_KEY = process.env.MOMO_COLLECTIONS_PRIMARY_KEY ?? ""
 const MOMO_API_USER = process.env.MOMO_API_USER ?? ""
 const MOMO_API_KEY = process.env.MOMO_API_KEY ?? ""
 const MOMO_ENVIRONMENT = process.env.MOMO_ENVIRONMENT ?? "sandbox"
-// For production Eswatini: MOMO_ENVIRONMENT=swaziland, currency=SZL
+// For production Eswatini: MOMO_ENVIRONMENT=mtnswaziland, currency=SZL
 
 async function getMomoToken(): Promise<string> {
   const credentials = Buffer.from(`${MOMO_API_USER}:${MOMO_API_KEY}`).toString("base64")

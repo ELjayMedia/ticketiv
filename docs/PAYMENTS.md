@@ -21,7 +21,7 @@ idempotency is provable without a DB:
 | Provider | State | Notes |
 |---|---|---|
 | **Paystack** | ✅ Production | Card/bank. Webhook → ledger → delivery, amount-verified, idempotent. |
-| **MTN MoMo** | 🟡 Sandbox-complete | Full create → poll/callback → ledger → delivery, idempotent. Needs production credentials + the `swaziland` target environment to go live — `evaluateMomoConfig` now refuses to present MoMo until `MOMO_ENVIRONMENT` and `MOMO_BASE_URL` are both set and neither points at the sandbox in production. |
+| **MTN MoMo** | 🟡 Sandbox-complete | Full create → poll/callback → ledger → delivery, idempotent. Needs production credentials + the `mtnswaziland` target environment to go live — `evaluateMomoConfig` now refuses to present MoMo until `MOMO_ENVIRONMENT` and `MOMO_BASE_URL` are both set and neither points at the sandbox in production. |
 | **deltapay** | ⚠️ Decision pending | Routes (`/api/payments/deltapay/*`) + `lib/deltapay.ts` exist and are referenced by the admin routing screen, but the rail is **not production-verified**. See decision below. |
 | **PayPal** | ⛔ Not integrated | Out of scope for the Eswatini-first launch. See decision below. |
 
@@ -57,10 +57,10 @@ curl -s "https://sandbox.momodeveloper.mtn.com/v1_0/apiuser/$MOMO_API_USER" \
 step 2. Both are sandbox-only and are invalidated if you regenerate the
 subscription key.
 
-**These endpoints do not exist in production.** For the `swaziland` target
+**These endpoints do not exist in production.** For the `mtnswaziland` target
 environment MTN provisions the API user during commercial onboarding and issues
 the key to you — you cannot self-serve it, so do not expect this flow to work
-once `MOMO_ENVIRONMENT=swaziland`.
+once `MOMO_ENVIRONMENT=mtnswaziland`.
 
 **Sandbox belongs on preview, not production.** `evaluateMomoConfig` refuses to
 present MoMo when a production deployment points at the sandbox host, so sandbox
@@ -74,12 +74,12 @@ MoMo Collections is implemented end-to-end and works on sandbox today
 (`MOMO_ENVIRONMENT=sandbox`). To promote to production:
 
 1. **Provision production access** in the MTN MoMo developer portal for the
-   Eswatini (`swaziland`) target environment: subscribe the Collections
+   Eswatini (`mtnswaziland`) target environment: subscribe the Collections
    product, create an **API user** + **API key**, and obtain the production
    **subscription key**.
 2. **Set env** (see `.env.example`):
    - `MOMO_BASE_URL=https://proxy.momoapi.mtn.com`
-   - `MOMO_ENVIRONMENT=swaziland`
+   - `MOMO_ENVIRONMENT=mtnswaziland`
    - `MOMO_COLLECTIONS_PRIMARY_KEY`, `MOMO_API_USER`, `MOMO_API_KEY`
    - `MOMO_CALLBACK_URL=https://<app>/api/payments/momo/callback`
 3. **Currency:** Collections amounts are whole **SZL** units. The create route
