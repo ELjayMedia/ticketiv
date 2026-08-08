@@ -2,6 +2,10 @@ import { NextResponse, type NextRequest } from "next/server"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import {
+  isSupportedTicketCurrency,
+  normalizeTicketCurrency,
+} from "@/lib/payments/ticket-currency"
 
 type RouteContext = { params: Promise<{ eventId: string; ticketTypeId: string }> }
 
@@ -35,7 +39,7 @@ function parsePatchPayload(body: any) {
   if (body.price !== undefined) patch.price_cents = Math.round(Number(body.price) * 100)
   if (body.quota !== undefined) patch.quota = Number.parseInt(String(body.quota), 10)
   if (body.per_user_limit !== undefined) patch.per_user_limit = Number.parseInt(String(body.per_user_limit), 10)
-  if (typeof body.currency === "string") patch.currency = body.currency.toUpperCase()
+  if (typeof body.currency === "string") patch.currency = normalizeTicketCurrency(body.currency)
   if (typeof body.sales_status === "string") patch.sales_status = body.sales_status
   if (body.is_reserved_seating !== undefined) patch.is_reserved_seating = Boolean(body.is_reserved_seating)
   if (body.online_quota !== undefined) channelPatch.quota = Number.parseInt(String(body.online_quota), 10)
@@ -49,7 +53,7 @@ function validatePatch(patch: Record<string, any>, channelPatch: Record<string, 
   if (patch.price_cents !== undefined && (!Number.isFinite(patch.price_cents) || patch.price_cents < 0)) return "Ticket price must be zero or more"
   if (patch.quota !== undefined && (!Number.isFinite(patch.quota) || patch.quota < 0)) return "Ticket quantity must be zero or more"
   if (patch.per_user_limit !== undefined && (!Number.isFinite(patch.per_user_limit) || patch.per_user_limit < 0)) return "Per-user limit must be zero or more"
-  if (patch.currency !== undefined && !/^[A-Z]{3}$/.test(patch.currency)) return "Currency must be a 3-letter code"
+  if (patch.currency !== undefined && !isSupportedTicketCurrency(patch.currency)) return "Choose ZAR for Paystack or SZL for MTN MoMo"
   if (patch.sales_status !== undefined && !SALES_STATUSES.has(patch.sales_status)) return "Invalid ticket sales status"
   if (channelPatch.quota !== undefined && (!Number.isFinite(channelPatch.quota) || channelPatch.quota < 0)) return "Online channel quota must be zero or more"
   if (channelPatch.per_order_limit !== undefined && (!Number.isFinite(channelPatch.per_order_limit) || channelPatch.per_order_limit < 0)) return "Online per-order limit must be zero or more"
