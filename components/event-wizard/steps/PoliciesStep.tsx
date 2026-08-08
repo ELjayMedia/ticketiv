@@ -107,7 +107,7 @@ export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving:
 
       <section className="space-y-3 rounded-lg border p-4">
         <div>
-          <h3 className="font-medium">Payment methods</h3>
+          <h3 className="font-medium">Payment methods *</h3>
           <p className="mt-1 text-xs text-muted-foreground">
             Only Ticketiv-supported methods appear here. Leave every option unselected to accept all operational methods.
           </p>
@@ -117,7 +117,7 @@ export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving:
           <div className="rounded-md border border-amber-500/40 bg-amber-50 p-3 text-sm text-amber-900">
             <p className="font-medium">No operational payment method is available</p>
             <p className="mt-1 text-xs leading-relaxed">
-              You can still publish this event, but paid ticket sales will stay unavailable until Ticketiv has an operational method for this currency.
+              Ticketiv platform credentials must be completed or enabled before this event can be published.
             </p>
             <Link href="/support" className="mt-2 inline-flex text-xs font-medium underline underline-offset-4">
               Contact Ticketiv support
@@ -168,7 +168,7 @@ export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving:
           {selectedProviders.length === 0
             ? operationalOptions.length > 0
               ? `All operational methods will be offered: ${operationalOptions.map((option) => option.label).join(", ")}.`
-              : "You can publish now. Paid checkout will remain unavailable until the platform has an operational method."
+              : "Payment readiness will remain incomplete until the platform has an operational method."
             : `Buyers will be offered: ${selectedProviders
                 .map((provider) => providerOptions.find((option) => option.id === provider)?.label ?? provider)
                 .join(", ")}.`}
