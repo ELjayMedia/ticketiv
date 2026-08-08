@@ -11,6 +11,7 @@ import "server-only"
 // same unit our `_cents` columns use, so values map across without conversion.
 
 import { requirePaystackSecretKey } from "@/lib/payments/paystack-config"
+import { mapPaystackSettlementMoney } from "@/lib/payments/paystack-settlements-core"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 const PAYSTACK_API = "https://api.paystack.co"
@@ -25,6 +26,7 @@ interface PaystackSettlement {
   currency?: string | null
   total_amount?: number | null
   total_fees?: number | null
+  total_processed?: number | null
   effective_amount?: number | null
   settlement_date?: string | null
   createdAt?: string | null
@@ -60,6 +62,25 @@ async function paystackGet<T>(path: string, secretKey: string): Promise<T> {
 function toCents(value: number | null | undefined): number {
   const n = Number(value)
   return Number.isFinite(n) ? Math.round(n) : 0
+}
+
+async function fetchSettlementTransactions(
+  settlementId: string,
+  secretKey: string,
+): Promise<PaystackSettlementTxn[]> {
+  const transactions: PaystackSettlementTxn[] = []
+
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
+    const batch = await paystackGet<PaystackSettlementTxn[]>(
+      `/settlement/${encodeURIComponent(settlementId)}/transactions?perPage=${PER_PAGE}&page=${page}`,
+      secretKey,
+    )
+    if (!Array.isArray(batch) || batch.length === 0) break
+    transactions.push(...batch)
+    if (batch.length < PER_PAGE) break
+  }
+
+  return transactions
 }
 
 /**
@@ -101,17 +122,10 @@ export async function ingestPaystackSettlements(options?: {
 
       for (const s of batch) {
         const extId = String(s.id)
-        // Transactions are a separate call per settlement; a failure here must
-        // not lose the batch itself, so record the settlement with no items.
-        let txns: PaystackSettlementTxn[] = []
-        try {
-          txns = await paystackGet<PaystackSettlementTxn[]>(
-            `/settlement/${encodeURIComponent(extId)}/transactions?perPage=${PER_PAGE}`,
-            secretKey,
-          )
-        } catch (error) {
-          console.error("[settlements] transactions fetch failed", extId, error)
-        }
+        // A settlement is only recorded after every transaction page has
+        // loaded. Persisting a partial/empty batch would make reconciliation
+        // claim success while silently omitting provider transactions.
+        const txns = await fetchSettlementTransactions(extId, secretKey)
 
         const itemPayload = (Array.isArray(txns) ? txns : [])
           .filter((t) => t?.reference)
@@ -121,14 +135,21 @@ export async function ingestPaystackSettlements(options?: {
             feeCents: toCents(t.fees),
           }))
 
+        const money = mapPaystackSettlementMoney({
+          totalProcessed: s.total_processed,
+          totalAmount: s.total_amount,
+          totalFees: s.total_fees,
+          effectiveAmount: s.effective_amount,
+        })
+
         const { data, error } = await (admin.rpc as any)("fn_upsert_provider_settlement", {
           p_provider: "paystack",
           p_ext_settlement_id: extId,
           p_status: s.status ?? null,
           p_currency: s.currency ?? null,
-          p_gross_cents: toCents(s.total_amount),
-          p_fees_cents: toCents(s.total_fees),
-          p_net_cents: toCents(s.effective_amount),
+          p_gross_cents: money.grossCents,
+          p_fees_cents: money.feesCents,
+          p_net_cents: money.netCents,
           p_settled_at: s.settlement_date ?? s.createdAt ?? null,
           p_payload: s as unknown as Record<string, unknown>,
           p_items: itemPayload,
