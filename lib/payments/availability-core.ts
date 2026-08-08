@@ -47,6 +47,7 @@ export interface MomoConfigState {
 
 const MOMO_SANDBOX_HOST = "sandbox.momodeveloper.mtn.com"
 const MOMO_SANDBOX_ENVIRONMENT = "sandbox"
+const MOMO_ESWATINI_ENVIRONMENT = "mtnswaziland"
 
 function looksLikeSandboxUrl(url: string) {
   return url.toLowerCase().includes(MOMO_SANDBOX_HOST)
@@ -98,6 +99,16 @@ export function evaluateMomoConfig(input: MomoEnvInput): MomoConfigState {
 
   if (input.deploymentEnv === "production" && (environmentIsSandbox || urlIsSandbox)) {
     problems.push("This is a production deployment but MoMo is pointed at the MTN sandbox.")
+  }
+
+  if (
+    environment &&
+    !environmentIsSandbox &&
+    environment !== MOMO_ESWATINI_ENVIRONMENT
+  ) {
+    problems.push(
+      `MOMO_ENVIRONMENT must be "${MOMO_ESWATINI_ENVIRONMENT}" for MTN Eswatini production.`,
+    )
   }
 
   return { operational: problems.length === 0, problems }
