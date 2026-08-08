@@ -1,3 +1,6 @@
+import { readdirSync, readFileSync } from "node:fs"
+import { join } from "node:path"
+
 import { describe, expect, it } from "vitest"
 
 import { PaymentChannelUnavailableError } from "@/lib/payments/errors"
@@ -118,6 +121,32 @@ describe("selectPaymentProvider", () => {
         { currency: "SZL", allowedProviders: ["momo"] },
       ),
     ).toBe("momo")
+  })
+})
+
+describe("SZL has a shipped route", () => {
+  // The matcher above is thoroughly tested, but it can only pick from the rules
+  // that actually exist in the database. TICK-355 disabled SZ/SZL → paystack
+  // (Paystack cannot settle SZL) and left nothing in its place, so every SZL
+  // order that did not name a provider by hand failed with `no_matching_route`
+  // — the home currency had no rail at all. Guard the replacement.
+  const migrations = readdirSync(join(process.cwd(), "supabase/migrations"))
+  const file = migrations.find((name) => name.endsWith("_route_szl_to_momo.sql"))
+
+  it("ships a migration routing SZL to MoMo", () => {
+    expect(file, "SZL→MoMo routing migration is missing").toBeDefined()
+
+    const sql = readFileSync(join(process.cwd(), "supabase/migrations", file!), "utf8")
+    expect(sql).toContain("'SZL'")
+    expect(sql).toContain("'momo'")
+    expect(sql).toContain("payment_routing_rules")
+  })
+
+  it("does not fall back to a provider that cannot settle SZL", () => {
+    const sql = readFileSync(join(process.cwd(), "supabase/migrations", file!), "utf8")
+    // A paystack fallback on an SZL rule would move the buyer onto a rail that
+    // must fail; `no_matching_route` is the honest outcome.
+    expect(sql).not.toMatch(/'SZL',\s*'momo',\s*'paystack'/)
   })
 })
 

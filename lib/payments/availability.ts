@@ -1,10 +1,13 @@
 import "server-only"
 
 import {
+  evaluateMomoConfig,
   filterProvidersByCurrencies,
+  momoAcceptsAmountCents,
   providerSupportsCurrencies,
   resolveEffectivePaymentProviders,
   type CheckoutPaymentProvider,
+  type MomoConfigState,
 } from "@/lib/payments/availability-core"
 import { getPaystackSettings } from "@/lib/payments/paystack-config"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -47,12 +50,19 @@ function methodFor(id: CheckoutPaymentProvider): CheckoutPaymentMethod {
   return { id, ...METHOD_COPY[id] }
 }
 
+export function getMomoConfigState(): MomoConfigState {
+  return evaluateMomoConfig({
+    collectionsPrimaryKey: process.env.MOMO_COLLECTIONS_PRIMARY_KEY,
+    apiUser: process.env.MOMO_API_USER,
+    apiKey: process.env.MOMO_API_KEY,
+    baseUrl: process.env.MOMO_BASE_URL,
+    environment: process.env.MOMO_ENVIRONMENT,
+    deploymentEnv: process.env.VERCEL_ENV ?? process.env.NODE_ENV,
+  })
+}
+
 export function isMomoOperational() {
-  return Boolean(
-    process.env.MOMO_COLLECTIONS_PRIMARY_KEY?.trim() &&
-      process.env.MOMO_API_USER?.trim() &&
-      process.env.MOMO_API_KEY?.trim(),
-  )
+  return getMomoConfigState().operational
 }
 
 async function getProviderSettingMap() {
@@ -104,7 +114,8 @@ export async function getOrganizerPaymentProviderOptions(
     ? settings.get("paystack") === true
     : paystackHasCredentials
   const momoEnabled = settings.has("momo") ? settings.get("momo") === true : true
-  const momoHasCredentials = isMomoOperational()
+  const momoConfig = getMomoConfigState()
+  const momoHasCredentials = momoConfig.operational
   const paystackSupportsEvent = currencyStateAvailable && providerSupportsCurrencies("paystack", eventCurrencies)
   const momoSupportsEvent = currencyStateAvailable && providerSupportsCurrencies("momo", eventCurrencies)
   const currencyLabel = eventCurrencies.join(", ")
@@ -131,7 +142,7 @@ export async function getOrganizerPaymentProviderOptions(
       operational: momoEnabled && momoHasCredentials && momoSupportsEvent,
       warning:
         momoEnabled && !momoHasCredentials
-          ? "MTN MoMo is enabled but its Collections credentials are incomplete."
+          ? `MTN MoMo is enabled but not production-ready. ${momoConfig.problems.join(" ")}`
           : !currencyStateAvailable
             ? "Ticketiv could not verify this event's currency, so MTN MoMo is unavailable."
           : momoEnabled && !momoSupportsEvent

@@ -125,13 +125,34 @@ const nextConfig = {
   },
 }
 
+// The org and project slugs are not secrets — they are visible in every Sentry
+// URL — so they default in code rather than depending on env being present in
+// each of production, preview and local. Relying on env produced this on every
+// build, three times over (Node.js, Edge, Client):
+//
+//   Warning: No organization slug provided. Will not create release.
+//   Warning: No org provided. Will not upload source maps.
+//
+// which meant production stack traces stayed minified. Env still wins, so a
+// different org/project can be pointed at without a code change.
+const SENTRY_ORG = process.env.SENTRY_ORG || "eljaymedia-5k"
+const SENTRY_PROJECT = process.env.SENTRY_PROJECT || "ticketiv"
+
+// Uploading needs a token. Without one there is nothing to upload *to*, so turn
+// the machinery off explicitly instead of letting it start and warn — a quiet
+// build that never had a token is honest; a noisy one trains people to ignore
+// Sentry warnings, including the ones that matter.
+const sentryUploadEnabled = Boolean(process.env.SENTRY_AUTH_TOKEN?.trim())
+
 export default withSentryConfig(nextConfig, {
   // TICK-173. Source-map upload runs only when SENTRY_AUTH_TOKEN is present
   // (set on Vercel); otherwise it is skipped so local/CI builds never fail.
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
+  org: SENTRY_ORG,
+  project: SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,
   silent: !process.env.CI,
   widenClientFileUpload: true,
   telemetry: false,
+  sourcemaps: { disable: !sentryUploadEnabled },
+  release: { create: sentryUploadEnabled },
 })

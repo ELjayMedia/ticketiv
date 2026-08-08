@@ -107,8 +107,10 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "@sentry/cli",
       "@tailwindcss/oxide",
-      "sharp"
+      "sharp",
+      "unrs-resolver"
     ]
   }
 }
