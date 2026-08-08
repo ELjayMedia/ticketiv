@@ -47,9 +47,12 @@ settlement that never arrived. Those are the differences that cost real money.
   hours since the last ingest.
 - **Ingestion:** `lib/payments/paystack-settlements.ts` →
   `app/api/cron/settlements` (`CRON_SECRET`-secured), scheduled **daily** by
-  `.github/workflows/settlement-ingest.yml`. Daily rather than every 5 minutes
-  because settlements land at most once a day and the Paystack settlement API is
-  paginated and rate limited. A missed day self-heals via the multi-day lookback.
+  Supabase pg_cron (`ticketiv-settlement-ingest` →
+  `fn_settlement_ingest_tick`). The GitHub Actions workflow is manual fallback
+  only. Every transaction page is loaded before a settlement is committed, and
+  Paystack's `total_processed` / `total_fees` / `effective_amount` fields map
+  to gross / processor fee / bank net respectively. A missed day self-heals via
+  the multi-day lookback.
 - **Alerting:** the ops-alerts cron surfaces this as `provider-settlement` —
   **critical** on any mismatch, **warning** when ingest is merely stale
   (`OPS_ALERT_SETTLEMENT_STALE_HOURS`, default 48), and **skipped** before the
@@ -127,8 +130,9 @@ handler alongside `completeTrustedPaystackWebhook` when a second provider ships.
 > schedule hard — 247 runs in 17 days, roughly one every 100 minutes rather than
 > every 5. "The code exists" was being read as "the control runs"; treat a
 > control as built only once you have seen a successful invocation.
-> `.github/workflows/settlement-ingest.yml` reads the same unset `CRON_SECRET`
-> and fails the same way.
+> Settlement ingest has since moved to Supabase pg_cron as well. Its URL and
+> the shared `CRON_SECRET` are read from Vault; the first secured invocation on
+> 2026-08-08 returned HTTP 200. The GitHub workflow remains manual fallback only.
 >
 > **Resolved 2026-08-07 17:34 UTC — first successful invocation on record.**
 > `CRON_SECRET` was generated, set in Vercel, matched into Vault, and the project
