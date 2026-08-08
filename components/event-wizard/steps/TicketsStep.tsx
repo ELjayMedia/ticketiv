@@ -5,6 +5,10 @@ import { Plus, Save, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  DEFAULT_TICKET_CURRENCY,
+  TICKET_CURRENCY_OPTIONS,
+} from "@/lib/payments/ticket-currency"
 
 const SALES_STATUSES = [
   { value: "on_sale", label: "On sale" },
@@ -31,7 +35,7 @@ function emptyTicketForm(): TicketForm {
     price: "",
     quota: "",
     per_user_limit: "10",
-    currency: "SZL",
+    currency: DEFAULT_TICKET_CURRENCY,
     sales_status: "on_sale",
     online_quota: "",
     online_per_order_limit: "10",
@@ -50,7 +54,7 @@ function toForm(ticket: any): TicketForm {
     price: String(((ticket.price_cents ?? 0) / 100).toFixed(2)),
     quota: String(ticket.quota ?? ""),
     per_user_limit: String(ticket.per_user_limit ?? 10),
-    currency: ticket.currency ?? "SZL",
+    currency: ticket.currency ?? DEFAULT_TICKET_CURRENCY,
     sales_status: ticket.sales_status ?? "on_sale",
     online_quota: String(channelValue(ticket, "quota") || ticket.quota || ""),
     online_per_order_limit: String(channelValue(ticket, "per_order_limit") || ticket.per_user_limit || 10),
@@ -166,6 +170,12 @@ export function TicketsStep({ eventId, onSaving }: { eventId: string; onSaving: 
 
   return (
     <div className="space-y-5">
+      <div className="rounded-lg border bg-muted/30 px-3 py-2.5">
+        <p className="text-sm font-medium">Paystack payments use ZAR</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Choose ZAR for Paystack card and bank checkout. SZL is reserved for MTN MoMo once its production credentials are live.
+        </p>
+      </div>
       <div className="space-y-3">
         <div>
           <h3 className="font-medium">Existing ticket types</h3>
@@ -183,7 +193,7 @@ export function TicketsStep({ eventId, onSaving }: { eventId: string; onSaving: 
                     <div>
                       <p className="font-medium">{ticket.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {ticket.currency || "SZL"} {(ticket.price_cents / 100).toFixed(2)} • {ticket.quota} total • Limit {ticket.per_user_limit ?? 10}/buyer • {ticket.sales_status ?? "on_sale"}
+                        {ticket.currency || DEFAULT_TICKET_CURRENCY} {(ticket.price_cents / 100).toFixed(2)} • {ticket.quota} total • Limit {ticket.per_user_limit ?? 10}/buyer • {ticket.sales_status ?? "on_sale"}
                       </p>
                     </div>
                     <button disabled={saving} onClick={() => deleteTicket(ticket.id)} className="text-red-600 hover:text-red-700 disabled:opacity-50" aria-label="Delete ticket type">
@@ -193,7 +203,9 @@ export function TicketsStep({ eventId, onSaving }: { eventId: string; onSaving: 
 
                   <div className="grid gap-3 md:grid-cols-2">
                     <Input placeholder="Ticket name" value={draft.name} onChange={(e) => setDraftField(ticket.id, "name", e.target.value)} disabled={saving} />
-                    <Input placeholder="Currency" value={draft.currency} onChange={(e) => setDraftField(ticket.id, "currency", e.target.value.toUpperCase().slice(0, 3))} disabled={saving} />
+                    <select value={draft.currency} onChange={(e) => setDraftField(ticket.id, "currency", e.target.value)} disabled={saving} className="h-10 rounded-md border bg-background px-3 text-sm" aria-label="Ticket currency">
+                      {TICKET_CURRENCY_OPTIONS.map((currency) => <option key={currency.value} value={currency.value}>{currency.label}</option>)}
+                    </select>
                     <Input type="number" min="0" step="0.01" placeholder="Price" value={draft.price} onChange={(e) => setDraftField(ticket.id, "price", e.target.value)} disabled={saving} />
                     <Input type="number" min="0" placeholder="Total quantity" value={draft.quota} onChange={(e) => setDraftField(ticket.id, "quota", e.target.value)} disabled={saving} />
                     <Input type="number" min="0" placeholder="Per-buyer limit" value={draft.per_user_limit} onChange={(e) => setDraftField(ticket.id, "per_user_limit", e.target.value)} disabled={saving} />
@@ -225,7 +237,9 @@ export function TicketsStep({ eventId, onSaving }: { eventId: string; onSaving: 
           <Input placeholder="Ticket name" value={newTicket.name} onChange={(e) => setNewTicket({ ...newTicket, name: e.target.value })} disabled={saving} />
           <div className="grid gap-3 md:grid-cols-2">
             <Input type="number" min="0" step="0.01" placeholder="Price" value={newTicket.price} onChange={(e) => setNewTicket({ ...newTicket, price: e.target.value })} disabled={saving} />
-            <Input placeholder="Currency" value={newTicket.currency} onChange={(e) => setNewTicket({ ...newTicket, currency: e.target.value.toUpperCase().slice(0, 3) })} disabled={saving} />
+            <select value={newTicket.currency} onChange={(e) => setNewTicket({ ...newTicket, currency: e.target.value })} disabled={saving} className="h-10 rounded-md border bg-background px-3 text-sm" aria-label="Ticket currency">
+              {TICKET_CURRENCY_OPTIONS.map((currency) => <option key={currency.value} value={currency.value}>{currency.label}</option>)}
+            </select>
             <Input type="number" min="0" placeholder="Total quantity" value={newTicket.quota} onChange={(e) => setNewTicket({ ...newTicket, quota: e.target.value, online_quota: e.target.value })} disabled={saving} />
             <Input type="number" min="0" placeholder="Per-buyer limit" value={newTicket.per_user_limit} onChange={(e) => setNewTicket({ ...newTicket, per_user_limit: e.target.value, online_per_order_limit: e.target.value })} disabled={saving} />
             <select value={newTicket.sales_status} onChange={(e) => setNewTicket({ ...newTicket, sales_status: e.target.value })} disabled={saving} className="h-10 rounded-md border bg-background px-3 text-sm">
