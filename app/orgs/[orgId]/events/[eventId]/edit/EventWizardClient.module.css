@@ -1,0 +1,108 @@
+.root {
+  color: var(--color-ink);
+}
+
+.root :global(.text-muted-foreground) {
+  color: var(--color-ink-3);
+}
+
+.root :global(.text-foreground) {
+  color: var(--color-ink);
+}
+
+.root :global(.text-primary) {
+  color: var(--color-accent);
+}
+
+.root :global(.text-primary-foreground) {
+  color: var(--color-surface);
+}
+
+.root :global(.text-destructive),
+.root :global(.text-red-600),
+.root :global(.text-red-700) {
+  color: var(--color-danger);
+}
+
+.root :global(.bg-background),
+.root :global(.bg-card) {
+  background-color: var(--color-surface);
+}
+
+.root :global(.bg-muted) {
+  background-color: var(--color-surface-2);
+}
+
+.root :global(.bg-muted\/30),
+.root :global(.bg-muted\/50) {
+  background-color: color-mix(in srgb, var(--color-surface-2) 55%, transparent);
+}
+
+.root :global(.bg-primary) {
+  background-color: var(--color-ink);
+}
+
+.root :global(.bg-primary\/5) {
+  background-color: color-mix(in srgb, var(--color-accent-soft) 55%, transparent);
+}
+
+.root :global(.bg-destructive) {
+  background-color: var(--color-danger);
+}
+
+.root :global(.border),
+.root :global(.border-border),
+.root :global(.border-input) {
+  border-color: var(--color-line);
+}
+
+.root :global(.border-primary\/30) {
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+.root :global(.border-destructive\/30) {
+  border-color: color-mix(in srgb, var(--color-danger) 30%, transparent);
+}
+
+.root :global(.hover\:bg-muted):hover,
+.root :global(.hover\:bg-accent):hover,
+.root :global(.hover\:bg-red-50):hover {
+  background-color: var(--color-surface-2);
+}
+
+.root :where(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea, select) {
+  border-color: var(--color-line-2);
+  border-radius: var(--radius);
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.root :where(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea, select):focus-visible {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+  outline: none;
+}
+
+.root :where(input[type="checkbox"], input[type="radio"]) {
+  accent-color: var(--color-accent);
+}
+
+.root :where(button, a):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+  outline-offset: 2px;
+}
+
+.root :where(h2) {
+  color: var(--color-ink);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.root :where(h3) {
+  color: var(--color-ink);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
