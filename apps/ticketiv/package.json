@@ -3,17 +3,38 @@
   "version": "0.0.0",
   "private": true,
   "description": "Ticketiv consumer app (com.ticketiv.app) — React Native app core for attendee workflows.",
-  "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "sideEffects": false,
   "scripts": {
+    "native:start": "react-native start",
+    "native:android:play": "react-native run-android --mode playDebug",
+    "native:android:huawei": "react-native run-android --mode huaweiDebug",
+    "native:bundle:js": "react-native bundle --platform android --dev false --entry-file index.js --bundle-output .artifacts/index.android.bundle --assets-dest .artifacts/android-assets",
+    "native:bundle:play": "./android/gradlew -p android stagePlayReleaseBundle",
+    "native:bundle:huawei": "./android/gradlew -p android stageHuaweiReleaseBundle",
     "test": "vitest run --dir src",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "@ticketiv/adapters": "workspace:*",
     "@ticketiv/shared": "workspace:*",
-    "@ticketiv/tokens": "workspace:*"
+    "@ticketiv/tokens": "workspace:*",
+    "react": "19.2.3",
+    "react-native": "0.85.3",
+    "react-native-safe-area-context": "5.5.2"
+  },
+  "devDependencies": {
+    "@babel/core": "7.29.7",
+    "@babel/runtime": "7.29.2",
+    "@react-native-community/cli": "20.1.0",
+    "@react-native-community/cli-platform-android": "20.1.0",
+    "@react-native/babel-preset": "0.85.3",
+    "@react-native/codegen": "0.85.3",
+    "@react-native/gradle-plugin": "0.85.3",
+    "@react-native/metro-config": "0.85.3",
+    "@react-native/typescript-config": "0.85.3",
+    "@types/react": "19.2.15",
+    "hermes-compiler": "250829098.0.10"
   }
 }

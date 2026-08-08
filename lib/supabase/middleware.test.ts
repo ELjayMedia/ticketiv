@@ -96,4 +96,13 @@ describe("Supabase middleware session recovery", () => {
     expect(response.status).toBe(200)
     expect(mocks.createServerClient).not.toHaveBeenCalled()
   })
+
+  it("does not initialize auth for the public discovery API", async () => {
+    const response = await updateSession(
+      new NextRequest("https://ticketiv.app/api/discover/events?limit=24"),
+    )
+
+    expect(response.status).toBe(200)
+    expect(mocks.createServerClient).not.toHaveBeenCalled()
+  })
 })
