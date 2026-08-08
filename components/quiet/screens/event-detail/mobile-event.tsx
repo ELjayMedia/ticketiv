@@ -59,6 +59,7 @@ export function MobileEvent({ event }: MobileEventProps) {
   const ticketTypes = event?.ticketTypes ?? [];
   const firstAvailable = ticketTypes.find((t) => t.remaining !== 0) ?? ticketTypes[0];
   const [selectedTypeId, setSelectedTypeId] = React.useState<string | undefined>(firstAvailable?.id);
+  const selectedTicket = ticketTypes.find((ticket) => ticket.id === selectedTypeId) ?? firstAvailable;
 
   if (!event) {
     return (
@@ -307,7 +308,7 @@ export function MobileEvent({ event }: MobileEventProps) {
         </div>
       ) : (
         <div className="sticky bottom-0 flex items-center gap-3 border-t border-line bg-surface px-5 py-3.5 pb-7">
-          <div className="flex flex-col"><span className="text-label">From</span><span className="font-mono text-[20px] font-semibold leading-none">{formatPrice(event.fromPriceMinor, event.currency ?? "SZL")}</span></div>
+          <div className="flex flex-col"><span className="text-label">{selectedTicket ? "Selected" : "From"}</span><span className="font-mono text-[20px] font-semibold leading-none">{formatPrice(selectedTicket?.priceMinor ?? event.fromPriceMinor, event.currency ?? "SZL")}</span></div>
           <form action={createSeatHoldAction} className="flex flex-1">
             <input type="hidden" name="eventSlug" value={event.id} />
             <input type="hidden" name="quantity" value="1" />
