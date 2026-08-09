@@ -8,6 +8,8 @@ import { Chip } from "@/components/quiet/ui/chip";
 import { Photo, Divider } from "@/components/quiet/ui/primitives";
 import { Button } from "@/components/quiet/ui/button";
 import { TicketQrCode } from "@/components/tickets/ticket-qr-code";
+import { CheckInCelebration } from "@/components/tickets/check-in-celebration";
+import { useTicketCheckIns, type TicketCheckIn } from "@/lib/hooks/use-ticket-check-ins";
 
 /* ──────────────────────────────────────────────────────────────
  * `/tickets/[id]` — QR ticket view
@@ -109,6 +111,24 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
   const touchStartX = React.useRef<number | null>(null);
   const [walletBusy, setWalletBusy] = React.useState(false);
   const [walletMsg, setWalletMsg] = React.useState<string | null>(null);
+  const [celebration, setCelebration] = React.useState<TicketCheckIn | null>(null);
+  const resolvedStatus: TicketDisplayStatus | null = ticket
+    ? ticket.status ?? (ticket.isValid ? "issued" : "checked_in")
+    : null;
+  const watchedTicketId = ticket?.id ?? null;
+  const watchedEventTitle = ticket?.eventTitle ?? "";
+  const watchedTicketIds = React.useMemo(
+    () => (watchedTicketId && resolvedStatus === "issued" ? [watchedTicketId] : []),
+    [resolvedStatus, watchedTicketId],
+  );
+
+  const handleCheckIn = React.useCallback((checkIn: TicketCheckIn) => {
+    if (!watchedTicketId || !watchedEventTitle || checkIn.ticketId !== watchedTicketId) return;
+    setCelebration(checkIn);
+    router.refresh();
+  }, [router, watchedEventTitle, watchedTicketId]);
+
+  useTicketCheckIns({ ticketIds: watchedTicketIds, onCheckIn: handleCheckIn });
 
   if (!ticket) {
     return (
@@ -126,7 +146,7 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
   // Control-flow narrowing from the guard above doesn't reach the nested
   // event-handler closures, so bind a non-optional alias for them to close over.
   const t: TicketData = ticket;
-  const status: TicketDisplayStatus = ticket.status ?? (ticket.isValid ? "issued" : "checked_in");
+  const status: TicketDisplayStatus = resolvedStatus ?? "checked_in";
   const badge = STATUS_BADGE[status];
   const canTransferOrResell = status === "issued";
 
@@ -225,7 +245,18 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
     }
   }
   return (
-    <div
+    <>
+      {celebration && (
+        <CheckInCelebration
+          eventTitle={t.eventTitle}
+          checkedInAt={celebration.checkedInAt}
+          onComplete={() => {
+            setCelebration(null);
+            router.replace(`/tickets?tab=past&checkedIn=${encodeURIComponent(t.id)}`);
+          }}
+        />
+      )}
+      <div
       className="min-h-dvh bg-ink text-white"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
@@ -432,7 +463,8 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
           )}
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
 

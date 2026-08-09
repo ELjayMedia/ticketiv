@@ -24,17 +24,28 @@ const FACE_POOL = [
   PHOTOS.face_1, PHOTOS.face_2, PHOTOS.face_3, PHOTOS.face_4,
   PHOTOS.face_5, PHOTOS.face_6, PHOTOS.face_7, PHOTOS.face_8,
 ];
+
+interface TicketsSearchParams {
+  tab?: string | string[];
+  checkedIn?: string | string[];
+}
+
 function avatarFor(uid: string): string {
   let h = 0;
   for (let i = 0; i < uid.length; i++) h = (h * 31 + uid.charCodeAt(i)) | 0;
   return FACE_POOL[Math.abs(h) % FACE_POOL.length];
 }
 
-export default async function TicketsPage() {
-  const [rows, inbound, history] = await Promise.all([
+export default async function TicketsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<TicketsSearchParams>;
+}) {
+  const [rows, inbound, history, query] = await Promise.all([
     getMyTickets(),
     getInboundTransfers(),
     getMyTransferHistory(),
+    searchParams ?? Promise.resolve<TicketsSearchParams>({}),
   ]);
   const props = mapMyTickets(rows);
   const next = inbound[0];
@@ -89,6 +100,10 @@ export default async function TicketsPage() {
         featured={props.featured}
         upcoming={props.upcoming}
         past={props.past}
+        initialSegment={
+          query.tab === "past" || query.tab === "transfers" ? query.tab : "upcoming"
+        }
+        highlightedTicketId={typeof query.checkedIn === "string" ? query.checkedIn : null}
         inboundTransfer={inboundTransfer}
         transferHistory={transferHistory}
         counts={{
