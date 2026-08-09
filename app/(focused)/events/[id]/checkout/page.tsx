@@ -175,7 +175,7 @@ export default async function CheckoutPage({
       .eq("user_id", user.id)
       .maybeSingle();
     const profileName = [profile?.name, profile?.surname].filter(Boolean).join(" ");
-    defaultBuyerName = profile?.display_name ?? profileName || defaultBuyerName;
+    defaultBuyerName = profile?.display_name ?? (profileName || defaultBuyerName);
     defaultBuyerPhone = profile?.phone ?? defaultBuyerPhone;
   }
 
