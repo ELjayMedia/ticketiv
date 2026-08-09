@@ -9,6 +9,7 @@ import { Button } from "@/components/quiet/ui/button";
 import { cn } from "@/lib/cn";
 import { createClient } from "@/lib/supabase";
 import type { WorkspaceType } from "@/lib/navigation";
+import { ATTENDEE_TABS } from "@/components/quiet/shell/mobile-shell";
 
 interface NavItem {
   href: string;
@@ -83,26 +84,7 @@ const WORKSPACE_NAV: Record<Extract<WorkspaceType, "organizer" | "scanner" | "ap
       match: (p) => p.startsWith("/scan/setup"),
     },
   ],
-  app: [
-    {
-      href: "/app/tickets",
-      label: "Tickets",
-      icon: "ticket",
-      match: (p) => p.startsWith("/app/tickets") || p === "/tickets",
-    },
-    {
-      href: "/app/profile",
-      label: "Profile",
-      icon: "user",
-      match: (p) => p.startsWith("/app/profile") || p.startsWith("/profile"),
-    },
-    {
-      href: "/payments",
-      label: "Payments",
-      icon: "wallet",
-      match: (p) => p.startsWith("/payments"),
-    },
-  ],
+  app: ATTENDEE_TABS,
 };
 
 const WORKSPACE_LABEL: Record<Extract<WorkspaceType, "organizer" | "scanner" | "app">, string> = {
