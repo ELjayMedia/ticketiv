@@ -1,16 +1,6 @@
 import { redirect } from "next/navigation"
 
-import { LanguageScreen } from "@/components/quiet/screens/account/language-screen"
-import { getMyProfile } from "@/lib/data/attendee/profile"
-
-export const metadata = { title: "Language" }
-export const dynamic = "force-dynamic"
-
-export default async function LanguagePage() {
-  const profile = await getMyProfile()
-  if (!profile) {
-    redirect("/login?next=/me/language")
-  }
-
-  return <LanguageScreen current={profile.locale} />
+/** Language selection is retired until Ticketiv has a complete translated experience. */
+export default function LanguagePage() {
+  redirect("/me")
 }
