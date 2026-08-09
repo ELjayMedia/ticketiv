@@ -35,9 +35,19 @@ function timeAgo(iso: string): string {
   return new Date(iso).toLocaleDateString("en", { month: "short", day: "numeric" });
 }
 
-function statusLabel(status: string | null): string {
-  if (!status) return "update";
-  return status.replace(/[_-]+/g, " ");
+function notificationTypeLabel(type: string): string {
+  const labels: Record<string, string> = {
+    payment_succeeded: "Payment updates",
+    ticket_issued: "Ticket updates",
+    ticket_transferred: "Ticket transfer updates",
+    event_reminder: "Event reminders",
+  };
+
+  return labels[type] ?? type
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 export function NotificationsCentre({ notifications, mutedTypes }: NotificationsCentreProps) {
@@ -48,19 +58,16 @@ export function NotificationsCentre({ notifications, mutedTypes }: Notifications
   const [localMutedTypes, setLocalMutedTypes] = React.useState(new Set(mutedTypes))
   const [mutingType, setMutingType] = React.useState<string | null>(null)
 
-  const hasNotifications = notifications.length > 0;
+  const visibleNotifications = notifications.filter((notification) => !localMutedTypes.has(notification.type));
+  const hasNotifications = visibleNotifications.length > 0;
   const effectiveUnreadCount = allMarkedRead
     ? 0
-    : notifications.filter((n) => n.isUnread && !readIds.has(n.id)).length;
+    : visibleNotifications.filter((n) => n.isUnread && !readIds.has(n.id)).length;
 
   const mutedCount = localMutedTypes.size;
 
   function isEffectivelyUnread(n: AttendeeNotification) {
     return n.isUnread && !readIds.has(n.id) && !allMarkedRead;
-  }
-
-  function isTypeMuted(type: string) {
-    return localMutedTypes.has(type);
   }
 
   async function handleMarkRead(notificationId: string) {
@@ -146,7 +153,7 @@ export function NotificationsCentre({ notifications, mutedTypes }: Notifications
             )}
             {hasNotifications && (
               <span className="rounded bg-accent-soft px-2 py-1 font-mono text-[10px] font-semibold uppercase text-accent">
-                {effectiveUnreadCount > 0 ? `${effectiveUnreadCount} unread` : `${notifications.length} recent`}
+                {effectiveUnreadCount > 0 ? `${effectiveUnreadCount} unread` : `${visibleNotifications.length} recent`}
               </span>
             )}
           </div>
@@ -154,6 +161,21 @@ export function NotificationsCentre({ notifications, mutedTypes }: Notifications
         <p className="mt-2 font-mono text-[12px] leading-relaxed text-ink-3">
           Ticket, transfer, waitlist, listing, refund and event updates appear here with direct actions.
         </p>
+        {mutedCount > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2" aria-label="Muted notification types">
+            {Array.from(localMutedTypes).map((type) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => handleToggleMute(type)}
+                disabled={mutingType === type}
+                className="inline-flex h-8 items-center rounded-[var(--radius)] border border-line-2 px-2.5 font-mono text-[10px] font-semibold text-ink-3 hover:bg-bg hover:text-ink disabled:opacity-50"
+              >
+                {mutingType === type ? "Updating…" : `Unmute ${notificationTypeLabel(type)}`}
+              </button>
+            ))}
+          </div>
+        )}
         {effectiveUnreadCount > 0 && (
           <button
             type="button"
@@ -195,25 +217,20 @@ export function NotificationsCentre({ notifications, mutedTypes }: Notifications
       ) : (
         <section className="px-5">
           <ul className="flex flex-col gap-2">
-            {notifications.map((n) => {
+            {visibleNotifications.map((n) => {
               const unread = isEffectivelyUnread(n);
-              const muted = isTypeMuted(n.type);
               const isMuting = mutingType === n.type;
               return (
                 <li key={n.id}>
                   <Card
                     className={`flex items-start gap-3 p-3.5 transition-colors ${
-                      muted
-                        ? "opacity-50"
-                        : unread
-                          ? "border-accent bg-accent-soft/30"
-                          : "hover:bg-bg"
+                      unread ? "border-accent bg-accent-soft/30" : "hover:bg-bg"
                     }`}
                     flat
                   >
                     <div className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
                       <Icon name={ICON_BY_KIND[n.actionKind]} size={16} />
-                      {unread && !muted && (
+                      {unread && (
                         <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-surface" />
                       )}
                     </div>
@@ -233,19 +250,14 @@ export function NotificationsCentre({ notifications, mutedTypes }: Notifications
                       </p>
                       <div className="mt-2 flex items-center gap-2">
                         <span className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] uppercase text-ink-3">
-                          {muted ? "muted" : unread ? "unread" : statusLabel(n.status)}
+                          {unread ? "Unread" : "Read"}
                         </span>
-                        {n.channel && (
-                          <span className="font-mono text-[10px] uppercase text-ink-3">
-                            {n.channel}
-                          </span>
-                        )}
                         <Link href={n.actionHref} className="ml-auto text-[11px] font-semibold text-accent">
                           {n.actionLabel}
                         </Link>
                       </div>
                       <div className="mt-2 flex items-center gap-3">
-                        {unread && !muted && (
+                        {unread && (
                           <button
                             type="button"
                             onClick={() => handleMarkRead(n.id)}
@@ -261,7 +273,7 @@ export function NotificationsCentre({ notifications, mutedTypes }: Notifications
                           disabled={isMuting}
                           className="font-mono text-[10px] font-semibold uppercase text-ink-3 hover:text-ink disabled:opacity-50"
                         >
-                          {isMuting ? "…" : muted ? `Unmute ${n.type}` : `Mute ${n.type}`}
+                          {isMuting ? "…" : `Mute ${notificationTypeLabel(n.type)}`}
                         </button>
                       </div>
                     </div>
