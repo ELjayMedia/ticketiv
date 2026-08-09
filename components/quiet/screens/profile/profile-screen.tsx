@@ -47,7 +47,6 @@ interface ProfileUser {
   stats: { events: number; friends: number; following: number };
   email: string;
   remindersEnabled: boolean;
-  language: string;
   upcomingTickets: number;
   favouritesCount: number;
   pendingTransfers: number;
@@ -86,19 +85,13 @@ export function ProfileScreen({ user, appVersion = "current", tapBand, orgContex
   }
 
   const accountRows: SettingRow[] = [
-    { icon: "settings", label: "Account settings", value: "profile · alerts", href: "/account/settings" },
-    { icon: "user", label: "Personal info", value: user.email, href: "/account/settings" },
+    { icon: "settings", label: "Account settings", value: "profile · notifications · security", href: "/account/settings" },
+    { icon: "user", label: "Personal info", value: user.email, href: "/account/settings?tab=profile" },
     {
       icon: "cal",
       label: "Reminders",
       value: user.remindersEnabled ? "on" : "off",
-      href: "/me/reminders",
-    },
-    {
-      icon: "globe",
-      label: "Language",
-      value: user.language,
-      href: "/me/language",
+      href: "/account/settings?tab=notifications",
     },
   ];
 
