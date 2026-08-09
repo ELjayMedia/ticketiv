@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import jsQR from "jsqr"
 
 import { Button } from "@/components/quiet/ui/button"
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
@@ -531,15 +532,15 @@ export default function ScannerPage() {
     const Detector = (window as Window &
       typeof globalThis & { BarcodeDetector?: BarcodeDetectorConstructorLike }).BarcodeDetector
 
-    if (!Detector || !navigator.mediaDevices?.getUserMedia) {
+    if (!navigator.mediaDevices?.getUserMedia) {
       setCameraStatus("unsupported")
       setCameraMessage(
-        "This browser cannot scan QR codes with a live camera. Update Chrome or enter the ticket code manually.",
+        "This browser cannot access a live camera. Update Safari or enter the ticket code manually.",
       )
       return
     }
 
-    if (Detector.getSupportedFormats) {
+    if (Detector?.getSupportedFormats) {
       try {
         const formats = await Detector.getSupportedFormats()
         if (cameraAttemptRef.current !== attempt) return
@@ -580,7 +581,9 @@ export default function ScannerPage() {
       await video.play()
       if (cameraAttemptRef.current !== attempt) return
 
-      const detector = new Detector({ formats: ["qr_code"] })
+      const detector = Detector ? new Detector({ formats: ["qr_code"] }) : null
+      const fallbackCanvas = detector ? null : document.createElement("canvas")
+      const fallbackContext = fallbackCanvas?.getContext("2d", { willReadFrequently: true }) ?? null
       setCameraStatus("active")
       setCameraMessage(null)
       let lastDetectionAt = 0
@@ -601,9 +604,22 @@ export default function ScannerPage() {
         ) {
           lastDetectionAt = timestamp
           try {
-            const detections = await detector.detect(video)
+            let value: string | undefined
+
+            if (detector) {
+              const detections = await detector.detect(video)
+              value = detections.find((item) => item.rawValue?.trim())?.rawValue?.trim()
+            } else if (fallbackCanvas && fallbackContext && video.videoWidth > 0 && video.videoHeight > 0) {
+              fallbackCanvas.width = video.videoWidth
+              fallbackCanvas.height = video.videoHeight
+              fallbackContext.drawImage(video, 0, 0, fallbackCanvas.width, fallbackCanvas.height)
+              const frame = fallbackContext.getImageData(0, 0, fallbackCanvas.width, fallbackCanvas.height)
+              value = jsQR(frame.data, frame.width, frame.height, {
+                inversionAttempts: "dontInvert",
+              })?.data.trim()
+            }
+
             if (cameraAttemptRef.current !== attempt) return
-            const value = detections.find((item) => item.rawValue?.trim())?.rawValue?.trim()
 
             if (value) {
               const now = Date.now()
