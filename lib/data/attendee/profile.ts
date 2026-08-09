@@ -1,5 +1,5 @@
-// Source: profiles + user_handles + payment_methods + user_notification_preferences
-// + event_favourites + transfers + v_my_tickets. RLS-scoped to current user.
+// Source: profiles + user_handles + user_notification_preferences +
+// event_favourites + transfers + v_my_tickets. RLS-scoped to current user.
 
 import "server-only"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
@@ -18,7 +18,6 @@ export interface MyProfile {
   followingCount: number
   pendingTransfers: number
   unreadNotifications: number
-  savedPaymentMethods: number
   remindersEnabled: boolean
   locale: string
   language: string
@@ -42,7 +41,6 @@ export async function getMyProfile(): Promise<MyProfile | null> {
     followingRes,
     transfersRes,
     notificationsRes,
-    paymentsRes,
     prefsRes,
   ] = await Promise.all([
     supabase
@@ -82,11 +80,6 @@ export async function getMyProfile(): Promise<MyProfile | null> {
       .eq("user_id", user.id)
       .is("read_at", null),
     supabase
-      .from("payment_methods")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .eq("is_active", true),
-    supabase
       .from("user_notification_preferences")
       .select("push_opt_in, in_app_opt_in, email_opt_in")
       .eq("user_id", user.id)
@@ -118,7 +111,6 @@ export async function getMyProfile(): Promise<MyProfile | null> {
     followingCount: followingRes.count ?? 0,
     pendingTransfers: transfersRes.count ?? 0,
     unreadNotifications: notificationsRes.count ?? 0,
-    savedPaymentMethods: paymentsRes.count ?? 0,
     remindersEnabled: Boolean(remindersEnabled),
     locale: profile?.locale ?? "en",
     language: localeLabel(profile?.locale),
