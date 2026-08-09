@@ -50,6 +50,28 @@ function titleCaseType(type: string): string {
     .replace(/\b\w/g, (m) => m.toUpperCase())
 }
 
+function formatPaymentAmount(payload: Record<string, unknown>): string | null {
+  const currency = asText(payload.currency)?.toUpperCase()
+  const rawAmount = payload.amount ?? payload.total ?? payload.total_amount
+  const amount = typeof rawAmount === "number"
+    ? rawAmount
+    : typeof rawAmount === "string" && rawAmount.trim() !== ""
+      ? Number(rawAmount)
+      : Number.NaN
+
+  if (!currency || !Number.isFinite(amount)) return null
+
+  try {
+    return new Intl.NumberFormat("en-SZ", {
+      style: "currency",
+      currency,
+      currencyDisplay: "code",
+    }).format(amount)
+  } catch {
+    return `${currency} ${amount.toFixed(2)}`
+  }
+}
+
 function baseFields(row: RawNotificationRow) {
   return {
     readAt: row.read_at,
@@ -143,6 +165,27 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
       actionHref: eventSlug ? `/events/${encodeURIComponent(eventSlug)}` : "/",
       actionLabel: eventSlug ? "View event" : "Discover events",
       actionKind: "event",
+    }
+  }
+
+  if (type === "payment_succeeded" || type === "payment_success" || type === "payment_completed") {
+    const amount = formatPaymentAmount(payload)
+    const orderId = asText(payload.orderId) ?? asText(payload.order_id)
+
+    return {
+      id: row.id,
+      type,
+      status: row.status,
+      channel: row.channel,
+      title: explicitTitle ?? "Payment received",
+      message: explicitMessage ?? (amount
+        ? `Your payment of ${amount} was successful. Your tickets are ready.`
+        : "Your payment was successful. Your tickets are ready."),
+      createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
+      ...base,
+      actionHref: orderId ? `/orders/${encodeURIComponent(orderId)}` : "/tickets",
+      actionLabel: orderId ? "View order" : "View tickets",
+      actionKind: "ticket",
     }
   }
 

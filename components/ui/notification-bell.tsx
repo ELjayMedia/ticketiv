@@ -27,6 +27,7 @@ export type AppNotification = {
   delivered_at: string | null
   sent_at: string | null
   channel: string | null
+  read_at: string | null
 }
 
 function notificationTitle(notification: AppNotification) {
@@ -90,7 +91,7 @@ export function NotificationBell({ userId }: { userId?: string }) {
       setLoading(true)
       const { data, error } = await supabase
         .from("notifications")
-        .select("id, user_id, type, payload, status, created_at, delivered_at, sent_at, channel")
+        .select("id, user_id, type, payload, status, created_at, delivered_at, sent_at, channel, read_at")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(10)
@@ -145,7 +146,7 @@ export function NotificationBell({ userId }: { userId?: string }) {
     }
   }, [supabase, userId])
 
-  const unreadCount = notifications.filter((notification) => notification.status !== "read").length
+  const unreadCount = notifications.filter((notification) => notification.read_at == null).length
 
   async function markAllAsRead() {
     if (!supabase || !userId || unreadCount === 0) return
@@ -153,9 +154,9 @@ export function NotificationBell({ userId }: { userId?: string }) {
     setSaving(true)
     const { error } = await supabase
       .from("notifications")
-      .update({ status: "read", delivered_at: new Date().toISOString() })
+      .update({ read_at: new Date().toISOString() })
       .eq("user_id", userId)
-      .neq("status", "read")
+      .is("read_at", null)
 
     if (error) {
       console.error("[notifications] Failed to mark notifications as read:", error.message)
@@ -163,8 +164,7 @@ export function NotificationBell({ userId }: { userId?: string }) {
       setNotifications((current) =>
         current.map((notification) => ({
           ...notification,
-          status: "read",
-          delivered_at: notification.delivered_at ?? new Date().toISOString(),
+          read_at: notification.read_at ?? new Date().toISOString(),
         })),
       )
     }
@@ -204,7 +204,7 @@ export function NotificationBell({ userId }: { userId?: string }) {
             <DropdownMenuItem key={notification.id} asChild className="cursor-pointer p-0">
               <Link href={notificationHref(notification)} className="flex w-full items-start gap-3 px-3 py-3">
                 <Avatar className="h-8 w-8">
-                  <AvatarFallback className={notification.status === "read" ? "text-xs" : "bg-primary text-xs text-primary-foreground"}>
+                  <AvatarFallback className={notification.read_at != null ? "text-xs" : "bg-primary text-xs text-primary-foreground"}>
                     {notificationInitial(notification)}
                   </AvatarFallback>
                 </Avatar>
