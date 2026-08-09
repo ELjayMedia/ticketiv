@@ -1,16 +1,9 @@
 import { redirect } from "next/navigation"
 
-import { PaymentMethodsScreen } from "@/components/quiet/screens/account/payment-methods-screen"
-import { listMyPaymentMethods } from "@/lib/data/attendee/payment-methods"
-
-export const metadata = { title: "Payment methods" }
-export const dynamic = "force-dynamic"
-
-export default async function PaymentMethodsPage() {
-  const methods = await listMyPaymentMethods()
-  if (methods === null) {
-    redirect("/login?next=/me/payment-methods")
-  }
-
-  return <PaymentMethodsScreen methods={methods} />
+/**
+ * Saved payment methods are intentionally not part of the Ticketiv customer UI.
+ * Keep this compatibility redirect so old bookmarks do not expose a retired screen.
+ */
+export default function PaymentMethodsPage() {
+  redirect("/me")
 }

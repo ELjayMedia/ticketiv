@@ -46,7 +46,6 @@ interface ProfileUser {
   joinedLabel: string;
   stats: { events: number; friends: number; following: number };
   email: string;
-  savedPaymentMethods: number;
   remindersEnabled: boolean;
   language: string;
   upcomingTickets: number;
@@ -89,12 +88,6 @@ export function ProfileScreen({ user, appVersion = "current", tapBand, orgContex
   const accountRows: SettingRow[] = [
     { icon: "settings", label: "Account settings", value: "profile · alerts", href: "/account/settings" },
     { icon: "user", label: "Personal info", value: user.email, href: "/account/settings" },
-    {
-      icon: "wallet",
-      label: "Payment methods",
-      value: `${user.savedPaymentMethods} saved`,
-      href: "/me/payment-methods",
-    },
     {
       icon: "cal",
       label: "Reminders",
