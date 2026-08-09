@@ -9,6 +9,9 @@ export interface NotificationPrefs {
   smsOptIn: boolean
   pushOptIn: boolean
   inAppOptIn: boolean
+  eventRemindersEnabled: boolean
+  remind24h: boolean
+  remind2h: boolean
 }
 
 export interface ConnectedAccount {
@@ -142,7 +145,7 @@ export async function getAccountSettings(): Promise<AccountSettings | null> {
       .maybeSingle(),
     supabase
       .from("user_notification_preferences")
-      .select("email_opt_in, sms_opt_in, push_opt_in, in_app_opt_in")
+      .select("email_opt_in, sms_opt_in, push_opt_in, in_app_opt_in, event_reminders_enabled, remind_24h, remind_2h")
       .eq("user_id", user.id)
       .maybeSingle(),
     supabase.rpc("fn_get_my_account_deletion_status"),
@@ -183,6 +186,9 @@ export async function getAccountSettings(): Promise<AccountSettings | null> {
       smsOptIn: prefs?.sms_opt_in ?? true,
       pushOptIn: prefs?.push_opt_in ?? true,
       inAppOptIn: prefs?.in_app_opt_in ?? true,
+      eventRemindersEnabled: prefs?.event_reminders_enabled ?? true,
+      remind24h: prefs?.remind_24h ?? true,
+      remind2h: prefs?.remind_2h ?? true,
     },
     connectedAccounts,
     deletion,
