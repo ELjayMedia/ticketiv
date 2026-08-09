@@ -129,6 +129,18 @@ export async function updateNotificationPrefsAction(formData: FormData): Promise
     return { ok: false, error: "Could not save your notification preferences." }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: reminderError } = await (supabase.rpc as any)("fn_update_my_reminder_preferences", {
+    p_enabled: asBool("eventRemindersEnabled"),
+    p_remind_24h: asBool("remind24h"),
+    p_remind_2h: asBool("remind2h"),
+  })
+
+  if (reminderError) {
+    console.error("[account-settings] reminders:", reminderError)
+    return { ok: false, error: "Notification channels saved, but reminder timing could not be saved." }
+  }
+
   revalidatePath("/account/settings")
   revalidatePath("/me")
   revalidatePath("/me/reminders")
