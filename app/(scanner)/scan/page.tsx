@@ -419,19 +419,21 @@ export default function ScannerPage() {
     }
     const scannedAt = new Date().toISOString()
 
-    // Local-first: if we have a manifest, validate against it before
-    // hitting the network. Gives sub-50ms response at the gate and keeps
-    // the scanner working when connectivity drops mid-event.
-    const offlineEvaluation = evaluateScannerOfflineManifest({
-      manifest,
-      ticketCode: trimmedCode,
-      eventId,
-      deviceId,
-      sessionId: sessionId ?? `offline-${deviceId}`,
-      scannedAt,
-      locallyUsed: isLocallyUsed(eventId, trimmedCode),
-    })
-    if (offlineEvaluation.action !== "miss" && offlineEvaluation.result) {
+    const validateOffline = () =>
+      evaluateScannerOfflineManifest({
+        manifest,
+        ticketCode: trimmedCode,
+        eventId,
+        deviceId,
+        sessionId: sessionId ?? `offline-${deviceId}`,
+        scannedAt,
+        locallyUsed: isLocallyUsed(eventId, trimmedCode),
+      })
+
+    const applyOfflineResult = () => {
+      const offlineEvaluation = validateOffline()
+      if (offlineEvaluation.action === "miss" || !offlineEvaluation.result) return false
+
       if (offlineEvaluation.action === "queue" && offlineEvaluation.offlineScan) {
         markLocallyUsed(eventId, trimmedCode)
         setOfflineQueue((current) => [...current, offlineEvaluation.offlineScan])
@@ -450,8 +452,23 @@ export default function ScannerPage() {
         scan: offlineEvaluation.action === "queue" ? { scanned_at: scannedAt } : null,
         previousScan: offlineEvaluation.action === "duplicate" ? { scanned_at: scannedAt } : null,
       })
+      return true
+    }
+
+    // Online browsers must write the check-in to the server first. The local
+    // manifest is used only when the browser reports no connectivity or the
+    // request genuinely fails.
+    if (!navigator.onLine) {
+      const handledOffline = applyOfflineResult()
+      if (!handledOffline) {
+        setResult({
+          valid: false,
+          status: "error",
+          message: "This ticket is not in the offline manifest. Reconnect to validate it.",
+        })
+      }
       setLoading(false)
-      if (offlineEvaluation.action === "queue") setCode("")
+      setCode("")
       return
     }
 
@@ -469,8 +486,14 @@ export default function ScannerPage() {
       if (!response.ok && data.status === "offline") queueOfflineScan(trimmedCode, scannedAt)
       refreshRecentScans()
     } catch {
-      queueOfflineScan(trimmedCode, scannedAt)
-      setResult({ valid: true, status: "offline", message: "Network unavailable. Scan stored offline." })
+      const handledOffline = applyOfflineResult()
+      if (!handledOffline) {
+        setResult({
+          valid: false,
+          status: "error",
+          message: "Online validation failed and this ticket is not in the offline manifest. Try again.",
+        })
+      }
     } finally {
       setLoading(false)
       setCode("")
@@ -813,17 +836,52 @@ export default function ScannerPage() {
   const handleSync = async () => {
     if (offlineQueue.length === 0) return
     try {
+      const queuedScans = [...offlineQueue]
       const response = await fetch("/api/scanner/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scans: offlineQueue }),
+        body: JSON.stringify({ scans: queuedScans }),
       })
       if (!response.ok) throw new Error("Sync failed")
-      setOfflineQueue([])
-      setResult({ valid: true, status: "validated", message: "Offline scans synced" })
-      refreshRecentScans()
+
+      const syncResult = (await response.json()) as {
+        inserted?: number
+        results?: Array<{ code: string; outcome: string; idempotent?: boolean }>
+      }
+      const results = syncResult.results ?? []
+      const completedIndexes = new Set(
+        results.flatMap((item, index) =>
+          item.outcome === "validated" || item.outcome === "duplicate" || item.idempotent ? [index] : [],
+        ),
+      )
+      const remaining = queuedScans.filter((_, index) => !completedIndexes.has(index))
+      const syncedCount = queuedScans.length - remaining.length
+
+      setOfflineQueue(remaining)
+      if (syncedCount === 0) {
+        setResult({
+          valid: false,
+          status: "error",
+          message: "No queued scans were accepted. They remain queued so you can retry.",
+        })
+        return
+      }
+
+      setResult({
+        valid: true,
+        status: "validated",
+        message:
+          remaining.length > 0
+            ? `${syncedCount} scan${syncedCount === 1 ? "" : "s"} synced; ${remaining.length} still queued`
+            : `${syncedCount} offline scan${syncedCount === 1 ? "" : "s"} synced`,
+      })
+      await refreshRecentScans()
     } catch {
-      setResult({ valid: false, status: "error", message: "Unable to sync offline scans" })
+      setResult({
+        valid: false,
+        status: "error",
+        message: "Unable to sync offline scans. Nothing was removed from the queue.",
+      })
     }
   }
 
