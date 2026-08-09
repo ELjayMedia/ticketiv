@@ -143,8 +143,9 @@ export async function getAccountSettings(): Promise<AccountSettings | null> {
       .select("name, surname, phone")
       .eq("user_id", user.id)
       .maybeSingle(),
-    supabase
-      .from("user_notification_preferences")
+    // New reminder columns are migration-backed; keep this read compatible until generated DB types refresh.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from as any)("user_notification_preferences")
       .select("email_opt_in, sms_opt_in, push_opt_in, in_app_opt_in, event_reminders_enabled, remind_24h, remind_2h")
       .eq("user_id", user.id)
       .maybeSingle(),
