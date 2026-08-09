@@ -1149,8 +1149,67 @@ export default function ScannerPage() {
             )}
           </div>
 
+          {cameraPaused && result?.valid && (
+            <div
+              className="absolute inset-0 z-30 flex min-h-dvh flex-col overflow-hidden bg-accent text-white"
+              role="status"
+              aria-live="assertive"
+            >
+              <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+                <div className="absolute left-1/2 top-[42%] h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/25 motion-safe:animate-ping" />
+                <div className="absolute left-1/2 top-[42%] h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/15 motion-safe:animate-pulse" />
+                <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
+                <div className="absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-black/10 blur-3xl" />
+              </div>
+
+              <div className="relative flex flex-1 flex-col items-center justify-center px-6 text-center">
+                <div className="relative mb-8 flex h-36 w-36 items-center justify-center">
+                  <span className="absolute inset-0 rounded-full bg-white/15 motion-safe:animate-pulse" />
+                  <span className="relative inline-flex h-28 w-28 items-center justify-center rounded-full bg-white text-accent shadow-2xl motion-safe:animate-bounce">
+                    <Icon name="check" size={58} />
+                  </span>
+                </div>
+                <p className="font-mono text-[12px] font-semibold uppercase tracking-[0.28em] text-white/75">
+                  Entry approved
+                </p>
+                <h2 className="mt-3 text-[42px] font-bold leading-none tracking-tight">Ticket valid</h2>
+                <p className="mt-4 max-w-sm text-[16px] font-medium text-white/85">
+                  {result.message || "This attendee is cleared to enter."}
+                </p>
+                {(result.scan?.scanned_at || result.checkedInAt) && (
+                  <p className="mt-5 inline-flex items-center gap-2 rounded-full bg-black/15 px-4 py-2 font-mono text-[11px] uppercase tracking-wider text-white/80">
+                    <Icon name="clock" size={13} />
+                    {new Date(result.scan?.scanned_at ?? result.checkedInAt ?? "").toLocaleTimeString()}
+                  </p>
+                )}
+              </div>
+
+              <div className="relative flex flex-col gap-3 border-t border-white/20 bg-black/10 p-4 safe-area-bottom">
+                <Button
+                  onClick={handleScanNext}
+                  disabled={loading}
+                  variant="primary"
+                  size="md"
+                  block
+                  className="h-14 bg-white text-accent hover:bg-white/90"
+                >
+                  Scan next ticket
+                </Button>
+                <Button
+                  onClick={closeCamera}
+                  variant="outline"
+                  size="md"
+                  block
+                  className="h-12 border-white/40 bg-transparent text-white hover:bg-white/10"
+                >
+                  Done
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col gap-3 border-t border-line bg-surface p-4 text-ink safe-area-bottom">
-            {cameraPaused ? (
+            {cameraPaused && result?.valid ? null : cameraPaused ? (
               <>
                 {result ? (
                   <ResultCard result={result} />
