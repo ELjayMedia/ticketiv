@@ -5,25 +5,19 @@ import { usePathname } from "next/navigation";
 import { Icon, type IconName } from "@/components/quiet/ui/icon";
 import { cn } from "@/lib/cn";
 
-interface TabItem {
+export interface AttendeeTabItem {
   href: string;
   icon: IconName;
   label: string;
   match: (pathname: string) => boolean;
 }
 
-const TABS: TabItem[] = [
+export const ATTENDEE_TABS: AttendeeTabItem[] = [
   {
     href: "/",
     icon: "spark",
     label: "Discover",
     match: (p) => p === "/" || p.startsWith("/events"),
-  },
-  {
-    href: "/calendar",
-    icon: "cal",
-    label: "Calendar",
-    match: (p) => p.startsWith("/calendar"),
   },
   {
     href: "/tickets",
@@ -40,8 +34,13 @@ const TABS: TabItem[] = [
   {
     href: "/me",
     icon: "user",
-    label: "Me",
-    match: (p) => p.startsWith("/me"),
+    label: "You",
+    match: (p) =>
+      p.startsWith("/me") ||
+      p.startsWith("/account") ||
+      p.startsWith("/notifications") ||
+      p.startsWith("/payments") ||
+      p.startsWith("/profile"),
   },
 ];
 
@@ -53,7 +52,7 @@ export function MobileTabBar() {
       className="fixed bottom-0 left-0 right-0 z-30 flex border-t border-line bg-surface pt-2.5 pb-7"
       aria-label="Primary"
     >
-      {TABS.map((tab) => {
+      {ATTENDEE_TABS.map((tab) => {
         const active = tab.match(pathname);
         return (
           <Link
