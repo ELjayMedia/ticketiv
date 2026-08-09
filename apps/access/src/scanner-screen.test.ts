@@ -161,7 +161,7 @@ describe("Access scanner screen controller", () => {
         lastResult: {
           source: "manifest",
           valid: true,
-          status: "validated",
+          status: "offline",
           queuedOffline: true,
           onlineStatus: null,
         },
