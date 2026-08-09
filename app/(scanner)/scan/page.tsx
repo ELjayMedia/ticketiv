@@ -65,6 +65,21 @@ interface NdefReadingEvent extends Event {
   }
 }
 
+interface DetectedBarcode {
+  rawValue?: string
+}
+
+interface BarcodeDetectorLike {
+  detect: (source: HTMLVideoElement) => Promise<DetectedBarcode[]>
+}
+
+interface BarcodeDetectorConstructorLike {
+  new (options?: { formats?: string[] }): BarcodeDetectorLike
+  getSupportedFormats?: () => Promise<string[]>
+}
+
+type CameraStatus = "idle" | "requesting" | "active" | "denied" | "unsupported" | "error"
+
 type OfflineScanPayload = ScannerOfflineScanPayload
 
 interface RecentScan {
@@ -161,6 +176,10 @@ export default function ScannerPage() {
   const [nfcSupported] = useState(() => typeof window !== "undefined" && "NDEFReader" in window)
   const [nfcListening, setNfcListening] = useState(false)
   const [nfcStatus, setNfcStatus] = useState<string | null>(null)
+  const [cameraOpen, setCameraOpen] = useState(false)
+  const [cameraStatus, setCameraStatus] = useState<CameraStatus>("idle")
+  const [cameraMessage, setCameraMessage] = useState<string | null>(null)
+  const [cameraPaused, setCameraPaused] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [deviceBound, setDeviceBound] = useState(false)
   const [offlineQueue, setOfflineQueue] = useState<OfflineScanPayload[]>([])
@@ -173,6 +192,14 @@ export default function ScannerPage() {
   const nfcAbortRef = useRef<AbortController | null>(null)
   const lastTapAttemptRef = useRef<{ credential: string; at: number } | null>(null)
   const tapBandInFlightRef = useRef(false)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const cameraStreamRef = useRef<MediaStream | null>(null)
+  const cameraFrameRef = useRef<number | null>(null)
+  const cameraAttemptRef = useRef(0)
+  const cameraPausedRef = useRef(false)
+  const qrScanInFlightRef = useRef(false)
+  const lastQrRef = useRef<{ value: string; at: number } | null>(null)
+  const handleQrValidationRef = useRef<(value: string) => Promise<void>>(async () => undefined)
   const deviceId = useMemo(() => loadDeviceId(), [])
 
   const eventId = selectedEvent?.id ?? ""
@@ -327,16 +354,19 @@ export default function ScannerPage() {
     refreshRecentScans()
   }, [refreshRecentScans, sessionId, liveStats?.checked_in_count])
 
-  const queueOfflineScan = () => {
-    const scan: OfflineScanPayload = {
-      code,
-      eventId,
-      deviceId,
-      sessionId: sessionId ?? `offline-${deviceId}`,
-      scannedAt: new Date().toISOString(),
-    }
-    setOfflineQueue((current) => [...current, scan])
-  }
+  const queueOfflineScan = useCallback(
+    (ticketCode: string, scannedAt = new Date().toISOString()) => {
+      const scan: OfflineScanPayload = {
+        code: ticketCode,
+        eventId,
+        deviceId,
+        sessionId: sessionId ?? `offline-${deviceId}`,
+        scannedAt,
+      }
+      setOfflineQueue((current) => [...current, scan])
+    },
+    [deviceId, eventId, sessionId],
+  )
 
   function lastSyncLabel(): string | null {
     if (!lastSyncAt) return null
@@ -377,11 +407,15 @@ export default function ScannerPage() {
     }
   }
 
-  const handleScan = async () => {
+  const handleScan = useCallback(async (scanCode: string) => {
     setLoading(true)
     setResult(null)
 
-    const trimmedCode = code.trim()
+    const trimmedCode = scanCode.trim()
+    if (!trimmedCode) {
+      setLoading(false)
+      return
+    }
     const scannedAt = new Date().toISOString()
 
     // Local-first: if we have a manifest, validate against it before
@@ -431,16 +465,214 @@ export default function ScannerPage() {
       const data: ScanResponse = await response.json()
       setResult(data)
       if (data.valid) markLocallyUsed(eventId, trimmedCode)
-      if (!response.ok && data.status === "offline") queueOfflineScan()
+      if (!response.ok && data.status === "offline") queueOfflineScan(trimmedCode, scannedAt)
       refreshRecentScans()
     } catch {
-      queueOfflineScan()
+      queueOfflineScan(trimmedCode, scannedAt)
       setResult({ valid: true, status: "offline", message: "Network unavailable. Scan stored offline." })
     } finally {
       setLoading(false)
       setCode("")
     }
-  }
+  }, [deviceId, eventId, manifest, queueOfflineScan, refreshRecentScans, sessionId])
+
+  useEffect(() => {
+    handleQrValidationRef.current = handleScan
+  }, [handleScan])
+
+  const releaseCameraResources = useCallback(() => {
+    if (cameraFrameRef.current !== null) {
+      window.cancelAnimationFrame(cameraFrameRef.current)
+      cameraFrameRef.current = null
+    }
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop())
+    cameraStreamRef.current = null
+    if (videoRef.current) videoRef.current.srcObject = null
+    qrScanInFlightRef.current = false
+  }, [])
+
+  const closeCamera = useCallback(() => {
+    cameraAttemptRef.current += 1
+    releaseCameraResources()
+    cameraPausedRef.current = false
+    setCameraPaused(false)
+    setCameraOpen(false)
+    setCameraStatus("idle")
+    setCameraMessage(null)
+  }, [releaseCameraResources])
+
+  const handleScanNext = useCallback(() => {
+    cameraPausedRef.current = false
+    setCameraPaused(false)
+    setCameraMessage(null)
+    setResult(null)
+    setCode("")
+  }, [])
+
+  const openCamera = useCallback(async () => {
+    const attempt = cameraAttemptRef.current + 1
+    cameraAttemptRef.current = attempt
+    releaseCameraResources()
+    cameraPausedRef.current = false
+    lastQrRef.current = null
+    setCameraPaused(false)
+    setResult(null)
+    setCode("")
+    setCameraOpen(true)
+    setCameraStatus("requesting")
+    setCameraMessage("Requesting camera access…")
+
+    if (!window.isSecureContext) {
+      setCameraStatus("error")
+      setCameraMessage("Camera scanning requires a secure HTTPS connection.")
+      return
+    }
+
+    const Detector = (window as Window &
+      typeof globalThis & { BarcodeDetector?: BarcodeDetectorConstructorLike }).BarcodeDetector
+
+    if (!Detector || !navigator.mediaDevices?.getUserMedia) {
+      setCameraStatus("unsupported")
+      setCameraMessage(
+        "This browser cannot scan QR codes with a live camera. Update Chrome or enter the ticket code manually.",
+      )
+      return
+    }
+
+    if (Detector.getSupportedFormats) {
+      try {
+        const formats = await Detector.getSupportedFormats()
+        if (cameraAttemptRef.current !== attempt) return
+        if (!formats.includes("qr_code")) {
+          setCameraStatus("unsupported")
+          setCameraMessage("This browser camera does not support QR-code detection.")
+          return
+        }
+      } catch {
+        // Some Chromium builds omit format discovery but still support the constructor.
+      }
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      })
+
+      if (cameraAttemptRef.current !== attempt) {
+        stream.getTracks().forEach((track) => track.stop())
+        return
+      }
+
+      cameraStreamRef.current = stream
+      let video = videoRef.current
+      if (!video) {
+        await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
+        video = videoRef.current
+      }
+      if (!video) throw new Error("Camera preview could not be mounted")
+
+      video.srcObject = stream
+      await video.play()
+      if (cameraAttemptRef.current !== attempt) return
+
+      const detector = new Detector({ formats: ["qr_code"] })
+      setCameraStatus("active")
+      setCameraMessage(null)
+      let lastDetectionAt = 0
+
+      const detectFrame = async (timestamp: number) => {
+        if (
+          cameraAttemptRef.current !== attempt ||
+          cameraStreamRef.current !== stream
+        ) {
+          return
+        }
+
+        if (
+          timestamp - lastDetectionAt >= 250 &&
+          !cameraPausedRef.current &&
+          !qrScanInFlightRef.current &&
+          video.readyState >= 2
+        ) {
+          lastDetectionAt = timestamp
+          try {
+            const detections = await detector.detect(video)
+            if (cameraAttemptRef.current !== attempt) return
+            const value = detections.find((item) => item.rawValue?.trim())?.rawValue?.trim()
+
+            if (value) {
+              const now = Date.now()
+              const repeated = lastQrRef.current?.value === value && now - lastQrRef.current.at < 2500
+              if (!repeated) {
+                lastQrRef.current = { value, at: now }
+                qrScanInFlightRef.current = true
+                cameraPausedRef.current = true
+                setCameraPaused(true)
+                setCameraMessage("QR code found. Validating ticket…")
+                setCode(value)
+                navigator.vibrate?.(60)
+
+                try {
+                  await handleQrValidationRef.current(value)
+                } finally {
+                  qrScanInFlightRef.current = false
+                  if (cameraAttemptRef.current === attempt) setCameraMessage(null)
+                }
+              }
+            }
+          } catch {
+            if (cameraAttemptRef.current !== attempt) return
+            releaseCameraResources()
+            setCameraStatus("error")
+            setCameraMessage("The camera started, but this browser could not read QR codes.")
+            return
+          }
+        }
+
+        if (cameraAttemptRef.current === attempt) {
+          cameraFrameRef.current = window.requestAnimationFrame((nextTimestamp) => {
+            void detectFrame(nextTimestamp)
+          })
+        }
+      }
+
+      cameraFrameRef.current = window.requestAnimationFrame((timestamp) => {
+        void detectFrame(timestamp)
+      })
+    } catch (error) {
+      if (cameraAttemptRef.current !== attempt) return
+      releaseCameraResources()
+      const errorName = error instanceof DOMException ? error.name : ""
+
+      if (errorName === "NotAllowedError" || errorName === "SecurityError") {
+        setCameraStatus("denied")
+        setCameraMessage(
+          "Camera permission is blocked. Allow camera access for ticketiv.app in your browser settings, then try again.",
+        )
+      } else if (errorName === "NotFoundError") {
+        setCameraStatus("error")
+        setCameraMessage("No camera was found on this device.")
+      } else if (errorName === "NotReadableError") {
+        setCameraStatus("error")
+        setCameraMessage("The camera is busy in another app. Close it there, then try again.")
+      } else {
+        setCameraStatus("error")
+        setCameraMessage("Unable to start the camera. Try again or enter the ticket code manually.")
+      }
+    }
+  }, [releaseCameraResources])
+
+  useEffect(() => {
+    return () => {
+      cameraAttemptRef.current += 1
+      releaseCameraResources()
+    }
+  }, [releaseCameraResources])
 
   const handleTapBandScan = async (credentialValue = code) => {
     if (tapBandInFlightRef.current) return
@@ -643,9 +875,16 @@ export default function ScannerPage() {
         </span>
       </div>
     ) : null
+  const renderCameraControl = () =>
+    inputMode === "qr" ? (
+      <Button onClick={() => void openCamera()} variant="accent" size="md" block disabled={loading}>
+        <Icon name="qr" size={16} />
+        Scan QR with camera
+      </Button>
+    ) : null
   const handlePrimaryValidation = () => {
     if (inputMode === "tapband") return handleTapBandScan()
-    return handleScan()
+    return handleScan(code)
   }
 
   const eventCard = (
@@ -782,6 +1021,7 @@ export default function ScannerPage() {
                 <span className="text-label">{inputLabel}</span>
               </div>
               {renderNfcControl()}
+              {renderCameraControl()}
               <input
                 value={code}
                 onChange={(event) => setCode(event.target.value)}
@@ -827,6 +1067,7 @@ export default function ScannerPage() {
                   <p className="text-h3">{inputMode === "tapband" ? "TapBand entry" : "Manual entry"}</p>
                 </div>
                 {renderNfcControl()}
+                {renderCameraControl()}
                 <label className="flex flex-col gap-1">
                   <span className="text-label">{inputLabel}</span>
                   <input
@@ -848,6 +1089,102 @@ export default function ScannerPage() {
           {recentScansBlock}
         </div>
       </div>
+
+      {cameraOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex min-h-dvh flex-col bg-black text-white"
+          role="dialog"
+          aria-modal="true"
+          aria-label="QR camera scanner"
+        >
+          <div className="flex items-center justify-between border-b border-white/15 px-4 py-3">
+            <div className="flex flex-col">
+              <span className="text-[15px] font-semibold">Scan QR code</span>
+              <span className="text-[11px] text-white/65">{selectedEvent.title}</span>
+            </div>
+            <button
+              type="button"
+              onClick={closeCamera}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/25"
+              aria-label="Close camera"
+            >
+              <Icon name="close" size={19} />
+            </button>
+          </div>
+
+          <div className="relative min-h-0 flex-1 overflow-hidden">
+            <video
+              ref={videoRef}
+              className={cn(
+                "absolute inset-0 h-full w-full object-cover",
+                cameraStatus !== "active" && "opacity-0",
+              )}
+              muted
+              playsInline
+              aria-label="Live rear-camera preview"
+            />
+
+            {cameraStatus === "active" && (
+              <>
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                  <div className="h-56 w-56 rounded-2xl border-2 border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.42)] sm:h-72 sm:w-72" />
+                </div>
+                {!cameraPaused && (
+                  <p className="absolute inset-x-4 bottom-5 text-center text-[13px] font-medium text-white drop-shadow">
+                    Hold the attendee QR code inside the frame
+                  </p>
+                )}
+              </>
+            )}
+
+            {cameraStatus !== "active" && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-8 text-center">
+                <span className="inline-flex h-14 w-14 items-center justify-center rounded-full border border-white/20 bg-white/10">
+                  <Icon name="qr" size={27} />
+                </span>
+                <p className="max-w-sm text-[14px] text-white/80">
+                  {cameraMessage ?? "Starting camera…"}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-3 border-t border-line bg-surface p-4 text-ink safe-area-bottom">
+            {cameraPaused ? (
+              <>
+                {result ? (
+                  <ResultCard result={result} />
+                ) : (
+                  <div className="rounded-[var(--radius-md)] border border-line bg-bg px-4 py-3 text-[13px]">
+                    {cameraMessage ?? "Validating ticket…"}
+                  </div>
+                )}
+                <Button onClick={handleScanNext} disabled={loading} variant="accent" size="md" block>
+                  {loading ? "Validating…" : "Scan next ticket"}
+                </Button>
+                <Button onClick={closeCamera} variant="outline" size="md" block>
+                  Done
+                </Button>
+              </>
+            ) : cameraStatus === "active" ? (
+              <Button onClick={closeCamera} variant="outline" size="md" block>
+                Close camera
+              </Button>
+            ) : (
+              <>
+                {(cameraStatus === "denied" || cameraStatus === "error") && (
+                  <Button onClick={() => void openCamera()} variant="accent" size="md" block>
+                    Try camera again
+                  </Button>
+                )}
+                <Button onClick={closeCamera} variant="outline" size="md" block>
+                  Enter code manually
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </>
   )
 }
