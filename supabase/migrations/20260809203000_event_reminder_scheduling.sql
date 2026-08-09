@@ -5,6 +5,21 @@ alter table public.user_notification_preferences
   add column if not exists remind_24h boolean not null default true,
   add column if not exists remind_2h boolean not null default true;
 
+alter table public.notifications
+  drop constraint if exists check_notifications_type_channel;
+
+alter table public.notifications
+  add constraint check_notifications_type_channel check (
+    type = any (array[
+      'email_confirmation', 'ticket_delivery', 'transfer_notification',
+      'refund_alert', 'generic', 'ticket_purchase_succeeded',
+      'payment_succeeded', 'payment_failed', 'event_published',
+      'event_changed', 'refund_updated', 'payout_updated',
+      'ticket_transfer_updated', 'tapband_credential_lost', 'event_reminder'
+    ]::text[])
+    and (channel is null or channel = any (array['email', 'sms', 'push', 'in_app']::text[]))
+  );
+
 create or replace function public.fn_update_my_reminder_preferences(
   p_enabled boolean,
   p_remind_24h boolean,
