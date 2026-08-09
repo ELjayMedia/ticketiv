@@ -49,7 +49,7 @@ export function MobileTabBar() {
   const pathname = usePathname() ?? "";
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-30 flex border-t border-line bg-surface pt-2.5 pb-7"
+      className="fixed bottom-0 left-0 right-0 z-30 flex border-t border-line bg-surface pt-2.5 pb-[max(env(safe-area-inset-bottom),0.75rem)]"
       aria-label="Primary"
     >
       {ATTENDEE_TABS.map((tab) => {
@@ -59,9 +59,10 @@ export function MobileTabBar() {
             key={tab.href}
             href={tab.href}
             className={cn(
-              "flex flex-1 flex-col items-center gap-1 text-[10px] font-semibold uppercase tracking-wide",
+              "flex flex-1 flex-col items-center gap-1 px-1 text-[10px] font-semibold uppercase tracking-wide",
               active ? "text-ink" : "text-ink-3"
             )}
+            aria-current={active ? "page" : undefined}
           >
             <Icon name={tab.icon} size={22} strokeWidth={active ? 2 : 1.6} />
             <span>{tab.label}</span>
