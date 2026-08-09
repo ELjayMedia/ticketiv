@@ -138,8 +138,10 @@ export async function getAccountSettings(): Promise<AccountSettings | null> {
       .select("display_name, avatar_url")
       .eq("user_id", user.id)
       .maybeSingle(),
-    supabase
-      .from("user_private_profiles")
+    // This table was introduced by the preceding migration and may not yet be present
+    // in generated database types when branches are deployed out of order.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from as any)("user_private_profiles")
       .select("name, surname, phone")
       .eq("user_id", user.id)
       .maybeSingle(),
