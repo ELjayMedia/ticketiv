@@ -248,12 +248,20 @@ export function mapMyTickets(rows: MyTicketsView[]): MyTicketsProps {
   // is fair game — but featured-eligible is narrower (must be valid + future).
   const visible = rows.filter((r) => ticketDisplayStatus(r) !== "pending");
 
+  // A successful scan completes the attendee journey immediately. Treat a
+  // checked-in ticket as past even when the event start time is still in the
+  // future (for example, when doors open before the advertised start).
+  const isPastTicket = (row: MyTicketsView): boolean =>
+    ticketDisplayStatus(row) === "checked_in"
+    || !row.event_starts_at
+    || new Date(row.event_starts_at).getTime() < now;
+
   const upcomingRows = visible
-    .filter((r) => r.event_starts_at && new Date(r.event_starts_at).getTime() >= now)
+    .filter((r) => !isPastTicket(r))
     .sort((a, b) => new Date(a.event_starts_at!).getTime() - new Date(b.event_starts_at!).getTime());
 
   const pastRows = visible
-    .filter((r) => !r.event_starts_at || new Date(r.event_starts_at).getTime() < now)
+    .filter(isPastTicket)
     .sort((a, b) => {
       const ax = a.event_starts_at ? new Date(a.event_starts_at).getTime() : 0;
       const bx = b.event_starts_at ? new Date(b.event_starts_at).getTime() : 0;
