@@ -18,6 +18,8 @@ import {
   LiveDot,
 } from "@/components/quiet/ui/primitives";
 import { Button } from "@/components/quiet/ui/button";
+import { CheckInCelebration } from "@/components/tickets/check-in-celebration";
+import { useTicketCheckIns, type TicketCheckIn } from "@/lib/hooks/use-ticket-check-ins";
 
 /* ──────────────────────────────────────────────────────────────
  * Mobile /tickets · ticket ownership hub
@@ -42,6 +44,8 @@ interface MyTicketsProps {
   featured?: FeaturedTicket;
   upcoming?: TicketListItem[];
   past?: TicketListItem[];
+  initialSegment?: Segment;
+  highlightedTicketId?: string | null;
   inboundTransfer?: InboundTransfer | null;
   transferHistory?: TransferHistoryRow[];
   counts?: { upcoming: number; past: number; transfers: number };
@@ -133,26 +137,88 @@ export function MyTickets({
   featured,
   upcoming,
   past,
+  initialSegment = "upcoming",
+  highlightedTicketId = null,
   inboundTransfer,
   transferHistory,
   counts,
 }: MyTicketsProps) {
   const router = useRouter();
-  const [seg, setSeg] = React.useState<Segment>("upcoming");
+  const [seg, setSeg] = React.useState<Segment>(initialSegment);
   const [transferLoading, setTransferLoading] = React.useState<"accept" | "decline" | null>(null);
   const [cancelling, setCancelling] = React.useState<string | null>(null);
   const [hiddenTransfers, setHiddenTransfers] = React.useState<Set<string>>(new Set());
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [liveConnected, setLiveConnected] = React.useState(false);
+  const [ordersLiveConnected, setOrdersLiveConnected] = React.useState(false);
   const [stale, setStale] = React.useState(false);
   const [localTransferred, setLocalTransferred] = React.useState<Set<string>>(new Set());
   const [transferModal, setTransferModal] = React.useState<{ ticketId: string; title: string } | null>(null);
   const [recipientEmail, setRecipientEmail] = React.useState("");
   const [transferPending, setTransferPending] = React.useState(false);
   const [transferError, setTransferError] = React.useState<string | null>(null);
+  const [celebration, setCelebration] = React.useState<(TicketCheckIn & { eventTitle: string }) | null>(null);
+  const [recentlyCheckedInId, setRecentlyCheckedInId] = React.useState<string | null>(
+    highlightedTicketId,
+  );
 
-  // TICK-239: Supabase Realtime — refresh ticket list on order_items or orders changes
+  const _featured = featured;
+  const _upcoming = upcoming ?? [];
+  const _past = past ?? [];
+  const _inbound = inboundTransfer ?? null;
+  const _history = transferHistory ?? [];
+  const _visibleHistory = _history.filter((t) => !hiddenTransfers.has(t.id));
+  const _counts = counts ?? {
+    upcoming: _upcoming.length,
+    past: _past.length,
+    transfers: _history.length,
+  };
+  const hasUpcoming = Boolean(_featured) || _upcoming.length > 0;
+  const checkInTargets = React.useMemo(
+    () => [
+      ...(_featured && !_featured.checkedInAt
+        ? [{ ticketId: _featured.ticketId, eventTitle: _featured.eventTitle }]
+        : []),
+      ..._upcoming
+        .filter((ticket) => ticket.status === "issued" && !ticket.checkedInAt)
+        .map((ticket) => ({ ticketId: ticket.ticketId, eventTitle: ticket.title })),
+    ],
+    [_featured, _upcoming],
+  );
+
+  const handleTicketCheckIn = React.useCallback((checkIn: TicketCheckIn) => {
+    const target = checkInTargets.find((ticket) => ticket.ticketId === checkIn.ticketId);
+    setRecentlyCheckedInId(checkIn.ticketId);
+    setCelebration({
+      ...checkIn,
+      eventTitle: target?.eventTitle ?? "Your ticket",
+    });
+    router.refresh();
+  }, [checkInTargets, router]);
+
+  const { status: checkInStatus } = useTicketCheckIns({
+    ticketIds: checkInTargets.map((ticket) => ticket.ticketId),
+    onCheckIn: handleTicketCheckIn,
+  });
+  const liveConnected = ordersLiveConnected || checkInStatus === "subscribed";
+
+  React.useEffect(() => {
+    setSeg(initialSegment);
+  }, [initialSegment]);
+
+  React.useEffect(() => {
+    if (!highlightedTicketId) return;
+    setRecentlyCheckedInId(highlightedTicketId);
+  }, [highlightedTicketId]);
+
+  React.useEffect(() => {
+    if (!recentlyCheckedInId || celebration) return;
+    const timer = window.setTimeout(() => setRecentlyCheckedInId(null), 6_000);
+    return () => window.clearTimeout(timer);
+  }, [celebration, recentlyCheckedInId]);
+
+  // TICK-239: keep non-check-in order changes live. Check-ins use the shared
+  // watcher above so the list and QR detail page behave consistently.
   React.useEffect(() => {
     const supabase = createClientSupabaseClient();
     if (!supabase) return;
@@ -179,19 +245,9 @@ export function MyTickets({
           table: "orders",
           filter: `buyer_id=eq.${user.id}`,
         }, handleChange)
-        .subscribe((status) => setLiveConnected(status === "SUBSCRIBED"));
+        .subscribe((status: string) => setOrdersLiveConnected(status === "SUBSCRIBED"));
 
-      const ch2 = supabase!
-        .channel(`my-items-rt-${user.id}`)
-        .on("postgres_changes", {
-          event: "UPDATE",
-          schema: "public",
-          table: "order_items",
-          filter: `current_owner_id=eq.${user.id}`,
-        }, handleChange)
-        .subscribe();
-
-      channels = [ch1, ch2];
+      channels = [ch1];
       staleTimer = setTimeout(() => setStale(true), 30000);
     }
 
@@ -199,7 +255,7 @@ export function MyTickets({
       const client = createClientSupabaseClient();
       channels.forEach((ch) => client?.removeChannel(ch));
       channels = [];
-      setLiveConnected(false);
+      setOrdersLiveConnected(false);
       clearTimeout(staleTimer);
     }
 
@@ -218,19 +274,6 @@ export function MyTickets({
       teardown();
     };
   }, [router]);
-
-  const _featured = featured;
-  const _upcoming = upcoming ?? [];
-  const _past = past ?? [];
-  const _inbound = inboundTransfer ?? null;
-  const _history = transferHistory ?? [];
-  const _visibleHistory = _history.filter((t) => !hiddenTransfers.has(t.id));
-  const _counts = counts ?? {
-    upcoming: _upcoming.length,
-    past: _past.length,
-    transfers: _history.length,
-  };
-  const hasUpcoming = Boolean(_featured) || _upcoming.length > 0;
 
   const filteredUpcoming = (searchQuery.trim()
     ? _upcoming.filter((t) => t.title.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -296,7 +339,20 @@ export function MyTickets({
   }
 
   return (
-    <div className="bg-bg pb-24">
+    <>
+      {celebration && (
+        <CheckInCelebration
+          eventTitle={celebration.eventTitle}
+          checkedInAt={celebration.checkedInAt}
+          onComplete={() => {
+            const ticketId = celebration.ticketId;
+            setCelebration(null);
+            setSeg("past");
+            router.replace(`/tickets?tab=past&checkedIn=${encodeURIComponent(ticketId)}`);
+          }}
+        />
+      )}
+      <div className="bg-bg pb-24">
       <div className="h-14" />
 
       {/* Header */}
@@ -307,7 +363,9 @@ export function MyTickets({
             {liveConnected && <LiveDot />}
           </div>
           <span className="text-h1 mt-0.5">
-            Upcoming · {_counts.upcoming}
+            {seg === "upcoming" && `Upcoming · ${_counts.upcoming}`}
+            {seg === "past" && `Past · ${_counts.past}`}
+            {seg === "transfers" && `Transfers · ${_counts.transfers}`}
           </span>
           {stale && (
             <button
@@ -640,7 +698,12 @@ export function MyTickets({
               <li key={t.ticketId}>
                 <Link
                   href={`/tickets/${t.ticketId}`}
-                  className="flex items-center gap-3 rounded-[var(--radius-md)] border border-line bg-surface p-3 transition-colors hover:bg-bg"
+                  className={
+                    "flex items-center gap-3 rounded-[var(--radius-md)] border bg-surface p-3 transition-all hover:bg-bg " +
+                    (recentlyCheckedInId === t.ticketId
+                      ? "border-accent ring-2 ring-accent/25 motion-safe:animate-pulse"
+                      : "border-line")
+                  }
                 >
                   <div className="h-12 w-12 shrink-0 overflow-hidden rounded-[var(--radius)] opacity-80">
                     <Photo src={t.photo} height={48} />
@@ -819,7 +882,8 @@ export function MyTickets({
           </ModalFooter>
         </ModalContent>
       </Modal>
-    </div>
+      </div>
+    </>
   );
 }
 
