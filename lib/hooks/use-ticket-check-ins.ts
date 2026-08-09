@@ -54,6 +54,9 @@ export function useTicketCheckIns({
     let cancelled = false
     let checking = false
     let channel: ReturnType<typeof client.channel> | null = null
+    // Realtime's `in` filter accepts at most 100 values. Polling below remains
+    // the recovery path for accounts with more tickets than that.
+    const realtimeTicketIds = watchedTicketIds.slice(0, 100)
 
     const emitRows = (rows: TicketCheckInRow[]) => {
       const relevantRows = rows.filter((row) => watchedTicketIdsRef.current.has(row.order_item_id))
@@ -110,7 +113,10 @@ export function useTicketCheckIns({
             event: "UPDATE",
             schema: "public",
             table: "order_items",
-            filter: `current_owner_id=eq.${user.id}`,
+            // Buyer-owned tickets can legitimately have current_owner_id=null.
+            // Filter by the watched row ids and let order_items SELECT RLS
+            // authorize delivery for the signed-in buyer/current owner.
+            filter: `id=in.(${realtimeTicketIds.join(",")})`,
           },
           (payload: { new: Record<string, unknown> }) => {
             const row = payload.new as Partial<{

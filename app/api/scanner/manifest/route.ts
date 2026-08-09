@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 
 import { loadScannerManifest, loadScannerManifestForDevice } from "@/lib/scanning"
 import { DeviceScannerAccessError } from "@/lib/scanner/device-session-auth"
+import { getVerifiedScannerRequestUser } from "@/lib/scanner/request-auth"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export const runtime = "nodejs"
@@ -13,9 +14,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Supabase is not configured" }, { status: 500 })
   }
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  const auth = await getVerifiedScannerRequestUser(supabase)
+  if (auth.error) {
+    return NextResponse.json({ error: "Failed to verify scanner session" }, { status: 500 })
+  }
 
   const eventId = request.nextUrl.searchParams.get("eventId")?.trim()
   if (!eventId) {
@@ -27,8 +29,8 @@ export async function GET(request: NextRequest) {
   const sessionId = request.nextUrl.searchParams.get("sessionId")?.trim() || ""
 
   try {
-    const items = session
-      ? await loadScannerManifest(eventId, session.user.id, since)
+    const items = auth.user
+      ? await loadScannerManifest(eventId, auth.user.id, since)
       : await loadScannerManifestForDevice(eventId, deviceId, sessionId, since)
 
     return NextResponse.json({

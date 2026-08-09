@@ -6,6 +6,14 @@ import {
   isSupabaseAuthTokenCookie,
 } from "@/lib/supabase/auth-errors"
 
+const DEVICE_AUTHENTICATED_SCANNER_APIS = new Set([
+  "/api/scanner/manifest",
+  "/api/scanner/scans",
+  "/api/scanner/session",
+  "/api/scanner/sync",
+  "/api/scanner/validate",
+])
+
 function redirectToLogin(request: NextRequest, from: string) {
   const url = request.nextUrl.clone()
   url.pathname = "/login"
@@ -39,7 +47,8 @@ function recoverSignedOutSession(request: NextRequest, path: string, error: unkn
  *   /forgot-password, /reset-password, /verify-email, /auth/*, /403, /maintenance
  *
  * Public APIs with their own verification:
- *   /api/discover/*, /api/payments/paystack/webhook, /api/payments/momo/callback
+ *   /api/discover/*, selected /api/scanner/* device endpoints,
+ *   /api/payments/paystack/webhook, /api/payments/momo/callback
  *
  * Onboarding gate:
  *   /onboarding — requires session, allowed without a handle
@@ -62,11 +71,14 @@ export async function updateSession(request: NextRequest) {
   const path = request.nextUrl.pathname
 
   // Allow static assets, Next internals, the sign-out API, unauthenticated
-  // health endpoints, and cron endpoints that perform their own bearer checks.
+  // health endpoints, and endpoints that perform their own authentication.
+  // Scanner device APIs must reach their route handlers even after the browser
+  // user signs out: those handlers verify the provisioned device session.
   if (
     path.startsWith("/_next") ||
     path.startsWith("/favicon") ||
     path.startsWith("/api/sign-out") ||
+    DEVICE_AUTHENTICATED_SCANNER_APIS.has(path) ||
     path === "/api/health" ||
     path.startsWith("/api/health/") ||
     path.startsWith("/api/cron/") ||

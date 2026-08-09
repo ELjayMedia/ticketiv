@@ -326,8 +326,9 @@ export function scannerStatusTitle(status: ScannerClientStatus, inputMode: Scann
 }
 
 export function scannerStatusTone(status: ScannerClientStatus) {
-  if (status === "validated" || status === "offline") return "success";
+  if (status === "validated") return "success";
   if (
+    status === "offline" ||
     status === "duplicate" ||
     status === "not_paid" ||
     status === "tapband_multiple_entitlements" ||
@@ -442,9 +443,9 @@ export function evaluateScannerOfflineManifest(
     item,
     result: {
       valid: true,
-      status: "validated",
+      status: "offline",
       inputMode: "qr",
-      message: "Validated locally — queued to sync",
+      message: "Valid locally — queued to sync",
       orderItemId: item.order_item_id,
     },
     offlineScan,
