@@ -129,10 +129,15 @@ export async function getAccountSettings(): Promise<AccountSettings | null> {
   } = await supabase.auth.getUser()
   if (!user) return null
 
-  const [profileRes, prefsRes, deletionRes] = await Promise.all([
+  const [profileRes, privateProfileRes, prefsRes, deletionRes] = await Promise.all([
     supabase
       .from("profiles")
-      .select("display_name, name, surname, phone, avatar_url")
+      .select("display_name, avatar_url")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("user_private_profiles")
+      .select("name, surname, phone")
       .eq("user_id", user.id)
       .maybeSingle(),
     supabase
@@ -144,6 +149,7 @@ export async function getAccountSettings(): Promise<AccountSettings | null> {
   ])
 
   const profile = profileRes.data
+  const privateProfile = privateProfileRes.data
   const prefs = prefsRes.data
   const deletion = deletionRes.error ? DEFAULT_DELETION_STATUS : parseDeletionStatus(deletionRes.data)
 
@@ -167,9 +173,9 @@ export async function getAccountSettings(): Promise<AccountSettings | null> {
   return {
     email: user.email ?? null,
     displayName: profile?.display_name ?? "",
-    name: profile?.name ?? "",
-    surname: profile?.surname ?? "",
-    phone: profile?.phone ?? "",
+    name: privateProfile?.name ?? "",
+    surname: privateProfile?.surname ?? "",
+    phone: privateProfile?.phone ?? "",
     avatarUrl: profile?.avatar_url ?? null,
     hasPassword,
     notifications: {
