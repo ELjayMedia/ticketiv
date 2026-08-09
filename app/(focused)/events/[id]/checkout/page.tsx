@@ -162,15 +162,21 @@ export default async function CheckoutPage({
     (user?.user_metadata?.full_name as string | undefined) ??
     (user?.user_metadata?.name as string | undefined) ??
     "";
-  const defaultBuyerPhone = user?.phone ?? "";
+  let defaultBuyerPhone =
+    (user?.user_metadata?.phone as string | undefined) ??
+    (user?.user_metadata?.phone_number as string | undefined) ??
+    user?.phone ??
+    "";
 
   if (user) {
     const { data: profile } = await supabase!
       .from("profiles")
-      .select("display_name")
+      .select("name, surname, display_name, phone")
       .eq("user_id", user.id)
       .maybeSingle();
-    defaultBuyerName = profile?.display_name ?? defaultBuyerName;
+    const profileName = [profile?.name, profile?.surname].filter(Boolean).join(" ");
+    defaultBuyerName = profile?.display_name ?? (profileName || defaultBuyerName);
+    defaultBuyerPhone = profile?.phone ?? defaultBuyerPhone;
   }
 
   const mappedTypes = ticketTypes.map(mapCheckoutTicketType);
