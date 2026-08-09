@@ -9,6 +9,9 @@ export interface NotificationPrefs {
   smsOptIn: boolean
   pushOptIn: boolean
   inAppOptIn: boolean
+  eventRemindersEnabled: boolean
+  remind24h: boolean
+  remind2h: boolean
 }
 
 export interface ConnectedAccount {
@@ -135,14 +138,17 @@ export async function getAccountSettings(): Promise<AccountSettings | null> {
       .select("display_name, avatar_url")
       .eq("user_id", user.id)
       .maybeSingle(),
-    supabase
-      .from("user_private_profiles")
+    // This table was introduced by the preceding migration and may not yet be present
+    // in generated database types when branches are deployed out of order.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from as any)("user_private_profiles")
       .select("name, surname, phone")
       .eq("user_id", user.id)
       .maybeSingle(),
-    supabase
-      .from("user_notification_preferences")
-      .select("email_opt_in, sms_opt_in, push_opt_in, in_app_opt_in")
+    // New reminder columns are migration-backed; keep this read compatible until generated DB types refresh.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from as any)("user_notification_preferences")
+      .select("email_opt_in, sms_opt_in, push_opt_in, in_app_opt_in, event_reminders_enabled, remind_24h, remind_2h")
       .eq("user_id", user.id)
       .maybeSingle(),
     supabase.rpc("fn_get_my_account_deletion_status"),
@@ -183,6 +189,9 @@ export async function getAccountSettings(): Promise<AccountSettings | null> {
       smsOptIn: prefs?.sms_opt_in ?? true,
       pushOptIn: prefs?.push_opt_in ?? true,
       inAppOptIn: prefs?.in_app_opt_in ?? true,
+      eventRemindersEnabled: prefs?.event_reminders_enabled ?? true,
+      remind24h: prefs?.remind_24h ?? true,
+      remind2h: prefs?.remind_2h ?? true,
     },
     connectedAccounts,
     deletion,

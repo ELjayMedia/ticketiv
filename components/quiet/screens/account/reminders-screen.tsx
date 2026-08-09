@@ -37,7 +37,13 @@ export function RemindersScreen({ initial }: { initial: NotificationPrefs }) {
   }
 
   function setAll(value: boolean) {
-    setPrefs({ emailOptIn: value, smsOptIn: value, pushOptIn: value, inAppOptIn: value })
+    setPrefs((p) => ({
+      ...p,
+      emailOptIn: value,
+      smsOptIn: value,
+      pushOptIn: value,
+      inAppOptIn: value,
+    }))
     setResult(null)
   }
 
@@ -47,6 +53,9 @@ export function RemindersScreen({ initial }: { initial: NotificationPrefs }) {
     formData.set("smsOptIn", String(prefs.smsOptIn))
     formData.set("pushOptIn", String(prefs.pushOptIn))
     formData.set("inAppOptIn", String(prefs.inAppOptIn))
+    formData.set("eventRemindersEnabled", String(prefs.eventRemindersEnabled))
+    formData.set("remind24h", String(prefs.remind24h))
+    formData.set("remind2h", String(prefs.remind2h))
     setResult(null)
     startTransition(async () => {
       setResult(await updateNotificationPrefsAction(formData))
