@@ -11,7 +11,6 @@ export interface ProfileUserProp {
   stats: { events: number; friends: number; following: number }
   email: string
   remindersEnabled: boolean
-  language: string
   upcomingTickets: number
   favouritesCount: number
   pendingTransfers: number
@@ -34,7 +33,6 @@ export function mapProfile(p: MyProfile): ProfileUserProp {
     },
     email: p.email ?? "",
     remindersEnabled: p.remindersEnabled,
-    language: p.language,
     upcomingTickets: p.upcomingTickets,
     favouritesCount: p.favouritesCount,
     pendingTransfers: p.pendingTransfers,
