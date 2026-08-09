@@ -18,6 +18,10 @@ import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/action
 import { describePromoFailure } from "@/lib/checkout/promo-copy";
 import { PromoCodeInput, type PromoResult } from "@/components/quiet/screens/checkout/promo-code-input";
 import { trackBuyerFunnel } from "@/components/analytics/buyer-funnel";
+import {
+  getEffectivePurchaseLimit,
+  normalizeConfiguredPurchaseLimit,
+} from "@/lib/tickets/purchase-limits";
 
 /* ──────────────────────────────────────────────────────────────
  * Mobile checkout · `/events/[id]/checkout` on phones.
@@ -47,6 +51,7 @@ export interface MobileCheckoutProps {
     currency?: Currency;
     remaining: number | null;
     perUserLimit: number | null;
+    perOrderLimit: number | null;
     sublabel?: string;
   }>;
   paymentMethods?: ReadonlyArray<{
@@ -128,6 +133,22 @@ export function MobileCheckout({
   const [validatedPromo, setValidatedPromo] = React.useState<PromoResult | null>(null);
   const [attendeeName, setAttendeeName] = React.useState(defaultBuyerName);
   const [attendeePhone, setAttendeePhone] = React.useState(defaultBuyerPhone);
+  const selectedTicket = ticketTypes.find((t) => t.id === ticketTypeId);
+  const perUserLimit = normalizeConfiguredPurchaseLimit(selectedTicket?.perUserLimit);
+  const perOrderLimit = normalizeConfiguredPurchaseLimit(selectedTicket?.perOrderLimit);
+  const configuredLimit = getEffectivePurchaseLimit({
+    perUserLimit,
+    perOrderLimit,
+    remaining: null,
+  });
+  const effectiveLimit = getEffectivePurchaseLimit({
+    perUserLimit,
+    perOrderLimit,
+    remaining: selectedTicket?.remaining,
+  });
+  const effectiveQuantity = effectiveLimit == null
+    ? quantity
+    : Math.max(1, Math.min(quantity, effectiveLimit));
 
   async function handleApplyPromo() {
     const code = promoInput.trim().toUpperCase();
@@ -142,7 +163,7 @@ export function MobileCheckout({
       const result = await startCheckoutAction({
         eventId: eventUuid,
         buyerEmail: buyerEmail.trim(),
-        items: [{ ticketTypeId: ticketTypeId ?? "", quantity }],
+        items: [{ ticketTypeId: ticketTypeId ?? "", quantity: effectiveQuantity }],
         promoCode: code,
       });
       if (!result.ok) {
@@ -169,11 +190,15 @@ export function MobileCheckout({
       });
       return;
     }
+    if (effectiveLimit === 0) {
+      setSubmitError("This ticket type is sold out. Choose another ticket type.");
+      return;
+    }
     setSubmitting(true);
     const result = await startCheckoutAction({
       eventId: eventUuid,
       buyerEmail: buyerEmail.trim(),
-      items: [{ ticketTypeId, quantity }],
+      items: [{ ticketTypeId, quantity: effectiveQuantity }],
       promoCode: promoInput.trim() || null,
     });
     if (!result.ok) {
@@ -204,7 +229,7 @@ export function MobileCheckout({
       event_id: eventUuid,
       event_slug: eventId,
       ticket_type_id: ticketTypeId,
-      quantity,
+      quantity: effectiveQuantity,
       total_minor: total,
       provider: result.checkoutUrl ? "paystack" : "internal",
       surface: "mobile_checkout",
@@ -220,10 +245,10 @@ export function MobileCheckout({
   React.useEffect(() => {
     const next = new URLSearchParams(searchParams?.toString() ?? "");
     if (ticketTypeId) next.set("tt", ticketTypeId); else next.delete("tt");
-    next.set("qty", String(quantity));
+    next.set("qty", String(effectiveQuantity));
     router.replace(`?${next.toString()}`, { scroll: false });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ticketTypeId, quantity]);
+  }, [ticketTypeId, effectiveQuantity]);
 
   // TICK-200: when the hold expires (holdRemaining hits 0), redirect to
   // the event page with a banner so the buyer can request a new hold.
@@ -246,20 +271,8 @@ export function MobileCheckout({
     return () => clearInterval(i);
   }, [holdRemaining]);
 
-  const selectedTicket = ticketTypes.find((t) => t.id === ticketTypeId);
-  const configuredLimit = selectedTicket?.perUserLimit ?? null;
-  const availabilityLimit = selectedTicket?.remaining ?? null;
-  const effectiveLimit =
-    configuredLimit != null && availabilityLimit != null
-      ? Math.min(configuredLimit, availabilityLimit)
-      : configuredLimit ?? availabilityLimit ?? Number.MAX_SAFE_INTEGER;
-
-  React.useEffect(() => {
-    setQuantity((current) => Math.max(1, Math.min(current, effectiveLimit)));
-  }, [effectiveLimit]);
-
   const currency = selectedTicket?.currency ?? ticketTypes[0]?.currency ?? "SZL";
-  const subtotal = (selectedTicket?.priceMinor ?? 0) * quantity;
+  const subtotal = (selectedTicket?.priceMinor ?? 0) * effectiveQuantity;
   const fee = bookingFeeMinor;
   const vat = Math.round(subtotal * vatRate);
   const discount = activePromo?.savedMinor ?? 0;
@@ -371,10 +384,10 @@ export function MobileCheckout({
             <span className="flex-1 text-[13px] font-medium">Quantity</span>
             <span className="font-mono text-[10px] text-ink-3">{configuredLimit == null ? "No purchase limit" : `max ${configuredLimit}`}</span>
             <QuantityStepper
-              value={quantity}
+              value={effectiveQuantity}
               onChange={setQuantity}
               min={1}
-              max={effectiveLimit}
+              max={effectiveLimit ?? undefined}
             />
           </Card>
         </section>
@@ -544,7 +557,7 @@ export function MobileCheckout({
         {/* Summary */}
         <section className="px-5 pb-4">
           <Card className="bg-bg p-3.5" flat>
-            <SummaryRow label={`${quantity} × ${selectedTicket?.name ?? "—"}`} value={formatPrice(subtotal, currency)} />
+            <SummaryRow label={`${effectiveQuantity} × ${selectedTicket?.name ?? "—"}`} value={formatPrice(subtotal, currency)} />
             <SummaryRow label="Booking fee" value={formatPrice(fee, currency)} />
             <SummaryRow label={`VAT ${Math.round(vatRate * 100)}%`} value={formatPrice(vat, currency)} />
             {activePromo && (
@@ -638,7 +651,7 @@ export function MobileCheckout({
         <button
           type="button"
           onClick={handlePay}
-          disabled={!accepted || holdRemaining <= 0 || submitting || !buyerEmail.trim()}
+          disabled={!accepted || holdRemaining <= 0 || submitting || !buyerEmail.trim() || effectiveLimit === 0}
           className="flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting ? "Starting payment…" : `Pay ${formatPrice(total, currency)}`}

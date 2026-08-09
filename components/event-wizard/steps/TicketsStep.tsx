@@ -9,6 +9,7 @@ import {
   DEFAULT_TICKET_CURRENCY,
   TICKET_CURRENCY_OPTIONS,
 } from "@/lib/payments/ticket-currency"
+import { purchaseLimitInputValue } from "@/lib/tickets/purchase-limits"
 
 const SALES_STATUSES = [
   { value: "on_sale", label: "On sale" },
@@ -34,11 +35,11 @@ function emptyTicketForm(): TicketForm {
     name: "",
     price: "",
     quota: "",
-    per_user_limit: "10",
+    per_user_limit: "",
     currency: DEFAULT_TICKET_CURRENCY,
     sales_status: "on_sale",
     online_quota: "",
-    online_per_order_limit: "10",
+    online_per_order_limit: "",
     is_reserved_seating: false,
   }
 }
@@ -53,11 +54,11 @@ function toForm(ticket: any): TicketForm {
     name: ticket.name ?? "",
     price: String(((ticket.price_cents ?? 0) / 100).toFixed(2)),
     quota: String(ticket.quota ?? ""),
-    per_user_limit: String(ticket.per_user_limit ?? 10),
+    per_user_limit: purchaseLimitInputValue(ticket.per_user_limit),
     currency: ticket.currency ?? DEFAULT_TICKET_CURRENCY,
     sales_status: ticket.sales_status ?? "on_sale",
-    online_quota: String(channelValue(ticket, "quota") || ticket.quota || ""),
-    online_per_order_limit: String(channelValue(ticket, "per_order_limit") || ticket.per_user_limit || 10),
+    online_quota: String(channelValue(ticket, "quota") ?? ticket.quota ?? ""),
+    online_per_order_limit: purchaseLimitInputValue(channelValue(ticket, "per_order_limit")),
     is_reserved_seating: Boolean(ticket.is_reserved_seating),
   }
 }
@@ -193,7 +194,7 @@ export function TicketsStep({ eventId, onSaving }: { eventId: string; onSaving: 
                     <div>
                       <p className="font-medium">{ticket.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {ticket.currency || DEFAULT_TICKET_CURRENCY} {(ticket.price_cents / 100).toFixed(2)} • {ticket.quota} total • Limit {ticket.per_user_limit ?? 10}/buyer • {ticket.sales_status ?? "on_sale"}
+                        {ticket.currency || DEFAULT_TICKET_CURRENCY} {(ticket.price_cents / 100).toFixed(2)} • {ticket.quota} total • {purchaseLimitInputValue(ticket.per_user_limit) ? `Limit ${purchaseLimitInputValue(ticket.per_user_limit)}/buyer` : "No buyer limit"} • {ticket.sales_status ?? "on_sale"}
                       </p>
                     </div>
                     <button disabled={saving} onClick={() => deleteTicket(ticket.id)} className="text-red-600 hover:text-red-700 disabled:opacity-50" aria-label="Delete ticket type">
@@ -208,12 +209,12 @@ export function TicketsStep({ eventId, onSaving }: { eventId: string; onSaving: 
                     </select>
                     <Input type="number" min="0" step="0.01" placeholder="Price" value={draft.price} onChange={(e) => setDraftField(ticket.id, "price", e.target.value)} disabled={saving} />
                     <Input type="number" min="0" placeholder="Total quantity" value={draft.quota} onChange={(e) => setDraftField(ticket.id, "quota", e.target.value)} disabled={saving} />
-                    <Input type="number" min="0" placeholder="Per-buyer limit" value={draft.per_user_limit} onChange={(e) => setDraftField(ticket.id, "per_user_limit", e.target.value)} disabled={saving} />
+                    <Input type="number" min="1" placeholder="Per-buyer limit (optional)" value={draft.per_user_limit} onChange={(e) => setDraftField(ticket.id, "per_user_limit", e.target.value)} disabled={saving} />
                     <select value={draft.sales_status} onChange={(e) => setDraftField(ticket.id, "sales_status", e.target.value)} disabled={saving} className="h-10 rounded-md border bg-background px-3 text-sm">
                       {SALES_STATUSES.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
                     </select>
                     <Input type="number" min="0" placeholder="Online quota" value={draft.online_quota} onChange={(e) => setDraftField(ticket.id, "online_quota", e.target.value)} disabled={saving} />
-                    <Input type="number" min="0" placeholder="Online per-order limit" value={draft.online_per_order_limit} onChange={(e) => setDraftField(ticket.id, "online_per_order_limit", e.target.value)} disabled={saving} />
+                    <Input type="number" min="1" placeholder="Online per-order limit (optional)" value={draft.online_per_order_limit} onChange={(e) => setDraftField(ticket.id, "online_per_order_limit", e.target.value)} disabled={saving} />
                   </div>
 
                   <label className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
@@ -241,12 +242,12 @@ export function TicketsStep({ eventId, onSaving }: { eventId: string; onSaving: 
               {TICKET_CURRENCY_OPTIONS.map((currency) => <option key={currency.value} value={currency.value}>{currency.label}</option>)}
             </select>
             <Input type="number" min="0" placeholder="Total quantity" value={newTicket.quota} onChange={(e) => setNewTicket({ ...newTicket, quota: e.target.value, online_quota: e.target.value })} disabled={saving} />
-            <Input type="number" min="0" placeholder="Per-buyer limit" value={newTicket.per_user_limit} onChange={(e) => setNewTicket({ ...newTicket, per_user_limit: e.target.value, online_per_order_limit: e.target.value })} disabled={saving} />
+            <Input type="number" min="1" placeholder="Per-buyer limit (optional)" value={newTicket.per_user_limit} onChange={(e) => setNewTicket({ ...newTicket, per_user_limit: e.target.value })} disabled={saving} />
             <select value={newTicket.sales_status} onChange={(e) => setNewTicket({ ...newTicket, sales_status: e.target.value })} disabled={saving} className="h-10 rounded-md border bg-background px-3 text-sm">
               {SALES_STATUSES.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
             </select>
             <Input type="number" min="0" placeholder="Online quota" value={newTicket.online_quota} onChange={(e) => setNewTicket({ ...newTicket, online_quota: e.target.value })} disabled={saving} />
-            <Input type="number" min="0" placeholder="Online per-order limit" value={newTicket.online_per_order_limit} onChange={(e) => setNewTicket({ ...newTicket, online_per_order_limit: e.target.value })} disabled={saving} />
+            <Input type="number" min="1" placeholder="Online per-order limit (optional)" value={newTicket.online_per_order_limit} onChange={(e) => setNewTicket({ ...newTicket, online_per_order_limit: e.target.value })} disabled={saving} />
           </div>
           <label className="flex items-center gap-2 text-sm text-muted-foreground">
             <input type="checkbox" checked={newTicket.is_reserved_seating} onChange={(e) => setNewTicket({ ...newTicket, is_reserved_seating: e.target.checked })} disabled={saving} />

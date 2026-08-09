@@ -6,6 +6,11 @@ import {
   isSupportedTicketCurrency,
   normalizeTicketCurrency,
 } from "@/lib/payments/ticket-currency"
+import {
+  isPerOrderLimitWithinBuyerLimit,
+  isValidOptionalPurchaseLimit,
+  parseOptionalPurchaseLimit,
+} from "@/lib/tickets/purchase-limits"
 
 type RouteContext = { params: Promise<{ eventId: string }> }
 
@@ -35,12 +40,12 @@ function parseTicketPayload(body: any) {
   const name = typeof body.name === "string" ? body.name.trim() : ""
   const price = Number(body.price)
   const quota = Number.parseInt(String(body.quota ?? ""), 10)
-  const perUserLimit = body.per_user_limit == null || body.per_user_limit === "" ? 10 : Number.parseInt(String(body.per_user_limit), 10)
+  const perUserLimit = parseOptionalPurchaseLimit(body.per_user_limit)
   const currency = normalizeTicketCurrency(body.currency)
   const salesStatus = typeof body.sales_status === "string" ? body.sales_status : "on_sale"
   const isReservedSeating = Boolean(body.is_reserved_seating)
   const onlineQuota = body.online_quota == null || body.online_quota === "" ? quota : Number.parseInt(String(body.online_quota), 10)
-  const onlinePerOrderLimit = body.online_per_order_limit == null || body.online_per_order_limit === "" ? perUserLimit : Number.parseInt(String(body.online_per_order_limit), 10)
+  const onlinePerOrderLimit = parseOptionalPurchaseLimit(body.online_per_order_limit)
 
   return { name, price, quota, perUserLimit, currency, salesStatus, isReservedSeating, onlineQuota, onlinePerOrderLimit }
 }
@@ -50,12 +55,12 @@ function validateTicketPayload(input: ReturnType<typeof parseTicketPayload>) {
   if (!Number.isFinite(input.price) || input.price < 0) return "Ticket price must be zero or more"
   if (!isSupportedTicketCurrency(input.currency)) return "Choose ZAR for Paystack or SZL for MTN MoMo"
   if (!Number.isFinite(input.quota) || input.quota < 0) return "Ticket quantity must be zero or more"
-  if (!Number.isFinite(input.perUserLimit) || input.perUserLimit < 0) return "Per-user limit must be zero or more"
+  if (!isValidOptionalPurchaseLimit(input.perUserLimit)) return "Per-user limit must be a positive whole number or left blank"
   if (!SALES_STATUSES.has(input.salesStatus)) return "Invalid ticket sales status"
   if (!Number.isFinite(input.onlineQuota) || input.onlineQuota < 0) return "Online channel quota must be zero or more"
   if (input.onlineQuota > input.quota) return "Online channel quota cannot exceed total quantity"
-  if (!Number.isFinite(input.onlinePerOrderLimit) || input.onlinePerOrderLimit < 0) return "Online per-order limit must be zero or more"
-  if (input.onlinePerOrderLimit > input.perUserLimit && input.perUserLimit > 0) return "Online per-order limit cannot exceed the per-buyer limit"
+  if (!isValidOptionalPurchaseLimit(input.onlinePerOrderLimit)) return "Online per-order limit must be a positive whole number or left blank"
+  if (!isPerOrderLimitWithinBuyerLimit(input.perUserLimit, input.onlinePerOrderLimit)) return "Online per-order limit cannot exceed the per-buyer limit"
   return null
 }
 

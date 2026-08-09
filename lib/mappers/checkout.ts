@@ -17,6 +17,7 @@ export interface CheckoutTicketTypeRow {
   remaining: number | null;
   sales_status?: string | null;
   per_user_limit?: number | null;
+  per_order_limit?: number | null;
 }
 
 export interface CheckoutTicketTypeProp {
@@ -27,6 +28,7 @@ export interface CheckoutTicketTypeProp {
   remaining: number | null;
   sublabel?: string;
   perUserLimit: number | null;
+  perOrderLimit: number | null;
 }
 
 export interface CheckoutEventProps {
@@ -61,6 +63,7 @@ export function mapCheckoutTicketType(t: CheckoutTicketTypeRow): CheckoutTicketT
     currency: asCurrency(t.currency),
     remaining: t.remaining,
     perUserLimit: t.per_user_limit ?? null,
+    perOrderLimit: t.per_order_limit ?? null,
     sublabel,
   };
 }

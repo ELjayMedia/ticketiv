@@ -36,7 +36,7 @@ async function fetchCheckoutExtras(eventId: string) {
   const supabase = await createServerSupabaseClient();
   if (!supabase)
     return {
-      ticketTypes: [] as Array<{ id: string; name: string; price_cents: number; currency: string; remaining: number | null; sales_status: string | null; per_user_limit: number | null }>,
+      ticketTypes: [] as Array<{ id: string; name: string; price_cents: number; currency: string; remaining: number | null; sales_status: string | null; per_user_limit: number | null; per_order_limit: number | null }>,
       plan: null as { platform_fixed_cents: number | null; platform_percent_bps: number | null } | null,
       orgId: null as string | null,
     };
@@ -48,8 +48,9 @@ async function fetchCheckoutExtras(eventId: string) {
     .maybeSingle();
 
   const orgId = eventRow?.org_id ?? null;
+  const admin = createAdminClient();
 
-  const [ttRes, remainingRes, planRes] = await Promise.all([
+  const [ttRes, remainingRes, planRes, channelRes] = await Promise.all([
     supabase
       .from("ticket_types")
       .select("id, name, price_cents, currency, quota, sales_status, per_user_limit")
@@ -69,16 +70,25 @@ async function fetchCheckoutExtras(eventId: string) {
           .limit(1)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null } as const),
+    admin
+      .from("ticket_type_channels")
+      .select("ticket_type_id, per_order_limit, ticket_types!inner(event_id)")
+      .eq("channel", "online")
+      .eq("ticket_types.event_id", eventId),
   ]);
 
   if (ttRes.error) console.error("[checkout] ticket_types:", ttRes.error);
   if (remainingRes.error) console.error("[checkout] fn_ticket_type_remaining:", remainingRes.error);
   if ("error" in planRes && planRes.error) console.error("[checkout] pricing_plans:", planRes.error);
+  if (channelRes.error) console.error("[checkout] ticket_type_channels:", channelRes.error);
 
   const remainingMap = new Map<string, number>(
     ((remainingRes.data ?? []) as Array<{ ticket_type_id: string; remaining: number }>).map(
       (r) => [r.ticket_type_id, r.remaining],
     ),
+  );
+  const perOrderLimitMap = new Map<string, number | null>(
+    (channelRes.data ?? []).map((channel) => [channel.ticket_type_id, channel.per_order_limit]),
   );
 
   return {
@@ -89,6 +99,7 @@ async function fetchCheckoutExtras(eventId: string) {
       currency: t.currency,
       sales_status: t.sales_status,
       per_user_limit: t.per_user_limit,
+      per_order_limit: perOrderLimitMap.get(t.id) ?? null,
       remaining: remainingMap.get(t.id) ?? null,
     })),
     plan: planRes.data ?? null,

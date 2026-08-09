@@ -1,5 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import {
+  isPerOrderLimitWithinBuyerLimit,
+  isValidOptionalPurchaseLimit,
+  parseOptionalPurchaseLimit,
+} from "@/lib/tickets/purchase-limits"
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,12 +29,33 @@ export async function POST(request: NextRequest) {
       price_cents,
       currency,
       quota,
-      per_user_limit,
+      per_user_limit: rawPerUserLimit,
       sale_start_at,
       sale_end_at,
       is_reserved_seating,
-      channels,
+      channels: rawChannels,
     } = body
+    const perUserLimit = parseOptionalPurchaseLimit(rawPerUserLimit)
+    const channels = Array.isArray(rawChannels)
+      ? rawChannels.map((channel: any) => ({
+          ...channel,
+          quota: Number(channel.quota),
+          per_order_limit: parseOptionalPurchaseLimit(channel.per_order_limit),
+        }))
+      : []
+
+    if (!isValidOptionalPurchaseLimit(perUserLimit)) {
+      return NextResponse.json({ error: "Per-user limit must be a positive whole number or left blank" }, { status: 400 })
+    }
+    if (channels.some((channel: any) => !Number.isInteger(channel.quota) || channel.quota < 0)) {
+      return NextResponse.json({ error: "Channel quotas must be whole numbers of zero or more" }, { status: 400 })
+    }
+    if (channels.some((channel: any) => !isValidOptionalPurchaseLimit(channel.per_order_limit))) {
+      return NextResponse.json({ error: "Per-order limits must be positive whole numbers or left blank" }, { status: 400 })
+    }
+    if (channels.some((channel: any) => !isPerOrderLimitWithinBuyerLimit(perUserLimit, channel.per_order_limit))) {
+      return NextResponse.json({ error: "Per-order limits cannot exceed the per-buyer limit" }, { status: 400 })
+    }
 
     // Verify event ownership
     const { data: event } = await supabase.from("events").select("org_id").eq("id", event_id).single()
@@ -64,7 +90,7 @@ export async function POST(request: NextRequest) {
         price_cents,
         currency,
         quota,
-        per_user_limit,
+        per_user_limit: perUserLimit,
         is_reserved_seating: is_reserved_seating || false,
       })
       .select()
