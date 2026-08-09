@@ -14,8 +14,6 @@ import { trackBuyerFunnel } from "@/components/analytics/buyer-funnel";
 import {
   formatPrice,
   formatGoingCount,
-  formatSoldCount,
-  formatRecentSoldLabel,
   formatLineupLabel,
   formatScarcityLabel,
 } from "@/lib/format";
@@ -178,7 +176,6 @@ export function MobileEvent({ event }: MobileEventProps) {
                     <div className="flex flex-1 flex-col">
                       <div className="flex items-center gap-1.5">
                         <span className="text-[14px] font-semibold">{a.name}</span>
-                        {a.headliner && <Chip variant="accent" size="sm">Headliner</Chip>}
                       </div>
                       <span className="font-mono text-[11px] text-ink-3">{a.role}</span>
                     </div>
@@ -344,19 +341,15 @@ function formatOrganizerStats(o: MobileEventData["organizer"]): string {
 
 function TrustSignalsRow({ event }: { event: MobileEventData }) {
   const goingLabel = formatGoingCount(event.attendeeCount ?? event.goingFriends.count);
-  const soldLabel = formatSoldCount(event.soldCount);
-  const recent = formatRecentSoldLabel(event.recentSoldCount, { windowLabel: event.recentSoldWindow });
   const verified = event.organizer.verified;
-  if (!goingLabel && !soldLabel && !recent && !verified) return null;
+  if (!goingLabel && !verified) return null;
 
   return (
     <section className="px-5 pt-4">
       <div className="flex flex-wrap items-center gap-1.5">
         {verified && <Chip variant="accent" size="sm"><Icon name="check" size={11} strokeWidth={3} /> Verified organizer</Chip>}
         {goingLabel && <Chip size="sm">{goingLabel}</Chip>}
-        {soldLabel && <Chip size="sm">{soldLabel}</Chip>}
       </div>
-      {recent && <p className="mt-2 font-mono text-[11px] text-ink-3"><span className="text-accent">●</span> {recent}</p>}
     </section>
   );
 }

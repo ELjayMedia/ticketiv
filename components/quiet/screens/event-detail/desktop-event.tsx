@@ -12,8 +12,6 @@ import { trackBuyerFunnel } from "@/components/analytics/buyer-funnel";
 import {
   formatPrice,
   formatGoingCount,
-  formatSoldCount,
-  formatRecentSoldLabel,
   formatLineupLabel,
   formatScarcityLabel,
 } from "@/lib/format";
@@ -159,7 +157,6 @@ export function DesktopEvent({ event }: DesktopEventProps) {
                         <div className="flex flex-1 flex-col">
                           <div className="flex items-center gap-1.5">
                             <span className="text-[15px] font-semibold">{a.name}</span>
-                            {a.headliner && <Chip variant="accent" size="sm">Headliner</Chip>}
                           </div>
                           <span className="font-mono text-[11px] text-ink-3">{a.role}</span>
                         </div>
@@ -429,16 +426,12 @@ function formatDesktopOrganizerStats(o: DesktopEventData["organizer"]): string {
 
 function DesktopTrustRow({ event }: { event: DesktopEventData }) {
   const goingLabel = formatGoingCount(event.attendeeCount ?? event.goingFriends.count);
-  const soldLabel = formatSoldCount(event.soldCount);
-  const recent = formatRecentSoldLabel(event.recentSoldCount, { windowLabel: event.recentSoldWindow });
   const verified = event.organizer.verified;
-  if (!goingLabel && !soldLabel && !recent && !verified) return null;
+  if (!goingLabel && !verified) return null;
   return (
     <div className="flex flex-wrap items-center gap-2">
       {verified && <Chip variant="accent" size="sm"><Icon name="check" size={11} strokeWidth={3} /> Verified organizer</Chip>}
       {goingLabel && <Chip size="sm">{goingLabel}</Chip>}
-      {soldLabel && <Chip size="sm">{soldLabel}</Chip>}
-      {recent && <span className="font-mono text-[11px] text-ink-3"><span className="text-accent">●</span> {recent}</span>}
     </div>
   );
 }
