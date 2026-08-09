@@ -174,10 +174,8 @@ export default async function CheckoutPage({
       .select("name, surname, display_name, phone")
       .eq("user_id", user.id)
       .maybeSingle();
-    defaultBuyerName =
-      profile?.display_name ??
-      [profile?.name, profile?.surname].filter(Boolean).join(" ") ??
-      defaultBuyerName;
+    const profileName = [profile?.name, profile?.surname].filter(Boolean).join(" ");
+    defaultBuyerName = profile?.display_name ?? profileName || defaultBuyerName;
     defaultBuyerPhone = profile?.phone ?? defaultBuyerPhone;
   }
 
