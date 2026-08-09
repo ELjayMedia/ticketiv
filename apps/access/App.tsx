@@ -1,7 +1,9 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
+  PermissionsAndroid,
+  Platform,
   Pressable,
   ScrollView,
   StatusBar,
@@ -11,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { Camera, CameraType } from "react-native-camera-kit";
 import { colors } from "@ticketiv/tokens";
 import type { ClaimedDeviceSetup } from "@ticketiv/shared";
 
@@ -21,6 +24,7 @@ import {
   endAccessScannerSession,
   failAccessPairingClaim,
   startAccessPairingClaim,
+  submitAccessQrScan,
   syncAccessScannerSession,
   updateAccessPairingCode,
   updateAccessPairingDeviceLabel,
@@ -198,18 +202,114 @@ function ScannerScreen({
 }) {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [syncMessage, setSyncMessage] = useState("Manifest not synced on this launch.");
+  const [cameraPermission, setCameraPermission] = useState<
+    "checking" | "granted" | "denied" | "error"
+  >("checking");
+  const [scanMessage, setScanMessage] = useState<string | null>(null);
+  const [lastScanValid, setLastScanValid] = useState<boolean | null>(null);
   const scanner = shell.scanner;
   const setup = shell.pairing.claimedSetup;
+  const scannerRef = useRef(scanner);
+  const scanInFlightRef = useRef(false);
+  const lastCodeRef = useRef<{ value: string; readAt: number } | null>(null);
+
+  useEffect(() => {
+    scannerRef.current = scanner;
+  }, [scanner]);
+
+  const requestCameraPermission = useCallback(async () => {
+    setCameraPermission("checking");
+    try {
+      if (Platform.OS !== "android") {
+        setCameraPermission("granted");
+        return;
+      }
+
+      const current = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.CAMERA);
+      if (current) {
+        setCameraPermission("granted");
+        return;
+      }
+
+      const result = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA, {
+        title: "Allow Ticketiv Access to scan tickets",
+        message: "Camera access is required to read attendee QR codes at the gate.",
+        buttonPositive: "Allow camera",
+        buttonNegative: "Not now",
+      });
+      setCameraPermission(
+        result === PermissionsAndroid.RESULTS.GRANTED ? "granted" : "denied"
+      );
+    } catch {
+      setCameraPermission("error");
+    }
+  }, []);
+
+  useEffect(() => {
+    void requestCameraPermission();
+  }, [requestCameraPermission]);
+
+  const handleQrCode = useCallback(
+    async (event: { nativeEvent: { codeStringValue: string } }) => {
+      const value = event.nativeEvent.codeStringValue?.trim();
+      const activeScanner = scannerRef.current;
+      if (!value || !activeScanner || scanInFlightRef.current) return;
+
+      const readAt = Date.now();
+      if (
+        lastCodeRef.current?.value === value &&
+        readAt - lastCodeRef.current.readAt < 1_500
+      ) {
+        return;
+      }
+
+      scanInFlightRef.current = true;
+      lastCodeRef.current = { value, readAt };
+      setScanMessage("Checking ticket...");
+      setLastScanValid(null);
+
+      try {
+        const result = await submitAccessQrScan(
+          { baseUrl: API_BASE_URL, fetch },
+          activeScanner,
+          {
+            ticketCode: value,
+            gate: activeScanner.gate,
+            queueOnNetworkError: true,
+          }
+        );
+
+        scannerRef.current = result.state;
+        onShellChange((current) => ({
+          ...current,
+          activeRoute: "scanner",
+          scanner: result.state,
+        }));
+        setLastScanValid(result.result.valid);
+        setScanMessage(result.result.message);
+      } catch (error) {
+        setLastScanValid(false);
+        setScanMessage(
+          error instanceof Error ? error.message : "Unable to validate this QR code."
+        );
+      } finally {
+        scanInFlightRef.current = false;
+      }
+    },
+    [onShellChange]
+  );
 
   async function syncNow() {
-    if (!scanner || syncStatus === "syncing") return;
+    const activeScanner = scannerRef.current;
+    if (!activeScanner || syncStatus === "syncing") return;
     setSyncStatus("syncing");
     setSyncMessage("Refreshing event access...");
 
     const result = await syncAccessScannerSession(
       { baseUrl: API_BASE_URL, fetch },
-      scanner
+      activeScanner
     );
+    scannerRef.current = result.state;
     onShellChange((current) => ({
       ...current,
       activeRoute: "scanner",
@@ -251,14 +351,56 @@ function ScannerScreen({
       </View>
 
       <View style={styles.scanSurface}>
-        <View style={styles.cameraFrame}>
+        {cameraPermission === "granted" ? (
+          <Camera
+            allowedBarcodeTypes={["qr"]}
+            cameraType={CameraType.Back}
+            onError={({ nativeEvent }) => {
+              setCameraPermission("error");
+              setScanMessage(nativeEvent.errorMessage || "Unable to start the camera.");
+            }}
+            onReadCode={(event) => void handleQrCode(event)}
+            scanBarcode
+            scanThrottleDelay={700}
+            style={styles.cameraPreview}
+          />
+        ) : null}
+        <View pointerEvents="none" style={styles.cameraFrame}>
           <View style={styles.frameCornerTopLeft} />
           <View style={styles.frameCornerTopRight} />
           <View style={styles.frameCornerBottomLeft} />
           <View style={styles.frameCornerBottomRight} />
-          <Text style={styles.cameraState}>Camera adapter unavailable</Text>
+          {cameraPermission !== "granted" ? (
+            <Text style={styles.cameraState}>
+              {cameraPermission === "checking"
+                ? "Requesting camera access..."
+                : cameraPermission === "denied"
+                  ? "Camera permission is required"
+                  : "Camera could not be started"}
+            </Text>
+          ) : null}
         </View>
       </View>
+
+      {cameraPermission === "denied" || cameraPermission === "error" ? (
+        <SecondaryButton label="Try camera again" onPress={() => void requestCameraPermission()} />
+      ) : null}
+
+      {scanMessage ? (
+        <View
+          accessibilityLiveRegion="assertive"
+          style={[
+            styles.scanResultBand,
+            lastScanValid === true && styles.scanResultSuccess,
+            lastScanValid === false && styles.scanResultError,
+          ]}
+        >
+          <Text style={styles.scanResultTitle}>
+            {lastScanValid === null ? "Reading ticket" : lastScanValid ? "Entry approved" : "Entry declined"}
+          </Text>
+          <Text style={styles.syncText}>{scanMessage}</Text>
+        </View>
+      ) : null}
 
       <View style={styles.metricsRow}>
         <Metric label="Offline tickets" value={String(scanner.manifest?.items.length ?? 0)} />
@@ -590,6 +732,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.ink,
     padding: 28,
   },
+  cameraPreview: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
   cameraFrame: {
     flex: 1,
     alignItems: "center",
@@ -639,6 +788,26 @@ const styles = StyleSheet.create({
     borderRightWidth: 3,
     borderBottomWidth: 3,
     borderColor: colors.surface,
+  },
+  scanResultBand: {
+    borderLeftWidth: 3,
+    borderLeftColor: colors.accent,
+    backgroundColor: colors.surface2,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 3,
+  },
+  scanResultSuccess: {
+    borderLeftColor: colors.success,
+  },
+  scanResultError: {
+    borderLeftColor: colors.danger,
+    backgroundColor: colors.dangerSoft,
+  },
+  scanResultTitle: {
+    color: colors.ink,
+    fontSize: 15,
+    fontWeight: "700",
   },
   metricsRow: {
     minHeight: 84,
