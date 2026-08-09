@@ -16,6 +16,7 @@ const CATEGORY_CHIPS = [
 ] as const
 
 const WHEN_CHIPS = [
+  { label: "Today", value: "today" },
   { label: "Tonight", value: "tonight" },
   { label: "This weekend", value: "weekend" },
   { label: "Next week", value: "week" },
@@ -49,7 +50,7 @@ export function DiscoverFilterChips({
 
   return (
     <div className="no-scrollbar flex gap-1.5 overflow-x-auto pb-1">
-      {/* When chips */}
+      {/* Date discovery stays inside Discover instead of competing for a bottom tab. */}
       {WHEN_CHIPS.map((chip) => {
         const isActive = when === chip.value
         return (
@@ -68,6 +69,16 @@ export function DiscoverFilterChips({
           </Chip>
         )
       })}
+
+      <Chip
+        as="button"
+        variant="default"
+        size="md"
+        onClick={() => router.push("/calendar")}
+      >
+        <Icon name="cal" size={12} />
+        My calendar
+      </Chip>
 
       {/* Category chips */}
       {CATEGORY_CHIPS.map((chip) => {
