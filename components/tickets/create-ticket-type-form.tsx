@@ -22,7 +22,7 @@ interface ChannelConfig {
   id: string
   channel: Channel
   quota: number
-  per_order_limit: number
+  per_order_limit: number | ""
 }
 
 interface CreateTicketTypeFormProps {
@@ -48,21 +48,21 @@ export function CreateTicketTypeForm({ event }: CreateTicketTypeFormProps) {
   const [priceCents, setPriceCents] = useState(0)
   const [currency, setCurrency] = useState("USD")
   const [quota, setQuota] = useState(100)
-  const [perUserLimit, setPerUserLimit] = useState(4)
+  const [perUserLimit, setPerUserLimit] = useState<number | "">("")
   const [saleStartAt, setSaleStartAt] = useState("")
   const [saleEndAt, setSaleEndAt] = useState("")
   const [isReservedSeating, setIsReservedSeating] = useState(false)
 
   // Channel state
   const [channels, setChannels] = useState<ChannelConfig[]>([
-    { id: crypto.randomUUID(), channel: "web", quota: 100, per_order_limit: 10 },
+    { id: crypto.randomUUID(), channel: "web", quota: 100, per_order_limit: "" },
   ])
 
   const totalChannelQuota = channels.reduce((sum, c) => sum + c.quota, 0)
   const hasQuotaWarning = totalChannelQuota > quota
 
   const addChannel = () => {
-    setChannels([...channels, { id: crypto.randomUUID(), channel: "mobile", quota: 0, per_order_limit: 10 }])
+    setChannels([...channels, { id: crypto.randomUUID(), channel: "mobile", quota: 0, per_order_limit: "" }])
   }
 
   const removeChannel = (id: string) => {
@@ -160,11 +160,11 @@ export function CreateTicketTypeForm({ event }: CreateTicketTypeFormProps) {
         setDescription("")
         setPriceCents(0)
         setQuota(100)
-        setPerUserLimit(4)
+        setPerUserLimit("")
         setSaleStartAt("")
         setSaleEndAt("")
         setIsReservedSeating(false)
-        setChannels([{ id: crypto.randomUUID(), channel: "web", quota: 100, per_order_limit: 10 }])
+        setChannels([{ id: crypto.randomUUID(), channel: "web", quota: 100, per_order_limit: "" }])
       } else {
         router.push(`/events/${event.id}?tab=tickets`)
       }
@@ -260,13 +260,14 @@ export function CreateTicketTypeForm({ event }: CreateTicketTypeFormProps) {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="perUserLimit">Per User Limit</Label>
+                <Label htmlFor="perUserLimit">Per User Limit (Optional)</Label>
                 <Input
                   id="perUserLimit"
                   type="number"
                   min="1"
                   value={perUserLimit}
-                  onChange={(e) => setPerUserLimit(Number.parseInt(e.target.value) || 1)}
+                  placeholder="No limit"
+                  onChange={(e) => setPerUserLimit(e.target.value === "" ? "" : Number.parseInt(e.target.value, 10))}
                 />
               </div>
             </div>
@@ -354,14 +355,13 @@ export function CreateTicketTypeForm({ event }: CreateTicketTypeFormProps) {
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Per Order Limit</Label>
+                      <Label className="text-xs">Per Order Limit (Optional)</Label>
                       <Input
                         type="number"
                         min="1"
                         value={channel.per_order_limit}
-                        onChange={(e) =>
-                          updateChannel(channel.id, "per_order_limit", Number.parseInt(e.target.value) || 1)
-                        }
+                        placeholder="No limit"
+                        onChange={(e) => updateChannel(channel.id, "per_order_limit", e.target.value === "" ? "" : Number.parseInt(e.target.value, 10))}
                       />
                     </div>
                   </div>
@@ -498,15 +498,15 @@ export function CreateTicketTypeForm({ event }: CreateTicketTypeFormProps) {
                     <p className="text-xs text-muted-foreground">Total tickets available</p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="perUserLimit-desktop">Per User Limit</Label>
+                    <Label htmlFor="perUserLimit-desktop">Per User Limit (Optional)</Label>
                     <Input
                       id="perUserLimit-desktop"
                       type="number"
                       min="1"
                       value={perUserLimit}
-                      onChange={(e) => setPerUserLimit(Number.parseInt(e.target.value) || 1)}
+                      placeholder="No limit"
+                      onChange={(e) => setPerUserLimit(e.target.value === "" ? "" : Number.parseInt(e.target.value, 10))}
                     />
-                    <p className="text-xs text-muted-foreground">Max per customer</p>
                   </div>
                 </div>
 
@@ -595,14 +595,13 @@ export function CreateTicketTypeForm({ event }: CreateTicketTypeFormProps) {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-xs">Per Order Limit</Label>
+                          <Label className="text-xs">Per Order Limit (Optional)</Label>
                           <Input
                             type="number"
                             min="1"
                             value={channel.per_order_limit}
-                            onChange={(e) =>
-                              updateChannel(channel.id, "per_order_limit", Number.parseInt(e.target.value) || 1)
-                            }
+                            placeholder="No limit"
+                            onChange={(e) => updateChannel(channel.id, "per_order_limit", e.target.value === "" ? "" : Number.parseInt(e.target.value, 10))}
                           />
                         </div>
                       </div>

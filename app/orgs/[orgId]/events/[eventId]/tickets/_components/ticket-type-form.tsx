@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { FormField } from "@/components/quiet/ui/form"
 import { Button } from "@/components/quiet/ui/button"
 import { Card, CardBody } from "@/components/quiet/ui/card"
+import { purchaseLimitInputValue } from "@/lib/tickets/purchase-limits"
 
 type SalesStatus = "on_sale" | "paused" | "sold_out" | "hidden"
 
@@ -40,9 +41,7 @@ export function TicketTypeForm({
     defaultValues?.quota != null ? String(defaultValues.quota) : ""
   )
   const [perUserLimit, setPerUserLimit] = useState(
-    defaultValues?.per_user_limit != null
-      ? String(defaultValues.per_user_limit)
-      : "1"
+    purchaseLimitInputValue(defaultValues?.per_user_limit)
   )
   const [salesStatus, setSalesStatus] = useState<SalesStatus>(
     (defaultValues?.sales_status as SalesStatus) ?? "on_sale"
@@ -66,7 +65,7 @@ export function TicketTypeForm({
             name: name.trim(),
             price: parseFloat(price),
             quota: parseInt(quota, 10),
-            per_user_limit: parseInt(perUserLimit, 10) || 0,
+            per_user_limit: perUserLimit,
             sales_status: salesStatus,
           }),
         })
@@ -79,7 +78,7 @@ export function TicketTypeForm({
             name: name.trim(),
             price_cents: Math.round(parseFloat(price) * 100),
             quota: parseInt(quota, 10),
-            per_user_limit: parseInt(perUserLimit, 10) || 0,
+            per_user_limit: perUserLimit,
             currency: "SZL",
             channels: [],
           }),
@@ -132,12 +131,12 @@ export function TicketTypeForm({
             required
           />
           <FormField
-            label="Per-buyer limit"
+            label="Per-buyer limit (optional)"
             type="number"
-            min="0"
+            min="1"
             value={perUserLimit}
             onChange={(e) => setPerUserLimit(e.target.value)}
-            hint="0 = unlimited"
+            placeholder="No limit"
           />
           {isEdit && (
             <label className="flex flex-col gap-1">

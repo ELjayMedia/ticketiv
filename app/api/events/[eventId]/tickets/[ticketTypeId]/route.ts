@@ -6,6 +6,11 @@ import {
   isSupportedTicketCurrency,
   normalizeTicketCurrency,
 } from "@/lib/payments/ticket-currency"
+import {
+  isPerOrderLimitWithinBuyerLimit,
+  isValidOptionalPurchaseLimit,
+  parseOptionalPurchaseLimit,
+} from "@/lib/tickets/purchase-limits"
 
 type RouteContext = { params: Promise<{ eventId: string; ticketTypeId: string }> }
 
@@ -38,27 +43,42 @@ function parsePatchPayload(body: any) {
   if (typeof body.name === "string") patch.name = body.name.trim()
   if (body.price !== undefined) patch.price_cents = Math.round(Number(body.price) * 100)
   if (body.quota !== undefined) patch.quota = Number.parseInt(String(body.quota), 10)
-  if (body.per_user_limit !== undefined) patch.per_user_limit = Number.parseInt(String(body.per_user_limit), 10)
+  if (body.per_user_limit !== undefined) patch.per_user_limit = parseOptionalPurchaseLimit(body.per_user_limit)
   if (typeof body.currency === "string") patch.currency = normalizeTicketCurrency(body.currency)
   if (typeof body.sales_status === "string") patch.sales_status = body.sales_status
   if (body.is_reserved_seating !== undefined) patch.is_reserved_seating = Boolean(body.is_reserved_seating)
   if (body.online_quota !== undefined) channelPatch.quota = Number.parseInt(String(body.online_quota), 10)
-  if (body.online_per_order_limit !== undefined) channelPatch.per_order_limit = Number.parseInt(String(body.online_per_order_limit), 10)
+  if (body.online_per_order_limit !== undefined) channelPatch.per_order_limit = parseOptionalPurchaseLimit(body.online_per_order_limit)
 
   return { patch, channelPatch }
 }
 
-function validatePatch(patch: Record<string, any>, channelPatch: Record<string, any>) {
+function validatePatch(
+  patch: Record<string, any>,
+  channelPatch: Record<string, any>,
+  current: {
+    quota: number
+    perUserLimit: number | null
+    onlineQuota: number | null
+    perOrderLimit: number | null
+  },
+) {
   if (patch.name !== undefined && !patch.name) return "Ticket name is required"
   if (patch.price_cents !== undefined && (!Number.isFinite(patch.price_cents) || patch.price_cents < 0)) return "Ticket price must be zero or more"
   if (patch.quota !== undefined && (!Number.isFinite(patch.quota) || patch.quota < 0)) return "Ticket quantity must be zero or more"
-  if (patch.per_user_limit !== undefined && (!Number.isFinite(patch.per_user_limit) || patch.per_user_limit < 0)) return "Per-user limit must be zero or more"
+  if (patch.per_user_limit !== undefined && !isValidOptionalPurchaseLimit(patch.per_user_limit)) return "Per-user limit must be a positive whole number or left blank"
   if (patch.currency !== undefined && !isSupportedTicketCurrency(patch.currency)) return "Choose ZAR for Paystack or SZL for MTN MoMo"
   if (patch.sales_status !== undefined && !SALES_STATUSES.has(patch.sales_status)) return "Invalid ticket sales status"
   if (channelPatch.quota !== undefined && (!Number.isFinite(channelPatch.quota) || channelPatch.quota < 0)) return "Online channel quota must be zero or more"
-  if (channelPatch.per_order_limit !== undefined && (!Number.isFinite(channelPatch.per_order_limit) || channelPatch.per_order_limit < 0)) return "Online per-order limit must be zero or more"
-  if (patch.quota !== undefined && channelPatch.quota !== undefined && channelPatch.quota > patch.quota) return "Online channel quota cannot exceed total quantity"
-  if (patch.per_user_limit !== undefined && channelPatch.per_order_limit !== undefined && patch.per_user_limit > 0 && channelPatch.per_order_limit > patch.per_user_limit) return "Online per-order limit cannot exceed the per-buyer limit"
+  if (channelPatch.per_order_limit !== undefined && !isValidOptionalPurchaseLimit(channelPatch.per_order_limit)) return "Online per-order limit must be a positive whole number or left blank"
+
+  const nextQuota = patch.quota ?? current.quota
+  const nextOnlineQuota = channelPatch.quota ?? current.onlineQuota
+  if (nextOnlineQuota != null && nextOnlineQuota > nextQuota) return "Online channel quota cannot exceed total quantity"
+
+  const nextPerUserLimit = patch.per_user_limit !== undefined ? patch.per_user_limit : current.perUserLimit
+  const nextPerOrderLimit = channelPatch.per_order_limit !== undefined ? channelPatch.per_order_limit : current.perOrderLimit
+  if (!isPerOrderLimitWithinBuyerLimit(nextPerUserLimit, nextPerOrderLimit)) return "Online per-order limit cannot exceed the per-buyer limit"
   return null
 }
 
@@ -74,7 +94,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   const { data: existing, error: loadError } = await admin
     .from("ticket_types")
-    .select("id, event_id, name, quota, per_user_limit, sales_status")
+    .select("id, event_id, name, quota, per_user_limit, sales_status, ticket_type_channels(channel, quota, per_order_limit)")
     .eq("id", ticketTypeId)
     .eq("event_id", eventId)
     .maybeSingle()
@@ -84,7 +104,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   const body = await request.json().catch(() => ({}))
   const { patch, channelPatch } = parsePatchPayload(body)
-  const validationError = validatePatch(patch, channelPatch)
+  const onlineChannel = existing.ticket_type_channels?.find((channel) => channel.channel === "online")
+  const validationError = validatePatch(patch, channelPatch, {
+    quota: existing.quota,
+    perUserLimit: existing.per_user_limit,
+    onlineQuota: onlineChannel?.quota ?? null,
+    perOrderLimit: onlineChannel?.per_order_limit ?? null,
+  })
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 })
 
   if (patch.sales_status === "paused" && existing.sales_status !== "paused") {
