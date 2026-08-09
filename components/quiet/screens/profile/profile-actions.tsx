@@ -4,7 +4,7 @@ import { useCallback, useState } from "react"
 import { Icon, type IconName } from "@/components/quiet/ui/icon"
 import { buildTicketivPublicUrl, getTicketivPublicOrigin } from "@/lib/public-url"
 
-/** Shared share/invite behaviour: Web Share API with clipboard fallback. */
+/** Shared profile-sharing behaviour: Web Share API with clipboard fallback. */
 function useShare(handle?: string | null, name?: string) {
   const [copied, setCopied] = useState(false)
 
@@ -13,10 +13,10 @@ function useShare(handle?: string | null, name?: string) {
       typeof window !== "undefined" ? window.location.origin : null,
     )
     const url = handle
-      ? buildTicketivPublicUrl(`/?ref=${encodeURIComponent(handle)}`, origin)
+      ? buildTicketivPublicUrl(`/@${encodeURIComponent(handle)}`, origin)
       : origin
     const text = name
-      ? `${name} is on Ticketiv — discover and book events together.`
+      ? `View ${name}'s profile on Ticketiv.`
       : "Discover and book events on Ticketiv."
 
     try {
@@ -25,15 +25,15 @@ function useShare(handle?: string | null, name?: string) {
         return
       }
     } catch {
-      // user dismissed the share sheet — fall through to copy
+      // User dismissed the share sheet — fall through to copy.
     }
 
     try {
-      await navigator.clipboard.writeText(`${text} ${url}`)
+      await navigator.clipboard.writeText(url)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      // clipboard unavailable — nothing else we can do gracefully
+      // Clipboard unavailable — nothing else we can do gracefully.
     }
   }, [handle, name])
 
@@ -86,7 +86,7 @@ export function ShareRow({
         <Icon name={icon} size={14} />
       </span>
       <span className="flex flex-1 flex-col gap-0.5">
-        <span className="text-[14px] font-medium">{copied ? "Invite link copied" : label}</span>
+        <span className="text-[14px] font-medium">{copied ? "Profile link copied" : label}</span>
         {description && (
           <span className="font-mono text-[10px] leading-relaxed text-ink-3">{description}</span>
         )}
