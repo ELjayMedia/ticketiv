@@ -85,13 +85,22 @@ export function ProfileScreen({ user, appVersion = "current", tapBand, orgContex
   }
 
   const accountRows: SettingRow[] = [
-    { icon: "settings", label: "Account settings", value: "profile · notifications · security", href: "/account/settings" },
-    { icon: "user", label: "Personal info", value: user.email, href: "/account/settings?tab=profile" },
     {
-      icon: "cal",
-      label: "Reminders",
-      value: user.remindersEnabled ? "on" : "off",
+      icon: "user",
+      label: "Personal information",
+      value: user.email,
+      href: "/account/settings?tab=profile",
+    },
+    {
+      icon: "bell",
+      label: "Notifications",
+      value: user.unreadNotifications > 0 ? `${user.unreadNotifications} unread` : undefined,
       href: "/account/settings?tab=notifications",
+    },
+    {
+      icon: "settings",
+      label: "Security",
+      href: "/account/settings?tab=security",
     },
   ];
 
@@ -303,7 +312,6 @@ export function ProfileScreen({ user, appVersion = "current", tapBand, orgContex
             href: "/notifications",
             accent: user.unreadNotifications > 0,
           },
-          { icon: "settings" as IconName, label: "Account settings", href: "/account/settings" },
           { icon: "spark" as IconName, label: "Help centre", href: "/help" },
           { icon: "fileText" as IconName, label: "Privacy policy", href: "/privacy" },
           {

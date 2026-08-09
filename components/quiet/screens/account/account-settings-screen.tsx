@@ -22,7 +22,7 @@ import {
 export type TabId = "profile" | "notifications" | "security"
 
 const TABS: { id: TabId; label: string; icon: IconName }[] = [
-  { id: "profile", label: "Profile", icon: "user" },
+  { id: "profile", label: "Personal information", icon: "user" },
   { id: "notifications", label: "Notifications", icon: "bell" },
   { id: "security", label: "Security", icon: "settings" },
 ]
@@ -42,7 +42,7 @@ export function AccountSettingsScreen({ settings, initialTab = "profile" }: { se
         <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Account</span>
         <h1 className="text-h1">Settings</h1>
         <p className="text-[13px] text-ink-3">
-          Manage your profile, notification preferences and security in one place.
+          Manage your personal information, notifications and security.
         </p>
       </header>
 
@@ -226,7 +226,7 @@ const CHANNELS: { key: keyof AccountSettings["notifications"]; field: string; la
     key: "emailOptIn",
     field: "emailOptIn",
     label: "Email",
-    description: "Receipts, reminders, transfers and offers by email",
+    description: "Receipts, transfers and offers by email",
     icon: "fileText",
   },
   {
@@ -303,52 +303,6 @@ function NotificationsSection({ settings }: { settings: AccountSettings }) {
             />
           </label>
         ))}
-
-        <div className="mt-2 flex flex-col gap-3 border-t border-line pt-4">
-          <div className="flex flex-col gap-1">
-            <span className="text-[14px] font-semibold text-ink">Event reminders</span>
-            <span className="font-mono text-[10px] leading-relaxed text-ink-3">
-              Reminders apply only to valid upcoming tickets. Receipts and security messages are always transactional.
-            </span>
-          </div>
-
-          <label className="flex items-center justify-between gap-3 rounded-[var(--radius)] border border-line bg-surface px-3.5 py-3">
-            <span className="flex flex-col gap-0.5">
-              <span className="text-[14px] font-medium text-ink">Remind me about my events</span>
-              <span className="font-mono text-[10px] text-ink-3">Uses the email and in-app channels enabled above.</span>
-            </span>
-            <input
-              type="checkbox"
-              checked={prefs.eventRemindersEnabled}
-              onChange={() => toggle("eventRemindersEnabled")}
-              aria-label="Toggle event reminders"
-              className="h-5 w-9 shrink-0 cursor-pointer appearance-none rounded-full bg-line-2 transition-colors checked:bg-accent before:block before:h-4 before:w-4 before:translate-x-0.5 before:translate-y-0.5 before:rounded-full before:bg-surface before:transition-transform checked:before:translate-x-[18px]"
-            />
-          </label>
-
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <label className="flex items-center gap-2 rounded-[var(--radius)] border border-line bg-bg px-3.5 py-3">
-              <input
-                type="checkbox"
-                checked={prefs.remind24h}
-                disabled={!prefs.eventRemindersEnabled}
-                onChange={() => toggle("remind24h")}
-                className="h-4 w-4 accent-[var(--accent)] disabled:opacity-50"
-              />
-              <span className="text-[13px] text-ink">24 hours before</span>
-            </label>
-            <label className="flex items-center gap-2 rounded-[var(--radius)] border border-line bg-bg px-3.5 py-3">
-              <input
-                type="checkbox"
-                checked={prefs.remind2h}
-                disabled={!prefs.eventRemindersEnabled}
-                onChange={() => toggle("remind2h")}
-                className="h-4 w-4 accent-[var(--accent)] disabled:opacity-50"
-              />
-              <span className="text-[13px] text-ink">2 hours before</span>
-            </label>
-          </div>
-        </div>
 
         <div className="flex items-center justify-between gap-3 pt-1">
           <StatusLine result={result} />
