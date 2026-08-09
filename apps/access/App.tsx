@@ -13,7 +13,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { CameraKitCamera, CameraType, type OnReadCodeData } from "react-native-camera-kit";
+import { Camera, CameraType } from "react-native-camera-kit";
 import { colors } from "@ticketiv/tokens";
 import type { ClaimedDeviceSetup } from "@ticketiv/shared";
 
@@ -250,7 +250,7 @@ function ScannerScreen({
   }, [requestCameraPermission]);
 
   const handleQrCode = useCallback(
-    async (event: OnReadCodeData) => {
+    async (event: { nativeEvent: { codeStringValue: string } }) => {
       const value = event.nativeEvent.codeStringValue?.trim();
       const activeScanner = scannerRef.current;
       if (!value || !activeScanner || scanInFlightRef.current) return;
@@ -352,7 +352,7 @@ function ScannerScreen({
 
       <View style={styles.scanSurface}>
         {cameraPermission === "granted" ? (
-          <CameraKitCamera
+          <Camera
             allowedBarcodeTypes={["qr"]}
             cameraType={CameraType.Back}
             onError={({ nativeEvent }) => {
