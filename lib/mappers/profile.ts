@@ -10,7 +10,6 @@ export interface ProfileUserProp {
   joinedLabel: string
   stats: { events: number; friends: number; following: number }
   email: string
-  savedPaymentMethods: number
   remindersEnabled: boolean
   language: string
   upcomingTickets: number
@@ -34,7 +33,6 @@ export function mapProfile(p: MyProfile): ProfileUserProp {
       following: p.followingCount,
     },
     email: p.email ?? "",
-    savedPaymentMethods: p.savedPaymentMethods,
     remindersEnabled: p.remindersEnabled,
     language: p.language,
     upcomingTickets: p.upcomingTickets,
