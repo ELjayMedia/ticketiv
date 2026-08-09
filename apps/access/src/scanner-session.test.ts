@@ -63,7 +63,7 @@ describe("Access scanner session core", () => {
       shouldValidateOnline: false,
       result: {
         valid: true,
-        status: "validated",
+        status: "offline",
         inputMode: "qr",
         orderItemId: "item-1",
       },

@@ -112,7 +112,7 @@ describe("shared scanner contracts", () => {
       action: "queue",
       result: {
         valid: true,
-        status: "validated",
+        status: "offline",
         inputMode: "qr",
         orderItemId: "item-1",
       },
@@ -124,6 +124,8 @@ describe("shared scanner contracts", () => {
         scannedAt: SCANNED_AT,
       },
     });
+    expect(scannerStatusTitle("offline", "qr")).toBe("Stored offline");
+    expect(scannerStatusTone("offline")).toBe("warning");
   });
 
   it.each([

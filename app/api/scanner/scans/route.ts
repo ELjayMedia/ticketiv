@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { DeviceScannerAccessError, verifyDeviceScannerAccess } from "@/lib/scanner/device-session-auth"
+import { getVerifiedScannerRequestUser } from "@/lib/scanner/request-auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
@@ -19,11 +20,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "eventId is required" }, { status: 400 })
   }
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  const auth = await getVerifiedScannerRequestUser(supabase)
+  if (auth.error) {
+    return NextResponse.json({ error: "Failed to verify scanner session" }, { status: 500 })
+  }
 
-  if (!session) {
+  if (!auth.user) {
     try {
       await verifyDeviceScannerAccess({
         eventId,
@@ -40,7 +42,7 @@ export async function GET(request: Request) {
   const limitParam = Number(url.searchParams.get("limit") ?? DEFAULT_LIMIT)
   const limit = Number.isFinite(limitParam) ? Math.min(MAX_LIMIT, Math.max(1, Math.floor(limitParam))) : DEFAULT_LIMIT
 
-  const db = session ? supabase : createAdminClient()
+  const db = auth.user ? supabase : createAdminClient()
   const { data, error } = await db
     .from("scans")
     .select("id, ticket_code, outcome, scanned_at")

@@ -97,7 +97,7 @@ describe("Access camera scanner", () => {
 
     expect(result).toMatchObject({
       accepted: true,
-      scan: { source: "manifest", result: { valid: true, status: "validated" } },
+      scan: { source: "manifest", result: { valid: true, status: "offline" } },
     });
     expect(controller.getState().offlineQueue).toHaveLength(1);
     expect(onScanResult).toHaveBeenCalledWith(expect.objectContaining({ source: "manifest" }));

@@ -105,4 +105,18 @@ describe("Supabase middleware session recovery", () => {
     expect(response.status).toBe(200)
     expect(mocks.createServerClient).not.toHaveBeenCalled()
   })
+
+  it.each([
+    "/api/scanner/manifest?eventId=event-1&deviceId=device-1&sessionId=session-1",
+    "/api/scanner/scans?eventId=event-1&deviceId=device-1&sessionId=session-1",
+    "/api/scanner/session",
+    "/api/scanner/sync",
+    "/api/scanner/validate",
+  ])("lets the scanner route authenticate its own device request: %s", async (url) => {
+    const response = await updateSession(new NextRequest(`https://ticketiv.app${url}`))
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get("location")).toBeNull()
+    expect(mocks.createServerClient).not.toHaveBeenCalled()
+  })
 })

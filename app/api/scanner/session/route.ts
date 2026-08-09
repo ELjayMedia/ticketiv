@@ -2,21 +2,19 @@ import { NextResponse } from "next/server"
 
 import { closeDeviceSession, startDeviceSession } from "@/lib/scanning"
 import { closeDeviceScannerSession, DeviceScannerAccessError } from "@/lib/scanner/device-session-auth"
+import { getVerifiedScannerRequestUser } from "@/lib/scanner/request-auth"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 async function getScannerUserId() {
   const supabase = createServerSupabaseClient()
   if (!supabase) return { error: "Supabase is not configured", status: 500 as const }
 
-  const {
-    data: { session },
-    error,
-  } = await supabase.auth.getSession()
+  const auth = await getVerifiedScannerRequestUser(supabase)
 
-  if (error) return { error: "Failed to verify scanner session", status: 500 as const }
-  if (!session) return { error: "Scanner login required", status: 401 as const }
+  if (auth.error) return { error: "Failed to verify scanner session", status: 500 as const }
+  if (!auth.user) return { error: "Scanner login required", status: 401 as const }
 
-  return { userId: session.user.id }
+  return { userId: auth.user.id }
 }
 
 export async function POST(request: Request) {
@@ -47,20 +45,19 @@ export async function PATCH(request: Request) {
   const supabase = createServerSupabaseClient()
   if (!supabase) return NextResponse.json({ error: "Supabase is not configured" }, { status: 500 })
 
-  const {
-    data: { session },
-    error,
-  } = await supabase.auth.getSession()
+  const auth = await getVerifiedScannerRequestUser(supabase)
 
-  if (error) return NextResponse.json({ error: "Failed to verify scanner session" }, { status: 500 })
+  if (auth.error) {
+    return NextResponse.json({ error: "Failed to verify scanner session" }, { status: 500 })
+  }
 
   try {
     if (!body.sessionId) {
       return NextResponse.json({ error: "sessionId is required" }, { status: 400 })
     }
 
-    const closedSession = session
-      ? await closeDeviceSession(String(body.sessionId), session.user.id)
+    const closedSession = auth.user
+      ? await closeDeviceSession(String(body.sessionId), auth.user.id)
       : await closeDeviceScannerSession({
           sessionId: String(body.sessionId),
           deviceId: body.deviceId ? String(body.deviceId) : null,

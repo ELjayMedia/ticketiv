@@ -62,7 +62,7 @@ describe("Access scan coordinator", () => {
 
     expect(result).toMatchObject({
       source: "manifest",
-      result: { valid: true, status: "validated", orderItemId: "item-1" },
+      result: { valid: true, status: "offline", orderItemId: "item-1" },
       offlineScan: {
         code: "TIV-1",
         eventId: "event-1",

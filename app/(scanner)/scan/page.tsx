@@ -480,6 +480,10 @@ export default function ScannerPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...payload, eventId }),
       })
+      const contentType = response.headers.get("content-type") ?? ""
+      if (response.redirected || !contentType.includes("application/json")) {
+        throw new Error("Scanner validation did not return JSON")
+      }
       const data: ScanResponse = await response.json()
       setResult(data)
       if (data.valid) markLocallyUsed(eventId, trimmedCode)
@@ -1225,7 +1229,10 @@ export default function ScannerPage() {
 
           {cameraPaused && result?.valid && (
             <div
-              className="absolute inset-0 z-30 flex min-h-dvh flex-col overflow-hidden bg-accent text-white"
+              className={cn(
+                "absolute inset-0 z-30 flex min-h-dvh flex-col overflow-hidden text-white",
+                result.status === "offline" ? "bg-warning" : "bg-accent",
+              )}
               role="status"
               aria-live="assertive"
             >
@@ -1239,16 +1246,25 @@ export default function ScannerPage() {
               <div className="relative flex flex-1 flex-col items-center justify-center px-6 text-center">
                 <div className="relative mb-8 flex h-36 w-36 items-center justify-center">
                   <span className="absolute inset-0 rounded-full bg-white/15 motion-safe:animate-pulse" />
-                  <span className="relative inline-flex h-28 w-28 items-center justify-center rounded-full bg-white text-accent shadow-2xl motion-safe:animate-bounce">
-                    <Icon name="check" size={58} />
+                  <span
+                    className={cn(
+                      "relative inline-flex h-28 w-28 items-center justify-center rounded-full bg-white shadow-2xl motion-safe:animate-bounce",
+                      result.status === "offline" ? "text-warning" : "text-accent",
+                    )}
+                  >
+                    <Icon name={result.status === "offline" ? "clock" : "check"} size={58} />
                   </span>
                 </div>
                 <p className="font-mono text-[12px] font-semibold uppercase tracking-[0.28em] text-white/75">
-                  Entry approved
+                  {result.status === "offline" ? "Entry accepted locally" : "Entry approved"}
                 </p>
-                <h2 className="mt-3 text-[42px] font-bold leading-none tracking-tight">Ticket valid</h2>
+                <h2 className="mt-3 text-[42px] font-bold leading-none tracking-tight">
+                  {result.status === "offline" ? "Pending sync" : "Ticket valid"}
+                </h2>
                 <p className="mt-4 max-w-sm text-[16px] font-medium text-white/85">
-                  {result.message || "This attendee is cleared to enter."}
+                  {result.status === "offline"
+                    ? "Ticket is valid and may enter. Sync the queued scan to update the attendee’s ticket and dashboard."
+                    : result.message || "This attendee is cleared to enter."}
                 </p>
                 {(result.scan?.scanned_at || result.checkedInAt) && (
                   <p className="mt-5 inline-flex items-center gap-2 rounded-full bg-black/15 px-4 py-2 font-mono text-[11px] uppercase tracking-wider text-white/80">
@@ -1265,7 +1281,10 @@ export default function ScannerPage() {
                   variant="primary"
                   size="md"
                   block
-                  className="h-14 bg-white text-accent hover:bg-white/90"
+                  className={cn(
+                    "h-14 bg-white hover:bg-white/90",
+                    result.status === "offline" ? "text-warning" : "text-accent",
+                  )}
                 >
                   Scan next ticket
                 </Button>

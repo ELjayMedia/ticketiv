@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { syncOfflineScans } from "@/lib/scanning"
 import { DeviceScannerAccessError, verifyDeviceScannerAccess } from "@/lib/scanner/device-session-auth"
+import { getVerifiedScannerRequestUser } from "@/lib/scanner/request-auth"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export async function POST(request: Request) {
@@ -13,16 +14,13 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}))
   const scans = Array.isArray(body.scans) ? body.scans : []
 
-  const {
-    data: { session },
-    error: sessionError,
-  } = await supabase.auth.getSession()
+  const auth = await getVerifiedScannerRequestUser(supabase)
 
-  if (sessionError) {
+  if (auth.error) {
     return NextResponse.json({ error: "Failed to verify scanner session" }, { status: 500 })
   }
 
-  if (!session && scans.length > 0) {
+  if (!auth.user && scans.length > 0) {
     const first = scans[0]
     const sameSession = scans.every(
       (scan: any) =>
@@ -49,7 +47,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await syncOfflineScans(scans, session?.user.id ?? null)
+    const result = await syncOfflineScans(scans, auth.user?.id ?? null)
     return NextResponse.json(result)
   } catch (error: any) {
     return NextResponse.json({ error: error.message ?? "Unable to sync scans" }, { status: 400 })
