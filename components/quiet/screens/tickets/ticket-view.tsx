@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
-import { Photo, Divider, QRPattern } from "@/components/quiet/ui/primitives";
+import { Photo, Divider } from "@/components/quiet/ui/primitives";
 import { Button } from "@/components/quiet/ui/button";
+import { TicketQrCode } from "@/components/tickets/ticket-qr-code";
 
 /* ──────────────────────────────────────────────────────────────
  * `/tickets/[id]` — QR ticket view
@@ -16,10 +17,9 @@ import { Button } from "@/components/quiet/ui/button";
  * space circles cut into the card by giving them the same color
  * as the background.
  *
- * The QRPattern below is a deterministic SVG placeholder.
- * Real ticket QRs are signed by Supabase Edge Function and
- * rotate every 60s (see TICK-12). Wiring will pass the encoded
- * payload through to a real QR encoder (likely `qrcode` package).
+ * The QR is generated first-party from the issued ticket_code.
+ * The scanner submits that exact UUID through the existing gate
+ * validation path. Signed/rotating payloads remain future hardening (TICK-12).
  *
  * Quick actions at bottom: Transfer (→ /tickets/[id]/transfer)
  * and Resell (→ /tickets/[id]/resale).
@@ -322,9 +322,12 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
           {ticket.isValid ? (
             <div className="p-4 text-center">
               <div className="text-label mb-3.5">Scan at gate</div>
-              <div className="inline-block rounded-xl border border-line bg-bg p-2.5 text-ink">
-                <QRPattern size={150} seed={ticket.qrCode} />
-              </div>
+              <TicketQrCode
+                value={ticket.qrCode}
+                label={`Ticket QR code for ${ticket.eventTitle}`}
+                size={200}
+                className="inline-block rounded-xl border border-line p-7"
+              />
               <div className="mt-3 font-mono text-[11px] tracking-[0.04em] text-ink-3">
                 {ticket.qrCode}
               </div>
