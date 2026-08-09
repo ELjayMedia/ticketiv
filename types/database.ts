@@ -8995,6 +8995,16 @@ export type Database = {
         Args: { p_range?: string }
         Returns: Json
       }
+      get_public_profile: {
+        Args: { p_handle: string }
+        Returns: {
+          avatar_url: string
+          display_name: string
+          handle: string
+          is_owner: boolean
+          joined_at: string
+        }[]
+      }
       get_ticket_type_event: {
         Args: { ticket_type_uuid: string }
         Returns: string
