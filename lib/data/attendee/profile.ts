@@ -42,7 +42,7 @@ export async function getMyProfile(): Promise<MyProfile | null> {
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("display_name, name, surname, created_at, avatar_url")
+      .select("display_name, created_at, avatar_url")
       .eq("user_id", user.id)
       .maybeSingle(),
     supabase
@@ -86,8 +86,7 @@ export async function getMyProfile(): Promise<MyProfile | null> {
   const profile = profileRes.data
   const fullName =
     profile?.display_name ||
-    [profile?.name, profile?.surname].filter(Boolean).join(" ").trim() ||
-    user.email?.split("@")[0] ||
+user.email?.split("@")[0] ||
     "You"
 
   const prefs = prefsRes.data
