@@ -1,6 +1,7 @@
 "use client"
 
 import { useRef, useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/quiet/ui/button"
 import { Card } from "@/components/quiet/ui/card"
@@ -18,7 +19,7 @@ import {
   type DeleteAccountResult,
 } from "@/app/(app)/account/settings/actions"
 
-type TabId = "profile" | "notifications" | "security"
+export type TabId = "profile" | "notifications" | "security"
 
 const TABS: { id: TabId; label: string; icon: IconName }[] = [
   { id: "profile", label: "Profile", icon: "user" },
@@ -26,8 +27,14 @@ const TABS: { id: TabId; label: string; icon: IconName }[] = [
   { id: "security", label: "Security", icon: "settings" },
 ]
 
-export function AccountSettingsScreen({ settings }: { settings: AccountSettings }) {
-  const [tab, setTab] = useState<TabId>("profile")
+export function AccountSettingsScreen({ settings, initialTab = "profile" }: { settings: AccountSettings; initialTab?: TabId }) {
+  const router = useRouter()
+  const [tab, setTab] = useState<TabId>(initialTab)
+
+  function selectTab(nextTab: TabId) {
+    setTab(nextTab)
+    router.replace(`/account/settings?tab=${nextTab}`, { scroll: false })
+  }
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-8 lg:px-6 lg:py-10">
@@ -48,7 +55,7 @@ export function AccountSettingsScreen({ settings }: { settings: AccountSettings 
               role="tab"
               aria-selected={active}
               type="button"
-              onClick={() => setTab(t.id)}
+              onClick={() => selectTab(t.id)}
               className={
                 "flex flex-1 items-center justify-center gap-1.5 rounded-[var(--radius)] px-3 py-2 text-[13px] font-semibold transition-colors " +
                 (active ? "bg-ink text-surface" : "text-ink-3 hover:bg-bg")
