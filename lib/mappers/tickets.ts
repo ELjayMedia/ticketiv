@@ -178,6 +178,10 @@ export interface TicketViewProp {
   /** True only when the ticket is issued and not yet used / transferred / refunded / revoked. */
   isValid: boolean;
   status: TicketDisplayStatus;
+  /** Auth-scoped owner key used only to isolate device copies between accounts. */
+  offlineOwnerId: string;
+  /** ISO time after which the service worker removes the device copy. */
+  offlineExpiresAt: string;
   /** Null when refund policy data was not fetched. */
   refundCta: RefundCtaData | null;
 }
@@ -186,7 +190,13 @@ const DEADLINE_FMT = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "
 
 export function mapTicketView(
   row: MyTicketsView,
-  opts: { position?: number; totalInOrder?: number; holderName?: string; refundPolicy?: unknown } = {},
+  opts: {
+    position?: number;
+    totalInOrder?: number;
+    holderName?: string;
+    refundPolicy?: unknown;
+    offlineExpiresAt?: string;
+  } = {},
 ): TicketViewProp {
   const start = row.event_starts_at ? new Date(row.event_starts_at) : null;
   const status = ticketDisplayStatus(row);
@@ -236,6 +246,8 @@ export function mapTicketView(
     qrCode: valid ? row.ticket_code : "",
     isValid: valid,
     status: status === "pending" ? "issued" : status,
+    offlineOwnerId: row.current_owner_id ?? row.buyer_id,
+    offlineExpiresAt: opts.offlineExpiresAt ?? new Date(Date.now() + 7 * DAY_MS).toISOString(),
     refundCta,
   };
 }
