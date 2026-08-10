@@ -44,9 +44,32 @@ export const ATTENDEE_TABS: AttendeeTabItem[] = [
   },
 ];
 
+const FOCUSED_ATTENDEE_SEGMENTS = new Set([
+  "checkout",
+  "payment",
+  "transfer",
+  "refund",
+  "qr",
+]);
+
+/**
+ * Transactional attendee flows temporarily replace global navigation with
+ * their own back, close, or completion action. Match complete path segments
+ * so adjacent destinations such as /payments and /refund-policy keep tabs.
+ */
+export function isFocusedAttendeePath(pathname: string) {
+  return pathname
+    .split("/")
+    .filter(Boolean)
+    .some((segment) => FOCUSED_ATTENDEE_SEGMENTS.has(segment));
+}
+
 /* ── Mobile bottom tab bar ──────────────────────────────── */
 export function MobileTabBar() {
   const pathname = usePathname() ?? "";
+
+  if (isFocusedAttendeePath(pathname)) return null;
+
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-30 flex border-t border-line bg-surface pt-2.5 pb-[max(env(safe-area-inset-bottom),0.75rem)]"
