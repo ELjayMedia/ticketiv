@@ -47,6 +47,26 @@ export async function getTicketById(orderItemId: string): Promise<MyTicketsView 
   return validateSchema(MyTicketsViewSchema, data, "v_my_tickets")
 }
 
+export async function getTicketsByOrderId(orderId: string): Promise<MyTicketsView[]> {
+  const supabase = await createServerSupabaseClient()
+  if (!supabase) return []
+
+  const { data, error } = await supabase
+    .from("v_my_tickets")
+    .select("*")
+    .eq("order_id", orderId)
+    .order("order_item_id", { ascending: true })
+
+  if (error) {
+    console.error("[tickets] v_my_tickets siblings:", error)
+    return []
+  }
+
+  return (data ?? [])
+    .map((row) => validateSchema(MyTicketsViewSchema, row, "v_my_tickets"))
+    .filter(Boolean)
+}
+
 export async function getTicketEventPolicy(eventId: string): Promise<unknown> {
   const supabase = await createServerSupabaseClient()
   if (!supabase) return null
