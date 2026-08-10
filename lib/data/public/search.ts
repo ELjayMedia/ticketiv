@@ -112,7 +112,7 @@ export async function getPublicSearchFacets(): Promise<SearchFacets> {
 }
 
 /** Date-range presets accepted via `?when=` on the search route. */
-export type WhenPreset = "tonight" | "weekend" | "week" | "month"
+export type WhenPreset = "today" | "tonight" | "weekend" | "week" | "month"
 
 /**
  * Resolve a `when` preset into an ISO `startsAfter` / `startsBefore` pair.
