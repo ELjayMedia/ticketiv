@@ -219,9 +219,9 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
     const currentIndex = siblingIds.indexOf(t.id);
     if (currentIndex === -1) return;
     if (delta < 0 && currentIndex < siblingIds.length - 1) {
-      router.push(`/tickets/${siblingIds[currentIndex + 1]}`);
+      window.location.assign(`/tickets/${siblingIds[currentIndex + 1]}`);
     } else if (delta > 0 && currentIndex > 0) {
-      router.push(`/tickets/${siblingIds[currentIndex - 1]}`);
+      window.location.assign(`/tickets/${siblingIds[currentIndex - 1]}`);
     }
   }
 
@@ -245,6 +245,7 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
       const result = await removeOfflineTicket({
         ticketId: t.id,
         ownerId: t.offlineOwnerId,
+        siblingIds,
       });
       setOfflineState(
         result.ok
@@ -259,6 +260,7 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
       ticketId: t.id,
       ownerId: t.offlineOwnerId,
       expiresAt: t.offlineExpiresAt,
+      siblingIds,
     });
     setOfflineState(
       result.ok && result.available
@@ -462,8 +464,12 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
                   {offlineState.phase === "checking" && "Checking…"}
                   {offlineState.phase === "saving" && "Saving…"}
                   {offlineState.phase === "removing" && "Removing…"}
-                  {offlineState.phase === "saved" && "Saved offline"}
-                  {(offlineState.phase === "idle" || offlineState.phase === "error") && "Save offline"}
+                  {offlineState.phase === "saved" && (
+                    t.totalInOrder > 1 ? `${t.totalInOrder} saved offline` : "Saved offline"
+                  )}
+                  {(offlineState.phase === "idle" || offlineState.phase === "error") && (
+                    t.totalInOrder > 1 ? `Save ${t.totalInOrder} offline` : "Save offline"
+                  )}
                 </Button>
               </div>
               {offlineState.phase === "saved" && (
@@ -487,7 +493,7 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
                     className="mt-1.5 text-[10px] font-semibold text-ink-3 underline underline-offset-2"
                     onClick={handleOfflineSave}
                   >
-                    Remove from this device
+                    Remove {t.totalInOrder > 1 ? "these tickets" : "this ticket"} from this device
                   </button>
                 </div>
               )}
@@ -568,7 +574,7 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
         <div className="flex items-center justify-center gap-1.5 pb-6">
           {siblingIds.length > 1 ? (
             siblingIds.map((id, i) => (
-              <Link
+              <a
                 key={id}
                 href={`/tickets/${id}`}
                 aria-label={`Ticket ${i + 1} of ${siblingIds.length}`}
