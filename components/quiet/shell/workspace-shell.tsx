@@ -9,7 +9,10 @@ import { Button } from "@/components/quiet/ui/button";
 import { cn } from "@/lib/cn";
 import { createClient } from "@/lib/supabase";
 import type { WorkspaceType } from "@/lib/navigation";
-import { ATTENDEE_TABS } from "@/components/quiet/shell/mobile-shell";
+import {
+  ATTENDEE_TABS,
+  isFocusedAttendeePath,
+} from "@/components/quiet/shell/mobile-shell";
 
 interface NavItem {
   href: string;
@@ -354,6 +357,8 @@ function MobileWorkspaceTabs({
 }) {
   const pathname = usePathname() ?? "";
   const items = WORKSPACE_NAV[workspace];
+
+  if (workspace === "app" && isFocusedAttendeePath(pathname)) return null;
 
   return (
     <nav
