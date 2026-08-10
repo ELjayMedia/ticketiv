@@ -506,7 +506,7 @@ export function MyTickets({
                 </div>
                 <Divider className="my-3" />
                 <div className="flex gap-1.5">
-                  <Link
+                  <a
                     href={`/tickets/${_featured.ticketId}`}
                     className="flex flex-1 items-center justify-center gap-1.5 rounded-[var(--radius)] bg-ink px-3 py-2 text-[12px] font-medium text-white hover:bg-ink-2"
                   >
@@ -514,7 +514,7 @@ export function MyTickets({
                     {featuredTicketCount > 1
                       ? `Open ${featuredTicketCount} tickets`
                       : "Show QR"}
-                  </Link>
+                  </a>
                   <Link
                     href={`/resale?ticketId=${encodeURIComponent(_featured.ticketId)}`}
                     aria-label="List ticket"
@@ -884,7 +884,7 @@ function TicketOrderGroupCard({
                     : "hover:bg-bg")
                 }
               >
-                <Link
+                <a
                   href={`/tickets/${ticket.ticketId}`}
                   className="flex min-w-0 flex-1 flex-col"
                 >
@@ -903,18 +903,18 @@ function TicketOrderGroupCard({
                       ticketStatus={ticket.status}
                     />
                   )}
-                </Link>
+                </a>
 
                 {canAct ? (
                   <div className="flex shrink-0 items-center gap-1">
-                    <Link
+                    <a
                       href={`/tickets/${ticket.ticketId}`}
                       aria-label={`Show QR for ${lead.title}, ticket ${index + 1}`}
                       className="inline-flex h-8 items-center justify-center gap-1 rounded-[var(--radius)] bg-ink px-2.5 text-[11px] font-semibold text-white hover:bg-ink-2"
                     >
                       <Icon name="qr" size={13} />
                       QR
-                    </Link>
+                    </a>
                     <button
                       type="button"
                       aria-label={`Transfer ${lead.title}, ticket ${index + 1}`}
