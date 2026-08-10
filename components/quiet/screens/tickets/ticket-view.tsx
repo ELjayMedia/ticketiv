@@ -10,6 +10,11 @@ import { Button } from "@/components/quiet/ui/button";
 import { TicketQrCode } from "@/components/tickets/ticket-qr-code";
 import { CheckInCelebration } from "@/components/tickets/check-in-celebration";
 import { useTicketCheckIns, type TicketCheckIn } from "@/lib/hooks/use-ticket-check-ins";
+import {
+  getOfflineTicketState,
+  removeOfflineTicket,
+  saveTicketForOffline,
+} from "@/lib/tickets/offline-ticket";
 
 /* ──────────────────────────────────────────────────────────────
  * `/tickets/[id]` — QR ticket view
@@ -68,6 +73,8 @@ interface TicketData {
   qrCode: string;
   isValid: boolean;
   status?: TicketDisplayStatus;
+  offlineOwnerId: string;
+  offlineExpiresAt: string;
   refundCta?: RefundCtaData | null;
 }
 
@@ -106,12 +113,20 @@ const STATUS_BADGE: Record<
   },
 };
 
+type OfflineUiState = {
+  phase: "checking" | "idle" | "saving" | "saved" | "removing" | "error";
+  savedAt?: string;
+  message?: string;
+};
+
 export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
   const router = useRouter();
   const touchStartX = React.useRef<number | null>(null);
   const [walletBusy, setWalletBusy] = React.useState(false);
   const [walletMsg, setWalletMsg] = React.useState<string | null>(null);
   const [celebration, setCelebration] = React.useState<TicketCheckIn | null>(null);
+  const [online, setOnline] = React.useState(true);
+  const [offlineState, setOfflineState] = React.useState<OfflineUiState>({ phase: "checking" });
   const resolvedStatus: TicketDisplayStatus | null = ticket
     ? ticket.status ?? (ticket.isValid ? "issued" : "checked_in")
     : null;
@@ -129,6 +144,44 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
   }, [router, watchedEventTitle, watchedTicketId]);
 
   useTicketCheckIns({ ticketIds: watchedTicketIds, onCheckIn: handleCheckIn });
+
+  React.useEffect(() => {
+    setOnline(navigator.onLine);
+    const handleOnline = () => setOnline(true);
+    const handleOffline = () => setOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (!ticket?.isValid) {
+      setOfflineState({ phase: "idle" });
+      return;
+    }
+
+    let cancelled = false;
+    getOfflineTicketState({
+      ticketId: ticket.id,
+      ownerId: ticket.offlineOwnerId,
+    }).then((result) => {
+      if (cancelled) return;
+      if (result.ok && result.available) {
+        setOfflineState({ phase: "saved", savedAt: result.savedAt });
+      } else if (result.ok) {
+        setOfflineState({ phase: "idle" });
+      } else {
+        setOfflineState({ phase: "error", message: result.error });
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ticket?.id, ticket?.isValid, ticket?.offlineOwnerId]);
 
   if (!ticket) {
     return (
@@ -166,9 +219,9 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
     const currentIndex = siblingIds.indexOf(t.id);
     if (currentIndex === -1) return;
     if (delta < 0 && currentIndex < siblingIds.length - 1) {
-      router.push(`/tickets/${siblingIds[currentIndex + 1]}`);
+      window.location.assign(`/tickets/${siblingIds[currentIndex + 1]}`);
     } else if (delta > 0 && currentIndex > 0) {
-      router.push(`/tickets/${siblingIds[currentIndex - 1]}`);
+      window.location.assign(`/tickets/${siblingIds[currentIndex - 1]}`);
     }
   }
 
@@ -184,8 +237,36 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
     }
   }
 
-  function handleSave() {
-    window.print();
+  async function handleOfflineSave() {
+    if (offlineState.phase === "saving" || offlineState.phase === "removing") return;
+
+    if (offlineState.phase === "saved") {
+      setOfflineState((current) => ({ ...current, phase: "removing" }));
+      const result = await removeOfflineTicket({
+        ticketId: t.id,
+        ownerId: t.offlineOwnerId,
+        siblingIds,
+      });
+      setOfflineState(
+        result.ok
+          ? { phase: "idle" }
+          : { phase: "error", message: result.error },
+      );
+      return;
+    }
+
+    setOfflineState({ phase: "saving" });
+    const result = await saveTicketForOffline({
+      ticketId: t.id,
+      ownerId: t.offlineOwnerId,
+      expiresAt: t.offlineExpiresAt,
+      siblingIds,
+    });
+    setOfflineState(
+      result.ok && result.available
+        ? { phase: "saved", savedAt: result.savedAt }
+        : { phase: "error", message: result.error },
+    );
   }
 
   function detectPlatform(): "apple" | "google" | "unknown" {
@@ -366,10 +447,61 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
                 <Button variant="default" size="xs" onClick={handleWallet} disabled={walletBusy}>
                   <Icon name="wallet" size={14} /> {walletBusy ? "Working…" : "Wallet"}
                 </Button>
-                <Button variant="default" size="xs" onClick={handleSave}>
-                  <Icon name="download" size={14} /> Save
+                <Button
+                  variant="default"
+                  size="xs"
+                  onClick={handleOfflineSave}
+                  disabled={
+                    offlineState.phase === "checking"
+                    || offlineState.phase === "saving"
+                    || offlineState.phase === "removing"
+                  }
+                >
+                  <Icon
+                    name={offlineState.phase === "saved" ? "check" : "download"}
+                    size={14}
+                  />
+                  {offlineState.phase === "checking" && "Checking…"}
+                  {offlineState.phase === "saving" && "Saving…"}
+                  {offlineState.phase === "removing" && "Removing…"}
+                  {offlineState.phase === "saved" && (
+                    t.totalInOrder > 1 ? `${t.totalInOrder} saved offline` : "Saved offline"
+                  )}
+                  {(offlineState.phase === "idle" || offlineState.phase === "error") && (
+                    t.totalInOrder > 1 ? `Save ${t.totalInOrder} offline` : "Save offline"
+                  )}
                 </Button>
               </div>
+              {offlineState.phase === "saved" && (
+                <div
+                  role="status"
+                  className="mx-auto mt-3 max-w-[290px] rounded-[var(--radius)] bg-accent-soft px-3 py-2 text-left"
+                >
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-accent">
+                    <Icon name="check" size={12} />
+                    {online ? "Available offline" : "Showing saved offline copy"}
+                  </div>
+                  <p className="mt-1 text-[10px] leading-relaxed text-ink-3">
+                    {offlineState.savedAt
+                      ? `Last refreshed ${new Date(offlineState.savedAt).toLocaleString()}. `
+                      : ""}
+                    Gate validation remains final if this ticket was used, transferred,
+                    refunded or revoked.
+                  </p>
+                  <button
+                    type="button"
+                    className="mt-1.5 text-[10px] font-semibold text-ink-3 underline underline-offset-2"
+                    onClick={handleOfflineSave}
+                  >
+                    Remove {t.totalInOrder > 1 ? "these tickets" : "this ticket"} from this device
+                  </button>
+                </div>
+              )}
+              {offlineState.phase === "error" && offlineState.message && (
+                <div role="alert" className="mt-2 text-[11px] text-danger">
+                  {offlineState.message}
+                </div>
+              )}
               {walletMsg && (
                 <div
                   role="status"
@@ -442,7 +574,7 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
         <div className="flex items-center justify-center gap-1.5 pb-6">
           {siblingIds.length > 1 ? (
             siblingIds.map((id, i) => (
-              <Link
+              <a
                 key={id}
                 href={`/tickets/${id}`}
                 aria-label={`Ticket ${i + 1} of ${siblingIds.length}`}

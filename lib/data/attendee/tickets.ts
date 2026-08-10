@@ -4,6 +4,7 @@
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { MyTicketsViewSchema, validateSchema, type MyTicketsView } from "@/lib/schemas/views"
+import { resolveOfflineTicketExpiry } from "@/lib/tickets/offline-ticket-expiry"
 
 export async function getMyTickets(): Promise<MyTicketsView[]> {
   const supabase = await createServerSupabaseClient()
@@ -46,6 +47,26 @@ export async function getTicketById(orderItemId: string): Promise<MyTicketsView 
   return validateSchema(MyTicketsViewSchema, data, "v_my_tickets")
 }
 
+export async function getTicketsByOrderId(orderId: string): Promise<MyTicketsView[]> {
+  const supabase = await createServerSupabaseClient()
+  if (!supabase) return []
+
+  const { data, error } = await supabase
+    .from("v_my_tickets")
+    .select("*")
+    .eq("order_id", orderId)
+    .order("order_item_id", { ascending: true })
+
+  if (error) {
+    console.error("[tickets] v_my_tickets siblings:", error)
+    return []
+  }
+
+  return (data ?? [])
+    .map((row) => validateSchema(MyTicketsViewSchema, row, "v_my_tickets"))
+    .filter(Boolean)
+}
+
 export async function getTicketEventPolicy(eventId: string): Promise<unknown> {
   const supabase = await createServerSupabaseClient()
   if (!supabase) return null
@@ -55,6 +76,28 @@ export async function getTicketEventPolicy(eventId: string): Promise<unknown> {
     .eq("id", eventId)
     .maybeSingle()
   return data?.refund_policy ?? null
+}
+
+export async function getTicketOfflineExpiry(
+  eventId: string,
+  eventStartsAt?: string | null,
+): Promise<string> {
+  const supabase = await createServerSupabaseClient()
+  if (!supabase) return resolveOfflineTicketExpiry({ eventStartsAt })
+
+  const { data } = await supabase
+    .from("event_dates")
+    .select("ends_at")
+    .eq("event_id", eventId)
+    .not("ends_at", "is", null)
+    .order("ends_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  return resolveOfflineTicketExpiry({
+    eventEndsAt: data?.ends_at ?? null,
+    eventStartsAt,
+  })
 }
 
 export async function createTransfer(input: { orderItemId: string; toUserId?: string; toEmail?: string }) {
