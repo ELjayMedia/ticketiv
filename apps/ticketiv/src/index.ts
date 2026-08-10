@@ -2,4 +2,5 @@ export * from "./app-config";
 export * from "./app-shell";
 export * from "./checkout-handoff";
 export * from "./discovery";
+export * from "./navigation";
 export * from "./ticket-wallet";
