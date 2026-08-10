@@ -518,6 +518,17 @@ export function MyTickets({
                     <Icon name="cal" size={14} />
                   </button>
                 </div>
+                {_featured.isEventDay && (
+                  <div className="mt-3 flex items-start gap-2 rounded-[var(--radius)] bg-accent-soft px-3 py-2.5 text-accent">
+                    <Icon name="qr" size={15} className="mt-0.5 shrink-0" />
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[12px] font-semibold">Ready for the gate</span>
+                      <span className="font-mono text-[10px] leading-relaxed">
+                        Open your QR before joining the queue and keep your screen brightness up.
+                      </span>
+                    </div>
+                  </div>
+                )}
                 <Link
                   href={`/resale?ticketId=${encodeURIComponent(_featured.ticketId)}`}
                   className="mt-3 flex items-center justify-between rounded-[var(--radius)] border border-dashed border-line-2 px-3 py-2 text-left hover:bg-bg"
@@ -579,22 +590,32 @@ export function MyTickets({
                     </div>
                   </Link>
                   {t.status === "issued" ? (
-                    <div className="flex shrink-0 flex-col gap-1">
-                      <button
-                        type="button"
-                        aria-label={`Transfer ${t.title}`}
-                        onClick={() => setTransferModal({ ticketId: t.ticketId, title: t.title })}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius)] border border-line-2 hover:bg-bg"
-                      >
-                        <Icon name="arrowUR" size={14} />
-                      </button>
+                    <div className="flex shrink-0 flex-col gap-1.5">
                       <Link
-                        href={`/resale?ticketId=${encodeURIComponent(t.ticketId)}`}
-                        aria-label={`List ${t.title}`}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius)] border border-line-2 hover:bg-bg"
+                        href={`/tickets/${t.ticketId}`}
+                        aria-label={`Show QR for ${t.title}`}
+                        className="inline-flex h-8 items-center justify-center gap-1 rounded-[var(--radius)] bg-ink px-2.5 text-[11px] font-semibold text-white hover:bg-ink-2"
                       >
-                        <Icon name="ticket" size={14} />
+                        <Icon name="qr" size={13} />
+                        QR
                       </Link>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          aria-label={`Transfer ${t.title}`}
+                          onClick={() => setTransferModal({ ticketId: t.ticketId, title: t.title })}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius)] border border-line-2 hover:bg-bg"
+                        >
+                          <Icon name="arrowUR" size={14} />
+                        </button>
+                        <Link
+                          href={`/resale?ticketId=${encodeURIComponent(t.ticketId)}`}
+                          aria-label={`List ${t.title} for resale`}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius)] border border-line-2 hover:bg-bg"
+                        >
+                          <Icon name="ticket" size={14} />
+                        </Link>
+                      </div>
                     </div>
                   ) : (
                     <Icon
@@ -609,25 +630,6 @@ export function MyTickets({
             ))}
           </ul>
 
-          {/* Resale education */}
-          <section className="px-5 pt-4">
-            <Card className="border-line-2 p-3.5" flat>
-              <div className="flex items-start gap-3">
-                <div className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
-                  <Icon name="ticket" size={16} />
-                </div>
-                <div className="flex flex-1 flex-col gap-0.5">
-                  <span className="text-[13px] font-semibold">Resale is coming into this flow</span>
-                  <span className="font-mono text-[11px] leading-relaxed text-ink-3">
-                    Eligible unused tickets will be listable before doors, with listing status tracked under Resale.
-                  </span>
-                </div>
-                <Link href="/resale" className="text-[12px] font-semibold text-accent">
-                  View
-                </Link>
-              </div>
-            </Card>
-          </section>
 
           {/* Inbound transfer */}
           {_inbound && (
