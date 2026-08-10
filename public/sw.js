@@ -107,14 +107,17 @@ async function saveOfflineTicket(message) {
   const ticketId = typeof message.ticketId === "string" ? message.ticketId : "";
   const ownerId = typeof message.ownerId === "string" ? message.ownerId : "";
   const expiresAt = typeof message.expiresAt === "string" ? message.expiresAt : "";
-  const url = typeof message.url === "string" ? new URL(message.url, self.location.origin) : null;
+  const requestedIds = Array.isArray(message.ticketIds) ? message.ticketIds : [ticketId];
+  const ticketIds = [...new Set(requestedIds)]
+    .filter((value) => typeof value === "string");
 
   if (
     !TICKET_ID_PATTERN.test(ticketId)
     || !ownerId
-    || !url
-    || url.origin !== self.location.origin
-    || ticketIdFromUrl(url.href) !== ticketId
+    || ticketIds.length === 0
+    || ticketIds.length > 20
+    || !ticketIds.includes(ticketId)
+    || ticketIds.some((value) => !TICKET_ID_PATTERN.test(value))
     || !Number.isFinite(Date.parse(expiresAt))
     || Date.parse(expiresAt) <= Date.now()
   ) {
@@ -123,33 +126,48 @@ async function saveOfflineTicket(message) {
 
   await purgeExpiredAndOtherOwners(ownerId);
 
-  const response = await fetch(url.href, {
-    credentials: "include",
-    cache: "reload",
-  });
-  const finalTicketId = ticketIdFromUrl(response.url || url.href);
-  const contentType = response.headers.get("content-type") || "";
-  if (!response.ok || response.redirected || finalTicketId !== ticketId || !contentType.includes("text/html")) {
+  const documents = await Promise.all(ticketIds.map(async (id) => {
+    const url = new URL(`/tickets/${encodeURIComponent(id)}`, self.location.origin).href;
+    const response = await fetch(url, {
+      credentials: "include",
+      cache: "reload",
+    });
+    const finalTicketId = ticketIdFromUrl(response.url || url);
+    const contentType = response.headers.get("content-type") || "";
+    if (
+      !response.ok
+      || response.redirected
+      || finalTicketId !== id
+      || !contentType.includes("text/html")
+    ) {
+      throw new Error("unauthorized_ticket");
+    }
+    return { id, url, response };
+  })).catch(() => null);
+
+  if (!documents) {
     return {
       ok: false,
       available: false,
-      error: "Sign in and refresh this valid ticket before saving it offline.",
+      error: "Sign in and refresh every valid ticket before saving it offline.",
     };
   }
 
-  const ticketCache = await caches.open(OFFLINE_TICKET_CACHE);
-  await ticketCache.put(url.href, response.clone());
-  await cacheStaticAssets(message.assetUrls);
-
   const savedAt = new Date().toISOString();
-  const meta = { ticketId, ownerId, url: url.href, savedAt, expiresAt };
+  const ticketCache = await caches.open(OFFLINE_TICKET_CACHE);
   const metaCache = await caches.open(OFFLINE_META_CACHE);
-  await metaCache.put(
-    metaRequest(ticketId),
-    new Response(JSON.stringify(meta), {
-      headers: { "content-type": "application/json", "cache-control": "no-store" },
-    }),
-  );
+
+  await Promise.all(documents.map(async ({ id, url, response }) => {
+    await ticketCache.put(url, response.clone());
+    const meta = { ticketId: id, ownerId, url, savedAt, expiresAt };
+    await metaCache.put(
+      metaRequest(id),
+      new Response(JSON.stringify(meta), {
+        headers: { "content-type": "application/json", "cache-control": "no-store" },
+      }),
+    );
+  }));
+  await cacheStaticAssets(message.assetUrls);
 
   return { ok: true, available: true, savedAt, expiresAt };
 }
@@ -183,9 +201,15 @@ async function getOfflineTicket(message) {
 async function removeOfflineTicketCopy(message) {
   const ticketId = typeof message.ticketId === "string" ? message.ticketId : "";
   const ownerId = typeof message.ownerId === "string" ? message.ownerId : "";
-  const meta = TICKET_ID_PATTERN.test(ticketId) ? await readMeta(ticketId) : null;
+  const requestedIds = Array.isArray(message.ticketIds) ? message.ticketIds : [ticketId];
+  const ticketIds = [...new Set(requestedIds)]
+    .filter((value) => typeof value === "string" && TICKET_ID_PATTERN.test(value))
+    .slice(0, 20);
 
-  if (meta && meta.ownerId === ownerId) await deleteOfflineTicket(meta);
+  await Promise.all(ticketIds.map(async (id) => {
+    const meta = await readMeta(id);
+    if (meta && meta.ownerId === ownerId) await deleteOfflineTicket(meta);
+  }));
   return { ok: true, available: false };
 }
 
