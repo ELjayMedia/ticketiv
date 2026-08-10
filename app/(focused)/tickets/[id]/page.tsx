@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { TicketView } from "@/components/quiet/screens/tickets/ticket-view";
-import { getTicketById, getTicketEventPolicy } from "@/lib/data/attendee/tickets";
+import { getTicketById, getTicketEventPolicy, getTicketOfflineExpiry } from "@/lib/data/attendee/tickets";
 import { mapTicketView } from "@/lib/mappers/tickets";
 
 export const metadata = { title: "Your ticket" };
@@ -22,7 +22,16 @@ export default async function TicketPage({
   const row = await getTicketById(id);
   if (!row) notFound();
 
-  const refundPolicy = row.event_id ? await getTicketEventPolicy(row.event_id) : undefined;
+  const [refundPolicy, offlineExpiresAt] = row.event_id
+    ? await Promise.all([
+        getTicketEventPolicy(row.event_id),
+        getTicketOfflineExpiry(row.event_id, row.event_starts_at),
+      ])
+    : [undefined, undefined];
 
-  return <TicketView ticket={mapTicketView(row, { refundPolicy })} />;
+  return (
+    <TicketView
+      ticket={mapTicketView(row, { refundPolicy, offlineExpiresAt })}
+    />
+  );
 }
