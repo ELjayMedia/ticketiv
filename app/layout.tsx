@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter_Tight, JetBrains_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
+import { PostHogIdentity } from "@/components/analytics/posthog-identity";
 import { DeploymentEnvironmentBanner } from "@/components/deployment-environment-banner";
 import { SearchOverlayProvider } from "@/components/quiet/search/search-overlay";
 
@@ -54,6 +55,7 @@ export default function RootLayout({
     <html lang="en" className={`${interTight.variable} ${jetbrainsMono.variable}`}>
       <body className="bg-bg text-ink antialiased">
         <DeploymentEnvironmentBanner />
+        <PostHogIdentity />
         <SearchOverlayProvider>{children}</SearchOverlayProvider>
         <Analytics />
       </body>

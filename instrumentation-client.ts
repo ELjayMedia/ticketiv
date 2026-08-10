@@ -11,16 +11,36 @@ const missingPostHogVariable = !posthogProjectToken
     : null
 
 if (missingPostHogVariable) {
+  // Warn, never throw. Every other optional service here degrades to a no-op
+  // when unconfigured — Sentry, WhatsApp, SMS, push, rate limiting, MoMo — and
+  // .env.production does not load in development, so throwing would break the
+  // dev server for anyone who has not set up PostHog locally.
   if (process.env.NODE_ENV === "development") {
-    throw new Error(
-      `${missingPostHogVariable} variable required by PostHog is missing or un-configured, this causes events to be silently missed. This error stops appearing once ${missingPostHogVariable} is configured`,
+    console.warn(
+      `[posthog] ${missingPostHogVariable} is not set — product analytics are disabled for this session.`,
     )
   }
 } else if (posthogProjectToken && posthogHost) {
   posthog.init(posthogProjectToken, {
     api_host: posthogHost,
     defaults: "2026-01-30",
-    capture_exceptions: true,
+
+    // Sentry owns errors. Two SDKs hooking the same global handlers means the
+    // same exception is reported twice, in two products, with two triage
+    // queues — and PostHog's copy has no source maps behind it.
+    capture_exceptions: false,
+
+    // Privacy flags are set explicitly rather than inherited from the dated
+    // `defaults` bundle, because what those defaults enable can change and this
+    // app renders payout account details, ID numbers on organizer signup, and
+    // checkout. Autocapture records clicks, element text and URLs across every
+    // route; the events worth having are captured deliberately via
+    // posthog.capture() at the call sites. Session recording can also be turned
+    // on remotely from PostHog project settings, so it is pinned off here where
+    // the decision is reviewable in code.
+    autocapture: false,
+    disable_session_recording: true,
+
     debug: process.env.NODE_ENV === "development",
   })
 }
