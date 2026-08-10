@@ -106,28 +106,12 @@ export function ProfileScreen({ user, appVersion = "current", tapBand, orgContex
 
   const activityRows: SettingRow[] = [
     {
-      icon: "ticket",
-      label: "Tickets",
-      value: `${user.upcomingTickets} upcoming`,
-      href: "/tickets",
-      accent: true,
-      description: "QR tickets, past tickets and event-day access",
-    },
-    {
       icon: "heart",
       label: "Favourites",
       value: String(user.favouritesCount),
       href: "/favourites",
       accent: true,
       description: "Saved events and followed series",
-    },
-    {
-      icon: "arrowUR",
-      label: "Transfers",
-      value: user.pendingTransfers > 0 ? `${user.pendingTransfers} pending` : "none",
-      href: "/tickets",
-      accent: user.pendingTransfers > 0,
-      description: "Manage incoming and outgoing transfers with your tickets",
     },
     {
       icon: "clock",
@@ -230,7 +214,9 @@ export function ProfileScreen({ user, appVersion = "current", tapBand, orgContex
         </Card>
       </section>
 
-      <SettingsList title="Your activity" rows={activityRows} />
+      <SettingsList title="Activity" rows={activityRows} />
+
+      <div className="text-label px-5 pb-2">Ticketiv for organizers and talent</div>
 
       {adminContext ? (
         <section className="px-5 pb-4">
@@ -303,15 +289,8 @@ export function ProfileScreen({ user, appVersion = "current", tapBand, orgContex
       </section>
 
       <SettingsList
-        title="More"
+        title="Help and legal"
         rows={[
-          {
-            icon: "bell" as IconName,
-            label: "Notifications",
-            value: user.unreadNotifications > 0 ? `${user.unreadNotifications} unread` : undefined,
-            href: "/notifications",
-            accent: user.unreadNotifications > 0,
-          },
           { icon: "spark" as IconName, label: "Help centre", href: "/help" },
           { icon: "fileText" as IconName, label: "Privacy policy", href: "/privacy" },
           {
