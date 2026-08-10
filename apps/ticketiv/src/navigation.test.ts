@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  applyTicketivConsumerDeepLink,
+  createTicketivConsumerAppShellState,
+} from "./app-shell";
+import {
   TICKETIV_CONSUMER_NAV_ITEMS,
   isTicketivConsumerFocusedRoute,
   ticketivConsumerRouteForSection,
@@ -35,17 +39,23 @@ describe("Ticketiv native attendee navigation", () => {
   });
 
   it("selects the correct tab for deep-linked attendee destinations", () => {
+    const shell = createTicketivConsumerAppShellState();
+
     expect(
-      ticketivConsumerSectionForRoute({
-        route: "unknown",
-        path: "/friends/invites",
-      })
+      ticketivConsumerSectionForRoute(
+        applyTicketivConsumerDeepLink(
+          shell,
+          "https://ticketiv.app/friends/invites"
+        ).activeRoute
+      )
     ).toBe("friends");
     expect(
-      ticketivConsumerSectionForRoute({
-        route: "unknown",
-        path: "/notifications",
-      })
+      ticketivConsumerSectionForRoute(
+        applyTicketivConsumerDeepLink(
+          shell,
+          "ticketiv://notifications"
+        ).activeRoute
+      )
     ).toBe("you");
     expect(
       ticketivConsumerSectionForRoute({
