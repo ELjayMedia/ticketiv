@@ -78,10 +78,13 @@ export function saveTicketForOffline(input: {
   ticketId: string;
   ownerId: string;
   expiresAt: string;
+  siblingIds?: string[];
 }): Promise<OfflineTicketReply> {
+  const ticketIds = [...new Set([input.ticketId, ...(input.siblingIds ?? [])])];
   return sendMessage({
     type: "SAVE_OFFLINE_TICKET",
     ...input,
+    ticketIds,
     url: window.location.href,
     assetUrls: staticAssetsOnPage(),
   });
@@ -90,6 +93,8 @@ export function saveTicketForOffline(input: {
 export function removeOfflineTicket(input: {
   ticketId: string;
   ownerId: string;
+  siblingIds?: string[];
 }): Promise<OfflineTicketReply> {
-  return sendMessage({ type: "REMOVE_OFFLINE_TICKET", ...input });
+  const ticketIds = [...new Set([input.ticketId, ...(input.siblingIds ?? [])])];
+  return sendMessage({ type: "REMOVE_OFFLINE_TICKET", ...input, ticketIds });
 }
