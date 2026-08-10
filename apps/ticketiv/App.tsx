@@ -21,7 +21,12 @@ import {
   createTicketivConsumerAppShellState,
   describeTicketivWalletTicket,
   fetchTicketivDiscoverEvents,
+  isTicketivConsumerFocusedRoute,
+  ticketivConsumerRouteForSection,
+  ticketivConsumerSectionForRoute,
+  TICKETIV_CONSUMER_NAV_ITEMS,
   TICKETIV_PUBLIC_ORIGIN,
+  type TicketivConsumerAppSection,
   type TicketivConsumerAppShellState,
   type TicketivConsumerShellRoute,
   type TicketivDiscoverEvent,
@@ -29,8 +34,6 @@ import {
 } from "./src";
 
 type DiscoveryStatus = "loading" | "ready" | "empty" | "error";
-type AppSection = "discover" | "tickets" | "account";
-
 export default function App() {
   const [shell, setShell] = useState<TicketivConsumerAppShellState>(() =>
     createTicketivConsumerAppShellState()
@@ -61,18 +64,14 @@ export default function App() {
     };
   }, [applyDeepLink]);
 
-  const section = sectionForRoute(shell.activeRoute);
+  const section = ticketivConsumerSectionForRoute(shell.activeRoute);
+  const focused = isTicketivConsumerFocusedRoute(shell.activeRoute);
 
-  function navigate(next: AppSection) {
-    if (next === "discover") {
-      setShell((current) => ({ ...current, activeRoute: { route: "discover" } }));
-      return;
-    }
-    if (next === "tickets") {
-      setShell((current) => ({ ...current, activeRoute: { route: "tickets" } }));
-      return;
-    }
-    setShell((current) => ({ ...current, activeRoute: { route: "account-settings" } }));
+  function navigate(next: TicketivConsumerAppSection) {
+    setShell((current) => ({
+      ...current,
+      activeRoute: ticketivConsumerRouteForSection(next),
+    }));
   }
 
   return (
@@ -105,7 +104,9 @@ export default function App() {
           )}
         </View>
 
-        <BottomNavigation active={section} onNavigate={navigate} />
+        {focused ? null : (
+          <BottomNavigation active={section} onNavigate={navigate} />
+        )}
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -334,18 +335,12 @@ function BottomNavigation({
   active,
   onNavigate,
 }: {
-  active: AppSection;
-  onNavigate: (section: AppSection) => void;
+  active: TicketivConsumerAppSection;
+  onNavigate: (section: TicketivConsumerAppSection) => void;
 }) {
-  const items: Array<{ key: AppSection; label: string }> = [
-    { key: "discover", label: "Discover" },
-    { key: "tickets", label: "Tickets" },
-    { key: "account", label: "Account" },
-  ];
-
   return (
     <View accessibilityRole="tablist" style={styles.bottomNavigation}>
-      {items.map((item) => {
+      {TICKETIV_CONSUMER_NAV_ITEMS.map((item) => {
         const selected = active === item.key;
         return (
           <Pressable
@@ -419,12 +414,6 @@ function SecondaryButton({ label, onPress }: { label: string; onPress: () => voi
   );
 }
 
-function sectionForRoute(route: TicketivConsumerShellRoute): AppSection {
-  if (route.route === "tickets" || route.route === "ticket-token") return "tickets";
-  if (route.route === "account-settings" || route.route === "auth-callback") return "account";
-  return "discover";
-}
-
 function routeDestination(route: TicketivConsumerShellRoute): {
   actionLabel: string;
   eyebrow: string;
@@ -432,6 +421,30 @@ function routeDestination(route: TicketivConsumerShellRoute): {
   path: string | null;
   title: string;
 } {
+  const section = ticketivConsumerSectionForRoute(route);
+
+  if (section === "friends") {
+    return {
+      actionLabel: "Open Friends",
+      eyebrow: "FRIENDS",
+      message:
+        "Connect with friends, manage invitations and discover events together on ticketiv.app.",
+      path: route.route === "unknown" ? route.path : "/friends",
+      title: "Friends on Ticketiv",
+    };
+  }
+
+  if (section === "you" && route.route === "unknown") {
+    return {
+      actionLabel: "Open your profile",
+      eyebrow: "YOU",
+      message:
+        "Manage your profile, notifications, orders and security on ticketiv.app.",
+      path: route.path,
+      title: "Your Ticketiv",
+    };
+  }
+
   if (route.route === "event") {
     return {
       actionLabel: "View tickets",
@@ -452,11 +465,11 @@ function routeDestination(route: TicketivConsumerShellRoute): {
   }
   if (route.route === "account-settings") {
     return {
-      actionLabel: "Open account",
-      eyebrow: "ACCOUNT",
-      message: "Manage your profile, security settings and account deletion on ticketiv.app.",
+      actionLabel: "Open settings",
+      eyebrow: "YOU",
+      message: "Manage your personal information, security and account preferences on ticketiv.app.",
       path: "/account/settings",
-      title: "Your Ticketiv account",
+      title: "Account settings",
     };
   }
   if (route.route === "order-confirmation") {
