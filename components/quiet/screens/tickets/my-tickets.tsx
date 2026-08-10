@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/quiet/ui/button";
 import { CheckInCelebration } from "@/components/tickets/check-in-celebration";
 import { useTicketCheckIns, type TicketCheckIn } from "@/lib/hooks/use-ticket-check-ins";
+import { groupTicketsByOrder } from "@/lib/tickets/group-tickets-by-order";
 
 /* ──────────────────────────────────────────────────────────────
  * Mobile /tickets · ticket ownership hub
@@ -282,6 +283,18 @@ export function MyTickets({
     localTransferred.has(t.ticketId) ? { ...t, status: "transferred" as const } : t,
   );
 
+  // The featured ticket represents its whole order. Remove its siblings from
+  // the remaining list so one purchase produces one card, while every
+  // order_item remains individually addressable and scannable.
+  const featuredOrderTickets = _featured
+    ? filteredUpcoming.filter((ticket) => ticket.orderId === _featured.orderId)
+    : [];
+  const featuredTicketCount = _featured ? 1 + featuredOrderTickets.length : 0;
+  const groupedUpcoming = groupTicketsByOrder(
+    filteredUpcoming.filter((ticket) => ticket.orderId !== _featured?.orderId),
+  );
+  const groupedPast = groupTicketsByOrder(_past);
+
   async function handleTransferSubmit() {
     if (!transferModal || !recipientEmail.trim() || transferPending) return;
     setTransferPending(true);
@@ -481,7 +494,10 @@ export function MyTickets({
                       {_featured.whenLabel}
                     </span>
                     <span className="font-mono text-[11px] text-ink-3">
-                      {_featured.venueLabel} · {_featured.seatLabel}
+                      {_featured.venueLabel} ·{" "}
+                      {featuredTicketCount > 1
+                        ? `${featuredTicketCount} tickets`
+                        : _featured.seatLabel}
                     </span>
                     <div className="mt-1.5">
                       <CheckInBadge checkedInAt={_featured.checkedInAt} />
@@ -494,7 +510,10 @@ export function MyTickets({
                     href={`/tickets/${_featured.ticketId}`}
                     className="flex flex-1 items-center justify-center gap-1.5 rounded-[var(--radius)] bg-ink px-3 py-2 text-[12px] font-medium text-white hover:bg-ink-2"
                   >
-                    <Icon name="qr" size={14} /> Show QR
+                    <Icon name="qr" size={14} />
+                    {featuredTicketCount > 1
+                      ? `Open ${featuredTicketCount} tickets`
+                      : "Show QR"}
                   </Link>
                   <Link
                     href={`/resale?ticketId=${encodeURIComponent(_featured.ticketId)}`}
@@ -529,6 +548,19 @@ export function MyTickets({
                     </div>
                   </div>
                 )}
+                {featuredTicketCount > 1 && (
+                  <div className="mt-3 flex items-start gap-2 rounded-[var(--radius)] border border-line-2 px-3 py-2.5">
+                    <Icon name="copy" size={15} className="mt-0.5 shrink-0 text-ink-3" />
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[12px] font-semibold">
+                        {featuredTicketCount} separate tickets
+                      </span>
+                      <span className="font-mono text-[10px] leading-relaxed text-ink-3">
+                        Open the first QR, then swipe between every ticket in this order.
+                      </span>
+                    </div>
+                  </div>
+                )}
                 <Link
                   href={`/resale?ticketId=${encodeURIComponent(_featured.ticketId)}`}
                   className="mt-3 flex items-center justify-between rounded-[var(--radius)] border border-dashed border-line-2 px-3 py-2 text-left hover:bg-bg"
@@ -552,84 +584,18 @@ export function MyTickets({
           </section>
           )}
 
-          {/* Other upcoming */}
+          {/* Other upcoming — one card per order, one QR per ticket. */}
           <ul className="flex flex-col gap-2 px-5">
-            {filteredUpcoming.map((t) => (
-              <li key={t.ticketId}>
-                <Card
-                  className={
-                    "flex items-center gap-3 p-3 transition-colors hover:bg-bg" +
-                    (t.status === "checked_in" ? " opacity-60" : "")
-                  }
-                  flat
-                >
-                  <Link href={`/tickets/${t.ticketId}`} className="flex min-w-0 flex-1 items-center gap-3">
-                    <div className={
-                      "h-12 w-12 shrink-0 overflow-hidden rounded-[var(--radius)]" +
-                      (t.status === "checked_in" ? " grayscale" : "")
-                    }>
-                      <Photo src={t.photo} height={48} />
-                    </div>
-                    <div className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate text-[14px] font-semibold">
-                        {t.title}
-                      </span>
-                      <span className="truncate font-mono text-[11px] text-ink-3">
-                        {t.whenLabel} · {t.venueLabel}
-                      </span>
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                        <StatusChip status={t.status} count={t.count} />
-                        <CheckInBadge checkedInAt={t.checkedInAt} />
-                      </div>
-                      <RefundCta
-                        orderId={t.orderId}
-                        orderStatus={t.orderStatus}
-                        eventStartsAt={t.eventStartsAt}
-                        ticketStatus={t.status}
-                      />
-                    </div>
-                  </Link>
-                  {t.status === "issued" ? (
-                    <div className="flex shrink-0 flex-col gap-1.5">
-                      <Link
-                        href={`/tickets/${t.ticketId}`}
-                        aria-label={`Show QR for ${t.title}`}
-                        className="inline-flex h-8 items-center justify-center gap-1 rounded-[var(--radius)] bg-ink px-2.5 text-[11px] font-semibold text-white hover:bg-ink-2"
-                      >
-                        <Icon name="qr" size={13} />
-                        QR
-                      </Link>
-                      <div className="flex gap-1">
-                        <button
-                          type="button"
-                          aria-label={`Transfer ${t.title}`}
-                          onClick={() => setTransferModal({ ticketId: t.ticketId, title: t.title })}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius)] border border-line-2 hover:bg-bg"
-                        >
-                          <Icon name="arrowUR" size={14} />
-                        </button>
-                        <Link
-                          href={`/resale?ticketId=${encodeURIComponent(t.ticketId)}`}
-                          aria-label={`List ${t.title} for resale`}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius)] border border-line-2 hover:bg-bg"
-                        >
-                          <Icon name="ticket" size={14} />
-                        </Link>
-                      </div>
-                    </div>
-                  ) : (
-                    <Icon
-                      name="chevR"
-                      size={16}
-                      className="text-ink-3"
-                      aria-hidden
-                    />
-                  )}
-                </Card>
-              </li>
+            {groupedUpcoming.map((group) => (
+              <TicketOrderGroupCard
+                key={group.orderId}
+                tickets={group.tickets}
+                onTransfer={(ticket) =>
+                  setTransferModal({ ticketId: ticket.ticketId, title: ticket.title })
+                }
+              />
             ))}
           </ul>
-
 
           {/* Inbound transfer */}
           {_inbound && (
@@ -688,7 +654,7 @@ export function MyTickets({
       )}
 
       {seg === "past" && (
-        _past.length === 0 ? (
+        groupedPast.length === 0 ? (
           <EmptyState
             icon="ticket"
             title="No past tickets"
@@ -696,35 +662,13 @@ export function MyTickets({
           />
         ) : (
           <ul className="flex flex-col gap-2 px-5">
-            {_past.map((t) => (
-              <li key={t.ticketId}>
-                <Link
-                  href={`/tickets/${t.ticketId}`}
-                  className={
-                    "flex items-center gap-3 rounded-[var(--radius-md)] border bg-surface p-3 transition-all hover:bg-bg " +
-                    (recentlyCheckedInId === t.ticketId
-                      ? "border-accent ring-2 ring-accent/25 motion-safe:animate-pulse"
-                      : "border-line")
-                  }
-                >
-                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-[var(--radius)] opacity-80">
-                    <Photo src={t.photo} height={48} />
-                  </div>
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-[14px] font-semibold">
-                      {t.title}
-                    </span>
-                    <span className="truncate font-mono text-[11px] text-ink-3">
-                      {t.whenLabel} · {t.venueLabel}
-                    </span>
-                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                      <StatusChip status={t.status} count={t.count} />
-                      <CheckInBadge checkedInAt={t.checkedInAt} />
-                    </div>
-                  </div>
-                  <Icon name="chevR" size={16} className="text-ink-3" aria-hidden />
-                </Link>
-              </li>
+            {groupedPast.map((group) => (
+              <TicketOrderGroupCard
+                key={group.orderId}
+                tickets={group.tickets}
+                mode="past"
+                recentlyCheckedInId={recentlyCheckedInId}
+              />
             ))}
           </ul>
         )
@@ -886,6 +830,116 @@ export function MyTickets({
       </Modal>
       </div>
     </>
+  );
+}
+
+function TicketOrderGroupCard({
+  tickets,
+  mode = "upcoming",
+  onTransfer,
+  recentlyCheckedInId,
+}: {
+  tickets: TicketListItem[];
+  mode?: "upcoming" | "past";
+  onTransfer?: (ticket: TicketListItem) => void;
+  recentlyCheckedInId?: string | null;
+}) {
+  const lead = tickets[0];
+  if (!lead) return null;
+
+  const multiple = tickets.length > 1;
+
+  return (
+    <li>
+      <Card className="overflow-hidden p-0" flat>
+        <div className="flex items-center gap-3 p-3">
+          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-[var(--radius)]">
+            <Photo src={lead.photo} height={48} />
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-[14px] font-semibold">{lead.title}</span>
+            <span className="truncate font-mono text-[11px] text-ink-3">
+              {lead.whenLabel} · {lead.venueLabel}
+            </span>
+          </div>
+          <Chip variant={multiple ? "accent" : "default"} size="sm">
+            {tickets.length} ticket{multiple ? "s" : ""}
+          </Chip>
+        </div>
+
+        <Divider />
+
+        <div className="divide-y divide-line">
+          {tickets.map((ticket, index) => {
+            const canAct = mode === "upcoming" && ticket.status === "issued";
+            const highlighted = recentlyCheckedInId === ticket.ticketId;
+
+            return (
+              <div
+                key={ticket.ticketId}
+                className={
+                  "flex items-center gap-2.5 px-3 py-2.5 transition-colors " +
+                  (highlighted
+                    ? "bg-accent-soft ring-2 ring-inset ring-accent/25"
+                    : "hover:bg-bg")
+                }
+              >
+                <Link
+                  href={`/tickets/${ticket.ticketId}`}
+                  className="flex min-w-0 flex-1 flex-col"
+                >
+                  <span className="text-[12px] font-semibold">
+                    {multiple ? `Ticket ${index + 1} of ${tickets.length}` : "Your ticket"}
+                  </span>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    <StatusChip status={ticket.status} count={1} />
+                    <CheckInBadge checkedInAt={ticket.checkedInAt} />
+                  </div>
+                  {mode === "upcoming" && (
+                    <RefundCta
+                      orderId={ticket.orderId}
+                      orderStatus={ticket.orderStatus}
+                      eventStartsAt={ticket.eventStartsAt}
+                      ticketStatus={ticket.status}
+                    />
+                  )}
+                </Link>
+
+                {canAct ? (
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Link
+                      href={`/tickets/${ticket.ticketId}`}
+                      aria-label={`Show QR for ${lead.title}, ticket ${index + 1}`}
+                      className="inline-flex h-8 items-center justify-center gap-1 rounded-[var(--radius)] bg-ink px-2.5 text-[11px] font-semibold text-white hover:bg-ink-2"
+                    >
+                      <Icon name="qr" size={13} />
+                      QR
+                    </Link>
+                    <button
+                      type="button"
+                      aria-label={`Transfer ${lead.title}, ticket ${index + 1}`}
+                      onClick={() => onTransfer?.(ticket)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius)] border border-line-2 hover:bg-bg"
+                    >
+                      <Icon name="arrowUR" size={14} />
+                    </button>
+                    <Link
+                      href={`/resale?ticketId=${encodeURIComponent(ticket.ticketId)}`}
+                      aria-label={`List ${lead.title}, ticket ${index + 1} for resale`}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius)] border border-line-2 hover:bg-bg"
+                    >
+                      <Icon name="ticket" size={14} />
+                    </Link>
+                  </div>
+                ) : (
+                  <Icon name="chevR" size={16} className="shrink-0 text-ink-3" aria-hidden />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+    </li>
   );
 }
 
