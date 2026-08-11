@@ -1,6 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { initiatePaystackRefund } from "@/lib/payments/paystack-refunds"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 const SUPPORT_ROLES = new Set([
@@ -91,7 +92,7 @@ export async function initiateRefundAction(
     .from("refunds")
     .select("amount_cents, status")
     .eq("payment_id", payment.id)
-    .not("status", "eq", "rejected")
+    .in("status", ["requested", "processing", "processed"])
 
   const alreadyRequested = (existingRefunds ?? []).reduce(
     (sum, refund) => sum + Math.max(0, refund.amount_cents ?? 0),
@@ -109,15 +110,27 @@ export async function initiateRefundAction(
     throw new Error(`Refund cannot exceed this ticket's face value of ${(itemFaceValue / 100).toFixed(2)}`)
   }
 
+  const currency = payment.currency ?? order.currency ?? "SZL"
   const { data: refund, error } = await supabase
     .from("refunds")
     .insert({
       payment_id: payment.id,
       amount_cents: amountCents,
-      currency: payment.currency ?? order.currency ?? "SZL",
-      type: amountCents === itemFaceValue ? "full" : "partial",
+      currency,
+      type: amountCents === payment.amount_cents ? "full" : "partial",
       status: "requested",
       initiated_by: userId,
+      provider_payload: {
+        source: "organizer",
+        reason: normalizedReason,
+        items: [
+          {
+            order_item_id: orderItemId,
+            amount_cents: amountCents,
+            currency,
+          },
+        ],
+      },
     })
     .select("id")
     .single()
@@ -135,15 +148,58 @@ export async function initiateRefundAction(
       order_id: order.id,
       order_item_id: orderItemId,
       amount_cents: amountCents,
-      currency: payment.currency ?? order.currency ?? "SZL",
+      currency,
       reason: normalizedReason,
     },
   })
   if (auditError) throw new Error(`Refund created but audit logging failed: ${auditError.message}`)
 
+  const provider = await initiatePaystackRefund(refund.id)
+
   revalidatePath(`/orgs/${orgId}/events/${eventId}/orders/${order.id}`)
   revalidatePath(`/orgs/${orgId}/finance`)
-  return { ok: true, refundId: refund.id }
+  return { ok: true, refundId: refund.id, provider }
+}
+
+export async function approveRefundAction(orgId: string, eventId: string, refundId: string) {
+  const { supabase, userId } = await requireEventSupportAccess(orgId, eventId)
+
+  const { data: refund } = await supabase
+    .from("refunds")
+    .select("id, payment_id, status, payments!inner(order_id, orders!inner(id, org_id, order_items!inner(ticket_types!inner(event_id))))")
+    .eq("id", refundId)
+    .maybeSingle()
+
+  if (!refund) throw new Error("Refund not found")
+  const payment = refund.payments as any
+  const order = payment?.orders
+  const items = Array.isArray(order?.order_items) ? order.order_items : []
+  if (order?.org_id !== orgId || !items.some((item: any) => item?.ticket_types?.event_id === eventId)) {
+    throw new Error("Refund does not belong to this event")
+  }
+  if (refund.status !== "requested") {
+    throw new Error(`Refund cannot be approved from status: ${refund.status}`)
+  }
+
+  const provider = await initiatePaystackRefund(refundId)
+
+  await supabase.from("audit_log").insert({
+    org_id: orgId,
+    actor_id: userId,
+    table_name: "refunds",
+    record_id: refundId,
+    action: "other",
+    changes: {
+      event_type: "refund_submitted_to_provider",
+      refund_id: refundId,
+      order_id: order.id,
+      event_id: eventId,
+    },
+  })
+
+  revalidatePath(`/orgs/${orgId}/events/${eventId}/orders/${order.id}`)
+  revalidatePath(`/orgs/${orgId}/finance`)
+  return { ok: true, refundId, provider }
 }
 
 export async function revokeTicketAction(orgId: string, eventId: string, orderItemId: string) {

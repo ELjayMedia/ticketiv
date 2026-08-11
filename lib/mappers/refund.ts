@@ -1,15 +1,9 @@
-/**
- * Map BuyerOrder into Refund screen props. The screen's policy-band logic is
- * hard-coded to {full @ 2d+, half @ 1d, none < 1d}; we compute `daysUntil`
- * from event_starts_at, which is what selects the right band on render.
- *
- * The screen does not yet read the refund_policy jsonb directly — it works
- * off `daysUntil` against its own band table. We hand both through so a
- * follow-up that surfaces the resolved bands has them ready.
- */
-
 import { PHOTOS } from "@/lib/photos";
-import { resolveRefundPolicy } from "@/lib/refund-policy";
+import {
+  refundQuoteForHoursBefore,
+  resolveRefundPolicy,
+  type RefundBand,
+} from "@/lib/refund-policy";
 import type { BuyerOrder } from "@/lib/data/attendee/orders";
 
 export interface RefundOrderProp {
@@ -26,7 +20,12 @@ export interface RefundOrderProp {
 
 export interface RefundScreenProps {
   order: RefundOrderProp;
-  daysUntil: number;
+  hoursUntil: number;
+  refundBps: number;
+  policy: {
+    label: string;
+    bands: RefundBand[];
+  };
 }
 
 const WHEN = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short" });
@@ -34,7 +33,11 @@ const WHEN = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric"
 export function mapRefund(order: BuyerOrder): RefundScreenProps {
   const first = order.items[0];
   const start = first?.event_starts_at ? new Date(first.event_starts_at) : null;
-  const daysUntil = start ? Math.max(0, Math.ceil((start.getTime() - Date.now()) / (24 * 60 * 60 * 1000))) : 0;
+  const hoursUntil = start
+    ? Math.max(0, (start.getTime() - Date.now()) / (60 * 60 * 1000))
+    : 0;
+  const policy = resolveRefundPolicy(order.refund_policy);
+  const quote = refundQuoteForHoursBefore(policy, hoursUntil);
 
   return {
     order: {
@@ -53,13 +56,13 @@ export function mapRefund(order: BuyerOrder): RefundScreenProps {
         priceMinor: it.price_cents ?? 0,
       })),
     },
-    daysUntil,
+    hoursUntil,
+    refundBps: quote?.refundBps ?? 0,
+    policy: {
+      label: policy.label,
+      bands: policy.bands,
+    },
   };
 }
 
-/**
- * Re-export the policy resolver so the screen (and any future panel that
- * wants to render the full band list) doesn't need to import from
- * `lib/refund-policy` directly.
- */
 export { resolveRefundPolicy };

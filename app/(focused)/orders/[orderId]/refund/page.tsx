@@ -6,9 +6,9 @@ import { mapRefund } from "@/lib/mappers/refund";
 /**
  * `/orders/[orderId]/refund`
  *
- * RLS-scoped through getOrderForBuyer. The Refund screen does its own
- * band resolution from `daysUntil`; the JSON policy on the event row is
- * available on order.refund_policy for a future "show full schedule" panel.
+ * RLS-scoped through getOrderForBuyer. The mapper resolves the event's
+ * structured refund policy into the exact quote shown on screen; the server
+ * action recomputes the same policy before it creates a request.
  */
 export const metadata = { title: "Request refund" };
 export const dynamic = "force-dynamic";
@@ -26,7 +26,7 @@ export default async function RefundPage({
 
   return (
     <div className="h-dvh">
-      <Refund order={props.order} daysUntil={props.daysUntil} />
+      <Refund {...props} />
     </div>
   );
 }

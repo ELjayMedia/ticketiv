@@ -7,6 +7,8 @@ import { PAYSTACK_SECRET_KEY } from "@/lib/env"
 import { notifyPaymentFailed } from "@/lib/notifications"
 import { evaluatePaystackWebhookOutcome } from "@/lib/payments-math"
 import { getPaystackSettings } from "@/lib/payments/paystack-config"
+import { isPaystackRefundEvent } from "@/lib/payments/paystack-refund-core"
+import { handlePaystackRefundWebhook } from "@/lib/payments/paystack-refunds"
 import { drainPaymentOutbox } from "@/lib/payments/outbox"
 import { completeSpecialCheckoutFromWebhook } from "@/lib/payments/special-checkout"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -117,6 +119,11 @@ async function completePrimaryCheckout(order: WebhookOrder, reference: string, p
 }
 
 export async function completeTrustedPaystackWebhook(payload: WebhookPayload) {
+  const eventType = String(payload.event ?? "")
+  if (isPaystackRefundEvent(eventType)) {
+    return handlePaystackRefundWebhook(payload)
+  }
+
   const data = payload.data ?? {}
   const metadata = data.metadata ?? {}
   const orderId = String(metadata.order_id ?? "")
