@@ -2,27 +2,20 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { requestBuyerRefundAction } from "@/app/(focused)/orders/[orderId]/refund/actions";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider } from "@/components/quiet/ui/primitives";
 import { formatPrice } from "@/lib/format";
 
-/* ──────────────────────────────────────────────────────────────
- * `/orders/[orderId]/refund` — port of QuietRefund
- *
- * Per-ticket multi-select. The organizer policy is shown in
- * context so the refund amount is never a surprise: the design
- * shows the policy bands (48h+, 24-48h, <24h) and which one
- * applies based on `daysUntil`.
- *
- * Booking fee is non-refundable in this design — that's an
- * organizer-level setting in Supabase (`events.refund_fee_policy`).
- * ────────────────────────────────────────────────────────────── */
-
 interface RefundProps {
   order?: RefundOrder;
-  /** Days until event start. Drives which policy band is active. */
-  daysUntil?: number;
+  hoursUntil?: number;
+  refundBps?: number;
+  policy?: {
+    label: string;
+    bands: ReadonlyArray<{ hoursBefore: number; refundBps: number }>;
+  };
 }
 
 interface RefundOrder {
@@ -44,7 +37,6 @@ interface RefundTicketRow {
   priceMinor: number;
 }
 
-
 const REASONS = [
   "Can't attend",
   "Plans changed",
@@ -53,9 +45,24 @@ const REASONS = [
   "Other",
 ] as const;
 
+function formatWindow(hours: number) {
+  if (hours >= 24 && hours % 24 === 0) {
+    const days = hours / 24;
+    return `${days} day${days === 1 ? "" : "s"} before`;
+  }
+  return `${hours} hour${hours === 1 ? "" : "s"} before`;
+}
+
+function formatPercent(bps: number) {
+  const percent = bps / 100;
+  return Number.isInteger(percent) ? `${percent}%` : `${percent.toFixed(2)}%`;
+}
+
 export function Refund({
   order,
-  daysUntil = 5,
+  hoursUntil = 0,
+  refundBps = 0,
+  policy = { label: "Refund policy", bands: [] },
 }: RefundProps) {
   const firstTicketId = order?.tickets[0]?.ticketId;
   const [selected, setSelected] = React.useState<Set<string>>(
@@ -64,6 +71,10 @@ export function Refund({
   const [reason, setReason] = React.useState<(typeof REASONS)[number]>(
     "Can't attend"
   );
+  const [notes, setNotes] = React.useState("");
+  const [error, setError] = React.useState("");
+  const [submitted, setSubmitted] = React.useState(false);
+  const [isPending, startTransition] = React.useTransition();
 
   if (!order) {
     return (
@@ -78,26 +89,38 @@ export function Refund({
     );
   }
 
-  // Policy band
-  const band: "full" | "half" | "none" =
-    daysUntil >= 2 ? "full" : daysUntil >= 1 ? "half" : "none";
-  const refundMultiplier = band === "full" ? 1 : band === "half" ? 0.5 : 0;
-
-  // Sums
-  const selectedTickets = order.tickets.filter((t) =>
-    selected.has(t.ticketId)
+  const activeBand = policy.bands.find((band) => hoursUntil >= band.hoursBefore) ?? null;
+  const refundMultiplier = refundBps / 10000;
+  const selectedTickets = order.tickets.filter((t) => selected.has(t.ticketId));
+  const ticketRefundMinor = selectedTickets.reduce(
+    (sum, ticket) => sum + Math.max(0, Math.round(ticket.priceMinor * refundMultiplier)),
+    0,
   );
-  const ticketRefundMinor = Math.round(
-    selectedTickets.reduce((s, t) => s + t.priceMinor, 0) * refundMultiplier
-  );
-  const feeMinor = order.bookingFeeMinor;
-  const payoutMinor = Math.max(0, ticketRefundMinor - feeMinor);
+  const refundable = refundBps > 0 && ticketRefundMinor > 0;
 
   const toggle = (id: string) => {
+    if (submitted || isPending) return;
     setSelected((cur) => {
       const next = new Set(cur);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
+    });
+  };
+
+  const submitRefund = () => {
+    setError("");
+    startTransition(async () => {
+      try {
+        await requestBuyerRefundAction({
+          orderId: order.id,
+          ticketIds: [...selected],
+          reason,
+          notes,
+        });
+        setSubmitted(true);
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "Unable to request refund");
+      }
     });
   };
 
@@ -120,7 +143,6 @@ export function Refund({
           </div>
         </header>
 
-        {/* Order */}
         <div className="px-5 pb-4">
           <Card className="p-3">
             <div className="flex items-center gap-2.5">
@@ -128,9 +150,7 @@ export function Refund({
                 <Photo src={order.eventPhoto} height={44} />
               </div>
               <div className="flex flex-1 flex-col">
-                <span className="text-[13px] font-semibold">
-                  {order.eventTitle}
-                </span>
+                <span className="text-[13px] font-semibold">{order.eventTitle}</span>
                 <span className="font-mono text-[11px] uppercase text-ink-3">
                   {order.whenLabel} · ORDER #{order.orderNumber}
                 </span>
@@ -142,7 +162,6 @@ export function Refund({
           </Card>
         </div>
 
-        {/* Which tickets */}
         <section className="px-5 pb-4">
           <div className="text-label mb-2">Which tickets?</div>
           <div className="flex flex-col gap-1.5">
@@ -153,23 +172,20 @@ export function Refund({
                   key={t.ticketId}
                   className={
                     "flex cursor-pointer items-center gap-2.5 rounded-[var(--radius-md)] border p-3 " +
-                    (on
-                      ? "border-accent bg-accent-soft"
-                      : "border-line bg-surface")
+                    (on ? "border-accent bg-accent-soft" : "border-line bg-surface")
                   }
                 >
                   <input
                     type="checkbox"
                     checked={on}
                     onChange={() => toggle(t.ticketId)}
+                    disabled={submitted || isPending}
                     className="sr-only"
                   />
                   <span
                     className={
                       "inline-flex h-[18px] w-[18px] items-center justify-center rounded-[5px] border-2 shrink-0 " +
-                      (on
-                        ? "border-accent bg-accent text-white"
-                        : "border-line-2 bg-surface")
+                      (on ? "border-accent bg-accent text-white" : "border-line-2 bg-surface")
                     }
                   >
                     {on && <Icon name="check" size={11} strokeWidth={3} />}
@@ -178,9 +194,7 @@ export function Refund({
                     <span className="text-[14px] font-semibold">
                       Seat {t.seatLabel} · {t.typeLabel}
                     </span>
-                    <span className="font-mono text-[11px] text-ink-3">
-                      Issued · scannable
-                    </span>
+                    <span className="font-mono text-[11px] text-ink-3">Issued · scannable</span>
                   </div>
                   <span className="font-mono text-[13px] font-semibold">
                     {formatPrice(t.priceMinor)}
@@ -191,108 +205,105 @@ export function Refund({
           </div>
         </section>
 
-        {/* Reason */}
         <section className="px-5 pb-4">
           <div className="text-label mb-2">Reason</div>
           <select
             value={reason}
-            onChange={(e) =>
-              setReason(e.target.value as (typeof REASONS)[number])
-            }
-            className="w-full rounded-[var(--radius-md)] border border-line bg-surface px-3 py-2.5 text-[14px] font-medium outline-none focus:border-accent focus:ring-[3px] focus:ring-accent-soft"
+            disabled={submitted || isPending}
+            onChange={(e) => setReason(e.target.value as (typeof REASONS)[number])}
+            className="w-full rounded-[var(--radius-md)] border border-line bg-surface px-3 py-2.5 text-[14px] font-medium outline-none focus:border-accent focus:ring-[3px] focus:ring-accent-soft disabled:opacity-60"
           >
-            {REASONS.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
+            {REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         </section>
 
-        {/* Notes */}
         <section className="px-5 pb-4">
           <div className="text-label mb-2">Notes (optional)</div>
           <textarea
             rows={3}
+            value={notes}
+            disabled={submitted || isPending}
+            onChange={(event) => setNotes(event.target.value)}
             placeholder="Tell the organizer what happened…"
-            className="w-full resize-none rounded-[var(--radius-md)] border border-line bg-surface p-3 text-[14px] outline-none placeholder:text-ink-3 focus:border-accent focus:ring-[3px] focus:ring-accent-soft"
+            className="w-full resize-none rounded-[var(--radius-md)] border border-line bg-surface p-3 text-[14px] outline-none placeholder:text-ink-3 focus:border-accent focus:ring-[3px] focus:ring-accent-soft disabled:opacity-60"
           />
         </section>
 
-        {/* Refund summary */}
         <section className="px-5 pb-4">
           <Card className="bg-bg p-3.5" flat>
-            <Row
-              label="Ticket refund"
-              value={formatPrice(ticketRefundMinor)}
-            />
-            <Row
-              label="Booking fee (non-refundable)"
-              value={`−${formatPrice(feeMinor)}`}
-              muted
-            />
+            <Row label="Ticket refund request" value={formatPrice(ticketRefundMinor)} />
+            {order.bookingFeeMinor > 0 && (
+              <Row
+                label="Booking fee (not included)"
+                value={formatPrice(order.bookingFeeMinor)}
+                muted
+              />
+            )}
             <Divider className="my-2" />
             <div className="flex items-center">
-              <span className="flex-1 text-[14px] font-semibold">
-                You'll receive
-              </span>
+              <span className="flex-1 text-[14px] font-semibold">You'll request</span>
               <span className="font-mono text-[18px] font-semibold">
-                {formatPrice(payoutMinor)}
+                {formatPrice(ticketRefundMinor)}
               </span>
             </div>
             <div className="mt-1 flex items-center gap-1.5 text-ink-3">
               <Icon name="check" size={12} />
               <span className="font-mono text-[10px]">
-                back to {order.paymentDescription} · 3–5 business days
+                Organizer approval required before payment-provider processing
               </span>
             </div>
           </Card>
         </section>
 
-        {/* Policy */}
         <section className="px-5 pb-4">
-          <Card
-            className="border-[color:var(--color-accent-soft)] bg-[#fbf7ff] p-3.5"
-            flat
-          >
-            <div className="text-label mb-2 text-accent">Organizer's policy</div>
-            <ul className="flex flex-col gap-1.5">
-              {[
-                { icon: "check", label: "48h+ before · full refund", active: band === "full" },
-                { icon: "check", label: "24–48h before · 50% refund", active: band === "half" },
-                { icon: "close", label: "< 24h · no refund", active: band === "none" },
-              ].map((b) => (
-                <li
-                  key={b.label}
-                  className="flex items-center gap-1.5 text-[12px]"
-                >
-                  <Icon
-                    name={b.icon}
-                    size={14}
-                    className={b.active ? "text-accent" : "text-ink-3"}
-                  />
-                  <span
-                    className={
-                      b.active
-                        ? "font-semibold text-ink"
-                        : "text-ink-3"
-                    }
-                  >
-                    {b.label}
-                  </span>
-                </li>
-              ))}
-            </ul>
+          <Card className="border-[color:var(--color-accent-soft)] bg-[#fbf7ff] p-3.5" flat>
+            <div className="text-label mb-2 text-accent">{policy.label}</div>
+            {policy.bands.length > 0 ? (
+              <ul className="flex flex-col gap-1.5">
+                {policy.bands.map((band) => {
+                  const active = activeBand === band;
+                  return (
+                    <li key={`${band.hoursBefore}-${band.refundBps}`} className="flex items-center gap-1.5 text-[12px]">
+                      <Icon name="check" size={14} className={active ? "text-accent" : "text-ink-3"} />
+                      <span className={active ? "font-semibold text-ink" : "text-ink-3"}>
+                        {formatWindow(band.hoursBefore)} · {formatPercent(band.refundBps)} refund
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="text-[12px] text-ink-3">This event is non-refundable.</p>
+            )}
             <div className="mt-2 border-t border-line pt-2 font-mono text-[10px] uppercase text-ink-3">
-              You're {daysUntil} days out ·{" "}
-              {band === "full"
-                ? "Full refund eligible"
-                : band === "half"
-                ? "Partial refund only"
-                : "Not refundable"}
+              {Math.ceil(hoursUntil)} hours before event · {refundable ? `${formatPercent(refundBps)} eligible` : "Not refundable"}
             </div>
           </Card>
         </section>
+
+        {submitted && (
+          <section className="px-5 pb-4">
+            <Card className="p-3.5" flat>
+              <div className="flex gap-2">
+                <Icon name="check" size={16} className="mt-0.5 text-success" />
+                <div>
+                  <p className="text-[13px] font-semibold">Refund request sent</p>
+                  <p className="mt-0.5 text-[12px] text-ink-3">
+                    The organizer will review it before it is submitted to the payment provider.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </section>
+        )}
+
+        {error && (
+          <section className="px-5 pb-4">
+            <p className="rounded-[var(--radius-md)] border border-danger/30 bg-danger/5 p-3 text-[12px] text-danger">
+              {error}
+            </p>
+          </section>
+        )}
 
         <div className="h-24" />
       </div>
@@ -302,14 +313,22 @@ export function Refund({
           href={`/orders/${order.id}/confirmation`}
           className="flex flex-1 items-center justify-center rounded-[var(--radius-md)] border border-line-2 bg-surface px-4 py-3.5 text-[14px] font-semibold hover:bg-bg"
         >
-          Cancel
+          {submitted ? "Done" : "Cancel"}
         </Link>
         <button
-          disabled={selected.size === 0 || band === "none"}
+          type="button"
+          onClick={submitRefund}
+          disabled={selected.size === 0 || !refundable || submitted || isPending}
           className="flex flex-[2] items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {band === "none" ? "Not refundable" : "Request refund"}{" "}
-          {band !== "none" && <Icon name="arrowR" size={16} />}
+          {submitted
+            ? "Request sent"
+            : isPending
+              ? "Requesting…"
+              : !refundable
+                ? "Not refundable"
+                : "Request refund"}
+          {!submitted && !isPending && refundable && <Icon name="arrowR" size={16} />}
         </button>
       </div>
     </div>
@@ -328,11 +347,7 @@ function Row({
   return (
     <div className="flex items-center py-0.5">
       <span className="flex-1 font-mono text-[12px] text-ink-3">{label}</span>
-      <span
-        className={
-          "font-mono text-[12px] " + (muted ? "text-ink-3" : "text-ink")
-        }
-      >
+      <span className={"font-mono text-[12px] " + (muted ? "text-ink-3" : "text-ink")}>
         {value}
       </span>
     </div>
