@@ -14,8 +14,30 @@
     },
     {
       "schema": "public",
+      "name": "fn_disable_push_device_token",
+      "arguments": "p_service text, p_token text, p_reason text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_ops_alerts_tick",
       "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_push_targets_for_user",
+      "arguments": "p_user_id uuid, p_notification_type text",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
@@ -30,6 +52,30 @@
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_register_push_device",
+      "arguments": "p_service text, p_token text, p_device_id text, p_app_id text, p_platform_version text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_unregister_push_device",
+      "arguments": "p_service text, p_device_id text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
         "postgres",
         "service_role"
       ]
