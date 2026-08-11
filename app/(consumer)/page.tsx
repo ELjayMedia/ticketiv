@@ -22,7 +22,11 @@ export const revalidate = 60;
  * UI-friendly shape and partitioned client-side into Tonight / This week.
  */
 export default async function DiscoverPage() {
-  const rows = await getPublicEventsList({ limit: 36, sort: "soonest" });
+  const rows = await getPublicEventsList({
+    limit: 36,
+    sort: "soonest",
+    startsAfter: new Date().toISOString(),
+  });
   const events = rows.map(mapDiscoverEvent);
   const { tonight, thisWeek, editorPick } = partitionDiscover(events);
   const thisWeekEvents = thisWeek.length > 0 ? thisWeek : events.slice(0, 6);
