@@ -175,6 +175,15 @@ device session), is idempotent, and enforces one-time use per ticket.
 
 ## Local development
 
+**Toolchain.** Node **22.x** (`.nvmrc`) and pnpm **10.28.0** (`packageManager`).
+`engine-strict=true` is set, so `pnpm install` *fails* rather than warns on the
+wrong Node — if you see `ERR_PNPM_UNSUPPORTED_ENGINE`, switch versions first:
+
+```bash
+nvm use            # or: fnm use / asdf install — reads .nvmrc
+corepack enable    # pins pnpm to the version in packageManager
+```
+
 ```bash
 pnpm install                 # install workspace deps
 cp .env.example .env.local   # then fill in the Supabase + Paystack values (see matrix)
@@ -184,13 +193,17 @@ pnpm dev                     # start the web app on http://localhost:3000
 Quality gates (the same `check:release` chain runs in CI):
 
 ```bash
-pnpm lint          # eslint
-pnpm test          # vitest (unit)
-pnpm check:mobile  # mobile app/adapters package tests + typechecks
-pnpm typecheck     # tsc --noEmit
-pnpm check:demo    # guards against placeholder/demo patterns
-pnpm build         # next build
-pnpm check:release # all of the above
+pnpm lint             # eslint
+pnpm test             # vitest (unit)
+pnpm check:mobile     # mobile app/adapters package tests + typechecks
+pnpm typecheck        # tsc --noEmit
+pnpm check:demo       # guards against placeholder/demo patterns
+pnpm check:permissions   # RPC grant matrix vs. the committed snapshot
+pnpm check:service-role  # service-role key never reachable from a browser path
+pnpm check:crossorg      # cross-org authorization on org-scoped routes
+pnpm check:routes        # internal route guards
+pnpm build            # next build
+pnpm check:release # all of the above, in that order
 
 pnpm test:e2e          # Playwright (see e2e/); set PLAYWRIGHT_BASE_URL to a target
 pnpm test:e2e:install  # install the chromium browser
