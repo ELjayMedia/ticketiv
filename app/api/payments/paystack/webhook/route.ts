@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import * as Sentry from "@sentry/nextjs"
 
 import { completeTrustedPaystackWebhook, verifyTrustedPaystackSignature } from "@/lib/payments/paystack-webhook"
+import { paystackRefundWebhookEventId } from "@/lib/payments/paystack-refund-core"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function POST(request: Request) {
@@ -20,7 +21,9 @@ export async function POST(request: Request) {
   }
 
   const data = payload.data ?? {}
-  const providerEventId = data.id ? String(data.id) : data.reference ? String(data.reference) : null
+  const providerEventId =
+    paystackRefundWebhookEventId(payload) ??
+    (data.id ? String(data.id) : data.reference ? String(data.reference) : null)
   if (!providerEventId) {
     return NextResponse.json({ error: "Paystack webhook missing event identifier" }, { status: 400 })
   }
@@ -73,7 +76,7 @@ export async function POST(request: Request) {
         if (raced.processed_at) return NextResponse.json({ ok: true, duplicate: true })
         webhookId = raced.id
       } else {
-        console.error("Failed to record Paystack webhook", insertError)
+        console.error("Failed to record webhook", insertError)
         return NextResponse.json({ error: "Unable to record webhook" }, { status: 500 })
       }
     } else {
