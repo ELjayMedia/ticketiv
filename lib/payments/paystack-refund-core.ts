@@ -19,6 +19,21 @@ export function mapPaystackRefundEventStatus(eventType: unknown): RefundWebhookS
   }
 }
 
+export function mapPaystackRefundStatus(status: unknown): RefundWebhookStatus | null {
+  switch (String(status ?? "").toLowerCase()) {
+    case "pending":
+    case "processing":
+    case "needs-attention":
+      return "processing"
+    case "processed":
+      return "processed"
+    case "failed":
+      return "failed"
+    default:
+      return null
+  }
+}
+
 export function paystackRefundTransactionReference(data: Record<string, any>): string | null {
   const value =
     data.transaction_reference ??
