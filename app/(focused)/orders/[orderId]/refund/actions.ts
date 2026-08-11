@@ -22,6 +22,15 @@ function requestKey(userId: string, orderId: string, ticketIds: string[]) {
     .digest("hex")
 }
 
+function matchesRequestKey(payload: unknown, dedupeKey: string) {
+  return Boolean(
+    payload &&
+      typeof payload === "object" &&
+      !Array.isArray(payload) &&
+      (payload as Record<string, unknown>).request_key === dedupeKey,
+  )
+}
+
 export async function requestBuyerRefundAction(input: BuyerRefundRequestInput) {
   const supabase = createServerSupabaseClient()
   if (!supabase) throw new Error("Not authenticated")
@@ -75,7 +84,7 @@ export async function requestBuyerRefundAction(input: BuyerRefundRequestInput) {
 
   const itemAmounts = selected.map((item) => ({
     order_item_id: item!.id as string,
-    amount_cents: Math.max(0, Math.round((item!.price_cents ?? 0) * quote.refundBps / 10000)),
+    amount_cents: Math.max(0, Math.round(((item!.price_cents ?? 0) * quote.refundBps) / 10000)),
     currency: order.currency,
   }))
   const amountCents = itemAmounts.reduce((sum, item) => sum + item.amount_cents, 0)
@@ -105,26 +114,11 @@ export async function requestBuyerRefundAction(input: BuyerRefundRequestInput) {
     .order("created_at", { ascending: false })
   if (existingError) throw new Error(`Unable to check existing refunds: ${existingError.message}`)
 
-  const duplicate = (existing ?? []).find((refund) => {
-    const payload = refund.provider_payload
-    return Boolean(
-      payload &&
-        typeof payload === "object" &&
-        !Array.isArray(payload) &&
-        (payload as Record<string, unknown>).request_key === dedupeKey,
-    )
-  })
+  const duplicate = (existing ?? []).find((refund) => matchesRequestKey(refund.provider_payload, dedupeKey))
   if (duplicate) {
     return { ok: true, refundId: duplicate.id, status: duplicate.status, amountCents, duplicate: true }
   }
 
-  const alreadyRefunding = (existing ?? []).reduce((sum, refund) => {
-    const match = refund as any
-    return sum + Math.max(0, Number(match.amount_cents ?? 0))
-  }, 0)
-  // Existing select intentionally keeps the payload/status small; calculate the
-  // authoritative aggregate separately so concurrent/partial refunds cannot
-  // exceed the original succeeded payment.
   const { data: activeAmounts, error: amountError } = await admin
     .from("refunds")
     .select("amount_cents")
@@ -135,7 +129,6 @@ export async function requestBuyerRefundAction(input: BuyerRefundRequestInput) {
     (sum, refund) => sum + Math.max(0, refund.amount_cents ?? 0),
     0,
   )
-  void alreadyRefunding
   if (reservedRefunds + amountCents > payment.amount_cents) {
     throw new Error("This refund would exceed the remaining refundable payment balance")
   }
@@ -165,6 +158,21 @@ export async function requestBuyerRefundAction(input: BuyerRefundRequestInput) {
     })
     .select("id, status")
     .single()
+
+  if (insertError?.code === "23505") {
+    const { data: raced, error: racedError } = await admin
+      .from("refunds")
+      .select("id, status, provider_payload")
+      .eq("payment_id", payment.id)
+      .in("status", ["requested", "processing", "processed"])
+      .order("created_at", { ascending: false })
+    if (racedError) throw new Error(`Unable to recover duplicate refund request: ${racedError.message}`)
+    const winner = (raced ?? []).find((row) => matchesRequestKey(row.provider_payload, dedupeKey))
+    if (winner) {
+      return { ok: true, refundId: winner.id, status: winner.status, amountCents, duplicate: true }
+    }
+  }
+
   if (insertError || !refund) {
     throw new Error(insertError?.message ?? "Unable to request refund")
   }
