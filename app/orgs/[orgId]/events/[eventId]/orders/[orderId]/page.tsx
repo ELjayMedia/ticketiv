@@ -6,6 +6,7 @@ import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { OrderSupportActions } from "./order-support-actions"
+import { RefundApprovalButton } from "./refund-approval-button"
 
 export const dynamic = "force-dynamic"
 
@@ -132,7 +133,12 @@ export default async function OrderDetailPage({
 
   const orderAudit = supportAudit.filter((entry: any) => {
     const eventType = entry.changes?.event_type
-    const isSupportEvent = eventType === "refund_requested" || eventType === "ticket_revoked"
+    const isSupportEvent = [
+      "refund_requested",
+      "buyer_refund_requested",
+      "refund_submitted_to_provider",
+      "ticket_revoked",
+    ].includes(eventType)
     const belongsToOrder = entry.changes?.order_id === orderId || itemIds.includes(entry.changes?.order_item_id)
     return isSupportEvent && belongsToOrder
   })
@@ -264,12 +270,29 @@ export default async function OrderDetailPage({
             <CardBody className="py-8 text-center text-[13px] text-ink-3">No refund has been requested for this order.</CardBody>
           ) : (
             <CardBody className="flex flex-col gap-3 p-5">
-              {refunds.map((refund: any) => (
-                <div key={refund.id} className="flex items-center justify-between gap-3">
-                  <div><p className="text-[13px] font-semibold capitalize text-ink">{refund.type?.replace(/_/g, " ")}</p><p className="font-mono text-[11px] text-ink-3">Initiated {fmtDate(refund.created_at)}{refund.processed_at ? ` · Processed ${fmtDate(refund.processed_at)}` : ""}</p></div>
-                  <div className="flex items-center gap-2"><Chip size="sm" variant={refund.status === "processed" ? "active" : "muted"} className="capitalize">{refund.status}</Chip><p className="font-mono text-[14px] font-semibold">{refund.currency} {(refund.amount_cents / 100).toFixed(2)}</p></div>
-                </div>
-              ))}
+              {refunds.map((refund: any) => {
+                const amountLabel = `${refund.currency} ${(refund.amount_cents / 100).toFixed(2)}`
+                return (
+                  <div key={refund.id} className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[13px] font-semibold capitalize text-ink">{refund.type?.replace(/_/g, " ")}</p>
+                      <p className="font-mono text-[11px] text-ink-3">Initiated {fmtDate(refund.created_at)}{refund.processed_at ? ` · Processed ${fmtDate(refund.processed_at)}` : ""}</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Chip size="sm" variant={refund.status === "processed" ? "active" : "muted"} className="capitalize">{refund.status}</Chip>
+                      <p className="font-mono text-[14px] font-semibold">{amountLabel}</p>
+                      {canSupport && refund.status === "requested" && (
+                        <RefundApprovalButton
+                          orgId={orgId}
+                          eventId={eventId}
+                          refundId={refund.id}
+                          amountLabel={amountLabel}
+                        />
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </CardBody>
           )}
         </Card>
