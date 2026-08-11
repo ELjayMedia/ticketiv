@@ -22,6 +22,19 @@
         "postgres",
         "service_role"
       ]
+    },
+    {
+      "schema": "public",
+      "name": "get_public_profile",
+      "arguments": "p_handle text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
     }
   ]
 }
