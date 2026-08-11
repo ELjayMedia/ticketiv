@@ -4,6 +4,7 @@ import { requirePaystackSecretKey } from "@/lib/payments/paystack-config"
 import {
   isPaystackRefundEvent,
   mapPaystackRefundEventStatus,
+  mapPaystackRefundStatus,
   paystackRefundProviderReference,
   paystackRefundTransactionReference,
 } from "@/lib/payments/paystack-refund-core"
@@ -33,6 +34,18 @@ function objectPayload(value: Json | null | undefined): Record<string, any> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, any>)
     : {}
+}
+
+function assertProviderPayloadMatchesRefund(refund: RefundRow, data: Record<string, any>) {
+  const amount = Number(data.amount)
+  if (Number.isFinite(amount) && amount > 0 && amount !== refund.amount_cents) {
+    throw new Error(`Paystack refund amount ${amount} does not match Ticketiv refund ${refund.amount_cents}`)
+  }
+
+  const currency = String(data.currency ?? "").trim()
+  if (currency && currency.toUpperCase() !== refund.currency.toUpperCase()) {
+    throw new Error(`Paystack refund currency ${currency} does not match Ticketiv refund ${refund.currency}`)
+  }
 }
 
 async function transitionRefund(
@@ -193,8 +206,10 @@ export async function initiatePaystackRefund(refundId: string) {
     throw new Error(payload?.message ?? "Paystack rejected the refund request")
   }
 
+  assertProviderPayloadMatchesRefund(refund, payload.data)
   const providerRef = paystackRefundProviderReference(payload.data)
-  await transitionRefund(refund, "processing", providerRef, {
+  const providerStatus = mapPaystackRefundStatus(payload.data.status) ?? "processing"
+  await transitionRefund(refund, providerStatus, providerRef, {
     ...payload.data,
     transaction_reference:
       paystackRefundTransactionReference(payload.data) ?? payment.ext_payment_id,
@@ -204,9 +219,54 @@ export async function initiatePaystackRefund(refundId: string) {
   return {
     ok: true,
     alreadySubmitted: false,
-    status: "processing" as const,
+    status: providerStatus,
     providerRef,
   }
+}
+
+/**
+ * Poll Paystack for a refund's current status. This is an operational fallback
+ * for delayed/missing webhooks and uses the same final transition path, so a
+ * manual refresh cannot create a second ledger reversal or ticket mutation.
+ */
+export async function reconcilePaystackRefund(refundId: string) {
+  const refund = await loadRefund(refundId)
+  if (refund.status === "processed" || refund.status === "failed") {
+    return { ok: true, refundId, status: refund.status, alreadyFinal: true }
+  }
+  if (refund.status === "cancelled") throw new Error("Cancelled refunds cannot be reconciled")
+  if (!refund.provider_ref) {
+    throw new Error("Refund has no Paystack reference yet; provider submission must be reconciled manually")
+  }
+
+  const secretKey = await requirePaystackSecretKey()
+  const response = await fetch(`https://api.paystack.co/refund/${encodeURIComponent(refund.provider_ref)}`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${secretKey}` },
+    cache: "no-store",
+  })
+  const payload = (await response.json().catch(() => null)) as
+    | { status?: boolean; message?: string; data?: Record<string, any> }
+    | null
+
+  if (!response.ok || !payload?.status || !payload.data) {
+    throw new Error(payload?.message ?? "Unable to fetch Paystack refund status")
+  }
+
+  assertProviderPayloadMatchesRefund(refund, payload.data)
+  const providerStatus = mapPaystackRefundStatus(payload.data.status)
+  if (!providerStatus) {
+    throw new Error(`Unsupported Paystack refund status: ${String(payload.data.status ?? "missing")}`)
+  }
+
+  const providerRef = paystackRefundProviderReference(payload.data) ?? refund.provider_ref
+  const result = await transitionRefund(refund, providerStatus, providerRef, {
+    ...payload.data,
+    reconciled_at: new Date().toISOString(),
+    reconciliation_source: "poll",
+  })
+
+  return { ok: true, refundId, status: providerStatus, alreadyFinal: false, result }
 }
 
 async function findRefundForWebhook(data: Record<string, any>): Promise<RefundRow> {
@@ -273,16 +333,7 @@ export async function handlePaystackRefundWebhook(payload: Record<string, any>) 
     throw new Error("Paystack refund webhook matched a cancelled Ticketiv refund")
   }
 
-  const amount = Number(data.amount)
-  if (Number.isFinite(amount) && amount > 0 && amount !== refund.amount_cents) {
-    throw new Error(`Paystack refund amount ${amount} does not match Ticketiv refund ${refund.amount_cents}`)
-  }
-
-  const currency = String(data.currency ?? "").trim()
-  if (currency && currency.toUpperCase() !== refund.currency.toUpperCase()) {
-    throw new Error(`Paystack refund currency ${currency} does not match Ticketiv refund ${refund.currency}`)
-  }
-
+  assertProviderPayloadMatchesRefund(refund, data)
   const providerRef = paystackRefundProviderReference(data) ?? refund.provider_ref
   const result = await transitionRefund(refund, status, providerRef, {
     ...data,
