@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   isPaystackRefundEvent,
   mapPaystackRefundEventStatus,
+  mapPaystackRefundStatus,
   paystackRefundProviderReference,
   paystackRefundTransactionReference,
   paystackRefundWebhookEventId,
@@ -20,9 +21,20 @@ describe("Paystack refund lifecycle helpers", () => {
     expect(mapPaystackRefundEventStatus(event)).toBe(expected)
   })
 
+  it.each([
+    ["pending", "processing"],
+    ["processing", "processing"],
+    ["needs-attention", "processing"],
+    ["processed", "processed"],
+    ["failed", "failed"],
+  ] as const)("maps provider status %s to %s", (status, expected) => {
+    expect(mapPaystackRefundStatus(status)).toBe(expected)
+  })
+
   it("does not treat transaction events as refunds", () => {
     expect(isPaystackRefundEvent("charge.success")).toBe(false)
     expect(mapPaystackRefundEventStatus("charge.success")).toBeNull()
+    expect(mapPaystackRefundStatus("success")).toBeNull()
   })
 
   it("extracts transaction and refund references from common Paystack shapes", () => {
