@@ -13,7 +13,7 @@
 
 begin;
 set local role service_role;
-select set_config('request.jwt.claim.role', 'service_role', true);
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
 create temporary table tick_money_path_context (
   org_id uuid not null,
