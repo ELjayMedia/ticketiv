@@ -22,6 +22,28 @@
         "postgres",
         "service_role"
       ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_refresh_finance_reconciliation_issues",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_update_finance_reconciliation_issue",
+      "arguments": "p_issue_id uuid, p_new_status text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres"
+      ]
     }
   ]
 }

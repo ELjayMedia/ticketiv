@@ -28,6 +28,14 @@ const DEFAULT_PAYMENT_SUCCESS_RATE_MIN = 0.85
 const DEFAULT_WEBHOOK_LAG_MINUTES = 5
 const DEFAULT_HEALTH_TIMEOUT_MS = 5_000
 
+interface ReconciliationQueueSummary extends Record<string, unknown> {
+  refreshed_at?: string
+  detected_this_run?: number
+  auto_resolved_this_run?: number
+  open_issues?: number
+  critical_open_issues?: number
+}
+
 export async function GET(request: Request) {
   const expectedSecret = process.env.CRON_SECRET
   const authHeader = request.headers.get("authorization")
@@ -63,7 +71,14 @@ export async function GET(request: Request) {
   const webhookCutoff = new Date(now.getTime() - webhookLagMinutes * 60_000).toISOString()
   const admin = createAdminClient()
 
-  const [attemptsRes, staleWebhooksRes, healthResults, reconciliationRes, settlementRes] = await Promise.all([
+  const [
+    attemptsRes,
+    staleWebhooksRes,
+    healthResults,
+    reconciliationRes,
+    settlementRes,
+    reconciliationQueueRes,
+  ] = await Promise.all([
     admin
       .from("payment_attempts")
       .select("status, provider")
@@ -87,6 +102,12 @@ export async function GET(request: Request) {
       data: SettlementCounts | null
       error: { message: string } | null
     }>,
+    // Persist the row-level payment integrity findings behind the same cron that
+    // already evaluates aggregate finance alerts. This stays outside checkout.
+    (admin.rpc as any)("fn_refresh_finance_reconciliation_issues") as Promise<{
+      data: ReconciliationQueueSummary | null
+      error: { message: string } | null
+    }>,
   ])
 
   if (attemptsRes.error) {
@@ -105,6 +126,7 @@ export async function GET(request: Request) {
     evaluateWebhookLag(staleWebhooksRes.data ?? [], webhookLagMinutes),
     ...reconciliationChecks(reconciliationRes.data, reconciliationRes.error),
     ...settlementChecks(settlementRes.data, settlementRes.error),
+    reconciliationQueuePersistenceCheck(reconciliationQueueRes.data, reconciliationQueueRes.error),
   ]
 
   let alertDelivery: Awaited<ReturnType<typeof postOpsAlert>> | null = null
@@ -131,6 +153,7 @@ export async function GET(request: Request) {
     ok: !hasAlert(checks),
     checkedAt: now.toISOString(),
     checks,
+    reconciliationQueue: reconciliationQueueRes.data ?? null,
     alertDelivery,
     rateLimitGcPruned,
   })
@@ -159,6 +182,31 @@ function reconciliationChecks(
     evaluatePayoutIntegrity(counts),
     evaluateStuckAsyncWork(counts),
   ]
+}
+
+function reconciliationQueuePersistenceCheck(
+  summary: ReconciliationQueueSummary | null,
+  error: { message: string } | null
+): OpsAlertCheck {
+  if (error || !summary) {
+    return {
+      key: "finance-reconciliation-queue",
+      status: "alert",
+      severity: "warning",
+      title: "Finance reconciliation queue refresh failed",
+      message: `Row-level finance discrepancies could not be persisted${error ? `: ${error.message}` : ""}.`,
+      details: { error: error?.message ?? null },
+    }
+  }
+
+  return {
+    key: "finance-reconciliation-queue",
+    status: "ok",
+    severity: "info",
+    title: "Finance reconciliation queue refreshed",
+    message: `${Number(summary.open_issues ?? 0)} active reconciliation issue(s) are persisted for operator follow-up.`,
+    details: summary,
+  }
 }
 
 // Same degrade-to-skipped contract as reconciliationChecks: a settlement query
