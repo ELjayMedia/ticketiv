@@ -7,6 +7,7 @@ export async function getPublicEventsList(params?: {
   city?: string
   category?: string
   search?: string
+  startsAfter?: string
   sort?: "soonest" | "latest" | "price_low" | "price_high"
 }): Promise<EventsPublicView[]> {
   const supabase = createPublicSupabaseClient()
@@ -25,6 +26,10 @@ export async function getPublicEventsList(params?: {
 
     if (params?.search) {
       query = query.ilike("title", `%${params.search}%`)
+    }
+
+    if (params?.startsAfter) {
+      query = query.gte("starts_at", params.startsAfter)
     }
 
     const orderColumn = params?.sort === "price_low" ? "min_price_cents" : 
