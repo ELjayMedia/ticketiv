@@ -28,7 +28,7 @@ const DEFAULT_PAYMENT_SUCCESS_RATE_MIN = 0.85
 const DEFAULT_WEBHOOK_LAG_MINUTES = 5
 const DEFAULT_HEALTH_TIMEOUT_MS = 5_000
 
-interface ReconciliationQueueSummary {
+interface ReconciliationQueueSummary extends Record<string, unknown> {
   refreshed_at?: string
   detected_this_run?: number
   auto_resolved_this_run?: number
