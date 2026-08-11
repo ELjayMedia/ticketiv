@@ -45,7 +45,7 @@ const ANON_ALLOWLIST = new Map([
   ["fn_ticket_type_remaining", "Public event pages show remaining counts to signed-out visitors. STABLE, writes nothing."],
   [
     "get_public_profile",
-    "Public profile pages (/u/{handle}) resolve a handle for signed-out visitors. STABLE, writes nothing, search_path pinned to ''. Returns only handle, display name, avatar and join date — the fields the page already shows publicly — for an exact handle match behind a ^[A-Za-z0-9_]{3,30}$ guard, so it cannot be used to enumerate users or reach any other profile column.",
+    "Signed-out public profile pages (/@username, app/(consumer)/[username]) resolve a handle. STABLE, writes nothing, search_path pinned to ''. Returns only handle, display name, avatar and join date — the fields the page already shows publicly — for an exact handle match behind a ^[A-Za-z0-9_]{3,30}$ guard, so it cannot be used to enumerate users or reach any other profile column.",
   ],
 ])
 
