@@ -239,7 +239,7 @@ async function findRefundForWebhook(data: Record<string, any>): Promise<RefundRo
     .from("refunds")
     .select("id, payment_id, amount_cents, currency, status, provider_ref, provider_payload")
     .eq("payment_id", payment.id)
-    .in("status", ["requested", "processing", "failed"])
+    .in("status", ["requested", "processing", "processed", "failed"])
 
   const amount = Number(data.amount)
   if (Number.isFinite(amount) && amount > 0) query = query.eq("amount_cents", amount)
@@ -262,6 +262,16 @@ export async function handlePaystackRefundWebhook(payload: Record<string, any>) 
 
   const data = (payload.data ?? {}) as Record<string, any>
   const refund = await findRefundForWebhook(data)
+
+  // A processed Ticketiv refund has already triggered ticket invalidation and
+  // ledger reversal. Never let a late pending/processing/failed notification
+  // move it backward and make a later redelivery look like a fresh completion.
+  if (refund.status === "processed") {
+    return { ok: true, refundId: refund.id, status: "processed" as const, duplicate: true }
+  }
+  if (refund.status === "cancelled") {
+    throw new Error("Paystack refund webhook matched a cancelled Ticketiv refund")
+  }
 
   const amount = Number(data.amount)
   if (Number.isFinite(amount) && amount > 0 && amount !== refund.amount_cents) {
