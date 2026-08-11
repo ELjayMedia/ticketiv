@@ -43,6 +43,10 @@ const ANON_ALLOWLIST = new Map([
   ],
   ["fn_preview_promo_code", "Guest checkout previews a promo code before signing in. STABLE, writes nothing, scoped to published events."],
   ["fn_ticket_type_remaining", "Public event pages show remaining counts to signed-out visitors. STABLE, writes nothing."],
+  [
+    "get_public_profile",
+    "Signed-out /@username pages need this privacy-safe lookup. STABLE, writes nothing, validates the handle format, pins an empty search_path, and returns only handle/display name/avatar/join date/owner state.",
+  ],
 ])
 
 /**
