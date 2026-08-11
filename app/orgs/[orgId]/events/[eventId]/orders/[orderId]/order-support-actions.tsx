@@ -61,7 +61,7 @@ export function OrderSupportActions({
     if (!reason?.trim()) return
 
     const label = amountCents === itemPriceCents ? "full" : "partial"
-    if (!confirm(`Request a ${label} refund of ${currency} ${(amountCents / 100).toFixed(2)}?`)) return
+    if (!confirm(`Submit a ${label} refund of ${currency} ${(amountCents / 100).toFixed(2)} to Paystack?`)) return
 
     setBusy(true)
     setError("")
@@ -69,7 +69,7 @@ export function OrderSupportActions({
       await initiateRefundAction(orgId, eventId, orderItemId, amountCents, reason)
       router.refresh()
     } catch (e: any) {
-      setError(e?.message ?? "Failed to initiate refund")
+      setError(e?.message ?? "Failed to submit refund")
     } finally {
       setBusy(false)
     }
@@ -97,7 +97,7 @@ export function OrderSupportActions({
             onClick={handleRefund}
             className="rounded-[var(--radius)] border border-line-2 px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-3 transition hover:border-warning hover:text-warning disabled:opacity-50"
           >
-            Request refund
+            Refund via Paystack
           </button>
         )}
       </div>
