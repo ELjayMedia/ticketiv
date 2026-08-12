@@ -36,6 +36,40 @@ pnpm test:e2e
 `E2E_STRICT=1` fails fast when any seeded prerequisite is missing. Leave it off
 for advisory public-surface smoke runs.
 
+## Authenticated cross-org UAT
+
+The authenticated role matrix uses the fixed `da7a…` UAT fixture personas and
+Supabase Admin `generateLink()` to create one-time magic links in memory. No
+password is committed, written to disk or printed into CI output; Ticketiv's
+existing `/auth/callback` exchanges the link for the normal SSR session.
+
+Because Ticketiv still shares one Supabase project across environments, this
+suite is **explicitly opt-in** and runs only on the desktop Playwright project to
+avoid two workers racing the same seed/reset function.
+
+```bash
+E2E_STRICT=1 \
+E2E_ALLOW_SHARED_UAT=1 \
+TEST_SUPABASE_URL="https://<project-ref>.supabase.co" \
+TEST_SUPABASE_SERVICE_ROLE_KEY="<server-only key>" \
+TEST_SUPABASE_ALLOW_PROJECT_REF="<project-ref>" \
+PLAYWRIGHT_BASE_URL="https://<deployed-test-target>" \
+pnpm test:e2e e2e/authenticated-org-boundaries.spec.ts --project=desktop-chromium
+```
+
+Safety properties:
+
+- the project ref in `TEST_SUPABASE_URL` must exactly match the explicit
+  `TEST_SUPABASE_ALLOW_PROJECT_REF` value;
+- `E2E_ALLOW_SHARED_UAT=1` is required in addition to `E2E_STRICT=1`;
+- the suite seeds only the fixed service-role-only UAT fixture and tears it down
+  in `afterAll`;
+- generated auth action links are treated as one-time secrets and never logged;
+- Supabase must accept the deployed target as an Auth redirect URL. The test
+  fails before continuing if Auth silently substitutes another redirect target;
+- if a worker is interrupted before teardown, run `pnpm seed:uat:teardown`
+  before launch or finance/reconciliation review.
+
 ## Coverage status
 - ✅ Public happy path (no auth): discover → event detail on desktop and mobile.
   Skips the event-detail leg automatically when the target has no seeded
@@ -45,16 +79,21 @@ for advisory public-surface smoke runs.
   payout-request APIs return `401` before any resource validation or write.
 - ✅ Strict-mode preflight: missing seeded checkout env fails when
   `E2E_STRICT=1`.
+- ✅ Authenticated cross-org browser harness: Alpha owner/admin/finance/scanner/
+  cashier have a positive control in Alpha and are refused from Beta; Beta owner
+  has the inverse control. Runs only with the explicit shared-UAT gate above.
 - ⏳ Seeded guest checkout → hosted payment handoff: runs only with
   `E2E_TEST_EVENT_SLUG`, `E2E_TEST_BUYER_EMAIL` and `E2E_PAYSTACK_TEST_KEY`.
 - ⏳ Payment completion → issued ticket → scan/retry still needs the seeded
   staging fixture and provider return automation.
-- ⏳ Authenticated cross-org role matrix, organizer onboarding/event creation,
-  refund propagation, org deletion and resale/waitlist completion still need
-  deterministic seeded identities and disposable fixtures.
+- ⏳ Organizer onboarding/event creation, refund propagation, org deletion and
+  resale/waitlist browser journeys still need deterministic fixture drivers.
 
 ## Related
 - Unit suites (`pnpm test`, vitest): money-path math + webhook idempotency
   (`lib/__tests__/payments-math.test.ts`), pricing, rate-limit.
+- Database money lifecycle (`tests/money-path-lifecycle.test.ts`) uses the same
+  explicit `TEST_SUPABASE_*` project-ref allow-list and proves payment, ledger,
+  ticket and scanner invariants below the UI.
 - RLS cross-tenant isolation (`tests/rls-isolation.test.ts`): runs in
-  `pnpm test`, skips without `TEST_SUPABASE_*` env (needs a test project/branch).
+  `pnpm test`, skips without `TEST_SUPABASE_*` env.
