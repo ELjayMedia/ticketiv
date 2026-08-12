@@ -5,6 +5,7 @@ import {
   UAT_ORGS,
   UAT_PERSONAS,
   createUatAdmin,
+  provisionUatPassword,
   readAuthenticatedUatConfig,
   seedUatFixtures,
   signInUatPersona,
@@ -73,15 +74,16 @@ test.describe("authenticated organization boundaries", () => {
 
     if (!admin || !config.baseUrl) throw new Error("Authenticated UAT setup did not initialize.")
 
-    for (const [role, email] of alphaPersonas) {
+    for (const [role, persona] of alphaPersonas) {
       await test.step(`${role} positive control: Alpha dashboard`, async () => {
         await clearBrowserSession(page)
+        const password = await provisionUatPassword(admin!, persona)
         const alphaDashboard = `/orgs/${UAT_ORGS.alpha}/dashboard`
 
         await signInUatPersona({
-          admin,
           page,
-          email,
+          email: persona.email,
+          password,
           baseUrl: config.baseUrl!,
           nextPath: alphaDashboard,
         })
@@ -106,12 +108,13 @@ test.describe("authenticated organization boundaries", () => {
     if (!admin || !config.baseUrl) throw new Error("Authenticated UAT setup did not initialize.")
 
     await clearBrowserSession(page)
+    const password = await provisionUatPassword(admin, UAT_PERSONAS.betaOwner)
     const betaDashboard = `/orgs/${UAT_ORGS.beta}/dashboard`
 
     await signInUatPersona({
-      admin,
       page,
-      email: UAT_PERSONAS.betaOwner,
+      email: UAT_PERSONAS.betaOwner.email,
+      password,
       baseUrl: config.baseUrl,
       nextPath: betaDashboard,
     })
