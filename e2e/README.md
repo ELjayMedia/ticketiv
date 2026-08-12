@@ -38,12 +38,13 @@ for advisory public-surface smoke runs.
 
 ## Authenticated shared-UAT journeys
 
-The authenticated role and attendee journeys use the fixed `da7a…` UAT fixture
-personas. For each persona, the server-only Supabase Admin client assigns a fresh
-high-entropy password that exists only in the Playwright worker's memory,
-confirms the fixture email, then drives Ticketiv's **real `/login`
-email/password form**. No password is committed, stored in CI variables or
-printed into output. Teardown deletes the fixture users at the end of the run.
+The authenticated role, attendee and organizer journeys use the fixed `da7a…`
+UAT fixture personas. For each persona, the server-only Supabase Admin client
+assigns a fresh high-entropy password that exists only in the Playwright
+worker's memory, confirms the fixture email, then drives Ticketiv's **real
+`/login` email/password form**. No password is committed, stored in CI
+variables or printed into output. Teardown deletes the fixture users at the end
+of the run.
 
 Because Ticketiv still shares one Supabase project across environments, these
 suites are **explicitly opt-in** and run only on the desktop Playwright project
@@ -56,7 +57,11 @@ TEST_SUPABASE_URL="https://<project-ref>.supabase.co" \
 TEST_SUPABASE_SERVICE_ROLE_KEY="<server-only key>" \
 TEST_SUPABASE_ALLOW_PROJECT_REF="<project-ref>" \
 PLAYWRIGHT_BASE_URL="https://<deployed-test-target>" \
-pnpm test:e2e e2e/authenticated-org-boundaries.spec.ts e2e/refunded-ticket-propagation.spec.ts --project=desktop-chromium
+pnpm test:e2e \
+  e2e/authenticated-org-boundaries.spec.ts \
+  e2e/refunded-ticket-propagation.spec.ts \
+  e2e/organizer-draft-publish-guard.spec.ts \
+  --project=desktop-chromium
 ```
 
 Safety properties:
@@ -73,10 +78,13 @@ Safety properties:
   test-only auth route;
 - refund propagation consumes the fixture's already-processed refund and never
   requests a provider refund or moves real money;
+- organizer creation uses a unique event name, creates only a draft, proves the
+  UI and server both block incomplete publication, verifies the event never
+  becomes public, then deletes that exact draft before fixture teardown;
 - if a worker is interrupted before teardown, run `pnpm seed:uat:teardown`
   before launch or finance/reconciliation review. Any temporary password left on
-  a fixture is random and unknown, but the transactional fixture rows still need
-  cleanup.
+  a fixture is random and unknown. A uniquely named organizer E2E draft may also
+  need manual removal if interruption happens after draft creation.
 
 ## Coverage status
 - ✅ Public happy path (no auth): discover → event detail on desktop and mobile.
@@ -94,12 +102,21 @@ Safety properties:
   Tickets and ticket detail, the QR and transfer/resale actions are suppressed,
   and gate validation cannot admit the refunded ticket or change it to checked
   in. Uses the already-processed fixture refund, not a provider refund.
+- ✅ Organizer draft + publication guard: the Alpha owner creates a draft through
+  the real organizer UI, reaches the event editor, and both the Publish button
+  and authenticated publish API refuse to make an incomplete event public. The
+  exact draft is deleted afterwards.
 - ⏳ Seeded guest checkout → hosted payment handoff: runs only with
   `E2E_TEST_EVENT_SLUG`, `E2E_TEST_BUYER_EMAIL` and `E2E_PAYSTACK_TEST_KEY`.
 - ⏳ Payment completion → issued ticket → scan/retry still needs the seeded
   staging fixture and provider return automation.
-- ⏳ Organizer onboarding/event creation, org deletion and resale/waitlist
-  browser journeys still need deterministic fixture drivers.
+- ⏳ Successful organizer publication needs a disposable target where a fully
+  configured test event can safely become public and be removed afterwards;
+  the shared production-backed UAT target intentionally tests the blocking path
+  only.
+- ⏳ Organizer onboarding completion and organization-deletion browser journeys
+  still need deterministic fixture drivers. Resale/waitlist remains outside the
+  v1 launch path while that product surface is paused.
 
 ## Related
 - Unit suites (`pnpm test`, vitest): money-path math + webhook idempotency
