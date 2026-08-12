@@ -20,8 +20,9 @@ PLAYWRIGHT_BASE_URL="https://<preview>.vercel.app" pnpm test:e2e
 
 ## Strict seeded checkout
 
-The public smoke runs on every target. The checkout/payment leg is intentionally
-gated until a disposable seeded staging target exists.
+The public smoke and anonymous privilege-boundary probes run on every target.
+The checkout/payment leg is intentionally gated until a disposable seeded
+staging target exists.
 
 ```bash
 E2E_STRICT=1 \
@@ -39,12 +40,18 @@ for advisory public-surface smoke runs.
 - ✅ Public happy path (no auth): discover → event detail on desktop and mobile.
   Skips the event-detail leg automatically when the target has no seeded
   public events.
+- ✅ Anonymous privilege boundaries: `/super-admin` and `/account` cannot render
+  protected workspaces without authentication; scanner-session creation and
+  payout-request APIs return `401` before any resource validation or write.
 - ✅ Strict-mode preflight: missing seeded checkout env fails when
   `E2E_STRICT=1`.
 - ⏳ Seeded guest checkout → hosted payment handoff: runs only with
   `E2E_TEST_EVENT_SLUG`, `E2E_TEST_BUYER_EMAIL` and `E2E_PAYSTACK_TEST_KEY`.
 - ⏳ Payment completion → issued ticket → scan/retry still needs the seeded
   staging fixture and provider return automation.
+- ⏳ Authenticated cross-org role matrix, organizer onboarding/event creation,
+  refund propagation, org deletion and resale/waitlist completion still need
+  deterministic seeded identities and disposable fixtures.
 
 ## Related
 - Unit suites (`pnpm test`, vitest): money-path math + webhook idempotency
