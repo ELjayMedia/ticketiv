@@ -16,7 +16,9 @@ describe("UAT lifecycle fixture currency", () => {
     expect(migration).toContain("20, 'ZAR'")
     expect(migration).toContain("50, 'ZAR'")
     expect(migration).toContain("v_total, 'ZAR'")
-    expect(migration).not.toContain("'SZL'")
+    expect(migration).not.toContain("v_total, 'SZL'")
+    expect(migration).not.toContain("10000, 'SZL'")
+    expect(migration).not.toContain("20000, 'SZL'")
   })
 
   it("keeps the seed RPC service-role only", () => {
