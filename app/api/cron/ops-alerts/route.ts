@@ -271,7 +271,15 @@ function readHealthUrls() {
   if (configured?.length) return configured
 
   const baseUrl = APP_URL.replace(/\/$/, "")
-  return [`${baseUrl}/api/health`, `${baseUrl}/api/health/supabase`]
+  return [
+    `${baseUrl}/api/health`,
+    `${baseUrl}/api/health/supabase`,
+    // Without this the alert-delivery check is unreachable: it 503s when
+    // OPS_ALERT_WEBHOOK_URL is unset, but nothing would ever read it.
+    // Probing it here is what turns "delivery is unconfigured" from an
+    // invisible condition into a critical check on this run.
+    `${baseUrl}/api/health/ops-alerting`,
+  ]
 }
 
 function readPositiveNumber(name: string, fallback: number) {
