@@ -1,9 +1,12 @@
 "use server"
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { encryptPayoutDetails } from "@/lib/payout-crypto"
+import {
+  PayoutEncryptionConfigurationError,
+  encryptPayoutDetails,
+} from "@/lib/payout-crypto"
 
-// TICK-54 — Payout account management (organizer side)
+// TICK-54 / TICK-376 — Payout account management (organizer side)
 // Bank details are encrypted at rest (AES-256-GCM) and never returned to the browser.
 
 export async function addPayoutAccountAction(
@@ -33,14 +36,22 @@ export async function addPayoutAccountAction(
     throw new Error("Forbidden: org admin role required")
   }
 
-  // Encrypt the bank details before storage (AES-256-GCM via
-  // PAYOUT_ENCRYPTION_KEY). The value is never returned to the client.
-  const details = encryptPayoutDetails({
-    account_name: accountName,
-    account_number: accountNumber,
-    branch_code: branchCode || null,
-    provider,
-  })
+  let details: string
+  try {
+    details = encryptPayoutDetails({
+      account_name: accountName,
+      account_number: accountNumber,
+      branch_code: branchCode || null,
+      provider,
+    })
+  } catch (error) {
+    if (error instanceof PayoutEncryptionConfigurationError) {
+      // Fail closed. Never fall back to plaintext and never echo bank details or
+      // encryption key material through a server-action error.
+      throw new Error("Payout account storage is temporarily unavailable. Please contact support.")
+    }
+    throw error
+  }
 
   const { error } = await supabase.from("payout_accounts").insert({
     org_id: orgId,
@@ -50,7 +61,8 @@ export async function addPayoutAccountAction(
 
   if (error) throw new Error(error.message)
 
-  // Audit the addition (no sensitive fields in changes)
+  // Audit only the non-sensitive business action. Account holder name, number,
+  // branch code and encrypted payload are intentionally excluded.
   await supabase.from("audit_log").insert({
     org_id: orgId,
     actor_id: session.user.id,
@@ -60,7 +72,6 @@ export async function addPayoutAccountAction(
     changes: {
       business_action: "add_payout_account",
       provider,
-      account_name: accountName,
     },
   })
 }
