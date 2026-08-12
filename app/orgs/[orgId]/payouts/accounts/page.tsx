@@ -68,7 +68,7 @@ export default async function PayoutAccountsPage({
           <div className="flex flex-col gap-0.5">
             <h1 className="text-h1">Payout accounts</h1>
             <p className="text-[13px] text-ink-3">
-              Banking details stored encrypted at rest. Account numbers are never displayed in full.
+              Banking details are protected server-side. Account numbers are never displayed in full.
             </p>
           </div>
         </div>
