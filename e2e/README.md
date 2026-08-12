@@ -38,10 +38,12 @@ for advisory public-surface smoke runs.
 
 ## Authenticated cross-org UAT
 
-The authenticated role matrix uses the fixed `da7a…` UAT fixture personas and
-Supabase Admin `generateLink()` to create one-time magic links in memory. No
-password is committed, written to disk or printed into CI output; Ticketiv's
-existing `/auth/callback` exchanges the link for the normal SSR session.
+The authenticated role matrix uses the fixed `da7a…` UAT fixture personas. For
+each persona, the server-only Supabase Admin client assigns a fresh high-entropy
+password that exists only in the Playwright worker's memory, confirms the
+fixture email, then drives Ticketiv's **real `/login` email/password form**. No
+password is committed, stored in CI variables or printed into output. Teardown
+deletes the fixture users at the end of the run.
 
 Because Ticketiv still shares one Supabase project across environments, this
 suite is **explicitly opt-in** and runs only on the desktop Playwright project to
@@ -64,11 +66,15 @@ Safety properties:
 - `E2E_ALLOW_SHARED_UAT=1` is required in addition to `E2E_STRICT=1`;
 - the suite seeds only the fixed service-role-only UAT fixture and tears it down
   in `afterAll`;
-- generated auth action links are treated as one-time secrets and never logged;
-- Supabase must accept the deployed target as an Auth redirect URL. The test
-  fails before continuing if Auth silently substitutes another redirect target;
+- persona passwords are randomly generated per test session, kept in memory and
+  replaced each time that persona is exercised;
+- the browser signs in through Ticketiv's normal password login path, so the
+  session/cookie behavior under test is the production behavior rather than a
+  test-only auth route;
 - if a worker is interrupted before teardown, run `pnpm seed:uat:teardown`
-  before launch or finance/reconciliation review.
+  before launch or finance/reconciliation review. Any temporary password left on
+  a fixture is random and unknown, but the transactional fixture rows still need
+  cleanup.
 
 ## Coverage status
 - ✅ Public happy path (no auth): discover → event detail on desktop and mobile.
