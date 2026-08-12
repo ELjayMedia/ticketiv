@@ -11,7 +11,14 @@ select public.fn_teardown_uat_fixtures();  -- remove every fixture
 ```
 
 Both are `service_role` only. Seeding calls teardown first, so running it twice
-produces the same database rather than duplicates — verified.
+produces the same database rather than duplicates.
+
+The fixture money path is explicitly **ZAR**. This matches Ticketiv's current
+Paystack launch rail and avoids relying on mixed table defaults (`ticket_types`
+defaults to ZAR while some older money tables still default to SZL). Every
+fixture ticket type, pricing plan, order, payment completion, payment and refund
+pins ZAR so future default changes cannot silently create a mixed-currency
+fixture.
 
 ## Why identifiability, not isolation
 
@@ -56,9 +63,8 @@ Two organizations exist so cross-tenant tests have a real counterpart: **Alpha**
 (`da7a0000-…-0001`) and **Beta** (`da7a0000-…-0002`).
 
 **These personas have no passwords.** They exist as `auth.users` rows for
-server-side and SQL-level testing. Browser-driven E2E that needs to sign in will
-have to set credentials or use magic links — worth resolving as part of
-TICK-334.
+server-side and SQL-level testing. Browser-driven E2E that needs to sign in still
+needs credentials or magic links; that remains part of TICK-334.
 
 ## Order lifecycle covered
 
