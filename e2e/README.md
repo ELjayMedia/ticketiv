@@ -61,6 +61,7 @@ pnpm test:e2e \
   e2e/authenticated-org-boundaries.spec.ts \
   e2e/refunded-ticket-propagation.spec.ts \
   e2e/organizer-draft-publish-guard.spec.ts \
+  e2e/workspace-deletion-safety.spec.ts \
   --project=desktop-chromium
 ```
 
@@ -81,10 +82,15 @@ Safety properties:
 - organizer creation uses a unique event name, creates only a draft, proves the
   UI and server both block incomplete publication, verifies the event never
   becomes public, then deletes that exact draft before fixture teardown;
+- workspace deletion uses the fixed non-empty Alpha workspace only as a blocked
+  negative case, then creates one uniquely named empty workspace for the fixed
+  owner and deletes only that exact id through the real settings/server-action
+  path; `afterAll` removes that id explicitly if the browser leg is interrupted;
 - if a worker is interrupted before teardown, run `pnpm seed:uat:teardown`
   before launch or finance/reconciliation review. Any temporary password left on
-  a fixture is random and unknown. A uniquely named organizer E2E draft may also
-  need manual removal if interruption happens after draft creation.
+  a fixture is random and unknown. A uniquely named organizer E2E draft or empty
+  workspace may also need manual removal if interruption happens before its
+  targeted cleanup runs.
 
 ## Coverage status
 - ✅ Public happy path (no auth): discover → event detail on desktop and mobile.
@@ -106,6 +112,10 @@ Safety properties:
   the real organizer UI, reaches the event editor, and both the Publish button
   and authenticated publish API refuse to make an incomplete event public. The
   exact draft is deleted afterwards.
+- ✅ Workspace deletion safety: the non-empty Alpha workspace exposes dependency
+  protection instead of a destructive control; a uniquely named empty
+  synthetic workspace requires exact-name confirmation, is deleted through the
+  real owner settings/server-action path, and is independently verified absent.
 - ⏳ Seeded guest checkout → hosted payment handoff: runs only with
   `E2E_TEST_EVENT_SLUG`, `E2E_TEST_BUYER_EMAIL` and `E2E_PAYSTACK_TEST_KEY`.
 - ⏳ Payment completion → issued ticket → scan/retry still needs the seeded
@@ -114,9 +124,9 @@ Safety properties:
   configured test event can safely become public and be removed afterwards;
   the shared production-backed UAT target intentionally tests the blocking path
   only.
-- ⏳ Organizer onboarding completion and organization-deletion browser journeys
-  still need deterministic fixture drivers. Resale/waitlist remains outside the
-  v1 launch path while that product surface is paused.
+- ⏳ Organizer onboarding completion still needs a deterministic browser driver.
+  Resale/waitlist remains outside the v1 launch path while that product surface
+  is paused.
 
 ## Related
 - Unit suites (`pnpm test`, vitest): money-path math + webhook idempotency
