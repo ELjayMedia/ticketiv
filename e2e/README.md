@@ -38,17 +38,22 @@ for advisory public-surface smoke runs.
 
 ## Authenticated shared-UAT journeys
 
-The authenticated role, attendee and organizer journeys use the fixed `da7a…`
-UAT fixture personas. For each persona, the server-only Supabase Admin client
-assigns a fresh high-entropy password that exists only in the Playwright
-worker's memory, confirms the fixture email, then drives Ticketiv's **real
-`/login` email/password form**. No password is committed, stored in CI
-variables or printed into output. Teardown deletes the fixture users at the end
-of the run.
+The authenticated role, attendee and established-organizer journeys use the
+fixed `da7a…` UAT fixture personas. For each fixed persona, the server-only
+Supabase Admin client assigns a fresh high-entropy password that exists only in
+the Playwright worker's memory, confirms the fixture email, then drives
+Ticketiv's **real `/login` email/password form**. No password is committed,
+stored in CI variables or printed into output. Teardown deletes the fixture
+users at the end of the run.
+
+The organizer-onboarding journey is deliberately independent from the fixed
+fixture: it creates one ephemeral `@uat.ticketiv.invalid` verified account and
+one uniquely named organization, exercises the real onboarding flow, then
+removes only those exact synthetic records plus their exact rate-limit bucket.
 
 Because Ticketiv still shares one Supabase project across environments, these
 suites are **explicitly opt-in** and run only on the desktop Playwright project
-to avoid two workers racing the same seed/reset function.
+to avoid accidental shared-environment writes and fixture races.
 
 ```bash
 E2E_STRICT=1 \
@@ -62,6 +67,7 @@ pnpm test:e2e \
   e2e/refunded-ticket-propagation.spec.ts \
   e2e/organizer-draft-publish-guard.spec.ts \
   e2e/workspace-deletion-safety.spec.ts \
+  e2e/organizer-onboarding.spec.ts \
   --project=desktop-chromium
 ```
 
@@ -70,8 +76,8 @@ Safety properties:
 - the project ref in `TEST_SUPABASE_URL` must exactly match the explicit
   `TEST_SUPABASE_ALLOW_PROJECT_REF` value;
 - `E2E_ALLOW_SHARED_UAT=1` is required in addition to `E2E_STRICT=1`;
-- the suites seed only the fixed service-role-only UAT fixture and tear it down
-  in `afterAll`;
+- fixed-fixture suites seed only the service-role-only UAT fixture and tear it
+  down in `afterAll`;
 - persona passwords are randomly generated per test session, kept in memory and
   replaced each time that persona is exercised;
 - the browser signs in through Ticketiv's normal password login path, so the
@@ -86,11 +92,15 @@ Safety properties:
   negative case, then creates one uniquely named empty workspace for the fixed
   owner and deletes only that exact id through the real settings/server-action
   path; `afterAll` removes that id explicitly if the browser leg is interrupted;
+- organizer onboarding creates a fresh verified `.invalid` account, selects ZAR
+  explicitly for the current Paystack launch path, verifies `organizer_owner`
+  membership and organizer-context routing, then deletes that exact workspace,
+  user/profile/notifications and `org_create:<user-id>` rate-limit bucket;
 - if a worker is interrupted before teardown, run `pnpm seed:uat:teardown`
   before launch or finance/reconciliation review. Any temporary password left on
-  a fixture is random and unknown. A uniquely named organizer E2E draft or empty
-  workspace may also need manual removal if interruption happens before its
-  targeted cleanup runs.
+  a fixture is random and unknown. A uniquely named organizer E2E draft, empty
+  workspace or onboarding workspace may also need targeted manual removal if
+  interruption happens before its cleanup runs.
 
 ## Coverage status
 - ✅ Public happy path (no auth): discover → event detail on desktop and mobile.
@@ -116,6 +126,11 @@ Safety properties:
   protection instead of a destructive control; a uniquely named empty
   synthetic workspace requires exact-name confirmation, is deleted through the
   real owner settings/server-action path, and is independently verified absent.
+- ✅ Organizer onboarding completion: a fresh verified Ticketiv account signs in
+  through the real login page, creates a ZAR organization through the real
+  onboarding form, becomes `organizer_owner`, lands on first-event creation and
+  resolves `/organizer` to its new workspace dashboard. Exact synthetic records
+  are removed afterwards.
 - ⏳ Seeded guest checkout → hosted payment handoff: runs only with
   `E2E_TEST_EVENT_SLUG`, `E2E_TEST_BUYER_EMAIL` and `E2E_PAYSTACK_TEST_KEY`.
 - ⏳ Payment completion → issued ticket → scan/retry still needs the seeded
@@ -123,10 +138,8 @@ Safety properties:
 - ⏳ Successful organizer publication needs a disposable target where a fully
   configured test event can safely become public and be removed afterwards;
   the shared production-backed UAT target intentionally tests the blocking path
-  only.
-- ⏳ Organizer onboarding completion still needs a deterministic browser driver.
-  Resale/waitlist remains outside the v1 launch path while that product surface
-  is paused.
+  only. Resale/waitlist remains outside the v1 launch path while that product
+  surface is paused.
 
 ## Related
 - Unit suites (`pnpm test`, vitest): money-path math + webhook idempotency
