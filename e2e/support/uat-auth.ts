@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto"
+
 import type { Page } from "@playwright/test"
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 
@@ -7,13 +9,33 @@ export const UAT_ORGS = {
 } as const
 
 export const UAT_PERSONAS = {
-  owner: "uat-owner@uat.ticketiv.invalid",
-  admin: "uat-admin@uat.ticketiv.invalid",
-  finance: "uat-finance@uat.ticketiv.invalid",
-  scanner: "uat-scanner@uat.ticketiv.invalid",
-  cashier: "uat-cashier@uat.ticketiv.invalid",
-  betaOwner: "uat-beta-owner@uat.ticketiv.invalid",
+  owner: {
+    id: "da7a0001-0000-4000-8000-000000000001",
+    email: "uat-owner@uat.ticketiv.invalid",
+  },
+  admin: {
+    id: "da7a0001-0000-4000-8000-000000000002",
+    email: "uat-admin@uat.ticketiv.invalid",
+  },
+  finance: {
+    id: "da7a0001-0000-4000-8000-000000000003",
+    email: "uat-finance@uat.ticketiv.invalid",
+  },
+  scanner: {
+    id: "da7a0001-0000-4000-8000-000000000004",
+    email: "uat-scanner@uat.ticketiv.invalid",
+  },
+  cashier: {
+    id: "da7a0001-0000-4000-8000-000000000005",
+    email: "uat-cashier@uat.ticketiv.invalid",
+  },
+  betaOwner: {
+    id: "da7a0001-0000-4000-8000-000000000008",
+    email: "uat-beta-owner@uat.ticketiv.invalid",
+  },
 } as const
+
+export type UatPersona = (typeof UAT_PERSONAS)[keyof typeof UAT_PERSONAS]
 
 const REQUIRED_ENV = [
   "PLAYWRIGHT_BASE_URL",
@@ -92,41 +114,43 @@ export async function teardownUatFixtures(admin: SupabaseClient) {
   if (error) throw new Error(`fn_teardown_uat_fixtures failed: ${error.message}`)
 }
 
+export async function provisionUatPassword(admin: SupabaseClient, persona: UatPersona) {
+  // A fresh high-entropy password exists only in this worker's memory. The
+  // fixture is torn down after the suite, so no reusable credential is stored
+  // in source, CI variables or the shared database beyond the test lifetime.
+  const password = `Tiv-${randomBytes(24).toString("base64url")}!9a`
+  const { data, error } = await admin.auth.admin.updateUserById(persona.id, {
+    password,
+    email_confirm: true,
+  })
+
+  if (error) throw new Error(`Unable to provision UAT login for ${persona.email}: ${error.message}`)
+  if (data.user?.email?.toLowerCase() !== persona.email) {
+    throw new Error(`Supabase returned the wrong UAT user while provisioning ${persona.email}.`)
+  }
+
+  return password
+}
+
 export async function signInUatPersona({
-  admin,
   page,
   email,
+  password,
   baseUrl,
   nextPath,
 }: {
-  admin: SupabaseClient
   page: Page
   email: string
+  password: string
   baseUrl: string
   nextPath: string
 }) {
-  const redirectTo = new URL(`/auth/callback?next=${encodeURIComponent(nextPath)}`, baseUrl).toString()
-  const { data, error } = await admin.auth.admin.generateLink({
-    type: "magiclink",
-    email,
-    options: { redirectTo },
-  })
+  const login = new URL("/login", baseUrl)
+  login.searchParams.set("redirectTo", nextPath)
 
-  if (error) throw new Error(`Unable to generate UAT auth link for ${email}: ${error.message}`)
-
-  const actionLink = data.properties?.action_link
-  const actualRedirect = data.properties?.redirect_to
-  if (!actionLink) throw new Error(`Supabase did not return an auth action link for ${email}.`)
-
-  if (!actualRedirect || new URL(actualRedirect).toString() !== new URL(redirectTo).toString()) {
-    throw new Error(
-      "Supabase rejected the requested E2E redirect URL. Add the deployed test target to the Auth redirect allow-list before running authenticated E2E.",
-    )
-  }
-
-  // The generated action link is a one-time credential. Keep it only in memory,
-  // never print it, and let the existing /auth/callback exchange it for the
-  // normal Ticketiv SSR session cookies.
-  await page.goto(actionLink, { waitUntil: "domcontentloaded" })
+  await page.goto(login.toString(), { waitUntil: "domcontentloaded" })
+  await page.getByLabel("Email address *").fill(email)
+  await page.getByLabel("Password *").fill(password)
+  await page.getByRole("button", { name: /^Log in$/ }).click()
   await page.waitForURL(new URL(nextPath, baseUrl).toString(), { timeout: 30_000 })
 }
