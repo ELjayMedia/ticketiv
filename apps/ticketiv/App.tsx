@@ -12,16 +12,24 @@ import {
   Text,
   View,
 } from "react-native";
+import QRCode from "react-native-qrcode-svg";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { colors } from "@ticketiv/tokens";
 
 import {
   applyTicketivConsumerDeepLink,
   bootTicketivConsumerAppShell,
+  canUseCachedTicketivTicketDelivery,
   createTicketivConsumerAppShellState,
   describeTicketivWalletTicket,
   fetchTicketivDiscoverEvents,
+  fetchTicketivTicketDelivery,
+  findTicketivWalletTicket,
+  findTicketivWalletTicketByDeliveryToken,
+  importTicketivTicketDelivery,
   isTicketivConsumerFocusedRoute,
+  qrPayloadForTicketivWalletTicket,
+  saveTicketivWallet,
   ticketivConsumerRouteForSection,
   ticketivConsumerSectionForRoute,
   TICKETIV_CONSUMER_NAV_ITEMS,
@@ -31,9 +39,13 @@ import {
   type TicketivConsumerShellRoute,
   type TicketivDiscoverEvent,
   type TicketivWalletTicket,
+  type TicketivWalletState,
 } from "./src";
+import { getTicketivAndroidSecureStorage } from "./src/android-secure-storage";
 
 type DiscoveryStatus = "loading" | "ready" | "empty" | "error";
+const secureStorage = getTicketivAndroidSecureStorage();
+
 export default function App() {
   const [shell, setShell] = useState<TicketivConsumerAppShellState>(() =>
     createTicketivConsumerAppShellState()
@@ -49,7 +61,7 @@ export default function App() {
     let active = true;
 
     void Linking.getInitialURL()
-      .then((initialUrl) => bootTicketivConsumerAppShell({ initialUrl }))
+      .then((initialUrl) => bootTicketivConsumerAppShell({ initialUrl, storage: secureStorage }))
       .then((nextShell) => {
         if (active) setShell(nextShell);
       })
@@ -67,12 +79,27 @@ export default function App() {
   const section = ticketivConsumerSectionForRoute(shell.activeRoute);
   const focused = isTicketivConsumerFocusedRoute(shell.activeRoute);
 
-  function navigate(next: TicketivConsumerAppSection) {
+  const navigate = useCallback((next: TicketivConsumerAppSection) => {
     setShell((current) => ({
       ...current,
       activeRoute: ticketivConsumerRouteForSection(next),
     }));
-  }
+  }, []);
+
+  const openTicket = useCallback((ticketId: string) => {
+    setShell((current) => ({ ...current, activeRoute: { route: "ticket", ticketId } }));
+  }, []);
+
+  const importDeliveredWallet = useCallback(async (wallet: TicketivWalletState, ticketId: string) => {
+    if (!secureStorage) throw new Error("Secure ticket storage is unavailable on this device.");
+    await saveTicketivWallet(secureStorage, wallet);
+    setShell((current) => ({
+      ...current,
+      activeRoute: { route: "ticket", ticketId },
+      wallet,
+      lastError: null,
+    }));
+  }, []);
 
   return (
     <SafeAreaProvider>
@@ -95,7 +122,19 @@ export default function App() {
           ) : shell.activeRoute.route === "discover" ? (
             <DiscoverScreen onOpenEvent={applyDeepLink} />
           ) : shell.activeRoute.route === "tickets" ? (
-            <TicketsScreen tickets={shell.wallet.tickets} />
+            <TicketsScreen onOpenTicket={openTicket} tickets={shell.wallet.tickets} />
+          ) : shell.activeRoute.route === "ticket" ? (
+            <TicketScreen
+              onBack={() => navigate("tickets")}
+              ticket={findTicketivWalletTicket(shell.wallet, shell.activeRoute.ticketId)}
+            />
+          ) : shell.activeRoute.route === "ticket-token" ? (
+            <TicketDeliveryScreen
+              onImported={importDeliveredWallet}
+              onOpenCached={openTicket}
+              token={shell.activeRoute.token}
+              wallet={shell.wallet}
+            />
           ) : (
             <RouteScreen
               route={shell.activeRoute}
@@ -251,7 +290,13 @@ function EventRow({ event, onPress }: { event: TicketivDiscoverEvent; onPress: (
   );
 }
 
-function TicketsScreen({ tickets }: { tickets: TicketivWalletTicket[] }) {
+function TicketsScreen({
+  onOpenTicket,
+  tickets,
+}: {
+  onOpenTicket: (ticketId: string) => void;
+  tickets: TicketivWalletTicket[];
+}) {
   if (tickets.length === 0) {
     return (
       <ScrollView contentContainerStyle={styles.screen}>
@@ -264,7 +309,7 @@ function TicketsScreen({ tickets }: { tickets: TicketivWalletTicket[] }) {
         </View>
         <StateBand
           actionLabel="Open my tickets"
-          message="Sign in on ticketiv.app to view purchases while native secure-wallet sync is being completed."
+          message="Open a ticket link from your Ticketiv message to save it securely on this device."
           onAction={() => void openWebPath("/tickets")}
           title="No tickets saved on this device"
           tone="neutral"
@@ -285,15 +330,22 @@ function TicketsScreen({ tickets }: { tickets: TicketivWalletTicket[] }) {
           <Text style={styles.subtitle}>Entry details remain readable without a connection.</Text>
         </View>
       }
-      renderItem={({ item }) => <TicketRow ticket={item} />}
+      renderItem={({ item }) => (
+        <TicketRow onPress={() => onOpenTicket(item.id)} ticket={item} />
+      )}
     />
   );
 }
 
-function TicketRow({ ticket }: { ticket: TicketivWalletTicket }) {
+function TicketRow({ onPress, ticket }: { onPress: () => void; ticket: TicketivWalletTicket }) {
   const description = describeTicketivWalletTicket(ticket);
   return (
-    <View style={styles.ticketRow}>
+    <Pressable
+      accessibilityLabel={`Open ticket for ${ticket.eventTitle}`}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.ticketRow, pressed && styles.pressed]}
+    >
       <View style={styles.ticketAccent} />
       <View style={styles.ticketCopy}>
         <Text style={styles.eventCategory}>{ticket.status.replaceAll("_", " ").toUpperCase()}</Text>
@@ -301,7 +353,151 @@ function TicketRow({ ticket }: { ticket: TicketivWalletTicket }) {
         <Text style={styles.eventDetail}>{description.whenLabel}</Text>
         <Text style={styles.eventDetail}>{description.venueLabel}</Text>
       </View>
-    </View>
+      <Text accessibilityElementsHidden style={styles.ticketChevron}>›</Text>
+    </Pressable>
+  );
+}
+
+function TicketDeliveryScreen({
+  onImported,
+  onOpenCached,
+  token,
+  wallet,
+}: {
+  onImported: (wallet: TicketivWalletState, ticketId: string) => Promise<void>;
+  onOpenCached: (ticketId: string) => void;
+  token: string;
+  wallet: TicketivWalletState;
+}) {
+  const [attempt, setAttempt] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const cached = findTicketivWalletTicketByDeliveryToken(wallet, token);
+
+    async function deliverTicket() {
+      let delivery;
+      try {
+        delivery = await fetchTicketivTicketDelivery(token);
+      } catch (reason) {
+        if (!active) return;
+        if (cached && canUseCachedTicketivTicketDelivery(reason)) {
+          onOpenCached(cached.id);
+          return;
+        }
+        setError(reason instanceof Error ? reason.message : "Ticket delivery is unavailable right now.");
+        return;
+      }
+
+      if (!active) return;
+      const nextWallet = importTicketivTicketDelivery(wallet, delivery);
+      try {
+        await onImported(nextWallet, delivery.ticket.id);
+      } catch {
+        if (active) setError("This ticket could not be saved securely on this device.");
+      }
+    }
+
+    void deliverTicket();
+
+    return () => {
+      active = false;
+    };
+  }, [attempt, onImported, onOpenCached, token, wallet]);
+
+  if (error) {
+    return (
+      <ScrollView contentContainerStyle={styles.screen}>
+        <StateBand
+          actionLabel="Try again"
+          message={error}
+          onAction={() => {
+            setError(null);
+            setAttempt((value) => value + 1);
+          }}
+          title="Could not save this ticket"
+          tone="error"
+        />
+      </ScrollView>
+    );
+  }
+
+  return <CenteredStatus label="Saving your ticket securely" />;
+}
+
+function TicketScreen({
+  onBack,
+  ticket,
+}: {
+  onBack: () => void;
+  ticket: TicketivWalletTicket | null;
+}) {
+  if (!ticket) {
+    return (
+      <ScrollView contentContainerStyle={styles.screen}>
+        <StateBand
+          actionLabel="Back to tickets"
+          message="This ticket is not saved on this device."
+          onAction={onBack}
+          title="Ticket unavailable"
+          tone="error"
+        />
+      </ScrollView>
+    );
+  }
+
+  const description = describeTicketivWalletTicket(ticket);
+  const qrPayload = qrPayloadForTicketivWalletTicket(ticket);
+  const statusLabel = ticket.status.replaceAll("_", " ").toUpperCase();
+
+  return (
+    <ScrollView contentContainerStyle={styles.ticketScreen}>
+      <Pressable accessibilityRole="button" onPress={onBack} style={styles.backButton}>
+        <Text style={styles.backButtonText}>‹</Text>
+        <Text style={styles.backButtonLabel}>Tickets</Text>
+      </Pressable>
+
+      <View style={styles.ticketHeading}>
+        <Text style={styles.eyebrow}>SAVED ON THIS DEVICE</Text>
+        <Text style={styles.ticketScreenTitle}>{ticket.eventTitle}</Text>
+        <Text style={styles.ticketScreenDetail}>{description.whenLabel}</Text>
+        <Text style={styles.ticketScreenDetail}>{description.venueLabel}</Text>
+      </View>
+
+      {qrPayload ? (
+        <View accessibilityLabel="Ticket entry QR code" style={styles.qrPanel}>
+          <QRCode
+            backgroundColor="#ffffff"
+            color="#000000"
+            ecl="M"
+            quietZone={18}
+            size={236}
+            value={qrPayload}
+          />
+          <Text selectable style={styles.ticketCode}>{ticket.ticketCode}</Text>
+          <Text style={styles.offlineReady}>READY OFFLINE</Text>
+        </View>
+      ) : (
+        <View style={styles.invalidTicketBand}>
+          <Text style={styles.invalidTicketTitle}>QR unavailable</Text>
+          <Text style={styles.invalidTicketMessage}>
+            This ticket is {statusLabel.toLowerCase()} and cannot be used for entry.
+          </Text>
+        </View>
+      )}
+
+      <View style={styles.ticketMeta}>
+        <View>
+          <Text style={styles.ticketMetaLabel}>STATUS</Text>
+          <Text style={styles.ticketMetaValue}>{statusLabel}</Text>
+        </View>
+        <View>
+          <Text style={styles.ticketMetaLabel}>TICKET TYPE</Text>
+          <Text style={styles.ticketMetaValue}>{ticket.ticketTypeName ?? "General"}</Text>
+        </View>
+      </View>
+    </ScrollView>
   );
 }
 
@@ -586,6 +782,75 @@ const styles = StyleSheet.create({
   },
   ticketAccent: { width: 6, backgroundColor: colors.accent },
   ticketCopy: { flex: 1, padding: 14, gap: 5 },
+  ticketChevron: {
+    alignSelf: "center",
+    paddingRight: 16,
+    color: colors.ink4,
+    fontSize: 28,
+    lineHeight: 32,
+  },
+  ticketScreen: {
+    width: "100%",
+    maxWidth: 720,
+    alignSelf: "center",
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 42,
+    gap: 22,
+  },
+  backButton: {
+    minHeight: 42,
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingRight: 12,
+  },
+  backButtonText: { color: colors.accent, fontSize: 30, lineHeight: 32 },
+  backButtonLabel: { color: colors.accent, fontSize: 14, fontWeight: "700" },
+  ticketHeading: { gap: 6 },
+  ticketScreenTitle: { color: colors.ink, fontSize: 25, lineHeight: 31, fontWeight: "700" },
+  ticketScreenDetail: { color: colors.ink3, fontSize: 13, lineHeight: 18 },
+  qrPanel: {
+    width: "100%",
+    minHeight: 344,
+    borderWidth: 1,
+    borderColor: colors.line2,
+    borderRadius: 8,
+    backgroundColor: "#ffffff",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 22,
+    gap: 10,
+  },
+  ticketCode: {
+    maxWidth: "100%",
+    color: colors.ink2,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  offlineReady: { color: colors.success, fontSize: 10, fontWeight: "800" },
+  invalidTicketBand: {
+    borderLeftWidth: 3,
+    borderLeftColor: colors.danger,
+    backgroundColor: colors.dangerSoft,
+    padding: 20,
+    gap: 7,
+  },
+  invalidTicketTitle: { color: colors.ink, fontSize: 17, fontWeight: "700" },
+  invalidTicketMessage: { color: colors.ink3, fontSize: 13, lineHeight: 19 },
+  ticketMeta: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line2,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 24,
+    paddingTop: 16,
+  },
+  ticketMetaLabel: { color: colors.ink4, fontSize: 10, fontWeight: "700" },
+  ticketMetaValue: { marginTop: 4, color: colors.ink2, fontSize: 13, fontWeight: "700" },
   stateBand: {
     borderLeftWidth: 3,
     borderLeftColor: colors.accent,

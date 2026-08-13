@@ -26,6 +26,7 @@ export type TicketivWalletTicket = {
   eventSlug: string | null;
   ticketCode: string;
   deliveryToken: string | null;
+  offlineExpiresAt: string | null;
   ticketTypeName: string | null;
   holderName: string | null;
   eventStartsAt: string | null;
@@ -43,9 +44,10 @@ export type TicketivWalletTicket = {
 
 export type TicketivWalletTicketInput = Omit<
   TicketivWalletTicket,
-  "currency" | "status" | "updatedAt"
+  "currency" | "offlineExpiresAt" | "status" | "updatedAt"
 > & {
   currency?: string | null;
+  offlineExpiresAt?: string | null;
   status?: TicketivWalletTicketStatus | null;
   updatedAt?: string | null;
 };
@@ -86,7 +88,14 @@ export function createTicketivWalletState(input: {
   return {
     schemaVersion: TICKETIV_WALLET_SCHEMA_VERSION,
     syncedAt: normalizeNullable(input.syncedAt),
-    tickets: sortTickets(uniqueTickets(input.tickets ?? [])),
+    tickets: sortTickets(
+      uniqueTickets(
+        (input.tickets ?? []).map((ticket) => ({
+          ...ticket,
+          offlineExpiresAt: normalizeNullable(ticket.offlineExpiresAt),
+        }))
+      )
+    ),
   };
 }
 
@@ -101,6 +110,7 @@ export function createTicketivWalletTicket(
     eventSlug: normalizeNullable(input.eventSlug),
     ticketCode: requireValue(input.ticketCode, "Ticket QR code is required"),
     deliveryToken: normalizeNullable(input.deliveryToken),
+    offlineExpiresAt: normalizeNullable(input.offlineExpiresAt),
     ticketTypeName: normalizeNullable(input.ticketTypeName),
     holderName: normalizeNullable(input.holderName),
     eventStartsAt: normalizeNullable(input.eventStartsAt),
@@ -145,15 +155,27 @@ export function findTicketivWalletTicket(
 }
 
 export function isTicketivWalletTicketValidForEntry(
-  ticket: TicketivWalletTicket
+  ticket: TicketivWalletTicket,
+  now = Date.now()
 ): boolean {
-  return ticket.status === "issued" && !ticket.checkedInAt && !ticket.revokedAt && !ticket.refundedAt;
+  const expiresAt = ticket.offlineExpiresAt
+    ? new Date(ticket.offlineExpiresAt).getTime()
+    : Number.NaN;
+  const cacheIsCurrent = Number.isFinite(expiresAt) && expiresAt > now;
+  return (
+    cacheIsCurrent &&
+    ticket.status === "issued" &&
+    !ticket.checkedInAt &&
+    !ticket.revokedAt &&
+    !ticket.refundedAt
+  );
 }
 
 export function qrPayloadForTicketivWalletTicket(
-  ticket: TicketivWalletTicket
+  ticket: TicketivWalletTicket,
+  now = Date.now()
 ): string | null {
-  return isTicketivWalletTicketValidForEntry(ticket) ? ticket.ticketCode : null;
+  return isTicketivWalletTicketValidForEntry(ticket, now) ? ticket.ticketCode : null;
 }
 
 export function describeTicketivWalletTicket(ticket: TicketivWalletTicket): {
@@ -201,7 +223,9 @@ export function summarizeTicketivWallet(
 
   return {
     total: visible.length,
-    validForEntry: visible.filter(isTicketivWalletTicketValidForEntry).length,
+    validForEntry: visible.filter((ticket) =>
+      isTicketivWalletTicketValidForEntry(ticket, now)
+    ).length,
     upcoming: visible.filter((ticket) => !isPast(ticket, now)).length,
     past: visible.filter((ticket) => isPast(ticket, now)).length,
     needsSync: wallet.syncedAt === null,
@@ -287,6 +311,7 @@ function isTicketivWalletTicket(value: unknown): value is TicketivWalletTicket {
     isNullableString(record.eventSlug) &&
     typeof record.ticketCode === "string" &&
     isNullableString(record.deliveryToken) &&
+    (record.offlineExpiresAt === undefined || isNullableString(record.offlineExpiresAt)) &&
     isNullableString(record.ticketTypeName) &&
     isNullableString(record.holderName) &&
     isNullableString(record.eventStartsAt) &&

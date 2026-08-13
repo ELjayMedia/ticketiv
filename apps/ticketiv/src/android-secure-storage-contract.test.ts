@@ -1,19 +1,17 @@
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
 const moduleSource = readFileSync(
-  join(
-    process.cwd(),
-    "apps/ticketiv/android/app/src/main/java/com/ticketiv/app/TicketivSecureStorageModule.kt"
+  fileURLToPath(
+    new URL("../android/app/src/main/java/com/ticketiv/app/TicketivSecureStorageModule.kt", import.meta.url)
   ),
   "utf8"
 );
 const applicationSource = readFileSync(
-  join(
-    process.cwd(),
-    "apps/ticketiv/android/app/src/main/java/com/ticketiv/app/MainApplication.kt"
+  fileURLToPath(
+    new URL("../android/app/src/main/java/com/ticketiv/app/MainApplication.kt", import.meta.url)
   ),
   "utf8"
 );

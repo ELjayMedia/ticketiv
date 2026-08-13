@@ -106,6 +106,15 @@ describe("Supabase middleware session recovery", () => {
     expect(mocks.createServerClient).not.toHaveBeenCalled()
   })
 
+  it("lets capability-verified native ticket delivery reach its route handler", async () => {
+    const response = await updateSession(
+      new NextRequest("https://ticketiv.app/api/mobile/tickets/signed-token"),
+    )
+
+    expect(response.status).toBe(200)
+    expect(mocks.createServerClient).not.toHaveBeenCalled()
+  })
+
   it.each([
     "/api/scanner/manifest?eventId=event-1&deviceId=device-1&sessionId=session-1",
     "/api/scanner/scans?eventId=event-1&deviceId=device-1&sessionId=session-1",

@@ -27,6 +27,7 @@ import {
 export type TicketivConsumerShellRoute =
   | { route: "discover" }
   | { route: "tickets" }
+  | { route: "ticket"; ticketId: string }
   | { route: "ticket-token"; token: string }
   | { route: "event"; slugOrId: string }
   | { route: "auth-callback"; nextPath: string | null }
