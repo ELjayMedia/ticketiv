@@ -155,6 +155,16 @@ describe("Supabase middleware session recovery", () => {
     expect(mocks.createServerClient).not.toHaveBeenCalled()
   })
 
+  it("lets the payout API return its own JSON authentication error", async () => {
+    const response = await updateSession(
+      new NextRequest("https://ticketiv.app/api/payouts", { method: "POST" }),
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get("location")).toBeNull()
+    expect(mocks.createServerClient).not.toHaveBeenCalled()
+  })
+
   it.each([
     "/api/scanner/manifest?eventId=event-1&deviceId=device-1&sessionId=session-1",
     "/api/scanner/scans?eventId=event-1&deviceId=device-1&sessionId=session-1",
