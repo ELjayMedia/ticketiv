@@ -52,7 +52,8 @@ function recoverSignedOutSession(request: NextRequest, path: string, error: unkn
  *   /forgot-password, /reset-password, /verify-email, /auth/*, /403, /maintenance
  *
  * Public APIs with their own verification:
- *   /api/discover/*, /api/mobile/tickets/*, selected /api/scanner/* device endpoints,
+ *   /api/discover/*, /api/search/suggest, /api/mobile/tickets/*,
+ *   selected /api/scanner/* device endpoints,
  *   /api/payouts, /api/payments/paystack/webhook, /api/payments/momo/callback
  *
  * Onboarding gate:
@@ -88,6 +89,7 @@ export async function updateSession(request: NextRequest) {
     path.startsWith("/api/health/") ||
     path.startsWith("/api/cron/") ||
     path.startsWith("/api/discover/") ||
+    path === "/api/search/suggest" ||
     path.startsWith("/api/mobile/tickets/") ||
     path === "/api/payouts" ||
     path === "/api/payments/paystack/webhook" ||

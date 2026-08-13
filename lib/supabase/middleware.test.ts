@@ -146,6 +146,16 @@ describe("Supabase middleware session recovery", () => {
     expect(mocks.createServerClient).not.toHaveBeenCalled()
   })
 
+  it("lets public search suggestions reach their rate-limited route handler", async () => {
+    const response = await updateSession(
+      new NextRequest("https://ticketiv.app/api/search/suggest?q=music"),
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get("location")).toBeNull()
+    expect(mocks.createServerClient).not.toHaveBeenCalled()
+  })
+
   it("lets capability-verified native ticket delivery reach its route handler", async () => {
     const response = await updateSession(
       new NextRequest("https://ticketiv.app/api/mobile/tickets/signed-token"),
