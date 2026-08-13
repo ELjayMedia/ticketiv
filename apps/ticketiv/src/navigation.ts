@@ -44,7 +44,7 @@ export function ticketivConsumerRouteForSection(
 export function ticketivConsumerSectionForRoute(
   route: TicketivConsumerShellRoute
 ): TicketivConsumerAppSection {
-  if (route.route === "tickets" || route.route === "ticket-token") {
+  if (route.route === "tickets" || route.route === "ticket" || route.route === "ticket-token") {
     return "tickets";
   }
 
@@ -85,6 +85,7 @@ export function isTicketivConsumerFocusedRoute(
     route.route === "checkout" ||
     route.route === "checkout-return" ||
     route.route === "order-confirmation" ||
+    route.route === "ticket" ||
     route.route === "ticket-token"
   ) {
     return true;

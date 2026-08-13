@@ -70,6 +70,12 @@ describe("Ticketiv native attendee navigation", () => {
     ).toBe("tickets");
     expect(
       ticketivConsumerSectionForRoute({
+        route: "ticket",
+        ticketId: "ticket-1",
+      })
+    ).toBe("tickets");
+    expect(
+      ticketivConsumerSectionForRoute({
         route: "order-confirmation",
         orderId: "order-1",
       })
@@ -82,6 +88,12 @@ describe("Ticketiv native attendee navigation", () => {
         route: "checkout",
         orderId: "order-1",
         status: "pending",
+      })
+    ).toBe(true);
+    expect(
+      isTicketivConsumerFocusedRoute({
+        route: "ticket",
+        ticketId: "ticket-1",
       })
     ).toBe(true);
     expect(

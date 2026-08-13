@@ -42,6 +42,7 @@ function ticket(overrides: Partial<Parameters<typeof createTicketivWalletTicket>
     eventSlug: "launch-night",
     ticketCode: "TIV-1",
     deliveryToken: "token-1",
+    offlineExpiresAt: "2099-08-08T18:00:00.000Z",
     ticketTypeName: "General",
     holderName: "Anele",
     eventStartsAt: "2026-08-01T18:00:00.000Z",
@@ -87,6 +88,23 @@ describe("Ticketiv consumer ticket wallet", () => {
     expect(
       qrPayloadForTicketivWalletTicket(
         ticket({ status: "refunded", refundedAt: "2026-07-31T08:00:00.000Z" })
+      )
+    ).toBeNull();
+  });
+
+  it("hides a cached QR after its signed delivery window expires", () => {
+    const stored = ticket({ offlineExpiresAt: "2026-08-08T18:00:00.000Z" });
+
+    expect(
+      qrPayloadForTicketivWalletTicket(
+        stored,
+        new Date("2026-08-08T17:59:59.000Z").getTime()
+      )
+    ).toBe("TIV-1");
+    expect(
+      qrPayloadForTicketivWalletTicket(
+        stored,
+        new Date("2026-08-08T18:00:00.000Z").getTime()
       )
     ).toBeNull();
   });
@@ -152,6 +170,25 @@ describe("Ticketiv consumer ticket wallet", () => {
 
     await clearTicketivWallet(storage);
     expect(await loadTicketivWallet(storage)).toBeNull();
+  });
+
+  it("loads schema v1 wallets created before offline expiry was recorded", () => {
+    const legacyTicket = { ...ticket() } as Record<string, unknown>;
+    delete legacyTicket.offlineExpiresAt;
+
+    const parsed = parseTicketivWallet(
+      JSON.stringify({
+        schemaVersion: 1,
+        syncedAt: "2026-07-18T14:30:00.000Z",
+        tickets: [legacyTicket],
+      })
+    );
+
+    expect(parsed).toMatchObject({
+      ok: true,
+      wallet: { tickets: [{ id: "ticket-1", offlineExpiresAt: null }] },
+    });
+    expect(parsed.ok && qrPayloadForTicketivWalletTicket(parsed.wallet.tickets[0])).toBeNull();
   });
 
   it("rejects corrupt or unsupported wallet snapshots", async () => {

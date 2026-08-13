@@ -57,6 +57,7 @@ function ticket(overrides: Partial<Parameters<typeof createTicketivWalletTicket>
     eventSlug: "launch-night",
     ticketCode: "TIV-1",
     deliveryToken: "token-1",
+    offlineExpiresAt: "2099-08-08T18:00:00.000Z",
     ticketTypeName: "General",
     holderName: "Anele",
     eventStartsAt: "2026-08-01T18:00:00.000Z",

@@ -15,13 +15,9 @@ import { PHOTOS } from "@/lib/photos";
 import { formatEventDate, formatTimeRange } from "@/lib/format";
 import { resolveRefundPolicy, refundQuoteForHoursBefore, formatRefundWindow } from "@/lib/refund-policy";
 import type { MyTicketsView } from "@/lib/schemas/views";
+import { ticketDisplayStatus, type TicketDisplayStatus } from "@/lib/ticket-status";
 
-export type TicketDisplayStatus =
-  | "issued"
-  | "checked_in"
-  | "transferred"
-  | "refunded"
-  | "revoked";
+export { ticketDisplayStatus, type TicketDisplayStatus } from "@/lib/ticket-status";
 
 export interface FeaturedTicketProp {
   ticketId: string;
@@ -71,19 +67,6 @@ const HOUR_MS = 60 * 60 * 1000;
 
 function shortOrderNumber(orderId: string): string {
   return orderId.slice(0, 6).toUpperCase();
-}
-
-/**
- * Map raw v_my_tickets row state to the display status the UI cares about.
- * Order matters — the first match wins.
- */
-export function ticketDisplayStatus(row: MyTicketsView): TicketDisplayStatus | "pending" {
-  if (row.order_item_status === "refunded" || row.refunded_at) return "refunded";
-  if (row.order_item_status === "revoked" || row.revoked_at) return "revoked";
-  if (row.order_item_status === "transferred") return "transferred";
-  if (row.order_item_status === "checked_in" || row.checked_in_at) return "checked_in";
-  if (row.order_item_status === "issued") return "issued";
-  return "pending";
 }
 
 /**
