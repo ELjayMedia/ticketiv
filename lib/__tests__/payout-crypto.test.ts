@@ -3,10 +3,12 @@ import { createCipheriv, createHash, randomBytes } from "node:crypto"
 
 import {
   PayoutEncryptionConfigurationError,
+  activePayoutEncryptionKeyId,
   decryptPayoutDetails,
   encryptPayoutDetails,
   isPayoutEncryptionConfigured,
   maskedAccountFromStored,
+  payoutDetailsKeyId,
   payoutDetailsStorageKind,
 } from "@/lib/payout-crypto"
 
@@ -65,6 +67,20 @@ describe("payout detail encryption", () => {
     )
   })
 
+  it("rejects an active key id duplicated in the previous-key map", () => {
+    clearEncryptionEnv()
+    process.env.PAYOUT_ENCRYPTION_KEY = "active-secret"
+    process.env.PAYOUT_ENCRYPTION_KEY_ID = "active-key"
+    process.env.PAYOUT_ENCRYPTION_PREVIOUS_KEYS = JSON.stringify({
+      "active-key": "different-secret",
+    })
+
+    expect(isPayoutEncryptionConfigured()).toBe(false)
+    expect(() => encryptPayoutDetails({ account_number: "12345678" })).toThrow(
+      PayoutEncryptionConfigurationError,
+    )
+  })
+
   it("writes v2 ciphertext and round-trips with the active key", () => {
     clearEncryptionEnv()
     process.env.PAYOUT_ENCRYPTION_KEY = "active-secret"
@@ -80,6 +96,8 @@ describe("payout detail encryption", () => {
     expect(stored).toMatch(/^enc:v2:/)
     expect(stored).not.toContain("12345678")
     expect(payoutDetailsStorageKind(stored)).toBe("encrypted-v2")
+    expect(activePayoutEncryptionKeyId()).toBe("2026-08")
+    expect(payoutDetailsKeyId(stored)).toBe("2026-08")
     expect(decryptPayoutDetails(stored)).toEqual(details)
     expect(maskedAccountFromStored(stored)).toBe("••••5678")
   })
@@ -141,6 +159,7 @@ describe("payout detail encryption", () => {
       PayoutEncryptionConfigurationError,
     )
     expect(decryptPayoutDetails("enc:v2:not-valid")).toBeNull()
+    expect(payoutDetailsKeyId("enc:v2:not-valid")).toBeNull()
     expect(decryptPayoutDetails("enc:v1:not:valid:ciphertext")).toBeNull()
   })
 })

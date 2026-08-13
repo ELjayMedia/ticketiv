@@ -52,6 +52,7 @@ export const SUPPORT_RESOURCE_KEYS = new Set([
 ])
 
 export const READ_ONLY_RESOURCE_KEYS = new Set([
+  "payout-accounts",
   "physical-credentials",
   "credential-entitlements",
   "credential-taps",

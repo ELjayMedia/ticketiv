@@ -89,9 +89,10 @@ export default async function SuperAdminEditResourcePage({
   const activeResource = resource
 
   const admin = createAdminClient()
+  const selectColumns = activeResource.selectColumns?.join(",") ?? "*"
   const { data, error } = await admin
     .from(activeResource.table as any)
-    .select("*")
+    .select(selectColumns)
     .eq(activeResource.primaryKey, id)
     .maybeSingle()
 

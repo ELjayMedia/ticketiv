@@ -26,6 +26,7 @@
     "check:routes": "node scripts/check-internal-routes.mjs",
     "seed:uat": "node scripts/seed-uat.mjs",
     "seed:uat:teardown": "node scripts/seed-uat.mjs --teardown",
+    "payouts:reencrypt": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/reencrypt-payout-accounts.mjs",
     "check:release": "pnpm lint && pnpm test && pnpm typecheck && pnpm check:demo && pnpm check:mobile && pnpm check:permissions && pnpm check:service-role && pnpm check:crossorg && pnpm check:routes && pnpm build"
   },
   "dependencies": {

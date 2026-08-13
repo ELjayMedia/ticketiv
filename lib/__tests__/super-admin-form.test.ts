@@ -57,6 +57,15 @@ describe("super admin form defaults", () => {
     }
   })
 
+  it("keeps payout banking details out of generic admin reads and mutations", () => {
+    const resource = getAdminResource("payout-accounts")
+
+    expect(resource?.selectColumns).toEqual(["id", "org_id", "provider", "created_at"])
+    expect(resource?.fields.map((field) => field.name)).not.toContain("details_encrypted")
+    expect(allowedGenericMutationRolesForResource("payout-accounts")).toEqual([])
+    expect(canMutateResource("payout-accounts", "super_admin")).toBe(false)
+  })
+
   it("keeps TapBand batch and inventory resources searchable for reconciliation", () => {
     const batches = getAdminResource("credential-batches")
     const inventory = getAdminResource("credential-inventory")
