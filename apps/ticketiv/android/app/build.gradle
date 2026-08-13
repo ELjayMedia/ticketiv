@@ -78,6 +78,23 @@ def enableProguardInReleaseBuilds = false
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 def ticketivVersionCode = providers.environmentVariable("TICKETIV_ANDROID_VERSION_CODE").orElse("1").get()
 def ticketivVersionName = providers.environmentVariable("TICKETIV_ANDROID_VERSION_NAME").orElse("1.0.0").get()
+def uploadSigningEnvironment = [
+    "TICKETIV_UPLOAD_STORE_FILE",
+    "TICKETIV_UPLOAD_STORE_PASSWORD",
+    "TICKETIV_UPLOAD_KEY_ALIAS",
+    "TICKETIV_UPLOAD_KEY_PASSWORD",
+]
+def configuredUploadSigningEnvironment = uploadSigningEnvironment.findAll { System.getenv(it) }
+
+if (!configuredUploadSigningEnvironment.isEmpty() && configuredUploadSigningEnvironment.size() != uploadSigningEnvironment.size()) {
+    def missing = uploadSigningEnvironment - configuredUploadSigningEnvironment
+    throw new GradleException("Incomplete Ticketiv upload signing configuration. Missing: ${missing.join(', ')}")
+}
+
+def uploadSigningConfigured = configuredUploadSigningEnvironment.size() == uploadSigningEnvironment.size()
+if (uploadSigningConfigured && !file(System.getenv("TICKETIV_UPLOAD_STORE_FILE")).isFile()) {
+    throw new GradleException("Ticketiv upload keystore file does not exist")
+}
 
 android {
     ndkVersion rootProject.ext.ndkVersion
@@ -108,7 +125,7 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
-        if (System.getenv("TICKETIV_UPLOAD_STORE_FILE")) {
+        if (uploadSigningConfigured) {
             release {
                 storeFile file(System.getenv("TICKETIV_UPLOAD_STORE_FILE"))
                 storePassword System.getenv("TICKETIV_UPLOAD_STORE_PASSWORD")
