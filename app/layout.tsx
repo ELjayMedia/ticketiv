@@ -1,23 +1,10 @@
 import type { Metadata } from "next";
-import { Inter_Tight, JetBrains_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import "@fontsource-variable/inter-tight/wght.css";
+import "@fontsource-variable/jetbrains-mono/wght.css";
 import "./globals.css";
 import { DeploymentEnvironmentBanner } from "@/components/deployment-environment-banner";
 import { SearchOverlayProvider } from "@/components/quiet/search/search-overlay";
-
-const interTight = Inter_Tight({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-inter-tight",
-  display: "swap",
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-jetbrains-mono",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://ticketiv.app"),
@@ -51,7 +38,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${interTight.variable} ${jetbrainsMono.variable}`}>
+    <html lang="en">
       <body className="bg-bg text-ink antialiased">
         <DeploymentEnvironmentBanner />
         <SearchOverlayProvider>{children}</SearchOverlayProvider>
