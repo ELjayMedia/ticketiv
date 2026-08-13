@@ -14,6 +14,65 @@ import {
   type ReconciliationStatus,
 } from "@/lib/reconciliation"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
+
+export type FinanceReconciliationIssueStatus = "open" | "acknowledged" | "resolved" | "ignored"
+export type FinanceReconciliationIssueSeverity = "warning" | "critical"
+
+export interface FinanceReconciliationIssueRow {
+  id: string
+  detectorKey: string
+  entityKey: string
+  orgId: string | null
+  orderId: string | null
+  paymentId: string | null
+  refundId: string | null
+  severity: FinanceReconciliationIssueSeverity
+  status: FinanceReconciliationIssueStatus
+  title: string
+  details: Record<string, unknown>
+  runbookKey: string
+  ownerUserId: string | null
+  firstDetectedAt: string
+  lastDetectedAt: string
+  acknowledgedAt: string | null
+  resolvedAt: string | null
+  resolutionNote: string | null
+  ageSeconds: number
+}
+
+export interface FinanceReconciliationQueue {
+  issues: FinanceReconciliationIssueRow[]
+  totals: {
+    active: number
+    critical: number
+    acknowledged: number
+    resolved: number
+    ignored: number
+  }
+}
+
+type FinanceReconciliationQueueRecord = {
+  id: string
+  detector_key: string
+  entity_key: string
+  org_id: string | null
+  order_id: string | null
+  payment_id: string | null
+  refund_id: string | null
+  severity: FinanceReconciliationIssueSeverity
+  status: FinanceReconciliationIssueStatus
+  title: string
+  details: unknown
+  runbook_key: string
+  owner_user_id: string | null
+  first_detected_at: string
+  last_detected_at: string
+  acknowledged_at: string | null
+  resolved_at: string | null
+  resolution_note: string | null
+  age_seconds: number | string | null
+}
 
 export interface PostEventReconciliationRow extends EventReconciliationResult {
   title: string
@@ -114,6 +173,68 @@ type PayoutRow = {
 
 function unique(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean)))
+}
+
+export async function getFinanceReconciliationQueue(options?: {
+  status?: FinanceReconciliationIssueStatus | "active" | "all"
+  severity?: FinanceReconciliationIssueSeverity | "all"
+}): Promise<FinanceReconciliationQueue> {
+  const supabase = await createClient()
+  const { data, error } = await (supabase.from as any)("v_finance_reconciliation_queue")
+    .select(
+      "id, detector_key, entity_key, org_id, order_id, payment_id, refund_id, severity, status, title, details, runbook_key, owner_user_id, first_detected_at, last_detected_at, acknowledged_at, resolved_at, resolution_note, age_seconds",
+    )
+    .order("severity", { ascending: true })
+    .order("first_detected_at", { ascending: true })
+    .limit(200)
+
+  if (error) throw new Error(error.message)
+
+  const allIssues = ((data ?? []) as FinanceReconciliationQueueRecord[]).map((row) => ({
+    id: row.id,
+    detectorKey: row.detector_key,
+    entityKey: row.entity_key,
+    orgId: row.org_id,
+    orderId: row.order_id,
+    paymentId: row.payment_id,
+    refundId: row.refund_id,
+    severity: row.severity,
+    status: row.status,
+    title: row.title,
+    details: row.details && typeof row.details === "object" && !Array.isArray(row.details)
+      ? row.details as Record<string, unknown>
+      : {},
+    runbookKey: row.runbook_key,
+    ownerUserId: row.owner_user_id,
+    firstDetectedAt: row.first_detected_at,
+    lastDetectedAt: row.last_detected_at,
+    acknowledgedAt: row.acknowledged_at,
+    resolvedAt: row.resolved_at,
+    resolutionNote: row.resolution_note,
+    ageSeconds: Number(row.age_seconds ?? 0),
+  }))
+
+  const status = options?.status ?? "active"
+  const severity = options?.severity ?? "all"
+  const issues = allIssues.filter((issue) => {
+    const statusMatches = status === "all"
+      || (status === "active" && (issue.status === "open" || issue.status === "acknowledged"))
+      || issue.status === status
+    return statusMatches && (severity === "all" || issue.severity === severity)
+  })
+
+  return {
+    issues,
+    totals: {
+      active: allIssues.filter((issue) => issue.status === "open" || issue.status === "acknowledged").length,
+      critical: allIssues.filter(
+        (issue) => issue.severity === "critical" && (issue.status === "open" || issue.status === "acknowledged"),
+      ).length,
+      acknowledged: allIssues.filter((issue) => issue.status === "acknowledged").length,
+      resolved: allIssues.filter((issue) => issue.status === "resolved").length,
+      ignored: allIssues.filter((issue) => issue.status === "ignored").length,
+    },
+  }
 }
 
 function statusTotals(events: PostEventReconciliationRow[]) {

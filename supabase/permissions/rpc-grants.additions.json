@@ -94,7 +94,7 @@
     {
       "schema": "public",
       "name": "fn_update_finance_reconciliation_issue",
-      "arguments": "p_issue_id uuid, p_new_status text",
+      "arguments": "p_issue_id uuid, p_new_status text, p_resolution_note text",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [

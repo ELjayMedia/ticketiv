@@ -19,10 +19,10 @@ The queue is an operational control, not part of checkout. `fn_refresh_finance_r
 
 1. Read active issues from `v_finance_reconciliation_queue`, prioritising `critical` and oldest first.
 2. Open the linked `order_id` / `payment_id` in the organizer or super-admin support surfaces and compare the provider reference with Paystack before changing money state.
-3. Acknowledge the issue with `fn_update_finance_reconciliation_issue(issue_id, 'acknowledged')`. This records the current user as owner when the issue has no owner yet.
+3. Acknowledge the issue from `/super-admin/reconciliation`. This calls `fn_update_finance_reconciliation_issue(issue_id, 'acknowledged', note)` and records the current user as owner when the issue has no owner yet.
 4. Fix the root cause through the normal trusted workflow. Do **not** edit payment amounts, ledger values, provider references, or queue detector fields directly.
-5. Run/allow the next reconciliation refresh. If the detector clears, the issue auto-resolves. Use an explicit `resolved` status only when the underlying state is already verified correct and the refresh cadence has not run yet.
-6. Use `ignored` only for a documented false positive. Ignored issues remain persisted and continue receiving `last_detected_at` updates if the detector still fires.
+5. Run/allow the next reconciliation refresh. If the detector clears, the issue auto-resolves. Use an explicit `resolved` status only when the underlying state is already verified correct and the refresh cadence has not run yet; a resolution note is required.
+6. Use `ignored` only for a documented false positive. A note is required, and ignored issues remain persisted while receiving `last_detected_at` updates if the detector still fires.
 
 ## Useful queries
 

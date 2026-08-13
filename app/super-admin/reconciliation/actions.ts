@@ -5,7 +5,43 @@ import { revalidatePath } from "next/cache"
 
 import { getPostEventReconciliationOverview } from "@/lib/data/admin/reconciliation"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 import { requireAdminRole } from "@/lib/super-admin/auth"
+
+const ISSUE_STATUSES = new Set(["open", "acknowledged", "resolved", "ignored"])
+
+export async function updateReconciliationIssueAction(
+  issueId: string,
+  nextStatus: string,
+  formData?: FormData,
+) {
+  await requireAdminRole(["super_admin", "finance_admin"])
+
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(issueId)) {
+    throw new Error("Invalid reconciliation issue id.")
+  }
+  if (!ISSUE_STATUSES.has(nextStatus)) throw new Error("Invalid reconciliation status.")
+
+  const resolutionNote = String(formData?.get("resolution_note") ?? "").trim()
+  if ((nextStatus === "resolved" || nextStatus === "ignored") && !resolutionNote) {
+    throw new Error("A resolution note is required.")
+  }
+  if (resolutionNote.length > 1000) throw new Error("Resolution notes must be 1000 characters or fewer.")
+
+  const supabase = await createClient()
+  const { error } = await (supabase.rpc as any)("fn_update_finance_reconciliation_issue", {
+    p_issue_id: issueId,
+    p_new_status: nextStatus,
+    p_resolution_note: resolutionNote || null,
+  })
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath("/super-admin")
+  revalidatePath("/super-admin/reconciliation")
+  revalidatePath("/super-admin/audit")
+  redirect("/super-admin/reconciliation?status=issue_updated")
+}
 
 export async function logReconciliationReviewAction(eventId: string) {
   const { user } = await requireAdminRole(["super_admin", "finance_admin"])

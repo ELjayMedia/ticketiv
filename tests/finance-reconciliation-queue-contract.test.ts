@@ -11,6 +11,13 @@ const grantSql = fs.readFileSync(
   "utf8",
 )
 const opsAlerts = fs.readFileSync(path.join(process.cwd(), "app/api/cron/ops-alerts/route.ts"), "utf8")
+const operatorSql = fs.readFileSync(
+  path.join(process.cwd(), "supabase/migrations/20260813150000_finance_reconciliation_operator_actions.sql"),
+  "utf8",
+)
+const page = fs.readFileSync(path.join(process.cwd(), "app/super-admin/reconciliation/page.tsx"), "utf8")
+const actions = fs.readFileSync(path.join(process.cwd(), "app/super-admin/reconciliation/actions.ts"), "utf8")
+const data = fs.readFileSync(path.join(process.cwd(), "lib/data/admin/reconciliation.ts"), "utf8")
 
 describe("finance reconciliation queue contract", () => {
   it("keeps the queue RLS filtered and blocks direct authenticated writes", () => {
@@ -40,5 +47,23 @@ describe("finance reconciliation queue contract", () => {
     expect(opsAlerts).toContain('"fn_refresh_finance_reconciliation_issues"')
     expect(opsAlerts).toContain("reconciliationQueuePersistenceCheck")
     expect(opsAlerts).toContain("Finance reconciliation queue refresh failed")
+  })
+
+  it("records terminal decisions with a note and audit entry", () => {
+    expect(operatorSql).toContain("add column if not exists resolution_note text")
+    expect(operatorSql).toContain("resolution_note_required")
+    expect(operatorSql).toContain("finance_reconciliation_issue_status_changed")
+    expect(operatorSql).toContain("au.role_tier::text in ('super_admin', 'finance_admin')")
+    expect(operatorSql).toContain("from public, anon, service_role")
+  })
+
+  it("exposes a responsive operator queue through the authenticated RPC", () => {
+    expect(data).toContain('"v_finance_reconciliation_queue"')
+    expect(data).toContain('.order("first_detected_at", { ascending: true })')
+    expect(page).toContain("Discrepancy queue")
+    expect(page).toContain("resolution_note")
+    expect(actions).toContain('requireAdminRole(["super_admin", "finance_admin"])')
+    expect(actions).toContain('"fn_update_finance_reconciliation_issue"')
+    expect(actions).toContain("p_resolution_note")
   })
 })
