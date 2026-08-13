@@ -1,7 +1,6 @@
 // Public ranked event search via fn_search_events RPC (Postgres FTS).
 
 import "server-only"
-import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { createPublicSupabaseClient } from "@/lib/supabase-public"
 
 export interface SearchFilters {
@@ -44,7 +43,7 @@ export interface SearchResults {
 }
 
 export async function searchEvents(filters: SearchFilters): Promise<SearchResults> {
-  const supabase = await createServerSupabaseClient()
+  const supabase = createPublicSupabaseClient()
   if (!supabase) return { query: filters.q ?? "", totalReturned: 0, rows: [] }
 
   const { data, error } = await supabase.rpc("fn_search_events", {
