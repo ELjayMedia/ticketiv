@@ -62,11 +62,26 @@ describe("Access app shell state", () => {
     });
   });
 
+  it("does not replace an active gate session with a setup deep link", () => {
+    const paired = completeAccessAppPairing(createAccessAppShellState(), claimedSetup);
+
+    expect(
+      applyAccessSetupDeepLink(paired, "ticketiv-access://scan/setup?code=new123")
+    ).toEqual(paired);
+  });
+
   it("returns to pairing after scanner session ends", () => {
     const paired = completeAccessAppPairing(createAccessAppShellState(), claimedSetup);
     const ended = endAccessScannerSession(paired);
 
     expect(ended.activeRoute).toBe("pair-device");
     expect(ended.scanner).toBeNull();
+    expect(ended.pairing).toMatchObject({
+      status: "idle",
+      codeInput: "",
+      claimedSetup: null,
+      deviceId: "device-1",
+      deviceLabel: "Gate A",
+    });
   });
 });

@@ -46,6 +46,7 @@
     "e2e",
     "playwright.config.ts",
     "apps/access/App.tsx",
+    "apps/access/src/android-secure-storage.ts",
     "apps/ticketiv/App.tsx",
     "apps/ticketiv/src/android-secure-storage.ts"
   ]
