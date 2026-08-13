@@ -31,7 +31,9 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 //      normal .env loaded.
 //   2. TEST_SUPABASE_ALLOW_PROJECT_REF must name the project ref in that URL.
 //      A copied-in production URL fails the check instead of running.
-//   3. Everything it creates is tracked and torn down in afterAll, in FK order.
+//   3. E2E_ALLOW_SHARED_UAT=1 explicitly acknowledges that the target may be
+//      the shared production-backed project.
+//   4. Everything it creates is tracked and torn down in afterAll, in FK order.
 //
 // Without the env the suite skips, so `pnpm test` stays green on a clean clone.
 
@@ -56,21 +58,27 @@ function projectRef(url: string | undefined): string | null {
 
 const envReady = missingEnv().length === 0
 const refMatches = envReady && projectRef(URL_) !== null && projectRef(URL_) === ALLOWED_REF?.trim()
-const configured = envReady && refMatches
+const sharedEnvironmentAcknowledged = process.env.E2E_ALLOW_SHARED_UAT === "1"
+const configured = envReady && refMatches && sharedEnvironmentAcknowledged
 
 const TAG = `e2e-money-${Date.now()}`
-const SZL = "SZL"
+const PAYSTACK_CURRENCY = "ZAR"
 
 interface Fixture {
   orgId: string
   eventId: string
+  wrongEventId: string
   ticketTypeId: string
   buyerId: string
   orderId?: string
 }
 
-let admin: SupabaseClient
-let fx: Fixture
+let admin: SupabaseClient | null = null
+let fx: Fixture | null = null
+let buyerId: string | null = null
+let createdOrgId: string | null = null
+let createdEventId: string | null = null
+let createdWrongEventId: string | null = null
 
 /** Fail loudly rather than silently continuing on a half-made fixture. */
 async function must<T>(label: string, p: PromiseLike<{ data: T | null; error: { message: string } | null }>) {
@@ -84,17 +92,25 @@ describe.skipIf(!configured)("money path lifecycle (database-asserted)", () => {
   beforeAll(async () => {
     admin = createClient(URL_!, SERVICE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } })
 
-    // A buyer must exist in auth.users (orders.buyer_id is a FK). Reuse any
-    // existing user rather than creating accounts — this suite is about money
-    // movement, and account creation is covered elsewhere.
-    const users = await admin.auth.admin.listUsers({ page: 1, perPage: 1 })
-    const buyerId = users.data?.users?.[0]?.id
-    if (!buyerId) throw new Error("no auth user available to act as buyer")
+    // orders.buyer_id references auth.users. Use a run-owned identity so this
+    // synthetic lifecycle is never attached to a real customer account.
+    const buyer = await admin.auth.admin.createUser({
+      email: `${TAG}@uat.ticketiv.invalid`,
+      email_confirm: true,
+    })
+    if (buyer.error) throw new Error(`create synthetic buyer: ${buyer.error.message}`)
+    buyerId = buyer.data.user?.id ?? null
+    if (!buyerId) throw new Error("create synthetic buyer: returned no user id")
 
     const org = await must<{ id: string }>(
       "create org",
-      admin.from("organizations").insert({ name: `${TAG} org`, slug: TAG, default_currency: SZL } as never).select("id").single(),
+      admin
+        .from("organizations")
+        .insert({ name: `${TAG} org`, slug: TAG, default_currency: PAYSTACK_CURRENCY } as never)
+        .select("id")
+        .single(),
     )
+    createdOrgId = org.id
     const event = await must<{ id: string }>(
       "create event",
       admin
@@ -110,45 +126,76 @@ describe.skipIf(!configured)("money path lifecycle (database-asserted)", () => {
         .select("id")
         .single(),
     )
+    createdEventId = event.id
+    const wrongEvent = await must<{ id: string }>(
+      "create wrong-scan event",
+      admin
+        .from("events")
+        .insert({
+          org_id: org.id,
+          title: `${TAG} wrong-scan event`,
+          slug: `${TAG}-wrong-scan`,
+          status: "draft",
+          starts_at: new Date(Date.now() + 172_800_000).toISOString(),
+          ends_at: new Date(Date.now() + 176_400_000).toISOString(),
+        } as never)
+        .select("id")
+        .single(),
+    )
+    createdWrongEventId = wrongEvent.id
     const tt = await must<{ id: string }>(
       "create ticket type",
       admin
         .from("ticket_types")
-        .insert({ event_id: event.id, name: `${TAG} GA`, price_cents: 10_000, currency: SZL, quota: 10 } as never)
+        .insert({ event_id: event.id, name: `${TAG} GA`, price_cents: 10_000, currency: PAYSTACK_CURRENCY, quota: 10 } as never)
         .select("id")
         .single(),
     )
 
-    fx = { orgId: org.id, eventId: event.id, ticketTypeId: tt.id, buyerId }
+    fx = { orgId: org.id, eventId: event.id, wrongEventId: wrongEvent.id, ticketTypeId: tt.id, buyerId }
   })
 
   afterAll(async () => {
-    if (!fx?.orgId) return
-    // FK order matters. Mirrors fn_teardown_uat_fixtures' ordering.
-    const orderIds = (await admin.from("orders").select("id").eq("org_id", fx.orgId)).data?.map((o: any) => o.id) ?? []
-    await admin.from("scans").delete().eq("event_id", fx.eventId)
-    await admin.from("ledger_entries").delete().eq("org_id", fx.orgId)
-    if (orderIds.length) {
-      const paymentIds =
-        (await admin.from("payments").select("id").in("order_id", orderIds)).data?.map((p: any) => p.id) ?? []
-      if (paymentIds.length) {
-        const refundIds =
-          (await admin.from("refunds").select("id").in("payment_id", paymentIds)).data?.map((r: any) => r.id) ?? []
-        if (refundIds.length) await admin.from("refund_items").delete().in("refund_id", refundIds)
-        await admin.from("refunds").delete().in("payment_id", paymentIds)
+    if (!admin) return
+
+    if (createdOrgId) {
+      // FK order matters. Mirrors fn_teardown_uat_fixtures' ordering.
+      const orderIds = (await admin.from("orders").select("id").eq("org_id", createdOrgId)).data?.map((o: any) => o.id) ?? []
+      const eventIds = [createdEventId, createdWrongEventId].filter((id): id is string => Boolean(id))
+      if (eventIds.length) await admin.from("scans").delete().in("event_id", eventIds)
+      await admin.from("ledger_entries").delete().eq("org_id", createdOrgId)
+      if (orderIds.length) {
+        const paymentIds =
+          (await admin.from("payments").select("id").in("order_id", orderIds)).data?.map((p: any) => p.id) ?? []
+        if (paymentIds.length) {
+          const refundIds =
+            (await admin.from("refunds").select("id").in("payment_id", paymentIds)).data?.map((r: any) => r.id) ?? []
+          if (refundIds.length) await admin.from("refund_items").delete().in("refund_id", refundIds)
+          await admin.from("refunds").delete().in("payment_id", paymentIds)
+        }
+        await admin.from("payment_outbox").delete().in("order_id", orderIds)
+        await admin.from("payment_attempts").delete().in("order_id", orderIds)
+        await admin.from("payments").delete().in("order_id", orderIds)
+        await admin.from("order_items").delete().in("order_id", orderIds)
+        await admin.from("orders").delete().in("id", orderIds)
       }
-      await admin.from("payment_outbox").delete().in("order_id", orderIds)
-      await admin.from("payment_attempts").delete().in("order_id", orderIds)
-      await admin.from("payments").delete().in("order_id", orderIds)
-      await admin.from("order_items").delete().in("order_id", orderIds)
-      await admin.from("orders").delete().in("id", orderIds)
+      if (eventIds.length) {
+        await admin.from("ticket_types").delete().in("event_id", eventIds)
+        await admin.from("events").delete().in("id", eventIds)
+      }
+      await admin.from("organizations").delete().eq("id", createdOrgId)
     }
-    await admin.from("ticket_types").delete().eq("event_id", fx.eventId)
-    await admin.from("events").delete().eq("id", fx.eventId)
-    await admin.from("organizations").delete().eq("id", fx.orgId)
+
+    if (buyerId) {
+      await admin.from("notifications").delete().eq("user_id", buyerId)
+      await admin.from("profiles").delete().eq("user_id", buyerId)
+      const { error } = await admin.auth.admin.deleteUser(buyerId)
+      if (error) throw new Error(`delete synthetic buyer: ${error.message}`)
+    }
   })
 
   it("creates a pending order that holds inventory", async () => {
+    if (!admin || !fx) throw new Error("money-path UAT setup did not initialize")
     const { data, error } = await (admin.rpc as any)("fn_create_inventory_protected_order", {
       p_event_id: fx.eventId,
       p_buyer_id: fx.buyerId,
@@ -169,13 +216,14 @@ describe.skipIf(!configured)("money path lifecycle (database-asserted)", () => {
   })
 
   it("completes payment: one succeeded payment, paid order, issued ticket, balanced ledger", async () => {
+    if (!admin || !fx) throw new Error("money-path UAT setup did not initialize")
     const reference = `${TAG}-ref-1`
     const { error } = await (admin.rpc as any)("fn_complete_order_payment", {
       p_order_id: fx.orderId,
       p_provider: "paystack",
       p_ext_payment_id: reference,
       p_amount_cents: 10_000,
-      p_currency: SZL,
+      p_currency: PAYSTACK_CURRENCY,
       p_payload: { data: { status: "success" } },
     })
     expect(error, error?.message).toBeNull()
@@ -200,6 +248,7 @@ describe.skipIf(!configured)("money path lifecycle (database-asserted)", () => {
   })
 
   it("is exactly-once: redelivering the same payment does not double-credit", async () => {
+    if (!admin || !fx) throw new Error("money-path UAT setup did not initialize")
     const reference = `${TAG}-ref-1` // same reference — a provider redelivery
     const before = {
       payments: (await admin.from("payments").select("id").eq("order_id", fx.orderId!)).data?.length ?? 0,
@@ -214,7 +263,7 @@ describe.skipIf(!configured)("money path lifecycle (database-asserted)", () => {
       p_provider: "paystack",
       p_ext_payment_id: reference,
       p_amount_cents: 10_000,
-      p_currency: SZL,
+      p_currency: PAYSTACK_CURRENCY,
       p_payload: { data: { status: "success" } },
     })
     expect(error, error?.message).toBeNull()
@@ -235,8 +284,11 @@ describe.skipIf(!configured)("money path lifecycle (database-asserted)", () => {
   })
 
   it("scans a ticket once, then rejects the duplicate and the wrong event", async () => {
+    if (!admin || !fx) throw new Error("money-path UAT setup did not initialize")
+    const client = admin
+    const eventId = fx.eventId
     const item = (
-      await admin.from("order_items").select("ticket_code").eq("order_id", fx.orderId!).limit(1).single()
+      await client.from("order_items").select("ticket_code").eq("order_id", fx.orderId!).limit(1).single()
     ).data as any
     const code = item?.ticket_code
     expect(code, "ticket code").toBeTruthy()
@@ -245,9 +297,9 @@ describe.skipIf(!configured)("money path lifecycle (database-asserted)", () => {
     // shim and raises `claimed_account_required` without a user auth.uid().
     // (tests/scan-rpc-entrypoint-contract.test.ts guards that pairing.)
     const scan = (extra: Record<string, unknown> = {}) =>
-      (admin.rpc as any)("fn_scan_ticket_unchecked", {
+      (client.rpc as any)("fn_scan_ticket_unchecked", {
         p_ticket_code: code,
-        p_event_id: fx.eventId,
+        p_event_id: eventId,
         p_scanned_by: null,
         p_device_id: null,
         p_session_id: null,
@@ -256,6 +308,12 @@ describe.skipIf(!configured)("money path lifecycle (database-asserted)", () => {
         p_attempt_id: null,
         ...extra,
       })
+
+    // Use a second run-owned event. Wrong-event attempts are persisted in
+    // scans, so borrowing an arbitrary event would pollute a real workspace.
+    const wrong = await scan({ p_event_id: fx.wrongEventId })
+    expect(wrong.error, wrong.error?.message).toBeNull()
+    expect(wrong.data?.outcome).toBe("wrong_event")
 
     const first = await scan()
     expect(first.error, first.error?.message).toBeNull()
@@ -266,14 +324,6 @@ describe.skipIf(!configured)("money path lifecycle (database-asserted)", () => {
     expect(second.error, second.error?.message).toBeNull()
     expect(second.data?.outcome).not.toBe("valid")
 
-    // A ticket presented at a different event must not be admitted.
-    const otherEvent = (
-      await admin.from("events").select("id").neq("id", fx.eventId).limit(1).maybeSingle()
-    ).data as any
-    if (otherEvent?.id) {
-      const wrong = await scan({ p_event_id: otherEvent.id })
-      expect(wrong.data?.outcome).not.toBe("valid")
-    }
   })
 })
 
@@ -282,16 +332,17 @@ describe.skipIf(!configured)("money path lifecycle (database-asserted)", () => {
 describe("money path lifecycle harness", () => {
   it(
     configured
-      ? "is configured against a dedicated test project"
-      : "is present but skipped (needs TEST_SUPABASE_* env for a non-production project)",
+      ? "is configured against an explicitly acknowledged project"
+      : "is present but skipped (needs allow-listed TEST_SUPABASE_* env and shared-UAT acknowledgement)",
     () => {
       if (configured) {
         expect(missingEnv()).toEqual([])
         expect(projectRef(URL_)).toBe(ALLOWED_REF?.trim())
+        expect(sharedEnvironmentAcknowledged).toBe(true)
       } else {
         // Either the env is absent, or it is present but the project ref was
         // not explicitly allow-listed — both must keep the suite from running.
-        expect(missingEnv().length > 0 || !refMatches).toBe(true)
+        expect(missingEnv().length > 0 || !refMatches || !sharedEnvironmentAcknowledged).toBe(true)
       }
     },
   )

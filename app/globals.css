@@ -34,9 +34,9 @@
   --color-warning: #f59e0b;
 
   /* type */
-  --font-sans: "Inter Tight", "Inter", system-ui, -apple-system, sans-serif;
-  --font-display: "Anton", "Inter Tight", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --font-sans: "Inter Tight Variable", "Inter", system-ui, -apple-system, sans-serif;
+  --font-display: "Anton", "Inter Tight Variable", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, Menlo, monospace;
 
   /* radii */
   --radius-xs: 4px;
