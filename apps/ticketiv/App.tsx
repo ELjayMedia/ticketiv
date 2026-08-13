@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   Linking,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -42,8 +44,10 @@ import {
   type TicketivWalletState,
 } from "./src";
 import { getTicketivAndroidSecureStorage } from "./src/android-secure-storage";
+import { getTicketivAndroidBrowserSession } from "./src/android-browser-session";
 
 type DiscoveryStatus = "loading" | "ready" | "empty" | "error";
+const browserSession = getTicketivAndroidBrowserSession();
 const secureStorage = getTicketivAndroidSecureStorage();
 
 export default function App() {
@@ -707,7 +711,25 @@ function routeDestination(route: TicketivConsumerShellRoute): {
 
 async function openWebPath(path: string): Promise<void> {
   const normalized = path.startsWith("/") ? path : `/${path}`;
-  await Linking.openURL(`${TICKETIV_PUBLIC_ORIGIN}${normalized}`);
+  const url = `${TICKETIV_PUBLIC_ORIGIN}${normalized}`;
+  try {
+    if (browserSession) {
+      await browserSession.openSession({
+        url,
+        presentation: "custom_tab",
+        prefersEphemeralSession: false,
+      });
+      return;
+    }
+
+    if (Platform.OS === "android") {
+      throw new Error("Secure browser handoff is unavailable on this device.");
+    }
+
+    await Linking.openURL(url);
+  } catch {
+    Alert.alert("Unable to open Ticketiv", "Check that a web browser is installed, then try again.");
+  }
 }
 
 const styles = StyleSheet.create({

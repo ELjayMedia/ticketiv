@@ -7,7 +7,10 @@ import com.facebook.react.uimanager.ViewManager
 
 class TicketivNativePackage : ReactPackage {
   override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> =
-    listOf(TicketivSecureStorageModule(reactContext))
+    listOf(
+      TicketivBrowserSessionModule(reactContext),
+      TicketivSecureStorageModule(reactContext),
+    )
 
   override fun createViewManagers(
     reactContext: ReactApplicationContext,
