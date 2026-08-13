@@ -1,3 +1,6 @@
+import { readFileSync, readdirSync } from "node:fs"
+import { join } from "node:path"
+
 import { describe, expect, it } from "vitest"
 
 import {
@@ -8,6 +11,17 @@ import {
   paystackRefundTransactionReference,
   paystackRefundWebhookEventId,
 } from "@/lib/payments/paystack-refund-core"
+
+const root = process.cwd()
+
+function readRefundCronMigrations() {
+  const dir = join(root, "supabase/migrations")
+  const files = readdirSync(dir).filter((name) =>
+    name.includes("refund_reconciliation"),
+  )
+
+  return files.map((name) => readFileSync(join(dir, name), "utf8")).join("\n")
+}
 
 describe("Paystack refund lifecycle helpers", () => {
   it.each([
@@ -60,6 +74,32 @@ describe("Paystack refund lifecycle helpers", () => {
     )
     expect(paystackRefundWebhookEventId({ ...base, event: "refund.processed" })).toBe(
       "refund.processed:91",
+    )
+  })
+})
+
+describe("Paystack refund reconciliation scheduling", () => {
+  it("preserves the prior HTTP outcome before queuing another run", () => {
+    const migrations = readRefundCronMigrations()
+
+    expect(migrations).toContain("r.job = 'refund-reconciliation'")
+    expect(migrations).toContain("from net._http_response resp")
+    expect(migrations).toContain("resolved_at = now()")
+    expect(migrations).toContain("'resolved_previous', v_resolved")
+    expect(migrations).toContain("requested_at < now() - interval '30 days'")
+  })
+
+  it("keeps the scheduler service-only and on the canonical origin", () => {
+    const migrations = readRefundCronMigrations()
+
+    expect(migrations).toContain("https://ticketiv.app/api/cron/refunds")
+    expect(migrations).toContain("'ticketiv-refund-reconciliation'")
+    expect(migrations).toContain("'*/15 * * * *'")
+    expect(migrations).toMatch(
+      /revoke execute on function public\.fn_refund_reconciliation_tick\(\) from public, anon, authenticated/,
+    )
+    expect(migrations).toContain(
+      "grant execute on function public.fn_refund_reconciliation_tick() to service_role",
     )
   })
 })
