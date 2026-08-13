@@ -16,8 +16,13 @@ const DEVICE_AUTHENTICATED_SCANNER_APIS = new Set([
 
 function redirectToLogin(request: NextRequest, from: string) {
   const url = request.nextUrl.clone()
-  url.pathname = "/login"
-  url.searchParams.set("from", from)
+  if (from === "/super-admin" || from.startsWith("/super-admin/")) {
+    url.pathname = "/super-admin/login"
+    url.search = ""
+  } else {
+    url.pathname = "/login"
+    url.searchParams.set("from", from)
+  }
   return NextResponse.redirect(url)
 }
 
@@ -117,7 +122,8 @@ export async function updateSession(request: NextRequest) {
     "/support",
     "/help",
   ]
-  const isPublicBrowsing = publicPrefixes.some((p) => path.startsWith(p))
+  const isPublicBrowsing =
+    path === "/super-admin/login" || publicPrefixes.some((p) => path.startsWith(p))
   const isRootOrEvent =
     path === "/" ||
     (path.startsWith("/events") && !path.startsWith("/events/create"))

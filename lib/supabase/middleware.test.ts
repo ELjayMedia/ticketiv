@@ -77,6 +77,46 @@ describe("Supabase middleware session recovery", () => {
     expect(response.cookies.get("sb-radsfmlsjznqvcpogluo-auth-token")?.value).toBe("")
   })
 
+  it("redirects signed-out super-admin navigation to the dedicated admin login", async () => {
+    mocks.createServerClient.mockReturnValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
+      },
+    })
+
+    const response = await updateSession(
+      new NextRequest("https://ticketiv.app/super-admin/pricing"),
+    )
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get("location")).toBe("https://ticketiv.app/super-admin/login")
+  })
+
+  it("keeps the dedicated super-admin login public", async () => {
+    const response = await updateSession(
+      new NextRequest("https://ticketiv.app/super-admin/login"),
+    )
+
+    expect(response.status).toBe(200)
+    expect(mocks.createServerClient).not.toHaveBeenCalled()
+  })
+
+  it("does not treat similarly named attendee routes as super-admin routes", async () => {
+    mocks.createServerClient.mockReturnValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
+      },
+    })
+
+    const response = await updateSession(
+      new NextRequest("https://ticketiv.app/super-administrator"),
+    )
+
+    expect(response.headers.get("location")).toBe(
+      "https://ticketiv.app/login?from=%2Fsuper-administrator",
+    )
+  })
+
   it("keeps unexpected middleware failures visible", async () => {
     const error = new Error("Auth service unavailable")
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined)
