@@ -274,6 +274,6 @@ describe("Access scanner screen controller", () => {
       lastResult: null,
       lastError: null,
     });
-    expect(storage.values.size).toBe(1);
+    expect(storage.values.size).toBe(0);
   });
 });

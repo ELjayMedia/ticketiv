@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import type { SecureStorageAdapter } from "@ticketiv/adapters";
-import type { ScannerManifest, ScannerManifestItem } from "@ticketiv/shared";
-import { createAccessAppShellState } from "./app-shell";
+import type {
+  ClaimedDeviceSetup,
+  ScannerManifest,
+  ScannerManifestItem,
+} from "@ticketiv/shared";
+import {
+  completeAccessAppPairing,
+  createAccessAppShellState,
+} from "./app-shell";
 import { createAccessPairingState } from "./device-pairing";
 import {
   createAccessScannerSessionState,
@@ -18,6 +25,25 @@ import {
 } from "./persistence";
 
 const SCANNED_AT = "2026-07-18T13:10:00.000Z";
+const CLAIMED_SETUP: ClaimedDeviceSetup = {
+  device: {
+    id: "device-1",
+    label: "Main gate",
+    device_role: "organizer_scanner",
+    max_scans_per_minute: 90,
+  },
+  session: {
+    id: "session-1",
+    device_id: "device-1",
+    started_at: "2026-07-18T12:55:00.000Z",
+  },
+  event: {
+    id: "event-1",
+    title: "Launch Night",
+    starts_at: "2026-08-01T18:00:00.000Z",
+    venue_name: "The Arena",
+  },
+};
 
 class MemorySecureStorage implements SecureStorageAdapter {
   private readonly values = new Map<string, string>();
@@ -86,11 +112,12 @@ describe("Access app state persistence", () => {
 
   it("saves and restores scanner state through secure storage", async () => {
     const storage = new MemorySecureStorage();
+    const paired = completeAccessAppPairing(
+      createAccessAppShellState(),
+      CLAIMED_SETUP
+    );
     const initialScanner = createAccessScannerSessionState({
-      eventId: "event-1",
-      deviceId: "device-1",
-      sessionId: "session-1",
-      gate: "Main gate",
+      ...paired.scanner!,
       manifest: manifest([item()]),
     });
     const queued = scanAccessManifestTicket(initialScanner, {
@@ -102,6 +129,7 @@ describe("Access app state persistence", () => {
       storage,
       createAccessAppShellState({
         activeRoute: "scanner",
+        pairing: paired.pairing,
         scanner: queued,
       }),
       { savedAt: "2026-07-18T13:11:00.000Z" }
@@ -118,6 +146,15 @@ describe("Access app state persistence", () => {
         gate: "Main gate",
         offlineQueue: [{ code: "TIV-1" }],
         localUsedTicketCodes: ["TIV-1"],
+      },
+      pairing: {
+        status: "paired",
+        claimedSetup: {
+          event: {
+            title: "Launch Night",
+            venue_name: "The Arena",
+          },
+        },
       },
     });
 
@@ -166,6 +203,28 @@ describe("Access app state persistence", () => {
           localUsedTicketCodes: ["TIV-1"],
         },
       },
+    });
+  });
+
+  it("rejects assigned event metadata that does not match the scanner session", () => {
+    const serialized = JSON.parse(
+      serializeAccessAppState(
+        completeAccessAppPairing(createAccessAppShellState(), CLAIMED_SETUP),
+        "2026-07-18T13:16:00.000Z"
+      )
+    );
+    serialized.pairing.claimedSetup.session.id = "other-session";
+
+    expect(parseAccessAppStateSnapshot(JSON.stringify(serialized))).toEqual({
+      ok: false,
+      error: "invalid_shape",
+    });
+
+    serialized.pairing.claimedSetup.session.id = "session-1";
+    serialized.pairing.claimedSetup.session.device_id = "other-device";
+    expect(parseAccessAppStateSnapshot(JSON.stringify(serialized))).toEqual({
+      ok: false,
+      error: "invalid_shape",
     });
   });
 

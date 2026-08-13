@@ -4,10 +4,8 @@ import type {
 } from "@ticketiv/adapters";
 import type { ScannerClientResult } from "@ticketiv/shared";
 import { endAccessScannerSession, type AccessAppShellState } from "./app-shell";
-import {
-  saveAccessAppState,
-  type SaveAccessAppStateOptions,
-} from "./persistence";
+import { persistAccessNativeAppShell } from "./native-app-lifecycle";
+import type { SaveAccessAppStateOptions } from "./persistence";
 import {
   startAccessCameraScanner,
   type AccessCameraScannerStatus,
@@ -246,7 +244,11 @@ export function createAccessScannerScreenController(
     if (!options.storage) return;
 
     try {
-      await saveAccessAppState(options.storage, nextState, options.storageOptions);
+      await persistAccessNativeAppShell(
+        options.storage,
+        nextState,
+        options.storageOptions
+      );
     } catch (error) {
       const normalized = {
         code: "persist_failed",

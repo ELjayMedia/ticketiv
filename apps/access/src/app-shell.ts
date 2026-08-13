@@ -38,6 +38,8 @@ export function applyAccessSetupDeepLink(
   state: AccessAppShellState,
   deepLink: string
 ): AccessAppShellState {
+  if (state.scanner) return state;
+
   return {
     ...state,
     activeRoute: "pair-device",
@@ -63,6 +65,10 @@ export function endAccessScannerSession(state: AccessAppShellState): AccessAppSh
   return {
     ...state,
     activeRoute: "pair-device",
+    pairing: createAccessPairingState({
+      deviceId: state.pairing.deviceId,
+      deviceLabel: state.pairing.deviceLabel,
+    }),
     scanner: null,
   };
 }

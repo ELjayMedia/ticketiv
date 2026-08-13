@@ -1,5 +1,6 @@
 import type { SecureStorageAdapter } from "@ticketiv/adapters";
 import {
+  type ClaimedDeviceSetup,
   type ScannerManifest,
   type ScannerManifestItem,
   type ScannerManifestItemStatus,
@@ -10,7 +11,10 @@ import {
   type AccessAppShellState,
   type AccessShellRoute,
 } from "./app-shell";
-import { createAccessPairingState } from "./device-pairing";
+import {
+  completeAccessPairingClaim,
+  createAccessPairingState,
+} from "./device-pairing";
 import {
   createAccessScannerSessionState,
   type AccessScannerSessionState,
@@ -22,6 +26,7 @@ export const ACCESS_APP_STATE_STORAGE_KEY = "ticketiv.access.app-state.v1";
 export type AccessPersistedPairingState = {
   deviceId: string | null;
   deviceLabel: string | null;
+  claimedSetup?: ClaimedDeviceSetup | null;
 };
 
 export type AccessPersistedAppStateV1 = {
@@ -84,6 +89,7 @@ export function snapshotAccessAppState(
     pairing: {
       deviceId: normalizeNullable(state.pairing.deviceId ?? scanner?.deviceId),
       deviceLabel: normalizeNullable(state.pairing.deviceLabel ?? scanner?.gate),
+      claimedSetup: scanner ? state.pairing.claimedSetup : null,
     },
     scanner,
   };
@@ -96,12 +102,16 @@ export function restoreAccessAppStateSnapshot(
     ? createAccessScannerSessionState(snapshot.scanner)
     : null;
 
+  const pairing = createAccessPairingState({
+    deviceId: snapshot.pairing.deviceId,
+    deviceLabel: snapshot.pairing.deviceLabel ?? scanner?.gate,
+  });
+
   return createAccessAppShellState({
     activeRoute: scanner ? snapshot.activeRoute : "pair-device",
-    pairing: createAccessPairingState({
-      deviceId: snapshot.pairing.deviceId,
-      deviceLabel: snapshot.pairing.deviceLabel ?? scanner?.gate,
-    }),
+    pairing: snapshot.pairing.claimedSetup
+      ? completeAccessPairingClaim(pairing, snapshot.pairing.claimedSetup)
+      : pairing,
     scanner,
   });
 }
@@ -176,12 +186,26 @@ function isPersistedAppState(value: unknown): value is AccessPersistedAppStateV1
   const record = asRecord(value);
   if (!record) return false;
 
-  return (
+  const valid = (
     record.schemaVersion === ACCESS_APP_STATE_SCHEMA_VERSION &&
     typeof record.savedAt === "string" &&
     isAccessShellRoute(record.activeRoute) &&
     isPersistedPairing(record.pairing) &&
     (record.scanner === null || isPersistedScannerSession(record.scanner))
+  );
+  if (!valid) return false;
+
+  const pairing = record.pairing as AccessPersistedPairingState;
+  const scanner = record.scanner as AccessScannerSessionState | null;
+  const setup = pairing.claimedSetup;
+  if (!setup || !scanner) return true;
+
+  return (
+    pairing.deviceId === setup.device.id &&
+    setup.device.id === scanner.deviceId &&
+    setup.session.device_id === setup.device.id &&
+    setup.session.id === scanner.sessionId &&
+    setup.event.id === scanner.eventId
   );
 }
 
@@ -189,7 +213,40 @@ function isPersistedPairing(value: unknown): value is AccessPersistedPairingStat
   const record = asRecord(value);
   if (!record) return false;
 
-  return isNullableString(record.deviceId) && isNullableString(record.deviceLabel);
+  return (
+    isNullableString(record.deviceId) &&
+    isNullableString(record.deviceLabel) &&
+    (record.claimedSetup === undefined ||
+      record.claimedSetup === null ||
+      isClaimedDeviceSetup(record.claimedSetup))
+  );
+}
+
+function isClaimedDeviceSetup(value: unknown): value is ClaimedDeviceSetup {
+  const record = asRecord(value);
+  const device = asRecord(record?.device);
+  const session = asRecord(record?.session);
+  const event = asRecord(record?.event);
+
+  return Boolean(
+    device &&
+      typeof device.id === "string" &&
+      isNullableString(device.label) &&
+      (device.device_role === "organizer_scanner" ||
+        device.device_role === "organizer_pos" ||
+        device.device_role === "organizer_kiosk") &&
+      (device.max_scans_per_minute === null ||
+        typeof device.max_scans_per_minute === "number") &&
+      session &&
+      typeof session.id === "string" &&
+      typeof session.device_id === "string" &&
+      isNullableString(session.started_at) &&
+      event &&
+      typeof event.id === "string" &&
+      typeof event.title === "string" &&
+      isNullableString(event.starts_at) &&
+      isNullableString(event.venue_name)
+  );
 }
 
 function isPersistedScannerSession(value: unknown): value is AccessScannerSessionState {

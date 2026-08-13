@@ -5,6 +5,7 @@ import {
   PermissionsAndroid,
   Platform,
   Pressable,
+  Alert,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -19,10 +20,12 @@ import type { ClaimedDeviceSetup } from "@ticketiv/shared";
 
 import {
   applyAccessSetupDeepLink,
+  bootAccessNativeAppShell,
   completeAccessAppPairing,
   createAccessAppShellState,
   endAccessScannerSession,
   failAccessPairingClaim,
+  persistAccessNativeAppShell,
   startAccessPairingClaim,
   submitAccessQrScan,
   syncAccessScannerSession,
@@ -30,13 +33,32 @@ import {
   updateAccessPairingDeviceLabel,
   type AccessAppShellState,
 } from "./src";
+import { getAccessAndroidSecureStorage } from "./src/android-secure-storage";
 
 const API_BASE_URL = "https://ticketiv.app";
+const secureStorage = getAccessAndroidSecureStorage();
 
 type SyncStatus = "idle" | "syncing" | "ready" | "error";
+type StorageError = {
+  phase: "boot" | "write" | "unavailable";
+  message: string;
+};
 
 export default function App() {
   const [shell, setShell] = useState<AccessAppShellState>(() => createAccessAppShellState());
+  const [booting, setBooting] = useState(Boolean(secureStorage));
+  const [storageError, setStorageError] = useState<StorageError | null>(
+    secureStorage
+      ? null
+      : {
+          phase: "unavailable",
+          message: "Encrypted scanner storage is unavailable in this build.",
+        }
+  );
+  const [storageRetry, setStorageRetry] = useState(0);
+  const hydratedRef = useRef(false);
+  const persistedScannerRef = useRef(false);
+  const persistenceQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   const applyDeepLink = useCallback((url: string | null) => {
     if (!url) return;
@@ -44,10 +66,111 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    void Linking.getInitialURL().then(applyDeepLink);
+    let active = true;
+    hydratedRef.current = false;
+
+    if (!secureStorage) return;
+
+    void Linking.getInitialURL()
+      .then((initialUrl) => bootAccessNativeAppShell(secureStorage, initialUrl))
+      .then((restored) => {
+        if (!active) return;
+        setShell(restored);
+        persistedScannerRef.current = Boolean(restored.scanner);
+        hydratedRef.current = true;
+      })
+      .catch(() => {
+        if (active) {
+          setStorageError({
+            phase: "boot",
+            message: "Ticketiv Access could not unlock scanner data on this device.",
+          });
+        }
+      })
+      .finally(() => {
+        if (active) setBooting(false);
+      });
+
     const subscription = Linking.addEventListener("url", ({ url }) => applyDeepLink(url));
-    return () => subscription.remove();
-  }, [applyDeepLink]);
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, [applyDeepLink, storageRetry]);
+
+  useEffect(() => {
+    if (!secureStorage || !hydratedRef.current) return;
+    if (!shell.scanner && !persistedScannerRef.current) return;
+
+    persistedScannerRef.current = Boolean(shell.scanner);
+
+    persistenceQueueRef.current = persistenceQueueRef.current
+      .then(() => persistAccessNativeAppShell(secureStorage, shell))
+      .catch(() => {
+        setStorageError({
+          phase: "write",
+          message: "Ticketiv Access could not protect scanner data on this device.",
+        });
+      });
+  }, [shell]);
+
+  const retrySecureStorage = useCallback(() => {
+    if (!secureStorage || !storageError) return;
+
+    if (storageError.phase === "boot") {
+      setBooting(true);
+      setStorageError(null);
+      setStorageRetry((value) => value + 1);
+      return;
+    }
+    if (storageError.phase === "unavailable") return;
+
+    setBooting(true);
+    setStorageError(null);
+    persistenceQueueRef.current = persistenceQueueRef.current
+      .then(() => persistAccessNativeAppShell(secureStorage, shell))
+      .catch(() => {
+        setStorageError({
+          phase: "write",
+          message: "Ticketiv Access still cannot protect scanner data on this device.",
+        });
+      })
+      .finally(() => setBooting(false));
+  }, [shell, storageError]);
+
+  const resetSecureStorage = useCallback(() => {
+    if (!secureStorage || storageError?.phase !== "boot") return;
+
+    Alert.alert(
+      "Reset scanner data?",
+      "This removes the saved pairing, offline manifest, and queued scans from this device. Pair it again before gate use.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reset and re-pair",
+          style: "destructive",
+          onPress: () => {
+            setBooting(true);
+            setStorageError(null);
+            void secureStorage
+              .reset()
+              .then(() => {
+                persistedScannerRef.current = false;
+                setShell(createAccessAppShellState());
+                setStorageRetry((value) => value + 1);
+              })
+              .catch(() => {
+                setStorageError({
+                  phase: "boot",
+                  message: "Ticketiv Access could not reset secure scanner data.",
+                });
+                setBooting(false);
+              });
+          },
+        },
+      ]
+    );
+  }, [storageError]);
 
   return (
     <SafeAreaProvider>
@@ -61,13 +184,53 @@ export default function App() {
           <StatusMark paired={Boolean(shell.scanner)} />
         </View>
 
-        {shell.scanner ? (
+        {booting ? (
+          <CenteredStatus label="Opening secure scanner" />
+        ) : storageError ? (
+          <StorageErrorScreen
+            message={storageError.message}
+            onRetry={storageError.phase === "unavailable" ? null : retrySecureStorage}
+            onReset={storageError.phase === "boot" ? resetSecureStorage : null}
+          />
+        ) : shell.scanner ? (
           <ScannerScreen shell={shell} onShellChange={setShell} />
         ) : (
           <PairingScreen shell={shell} onShellChange={setShell} />
         )}
       </SafeAreaView>
     </SafeAreaProvider>
+  );
+}
+
+function CenteredStatus({ label }: { label: string }) {
+  return (
+    <View accessibilityLiveRegion="polite" style={styles.centeredStatus}>
+      <ActivityIndicator color={colors.accent} />
+      <Text style={styles.centeredStatusText}>{label}</Text>
+    </View>
+  );
+}
+
+function StorageErrorScreen({
+  message,
+  onRetry,
+  onReset,
+}: {
+  message: string;
+  onRetry: (() => void) | null;
+  onReset: (() => void) | null;
+}) {
+  return (
+    <View style={styles.centeredStatus}>
+      <View accessibilityLiveRegion="assertive" style={styles.storageErrorBand}>
+        <Text style={styles.storageErrorTitle}>Secure storage required</Text>
+        <Text style={styles.centeredStatusText}>{message}</Text>
+      </View>
+      <View style={styles.storageRecoveryActions}>
+        {onRetry ? <ActionButton compact label="Retry" onPress={onRetry} /> : null}
+        {onReset ? <SecondaryButton label="Reset data" onPress={onReset} /> : null}
+      </View>
+    </View>
   );
 }
 
@@ -544,6 +707,43 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.bg,
+  },
+  centeredStatus: {
+    flex: 1,
+    minHeight: 260,
+    paddingHorizontal: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 14,
+  },
+  centeredStatusText: {
+    color: colors.ink3,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  storageErrorBand: {
+    width: "100%",
+    maxWidth: 440,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.danger,
+    backgroundColor: colors.dangerSoft,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 5,
+  },
+  storageErrorTitle: {
+    color: colors.danger,
+    fontSize: 15,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  storageRecoveryActions: {
+    width: "100%",
+    maxWidth: 320,
+    minHeight: 48,
+    flexDirection: "row",
+    gap: 10,
   },
   appBar: {
     minHeight: 68,
