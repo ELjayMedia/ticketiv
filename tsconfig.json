@@ -48,6 +48,7 @@
     "apps/access/App.tsx",
     "apps/access/src/android-secure-storage.ts",
     "apps/ticketiv/App.tsx",
+    "apps/ticketiv/src/android-browser-session.ts",
     "apps/ticketiv/src/android-secure-storage.ts"
   ]
 }

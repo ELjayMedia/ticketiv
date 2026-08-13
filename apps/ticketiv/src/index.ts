@@ -3,6 +3,7 @@ export * from "./app-shell";
 export * from "./checkout-handoff";
 export * from "./discovery";
 export * from "./native-secure-storage-adapter";
+export * from "./native-browser-session-adapter";
 export * from "./navigation";
 export * from "./ticket-delivery";
 export * from "./ticket-wallet";
