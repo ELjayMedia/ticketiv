@@ -1,0 +1,114 @@
+name: Shared Supabase UAT
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_shared_uat:
+        description: Run mutation-backed UAT against ticketiv.app and its shared Supabase project
+        required: true
+        default: false
+        type: boolean
+      uat_confirmation:
+        description: Type RUN_TICKETIV_SHARED_UAT to confirm temporary synthetic writes
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ticketiv-shared-supabase-uat
+  cancel-in-progress: false
+
+jobs:
+  shared-uat:
+    name: database and browser UAT
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      inputs.run_shared_uat &&
+      inputs.uat_confirmation == 'RUN_TICKETIV_SHARED_UAT'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PLAYWRIGHT_BASE_URL: https://ticketiv.app
+      E2E_STRICT: "1"
+      E2E_ALLOW_SHARED_UAT: "1"
+      TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+      TEST_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+      TEST_SUPABASE_ALLOW_PROJECT_REF: radsfmlsjznqvcpogluo
+
+    steps:
+      - name: Checkout dispatched main commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Require the exact shared UAT target
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in TEST_SUPABASE_URL TEST_SUPABASE_SERVICE_ROLE_KEY
+          do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("$name")
+            fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing required shared-UAT secret(s): %s\n' "${missing[*]}" >&2
+            exit 1
+          fi
+
+          expected_url="https://${TEST_SUPABASE_ALLOW_PROJECT_REF}.supabase.co"
+          if [[ "$TEST_SUPABASE_URL" != "$expected_url" ]]; then
+            echo "TEST_SUPABASE_URL does not match the allow-listed project ref." >&2
+            exit 1
+          fi
+          test "$PLAYWRIGHT_BASE_URL" = "https://ticketiv.app"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Prove database money and scanner lifecycle
+        run: pnpm exec vitest run tests/money-path-lifecycle.test.ts
+
+      - name: Run authenticated browser UAT serially
+        run: >-
+          pnpm test:e2e
+          e2e/authenticated-org-boundaries.spec.ts
+          e2e/refunded-ticket-propagation.spec.ts
+          e2e/organizer-draft-publish-guard.spec.ts
+          e2e/workspace-deletion-safety.spec.ts
+          e2e/organizer-onboarding.spec.ts
+          --project=desktop-chromium
+          --workers=1
+
+      - name: Remove deterministic shared fixtures
+        if: always()
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+        run: pnpm seed:uat:teardown
+
+      - name: Upload Playwright failure artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shared-uat-playwright-${{ github.run_attempt }}
+          path: |
+            test-results/e2e
+            playwright-report
+          if-no-files-found: ignore
+          retention-days: 7

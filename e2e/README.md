@@ -68,14 +68,25 @@ pnpm test:e2e \
   e2e/organizer-draft-publish-guard.spec.ts \
   e2e/workspace-deletion-safety.spec.ts \
   e2e/organizer-onboarding.spec.ts \
-  --project=desktop-chromium
+  --project=desktop-chromium \
+  --workers=1
 ```
+
+The same serial suite and the database money/scanner lifecycle can be launched
+from the manual **Shared Supabase UAT** GitHub Actions workflow on `main`. It
+requires the exact `RUN_TICKETIV_SHARED_UAT` confirmation plus repository
+secrets `TEST_SUPABASE_URL` and `TEST_SUPABASE_SERVICE_ROLE_KEY`. The workflow
+pins both `https://ticketiv.app` and the allow-listed Supabase project ref,
+retains Playwright failure artifacts, and always requests deterministic fixture
+teardown.
 
 Safety properties:
 
 - the project ref in `TEST_SUPABASE_URL` must exactly match the explicit
   `TEST_SUPABASE_ALLOW_PROJECT_REF` value;
 - `E2E_ALLOW_SHARED_UAT=1` is required in addition to `E2E_STRICT=1`;
+- shared fixture writers must run with one Playwright worker because they reuse
+  deterministic persona and organization IDs;
 - fixed-fixture suites seed only the service-role-only UAT fixture and tear it
   down in `afterAll`;
 - persona passwords are randomly generated per test session, kept in memory and
@@ -145,7 +156,8 @@ Safety properties:
 - Unit suites (`pnpm test`, vitest): money-path math + webhook idempotency
   (`lib/__tests__/payments-math.test.ts`), pricing, rate-limit.
 - Database money lifecycle (`tests/money-path-lifecycle.test.ts`) uses the same
-  explicit `TEST_SUPABASE_*` project-ref allow-list and proves payment, ledger,
+  explicit `TEST_SUPABASE_*` project-ref allow-list and shared-UAT
+  acknowledgement, creates its own synthetic buyer, and proves payment, ledger,
   ticket and scanner invariants below the UI.
 - RLS cross-tenant isolation (`tests/rls-isolation.test.ts`): runs in
   `pnpm test`, skips without `TEST_SUPABASE_*` env.
