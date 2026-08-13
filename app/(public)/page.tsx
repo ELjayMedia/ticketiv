@@ -1,5 +1,7 @@
 import { MobileDiscover } from "@/components/quiet/screens/discover/mobile-discover";
 import { DesktopDiscover } from "@/components/quiet/screens/discover/desktop-discover";
+import { ConsumerFrame } from "@/components/quiet/shell/consumer-frame";
+import { PublicSessionDesktopNav } from "@/components/quiet/shell/public-session-desktop-nav";
 import { getPublicEventsList } from "@/lib/adapters/events";
 import { mapDiscoverEvent, partitionDiscover } from "@/lib/mappers/discover";
 
@@ -11,6 +13,7 @@ export const metadata = {
 // Public discovery reads the anonymous `v_public_event_cards` read model via a
 // cookie-free Supabase client. Keep this route cacheable and periodically
 // revalidated; do not subscribe it directly to orders/payments/scans.
+export const dynamic = "force-static";
 export const revalidate = 60;
 
 /**
@@ -32,7 +35,7 @@ export default async function DiscoverPage() {
   const thisWeekEvents = thisWeek.length > 0 ? thisWeek : events.slice(0, 6);
 
   return (
-    <>
+    <ConsumerFrame desktopNav={<PublicSessionDesktopNav />}>
       <div className="md:hidden">
         <MobileDiscover
           tonight={tonight}
@@ -51,6 +54,6 @@ export default async function DiscoverPage() {
           totalEvents={events.length}
         />
       </div>
-    </>
+    </ConsumerFrame>
   );
 }
