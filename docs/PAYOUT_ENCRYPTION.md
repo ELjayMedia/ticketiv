@@ -36,7 +36,7 @@ Safe rotation sequence:
 2. Add the current/old secret to `PAYOUT_ENCRYPTION_PREVIOUS_KEYS` under its old id.
 3. Set the new values as `PAYOUT_ENCRYPTION_KEY` and `PAYOUT_ENCRYPTION_KEY_ID` in every runtime that can read payout accounts.
 4. Deploy and verify a controlled non-production round trip: new writes are `enc:v2`, old rows still render only their masked account reference, and no secret values appear in logs.
-5. Re-encrypt rows that still use the old key to the new active key using a separately reviewed, dry-run-first migration procedure.
+5. Re-encrypt rows that still use the old key to the new active key using the dry-run-first operator command below.
 6. Count storage formats without printing `details_encrypted` values. Only after the old-key count reaches zero may that old key be removed from `PAYOUT_ENCRYPTION_PREVIOUS_KEYS`.
 
 For legacy `enc:v1` rows, which have no key id, Ticketiv attempts the active key and retained previous keys. Keep the v1-producing key available until every v1 row has been re-encrypted.
@@ -52,6 +52,20 @@ Do **not** rotate keys or rewrite live payout rows as part of a normal applicati
 - verify `legacy_plaintext_rows = 0`, then verify no v1/retired-key rows remain before removing old keys.
 
 The application PR for TICK-376 intentionally does not change live secrets and does not mutate existing payout rows.
+
+After the compare-and-swap RPC migration is deployed and the service-role plus full keyring are loaded into a secure operator shell, run:
+
+```bash
+pnpm payouts:reencrypt
+```
+
+The dry run prints only row and storage-format counts. Review those counts, confirm a current backup/restore point, then run the explicit write pass:
+
+```bash
+PAYOUT_REENCRYPT_CONFIRM=REENCRYPT_PAYOUT_ACCOUNTS pnpm payouts:reencrypt -- --apply
+```
+
+The command stops on unreadable data, enforces a default 1,000-row safety limit, compare-and-swaps each value by its SHA-256 hash, and verifies every populated row uses the active v2 key before succeeding. Override the row ceiling only through `PAYOUT_REENCRYPT_MAX_ROWS` after reviewing the live count.
 
 ## Logging and audit boundaries
 

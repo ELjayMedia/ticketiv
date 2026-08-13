@@ -123,7 +123,8 @@ export default async function SuperAdminResourcePage({
   const searchClause = buildSearchClause(activeResource, searchTerm)
   const canFilter = Boolean(activeResource.searchColumns?.length || stateFilterField)
 
-  let resourceQuery = admin.from(activeResource.table as any).select("*") as any
+  const selectColumns = activeResource.selectColumns?.join(",") ?? "*"
+  let resourceQuery = admin.from(activeResource.table as any).select(selectColumns) as any
   if (searchClause) resourceQuery = resourceQuery.or(searchClause)
   if (stateFilter && stateFilterField?.options?.includes(stateFilter)) {
     resourceQuery = resourceQuery.eq(stateFilterField.name, stateFilter)

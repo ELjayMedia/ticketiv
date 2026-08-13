@@ -19,6 +19,7 @@ export type AdminResource = {
   orderBy: string
   fields: AdminResourceField[]
   listColumns: string[]
+  selectColumns?: string[]
   searchColumns?: string[]
 }
 
@@ -211,10 +212,11 @@ export const ADMIN_RESOURCES: AdminResource[] = [
     label: "Payout Accounts",
     table: "payout_accounts",
     primaryKey: "id",
-    description: "Manage organizer payout provider references.",
+    description: "Review organizer payout provider references. Banking details are managed only through the dedicated organizer workflow.",
     orderBy: "created_at",
     listColumns: ["org_id", "provider", "created_at"],
-    fields: [idField, { name: "org_id", label: "Organization ID", type: "uuid", required: true }, { name: "provider", label: "Provider", type: "text", required: true }, { name: "details_encrypted", label: "Encrypted Details", type: "text", required: true }],
+    selectColumns: ["id", "org_id", "provider", "created_at"],
+    fields: [idField, { name: "org_id", label: "Organization ID", type: "uuid", required: true }, { name: "provider", label: "Provider", type: "text", required: true }, createdAtField],
   },
   {
     key: "refunds",

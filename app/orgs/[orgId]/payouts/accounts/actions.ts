@@ -20,9 +20,9 @@ export async function addPayoutAccountAction(
   if (!supabase) throw new Error("Not authenticated")
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  if (!session) throw new Error("Not authenticated")
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error("Not authenticated")
 
   // Verify caller is org admin
   const adminRoles = new Set(["admin", "organizer", "organizer_owner", "organizer_admin"])
@@ -30,7 +30,7 @@ export async function addPayoutAccountAction(
     .from("org_members")
     .select("role")
     .eq("org_id", orgId)
-    .eq("user_id", session.user.id)
+    .eq("user_id", user.id)
     .maybeSingle()
   if (!member || !adminRoles.has(String(member.role))) {
     throw new Error("Forbidden: org admin role required")
@@ -65,7 +65,7 @@ export async function addPayoutAccountAction(
   // branch code and encrypted payload are intentionally excluded.
   await supabase.from("audit_log").insert({
     org_id: orgId,
-    actor_id: session.user.id,
+    actor_id: user.id,
     table_name: "payout_accounts",
     record_id: null,
     action: "insert",
