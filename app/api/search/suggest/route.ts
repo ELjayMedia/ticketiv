@@ -5,6 +5,10 @@ import { clientKey, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const SUGGEST_CACHE_HEADERS = {
+  "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
+};
+
 /**
  * Lightweight typeahead for the global search overlay. Returns up to 6 ranked
  * events for the given query — enough to fill the dropdown without flooding
@@ -34,5 +38,8 @@ export async function GET(request: NextRequest) {
     currency: r.currency,
   }));
 
-  return NextResponse.json({ query: q, events });
+  return NextResponse.json(
+    { query: q, events },
+    { headers: SUGGEST_CACHE_HEADERS },
+  );
 }

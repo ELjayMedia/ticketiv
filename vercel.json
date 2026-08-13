@@ -3,6 +3,11 @@
   "buildCommand": "pnpm build",
   "devCommand": "pnpm dev",
   "outputDirectory": ".next",
+  "functions": {
+    "app/api/search/suggest/route.ts": {
+      "regions": ["dub1"]
+    }
+  },
   "headers": [
     {
       "source": "/:path*",
