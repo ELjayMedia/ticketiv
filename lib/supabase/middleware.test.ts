@@ -156,6 +156,16 @@ describe("Supabase middleware session recovery", () => {
     expect(mocks.createServerClient).not.toHaveBeenCalled()
   })
 
+  it("keeps the Android Digital Asset Links file public", async () => {
+    const response = await updateSession(
+      new NextRequest("https://ticketiv.app/.well-known/assetlinks.json"),
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get("location")).toBeNull()
+    expect(mocks.createServerClient).not.toHaveBeenCalled()
+  })
+
   it("lets capability-verified native ticket delivery reach its route handler", async () => {
     const response = await updateSession(
       new NextRequest("https://ticketiv.app/api/mobile/tickets/signed-token"),
