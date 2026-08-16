@@ -25,7 +25,9 @@ next-env.d.ts
 *.aab
 *.apk
 *.keystore
+*.jks
 !apps/access/android/app/debug.keystore
+!apps/ticketiv/android/app/debug.keystore
 
 # Metro
 *.jsbundle
