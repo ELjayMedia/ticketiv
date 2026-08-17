@@ -150,7 +150,12 @@ jobs:
           test "$PLAYWRIGHT_BASE_URL" = "https://ticketiv.app"
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        id: dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          echo "ready=1" >> "$GITHUB_OUTPUT"
 
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
@@ -211,7 +216,7 @@ jobs:
           echo "Production remained on $TARGET_SHA for the full UAT run."
 
       - name: Remove deterministic shared fixtures
-        if: always()
+        if: ${{ always() && steps.dependencies.outputs.ready == '1' && env.TEST_SUPABASE_URL != '' && env.TEST_SUPABASE_SERVICE_ROLE_KEY != '' }}
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
