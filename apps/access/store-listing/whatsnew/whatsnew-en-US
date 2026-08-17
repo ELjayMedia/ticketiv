@@ -1,0 +1,9 @@
+Welcome to the first build of Ticketiv Access, the staff check-in app.
+
+- Staff login and device pairing via short code
+- Assign a device to an event
+- Scan and validate tickets by QR code
+- Offline validation with encrypted local manifests, syncing in the background
+- Duplicate-entry warnings and live check-in totals per device
+
+This is an early test build for gate staff - please report anything broken.

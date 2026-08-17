@@ -34,6 +34,11 @@ on:
         description: Type UPLOAD_TICKETIV_ACCESS_PLAY to confirm a signed release build
         required: false
         type: string
+      publish_to_play_internal:
+        description: Also publish the signed AAB to the Play Internal testing track
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -54,6 +59,10 @@ jobs:
         target:
           - play
           - huawei
+
+    env:
+      TICKETIV_ACCESS_ANDROID_VERSION_CODE: ${{ github.run_number }}
+      TICKETIV_ACCESS_ANDROID_VERSION_NAME: 0.1.${{ github.run_number }}
 
     steps:
       - name: Checkout
@@ -100,6 +109,9 @@ jobs:
       inputs.release_confirmation == 'UPLOAD_TICKETIV_ACCESS_PLAY'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      TICKETIV_ACCESS_ANDROID_VERSION_CODE: ${{ github.run_number }}
+      TICKETIV_ACCESS_ANDROID_VERSION_NAME: 0.1.${{ github.run_number }}
 
     steps:
       - name: Checkout dispatched main commit
@@ -203,6 +215,8 @@ jobs:
           {
             echo '### Ticketiv Access Play upload bundle'
             echo
+            echo "- Version code: $TICKETIV_ACCESS_ANDROID_VERSION_CODE"
+            echo "- Version name: $TICKETIV_ACCESS_ANDROID_VERSION_NAME"
             echo "- Upload certificate SHA-256 (not the Play App Signing certificate for assetlinks.json): \`$bundle_fingerprint\`"
             echo "- AAB SHA-256: \`$(sha256sum "$signed_aab" | awk '{print $1}')\`"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -214,6 +228,29 @@ jobs:
           path: apps/access/.artifacts/ticketiv-access-play-upload-signed.aab
           if-no-files-found: error
           retention-days: 7
+
+      - name: Require Play publish secret
+        if: inputs.publish_to_play_internal
+        shell: bash
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${GOOGLE_PLAY_SERVICE_ACCOUNT_JSON:-}" ]]; then
+            echo "Missing required secret: GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" >&2
+            exit 1
+          fi
+
+      - name: Publish to Play Internal testing
+        if: inputs.publish_to_play_internal
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.ticketiv.access
+          releaseFiles: apps/access/.artifacts/ticketiv-access-play-upload-signed.aab
+          tracks: internal
+          status: completed
+          whatsNewDirectory: apps/access/store-listing/whatsnew
 
       - name: Remove upload keystore
         if: always() && steps.keystore.outcome != 'skipped'

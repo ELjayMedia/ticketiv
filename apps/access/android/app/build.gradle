@@ -76,6 +76,8 @@ def enableProguardInReleaseBuilds = false
  * this variant is about 6MiB larger per architecture than default.
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
+def ticketivAccessVersionCode = providers.environmentVariable("TICKETIV_ACCESS_ANDROID_VERSION_CODE").orElse("1").get()
+def ticketivAccessVersionName = providers.environmentVariable("TICKETIV_ACCESS_ANDROID_VERSION_NAME").orElse("1.0.0").get()
 
 android {
     ndkVersion rootProject.ext.ndkVersion
@@ -87,8 +89,8 @@ android {
         applicationId "com.ticketiv.access"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode ticketivAccessVersionCode.toInteger()
+        versionName ticketivAccessVersionName
     }
     flavorDimensions "store"
     productFlavors {

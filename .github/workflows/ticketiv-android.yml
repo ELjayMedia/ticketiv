@@ -34,6 +34,11 @@ on:
         description: Type UPLOAD_TICKETIV_PLAY to confirm a signed release build
         required: false
         type: string
+      publish_to_play_internal:
+        description: Also publish the signed AAB to the Play Internal testing track
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -223,6 +228,29 @@ jobs:
           path: apps/ticketiv/.artifacts/ticketiv-play-upload-signed.aab
           if-no-files-found: error
           retention-days: 7
+
+      - name: Require Play publish secret
+        if: inputs.publish_to_play_internal
+        shell: bash
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${GOOGLE_PLAY_SERVICE_ACCOUNT_JSON:-}" ]]; then
+            echo "Missing required secret: GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" >&2
+            exit 1
+          fi
+
+      - name: Publish to Play Internal testing
+        if: inputs.publish_to_play_internal
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.ticketiv.app
+          releaseFiles: apps/ticketiv/.artifacts/ticketiv-play-upload-signed.aab
+          tracks: internal
+          status: completed
+          whatsNewDirectory: apps/ticketiv/store-listing/whatsnew
 
       - name: Remove upload keystore
         if: always() && steps.keystore.outcome != 'skipped'
