@@ -82,7 +82,7 @@ describe("Ticketiv Android upload signing", () => {
 
     expect(gradle).toContain("configuredUploadSigningEnvironment.size() != uploadSigningEnvironment.size()")
     expect(gradle).toContain("Incomplete Ticketiv upload signing configuration")
-    expect(gradle).toContain("uploadSigningConfigured && !file")
+    expect(gradle).toContain("if (!uploadStoreFile.isFile())")
     expect(gradle).toContain("if (uploadSigningConfigured)")
   })
 })

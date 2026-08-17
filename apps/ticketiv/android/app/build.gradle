@@ -84,7 +84,15 @@ def uploadSigningEnvironment = [
     "TICKETIV_UPLOAD_KEY_ALIAS",
     "TICKETIV_UPLOAD_KEY_PASSWORD",
 ]
-def configuredUploadSigningEnvironment = uploadSigningEnvironment.findAll { System.getenv(it) }
+
+// Read the signing inputs through the provider API rather than System.getenv() so each
+// variable is a declared build input. This is what keeps the values correct once the
+// configuration cache is in play, where untracked System.getenv() reads can be served
+// from a cached configuration instead of the environment of the current invocation.
+def uploadSigningValues = uploadSigningEnvironment.collectEntries { name ->
+    [(name): providers.environmentVariable(name).getOrNull()]
+}
+def configuredUploadSigningEnvironment = uploadSigningEnvironment.findAll { uploadSigningValues[it] }
 
 if (!configuredUploadSigningEnvironment.isEmpty() && configuredUploadSigningEnvironment.size() != uploadSigningEnvironment.size()) {
     def missing = uploadSigningEnvironment - configuredUploadSigningEnvironment
@@ -92,8 +100,18 @@ if (!configuredUploadSigningEnvironment.isEmpty() && configuredUploadSigningEnvi
 }
 
 def uploadSigningConfigured = configuredUploadSigningEnvironment.size() == uploadSigningEnvironment.size()
-if (uploadSigningConfigured && !file(System.getenv("TICKETIV_UPLOAD_STORE_FILE")).isFile()) {
-    throw new GradleException("Ticketiv upload keystore file does not exist")
+def uploadStoreFile = null
+if (uploadSigningConfigured) {
+    // Paths are trimmed and tilde-expanded before resolution: file() would otherwise
+    // resolve "~/Ticketiv-Release-Keys/..." relative to this module directory.
+    def storePath = uploadSigningValues["TICKETIV_UPLOAD_STORE_FILE"].trim()
+    if (storePath == "~" || storePath.startsWith("~/")) {
+        storePath = System.getProperty("user.home") + storePath.substring(1)
+    }
+    uploadStoreFile = new File(storePath).isAbsolute() ? new File(storePath) : file(storePath)
+    if (!uploadStoreFile.isFile()) {
+        throw new GradleException("Ticketiv upload keystore file does not exist: ${uploadStoreFile}")
+    }
 }
 
 android {
@@ -127,10 +145,10 @@ android {
         }
         if (uploadSigningConfigured) {
             release {
-                storeFile file(System.getenv("TICKETIV_UPLOAD_STORE_FILE"))
-                storePassword System.getenv("TICKETIV_UPLOAD_STORE_PASSWORD")
-                keyAlias System.getenv("TICKETIV_UPLOAD_KEY_ALIAS")
-                keyPassword System.getenv("TICKETIV_UPLOAD_KEY_PASSWORD")
+                storeFile uploadStoreFile
+                storePassword uploadSigningValues["TICKETIV_UPLOAD_STORE_PASSWORD"]
+                keyAlias uploadSigningValues["TICKETIV_UPLOAD_KEY_ALIAS"].trim()
+                keyPassword uploadSigningValues["TICKETIV_UPLOAD_KEY_PASSWORD"]
             }
         }
     }
