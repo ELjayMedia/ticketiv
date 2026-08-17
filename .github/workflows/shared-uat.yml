@@ -3,7 +3,7 @@ name: Shared Supabase UAT
 on:
   workflow_run:
     workflows:
-      - Release Gate
+      - CI
     types:
       - completed
   workflow_dispatch:
