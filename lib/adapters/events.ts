@@ -71,7 +71,7 @@ export async function getPublicEventBySlug(slug: string): Promise<EventPublicVie
       .from("v_event_public")
       .select("*")
       .eq("slug", slug)
-      .single()
+      .maybeSingle()
 
     if (error) {
       console.error("[v0] Error fetching event by slug:", error)
