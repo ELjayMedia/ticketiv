@@ -7,9 +7,9 @@ const workflow = readFileSync(join(process.cwd(), ".github/workflows/shared-uat.
 const moneyPath = readFileSync(join(process.cwd(), "tests/money-path-lifecycle.test.ts"), "utf8")
 
 describe("shared Supabase UAT workflow", () => {
-  it("runs automatically only from a successful trusted main release gate and keeps manual confirmation", () => {
+  it("runs automatically only from a successful trusted main CI run and keeps manual confirmation", () => {
     expect(workflow).toContain("workflow_run:")
-    expect(workflow).toContain("- Release Gate")
+    expect(workflow).toContain("- CI")
     expect(workflow).toContain("github.event.workflow_run.conclusion == 'success'")
     expect(workflow).toContain("github.event.workflow_run.event == 'push'")
     expect(workflow).toContain("github.event.workflow_run.head_branch == 'main'")
