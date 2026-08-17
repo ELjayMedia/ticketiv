@@ -1,6 +1,11 @@
 name: Shared Supabase UAT
 
 on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
   workflow_dispatch:
     inputs:
       run_shared_uat:
@@ -15,6 +20,7 @@ on:
 
 permissions:
   contents: read
+  deployments: read
 
 concurrency:
   group: ticketiv-shared-supabase-uat
@@ -24,11 +30,21 @@ jobs:
   shared-uat:
     name: database and browser UAT
     if: >-
-      github.ref == 'refs/heads/main' &&
-      inputs.run_shared_uat &&
-      inputs.uat_confirmation == 'RUN_TICKETIV_SHARED_UAT'
+      (
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.head_repository.full_name == github.repository
+      ) ||
+      (
+        github.event_name == 'workflow_dispatch' &&
+        github.ref == 'refs/heads/main' &&
+        inputs.run_shared_uat &&
+        inputs.uat_confirmation == 'RUN_TICKETIV_SHARED_UAT'
+      )
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     env:
       PLAYWRIGHT_BASE_URL: https://ticketiv.app
       E2E_STRICT: "1"
@@ -36,12 +52,70 @@ jobs:
       TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
       TEST_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
       TEST_SUPABASE_ALLOW_PROJECT_REF: radsfmlsjznqvcpogluo
+      TARGET_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
     steps:
-      - name: Checkout dispatched main commit
+      - name: Record trusted target commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$TARGET_SHA"
+          echo "Shared UAT target: $TARGET_SHA"
+          echo "Trigger: $GITHUB_EVENT_NAME"
+          {
+            echo '### Shared Supabase UAT target'
+            echo
+            echo "- Commit: \`$TARGET_SHA\`"
+            echo "- Trigger: \`$GITHUB_EVENT_NAME\`"
+            echo "- Browser target: \`$PLAYWRIGHT_BASE_URL\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Checkout trusted main commit
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ env.TARGET_SHA }}
+
+      - name: Wait for the exact commit to reach Vercel Production
+        id: production
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+          auth=(
+            -H "Accept: application/vnd.github+json"
+            -H "Authorization: Bearer ${GH_TOKEN}"
+            -H "X-GitHub-Api-Version: 2022-11-28"
+          )
+
+          for attempt in $(seq 1 80); do
+            deployments="$(curl --fail --silent --show-error "${auth[@]}" \
+              "${api}/deployments?sha=${TARGET_SHA}&environment=Production&per_page=20")"
+
+            while IFS= read -r deployment_id; do
+              [[ -n "$deployment_id" ]] || continue
+              state="$(curl --fail --silent --show-error "${auth[@]}" \
+                "${api}/deployments/${deployment_id}/statuses?per_page=20" \
+                | jq -r '.[0].state // empty')"
+
+              if [[ "$state" == "success" ]]; then
+                echo "deployment_id=$deployment_id" >> "$GITHUB_OUTPUT"
+                echo "Vercel Production deployment $deployment_id is successful for $TARGET_SHA."
+                exit 0
+              fi
+            done < <(jq -r '.[] | select(.creator.login == "vercel[bot]") | .id' <<< "$deployments")
+
+            echo "Waiting for Vercel Production to deploy $TARGET_SHA (attempt ${attempt}/80)..."
+            sleep 15
+          done
+
+          echo "No successful Vercel Production deployment found for $TARGET_SHA within the wait window." >&2
+          exit 1
+
+      - name: Prove production alias is reachable
+        shell: bash
+        run: curl --fail --silent --show-error --location --retry 5 --retry-delay 3 --max-time 30 https://ticketiv.app/ > /dev/null
 
       - name: Enable corepack
         run: corepack enable
@@ -84,9 +158,10 @@ jobs:
       - name: Prove database money and scanner lifecycle
         run: pnpm exec vitest run tests/money-path-lifecycle.test.ts
 
-      - name: Run authenticated browser UAT serially
+      - name: Run authenticated and privilege-boundary browser UAT serially
         run: >-
           pnpm test:e2e
+          e2e/anonymous-privilege-boundaries.spec.ts
           e2e/authenticated-org-boundaries.spec.ts
           e2e/refunded-ticket-propagation.spec.ts
           e2e/organizer-draft-publish-guard.spec.ts
@@ -94,6 +169,46 @@ jobs:
           e2e/organizer-onboarding.spec.ts
           --project=desktop-chromium
           --workers=1
+
+      - name: Confirm production stayed on the tested commit
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+          auth=(
+            -H "Accept: application/vnd.github+json"
+            -H "Authorization: Bearer ${GH_TOKEN}"
+            -H "X-GitHub-Api-Version: 2022-11-28"
+          )
+          deployments="$(curl --fail --silent --show-error "${auth[@]}" \
+            "${api}/deployments?environment=Production&per_page=20")"
+          latest_success_sha=""
+
+          while read -r deployment_id deployment_sha; do
+            [[ -n "$deployment_id" && -n "$deployment_sha" ]] || continue
+            state="$(curl --fail --silent --show-error "${auth[@]}" \
+              "${api}/deployments/${deployment_id}/statuses?per_page=20" \
+              | jq -r '.[0].state // empty')"
+            if [[ "$state" == "success" ]]; then
+              latest_success_sha="$deployment_sha"
+              break
+            fi
+          done < <(jq -r '.[] | select(.creator.login == "vercel[bot]") | [.id, .sha] | @tsv' <<< "$deployments")
+
+          if [[ -z "$latest_success_sha" ]]; then
+            echo "Unable to resolve the latest successful Vercel Production deployment." >&2
+            exit 1
+          fi
+          if [[ "$latest_success_sha" != "$TARGET_SHA" ]]; then
+            echo "Production changed during UAT: tested $TARGET_SHA but latest successful deployment is $latest_success_sha." >&2
+            echo "This run is intentionally invalid; the newer commit must run its own shared UAT." >&2
+            exit 1
+          fi
+
+          echo "Production remained on $TARGET_SHA for the full UAT run."
 
       - name: Remove deterministic shared fixtures
         if: always()
