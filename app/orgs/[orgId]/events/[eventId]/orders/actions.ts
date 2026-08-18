@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { initiatePaystackRefund } from "@/lib/payments/paystack-refunds"
+import { initiateRefund } from "@/lib/payments/refunds"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 const SUPPORT_ROLES = new Set([
@@ -80,7 +80,7 @@ export async function initiateRefundAction(
 
   const { data: payment } = await supabase
     .from("payments")
-    .select("id, amount_cents, currency")
+    .select("id, provider, amount_cents, currency")
     .eq("order_id", order.id)
     .eq("status", "succeeded")
     .order("created_at", { ascending: false })
@@ -122,6 +122,7 @@ export async function initiateRefundAction(
       initiated_by: userId,
       provider_payload: {
         source: "organizer",
+        payment_provider: payment.provider,
         reason: normalizedReason,
         items: [
           {
@@ -149,12 +150,30 @@ export async function initiateRefundAction(
       order_item_id: orderItemId,
       amount_cents: amountCents,
       currency,
+      provider: payment.provider,
       reason: normalizedReason,
     },
   })
   if (auditError) throw new Error(`Refund created but audit logging failed: ${auditError.message}`)
 
-  const provider = await initiatePaystackRefund(refund.id)
+  const provider = await initiateRefund(refund.id)
+
+  await supabase.from("audit_log").insert({
+    org_id: orgId,
+    actor_id: userId,
+    table_name: "refunds",
+    record_id: refund.id,
+    action: "other",
+    changes: {
+      event_type: "refund_submission_started",
+      refund_id: refund.id,
+      order_id: order.id,
+      event_id: eventId,
+      provider: provider.provider,
+      provider_mode: provider.mode,
+      requires_manual_completion: provider.requiresManualCompletion ?? false,
+    },
+  })
 
   revalidatePath(`/orgs/${orgId}/events/${eventId}/orders/${order.id}`)
   revalidatePath(`/orgs/${orgId}/finance`)
@@ -181,7 +200,7 @@ export async function approveRefundAction(orgId: string, eventId: string, refund
     throw new Error(`Refund cannot be approved from status: ${refund.status}`)
   }
 
-  const provider = await initiatePaystackRefund(refundId)
+  const provider = await initiateRefund(refundId)
 
   await supabase.from("audit_log").insert({
     org_id: orgId,
@@ -190,10 +209,13 @@ export async function approveRefundAction(orgId: string, eventId: string, refund
     record_id: refundId,
     action: "other",
     changes: {
-      event_type: "refund_submitted_to_provider",
+      event_type: "refund_submission_started",
       refund_id: refundId,
       order_id: order.id,
       event_id: eventId,
+      provider: provider.provider,
+      provider_mode: provider.mode,
+      requires_manual_completion: provider.requiresManualCompletion ?? false,
     },
   })
 
