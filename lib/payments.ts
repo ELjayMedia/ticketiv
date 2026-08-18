@@ -6,6 +6,7 @@ import * as Sentry from "@sentry/nextjs"
 import { APP_URL } from "@/lib/env"
 import { notifyPaymentFailed } from "@/lib/notifications"
 import { assertPaymentProviderAvailableForOrder } from "@/lib/payments/availability"
+import { createDeltaPayHostedSession } from "@/lib/payments/deltapay"
 import {
   createPaymentChannelUnavailableError,
   reportPaymentChannelUnavailable,
@@ -15,7 +16,7 @@ import { getPaystackSettings } from "@/lib/payments/paystack-config"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { resolvePaymentProvider } from "@/lib/payments/routing"
 
-export type PaymentProvider = "paystack" | "flutterwave" | "manual" | "momo"
+export type PaymentProvider = "paystack" | "flutterwave" | "manual" | "momo" | "deltapay"
 
 type LiveOrder = {
   id: string
@@ -57,15 +58,12 @@ export interface CompleteVerifiedPaymentInput {
 }
 
 function assertProvider(provider: string): asserts provider is PaymentProvider {
-  if (!["paystack", "flutterwave", "manual", "momo"].includes(provider)) throw new Error("Unsupported payment provider")
+  if (!["paystack", "flutterwave", "manual", "momo", "deltapay"].includes(provider)) {
+    throw new Error("Unsupported payment provider")
+  }
 }
 
-async function getPendingOrder(orderId: string, userId?: string) {
-  // Service role: callers are trusted, post-verification server contexts — the
-  // checkout server action (scoped to the buyer via userId below), and the
-  // MoMo callback/status routes, which carry no browser session. `orders` has
-  // no anon read grant, so the anon/cookie client would find nothing here.
-  // Buyer scoping is still enforced explicitly when userId is provided.
+async function loadOrder(orderId: string, userId?: string) {
   const supabase = createAdminClient()
   if (!supabase) throw new Error("Supabase is not configured")
 
@@ -78,9 +76,26 @@ async function getPendingOrder(orderId: string, userId?: string) {
     throw new Error("Unable to load order")
   }
   if (!order) throw new Error("Order not found")
-  if (order.status !== "pending") throw new Error(`Order is not payable from status: ${order.status}`)
-
   return { supabase, order }
+}
+
+async function getPendingOrder(orderId: string, userId?: string) {
+  const loaded = await loadOrder(orderId, userId)
+  if (loaded.order.status !== "pending") {
+    throw new Error(`Order is not payable from status: ${loaded.order.status}`)
+  }
+  return loaded
+}
+
+async function getCompletableOrder(orderId: string) {
+  const loaded = await loadOrder(orderId)
+  // `fn_complete_order_payment` is idempotent and can report an already-paid
+  // order. Let duplicate verified callbacks reach that RPC instead of rejecting
+  // them before the transaction can perform its duplicate check.
+  if (loaded.order.status !== "pending" && loaded.order.status !== "paid") {
+    throw new Error(`Order cannot accept payment completion from status: ${loaded.order.status}`)
+  }
+  return loaded
 }
 
 function getBuyerEmail(order: LiveOrder) {
@@ -101,9 +116,6 @@ async function initializePaystackTransaction(order: LiveOrder, reference: string
     reportPaymentChannelUnavailable(error)
     throw error
   }
-  // The buyer is sent here by Paystack after the hosted page. The webhook
-  // is what actually moves the order to "paid"; this URL just lands them
-  // on the confirmation page which polls until the webhook completes.
   const callbackUrl = returnUrl ?? settings.callbackUrl ?? `${APP_URL}/orders/${order.id}/confirmation`
 
   let response: Response
@@ -157,6 +169,52 @@ async function initializePaystackTransaction(order: LiveOrder, reference: string
   return payload.data
 }
 
+async function initializeDeltaPayTransaction(
+  order: LiveOrder,
+  merchantReference: string,
+  returnUrl?: string | null,
+) {
+  if (order.currency.toUpperCase() !== "SZL") {
+    throw createPaymentChannelUnavailableError("provider_rejected_initialization", {
+      provider: "deltapay",
+      orderId: order.id,
+      currency: order.currency,
+      providerMessage: "DeltaPay Hosted Checkout requires SZL",
+    })
+  }
+
+  const finalReturnUrl = returnUrl ?? `${APP_URL}/orders/${order.id}/confirmation`
+  const verifyReturnUrl = new URL("/api/payments/deltapay/return", APP_URL)
+  verifyReturnUrl.searchParams.set("order_id", order.id)
+  verifyReturnUrl.searchParams.set("merchant_reference", merchantReference)
+
+  try {
+    const session = await createDeltaPayHostedSession({
+      amountCents: order.total_cents,
+      merchantReference,
+      platformOrderId: order.id,
+      returnUrl: verifyReturnUrl.toString(),
+      callbackUrl: new URL("/api/payments/deltapay/callback", APP_URL).toString(),
+      displayDescription: `Ticketiv order ${order.id}`,
+      metadata: JSON.stringify({ order_id: order.id, org_id: order.org_id, buyer_id: order.buyer_id }),
+    })
+    return { ...session, merchant_reference: merchantReference, final_return_url: finalReturnUrl }
+  } catch (cause) {
+    const error = createPaymentChannelUnavailableError("provider_rejected_initialization", {
+      provider: "deltapay",
+      orderId: order.id,
+      currency: order.currency,
+      providerMessage: cause instanceof Error ? cause.message : "Unable to initialize DeltaPay payment",
+    })
+    reportPaymentChannelUnavailable(error)
+    Sentry.captureException(cause, {
+      tags: { area: "payment-initialization", provider: "deltapay" },
+      extra: { correlationId: error.correlationId, orderId: order.id, currency: order.currency },
+    })
+    throw error
+  }
+}
+
 async function getOrderAllowedProviders(orderId: string): Promise<string[]> {
   const admin = createAdminClient()
   const { data, error } = await admin
@@ -187,9 +245,6 @@ async function getOrderAllowedProviders(orderId: string): Promise<string[]> {
 
 export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
   const { supabase, order } = await getPendingOrder(input.orderId, input.userId)
-  // Provider selection runs through payment_routing_rules, constrained by any
-  // event-level lock: an explicit, known, *permitted* client choice wins;
-  // otherwise the active rules decide.
   const allowedProviders = await getOrderAllowedProviders(order.id)
   const provider = await resolvePaymentProvider({
     currency: order.currency,
@@ -208,7 +263,16 @@ export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
 
   const extRef = `${provider}_${order.id}_${randomUUID()}`
   const attemptNo = (count ?? 0) + 1
-  const providerPayload = provider === "paystack" ? await initializePaystackTransaction(order, extRef, input.returnUrl) : null
+  const paystackPayload = provider === "paystack"
+    ? await initializePaystackTransaction(order, extRef, input.returnUrl)
+    : null
+  const deltaPayPayload = provider === "deltapay"
+    ? await initializeDeltaPayTransaction(order, extRef, input.returnUrl)
+    : null
+  const providerPayload = paystackPayload ?? deltaPayPayload
+  const providerReference = paystackPayload?.reference ?? deltaPayPayload?.checkout_session_id ?? extRef
+  const checkoutUrl = paystackPayload?.authorization_url ?? deltaPayPayload?.checkout_url ?? null
+  const accessCode = paystackPayload?.access_code ?? null
 
   const { data: attempt, error: attemptError } = await supabase
     .from("payment_attempts")
@@ -217,8 +281,13 @@ export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
       provider,
       attempt_no: attemptNo,
       status: "pending",
-      ext_ref: providerPayload?.reference ?? extRef,
-      payload: { return_url: input.returnUrl ?? null, amount_cents: order.total_cents, currency: order.currency, provider: providerPayload },
+      ext_ref: providerReference,
+      payload: {
+        return_url: input.returnUrl ?? null,
+        amount_cents: order.total_cents,
+        currency: order.currency,
+        provider: providerPayload,
+      },
     })
     .select("*")
     .single()
@@ -233,34 +302,23 @@ export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
     attempt,
     payment: {
       provider,
-      reference: providerPayload?.reference ?? extRef,
+      reference: providerReference,
       amountCents: order.total_cents,
       currency: order.currency,
       status: "pending",
-      checkoutUrl: providerPayload?.authorization_url ?? null,
-      accessCode: providerPayload?.access_code ?? null,
+      checkoutUrl,
+      accessCode,
     },
   }
 }
 
 /**
- * Complete a payment whose authenticity the caller has already verified
- * (TICK-333).
- *
- * Routes through the same single transactional RPC as the Paystack webhook.
- * This path previously repeated the completion by hand -- payment insert,
- * attempt update, ledger write, then completePaidOrder -- as four separate
- * transactions, so a failure between any two left the order torn in exactly
- * the ways the RPC now makes impossible. MoMo makes that likelier than most:
- * completion arrives from both the callback and status polling, so partial
- * runs interleave.
- *
- * Ticket delivery stays outside the transaction, drained from payment_outbox
- * after it commits.
+ * Complete a payment whose authenticity the caller has already verified.
+ * The database RPC is the single atomic completion path and is idempotent.
  */
 export async function completeVerifiedPayment(input: CompleteVerifiedPaymentInput) {
   assertProvider(input.provider)
-  const { supabase, order } = await getPendingOrder(input.orderId)
+  const { supabase, order } = await getCompletableOrder(input.orderId)
 
   const { data, error } = await supabase
     .rpc("fn_complete_order_payment", {
@@ -296,15 +354,13 @@ export async function completeVerifiedPayment(input: CompleteVerifiedPaymentInpu
 
 export async function failPaymentAttempt(orderId: string, provider: PaymentProvider, extRef?: string | null, payload?: Record<string, any>) {
   assertProvider(provider)
-  // Service role: called from the MoMo callback/status routes, which carry no
-  // browser session; payment_attempts has no anon write grant.
   const supabase = createAdminClient()
   if (!supabase) throw new Error("Supabase is not configured")
 
   const { data: order } = await supabase.from("orders").select("id, buyer_id").eq("id", orderId).maybeSingle()
 
-  const query = supabase.from("payment_attempts").update({ status: "failed", payload: payload ?? {} }).eq("order_id", orderId).eq("provider", provider).eq("status", "pending")
-  if (extRef) query.eq("ext_ref", extRef)
+  let query = supabase.from("payment_attempts").update({ status: "failed", payload: payload ?? {} }).eq("order_id", orderId).eq("provider", provider).eq("status", "pending")
+  if (extRef) query = query.eq("ext_ref", extRef)
   const { error } = await query
 
   if (error) {
