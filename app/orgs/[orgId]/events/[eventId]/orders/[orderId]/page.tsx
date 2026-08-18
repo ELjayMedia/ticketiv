@@ -5,6 +5,7 @@ import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { ManualRefundCompletionButton } from "./manual-refund-completion-button"
 import { OrderSupportActions } from "./order-support-actions"
 import { RefundApprovalButton } from "./refund-approval-button"
 
@@ -63,7 +64,15 @@ export default async function OrderDetailPage({
     "finance",
     "finance_manager",
   ])
+  const manualCompletionRoles = new Set([
+    "admin",
+    "organizer_owner",
+    "organizer_admin",
+    "finance",
+    "finance_manager",
+  ])
   const canSupport = supportRoles.has(String(member.role))
+  const canCompleteManualRefund = manualCompletionRoles.has(String(member.role))
 
   const { data: order } = await supabase
     .from("orders")
@@ -94,6 +103,9 @@ export default async function OrderDetailPage({
     .order("created_at", { ascending: false })
   const payments = paymentRows ?? []
   const paymentIds = payments.map((payment) => payment.id)
+  const paymentProviderById = new Map(
+    payments.map((payment) => [payment.id, String(payment.provider ?? "").toLowerCase()]),
+  )
 
   const refundResult = paymentIds.length
     ? await supabase
@@ -136,7 +148,9 @@ export default async function OrderDetailPage({
     const isSupportEvent = [
       "refund_requested",
       "buyer_refund_requested",
+      "refund_submission_started",
       "refund_submitted_to_provider",
+      "manual_refund_completed",
       "ticket_revoked",
     ].includes(eventType)
     const belongsToOrder = entry.changes?.order_id === orderId || itemIds.includes(entry.changes?.order_item_id)
@@ -272,13 +286,17 @@ export default async function OrderDetailPage({
             <CardBody className="flex flex-col gap-3 p-5">
               {refunds.map((refund: any) => {
                 const amountLabel = `${refund.currency} ${(refund.amount_cents / 100).toFixed(2)}`
+                const provider = paymentProviderById.get(refund.payment_id) ?? "unknown"
+                const requiresManualCompletion =
+                  refund.status === "processing" && !["paystack", "momo"].includes(provider)
                 return (
-                  <div key={refund.id} className="flex flex-wrap items-center justify-between gap-3">
+                  <div key={refund.id} className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-[13px] font-semibold capitalize text-ink">{refund.type?.replace(/_/g, " ")}</p>
                       <p className="font-mono text-[11px] text-ink-3">Initiated {fmtDate(refund.created_at)}{refund.processed_at ? ` · Processed ${fmtDate(refund.processed_at)}` : ""}</p>
+                      <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-ink-3">Provider: {provider}</p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex max-w-full flex-wrap items-start justify-end gap-2">
                       <Chip size="sm" variant={refund.status === "processed" ? "active" : "muted"} className="capitalize">{refund.status}</Chip>
                       <p className="font-mono text-[14px] font-semibold">{amountLabel}</p>
                       {canSupport && refund.status === "requested" && (
@@ -286,6 +304,16 @@ export default async function OrderDetailPage({
                           orgId={orgId}
                           eventId={eventId}
                           refundId={refund.id}
+                          amountLabel={amountLabel}
+                        />
+                      )}
+                      {canCompleteManualRefund && requiresManualCompletion && (
+                        <ManualRefundCompletionButton
+                          orgId={orgId}
+                          eventId={eventId}
+                          orderId={orderId}
+                          refundId={refund.id}
+                          provider={provider}
                           amountLabel={amountLabel}
                         />
                       )}
