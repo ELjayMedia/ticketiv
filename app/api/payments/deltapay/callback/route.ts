@@ -4,6 +4,8 @@ import * as Sentry from "@sentry/nextjs"
 import { verifyDeltaPayBySession } from "@/lib/payments/deltapay-verification"
 import { createAdminClient } from "@/lib/supabase/admin"
 
+const TERMINAL_STATUSES = new Set(["succeeded", "failed", "expired", "cancelled"])
+
 export async function POST(request: Request) {
   let payload: Record<string, any>
   try {
@@ -71,6 +73,14 @@ export async function POST(request: Request) {
 
   try {
     const result = await verifyDeltaPayBySession(checkoutSessionId)
+
+    // DeltaPay may callback before the hosted session becomes terminal. Keep the
+    // audit row unprocessed for pending/processing so a later provider callback
+    // can re-use it and re-verify rather than being discarded as a duplicate.
+    if (!TERMINAL_STATUSES.has(result.status)) {
+      return NextResponse.json({ ok: true, pending: true, status: result.status }, { status: 202 })
+    }
+
     const { error: processedError } = await admin
       .from("webhooks")
       .update({ processed_at: new Date().toISOString() })
