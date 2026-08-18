@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
-import { reconcilePaystackRefund } from "@/lib/payments/paystack-refunds"
+import { reconcileRefund } from "@/lib/payments/refunds"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 const SUPPORT_ROLES = new Set([
@@ -69,7 +69,7 @@ export async function reconcileRefundAction(
     .maybeSingle()
   if (!refund) throw new Error("Refund does not belong to this order")
 
-  const result = await reconcilePaystackRefund(refundId)
+  const result = await reconcileRefund(refundId)
   revalidatePath(`/orgs/${orgId}/events/${eventId}/orders/${orderId}`)
   revalidatePath(`/orgs/${orgId}/finance`)
   return result
