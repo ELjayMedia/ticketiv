@@ -90,17 +90,19 @@ export async function requestBuyerRefundAction(input: BuyerRefundRequestInput) {
   const amountCents = itemAmounts.reduce((sum, item) => sum + item.amount_cents, 0)
   if (amountCents <= 0) throw new Error("The selected tickets have no refundable value")
 
+  // Refund eligibility belongs to the successful payment, not to one specific
+  // processor. Provider-specific submission happens later through the refund
+  // dispatcher, so MoMo/DeltaPay orders can enter the same lifecycle safely.
   const { data: payment, error: paymentError } = await admin
     .from("payments")
     .select("id, provider, amount_cents, currency, ext_payment_id, status")
     .eq("order_id", orderId)
-    .eq("provider", "paystack")
     .eq("status", "succeeded")
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle()
   if (paymentError) throw new Error(`Unable to load payment: ${paymentError.message}`)
-  if (!payment?.ext_payment_id) throw new Error("No refundable Paystack payment was found")
+  if (!payment) throw new Error("No refundable successful payment was found")
   if (payment.currency.toUpperCase() !== order.currency.toUpperCase()) {
     throw new Error("Order and payment currencies do not match")
   }
@@ -149,6 +151,7 @@ export async function requestBuyerRefundAction(input: BuyerRefundRequestInput) {
         notes: notes || null,
         order_id: orderId,
         event_id: eventId,
+        payment_provider: payment.provider,
         policy_kind: policy.kind,
         policy_label: policy.label,
         refund_bps: quote.refundBps,
@@ -191,6 +194,7 @@ export async function requestBuyerRefundAction(input: BuyerRefundRequestInput) {
       ticket_ids: ticketIds,
       amount_cents: amountCents,
       currency: payment.currency,
+      provider: payment.provider,
       reason,
       refund_bps: quote.refundBps,
     },
