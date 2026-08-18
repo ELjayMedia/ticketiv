@@ -30,23 +30,24 @@ const SECTIONS: { heading: string; body: string[] }[] = [
     ],
   },
   {
-    heading: "4. Your choices",
+    heading: "4. Your choices and data rights",
     body: [
       "Manage notification and reminder preferences in Account settings.",
       "Update or correct your profile details at any time.",
-      "Request access to or deletion of your data by contacting support.",
+      "Delete your account from Account settings under Security when the account has no unresolved deletion blockers.",
+      "To request access to or a portable copy of your personal data, correction, deletion help, restriction or an objection to processing, email privacy@ticketiv.app. We verify the requester's identity before disclosing or changing account-linked data and aim to respond within 30 days.",
     ],
   },
   {
     heading: "5. Security & retention",
     body: [
       "Access to personal data is restricted and protected with row-level security. Sensitive payment details are tokenised and never exposed to your browser.",
-      "We keep information only as long as needed to provide the service and meet legal and accounting requirements.",
+      "We keep information only as long as needed to provide the service and meet legal and accounting requirements. When an account is deleted, records that must be kept for those purposes are retained without the user's profile/contact details where the system supports anonymisation.",
     ],
   },
   {
     heading: "6. Contact",
-    body: ["Questions about this policy? Email privacy@ticketiv.app."],
+    body: ["Questions about this policy or your personal data? Email privacy@ticketiv.app."],
   },
 ]
 
@@ -74,13 +75,22 @@ export default function PrivacyPolicyPage() {
         ))}
       </Card>
 
-      <p className="text-center font-mono text-[11px] text-ink-3">
-        Need a hand? Visit the{" "}
-        <Link href="/help" className="text-accent hover:underline">
-          Help centre
-        </Link>
-        .
-      </p>
+      <div className="flex flex-col items-center gap-2 text-center font-mono text-[11px] text-ink-3">
+        <p>
+          Need a hand? Visit the{" "}
+          <Link href="/help" className="text-accent hover:underline">
+            Help centre
+          </Link>
+          .
+        </p>
+        <p>
+          Need to remove your account? Read the{" "}
+          <Link href="/data-deletion" className="text-accent hover:underline">
+            data deletion instructions
+          </Link>
+          .
+        </p>
+      </div>
     </main>
   )
 }
