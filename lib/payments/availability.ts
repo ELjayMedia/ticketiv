@@ -9,6 +9,7 @@ import {
   type CheckoutPaymentProvider,
   type MomoConfigState,
 } from "@/lib/payments/availability-core"
+import { getDeltaPayConfig } from "@/lib/payments/deltapay"
 import { getPaystackSettings } from "@/lib/payments/paystack-config"
 import { createAdminClient } from "@/lib/supabase/admin"
 
@@ -38,9 +39,14 @@ const METHOD_COPY: Record<CheckoutPaymentProvider, Omit<CheckoutPaymentMethod, "
     sub: "Approve the payment on your MTN mobile wallet",
     type: "mobile_money",
   },
+  deltapay: {
+    label: "DeltaPay",
+    sub: "Pay securely in Emalangeni with DeltaPay",
+    type: "mobile_money",
+  },
 }
 
-const CHECKOUT_PROVIDERS: CheckoutPaymentProvider[] = ["paystack", "momo"]
+const CHECKOUT_PROVIDERS: CheckoutPaymentProvider[] = ["paystack", "momo", "deltapay"]
 
 function isCheckoutProvider(value: string): value is CheckoutPaymentProvider {
   return CHECKOUT_PROVIDERS.includes(value as CheckoutPaymentProvider)
@@ -110,14 +116,19 @@ export async function getOrganizerPaymentProviderOptions(
     console.error("[payments] Paystack is not operational", error)
   }
 
+  const deltaPayConfig = getDeltaPayConfig()
   const paystackEnabled = settings.has("paystack")
     ? settings.get("paystack") === true
     : paystackHasCredentials
   const momoEnabled = settings.has("momo") ? settings.get("momo") === true : true
+  const deltaPayEnabled = settings.has("deltapay")
+    ? settings.get("deltapay") === true
+    : deltaPayConfig.operational
   const momoConfig = getMomoConfigState()
   const momoHasCredentials = momoConfig.operational
   const paystackSupportsEvent = currencyStateAvailable && providerSupportsCurrencies("paystack", eventCurrencies)
   const momoSupportsEvent = currencyStateAvailable && providerSupportsCurrencies("momo", eventCurrencies)
+  const deltaPaySupportsEvent = currencyStateAvailable && providerSupportsCurrencies("deltapay", eventCurrencies)
   const currencyLabel = eventCurrencies.join(", ")
 
   return [
@@ -149,6 +160,21 @@ export async function getOrganizerPaymentProviderOptions(
             ? `MTN MoMo does not support this event's ${currencyLabel} currency.`
           : !momoEnabled
             ? "MTN MoMo is disabled by Ticketiv platform administration."
+            : null,
+    },
+    {
+      ...methodFor("deltapay"),
+      enabled: deltaPayEnabled,
+      operational: deltaPayEnabled && deltaPayConfig.operational && deltaPaySupportsEvent,
+      warning:
+        deltaPayEnabled && !deltaPayConfig.operational
+          ? `DeltaPay is enabled but not ready. ${deltaPayConfig.problems.join(" ")}`
+          : !currencyStateAvailable
+            ? "Ticketiv could not verify this event's currency, so DeltaPay is unavailable."
+          : deltaPayEnabled && !deltaPaySupportsEvent
+            ? `DeltaPay Hosted Checkout only supports SZL for this integration; this event uses ${currencyLabel}.`
+          : !deltaPayEnabled
+            ? "DeltaPay is disabled by Ticketiv platform administration."
             : null,
     },
   ]
@@ -249,7 +275,24 @@ export async function assertPaymentProviderAvailableForOrder(
   }
 
   const operational = await getOperationalPaymentProviders(currencies)
-  const effective = resolveEffectivePaymentProviders(operational, [...eventLists.values()])
+  let effective = resolveEffectivePaymentProviders(operational, [...eventLists.values()])
+
+  // MoMo cannot charge fractional SZL; DeltaPay can, so this restriction is
+  // intentionally rail-specific rather than applied to all SZL providers.
+  if (effective.includes("momo")) {
+    const { data: order, error: orderError } = await admin
+      .from("orders")
+      .select("total_cents")
+      .eq("id", orderId)
+      .maybeSingle()
+    if (orderError || !order) {
+      console.error("[payments] Failed to verify MoMo order amount", orderError)
+      throw new Error("Unable to verify this payment method right now.")
+    }
+    if (!momoAcceptsAmountCents(Number(order.total_cents))) {
+      effective = effective.filter((provider) => provider !== "momo")
+    }
+  }
 
   if (!effective.includes(requested)) {
     throw new Error("This event does not accept that payment method. Choose another option.")

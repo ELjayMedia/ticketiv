@@ -1,13 +1,14 @@
-export type CheckoutPaymentProvider = "paystack" | "momo"
+export type CheckoutPaymentProvider = "paystack" | "momo" | "deltapay"
 
-const CHECKOUT_PROVIDERS: CheckoutPaymentProvider[] = ["paystack", "momo"]
+const CHECKOUT_PROVIDERS: CheckoutPaymentProvider[] = ["paystack", "momo", "deltapay"]
 
 // Keep this aligned with the processor contracts used by the application.
-// Paystack's published list does not include SZL; the MoMo adapter is the
-// Eswatini Collections integration and sends SZL explicitly.
+// Paystack's published list does not include SZL; MoMo and DeltaPay are the
+// native Eswatini rails. DeltaPay Hosted Checkout accepts decimal SZL amounts.
 const PROVIDER_CURRENCIES: Record<CheckoutPaymentProvider, ReadonlySet<string>> = {
   paystack: new Set(["GHS", "KES", "NGN", "USD", "XOF", "ZAR"]),
   momo: new Set(["SZL"]),
+  deltapay: new Set(["SZL"]),
 }
 
 function isCheckoutProvider(value: string): value is CheckoutPaymentProvider {

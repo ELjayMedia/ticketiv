@@ -5,7 +5,7 @@ import * as React from "react"
 import { trackBuyerFunnel } from "@/components/analytics/buyer-funnel"
 
 export interface CheckoutProviderMethod {
-  id: "paystack" | "momo"
+  id: "paystack" | "momo" | "deltapay"
   label: string
   sub: string
   type: "card" | "mobile_money"
