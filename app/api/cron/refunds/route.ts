@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { getSupabaseAdminConfig } from "@/lib/env"
-import { reconcilePaystackRefund } from "@/lib/payments/paystack-refunds"
+import { reconcileRefund } from "@/lib/payments/refunds"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 export const runtime = "nodejs"
@@ -10,12 +10,11 @@ export const dynamic = "force-dynamic"
 const BATCH_SIZE = 25
 
 /**
- * Operational fallback for delayed or missing Paystack refund webhooks.
+ * Operational fallback for delayed or missing provider refund webhooks.
  *
- * Refunds are still driven by provider state: this endpoint only asks Paystack
- * for the current state of rows that Ticketiv already submitted. Finalisation
- * continues through fn_transition_refund, so polling and webhooks share the
- * same idempotent ledger/ticket mutation path.
+ * Refunds are driven by provider state through the provider-neutral dispatcher.
+ * Automated adapters can poll their provider; manual adapters are never sent to
+ * the wrong processor. Finalisation remains behind the provider-specific path.
  */
 export async function GET(request: Request) {
   const expectedSecret = process.env.CRON_SECRET
@@ -52,13 +51,21 @@ export async function GET(request: Request) {
     refundId: string
     ok: boolean
     status?: string
+    provider?: string
+    mode?: string
     error?: string
   }> = []
 
   for (const refund of refunds ?? []) {
     try {
-      const result = await reconcilePaystackRefund(refund.id)
-      results.push({ refundId: refund.id, ok: true, status: result.status })
+      const result = await reconcileRefund(refund.id)
+      results.push({
+        refundId: refund.id,
+        ok: true,
+        status: result.status,
+        provider: result.provider,
+        mode: result.mode,
+      })
     } catch (cause) {
       results.push({
         refundId: refund.id,
