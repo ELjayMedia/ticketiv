@@ -15,3 +15,15 @@ alter table public.payment_provider_settings
       array['paystack', 'flutterwave', 'manual', 'momo', 'deltapay']::text[]
     )
   );
+
+alter table public.events
+  drop constraint if exists events_payment_providers_known;
+
+alter table public.events
+  add constraint events_payment_providers_known
+  check (
+    payment_providers <@ array['paystack', 'flutterwave', 'manual', 'momo', 'deltapay']::text[]
+  );
+
+comment on column public.events.payment_providers is
+  'Allowed payment providers for this event. Empty = all enabled providers (no lock). Enforced server-side in createPaymentAttempt + checkout.';
