@@ -3,13 +3,11 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { acceptTransfer, cancelTransfer, declineTransfer } from "@/lib/data/attendee/transfers";
-import { requestTransferByEmail } from "@/app/(consumer)/tickets/actions";
 import { createClientSupabaseClient } from "@/lib/supabase-client";
 import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
 import { Card } from "@/components/quiet/ui/card";
-import { Modal, ModalContent, ModalClose, ModalFooter } from "@/components/quiet/ui/modal";
 import {
   Photo,
   Divider,
@@ -133,7 +131,6 @@ interface InboundTransfer {
   expiresInLabel: string;
 }
 
-
 export function MyTickets({
   featured,
   upcoming,
@@ -153,11 +150,6 @@ export function MyTickets({
   const [searchQuery, setSearchQuery] = React.useState("");
   const [ordersLiveConnected, setOrdersLiveConnected] = React.useState(false);
   const [stale, setStale] = React.useState(false);
-  const [localTransferred, setLocalTransferred] = React.useState<Set<string>>(new Set());
-  const [transferModal, setTransferModal] = React.useState<{ ticketId: string; title: string } | null>(null);
-  const [recipientEmail, setRecipientEmail] = React.useState("");
-  const [transferPending, setTransferPending] = React.useState(false);
-  const [transferError, setTransferError] = React.useState<string | null>(null);
   const [celebration, setCelebration] = React.useState<(TicketCheckIn & { eventTitle: string }) | null>(null);
   const [recentlyCheckedInId, setRecentlyCheckedInId] = React.useState<string | null>(
     highlightedTicketId,
@@ -276,12 +268,9 @@ export function MyTickets({
     };
   }, [router]);
 
-  const filteredUpcoming = (searchQuery.trim()
+  const filteredUpcoming = searchQuery.trim()
     ? _upcoming.filter((t) => t.title.toLowerCase().includes(searchQuery.toLowerCase()))
-    : _upcoming
-  ).map((t) =>
-    localTransferred.has(t.ticketId) ? { ...t, status: "transferred" as const } : t,
-  );
+    : _upcoming;
 
   // The featured ticket represents its whole order. Remove its siblings from
   // the remaining list so one purchase produces one card, while every
@@ -294,29 +283,6 @@ export function MyTickets({
     filteredUpcoming.filter((ticket) => ticket.orderId !== _featured?.orderId),
   );
   const groupedPast = groupTicketsByOrder(_past);
-
-  async function handleTransferSubmit() {
-    if (!transferModal || !recipientEmail.trim() || transferPending) return;
-    setTransferPending(true);
-    setTransferError(null);
-    const result = await requestTransferByEmail(transferModal.ticketId, recipientEmail);
-    setTransferPending(false);
-    if (!result.ok) {
-      setTransferError(result.error ?? "Transfer failed. Please try again.");
-      return;
-    }
-    setLocalTransferred((prev) => new Set([...prev, transferModal.ticketId]));
-    setTransferModal(null);
-    setRecipientEmail("");
-  }
-
-  function handleModalOpenChange(open: boolean) {
-    if (!open) {
-      setTransferModal(null);
-      setRecipientEmail("");
-      setTransferError(null);
-    }
-  }
 
   function handleShareFeatured() {
     const url = typeof window !== "undefined" ? window.location.href : "";
@@ -532,9 +498,9 @@ export function MyTickets({
                   <button
                     aria-label="Add to calendar"
                     onClick={handleAddToCalendar}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-[var(--radius)] border border-line-2 hover:bg-bg"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"
                   >
-                    <Icon name="cal" size={14} />
+                    <Icon name="cal" size={20} />
                   </button>
                 </div>
                 {_featured.isEventDay && (
@@ -590,9 +556,6 @@ export function MyTickets({
               <TicketOrderGroupCard
                 key={group.orderId}
                 tickets={group.tickets}
-                onTransfer={(ticket) =>
-                  setTransferModal({ ticketId: ticket.ticketId, title: ticket.title })
-                }
               />
             ))}
           </ul>
@@ -626,8 +589,9 @@ export function MyTickets({
                     onClick={async () => {
                       if (!_inbound?.transferId) return;
                       setTransferLoading("decline");
-                      await declineTransfer(_inbound.transferId).catch(() => null);
+                      const result = await declineTransfer(_inbound.transferId).catch(() => null);
                       setTransferLoading(null);
+                      if (result) router.refresh();
                     }}
                   >
                     Decline
@@ -640,8 +604,9 @@ export function MyTickets({
                     onClick={async () => {
                       if (!_inbound?.transferId) return;
                       setTransferLoading("accept");
-                      await acceptTransfer(_inbound.transferId).catch(() => null);
+                      const result = await acceptTransfer(_inbound.transferId).catch(() => null);
                       setTransferLoading(null);
+                      if (result) router.refresh();
                     }}
                   >
                     {transferLoading === "accept" ? "Accepting…" : "Accept transfer"}
@@ -701,8 +666,9 @@ export function MyTickets({
                       onClick={async () => {
                         if (!_inbound?.transferId) return;
                         setTransferLoading("decline");
-                        await declineTransfer(_inbound.transferId).catch(() => null);
+                        const result = await declineTransfer(_inbound.transferId).catch(() => null);
                         setTransferLoading(null);
+                        if (result) router.refresh();
                       }}
                     >
                       Decline
@@ -715,8 +681,9 @@ export function MyTickets({
                       onClick={async () => {
                         if (!_inbound?.transferId) return;
                         setTransferLoading("accept");
-                        await acceptTransfer(_inbound.transferId).catch(() => null);
+                        const result = await acceptTransfer(_inbound.transferId).catch(() => null);
                         setTransferLoading(null);
+                        if (result) router.refresh();
                       }}
                     >
                       {transferLoading === "accept" ? "Accepting…" : "Accept"}
@@ -778,56 +745,6 @@ export function MyTickets({
           />
         )
       )}
-
-      {/* Inline transfer modal */}
-      <Modal open={Boolean(transferModal)} onOpenChange={handleModalOpenChange}>
-        <ModalContent title="Transfer ticket" description="Send this ticket to someone with a Ticketiv account" size="sm">
-          <div className="flex flex-col gap-4">
-            {transferModal && (
-              <p className="font-mono text-[11px] uppercase text-ink-3">
-                {transferModal.title}
-              </p>
-            )}
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="transfer-email" className="text-label">
-                Recipient email
-              </label>
-              <input
-                id="transfer-email"
-                type="email"
-                autoComplete="email"
-                autoFocus
-                value={recipientEmail}
-                onChange={(e) => setRecipientEmail(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleTransferSubmit()}
-                placeholder="friend@example.com"
-                className="w-full rounded-[var(--radius)] border border-line bg-bg px-3 py-2.5 text-[14px] outline-none placeholder:text-ink-3 focus:border-accent focus:ring-[3px] focus:ring-accent/10"
-              />
-            </div>
-            {transferError && (
-              <p className="rounded-[var(--radius)] bg-danger-soft px-3 py-2 text-[12px] text-danger">
-                {transferError}
-              </p>
-            )}
-            <p className="font-mono text-[11px] leading-relaxed text-ink-3">
-              The recipient will get 24 hours to accept. Your QR is revoked when they accept.
-            </p>
-          </div>
-          <ModalFooter>
-            <ModalClose asChild>
-              <Button variant="default" size="sm">Cancel</Button>
-            </ModalClose>
-            <Button
-              variant="accent"
-              size="sm"
-              disabled={!recipientEmail.trim() || transferPending}
-              onClick={handleTransferSubmit}
-            >
-              {transferPending ? "Sending…" : "Send transfer"}
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
       </div>
     </>
   );
@@ -836,12 +753,10 @@ export function MyTickets({
 function TicketOrderGroupCard({
   tickets,
   mode = "upcoming",
-  onTransfer,
   recentlyCheckedInId,
 }: {
   tickets: TicketListItem[];
   mode?: "upcoming" | "past";
-  onTransfer?: (ticket: TicketListItem) => void;
   recentlyCheckedInId?: string | null;
 }) {
   const lead = tickets[0];
@@ -915,14 +830,13 @@ function TicketOrderGroupCard({
                       <Icon name="qr" size={13} />
                       QR
                     </a>
-                    <button
-                      type="button"
+                    <Link
+                      href={`/tickets/${ticket.ticketId}/transfer`}
                       aria-label={`Transfer ${lead.title}, ticket ${index + 1}`}
-                      onClick={() => onTransfer?.(ticket)}
                       className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius)] border border-line-2 hover:bg-bg"
                     >
                       <Icon name="arrowUR" size={14} />
-                    </button>
+                    </Link>
                     <Link
                       href={`/resale?ticketId=${encodeURIComponent(ticket.ticketId)}`}
                       aria-label={`List ${lead.title}, ticket ${index + 1} for resale`}
