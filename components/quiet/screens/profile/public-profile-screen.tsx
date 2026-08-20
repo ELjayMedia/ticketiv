@@ -1,5 +1,6 @@
 import Link from "next/link"
 
+import { FriendActions } from "@/components/quiet/screens/profile/friend-actions"
 import { ShareButton } from "@/components/quiet/screens/profile/profile-actions"
 import { Avatar } from "@/components/quiet/ui/primitives"
 import type { PublicProfile } from "@/lib/data/attendee/public-profile"
@@ -50,6 +51,14 @@ export function PublicProfileScreen({ profile }: { profile: PublicProfile }) {
             {joined ? ` · joined ${JOINED_FMT.format(joined)}` : ""}
           </p>
         </div>
+
+        {!profile.isOwner ? (
+          <FriendActions
+            handle={profile.handle}
+            initialState={profile.relationshipState}
+          />
+        ) : null}
+
         <p className="max-w-[320px] text-[13px] leading-relaxed text-ink-3">
           Discover and book events together on Ticketiv.
         </p>
