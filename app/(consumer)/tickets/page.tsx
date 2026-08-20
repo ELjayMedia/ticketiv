@@ -59,10 +59,13 @@ export default async function TicketsPage({
       }
     : null;
 
+  // The dedicated /transfers hub models expiration explicitly. The older
+  // embedded Transfers segment predates that enum value, so treat expiration
+  // as a closed/cancelled request there instead of widening its legacy UI type.
   const transferHistory = history.map((h) => ({
     id: h.id,
     direction: h.direction,
-    status: h.status,
+    status: h.status === "expired" ? "cancelled" as const : h.status,
     eventTitle: h.eventTitle,
     counterpartyName: h.counterpartyName,
     counterpartyPhoto: avatarFor(h.counterpartyId),
