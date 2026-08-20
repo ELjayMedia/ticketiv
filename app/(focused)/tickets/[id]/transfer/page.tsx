@@ -18,9 +18,11 @@ export const dynamic = "force-dynamic";
 
 type GoingRow = { friend_id: string };
 
+const ASSIGNMENT_RETURN_PATH = /^\/orders\/[0-9a-fA-F-]{36}\/assign$/;
+
 function normalizeReturnTo(value: string | string[] | undefined): string | null {
   const target = typeof value === "string" ? value : null;
-  if (!target || !target.startsWith("/") || target.startsWith("//")) return null;
+  if (!target || !ASSIGNMENT_RETURN_PATH.test(target)) return null;
   return target;
 }
 
