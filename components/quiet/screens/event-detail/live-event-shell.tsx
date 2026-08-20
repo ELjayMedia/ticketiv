@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useMemo } from "react"
 import { MobileEvent, type MobileEventData } from "@/components/quiet/screens/event-detail/mobile-event"
 import { DesktopEvent, type DesktopEventData } from "@/components/quiet/screens/event-detail/desktop-event"
+import { EventSocialStrip } from "@/components/quiet/screens/event-detail/event-social-strip"
 import { useEventLiveStats, type EventLiveStats } from "@/lib/hooks/use-event-live-stats"
 
 interface LiveEventShellProps {
@@ -71,6 +72,11 @@ export function LiveEventShell({ eventId, mobile, desktop, initialStats = null }
       {showWaitlistEntry && (
         <SoldOutWaitlistBanner href={waitlistHref} />
       )}
+      <EventSocialStrip
+        eventId={eventId}
+        eventSlug={mobile.id}
+        eventTitle={mobile.title}
+      />
       <div className="h-dvh md:hidden">
         <MobileEvent event={mergedMobile} />
       </div>
