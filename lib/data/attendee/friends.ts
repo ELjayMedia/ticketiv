@@ -1,7 +1,6 @@
 // Source: user_friends + v_event_friends_going + user_connections + profiles
-// + user_handles. event_favourites and v_my_tickets of friends are owner-only
-// under RLS, so the activity feed is derived from v_event_friends_going
-// ("going to") only — additional activity types arrive when their views land.
+// + user_handles. Event activity is intentionally limited to the privacy-aware
+// "friends going" view; order and payment details never leave their owner scope.
 
 import "server-only"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
@@ -33,6 +32,13 @@ export interface FriendsOverview {
     handle: string | null
     mutualEventCount: number
   }>
+  requests: Array<{
+    id: string
+    requesterId: string
+    name: string
+    handle: string
+    requestedAt: string
+  }>
   suggested: Array<{
     id: string
     name: string
@@ -40,6 +46,17 @@ export interface FriendsOverview {
     mutualLabel: string
   }>
   inviteHandle: string | null
+}
+
+type PendingRequestRow = {
+  id: string
+  requester_id: string
+  requested_at: string
+}
+
+type SocialProfileRow = {
+  handle: string
+  display_name: string
 }
 
 export async function getMyFriendsOverview(): Promise<FriendsOverview | null> {
@@ -58,9 +75,10 @@ export async function getMyFriendsOverview(): Promise<FriendsOverview | null> {
       .order("connected_at", { ascending: false }),
     supabase
       .from("user_connections")
-      .select("id", { count: "exact", head: true })
+      .select("id, requester_id, requested_at", { count: "exact" })
       .eq("recipient_id", user.id)
-      .eq("status", "pending"),
+      .eq("status", "pending")
+      .order("requested_at", { ascending: false }),
     supabase
       .from("v_event_friends_going")
       .select(
@@ -73,12 +91,14 @@ export async function getMyFriendsOverview(): Promise<FriendsOverview | null> {
   ])
 
   const totalFriends = friendsRes.count ?? 0
-  const pendingRequests = pendingRes.count ?? 0
+  const pendingRows = (pendingRes.data ?? []) as PendingRequestRow[]
+  const pendingRequests = pendingRes.count ?? pendingRows.length
   const friendIds = (friendsRes.data ?? [])
     .map((r) => r.friend_id)
     .filter((id): id is string => typeof id === "string" && id.length > 0)
 
-  // Hydrate friend profiles (display_name) + handles in parallel.
+  // Hydrate accepted-friend identity. Profiles remain RLS-protected; handles are
+  // public identity pointers and are used for canonical /@handle navigation.
   const [profilesRes, handlesRes] = await Promise.all([
     friendIds.length > 0
       ? supabase
@@ -104,6 +124,37 @@ export async function getMyFriendsOverview(): Promise<FriendsOverview | null> {
     if (ex) ex.handle = h.handle
     else profById.set(h.user_id, { name: "Friend", handle: h.handle })
   }
+
+  // Incoming requests need safe public identity even before a friendship is
+  // accepted. Resolve requester IDs to handles first, then use the narrow social
+  // profile RPC so phone/email/order fields never enter this payload.
+  const requesterIds = pendingRows.map((r) => r.requester_id)
+  const requestHandlesRes = requesterIds.length > 0
+    ? await supabase.from("user_handles").select("user_id, handle").in("user_id", requesterIds)
+    : { data: [] as Array<{ user_id: string; handle: string }> }
+
+  const requestHandleById = new Map(
+    ((requestHandlesRes.data ?? []) as Array<{ user_id: string; handle: string }>).map((row) => [row.user_id, row.handle]),
+  )
+
+  const requests = (await Promise.all(
+    pendingRows.map(async (request) => {
+      const handle = requestHandleById.get(request.requester_id)
+      if (!handle) return null
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase.rpc as any)("get_social_public_profile", { p_handle: handle })
+      const row = (Array.isArray(data) ? data[0] : data) as SocialProfileRow | null
+
+      return {
+        id: request.id,
+        requesterId: request.requester_id,
+        name: row?.display_name?.trim() || `@${handle}`,
+        handle,
+        requestedAt: request.requested_at,
+      }
+    }),
+  )).filter((row): row is NonNullable<typeof row> => row !== null)
 
   const goingRows = (goingRes.data ?? []) as unknown as Array<{
     event_id: string
@@ -184,7 +235,6 @@ export async function getMyFriendsOverview(): Promise<FriendsOverview | null> {
     whenAt: r.events?.starts_at ?? new Date().toISOString(),
   }))
 
-  // Mutual upcoming events per friend, derived from goingRows.
   const mutualByFriend = new Map<string, Set<string>>()
   for (const r of goingRows) {
     if (!friendIds.includes(r.friend_id)) continue
@@ -209,6 +259,7 @@ export async function getMyFriendsOverview(): Promise<FriendsOverview | null> {
     goingTogether,
     activity,
     friends,
+    requests,
     suggested: [],
     inviteHandle: myHandleRes.data?.handle ?? null,
   }
