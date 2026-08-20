@@ -12,10 +12,24 @@ export interface EventInviteCandidate {
   inviteStatus: "pending" | "dismissed" | "cancelled" | null
 }
 
+export interface EventFriendSignal {
+  eventId: string
+  friendCount: number
+  friendNames: string[]
+  friendHandles: string[]
+}
+
 export interface EventSocialContextResult {
   ok: boolean
   signedIn: boolean
   candidates: EventInviteCandidate[]
+  error?: string
+}
+
+export interface EventFriendSignalsResult {
+  ok: boolean
+  signedIn: boolean
+  signals: EventFriendSignal[]
   error?: string
 }
 
@@ -27,6 +41,12 @@ export interface InviteFriendsResult {
 
 function isInviteStatus(value: unknown): EventInviteCandidate["inviteStatus"] {
   return value === "pending" || value === "dismissed" || value === "cancelled" ? value : null
+}
+
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+    : []
 }
 
 async function signedInClient() {
@@ -76,6 +96,55 @@ export async function getEventSocialContextAction(eventId: string): Promise<Even
   })
 
   return { ok: true, signedIn: true, candidates }
+}
+
+export async function getEventFriendSignalsAction(eventIds: string[]): Promise<EventFriendSignalsResult> {
+  const normalized = Array.from(
+    new Set(
+      eventIds
+        .map((eventId) => String(eventId ?? "").trim())
+        .filter(Boolean),
+    ),
+  ).slice(0, 50)
+
+  if (normalized.length === 0) return { ok: true, signedIn: false, signals: [] }
+
+  const supabase = await signedInClient()
+  if (!supabase) return { ok: true, signedIn: false, signals: [] }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)("fn_event_friend_signals", {
+    p_event_ids: normalized,
+  })
+
+  if (error) {
+    console.error("[event-social] fn_event_friend_signals:", error)
+    return {
+      ok: false,
+      signedIn: true,
+      signals: [],
+      error: "Could not load friends-going signals.",
+    }
+  }
+
+  const signals = (Array.isArray(data) ? data : []).flatMap((row) => {
+    if (!row || typeof row !== "object") return []
+    const record = row as Record<string, unknown>
+    if (typeof record.event_id !== "string") return []
+
+    const rawCount = typeof record.friend_count === "number"
+      ? record.friend_count
+      : Number(record.friend_count ?? 0)
+
+    return [{
+      eventId: record.event_id,
+      friendCount: Number.isFinite(rawCount) ? Math.max(0, rawCount) : 0,
+      friendNames: asStringArray(record.friend_names),
+      friendHandles: asStringArray(record.friend_handles),
+    } satisfies EventFriendSignal]
+  })
+
+  return { ok: true, signedIn: true, signals }
 }
 
 export async function inviteFriendsToEventAction(
