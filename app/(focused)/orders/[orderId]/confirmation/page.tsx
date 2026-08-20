@@ -63,6 +63,11 @@ export default async function ConfirmationPage({
   // right at the "ticket ready" moment — the highest-intent point in the flow.
   const isAnonymous = Boolean(user && (user as { is_anonymous?: boolean }).is_anonymous);
   const defaultClaimEmail = order.buyer_email ?? "";
+  const confirmationOrder = {
+    ...props,
+    canAssignTickets:
+      Boolean(user) && !isAnonymous && props.state === "paid" && props.quantity > 1,
+  };
 
   return (
     <div className="h-dvh">
@@ -74,7 +79,7 @@ export default async function ConfirmationPage({
         quantity={props.quantity}
         totalMinor={props.totalMinor}
       />
-      <OrderConfirmation order={props} />
+      <OrderConfirmation order={confirmationOrder} />
       {isAnonymous && props.state !== "pending" && (
         <div className="mx-auto max-w-[480px] px-4 pb-6">
           <SaveMyTicketsCard defaultEmail={defaultClaimEmail} />
