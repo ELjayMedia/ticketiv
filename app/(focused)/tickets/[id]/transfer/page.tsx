@@ -7,13 +7,16 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 /**
  * `/tickets/[id]/transfer`
  *
- * `[id]` is the order_item_id. Ticket lookup is RLS-scoped to the current
- * buyer via v_my_tickets. Friends come from user_connections joined to
- * profiles + user_handles. v_event_friends_going flags which of those
- * friends already hold a ticket for the same event.
+ * `[id]` is the order_item_id. Ticket lookup is owner-scoped through the
+ * attendee ticket data layer. Friends come from accepted user_connections
+ * joined to safe public profile identity. TICK-387 uses the claimed-account
+ * social RPC to flag friends who already hold a ticket for this event; the old
+ * exposed friends-going view was intentionally removed.
  */
 export const metadata = { title: "Transfer ticket" };
 export const dynamic = "force-dynamic";
+
+type GoingRow = { friend_id: string };
 
 async function fetchTransferData(eventId: string) {
   const supabase = await createServerSupabaseClient();
@@ -22,7 +25,9 @@ async function fetchTransferData(eventId: string) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { friends: [] as FriendRow[], goingIds: new Set<string>() };
+  if (!user || user.is_anonymous) {
+    return { friends: [] as FriendRow[], goingIds: new Set<string>() };
+  }
 
   const { data: connections } = await supabase
     .from("user_connections")
@@ -45,11 +50,18 @@ async function fetchTransferData(eventId: string) {
       .from("user_handles")
       .select("user_id, handle")
       .in("user_id", friendIds),
-    supabase
-      .from("v_event_friends_going")
-      .select("friend_id")
-      .eq("event_id", eventId),
+    // TICK-387 RPC is newer than the generated Database types.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.rpc as any)("fn_my_friends_going", {
+      p_event_ids: [eventId],
+      p_from: null,
+      p_limit: 100,
+    }),
   ]);
+
+  if (goingRes.error) {
+    console.error("[ticket-transfer] fn_my_friends_going:", goingRes.error);
+  }
 
   const handleByUser = new Map((handlesRes.data ?? []).map((h) => [h.user_id, h.handle]));
   const rows: FriendRow[] = (profilesRes.data ?? []).map((p) => ({
@@ -60,9 +72,9 @@ async function fetchTransferData(eventId: string) {
   }));
 
   const goingIds = new Set<string>(
-    (goingRes.data ?? [])
+    ((goingRes.data ?? []) as GoingRow[])
       .map((g) => g.friend_id)
-      .filter((id): id is string => id !== null),
+      .filter((id): id is string => typeof id === "string" && id.length > 0),
   );
 
   return { friends: rows, goingIds };
