@@ -99,7 +99,7 @@ export default async function AssignTicketsPage({
           <div className="mb-2 flex items-center justify-between">
             <span className="text-label">Who is using each ticket?</span>
             <span className="font-mono text-[10px] text-ink-3">
-              {assignableCount} with you
+              {assignableCount} ready to assign
             </span>
           </div>
 
