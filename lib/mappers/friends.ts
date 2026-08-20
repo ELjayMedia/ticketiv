@@ -53,6 +53,7 @@ export interface FriendsScreenProps {
     id: string
     name: string
     photo: string
+    handle: string | null
     action: string
     what: string
     whenAgo: string
@@ -65,6 +66,13 @@ export interface FriendsScreenProps {
     handle: string | null
     mutualLabel: string
   }>
+  requests: Array<{
+    id: string
+    name: string
+    photo: string
+    handle: string
+    mutualLabel: string
+  }>
   suggested: Array<{
     id: string
     name: string
@@ -75,8 +83,7 @@ export interface FriendsScreenProps {
   inviteReward: string
 }
 
-// Invite links must copy as real, working URLs. Prefer the configured public
-// origin; fall back to the production domain — never a placeholder host.
+// Invite links remain an acquisition path, separate from persisted friendship.
 export function mapFriends(o: FriendsOverview, host?: string | null): FriendsScreenProps {
   const hero = o.goingTogether
   const goingTogether = hero
@@ -99,6 +106,7 @@ export function mapFriends(o: FriendsOverview, host?: string | null): FriendsScr
       id: a.id,
       name: a.name,
       photo: avatarFor(a.friendId),
+      handle: a.handle,
       action: "is going to",
       what: a.eventTitle,
       whenAgo: timeAgo(a.whenAt),
@@ -114,6 +122,13 @@ export function mapFriends(o: FriendsOverview, host?: string | null): FriendsScr
           ? `${f.mutualEventCount} shared event${f.mutualEventCount === 1 ? "" : "s"}`
           : "No shared events yet",
     })),
+    requests: o.requests.map((r) => ({
+      id: r.id,
+      name: r.name,
+      photo: avatarFor(r.requesterId),
+      handle: r.handle,
+      mutualLabel: `Requested ${timeAgo(r.requestedAt)}`,
+    })),
     suggested: o.suggested.map((s) => ({
       id: s.id,
       name: s.name,
@@ -123,6 +138,6 @@ export function mapFriends(o: FriendsOverview, host?: string | null): FriendsScr
     inviteLink: o.inviteHandle
       ? buildTicketivPublicUrl(`/?ref=${encodeURIComponent(o.inviteHandle)}`, host)
       : buildTicketivPublicUrl("", host),
-    inviteReward: "get E100 off when 3 join",
+    inviteReward: "Invite someone who isn't on Ticketiv yet",
   }
 }
