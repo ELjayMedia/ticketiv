@@ -3,11 +3,6 @@
 import * as React from "react"
 import Link from "next/link"
 
-import {
-  searchPeopleAction,
-  type FriendRelationshipState,
-  type PeopleSearchResult,
-} from "@/app/(consumer)/friends/actions"
 import { FriendActions } from "@/components/quiet/screens/profile/friend-actions"
 import { Button } from "@/components/quiet/ui/button"
 import { Card } from "@/components/quiet/ui/card"
@@ -77,7 +72,6 @@ export function FriendsScreen({
   requests = [],
 }: FriendsScreenProps = {}) {
   const [tab, setTab] = React.useState<Tab>("activity")
-  const [findOpen, setFindOpen] = React.useState(false)
   const [copied, setCopied] = React.useState(false)
 
   function copyInviteLink() {
@@ -108,17 +102,13 @@ export function FriendsScreen({
         >
           <Icon name="settings" size={18} />
         </Link>
-        <Button
-          type="button"
-          variant="accent"
-          size="xs"
-          onClick={() => setFindOpen((open) => !open)}
+        <Link
+          href="/friends/find"
+          className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius)] border border-accent bg-accent px-2.5 py-1.5 text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
         >
           <Icon name="plus" size={14} /> Find people
-        </Button>
+        </Link>
       </header>
-
-      {findOpen ? <FindPeoplePanel /> : null}
 
       <div className="px-5 pb-4">
         <Segmented
@@ -149,110 +139,6 @@ export function FriendsScreen({
         <RequestsTab requests={requests} pendingRequests={pendingRequests} />
       ) : null}
     </div>
-  )
-}
-
-function FindPeoplePanel() {
-  const [query, setQuery] = React.useState("")
-  const [people, setPeople] = React.useState<PeopleSearchResult[]>([])
-  const [error, setError] = React.useState<string | null>(null)
-  const [searched, setSearched] = React.useState(false)
-  const [pending, startTransition] = React.useTransition()
-
-  function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const q = query.trim()
-    if (q.length < 2) return
-
-    setError(null)
-    startTransition(async () => {
-      const result = await searchPeopleAction(q)
-      setSearched(true)
-      if (!result.ok) {
-        setPeople([])
-        setError(result.error ?? "Could not search people.")
-        return
-      }
-      setPeople(result.people)
-    })
-  }
-
-  return (
-    <section className="px-5 pb-4">
-      <Card className="flex flex-col gap-3 p-3.5">
-        <div>
-          <div className="text-[13px] font-semibold">Find people</div>
-          <p className="mt-0.5 font-mono text-[10px] text-ink-3">
-            Search Ticketiv by name or @username. Phone contacts arrive in the next delivery phase.
-          </p>
-        </div>
-
-        <form onSubmit={submit} className="flex gap-2">
-          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-2">
-            <Icon name="search" size={14} className="shrink-0 text-ink-3" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Name or @username"
-              className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-3"
-            />
-          </div>
-          <Button type="submit" variant="default" size="sm" disabled={pending || query.trim().length < 2}>
-            {pending ? "Finding…" : "Find"}
-          </Button>
-        </form>
-
-        {error ? <p className="font-mono text-[10px] text-danger">{error}</p> : null}
-
-        {searched && !pending && people.length === 0 && !error ? (
-          <p className="rounded-[var(--radius)] bg-bg px-3 py-4 text-center font-mono text-[10px] text-ink-3">
-            No eligible Ticketiv profiles match that search.
-          </p>
-        ) : null}
-
-        {people.length > 0 ? (
-          <ul className="flex flex-col divide-y divide-line">
-            {people.map((person) => (
-              <li key={person.handle} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                <Link href={`/@${person.handle}`} className="flex min-w-0 flex-1 items-center gap-2.5">
-                  <Avatar src={person.avatarUrl ?? ""} label={initials(person.displayName)} size={40} />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13px] font-semibold">{person.displayName}</div>
-                    <div className="truncate font-mono text-[10px] text-ink-3">@{person.handle}</div>
-                  </div>
-                </Link>
-                <CompactRelationshipAction person={person} />
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </Card>
-    </section>
-  )
-}
-
-function CompactRelationshipAction({ person }: { person: PeopleSearchResult }) {
-  const state = person.relationshipState as FriendRelationshipState
-  if (state === "friends") {
-    return <span className="font-mono text-[10px] font-semibold text-accent">Friends ✓</span>
-  }
-  if (state === "outgoing_pending") {
-    return <span className="font-mono text-[10px] font-semibold text-ink-3">Requested</span>
-  }
-  if (state === "incoming_pending") {
-    return (
-      <Link href={`/@${person.handle}`} className="font-mono text-[10px] font-semibold text-accent">
-        Respond ›
-      </Link>
-    )
-  }
-  if (!person.canRequest) {
-    return <span className="font-mono text-[10px] text-ink-3">Requests off</span>
-  }
-  return (
-    <Link href={`/@${person.handle}`} className="font-mono text-[10px] font-semibold text-accent">
-      Add ›
-    </Link>
   )
 }
 
@@ -443,14 +329,4 @@ function RequestsTab({
       </ul>
     </section>
   )
-}
-
-function initials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .map((part) => part[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase()
 }

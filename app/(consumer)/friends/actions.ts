@@ -32,11 +32,22 @@ export interface PeopleSearchActionResult {
   error?: string
 }
 
+export interface ContactMatchResult extends PeopleSearchResult {
+  inputIndex: number
+}
+
+export interface ContactMatchActionResult {
+  ok: boolean
+  matches: ContactMatchResult[]
+  error?: string
+}
+
 export interface SocialPrivacyInput {
   profileDiscoverability: "everyone" | "friends"
   allowFriendRequests: boolean
   showEventsGoingToFriends: boolean
   allowFriendSuggestions: boolean
+  discoverByPhone: boolean
 }
 
 function normalizeHandle(value: string) {
@@ -210,6 +221,64 @@ export async function searchPeopleAction(query: string): Promise<PeopleSearchAct
   return { ok: true, people }
 }
 
+export async function matchContactsAction(phones: string[]): Promise<ContactMatchActionResult> {
+  if (!Array.isArray(phones)) return { ok: false, matches: [], error: "No contacts were selected." }
+
+  const selected = phones.map((phone) => String(phone ?? "").trim())
+  if (selected.length === 0) return { ok: true, matches: [] }
+  if (selected.length > 100) {
+    return { ok: false, matches: [], error: "Choose up to 100 phone numbers at a time." }
+  }
+  if (selected.some((phone) => phone.length > 64)) {
+    return { ok: false, matches: [], error: "One of the selected contact numbers is invalid." }
+  }
+
+  const supabase = await getSignedInClient()
+  if (!supabase) return { ok: false, matches: [], error: "Sign in to find people from contacts." }
+
+  // TICK-386 RPC intentionally returns no phone-number fields.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)("fn_match_friend_contacts", {
+    p_phones: selected,
+  })
+
+  if (error) {
+    console.error("[friends] fn_match_friend_contacts:", error)
+    const rateLimited = String(error.message ?? "").toLowerCase().includes("rate_limited")
+    return {
+      ok: false,
+      matches: [],
+      error: rateLimited
+        ? "Contact matching has been used several times. Try again a little later."
+        : "Could not match your selected contacts right now.",
+    }
+  }
+
+  const rows = Array.isArray(data) ? data : []
+  const matches = rows.flatMap((row) => {
+    if (!row || typeof row !== "object") return []
+    const record = row as Record<string, unknown>
+    if (
+      typeof record.input_index !== "number" ||
+      typeof record.handle !== "string" ||
+      typeof record.display_name !== "string"
+    ) return []
+
+    return [{
+      inputIndex: record.input_index,
+      handle: record.handle,
+      displayName: record.display_name,
+      avatarUrl: typeof record.avatar_url === "string" ? record.avatar_url : null,
+      relationshipState: isRelationshipState(record.relationship_state)
+        ? record.relationship_state
+        : "none",
+      canRequest: record.can_request === true,
+    } satisfies ContactMatchResult]
+  })
+
+  return { ok: true, matches }
+}
+
 export async function updateSocialPrivacyAction(
   input: SocialPrivacyInput,
 ): Promise<{ ok: boolean; error?: string }> {
@@ -222,6 +291,7 @@ export async function updateSocialPrivacyAction(
     p_allow_friend_requests: input.allowFriendRequests,
     p_show_events_going_to_friends: input.showEventsGoingToFriends,
     p_allow_friend_suggestions: input.allowFriendSuggestions,
+    p_discover_by_phone: input.discoverByPhone,
   })
 
   if (error) {
@@ -231,5 +301,6 @@ export async function updateSocialPrivacyAction(
 
   revalidatePath("/friends")
   revalidatePath("/friends/settings")
+  revalidatePath("/friends/find")
   return { ok: true }
 }

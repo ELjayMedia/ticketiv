@@ -82,6 +82,12 @@ export function FriendsSettingsScreen({ settings }: { settings: SocialPrivacySet
           onChange={() => setPrefs((current) => ({ ...current, allowFriendRequests: !current.allowFriendRequests }))}
         />
         <PrivacyToggle
+          label="Find me from phone contacts"
+          description="People who already have your phone number can match it to your Ticketiv profile when they explicitly choose contacts. Your number is never shown to them."
+          checked={prefs.discoverByPhone}
+          onChange={() => setPrefs((current) => ({ ...current, discoverByPhone: !current.discoverByPhone }))}
+        />
+        <PrivacyToggle
           label="Show events I'm going to"
           description="Friends can see a simple going-to signal. Ticket type, seat, order value and payment information stay private."
           checked={prefs.showEventsGoingToFriends}
