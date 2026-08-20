@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 
 import {
   blockUserAction,
@@ -21,6 +22,7 @@ export function FriendActions({
   handle: string
   initialState: FriendRelationshipState
 }) {
+  const router = useRouter()
   const [state, setState] = useState<FriendRelationshipState>(initialState)
   const [message, setMessage] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
@@ -34,6 +36,7 @@ export function FriendActions({
         return
       }
       if (result.state) setState(result.state)
+      router.refresh()
     })
   }
 
