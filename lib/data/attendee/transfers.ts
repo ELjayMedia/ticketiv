@@ -9,8 +9,9 @@ export type TransferStatus =
   | "declined"
   | "cancelled"
   | "completed"
+  | "expired"
 
-export type TransferDisplayStatus = TransferStatus | "expired"
+export type TransferDisplayStatus = TransferStatus
 
 export interface Transfer {
   id: string
@@ -41,6 +42,7 @@ export interface TransferRecipientLookup {
 }
 
 function isExpired(status: TransferStatus, expiresAt: string | null | undefined): boolean {
+  if (status === "expired") return true
   if (status !== "pending" && status !== "requested") return false
   if (!expiresAt) return false
   return new Date(expiresAt).getTime() <= Date.now()
@@ -312,8 +314,7 @@ export async function getMyTransferHistory(): Promise<TransferHistoryItem[]> {
     const direction: TransferHistoryDirection =
       r.from_user_id === user.id ? "sent" : "received"
     const counterpartyId = direction === "sent" ? r.to_user_id : r.from_user_id
-    const expired = isExpired(r.status, r.expires_at)
-    const status: TransferDisplayStatus = expired ? "expired" : r.status
+    const status: TransferDisplayStatus = isExpired(r.status, r.expires_at) ? "expired" : r.status
     const isLive = status === "pending" || status === "requested"
 
     return {
