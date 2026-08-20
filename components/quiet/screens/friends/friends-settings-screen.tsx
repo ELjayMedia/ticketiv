@@ -36,7 +36,7 @@ export function FriendsSettingsScreen({ settings }: { settings: SocialPrivacySet
           aria-label="Back to friends"
           className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-surface"
         >
-          <Icon name="arrowLeft" size={18} />
+          <Icon name="chevL" size={18} />
         </Link>
         <div className="flex flex-col gap-1">
           <span className="text-label">Friends</span>
