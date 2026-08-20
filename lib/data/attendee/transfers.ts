@@ -2,17 +2,41 @@
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
-// DB schema: id, order_item_id, from_user_id, to_user_id, status, metadata, created_at, updated_at
-// Status enum: requested | pending | accepted | declined | cancelled | completed
+export type TransferStatus =
+  | "requested"
+  | "pending"
+  | "accepted"
+  | "declined"
+  | "cancelled"
+  | "completed"
+
+export type TransferDisplayStatus = TransferStatus | "expired"
+
 export interface Transfer {
   id: string
   order_item_id: string | null
   from_user_id: string | null
   to_user_id: string | null
-  status: "requested" | "pending" | "accepted" | "declined" | "cancelled" | "completed"
+  status: TransferStatus
   metadata: unknown
   created_at: string | null
   updated_at: string | null
+  expires_at: string
+}
+
+export interface TransferMutationResult {
+  transfer_id: string
+  order_item_id?: string
+  to_user_id?: string
+  new_owner_id?: string
+  status: "pending" | "completed" | "declined" | "cancelled" | "expired"
+  expires_at?: string
+}
+
+function isExpired(status: TransferStatus, expiresAt: string | null | undefined): boolean {
+  if (status !== "pending" && status !== "requested") return false
+  if (!expiresAt) return false
+  return new Date(expiresAt).getTime() <= Date.now()
 }
 
 export async function getUserTransfers(userId: string): Promise<Transfer[]> {
@@ -29,7 +53,7 @@ export async function getUserTransfers(userId: string): Promise<Transfer[]> {
     console.error("[transfers] getUserTransfers:", error)
     return []
   }
-  return data ?? []
+  return (data ?? []) as Transfer[]
 }
 
 export async function getPendingTransfers(userId: string): Promise<Transfer[]> {
@@ -47,39 +71,69 @@ export async function getPendingTransfers(userId: string): Promise<Transfer[]> {
     console.error("[transfers] getPendingTransfers:", error)
     return []
   }
-  return data ?? []
+  return ((data ?? []) as Transfer[]).filter((row) => !isExpired(row.status, row.expires_at))
 }
 
-export async function requestTransfer(orderItemId: string, toUserId: string): Promise<Transfer | null> {
+export async function requestTransfer(
+  orderItemId: string,
+  toUserId: string,
+): Promise<TransferMutationResult | null> {
   const supabase = await createServerSupabaseClient()
   if (!supabase) return null
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const { data, error } = await supabase
-    .from("transfers")
-    .insert({
-      order_item_id: orderItemId,
-      from_user_id: user.id,
-      to_user_id: toUserId,
-      status: "pending",
-    })
-    .select()
-    .single()
+  const { data, error } = await (supabase.rpc as any)("fn_request_transfer_to_user", {
+    p_order_item_id: orderItemId,
+    p_recipient_user_id: toUserId,
+  })
 
   if (error) {
     console.error("[transfers] requestTransfer:", error)
     return null
   }
-  return data
+  return data as TransferMutationResult
 }
 
-// Calls fn_complete_transfer which atomically sets transfer.status=completed
-// and order_items.current_owner_id = to_user_id.
-export async function acceptTransfer(transferId: string): Promise<{ transfer_id: string; order_item_id: string; new_owner_id: string } | null> {
+export async function requestTransferByEmail(
+  orderItemId: string,
+  email: string,
+): Promise<TransferMutationResult | null> {
+  const supabase = await createServerSupabaseClient()
+  if (!supabase) return null
+
+  const { data, error } = await (supabase.rpc as any)("fn_request_transfer_by_email", {
+    p_order_item_id: orderItemId,
+    p_recipient_email: email,
+  })
+
+  if (error) {
+    console.error("[transfers] requestTransferByEmail:", error)
+    return null
+  }
+  return data as TransferMutationResult
+}
+
+export async function requestTransferByPhone(
+  orderItemId: string,
+  phone: string,
+): Promise<TransferMutationResult | null> {
+  const supabase = await createServerSupabaseClient()
+  if (!supabase) return null
+
+  const { data, error } = await (supabase.rpc as any)("fn_request_transfer_by_phone", {
+    p_order_item_id: orderItemId,
+    p_recipient_phone: phone,
+  })
+
+  if (error) {
+    console.error("[transfers] requestTransferByPhone:", error)
+    return null
+  }
+  return data as TransferMutationResult
+}
+
+export async function acceptTransfer(
+  transferId: string,
+): Promise<TransferMutationResult | null> {
   const supabase = await createServerSupabaseClient()
   if (!supabase) return null
 
@@ -91,46 +145,43 @@ export async function acceptTransfer(transferId: string): Promise<{ transfer_id:
     console.error("[transfers] acceptTransfer:", error)
     return null
   }
-  return data as { transfer_id: string; order_item_id: string; new_owner_id: string }
+  return data as TransferMutationResult
 }
 
-export async function declineTransfer(transferId: string, reason?: string): Promise<Transfer | null> {
+export async function declineTransfer(
+  transferId: string,
+  reason?: string,
+): Promise<TransferMutationResult | null> {
   const supabase = await createServerSupabaseClient()
   if (!supabase) return null
 
-  const { data, error } = await supabase
-    .from("transfers")
-    .update({
-      status: "declined",
-      metadata: reason ? { decline_reason: reason } : null,
-    })
-    .eq("id", transferId)
-    .select()
-    .single()
+  const { data, error } = await (supabase.rpc as any)("fn_decline_transfer", {
+    p_transfer_id: transferId,
+    p_reason: reason ?? null,
+  })
 
   if (error) {
     console.error("[transfers] declineTransfer:", error)
     return null
   }
-  return data
+  return data as TransferMutationResult
 }
 
-export async function cancelTransfer(transferId: string): Promise<Transfer | null> {
+export async function cancelTransfer(
+  transferId: string,
+): Promise<TransferMutationResult | null> {
   const supabase = await createServerSupabaseClient()
   if (!supabase) return null
 
-  const { data, error } = await supabase
-    .from("transfers")
-    .update({ status: "cancelled" })
-    .eq("id", transferId)
-    .select()
-    .single()
+  const { data, error } = await (supabase.rpc as any)("fn_cancel_transfer", {
+    p_transfer_id: transferId,
+  })
 
   if (error) {
     console.error("[transfers] cancelTransfer:", error)
     return null
   }
-  return data
+  return data as TransferMutationResult
 }
 
 export type TransferHistoryDirection = "sent" | "received"
@@ -138,13 +189,16 @@ export type TransferHistoryDirection = "sent" | "received"
 export interface TransferHistoryItem {
   id: string
   direction: TransferHistoryDirection
-  status: Transfer["status"]
+  status: TransferDisplayStatus
   createdAt: string
+  expiresAt: string | null
   eventTitle: string
   ticketTypeName: string | null
   counterpartyId: string
   counterpartyName: string
   canCancel: boolean
+  canAccept: boolean
+  canDecline: boolean
 }
 
 export async function getMyTransferHistory(): Promise<TransferHistoryItem[]> {
@@ -160,7 +214,7 @@ export async function getMyTransferHistory(): Promise<TransferHistoryItem[]> {
     .from("transfers")
     .select(
       `
-        id, from_user_id, to_user_id, status, created_at,
+        id, from_user_id, to_user_id, status, created_at, expires_at,
         order_item:order_items!inner(
           ticket_types(
             name,
@@ -182,8 +236,9 @@ export async function getMyTransferHistory(): Promise<TransferHistoryItem[]> {
     id: string
     from_user_id: string
     to_user_id: string
-    status: Transfer["status"]
+    status: TransferStatus
     created_at: string
+    expires_at: string | null
     order_item: {
       ticket_types: {
         name: string | null
@@ -196,7 +251,7 @@ export async function getMyTransferHistory(): Promise<TransferHistoryItem[]> {
     new Set(raw.map((r) => (r.from_user_id === user.id ? r.to_user_id : r.from_user_id))),
   )
 
-  let namesById = new Map<string, string>()
+  const namesById = new Map<string, string>()
   if (counterpartyIds.length > 0) {
     const { data: profs } = await supabase
       .from("profiles")
@@ -209,7 +264,7 @@ export async function getMyTransferHistory(): Promise<TransferHistoryItem[]> {
           .filter(Boolean)
           .join(" ")
           .trim()
-      namesById.set((p as { user_id: string }).user_id, display || "Friend")
+      namesById.set((p as { user_id: string }).user_id, display || "Ticketiv user")
     }
   }
 
@@ -217,17 +272,23 @@ export async function getMyTransferHistory(): Promise<TransferHistoryItem[]> {
     const direction: TransferHistoryDirection =
       r.from_user_id === user.id ? "sent" : "received"
     const counterpartyId = direction === "sent" ? r.to_user_id : r.from_user_id
+    const expired = isExpired(r.status, r.expires_at)
+    const status: TransferDisplayStatus = expired ? "expired" : r.status
+    const isLive = status === "pending" || status === "requested"
+
     return {
       id: r.id,
       direction,
-      status: r.status,
+      status,
       createdAt: r.created_at,
+      expiresAt: r.expires_at,
       eventTitle: r.order_item?.ticket_types?.events?.title ?? "Event",
       ticketTypeName: r.order_item?.ticket_types?.name ?? null,
       counterpartyId,
-      counterpartyName: namesById.get(counterpartyId) ?? "Friend",
-      canCancel:
-        direction === "sent" && (r.status === "pending" || r.status === "requested"),
+      counterpartyName: namesById.get(counterpartyId) ?? "Ticketiv user",
+      canCancel: direction === "sent" && isLive,
+      canAccept: direction === "received" && isLive,
+      canDecline: direction === "received" && isLive,
     }
   })
 }
