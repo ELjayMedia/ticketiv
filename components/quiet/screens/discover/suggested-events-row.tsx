@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider } from "@/components/quiet/ui/primitives";
+import { FriendGoingBadge } from "@/components/quiet/screens/discover/friend-going-badge";
 import { PHOTOS } from "@/lib/photos";
 import { getRecentlyViewed } from "@/lib/recently-viewed";
 import type { DiscoverEvent } from "@/lib/mappers/discover";
@@ -15,6 +16,10 @@ import type { DiscoverEvent } from "@/lib/mappers/discover";
  * Reads the most-recently-viewed event's category from localStorage on mount,
  * then fetches up to 4 events from the same category via /api/discover/events.
  * Renders nothing until data is ready or if there is no category match.
+ *
+ * TICK-387 adds privacy-aware friends-going signals. FriendGoingBadge batches
+ * mounted cards into a single signed-in RPC and renders nothing for signed-out
+ * users or events with no eligible friends attending.
  */
 export function SuggestedEventsRow({ variant }: { variant: "mobile" | "desktop" }) {
   const [events, setEvents] = useState<DiscoverEvent[]>([]);
@@ -66,6 +71,9 @@ export function SuggestedEventsRow({ variant }: { variant: "mobile" | "desktop" 
                   <Icon name="cal" size={12} />
                   <span className="truncate">{e.dateShort}</span>
                 </div>
+                <div className="mt-2">
+                  <FriendGoingBadge eventId={e.id} compact />
+                </div>
                 <div className="mt-2 flex items-center justify-between gap-2">
                   <span className="font-mono text-[13px] font-semibold">{e.priceLabel}</span>
                   {e.stockLabel && (
@@ -107,6 +115,9 @@ export function SuggestedEventsRow({ variant }: { variant: "mobile" | "desktop" 
                 <div className="mt-1 flex items-center gap-1.5 text-[12px] text-ink-3">
                   <Icon name="pin" size={12} />
                   <span className="truncate">{e.venue}</span>
+                </div>
+                <div className="mt-2">
+                  <FriendGoingBadge eventId={e.id} compact />
                 </div>
                 <Divider className="my-2.5" />
                 <div className="flex items-center justify-between">
