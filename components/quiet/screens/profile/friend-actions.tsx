@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import {
   blockUserAction,
   cancelFriendRequestAction,
+  reportUserAction,
   respondFriendRequestAction,
   sendFriendRequestAction,
   unblockUserAction,
@@ -14,6 +15,8 @@ import {
   type FriendRelationshipState,
 } from "@/app/(consumer)/friends/actions"
 import { Button } from "@/components/quiet/ui/button"
+
+type Feedback = { kind: "success" | "error"; text: string }
 
 export function FriendActions({
   handle,
@@ -24,15 +27,15 @@ export function FriendActions({
 }) {
   const router = useRouter()
   const [state, setState] = useState<FriendRelationshipState>(initialState)
-  const [message, setMessage] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [pending, startTransition] = useTransition()
 
   function run(action: () => Promise<FriendActionResult>) {
-    setMessage(null)
+    setFeedback(null)
     startTransition(async () => {
       const result = await action()
       if (!result.ok) {
-        setMessage(result.error ?? "Could not update friendship.")
+        setFeedback({ kind: "error", text: result.error ?? "Could not update friendship." })
         return
       }
       if (result.state) setState(result.state)
@@ -50,6 +53,23 @@ export function FriendActions({
   function unfriend() {
     if (!window.confirm(`Remove @${handle} from your friends?`)) return
     run(() => unfriendAction(handle))
+  }
+
+  function report() {
+    const reason = window.prompt(
+      `Why are you reporting @${handle}? Please don't include passwords, payment details or other sensitive information.`,
+    )
+    if (!reason?.trim()) return
+
+    setFeedback(null)
+    startTransition(async () => {
+      const result = await reportUserAction(handle, reason)
+      setFeedback(
+        result.ok
+          ? { kind: "success", text: "Report sent. Blocking is separate if you also want to stop interaction." }
+          : { kind: "error", text: result.error ?? "Could not send this report." },
+      )
+    })
   }
 
   return (
@@ -134,6 +154,12 @@ export function FriendActions({
           </Button>
         ) : null}
 
+        {state === "unavailable" ? (
+          <Button type="button" variant="default" size="sm" disabled>
+            Requests unavailable
+          </Button>
+        ) : null}
+
         {state !== "blocked_by_me" ? (
           <button
             type="button"
@@ -144,11 +170,23 @@ export function FriendActions({
             Block
           </button>
         ) : null}
+
+        <button
+          type="button"
+          disabled={pending}
+          onClick={report}
+          className="font-mono text-[11px] font-semibold text-ink-3 hover:text-danger disabled:opacity-50"
+        >
+          Report
+        </button>
       </div>
 
-      {message ? (
-        <p role="status" className="font-mono text-[10px] text-danger">
-          {message}
+      {feedback ? (
+        <p
+          role="status"
+          className={`font-mono text-[10px] ${feedback.kind === "error" ? "text-danger" : "text-accent"}`}
+        >
+          {feedback.text}
         </p>
       ) : null}
     </div>
