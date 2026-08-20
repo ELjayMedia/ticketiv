@@ -18,6 +18,12 @@ export const dynamic = "force-dynamic";
 
 type GoingRow = { friend_id: string };
 
+function normalizeReturnTo(value: string | string[] | undefined): string | null {
+  const target = typeof value === "string" ? value : null;
+  if (!target || !target.startsWith("/") || target.startsWith("//")) return null;
+  return target;
+}
+
 async function fetchTransferData(eventId: string) {
   const supabase = await createServerSupabaseClient();
   if (!supabase) return { friends: [] as FriendRow[], goingIds: new Set<string>() };
@@ -82,10 +88,14 @@ async function fetchTransferData(eventId: string) {
 
 export default async function TransferPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ returnTo?: string | string[] }>;
 }) {
   const { id } = await params;
+  const { returnTo: rawReturnTo } = await searchParams;
+  const returnTo = normalizeReturnTo(rawReturnTo);
   const ticket = await getTicketById(id);
   if (!ticket) notFound();
 
@@ -96,6 +106,7 @@ export default async function TransferPage({
       <Transfer
         ticket={mapTransferTicket(ticket)}
         friends={mapTransferFriends(friends, goingIds)}
+        returnTo={returnTo}
       />
     </div>
   );
