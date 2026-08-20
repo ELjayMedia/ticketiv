@@ -32,7 +32,6 @@ for select
 to authenticated
 using (inviter_id = (select auth.uid()) or invitee_id = (select auth.uid()));
 
--- Add the new in-app notification type without widening channel values.
 alter table public.notifications drop constraint if exists check_notifications_type_channel;
 alter table public.notifications add constraint check_notifications_type_channel check (
   type = any (array[
@@ -55,8 +54,6 @@ alter table public.notifications add constraint check_notifications_type_channel
   and (channel is null or channel = any (array['email'::text,'sms'::text,'push'::text,'in_app'::text]))
 );
 
--- Return only safe friend identity and invitation state. No order/ticket fields
--- are part of this contract.
 create or replace function public.fn_event_invite_candidates(p_event_id uuid)
 returns table(
   handle text,
@@ -82,31 +79,39 @@ as $$
     where me.user_id is not null
       and uc.status = 'accepted'::public.connection_status
       and (uc.requester_id = me.user_id or uc.recipient_id = me.user_id)
+  ), candidates as (
+    select
+      h.handle as candidate_handle,
+      coalesce(nullif(btrim(p.display_name), ''), nullif(btrim(concat_ws(' ', p.name, p.surname)), ''), h.handle) as candidate_display_name,
+      p.avatar_url as candidate_avatar_url,
+      exists (
+        select 1
+        from public.v_event_friends_going fg
+        where fg.event_id = p_event_id and fg.friend_id = ef.friend_id
+      ) as candidate_is_going,
+      ei.status as candidate_invite_status
+    from eligible_friends ef
+    join public.profiles p on p.user_id = ef.friend_id
+    join public.user_handles h on h.user_id = ef.friend_id
+    left join public.event_invitations ei
+      on ei.event_id = p_event_id
+     and ei.inviter_id = (select user_id from me)
+     and ei.invitee_id = ef.friend_id
+    where public.fn_event_is_public_now(p_event_id)
+      and not exists (
+        select 1 from public.user_blocks b
+        where (b.blocker_id = (select user_id from me) and b.blocked_id = ef.friend_id)
+           or (b.blocker_id = ef.friend_id and b.blocked_id = (select user_id from me))
+      )
   )
   select
-    h.handle,
-    coalesce(nullif(btrim(p.display_name), ''), nullif(btrim(concat_ws(' ', p.name, p.surname)), ''), h.handle) as display_name,
-    p.avatar_url,
-    exists (
-      select 1
-      from public.v_event_friends_going fg
-      where fg.event_id = p_event_id and fg.friend_id = ef.friend_id
-    ) as is_going,
-    ei.status as invite_status
-  from eligible_friends ef
-  join public.profiles p on p.user_id = ef.friend_id
-  join public.user_handles h on h.user_id = ef.friend_id
-  left join public.event_invitations ei
-    on ei.event_id = p_event_id
-   and ei.inviter_id = (select user_id from me)
-   and ei.invitee_id = ef.friend_id
-  where public.fn_event_is_public_now(p_event_id)
-    and not exists (
-      select 1 from public.user_blocks b
-      where (b.blocker_id = (select user_id from me) and b.blocked_id = ef.friend_id)
-         or (b.blocker_id = ef.friend_id and b.blocked_id = (select user_id from me))
-    )
-  order by is_going desc, display_name asc;
+    candidate_handle as handle,
+    candidate_display_name as display_name,
+    candidate_avatar_url as avatar_url,
+    candidate_is_going as is_going,
+    candidate_invite_status as invite_status
+  from candidates
+  order by candidate_is_going desc, candidate_display_name asc;
 $$;
 
 revoke all on function public.fn_event_invite_candidates(uuid) from public, anon;
@@ -130,13 +135,9 @@ declare
   v_invitation_id uuid;
   v_count integer := coalesce(array_length(p_handles, 1), 0);
 begin
-  if v_me is null then
-    raise exception 'authentication required' using errcode='42501';
-  end if;
+  if v_me is null then raise exception 'authentication required' using errcode='42501'; end if;
   if v_count = 0 then return; end if;
-  if v_count > 20 then
-    raise exception 'select at most 20 friends' using errcode='22023';
-  end if;
+  if v_count > 20 then raise exception 'select at most 20 friends' using errcode='22023'; end if;
   if not public.fn_event_is_public_now(p_event_id) then
     raise exception 'event is not publicly available' using errcode='P0002';
   end if;
@@ -148,8 +149,8 @@ begin
   select coalesce(nullif(btrim(p.display_name), ''), nullif(btrim(concat_ws(' ', p.name, p.surname)), ''), h.handle, 'A friend')
     into v_inviter_name
   from public.profiles p
-  left join public.user_handles h on h.user_id=p.user_id
-  where p.user_id=v_me;
+  left join public.user_handles h on h.user_id = p.user_id
+  where p.user_id = v_me;
 
   foreach v_handle in array p_handles loop
     v_handle := lower(regexp_replace(btrim(v_handle), '^@', ''));
@@ -157,23 +158,22 @@ begin
 
     select h.user_id into v_invitee
     from public.user_handles h
-    where lower(h.handle)=v_handle
+    where lower(h.handle) = v_handle
     limit 1;
 
     if v_invitee is null or v_invitee = v_me then continue; end if;
 
-    -- Invites are friend-only and blocks suppress both directions.
     if not exists (
       select 1 from public.user_connections uc
-      where uc.status='accepted'::public.connection_status
-        and ((uc.requester_id=v_me and uc.recipient_id=v_invitee)
-          or (uc.requester_id=v_invitee and uc.recipient_id=v_me))
+      where uc.status = 'accepted'::public.connection_status
+        and ((uc.requester_id = v_me and uc.recipient_id = v_invitee)
+          or (uc.requester_id = v_invitee and uc.recipient_id = v_me))
     ) then continue; end if;
 
     if exists (
       select 1 from public.user_blocks b
-      where (b.blocker_id=v_me and b.blocked_id=v_invitee)
-         or (b.blocker_id=v_invitee and b.blocked_id=v_me)
+      where (b.blocker_id = v_me and b.blocked_id = v_invitee)
+         or (b.blocker_id = v_invitee and b.blocked_id = v_me)
     ) then continue; end if;
 
     insert into public.event_invitations (
@@ -182,7 +182,7 @@ begin
       p_event_id, v_me, v_invitee, 'pending', now(), now(), null
     )
     on conflict (event_id, inviter_id, invitee_id) do update set
-      status='pending', updated_at=now(), responded_at=null
+      status = 'pending', updated_at = now(), responded_at = null
     returning id into v_invitation_id;
 
     insert into public.notifications (
@@ -199,24 +199,21 @@ begin
         'inviterName', v_inviter_name,
         'invitationId', v_invitation_id
       ),
-      'pending',
-      0,
-      now(),
-      'in_app',
+      'pending', 0, now(), 'in_app',
       'event-invite:' || p_event_id::text || ':' || v_me::text || ':' || v_invitee::text,
       null
     )
     on conflict (dedupe_key) where dedupe_key is not null do update set
-      payload=excluded.payload,
-      status='pending',
-      attempts=0,
-      last_error=null,
-      created_at=now(),
-      scheduled_at=null,
-      sent_at=null,
-      delivered_at=null,
-      channel='in_app',
-      read_at=null;
+      payload = excluded.payload,
+      status = 'pending',
+      attempts = 0,
+      last_error = null,
+      created_at = now(),
+      scheduled_at = null,
+      sent_at = null,
+      delivered_at = null,
+      channel = 'in_app',
+      read_at = null;
 
     handle := v_handle;
     invitation_id := v_invitation_id;
@@ -241,8 +238,8 @@ declare
 begin
   if v_me is null then raise exception 'authentication required' using errcode='42501'; end if;
   update public.event_invitations
-  set status='dismissed', updated_at=now(), responded_at=now()
-  where id=p_invitation_id and invitee_id=v_me and status='pending';
+  set status = 'dismissed', updated_at = now(), responded_at = now()
+  where id = p_invitation_id and invitee_id = v_me and status = 'pending';
   v_changed := found;
   return v_changed;
 end;
@@ -262,8 +259,8 @@ declare
 begin
   if v_me is null then raise exception 'authentication required' using errcode='42501'; end if;
   update public.event_invitations
-  set status='cancelled', updated_at=now(), responded_at=now()
-  where id=p_invitation_id and inviter_id=v_me and status='pending';
+  set status = 'cancelled', updated_at = now(), responded_at = now()
+  where id = p_invitation_id and inviter_id = v_me and status = 'pending';
   v_changed := found;
   return v_changed;
 end;
