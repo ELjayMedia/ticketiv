@@ -142,7 +142,11 @@ function TransferSection({ title, items }: { title: string; items: TransferHisto
           <li key={item.id} className="rounded-[var(--radius-lg)] border border-line bg-surface p-4">
             <div className="flex items-start gap-3">
               <div className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-bg text-ink-2">
-                <Icon name={item.direction === "received" ? "arrowDL" : "arrowUR"} size={16} />
+                <Icon
+                  name="arrowUR"
+                  size={16}
+                  className={item.direction === "received" ? "rotate-180" : undefined}
+                />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
