@@ -10,8 +10,9 @@ alter table public.user_privacy_settings
 
 -- Normalize only for equality matching. Eswatini's common local 8-digit format
 -- is canonicalized to country code 268; explicit international numbers keep
--- their country code. This helper is not exposed through the Data API.
-create or replace function internal.fn_contact_phone_key(p_phone text)
+-- their country code. The helper lives in the API schema only because the old
+-- private schema no longer exists; all client EXECUTE privileges are revoked.
+create or replace function public.fn_contact_phone_key(p_phone text)
 returns text
 language plpgsql
 immutable
@@ -39,10 +40,10 @@ begin
 end;
 $$;
 
-revoke all on function internal.fn_contact_phone_key(text) from public, anon, authenticated;
+revoke all on function public.fn_contact_phone_key(text) from public, anon, authenticated;
 
 create index if not exists profiles_contact_phone_key_idx
-  on public.profiles ((internal.fn_contact_phone_key(phone)))
+  on public.profiles ((public.fn_contact_phone_key(phone)))
   where phone is not null and btrim(phone) <> '';
 
 -- Keep the four-argument TICK-385 RPC for deployed-client compatibility. The
@@ -142,7 +143,7 @@ begin
   with inputs as (
     select
       u.ordinality::integer as input_index,
-      internal.fn_contact_phone_key(u.phone) as phone_key
+      public.fn_contact_phone_key(u.phone) as phone_key
     from unnest(p_phones) with ordinality as u(phone, ordinality)
     where u.phone is not null
       and length(u.phone) <= 64
@@ -161,7 +162,7 @@ begin
     from inputs i
     join public.profiles p
       on i.phone_key is not null
-     and internal.fn_contact_phone_key(p.phone) = i.phone_key
+     and public.fn_contact_phone_key(p.phone) = i.phone_key
     join public.user_handles h on h.user_id = p.user_id
     left join public.user_privacy_settings s on s.user_id = p.user_id
     where p.user_id <> v_me
