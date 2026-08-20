@@ -18,6 +18,7 @@ import posthog from "posthog-js";
 interface TransferProps {
   ticket?: TicketSummary;
   friends?: FriendOption[];
+  returnTo?: string | null;
 }
 
 interface TicketSummary {
@@ -45,7 +46,7 @@ type ManualRecipient = TransferRecipientLookup & {
   meta: string;
 };
 
-export function Transfer({ ticket, friends = [] }: TransferProps) {
+export function Transfer({ ticket, friends = [], returnTo = null }: TransferProps) {
   const router = useRouter();
   const [query, setQuery] = React.useState("");
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
@@ -67,6 +68,7 @@ export function Transfer({ ticket, friends = [] }: TransferProps) {
     );
   }
 
+  const backHref = returnTo ?? `/tickets/${ticket.id}`;
   const normalizedQuery = query.trim().toLowerCase();
   const visibleFriends = normalizedQuery
     ? friends.filter((friend) =>
@@ -132,7 +134,7 @@ export function Transfer({ ticket, friends = [] }: TransferProps) {
 
         <header className="flex items-center gap-2.5 px-5 pb-3 pt-2">
           <Link
-            href={`/tickets/${ticket.id}`}
+            href={backHref}
             className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"
             aria-label="Back"
           >
@@ -304,7 +306,7 @@ export function Transfer({ ticket, friends = [] }: TransferProps) {
 
       <div className="sticky bottom-0 flex items-center gap-2 border-t border-line bg-surface px-5 py-3.5 pb-7">
         <Link
-          href={`/tickets/${ticket.id}`}
+          href={backHref}
           className="flex flex-1 items-center justify-center rounded-[var(--radius-md)] border border-line-2 bg-surface px-4 py-3.5 text-[14px] font-semibold hover:bg-bg"
         >
           Cancel
@@ -325,7 +327,7 @@ export function Transfer({ ticket, friends = [] }: TransferProps) {
               ticket_id: ticket.id,
               recipient_kind: manualRecipient ? manualRecipient.matchKind : "friend",
             });
-            router.push("/transfers");
+            router.push(returnTo ?? "/transfers");
           }}
           className="flex flex-[2] items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
