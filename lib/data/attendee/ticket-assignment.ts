@@ -206,12 +206,16 @@ export async function getOrderTicketAssignment(
       }
     }
 
+    const stillWithBuyerSelectedRecipient =
+      Boolean(latest?.to_user_id) &&
+      latest?.to_user_id === item.current_owner_id &&
+      (latest.status === "completed" || latest.status === "accepted")
+
     return {
       id: item.id,
       ticketTypeName: item.ticket_types?.name ?? "Ticket",
       state: "assigned",
-      recipientName:
-        latest?.status === "completed" || latest?.status === "accepted" ? recipientName : null,
+      recipientName: stillWithBuyerSelectedRecipient ? recipientName : null,
       canAssign: false,
       reason: null,
     }
