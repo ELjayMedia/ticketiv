@@ -1,6 +1,7 @@
-// Source: user_friends + v_event_friends_going + user_connections + profiles
-// + user_handles. Event activity is intentionally limited to the privacy-aware
-// "friends going" view; order and payment details never leave their owner scope.
+// Source: user_friends + claimed-account social attendance RPC + user_connections
+// + profiles + user_handles. Event activity is intentionally limited to the
+// privacy-aware "friends going" contract; order and payment details never leave
+// their owner scope.
 
 import "server-only"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
@@ -59,6 +60,20 @@ type SocialProfileRow = {
   display_name: string
 }
 
+type GoingSignalRow = {
+  event_id: string
+  friend_id: string
+  friend_name: string | null
+  friend_handle: string | null
+}
+
+type GoingEventRow = {
+  id: string
+  title: string
+  starts_at: string
+  ticket_types?: Array<{ price_cents: number | null }>
+}
+
 export async function getMyFriendsOverview(): Promise<FriendsOverview | null> {
   const supabase = await createServerSupabaseClient()
   if (!supabase) return null
@@ -66,9 +81,10 @@ export async function getMyFriendsOverview(): Promise<FriendsOverview | null> {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return null
+  if (!user || user.is_anonymous) return null
 
-  const [friendsRes, pendingRes, goingRes, myHandleRes] = await Promise.all([
+  const nowIso = new Date().toISOString()
+  const [friendsRes, pendingRes, goingSignalRes, myHandleRes] = await Promise.all([
     supabase
       .from("user_friends")
       .select("friend_id, connected_at", { count: "exact" })
@@ -79,16 +95,21 @@ export async function getMyFriendsOverview(): Promise<FriendsOverview | null> {
       .eq("recipient_id", user.id)
       .eq("status", "pending")
       .order("requested_at", { ascending: false }),
-    supabase
-      .from("v_event_friends_going")
-      .select(
-        "event_id, friend_id, friend_name, friend_handle, events:events!inner(id, title, starts_at, ticket_types(price_cents))",
-      )
-      .gte("events.starts_at", new Date().toISOString())
-      .order("events.starts_at", { ascending: true })
-      .limit(60),
+    // TICK-387: the old owner-executed view was removed from the exposed API.
+    // This claimed-account RPC performs friendship/privacy/block checks inside
+    // its narrow social contract and never returns ticket/order/payment fields.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.rpc as any)("fn_my_friends_going", {
+      p_event_ids: null,
+      p_from: nowIso,
+      p_limit: 60,
+    }),
     supabase.from("user_handles").select("handle").eq("user_id", user.id).maybeSingle(),
   ])
+
+  if (goingSignalRes.error) {
+    console.error("[friends] fn_my_friends_going:", goingSignalRes.error)
+  }
 
   const totalFriends = friendsRes.count ?? 0
   const pendingRows = (pendingRes.data ?? []) as PendingRequestRow[]
@@ -97,9 +118,14 @@ export async function getMyFriendsOverview(): Promise<FriendsOverview | null> {
     .map((r) => r.friend_id)
     .filter((id): id is string => typeof id === "string" && id.length > 0)
 
-  // Hydrate accepted-friend identity. Profiles remain RLS-protected; handles are
-  // public identity pointers and are used for canonical /@handle navigation.
-  const [profilesRes, handlesRes] = await Promise.all([
+  const goingSignals = ((goingSignalRes.data ?? []) as GoingSignalRow[]).filter(
+    (row) => typeof row.event_id === "string" && typeof row.friend_id === "string",
+  )
+  const goingEventIds = Array.from(new Set(goingSignals.map((row) => row.event_id)))
+
+  // Hydrate accepted-friend identity and the public event metadata separately.
+  // This keeps user-scoped social attendance out of cached/public event views.
+  const [profilesRes, handlesRes, goingEventsRes] = await Promise.all([
     friendIds.length > 0
       ? supabase
           .from("profiles")
@@ -109,6 +135,13 @@ export async function getMyFriendsOverview(): Promise<FriendsOverview | null> {
     friendIds.length > 0
       ? supabase.from("user_handles").select("user_id, handle").in("user_id", friendIds)
       : Promise.resolve({ data: [] as Array<{ user_id: string; handle: string }> }),
+    goingEventIds.length > 0
+      ? supabase
+          .from("events")
+          .select("id, title, starts_at, ticket_types(price_cents)")
+          .in("id", goingEventIds)
+          .gte("starts_at", nowIso)
+      : Promise.resolve({ data: [] as GoingEventRow[] }),
   ])
 
   const profById = new Map<string, { name: string; handle: string | null }>()
@@ -156,18 +189,16 @@ export async function getMyFriendsOverview(): Promise<FriendsOverview | null> {
     }),
   )).filter((row): row is NonNullable<typeof row> => row !== null)
 
-  const goingRows = (goingRes.data ?? []) as unknown as Array<{
-    event_id: string
-    friend_id: string
-    friend_name: string | null
-    friend_handle: string | null
-    events: {
-      id: string
-      title: string
-      starts_at: string
-      ticket_types?: Array<{ price_cents: number | null }>
-    } | null
-  }>
+  const eventsById = new Map(
+    ((goingEventsRes.data ?? []) as unknown as GoingEventRow[]).map((event) => [event.id, event]),
+  )
+
+  const goingRows = goingSignals
+    .flatMap((row) => {
+      const event = eventsById.get(row.event_id)
+      return event ? [{ ...row, events: event }] : []
+    })
+    .sort((a, b) => a.events.starts_at.localeCompare(b.events.starts_at))
 
   // Group by event for the "going together" hero.
   const grouped = new Map<
@@ -182,7 +213,6 @@ export async function getMyFriendsOverview(): Promise<FriendsOverview | null> {
   >()
 
   for (const r of goingRows) {
-    if (!r.events) continue
     const ev = r.events
     const prices = (ev.ticket_types ?? [])
       .map((t) => t.price_cents)
@@ -231,8 +261,8 @@ export async function getMyFriendsOverview(): Promise<FriendsOverview | null> {
     name: r.friend_name ?? "Friend",
     handle: r.friend_handle,
     eventId: r.event_id,
-    eventTitle: r.events?.title ?? "Event",
-    whenAt: r.events?.starts_at ?? new Date().toISOString(),
+    eventTitle: r.events.title,
+    whenAt: r.events.starts_at,
   }))
 
   const mutualByFriend = new Map<string, Set<string>>()
