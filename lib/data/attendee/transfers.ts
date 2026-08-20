@@ -33,6 +33,13 @@ export interface TransferMutationResult {
   expires_at?: string
 }
 
+export interface TransferRecipientLookup {
+  userId: string
+  displayName: string
+  handle: string | null
+  matchKind: "handle" | "email" | "phone"
+}
+
 function isExpired(status: TransferStatus, expiresAt: string | null | undefined): boolean {
   if (status !== "pending" && status !== "requested") return false
   if (!expiresAt) return false
@@ -72,6 +79,39 @@ export async function getPendingTransfers(userId: string): Promise<Transfer[]> {
     return []
   }
   return ((data ?? []) as Transfer[]).filter((row) => !isExpired(row.status, row.expires_at))
+}
+
+export async function lookupTransferRecipient(
+  identifier: string,
+): Promise<TransferRecipientLookup | null> {
+  const supabase = await createServerSupabaseClient()
+  if (!supabase) return null
+
+  const { data, error } = await (supabase.rpc as any)("fn_lookup_transfer_recipient", {
+    p_identifier: identifier,
+  })
+
+  if (error) {
+    console.error("[transfers] lookupTransferRecipient:", error)
+    return null
+  }
+
+  const row = (Array.isArray(data) ? data[0] : null) as
+    | {
+        user_id: string
+        display_name: string
+        handle: string | null
+        match_kind: "handle" | "email" | "phone"
+      }
+    | undefined
+
+  if (!row) return null
+  return {
+    userId: row.user_id,
+    displayName: row.display_name,
+    handle: row.handle,
+    matchKind: row.match_kind,
+  }
 }
 
 export async function requestTransfer(
