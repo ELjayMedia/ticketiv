@@ -117,6 +117,34 @@ export async function unblockUserAction(handle: string) {
   return callStateRpc("fn_friend_unblock", handle)
 }
 
+export async function reportUserAction(
+  handle: string,
+  reason: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const normalized = normalizeHandle(handle)
+  const normalizedReason = reason.trim()
+  if (!normalized) return { ok: false, error: "Profile not found." }
+  if (normalizedReason.length < 3 || normalizedReason.length > 500) {
+    return { ok: false, error: "Please give a short reason between 3 and 500 characters." }
+  }
+
+  const supabase = await getSignedInClient()
+  if (!supabase) return { ok: false, error: "Sign in to report a profile." }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)("fn_report_user", {
+    p_handle: normalized,
+    p_reason: normalizedReason,
+  })
+
+  if (error || data !== true) {
+    if (error) console.error("[friends] fn_report_user:", error)
+    return { ok: false, error: "Could not send this report right now." }
+  }
+
+  return { ok: true }
+}
+
 export async function respondFriendRequestAction(
   handle: string,
   accept: boolean,
