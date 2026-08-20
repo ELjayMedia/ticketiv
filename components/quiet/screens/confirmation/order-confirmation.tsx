@@ -36,6 +36,7 @@ interface OrderConfirmationProps {
     receiptEmail: string;
     eventSlug: string | null;
     firstTicketId: string;
+    canAssignTickets?: boolean;
   };
 }
 
@@ -72,13 +73,30 @@ const NEXT_STEPS: ReadonlyArray<{
   {
     icon: "share",
     title: "Invite friends",
-    sub: "5 friends already going",
+    sub: "Plan the event with your circle",
     href: "/friends",
   },
 ];
 
 export function OrderConfirmation({ order }: OrderConfirmationProps) {
   const showTickets = order.state === "paid";
+  const nextSteps: ReadonlyArray<{
+    icon: IconName;
+    title: string;
+    sub: string;
+    href?: string;
+  }> = order.canAssignTickets
+    ? [
+        {
+          icon: "users",
+          title: "Assign tickets",
+          sub: "Choose who will use each ticket",
+          href: `/orders/${order.id}/assign`,
+        },
+        ...NEXT_STEPS,
+      ]
+    : NEXT_STEPS;
+
   return (
     <div className="flex h-full flex-col bg-bg">
       <div className="mx-auto flex w-full max-w-[480px] flex-1 flex-col">
@@ -174,7 +192,7 @@ export function OrderConfirmation({ order }: OrderConfirmationProps) {
             <section className="px-5 pb-4">
               <div className="text-label mb-2">Next</div>
               <div className="flex flex-col gap-1.5">
-                {NEXT_STEPS.map((s) => {
+                {nextSteps.map((s) => {
                   const Inner = (
                     <Card className="flex items-center gap-3 p-3" flat>
                       <div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent-soft text-accent">
