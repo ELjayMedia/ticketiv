@@ -185,7 +185,7 @@ export default function PreviewIndexPage() {
           <PreviewArtboard label="You · /me · mobile">
             <PhoneShell>
               <div className="flex-1 overflow-y-auto no-scrollbar">
-                <ProfileScreen />
+                <ProfileScreen appVersion="v0.0.0 · preview" />
               </div>
               <MobileTabBar />
             </PhoneShell>

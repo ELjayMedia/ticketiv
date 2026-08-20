@@ -5,9 +5,15 @@ import { Avatar } from "@/components/quiet/ui/primitives";
 import { ShareButton, ShareRow } from "@/components/quiet/screens/profile/profile-actions";
 import { TapBandSection } from "@/components/quiet/screens/profile/tapband-section";
 import type { MyTapBandProfile } from "@/lib/data/attendee/tapband";
+import { getAppVersion } from "@/lib/app-version";
 
 interface ProfileScreenProps {
   user?: ProfileUser | null;
+  /**
+   * Override for the build label in the footer. Left unset in the app so the
+   * real deployed version is resolved from the environment; the preview
+   * gallery passes a fixed string to keep its screenshots stable.
+   */
   appVersion?: string;
   tapBand?: MyTapBandProfile | null;
   /**
@@ -64,7 +70,8 @@ interface SettingRow {
   description?: string;
 }
 
-export function ProfileScreen({ user, appVersion = "current", tapBand, orgContexts, adminContext }: ProfileScreenProps) {
+export function ProfileScreen({ user, appVersion, tapBand, orgContexts, adminContext }: ProfileScreenProps) {
+  const version = appVersion ?? getAppVersion();
   if (!user) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-bg p-6">
@@ -303,7 +310,7 @@ export function ProfileScreen({ user, appVersion = "current", tapBand, orgContex
         plain
       />
 
-      <div className="pb-6 text-center font-mono text-[10px] text-ink-3">ticketiv · {appVersion}</div>
+      <div className="pb-6 text-center font-mono text-[10px] text-ink-3">ticketiv · {version}</div>
     </div>
   );
 }
