@@ -86,6 +86,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
   const eventSlug = asText(payload.eventSlug) ?? asText(payload.event_slug)
   const explicitTitle = asText(payload.title)
   const explicitMessage = asText(payload.message) ?? asText(payload.body)
+  const explicitHref = asText(payload.href)
   const base = baseFields(row)
 
   if (type.includes("transfer")) {
@@ -98,7 +99,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
       message: explicitMessage ?? (eventTitle ? `There is a transfer update for ${eventTitle}.` : "You have a ticket transfer update."),
       createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
       ...base,
-      actionHref: "/tickets",
+      actionHref: explicitHref ?? "/transfers",
       actionLabel: "View transfers",
       actionKind: "transfer",
     }
@@ -114,7 +115,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
       message: explicitMessage ?? (eventTitle ? `There is a waitlist update for ${eventTitle}.` : "Your waitlist status has changed."),
       createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
       ...base,
-      actionHref: "/waitlist",
+      actionHref: explicitHref ?? "/waitlist",
       actionLabel: "View waitlist",
       actionKind: "waitlist",
     }
@@ -130,7 +131,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
       message: explicitMessage ?? (eventTitle ? `There is a listing update for ${eventTitle}.` : "Your ticket listing has an update."),
       createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
       ...base,
-      actionHref: "/resale",
+      actionHref: explicitHref ?? "/resale",
       actionLabel: "View listings",
       actionKind: "resale",
     }
@@ -146,7 +147,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
       message: explicitMessage ?? (eventTitle ? `There is a refund update for ${eventTitle}.` : "Your refund status has changed."),
       createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
       ...base,
-      actionHref: "/orders",
+      actionHref: explicitHref ?? "/orders",
       actionLabel: "View orders",
       actionKind: "refund",
     }
@@ -162,7 +163,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
       message: explicitMessage ?? (eventTitle ? `${eventTitle} has an update.` : "An event you follow has an update."),
       createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
       ...base,
-      actionHref: eventSlug ? `/events/${encodeURIComponent(eventSlug)}` : "/",
+      actionHref: explicitHref ?? (eventSlug ? `/events/${encodeURIComponent(eventSlug)}` : "/"),
       actionLabel: eventSlug ? "View event" : "Discover events",
       actionKind: "event",
     }
@@ -183,7 +184,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
         : "Your payment was successful. Your tickets are ready."),
       createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
       ...base,
-      actionHref: orderId ? `/orders/${encodeURIComponent(orderId)}` : "/tickets",
+      actionHref: explicitHref ?? (orderId ? `/orders/${encodeURIComponent(orderId)}` : "/tickets"),
       actionLabel: orderId ? "View order" : "View tickets",
       actionKind: "ticket",
     }
@@ -199,7 +200,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
       message: explicitMessage ?? (eventTitle ? `Your ticket for ${eventTitle} has an update.` : "Your ticket has an update."),
       createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
       ...base,
-      actionHref: "/tickets",
+      actionHref: explicitHref ?? "/tickets",
       actionLabel: "View tickets",
       actionKind: "ticket",
     }
@@ -214,7 +215,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
     message: explicitMessage ?? "You have a Ticketiv update.",
     createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
     ...base,
-    actionHref: "/me",
+    actionHref: explicitHref ?? "/me",
     actionLabel: "View account",
     actionKind: "generic",
   }
