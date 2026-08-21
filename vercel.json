@@ -1,6 +1,6 @@
 {
   "installCommand": "corepack enable && pnpm install --no-frozen-lockfile",
-  "buildCommand": "pnpm build",
+  "buildCommand": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/verify-production-payout-encryption.mjs && pnpm build",
   "devCommand": "pnpm dev",
   "outputDirectory": ".next",
   "functions": {
