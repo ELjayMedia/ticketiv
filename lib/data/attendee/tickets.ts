@@ -1,6 +1,6 @@
-// Source: v_my_tickets (RLS-scoped to the current buyer via buyer_id).
-// For mutations (transfers, etc.) go through /api/tickets/* server routes so
-// ownership + status are validated server-side.
+// Source: v_my_tickets (scoped to the canonical current ticket owner).
+// buyer_id is purchase/audit history and is used only as a legacy fallback when
+// current_owner_id is null. Mutations must use server-authoritative transfer APIs.
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { MyTicketsViewSchema, validateSchema, type MyTicketsView } from "@/lib/schemas/views"
