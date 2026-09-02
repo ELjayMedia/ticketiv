@@ -331,6 +331,17 @@
     },
     {
       "schema": "app",
+      "name": "ticket_order_context",
+      "arguments": "p_order_item_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
       "name": "uid",
       "arguments": "",
       "securityDefiner": false,
@@ -362,9 +373,31 @@
     },
     {
       "schema": "public",
+      "name": "admin_create_pricing_plan_version",
+      "arguments": "p_org_id uuid, p_platform_percent_bps integer, p_processor_percent_bps integer, p_processor_fixed_cents integer, p_min_platform_fee_cents integer, p_currency text, p_actor_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "admin_log_action",
       "arguments": "p_actor_id uuid, p_table_name text, p_record_id text, p_action audit_action, p_changes jsonb, p_org_id uuid",
       "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "admin_reencrypt_payout_account",
+      "arguments": "p_account_id uuid, p_expected_sha256 text, p_encrypted_details text",
+      "securityDefiner": false,
       "searchPathPinned": true,
       "grantees": [
         "postgres",
@@ -449,23 +482,23 @@
     },
     {
       "schema": "public",
-      "name": "create_event_draft",
+      "name": "create_event_draft_unchecked",
       "arguments": "p_org_id uuid, p_title text, p_visibility text",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
-        "authenticated",
         "postgres",
         "service_role"
       ]
     },
     {
       "schema": "public",
-      "name": "create_event_draft_unchecked",
+      "name": "create_event_draft",
       "arguments": "p_org_id uuid, p_title text, p_visibility text",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
+        "authenticated",
         "postgres",
         "service_role"
       ]
@@ -576,23 +609,23 @@
     },
     {
       "schema": "public",
-      "name": "fn_accept_membership_invite",
+      "name": "fn_accept_membership_invite_unchecked",
       "arguments": "p_token text",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
-        "authenticated",
         "postgres",
         "service_role"
       ]
     },
     {
       "schema": "public",
-      "name": "fn_accept_membership_invite_unchecked",
+      "name": "fn_accept_membership_invite",
       "arguments": "p_token text",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
+        "authenticated",
         "postgres",
         "service_role"
       ]
@@ -626,9 +659,6 @@
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
-        "PUBLIC",
-        "anon",
-        "authenticated",
         "postgres",
         "service_role"
       ]
@@ -704,6 +734,17 @@
     },
     {
       "schema": "public",
+      "name": "fn_bulk_check_in_unchecked",
+      "arguments": "p_order_item_ids uuid[], p_org_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_bulk_check_in",
       "arguments": "p_order_item_ids uuid[], p_org_id uuid",
       "securityDefiner": true,
@@ -716,11 +757,24 @@
     },
     {
       "schema": "public",
-      "name": "fn_bulk_check_in_unchecked",
-      "arguments": "p_order_item_ids uuid[], p_org_id uuid",
+      "name": "fn_cancel_event_invitation",
+      "arguments": "p_invitation_id uuid",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_cancel_transfer",
+      "arguments": "p_transfer_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
         "postgres",
         "service_role"
       ]
@@ -750,17 +804,6 @@
     {
       "schema": "public",
       "name": "fn_check_in",
-      "arguments": "p_ticket_code text",
-      "securityDefiner": true,
-      "searchPathPinned": true,
-      "grantees": [
-        "postgres",
-        "service_role"
-      ]
-    },
-    {
-      "schema": "public",
-      "name": "fn_check_in",
       "arguments": "p_ticket_code text, p_device_id uuid, p_gate text",
       "securityDefiner": true,
       "searchPathPinned": true,
@@ -773,6 +816,17 @@
       "schema": "public",
       "name": "fn_check_in",
       "arguments": "p_ticket_code text, p_event_id uuid, p_device_id uuid, p_gate text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_check_in",
+      "arguments": "p_ticket_code text",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
@@ -876,6 +930,29 @@
     },
     {
       "schema": "public",
+      "name": "fn_complete_organizer_signup",
+      "arguments": "p_first_name text, p_surname text, p_phone text, p_id_number text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_complete_resale_after_payment_webhook",
+      "arguments": "p_payment_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_complete_resale_after_payment",
       "arguments": "p_listing_id uuid, p_payment_id uuid",
       "securityDefiner": true,
@@ -887,8 +964,8 @@
     },
     {
       "schema": "public",
-      "name": "fn_complete_resale_after_payment_webhook",
-      "arguments": "p_payment_id uuid",
+      "name": "fn_complete_transfer_unchecked",
+      "arguments": "p_transfer_id uuid",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
@@ -910,8 +987,8 @@
     },
     {
       "schema": "public",
-      "name": "fn_complete_transfer_unchecked",
-      "arguments": "p_transfer_id uuid",
+      "name": "fn_complete_waitlist_after_payment_webhook",
+      "arguments": "p_payment_id uuid",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
@@ -923,17 +1000,6 @@
       "schema": "public",
       "name": "fn_complete_waitlist_after_payment",
       "arguments": "p_waitlist_id uuid, p_payment_id uuid",
-      "securityDefiner": true,
-      "searchPathPinned": true,
-      "grantees": [
-        "postgres",
-        "service_role"
-      ]
-    },
-    {
-      "schema": "public",
-      "name": "fn_complete_waitlist_after_payment_webhook",
-      "arguments": "p_payment_id uuid",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
@@ -957,8 +1023,30 @@
     },
     {
       "schema": "public",
+      "name": "fn_contact_phone_key",
+      "arguments": "p_phone text",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_create_inventory_protected_order",
       "arguments": "p_event_id uuid, p_buyer_id uuid, p_buyer_email text, p_items jsonb, p_holder_name text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_create_membership_invite_unchecked",
+      "arguments": "p_org_id uuid, p_kind text, p_role app_role, p_event_id uuid, p_invited_email text, p_expires_in interval",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
@@ -980,8 +1068,8 @@
     },
     {
       "schema": "public",
-      "name": "fn_create_membership_invite_unchecked",
-      "arguments": "p_org_id uuid, p_kind text, p_role app_role, p_event_id uuid, p_invited_email text, p_expires_in interval",
+      "name": "fn_create_organization_unchecked",
+      "arguments": "p_name text, p_currency text",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
@@ -1003,31 +1091,8 @@
     },
     {
       "schema": "public",
-      "name": "fn_create_organization_unchecked",
-      "arguments": "p_name text, p_currency text",
-      "securityDefiner": true,
-      "searchPathPinned": true,
-      "grantees": [
-        "postgres",
-        "service_role"
-      ]
-    },
-    {
-      "schema": "public",
       "name": "fn_create_resale_checkout_order",
       "arguments": "p_listing_id uuid",
-      "securityDefiner": true,
-      "searchPathPinned": true,
-      "grantees": [
-        "authenticated",
-        "postgres",
-        "service_role"
-      ]
-    },
-    {
-      "schema": "public",
-      "name": "fn_create_seat_hold",
-      "arguments": "p_event_id uuid, p_quantity integer",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
@@ -1050,8 +1115,8 @@
     },
     {
       "schema": "public",
-      "name": "fn_create_talent_profile",
-      "arguments": "p_name text",
+      "name": "fn_create_seat_hold",
+      "arguments": "p_event_id uuid, p_quantity integer",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
@@ -1067,6 +1132,18 @@
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_create_talent_profile",
+      "arguments": "p_name text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
         "postgres",
         "service_role"
       ]
@@ -1096,6 +1173,17 @@
     },
     {
       "schema": "public",
+      "name": "fn_deactivate_payment_method_unchecked",
+      "arguments": "p_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_deactivate_payment_method",
       "arguments": "p_id uuid",
       "securityDefiner": true,
@@ -1108,11 +1196,12 @@
     },
     {
       "schema": "public",
-      "name": "fn_deactivate_payment_method_unchecked",
-      "arguments": "p_id uuid",
+      "name": "fn_decline_transfer",
+      "arguments": "p_transfer_id uuid, p_reason text",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
+        "authenticated",
         "postgres",
         "service_role"
       ]
@@ -1130,23 +1219,23 @@
     },
     {
       "schema": "public",
-      "name": "fn_delete_organization",
+      "name": "fn_delete_organization_unchecked",
       "arguments": "p_org_id uuid, p_confirm_name text",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
-        "authenticated",
         "postgres",
         "service_role"
       ]
     },
     {
       "schema": "public",
-      "name": "fn_delete_organization_unchecked",
+      "name": "fn_delete_organization",
       "arguments": "p_org_id uuid, p_confirm_name text",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
+        "authenticated",
         "postgres",
         "service_role"
       ]
@@ -1171,6 +1260,29 @@
       "grantees": [
         "PUBLIC",
         "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_disable_push_device_token",
+      "arguments": "p_service text, p_token text, p_reason text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_dismiss_event_invitation",
+      "arguments": "p_invitation_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
         "authenticated",
         "postgres",
         "service_role"
@@ -1203,23 +1315,23 @@
     },
     {
       "schema": "public",
-      "name": "fn_duplicate_event",
+      "name": "fn_duplicate_event_unchecked",
       "arguments": "p_event_id uuid",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
-        "authenticated",
         "postgres",
         "service_role"
       ]
     },
     {
       "schema": "public",
-      "name": "fn_duplicate_event_unchecked",
+      "name": "fn_duplicate_event",
       "arguments": "p_event_id uuid",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
+        "authenticated",
         "postgres",
         "service_role"
       ]
@@ -1265,6 +1377,30 @@
       "securityDefiner": false,
       "searchPathPinned": true,
       "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_event_friend_signals",
+      "arguments": "p_event_ids uuid[]",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_event_invite_candidates",
+      "arguments": "p_event_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
         "postgres",
         "service_role"
       ]
@@ -1364,6 +1500,78 @@
     },
     {
       "schema": "public",
+      "name": "fn_friend_block",
+      "arguments": "p_handle text",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_friend_cancel",
+      "arguments": "p_handle text",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_friend_request",
+      "arguments": "p_handle text",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_friend_respond",
+      "arguments": "p_handle text, p_accept boolean",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_friend_unblock",
+      "arguments": "p_handle text",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_friend_unfriend",
+      "arguments": "p_handle text",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_get_account_deletion_status_for_user",
       "arguments": "p_user_id uuid",
       "securityDefiner": true,
@@ -1399,7 +1607,7 @@
     },
     {
       "schema": "public",
-      "name": "fn_get_my_order_totals",
+      "name": "fn_get_my_order_totals_json",
       "arguments": "p_order_id uuid",
       "securityDefiner": true,
       "searchPathPinned": true,
@@ -1410,7 +1618,7 @@
     },
     {
       "schema": "public",
-      "name": "fn_get_my_order_totals_json",
+      "name": "fn_get_my_order_totals",
       "arguments": "p_order_id uuid",
       "securityDefiner": true,
       "searchPathPinned": true,
@@ -1466,6 +1674,18 @@
     },
     {
       "schema": "public",
+      "name": "fn_invite_friends_to_event",
+      "arguments": "p_event_id uuid, p_handles text[]",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_is_event_scanner",
       "arguments": "p_event_id uuid",
       "securityDefiner": false,
@@ -1494,18 +1714,6 @@
     },
     {
       "schema": "public",
-      "name": "fn_issue_guestlist",
-      "arguments": "p_guestlist_entry_id uuid, p_allocate integer",
-      "securityDefiner": true,
-      "searchPathPinned": true,
-      "grantees": [
-        "authenticated",
-        "postgres",
-        "service_role"
-      ]
-    },
-    {
-      "schema": "public",
       "name": "fn_issue_guestlist_unchecked",
       "arguments": "p_guestlist_entry_id uuid, p_allocate integer",
       "securityDefiner": true,
@@ -1517,8 +1725,8 @@
     },
     {
       "schema": "public",
-      "name": "fn_link_event_artist_by_name",
-      "arguments": "p_event_id uuid, p_artist_name text, p_role text, p_bio text, p_image_url text",
+      "name": "fn_issue_guestlist",
+      "arguments": "p_guestlist_entry_id uuid, p_allocate integer",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
@@ -1540,11 +1748,47 @@
     },
     {
       "schema": "public",
+      "name": "fn_link_event_artist_by_name",
+      "arguments": "p_event_id uuid, p_artist_name text, p_role text, p_bio text, p_image_url text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_list_my_order_totals",
       "arguments": "limit_rows integer, offset_rows integer",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_lookup_transfer_recipient",
+      "arguments": "p_identifier text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_match_friend_contacts",
+      "arguments": "p_phones text[]",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
         "postgres",
         "service_role"
       ]
@@ -1562,11 +1806,12 @@
     },
     {
       "schema": "public",
-      "name": "fn_mirror_user_phone_to_profile",
-      "arguments": "",
+      "name": "fn_my_friends_going",
+      "arguments": "p_event_ids uuid[], p_from timestamp with time zone, p_limit integer",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
+        "authenticated",
         "postgres",
         "service_role"
       ]
@@ -1636,8 +1881,30 @@
     },
     {
       "schema": "public",
+      "name": "fn_ops_alerts_tick",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_ops_reconciliation_counts",
       "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_org_finance_summary_unchecked",
+      "arguments": "p_org_id uuid, p_from timestamp with time zone, p_to timestamp with time zone",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
@@ -1659,34 +1926,11 @@
     },
     {
       "schema": "public",
-      "name": "fn_org_finance_summary_unchecked",
-      "arguments": "p_org_id uuid, p_from timestamp with time zone, p_to timestamp with time zone",
-      "securityDefiner": true,
-      "searchPathPinned": true,
-      "grantees": [
-        "postgres",
-        "service_role"
-      ]
-    },
-    {
-      "schema": "public",
       "name": "fn_payment_routing_rules_touch_updated_at",
       "arguments": "",
       "securityDefiner": false,
       "searchPathPinned": true,
       "grantees": [
-        "postgres",
-        "service_role"
-      ]
-    },
-    {
-      "schema": "public",
-      "name": "fn_pos_charge",
-      "arguments": "p_event_id uuid, p_items jsonb, p_payment_method text, p_buyer_name text, p_buyer_email text, p_buyer_phone text",
-      "securityDefiner": true,
-      "searchPathPinned": true,
-      "grantees": [
-        "authenticated",
         "postgres",
         "service_role"
       ]
@@ -1706,6 +1950,18 @@
       "schema": "public",
       "name": "fn_pos_charge_with_shift",
       "arguments": "p_shift_id uuid, p_event_id uuid, p_items jsonb, p_payment_method text, p_buyer_name text, p_buyer_email text, p_buyer_phone text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_pos_charge",
+      "arguments": "p_event_id uuid, p_items jsonb, p_payment_method text, p_buyer_name text, p_buyer_email text, p_buyer_phone text",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
@@ -1818,6 +2074,17 @@
     },
     {
       "schema": "public",
+      "name": "fn_publish_resale_listing_unchecked",
+      "arguments": "p_order_item_id uuid, p_price_cents integer, p_listing_hours integer",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_publish_resale_listing",
       "arguments": "p_order_item_id uuid, p_price_cents integer, p_listing_hours integer",
       "securityDefiner": true,
@@ -1830,8 +2097,8 @@
     },
     {
       "schema": "public",
-      "name": "fn_publish_resale_listing_unchecked",
-      "arguments": "p_order_item_id uuid, p_price_cents integer, p_listing_hours integer",
+      "name": "fn_push_targets_for_user",
+      "arguments": "p_user_id uuid, p_notification_type text",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
@@ -1863,17 +2130,6 @@
     },
     {
       "schema": "public",
-      "name": "fn_rate_limit",
-      "arguments": "p_key text, p_max integer, p_window_seconds integer",
-      "securityDefiner": true,
-      "searchPathPinned": true,
-      "grantees": [
-        "postgres",
-        "service_role"
-      ]
-    },
-    {
-      "schema": "public",
       "name": "fn_rate_limit_edge",
       "arguments": "p_bucket text, p_key text, p_max integer, p_window_seconds integer",
       "securityDefiner": true,
@@ -1896,19 +2152,8 @@
     },
     {
       "schema": "public",
-      "name": "fn_recalculate_event_live_stats",
-      "arguments": "p_event_id uuid",
-      "securityDefiner": true,
-      "searchPathPinned": true,
-      "grantees": [
-        "postgres",
-        "service_role"
-      ]
-    },
-    {
-      "schema": "public",
-      "name": "fn_recalculate_event_live_stats_from_order",
-      "arguments": "",
+      "name": "fn_rate_limit",
+      "arguments": "p_key text, p_max integer, p_window_seconds integer",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
@@ -1919,6 +2164,17 @@
     {
       "schema": "public",
       "name": "fn_recalculate_event_live_stats_from_order_item",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_recalculate_event_live_stats_from_order",
       "arguments": "",
       "securityDefiner": true,
       "searchPathPinned": true,
@@ -1962,6 +2218,17 @@
     },
     {
       "schema": "public",
+      "name": "fn_recalculate_event_live_stats",
+      "arguments": "p_event_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_record_chargeback",
       "arguments": "p_payment_id uuid, p_provider_ref text, p_amount_cents integer, p_payload jsonb",
       "securityDefiner": true,
@@ -1973,8 +2240,42 @@
     },
     {
       "schema": "public",
+      "name": "fn_refresh_finance_reconciliation_issues",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_refund_reconciliation_tick",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_register_device",
       "arguments": "p_org_id uuid, p_event_id uuid, p_label text, p_device_role device_role",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_register_push_device",
+      "arguments": "p_service text, p_token text, p_device_id text, p_app_id text, p_platform_version text",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
@@ -1997,9 +2298,9 @@
     },
     {
       "schema": "public",
-      "name": "fn_request_payout",
-      "arguments": "p_org_id uuid, p_amount_cents integer",
-      "securityDefiner": true,
+      "name": "fn_report_user",
+      "arguments": "p_handle text, p_reason text",
+      "securityDefiner": false,
       "searchPathPinned": true,
       "grantees": [
         "authenticated",
@@ -2020,8 +2321,8 @@
     },
     {
       "schema": "public",
-      "name": "fn_request_transfer_by_email",
-      "arguments": "p_order_item_id uuid, p_recipient_email text",
+      "name": "fn_request_payout",
+      "arguments": "p_org_id uuid, p_amount_cents integer",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
@@ -2043,8 +2344,66 @@
     },
     {
       "schema": "public",
+      "name": "fn_request_transfer_by_email",
+      "arguments": "p_order_item_id uuid, p_recipient_email text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_request_transfer_by_phone",
+      "arguments": "p_order_item_id uuid, p_recipient_phone text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_request_transfer_to_user_unchecked",
+      "arguments": "p_order_item_id uuid, p_recipient_user_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_request_transfer_to_user",
+      "arguments": "p_order_item_id uuid, p_recipient_user_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_resolve_payment_outbox",
       "arguments": "p_id uuid, p_ok boolean, p_error text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_revoke_membership_invite_unchecked",
+      "arguments": "p_id uuid",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
@@ -2066,17 +2425,6 @@
     },
     {
       "schema": "public",
-      "name": "fn_revoke_membership_invite_unchecked",
-      "arguments": "p_id uuid",
-      "securityDefiner": true,
-      "searchPathPinned": true,
-      "grantees": [
-        "postgres",
-        "service_role"
-      ]
-    },
-    {
-      "schema": "public",
       "name": "fn_rollup_metrics",
       "arguments": "p_day date",
       "securityDefiner": false,
@@ -2084,18 +2432,6 @@
       "grantees": [
         "PUBLIC",
         "anon",
-        "authenticated",
-        "postgres",
-        "service_role"
-      ]
-    },
-    {
-      "schema": "public",
-      "name": "fn_scan_ticket",
-      "arguments": "p_ticket_code text, p_event_id uuid, p_scanned_by uuid, p_device_id uuid, p_session_id uuid, p_gate text, p_scanned_at timestamp with time zone, p_attempt_id text",
-      "securityDefiner": true,
-      "searchPathPinned": true,
-      "grantees": [
         "authenticated",
         "postgres",
         "service_role"
@@ -2114,6 +2450,18 @@
     },
     {
       "schema": "public",
+      "name": "fn_scan_ticket",
+      "arguments": "p_ticket_code text, p_event_id uuid, p_scanned_by uuid, p_device_id uuid, p_session_id uuid, p_gate text, p_scanned_at timestamp with time zone, p_attempt_id text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_search_events",
       "arguments": "p_query text, p_category text, p_city text, p_starts_after timestamp with time zone, p_starts_before timestamp with time zone, p_max_price_cents integer, p_only_free boolean, p_limit integer, p_offset integer",
       "securityDefiner": false,
@@ -2121,6 +2469,18 @@
       "grantees": [
         "PUBLIC",
         "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_search_friend_profiles",
+      "arguments": "p_query text, p_limit integer",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
         "authenticated",
         "postgres",
         "service_role"
@@ -2151,23 +2511,23 @@
     },
     {
       "schema": "public",
-      "name": "fn_set_default_payment_method",
+      "name": "fn_set_default_payment_method_unchecked",
       "arguments": "p_id uuid",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
-        "authenticated",
         "postgres",
         "service_role"
       ]
     },
     {
       "schema": "public",
-      "name": "fn_set_default_payment_method_unchecked",
+      "name": "fn_set_default_payment_method",
       "arguments": "p_id uuid",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
+        "authenticated",
         "postgres",
         "service_role"
       ]
@@ -2192,6 +2552,17 @@
       "searchPathPinned": true,
       "grantees": [
         "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_settlement_ingest_tick",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
         "postgres",
         "service_role"
       ]
@@ -2444,23 +2815,23 @@
     },
     {
       "schema": "public",
-      "name": "fn_transition_event_status",
+      "name": "fn_transition_event_status_unchecked",
       "arguments": "p_event_id uuid, p_new_status text",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
-        "authenticated",
         "postgres",
         "service_role"
       ]
     },
     {
       "schema": "public",
-      "name": "fn_transition_event_status_unchecked",
+      "name": "fn_transition_event_status",
       "arguments": "p_event_id uuid, p_new_status text",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
+        "authenticated",
         "postgres",
         "service_role"
       ]
@@ -2524,12 +2895,46 @@
     },
     {
       "schema": "public",
+      "name": "fn_unregister_push_device",
+      "arguments": "p_service text, p_device_id text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_update_finance_reconciliation_issue",
+      "arguments": "p_issue_id uuid, p_new_status text, p_resolution_note text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_update_my_notification_preferences",
       "arguments": "p_email_opt_in boolean, p_sms_opt_in boolean, p_push_opt_in boolean, p_in_app_opt_in boolean",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
         "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_update_my_profile_unchecked",
+      "arguments": "p_display_name text, p_name text, p_surname text, p_phone text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
         "postgres",
         "service_role"
       ]
@@ -2548,11 +2953,24 @@
     },
     {
       "schema": "public",
-      "name": "fn_update_my_profile_unchecked",
-      "arguments": "p_display_name text, p_name text, p_surname text, p_phone text",
-      "securityDefiner": true,
+      "name": "fn_update_my_social_privacy",
+      "arguments": "p_profile_discoverability text, p_allow_friend_requests boolean, p_show_events_going_to_friends boolean, p_allow_friend_suggestions boolean, p_discover_by_phone boolean",
+      "securityDefiner": false,
       "searchPathPinned": true,
       "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_update_my_social_privacy",
+      "arguments": "p_profile_discoverability text, p_allow_friend_requests boolean, p_show_events_going_to_friends boolean, p_allow_friend_suggestions boolean",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
         "postgres",
         "service_role"
       ]
@@ -2595,6 +3013,17 @@
     },
     {
       "schema": "public",
+      "name": "get_event_kpis_unchecked",
+      "arguments": "p_event_id uuid",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "get_event_kpis",
       "arguments": "p_event_id uuid",
       "securityDefiner": true,
@@ -2607,8 +3036,8 @@
     },
     {
       "schema": "public",
-      "name": "get_event_kpis_unchecked",
-      "arguments": "p_event_id uuid",
+      "name": "get_organizer_kpis_unchecked",
+      "arguments": "p_range text",
       "securityDefiner": false,
       "searchPathPinned": true,
       "grantees": [
@@ -2630,11 +3059,26 @@
     },
     {
       "schema": "public",
-      "name": "get_organizer_kpis_unchecked",
-      "arguments": "p_range text",
-      "securityDefiner": false,
+      "name": "get_public_profile",
+      "arguments": "p_handle text",
+      "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "get_social_public_profile",
+      "arguments": "p_handle text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "anon",
+        "authenticated",
         "postgres",
         "service_role"
       ]
@@ -2814,23 +3258,23 @@
     },
     {
       "schema": "public",
-      "name": "issue_comp_ticket",
+      "name": "issue_comp_ticket_unchecked",
       "arguments": "p_org_id uuid, p_ticket_type_id uuid, p_recipient_email text, p_qty integer, p_note text",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
-        "authenticated",
         "postgres",
         "service_role"
       ]
     },
     {
       "schema": "public",
-      "name": "issue_comp_ticket_unchecked",
+      "name": "issue_comp_ticket",
       "arguments": "p_org_id uuid, p_ticket_type_id uuid, p_recipient_email text, p_qty integer, p_note text",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
+        "authenticated",
         "postgres",
         "service_role"
       ]
@@ -2870,20 +3314,6 @@
     },
     {
       "schema": "public",
-      "name": "order_ledger_summary_fn",
-      "arguments": "",
-      "securityDefiner": false,
-      "searchPathPinned": true,
-      "grantees": [
-        "PUBLIC",
-        "anon",
-        "authenticated",
-        "postgres",
-        "service_role"
-      ]
-    },
-    {
-      "schema": "public",
       "name": "order_ledger_summary_fn_definer",
       "arguments": "",
       "securityDefiner": true,
@@ -2901,6 +3331,20 @@
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "order_ledger_summary_fn",
+      "arguments": "",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "PUBLIC",
+        "anon",
+        "authenticated",
         "postgres",
         "service_role"
       ]

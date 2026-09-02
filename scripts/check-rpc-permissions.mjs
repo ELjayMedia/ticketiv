@@ -47,6 +47,10 @@ const ANON_ALLOWLIST = new Map([
     "get_public_profile",
     "Signed-out public profile pages (/@username, app/(consumer)/[username]) resolve a handle. STABLE, writes nothing, search_path pinned to ''. Returns only handle, display name, avatar and join date — the fields the page already shows publicly — for an exact handle match behind a ^[A-Za-z0-9_]{3,30}$ guard, so it cannot be used to enumerate users or reach any other profile column.",
   ],
+  [
+    "get_social_public_profile",
+    "Public social profile preview for friend discovery. STABLE, writes nothing, search_path pinned. Returns only handle, display name, avatar and a discoverability flag for an exact handle match — no PII, no org data, no financial data. Added for TICK-385 Friends v1.",
+  ],
 ])
 
 /**
