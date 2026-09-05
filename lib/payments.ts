@@ -16,7 +16,7 @@ import { getPaystackSettings } from "@/lib/payments/paystack-config"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { resolvePaymentProvider } from "@/lib/payments/routing"
 
-export type PaymentProvider = "paystack" | "flutterwave" | "manual" | "momo" | "deltapay"
+export type PaymentProvider = "paystack" | "manual" | "momo" | "deltapay"
 
 type LiveOrder = {
   id: string
@@ -58,7 +58,7 @@ export interface CompleteVerifiedPaymentInput {
 }
 
 function assertProvider(provider: string): asserts provider is PaymentProvider {
-  if (!["paystack", "flutterwave", "manual", "momo", "deltapay"].includes(provider)) {
+  if (!["paystack", "manual", "momo", "deltapay"].includes(provider)) {
     throw new Error("Unsupported payment provider")
   }
 }

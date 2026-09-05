@@ -37,4 +37,4 @@ begin
 end
 $$;
 
-revoke all on function public.fn_trg_emit_ticket_transferred() from public, anon, authenticated;
+revoke all on function public.fn_trg_emit_ticket_transferred() from public, anon, authenticated;;

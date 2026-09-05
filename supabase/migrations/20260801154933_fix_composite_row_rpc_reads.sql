@@ -127,3 +127,4 @@ grant execute on function public.fn_transition_refund(
 ) to authenticated, service_role;
 
 commit;
+;

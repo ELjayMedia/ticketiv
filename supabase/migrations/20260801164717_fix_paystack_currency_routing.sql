@@ -68,4 +68,4 @@ where event_id = (
   from public.events
   where slug = 'worship-in-my-room-d721ab2b'
 )
-  and currency = 'SZL';
+  and currency = 'SZL';;

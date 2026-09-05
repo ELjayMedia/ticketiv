@@ -61,4 +61,4 @@ grant select, insert, update, delete on table public.webhook_endpoints to authen
 grant select on table public.webhook_deliveries to authenticated;
 grant select on table public.webhooks to authenticated;
 grant select on table public.orders to authenticated;
-grant select on table public.order_items to authenticated;
+grant select on table public.order_items to authenticated;;

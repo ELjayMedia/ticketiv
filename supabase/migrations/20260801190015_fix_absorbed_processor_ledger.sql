@@ -161,3 +161,4 @@ grant execute on function public.fn_complete_order_payment(uuid, text, text, int
 
 comment on function public.fn_complete_order_payment(uuid, text, text, integer, text, jsonb) is
   'Atomically completes a verified payment. Settlement deducts one platform commission; processor cost is absorbed and retained on the order for reconciliation.';
+;

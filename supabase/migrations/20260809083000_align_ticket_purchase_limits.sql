@@ -1,3 +1,4 @@
+
 -- TICK-366: make organizer purchase limits optional and keep the public
 -- availability count aligned with the online-channel guard used at checkout.
 
@@ -59,3 +60,4 @@ comment on function public.fn_ticket_type_remaining(uuid) is
 
 revoke execute on function public.fn_ticket_type_remaining(uuid) from public;
 grant execute on function public.fn_ticket_type_remaining(uuid) to anon, authenticated, service_role;
+;

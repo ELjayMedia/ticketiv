@@ -338,4 +338,4 @@ $$;
 revoke all on function public.fn_cancel_event_invitation(uuid) from public, anon;
 grant execute on function public.fn_cancel_event_invitation(uuid) to authenticated;
 
-drop view if exists public.v_event_friends_going;
+drop view if exists public.v_event_friends_going;;

@@ -19,4 +19,4 @@ revoke all on table public.rate_limits from anon, authenticated;
 revoke execute on function public.fn_rate_limit_gc(interval) from public, anon, authenticated;
 grant execute on function public.fn_rate_limit_gc(interval) to service_role;
 
-commit;
+commit;;

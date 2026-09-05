@@ -1,7 +1,3 @@
--- TICK-388: move stale pending/requested transfers to the explicit expired
--- state before creating a new request, and persist expiry when acceptance is
--- attempted after the 24-hour window.
-
 create or replace function public.fn_request_transfer_to_user_unchecked(
   p_order_item_id uuid,
   p_recipient_user_id uuid
@@ -224,4 +220,4 @@ begin
     'status', 'completed'
   );
 end;
-$$;
+$$;;

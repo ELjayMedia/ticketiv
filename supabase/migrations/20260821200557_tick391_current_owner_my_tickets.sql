@@ -52,4 +52,4 @@ revoke all on public.v_my_tickets from anon, authenticated;
 grant select on public.v_my_tickets to authenticated;
 
 comment on view public.v_my_tickets is
-  'Current-user ticket view. Canonical visibility follows order_items.current_owner_id; buyer_id is used only as a legacy fallback when current_owner_id is null.';
+  'Current-user ticket view. Canonical visibility follows order_items.current_owner_id; buyer_id is used only as a legacy fallback when current_owner_id is null.';;

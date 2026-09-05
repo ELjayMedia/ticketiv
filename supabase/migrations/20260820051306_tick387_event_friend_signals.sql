@@ -91,4 +91,4 @@ end;
 $$;
 
 revoke all on function public.fn_event_friend_signals(uuid[]) from public, anon;
-grant execute on function public.fn_event_friend_signals(uuid[]) to authenticated;
+grant execute on function public.fn_event_friend_signals(uuid[]) to authenticated;;

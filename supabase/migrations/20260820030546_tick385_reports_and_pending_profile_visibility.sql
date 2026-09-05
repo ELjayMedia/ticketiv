@@ -248,4 +248,4 @@ $$;
 revoke all on function public.get_social_public_profile(text) from public;
 grant execute on function public.get_social_public_profile(text) to anon, authenticated;
 revoke all on function public.fn_search_friend_profiles(text, integer) from public, anon;
-grant execute on function public.fn_search_friend_profiles(text, integer) to authenticated;
+grant execute on function public.fn_search_friend_profiles(text, integer) to authenticated;;

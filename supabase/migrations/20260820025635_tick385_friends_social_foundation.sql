@@ -601,4 +601,4 @@ where o.status = 'paid'::public.order_status
     from public.user_blocks b
     where (b.blocker_id = (select auth.uid()) and b.blocked_id = p.user_id)
        or (b.blocker_id = p.user_id and b.blocked_id = (select auth.uid()))
-  );
+  );;

@@ -1,6 +1,3 @@
--- TICK-388: align the legacy inbound transfer card with the canonical expiry
--- field and never surface an offer whose 24-hour window has elapsed.
-
 create or replace view public.v_inbound_transfers
 with (security_invoker = true)
 as
@@ -36,9 +33,6 @@ left join public.events e on e.id = tt.event_id
 left join public.venues v on v.id = e.venue_id
 left join public.profiles fp on fp.user_id = t.from_user_id
 left join public.user_handles fh on fh.user_id = t.from_user_id
-where t.status in (
-    'pending'::public.transfer_status,
-    'requested'::public.transfer_status
-  )
+where t.status in ('pending'::public.transfer_status, 'requested'::public.transfer_status)
   and t.to_user_id = auth.uid()
-  and t.expires_at > now();
+  and t.expires_at > now();;

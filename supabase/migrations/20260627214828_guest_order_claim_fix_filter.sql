@@ -79,4 +79,4 @@ begin
   select count(*)::integer into v_count from _claimable;
   return v_count;
 end;
-$function$;
+$function$;;

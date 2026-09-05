@@ -1,5 +1,3 @@
--- Deliver authoritative ticket check-in updates to attendee clients.
--- Row visibility remains constrained by the existing order_items SELECT RLS policies.
 do $migration$
 begin
   if not exists (
@@ -12,4 +10,4 @@ begin
     execute 'alter publication supabase_realtime add table public.order_items';
   end if;
 end
-$migration$;
+$migration$;;

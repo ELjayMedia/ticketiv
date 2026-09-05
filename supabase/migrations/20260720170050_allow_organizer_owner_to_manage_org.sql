@@ -20,3 +20,4 @@ $$;
 
 revoke all on function public.can_manage_org(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.can_manage_org(uuid, uuid) to service_role;
+;

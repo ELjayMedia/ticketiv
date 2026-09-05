@@ -1,11 +1,3 @@
--- Organizer registration profile completion.
---
--- Required contact fields are written to public.profiles only after the
--- organizer has verified the email OTP. The optional identity number is kept
--- in a non-exposed schema and is never returned by the client-callable RPC.
-
-begin;
-
 create schema if not exists private;
 
 revoke all on schema private from public, anon, authenticated;
@@ -125,6 +117,4 @@ comment on function public.fn_complete_organizer_signup(text, text, text, text) 
   'Completes the signed-in user organizer profile after email OTP verification; optional ID is stored privately.';
 
 comment on table private.organizer_identity_details is
-  'Sensitive optional organizer identity details; not exposed through the Data API.';
-
-commit;
+  'Sensitive optional organizer identity details; not exposed through the Data API.';;

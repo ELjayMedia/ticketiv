@@ -46,4 +46,4 @@ end;
 $$;
 
 revoke all on function public.fn_delete_organization(uuid, text) from public, anon;
-grant execute on function public.fn_delete_organization(uuid, text) to authenticated;
+grant execute on function public.fn_delete_organization(uuid, text) to authenticated;;

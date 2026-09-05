@@ -68,4 +68,4 @@ as $function$
 $function$;
 
 revoke all on function public.fn_get_ticketiv_effective_roles(uuid) from public, anon;
-grant execute on function public.fn_get_ticketiv_effective_roles(uuid) to authenticated, service_role;
+grant execute on function public.fn_get_ticketiv_effective_roles(uuid) to authenticated, service_role;;

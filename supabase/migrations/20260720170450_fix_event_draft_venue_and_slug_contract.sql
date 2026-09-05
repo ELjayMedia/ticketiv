@@ -72,4 +72,4 @@ begin
 
   return v_event_id;
 end;
-$function$;
+$function$;;

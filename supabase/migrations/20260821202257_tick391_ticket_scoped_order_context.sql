@@ -85,4 +85,4 @@ revoke all on public.v_my_tickets from anon, authenticated;
 grant select on public.v_my_tickets to anon, authenticated;
 
 comment on function app.ticket_order_context(uuid) is
-  'Ticket-scoped order metadata for My Tickets. Returns only when auth.uid() owns the supplied order_item (or is the legacy buyer when current_owner_id is null), avoiding broader orders-table access for transferred recipients.';
+  'Ticket-scoped order metadata for My Tickets. Returns only when auth.uid() owns the supplied order_item (or is the legacy buyer when current_owner_id is null), avoiding broader orders-table access for transferred recipients.';;

@@ -26,4 +26,4 @@ using (
 grant select on public.v_my_tickets to anon, authenticated;
 
 comment on function app.current_user_owns_order_item(uuid) is
-  'RLS helper: true only when auth.uid() is the canonical current_owner_id of an order_item in the supplied order.';
+  'RLS helper: true only when auth.uid() is the canonical current_owner_id of an order_item in the supplied order.';;

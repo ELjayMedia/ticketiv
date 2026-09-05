@@ -1,8 +1,3 @@
--- Create the public bucket used by the event wizard for cover images.
--- Uploads are performed only by the server-side /api/uploads route after it
--- verifies the caller can manage the event. The route uses the service-role
--- client, so no direct authenticated storage.objects write policy is needed.
-
 insert into storage.buckets (
   id,
   name,
@@ -23,4 +18,4 @@ set
   public = excluded.public,
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types,
-  updated_at = now();
+  updated_at = now();;

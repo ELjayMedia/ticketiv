@@ -9,4 +9,4 @@ to authenticated
 using (
   app.is_claimed_account()
   and (inviter_id = (select auth.uid()) or invitee_id = (select auth.uid()))
-);
+);;

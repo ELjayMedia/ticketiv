@@ -17,7 +17,7 @@ import {
   reportPaymentChannelUnavailable,
 } from "@/lib/payments/errors"
 
-export const KNOWN_PROVIDERS: PaymentProvider[] = ["paystack", "flutterwave", "manual", "momo", "deltapay"]
+export const KNOWN_PROVIDERS: PaymentProvider[] = ["paystack", "manual", "momo", "deltapay"]
 
 export interface RoutingRule {
   priority: number | null

@@ -73,3 +73,4 @@ comment on function public.fn_refund_reconciliation_tick() is
 
 revoke execute on function public.fn_refund_reconciliation_tick() from public, anon, authenticated;
 grant execute on function public.fn_refund_reconciliation_tick() to service_role;
+;
