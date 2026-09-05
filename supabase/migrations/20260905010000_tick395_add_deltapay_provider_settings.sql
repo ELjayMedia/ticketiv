@@ -12,6 +12,11 @@ insert into public.payment_provider_settings (provider, is_enabled, mode)
 values ('deltapay', false, 'test')
 on conflict (provider) do nothing;
 
+-- Ensure paystack and momo rows exist (production parity)
+insert into public.payment_provider_settings (provider, is_enabled, mode)
+values ('paystack', true, 'test'), ('momo', true, 'test')
+on conflict (provider) do nothing;
+
 -- Ensure constraints are in place (idempotent re-application)
 -- Remove flutterwave from valid provider allowlist
 alter table public.payment_provider_settings
