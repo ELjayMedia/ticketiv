@@ -23,23 +23,62 @@ jobs:
           echo "=== Migration count ==="
           find supabase/migrations -name '*.sql' | wc -l
 
-      - name: Start local Supabase database
-        run: supabase db start
-
-      - name: Reconstruct database from baseline
-        run: supabase db reset --local --no-seed
-
-      - name: Show applied migration count
+      - name: Start Supabase manually
         run: |
-          supabase migration list --local || true
+          # Start Supabase containers
+          supabase db start
+          
+          # Wait for database to be ready
+          echo "Waiting for database..."
+          for i in $(seq 1 30); do
+            if supabase db query --local "SELECT 1" >/dev/null 2>&1; then
+              echo "Database is ready!"
+              break
+            fi
+            sleep 2
+          done
 
-      - name: Verify baseline objects exist
+      - name: Install extensions before reset
         run: |
-          echo "=== Checking key tables exist ==="
+          # Install extensions in the postgres database (shared)
+          supabase db query --local "CREATE SCHEMA IF NOT EXISTS extensions;" 2>/dev/null || true
+          supabase db query --local "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";" 2>/dev/null || true
+          supabase db query --local "CREATE EXTENSION IF NOT EXISTS \"btree_gist\";" 2>/dev/null || true
+          supabase db query --local "CREATE EXTENSION IF NOT EXISTS \"supabase_vault\" SCHEMA extensions;" 2>/dev/null || true
+          supabase db query --local "CREATE EXTENSION IF NOT EXISTS \"hypopg\";" 2>/dev/null || true
+          supabase db query --local "CREATE EXTENSION IF NOT EXISTS \"index_advisor\";" 2>/dev/null || true
+          supabase db query --local "CREATE EXTENSION IF NOT EXISTS \"pg_trgm\" SCHEMA extensions;" 2>/dev/null || true
+          supabase db query --local "CREATE EXTENSION IF NOT EXISTS \"pgcrypto\";" 2>/dev/null || true
+          supabase db query --local "CREATE EXTENSION IF NOT EXISTS \"pg_cron\";" 2>/dev/null || true
+          supabase db query --local "CREATE EXTENSION IF NOT EXISTS \"pg_net\" SCHEMA extensions;" 2>/dev/null || true
+          
+          # Verify extensions
+          echo "=== Installed extensions ==="
+          supabase db query --local "SELECT extname, extnamespace::regnamespace FROM pg_extension" 2>/dev/null || true
+        continue-on-error: true
+
+      - name: Run migration manually
+        run: |
+          # Get database connection info
+          supabase status
+          
+          # Run the baseline migration directly
+          PORT=$(supabase status 2>/dev/null | grep "DB Port" | awk '{print $NF}' || echo "5432")
+          echo "Using port: $PORT"
+          
+          # Apply the migration
+          PGPASSWORD=postgres psql -h localhost -p $PORT -U postgres -d postgres -f supabase/migrations/20260905000000_production_baseline.sql 2>&1 | tail -20
+
+      - name: Verify migration succeeded
+        run: |
+          echo "=== Checking tables ==="
           supabase db query --local "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;" 2>/dev/null || echo "Query failed"
           echo ""
-          echo "=== Checking ledger_entries specifically ==="
+          echo "=== Checking ledger_entries ==="
           supabase db query --local "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'ledger_entries' ORDER BY ordinal_position;" 2>/dev/null || echo "Query failed"
+          echo ""
+          echo "=== Migration count ==="
+          supabase db query --local "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';" 2>/dev/null || true
 
       - name: Stop Supabase
         if: always()

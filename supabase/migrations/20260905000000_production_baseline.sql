@@ -8,15 +8,19 @@
 -- EXTENSIONS (required for schema to work)
 -- ============================================================================
 
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "btree_gist";
-CREATE EXTENSION IF NOT EXISTS "supabase_vault";
-CREATE EXTENSION IF NOT EXISTS "hypopg";
-CREATE EXTENSION IF NOT EXISTS "index_advisor";
-CREATE EXTENSION IF NOT EXISTS "pg_trgm";
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-CREATE EXTENSION IF NOT EXISTS "pg_cron";
-CREATE EXTENSION IF NOT EXISTS "pg_net";
+-- Create extensions schema if it doesn't exist
+CREATE SCHEMA IF NOT EXISTS extensions;
+
+-- Install required extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS "btree_gist" SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS "supabase_vault" SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS "hypopg" SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS "index_advisor" SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS "pg_trgm" SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS "pgcrypto" SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS "pg_cron" SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS "pg_net" SCHEMA extensions;
 
 -- ============================================================================
 -- SCHEMA CREATION
