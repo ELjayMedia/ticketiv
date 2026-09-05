@@ -1,0 +1,30 @@
+name: Dump Production Schema
+
+on:
+  workflow_dispatch:
+
+jobs:
+  dump-production-schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Dump production schema
+        run: |
+          supabase db dump \
+            --linked \
+            --schema public,app,private,monitoring,_internal,ops_backup \
+            --file /tmp/ticketiv-production-schema.sql
+
+      - name: Upload schema dump
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-schema-dump
+          path: /tmp/ticketiv-production-schema.sql
+          retention-days: 7
