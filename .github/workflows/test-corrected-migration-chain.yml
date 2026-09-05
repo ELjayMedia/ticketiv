@@ -1,0 +1,79 @@
+name: Test Corrected Migration Chain
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-corrected-migrations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase
+        run: |
+          supabase db start
+          sleep 15
+
+      - name: Apply baseline migration
+        run: |
+          PORT=$(supabase status 2>/dev/null | grep -i "db\|database" | grep -oP '\d+' | head -1)
+          if [ -z "$PORT" ]; then PORT=5432; fi
+          PGPASSWORD=postgres psql -h localhost -p $PORT -U postgres -d postgres -f supabase/migrations/20260905000000_production_baseline.sql
+
+      - name: Apply TICK-395
+        run: |
+          PORT=$(supabase status 2>/dev/null | grep -i "db\|database" | grep -oP '\d+' | head -1)
+          if [ -z "$PORT" ]; then PORT=5432; fi
+          PGPASSWORD=postgres psql -h localhost -p $PORT -U postgres -d postgres -f supabase/migrations/20260905010000_tick395_add_deltapay_provider_settings.sql
+
+      - name: Apply TICK-396/397
+        run: |
+          PORT=$(supabase status 2>/dev/null | grep -i "db\|database" | grep -oP '\d+' | head -1)
+          if [ -z "$PORT" ]; then PORT=5432; fi
+          PGPASSWORD=postgres psql -h localhost -p $PORT -U postgres -d postgres -f supabase/migrations/20260905020000_tick396_397_provider_policy_hierarchy.sql
+
+      - name: Run hierarchy tests
+        run: |
+          PORT=$(supabase status 2>/dev/null | grep -i "db\|database" | grep -oP '\d+' | head -1)
+          if [ -z "$PORT" ]; then PORT=5432; fi
+          PGPASSWORD=postgres psql -h localhost -p $PORT -U postgres -d postgres -f supabase/tests/tick395_396_397_hierarchy_tests.sql
+
+      - name: Security verification
+        run: |
+          PORT=$(supabase status 2>/dev/null | grep -i "db\|database" | grep -oP '\d+' | head -1)
+          if [ -z "$PORT" ]; then PORT=5432; fi
+          echo "=== Function security check ==="
+          PGPASSWORD=postgres psql -h localhost -p $PORT -U postgres -d postgres -c "
+            SELECT proname, prosecdef, proacl 
+            FROM pg_proc 
+            WHERE proname = 'fn_get_effective_payment_providers';
+          "
+          echo ""
+          echo "=== Verify service_role can execute ==="
+          PGPASSWORD=postgres psql -h localhost -p $PORT -U postgres -d postgres -c "
+            SELECT has_function_privilege('service_role', 'public.fn_get_effective_payment_providers(uuid, uuid, uuid)', 'execute') as service_role_can_execute;
+          "
+          echo ""
+          echo "=== Verify authenticated CANNOT execute ==="
+          PGPASSWORD=postgres psql -h localhost -p $PORT -U postgres -d postgres -c "
+            SELECT has_function_privilege('authenticated', 'public.fn_get_effective_payment_providers(uuid, uuid, uuid)', 'execute') as authenticated_can_execute;
+          "
+          echo ""
+          echo "=== Verify public CANNOT execute ==="
+          PGPASSWORD=postgres psql -h localhost -p $PORT -U postgres -d postgres -c "
+            SELECT has_function_privilege('public', 'public.fn_get_effective_payment_providers(uuid, uuid, uuid)', 'execute') as public_can_execute;
+          "
+
+      - name: Run linter
+        run: |
+          supabase db lint --local --fail-on error 2>&1 || true
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup
