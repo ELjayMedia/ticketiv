@@ -5,6 +5,16 @@
 -- and serves as the new baseline for future migrations.
 
 -- ============================================================================
+-- EXTENSIONS (required for schema to work)
+-- ============================================================================
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "btree_gist";
+CREATE EXTENSION IF NOT EXISTS "supabase_vault";
+CREATE EXTENSION IF NOT EXISTS "hypopg";
+CREATE EXTENSION IF NOT EXISTS "index_advisor";
+
+-- ============================================================================
 -- SCHEMA CREATION
 -- ============================================================================
 
