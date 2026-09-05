@@ -13,6 +13,10 @@ CREATE EXTENSION IF NOT EXISTS "btree_gist";
 CREATE EXTENSION IF NOT EXISTS "supabase_vault";
 CREATE EXTENSION IF NOT EXISTS "hypopg";
 CREATE EXTENSION IF NOT EXISTS "index_advisor";
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "pg_cron";
+CREATE EXTENSION IF NOT EXISTS "pg_net";
 
 -- ============================================================================
 -- SCHEMA CREATION
