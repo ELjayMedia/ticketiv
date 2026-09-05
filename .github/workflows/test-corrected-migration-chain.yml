@@ -21,53 +21,39 @@ jobs:
           sleep 10
           supabase status
 
-      - name: Get database port
+      - name: Reset database and apply migrations cleanly
         run: |
-          # Extract port from supabase status
-          PORT=$(supabase status 2>/dev/null | grep -oP '127\.0\.0\.1:\K\d+(?=/postgres)' || echo "54322")
-          echo "DB_PORT=$PORT" >> $GITHUB_ENV
-          echo "Database port: $PORT"
-
-      - name: Apply baseline migration
-        run: |
-          PGPASSWORD=postgres psql -h localhost -p ${{ env.DB_PORT }} -U postgres -d postgres -f supabase/migrations/20260905000000_production_baseline.sql
-          echo "Baseline applied"
-
-      - name: Apply TICK-395
-        run: |
-          PGPASSWORD=postgres psql -h localhost -p ${{ env.DB_PORT }} -U postgres -d postgres -f supabase/migrations/20260905010000_tick395_add_deltapay_provider_settings.sql
-          echo "TICK-395 applied"
-
-      - name: Apply TICK-396/397
-        run: |
-          PGPASSWORD=postgres psql -h localhost -p ${{ env.DB_PORT }} -U postgres -d postgres -f supabase/migrations/20260905020000_tick396_397_provider_policy_hierarchy.sql
-          echo "TICK-396/397 applied"
+          # Reset local database (applies all migrations in supabase/migrations/)
+          supabase db reset --local --no-seed
+          echo "Database reset complete"
 
       - name: Run hierarchy tests
         run: |
-          PGPASSWORD=postgres psql -h localhost -p ${{ env.DB_PORT }} -U postgres -d postgres -f supabase/tests/tick395_396_397_hierarchy_tests.sql
+          PORT=$(supabase status 2>/dev/null | grep -oP '127\.0\.0\.1:\K\d+(?=/postgres)' || echo "54322")
+          PGPASSWORD=postgres psql -h localhost -p $PORT -U postgres -d postgres -f supabase/tests/tick395_396_397_hierarchy_tests.sql
 
       - name: Security verification
         run: |
+          PORT=$(supabase status 2>/dev/null | grep -oP '127\.0\.0\.1:\K\d+(?=/postgres)' || echo "54322")
           echo "=== Function security check ==="
-          PGPASSWORD=postgres psql -h localhost -p ${{ env.DB_PORT }} -U postgres -d postgres -c "
+          PGPASSWORD=postgres psql -h localhost -p $PORT -U postgres -d postgres -c "
             SELECT proname, prosecdef, proacl 
             FROM pg_proc 
             WHERE proname = 'fn_get_effective_payment_providers';
           "
           echo ""
           echo "=== Verify service_role can execute ==="
-          PGPASSWORD=postgres psql -h localhost -p ${{ env.DB_PORT }} -U postgres -d postgres -c "
+          PGPASSWORD=postgres psql -h localhost -p $PORT -U postgres -d postgres -c "
             SELECT has_function_privilege('service_role', 'public.fn_get_effective_payment_providers(uuid, uuid, uuid)', 'execute') as service_role_can_execute;
           "
           echo ""
           echo "=== Verify authenticated CANNOT execute ==="
-          PGPASSWORD=postgres psql -h localhost -p ${{ env.DB_PORT }} -U postgres -d postgres -c "
+          PGPASSWORD=postgres psql -h localhost -p $PORT -U postgres -d postgres -c "
             SELECT has_function_privilege('authenticated', 'public.fn_get_effective_payment_providers(uuid, uuid, uuid)', 'execute') as authenticated_can_execute;
           "
           echo ""
           echo "=== Verify public CANNOT execute ==="
-          PGPASSWORD=postgres psql -h localhost -p ${{ env.DB_PORT }} -U postgres -d postgres -c "
+          PGPASSWORD=postgres psql -h localhost -p $PORT -U postgres -d postgres -c "
             SELECT has_function_privilege('public', 'public.fn_get_effective_payment_providers(uuid, uuid, uuid)', 'execute') as public_can_execute;
           "
 
