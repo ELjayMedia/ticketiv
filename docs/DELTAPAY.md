@@ -1,13 +1,15 @@
 # DeltaPay Hosted Checkout
 
 Tracking: TICK-378, TICK-379, TICK-380, TICK-381, TICK-382, TICK-383.
-Production activation is also gated by TICK-255.
+Production activation is controlled by the provider-onboarding gate in TICK-400.
+
+TICK-255 is a closed regulatory-perimeter decision record. Under the approved provider-led merchant/platform architecture, a separate Ticketiv CBE PSP licence is not a DeltaPay production-activation dependency. Reopen the regulatory review only if Ticketiv later introduces stored value, customer-funds custody, independent payment execution, or independent settlement/redistribution.
 
 ## Scope
 
 Ticketiv integrates DeltaPay through Hosted Checkout for native SZL ticket purchases. Ticketiv never accepts the browser redirect or callback body as proof that money moved. Both paths trigger a server-side `verify-return` request to DeltaPay; only an authoritative `succeeded` result is allowed to reach `fn_complete_order_payment`.
 
-Refund automation is deliberately out of scope until DeltaPay confirms the supported merchant refund contract.
+Native DeltaPay refund automation remains out of scope until DeltaPay confirms the supported merchant refund contract. Provider-neutral/manual refund handling is governed separately by the Ticketiv refund workflow.
 
 ## Required environment variables
 
@@ -19,7 +21,7 @@ DELTAPAY_BASE_URL=https://api.dev.deltacrypt.net
 DELTAPAY_PRODUCTION_ENABLED=false
 ```
 
-Production, only after TICK-255 and DeltaPay production provisioning are cleared:
+Production, only after TICK-400 readiness and DeltaPay production provisioning are cleared:
 
 ```env
 DELTAPAY_API_KEY=<production Hosted Checkout API key>
@@ -99,14 +101,20 @@ Use a DeltaPay development Hosted Checkout API key and the development host.
 
 ## Production activation checklist
 
-Do not switch `DELTAPAY_PRODUCTION_ENABLED` to `true` until all of these are complete:
+Do not switch `DELTAPAY_PRODUCTION_ENABLED` to `true` until TICK-400 records the provider as ready. At minimum:
 
-- [ ] TICK-255 confirms the permitted merchant/sub-merchant/direct-settlement structure for Ticketiv.
+- [ ] Signed DeltaPay merchant/provider arrangement is retained.
+- [ ] Merchant/KYB onboarding is complete.
 - [ ] DeltaPay provisions Ticketiv Hosted Checkout for production and confirms the approved `ticketiv.app` domain/URLs.
 - [ ] Production API key is stored server-side in Vercel and is not exposed through any `NEXT_PUBLIC_` variable.
-- [ ] Development UAT above passes.
+- [ ] Callback/return configuration is verified.
+- [ ] Development technical and operational UAT above passes.
+- [ ] Ticketiv data-protection/privacy treatment for DeltaPay is documented.
+- [ ] Applicable card merchant validation is complete where the provider/rail requires it.
+- [ ] Settlement, refund and chargeback operating procedures are documented.
 - [ ] A controlled production transaction is reconciled against the Ticketiv payment, ledger and ticket-delivery records.
-- [ ] Refund handling remains manual/disabled until DeltaPay confirms the proper merchant refund API.
+
+TICK-255 is not part of this checklist; it remains the closed record of the approved CBE/PSP regulatory boundary.
 
 ## Operational notes
 
