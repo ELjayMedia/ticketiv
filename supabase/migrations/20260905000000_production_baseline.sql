@@ -11,6 +11,18 @@
 -- Create extensions schema if it doesn't exist
 CREATE SCHEMA IF NOT EXISTS extensions;
 
+-- Create required roles (they exist in production but not in local Supabase)
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'organiser') THEN
+    CREATE ROLE "organiser";
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'dashboard_user') THEN
+    CREATE ROLE "dashboard_user";
+  END IF;
+END $$;
+
 -- Install required extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA public;
 CREATE EXTENSION IF NOT EXISTS "btree_gist" SCHEMA public;
