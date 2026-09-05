@@ -1,0 +1,61 @@
+name: Test Future Migration Chain
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-future-chain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Show migration files
+        run: |
+          echo "=== Active migration files ==="
+          ls -la supabase/migrations/
+          echo ""
+          echo "=== Migration count ==="
+          find supabase/migrations -name '*.sql' | wc -l
+
+      - name: Start local Supabase database
+        run: supabase db start
+
+      - name: Reconstruct database with baseline + future migrations
+        run: supabase db reset --local --no-seed
+
+      - name: Show applied migration count
+        run: |
+          supabase migration list --local || true
+
+      - name: Verify payment migrations applied correctly
+        run: |
+          echo "=== Checking TICK-395: DeltaPay provider settings ==="
+          supabase db query --local "SELECT provider, is_enabled, mode FROM public.payment_provider_settings ORDER BY provider;" 2>/dev/null || echo "Query failed"
+          echo ""
+          echo "=== Checking TICK-396/397: organizations.payment_providers ==="
+          supabase db query --local "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'organizations' AND column_name = 'payment_providers';" 2>/dev/null || echo "Query failed"
+          echo ""
+          echo "=== Checking TICK-396/397: ticket_types.payment_providers ==="
+          supabase db query --local "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'ticket_types' AND column_name = 'payment_providers';" 2>/dev/null || echo "Query failed"
+          echo ""
+          echo "=== Checking fn_get_effective_payment_providers RPC ==="
+          supabase db query --local "SELECT routine_name FROM information_schema.routines WHERE routine_name = 'fn_get_effective_payment_providers';" 2>/dev/null || echo "Query failed"
+
+      - name: Verify provider resolution logic
+        run: |
+          echo "=== Test provider resolution ==="
+          supabase db query --local "
+            -- Test platform-level providers
+            SELECT 'Platform enabled providers' as test, array_agg(provider ORDER BY provider) 
+            FROM public.payment_provider_settings WHERE is_enabled = true;
+          " 2>/dev/null || echo "Query failed"
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup

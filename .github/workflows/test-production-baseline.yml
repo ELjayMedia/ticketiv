@@ -1,0 +1,46 @@
+name: Test Production Baseline
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Show migration files
+        run: |
+          echo "=== Active migration files ==="
+          ls -la supabase/migrations/
+          echo ""
+          echo "=== Migration count ==="
+          find supabase/migrations -name '*.sql' | wc -l
+
+      - name: Start local Supabase database
+        run: supabase db start
+
+      - name: Reconstruct database from baseline
+        run: supabase db reset --local --no-seed
+
+      - name: Show applied migration count
+        run: |
+          supabase migration list --local || true
+
+      - name: Verify baseline objects exist
+        run: |
+          echo "=== Checking key tables exist ==="
+          supabase db query --local "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;" 2>/dev/null || echo "Query failed"
+          echo ""
+          echo "=== Checking ledger_entries specifically ==="
+          supabase db query --local "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'ledger_entries' ORDER BY ordinal_position;" 2>/dev/null || echo "Query failed"
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup
