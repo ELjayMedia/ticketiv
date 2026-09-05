@@ -18,21 +18,16 @@ jobs:
       - name: Start local Supabase
         run: |
           supabase db start
-          sleep 15
+          supabase status
 
-      - name: Apply baseline migration locally
+      - name: Apply baseline migration
         run: |
-          # Write migration to a temp file in the runner
-          cp supabase/migrations/20260905000000_production_baseline.sql /tmp/baseline.sql
-          
-          # Use psql with the file directly
-          PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d postgres -f /tmp/baseline.sql
-          
-          echo "Baseline applied locally"
+          # Reset local database and apply migration
+          supabase db reset --local --no-seed
 
       - name: Dump local schema
         run: |
-          PGPASSWORD=postgres pg_dump -h localhost -p 5432 -U postgres -d postgres --schema-only --no-owner --no-privileges > /tmp/local-schema.sql
+          supabase db dump --local --schema public,app,private,monitoring,_internal,ops_backup --file /tmp/local-schema.sql
           echo "Local schema dumped"
           echo "Size: $(wc -c < /tmp/local-schema.sql) bytes"
 
