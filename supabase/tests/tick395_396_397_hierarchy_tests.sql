@@ -17,8 +17,8 @@ BEGIN
   returning id into v_org_id;
 
   -- Create test event
-  insert into public.events (org_id, title, status, visibility)
-  values (v_org_id, 'Test Event', 'draft', 'private')
+  insert into public.events (org_id, title, slug, status, visibility)
+  values (v_org_id, 'Test Event', 'test-event', 'draft', 'private')
   returning id into v_event_id;
 
   -- Create test ticket type
@@ -32,8 +32,8 @@ BEGIN
   returning id into v_org_b_id;
 
   -- Create event belonging to org B
-  insert into public.events (org_id, title, status, visibility)
-  values (v_org_b_id, 'Test Event B', 'draft', 'private')
+  insert into public.events (org_id, title, slug, status, visibility)
+  values (v_org_b_id, 'Test Event B', 'test-event-b', 'draft', 'private')
   returning id into v_event_b_id;
 
   -- ========================================
