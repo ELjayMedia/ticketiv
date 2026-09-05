@@ -1,0 +1,82 @@
+name: Generate Production Baseline
+
+on:
+  workflow_dispatch:
+
+jobs:
+  generate-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Dump production schema
+        run: |
+          supabase db dump \
+            --linked \
+            --schema public,app,private,monitoring,_internal,ops_backup \
+            --file /tmp/ticketiv-production-schema.sql
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Show dump stats
+        run: |
+          echo "Dump size: $(wc -c < /tmp/ticketiv-production-schema.sql) bytes"
+          echo "Line count: $(wc -l < /tmp/ticketiv-production-schema.sql)"
+          echo "First 20 lines:"
+          head -20 /tmp/ticketiv-production-schema.sql
+
+      - name: Create baseline migration file
+        run: |
+          # Create the baseline migration
+          cat > supabase/migrations/20260905000000_production_baseline.sql << 'EOF'
+          -- Production baseline migration
+          -- Generated from production database: radsfmlsjznqvcpogluo
+          -- Date: 2026-09-05
+          -- This migration represents the current state of production schema
+          -- and serves as the new baseline for future migrations.
+          
+          -- ============================================================================
+          -- SCHEMA CREATION
+          -- ============================================================================
+          
+          -- Create schemas
+          CREATE SCHEMA IF NOT EXISTS _internal;
+          CREATE SCHEMA IF NOT EXISTS app;
+          CREATE SCHEMA IF NOT EXISTS private;
+          CREATE SCHEMA IF NOT EXISTS monitoring;
+          CREATE SCHEMA IF NOT EXISTS ops_backup;
+          
+          EOF
+          
+          # Append the production dump (skip the header comments)
+          echo "" >> supabase/migrations/20260905000000_production_baseline.sql
+          echo "-- ============================================================================" >> supabase/migrations/20260905000000_production_baseline.sql
+          echo "-- PRODUCTION SCHEMA DUMP" >> supabase/migrations/20260905000000_production_baseline.sql
+          echo "-- ============================================================================" >> supabase/migrations/20260905000000_production_baseline.sql
+          echo "" >> supabase/migrations/20260905000000_production_baseline.sql
+          
+          # Append the dump content (skip first few lines that are pg_dump headers)
+          tail -n +10 /tmp/ticketiv-production-schema.sql >> supabase/migrations/20260905000000_production_baseline.sql
+          
+          echo "Baseline migration created"
+          echo "Size: $(wc -c < supabase/migrations/20260905000000_production_baseline.sql) bytes"
+
+      - name: Upload baseline migration
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-baseline-migration
+          path: supabase/migrations/20260905000000_production_baseline.sql
+          retention-days: 30
+
+      - name: Upload raw dump
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-schema-raw-dump
+          path: /tmp/ticketiv-production-schema.sql
+          retention-days: 7

@@ -169,7 +169,7 @@ describe("resolveEffectivePaymentProviders", () => {
 
   it("blocks stale locks that contain only unsupported providers", () => {
     expect(resolveEffectivePaymentProviders([...operational], [["manual"]])).toEqual([])
-    expect(resolveEffectivePaymentProviders([...operational], [["flutterwave"]])).toEqual([])
+    expect(resolveEffectivePaymentProviders([...operational], [["unknown_provider"]])).toEqual([])
   })
 
   it("intersects provider locks when an order spans more than one event", () => {

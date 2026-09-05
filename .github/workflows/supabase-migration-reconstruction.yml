@@ -1,0 +1,60 @@
+name: Supabase Migration Reconstruction
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+
+jobs:
+  reconstruct-production-history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Prepare production migration set
+        run: |
+          # Back up full migration directory.
+          cp -R supabase/migrations /tmp/all-migrations
+
+          # Build a temporary directory from the
+          # 259-version production manifest only.
+          mkdir -p /tmp/production-migrations
+
+          while read VERSION; do
+            FILE=$(find /tmp/all-migrations -maxdepth 1 -name "${VERSION}_*.sql" -print -quit)
+
+            if [ -z "$FILE" ]; then
+              echo "Missing migration for production version: $VERSION"
+              exit 1
+            fi
+
+            cp "$FILE" /tmp/production-migrations/
+          done < docs/supabase-production-applied-migrations.txt
+
+          rm -rf supabase/migrations
+          mkdir -p supabase/migrations
+          cp /tmp/production-migrations/*.sql supabase/migrations/
+
+          echo "Production reconstruction migration count:"
+          find supabase/migrations -name '*.sql' | wc -l
+
+      - name: Start local Supabase database
+        run: supabase db start
+
+      - name: Reconstruct production schema from migrations
+        run: supabase db reset --local --no-seed
+
+      - name: Show applied migration count
+        run: |
+          supabase migration list --local || true
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup
