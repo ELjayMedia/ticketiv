@@ -1,0 +1,83 @@
+name: Compare Baseline to Production
+
+on:
+  workflow_dispatch:
+
+jobs:
+  compare-baseline-to-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase
+        run: |
+          supabase db start
+          sleep 10
+
+      - name: Apply baseline migration locally
+        run: |
+          # Get database port
+          PORT=$(supabase status | grep "DB Port" | awk '{print $NF}')
+          echo "Database port: $PORT"
+          
+          # Apply the baseline migration
+          PGPASSWORD=postgres psql -h localhost -p $PORT -U postgres -d postgres -f supabase/migrations/20260905000000_production_baseline.sql
+          
+          echo "Baseline applied locally"
+
+      - name: Dump local schema
+        run: |
+          PORT=$(supabase status | grep "DB Port" | awk '{print $NF}')
+          PGPASSWORD=postgres pg_dump -h localhost -p $PORT -U postgres -d postgres --schema-only --no-owner --no-privileges > /tmp/local-schema.sql
+          echo "Local schema dumped"
+          echo "Size: $(wc -c < /tmp/local-schema.sql) bytes"
+
+      - name: Dump production schema
+        run: |
+          supabase db dump --linked --schema public,app,private,monitoring,_internal,ops_backup --file /tmp/production-schema.sql
+          echo "Production schema dumped"
+          echo "Size: $(wc -c < /tmp/production-schema.sql) bytes"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Compare schemas
+        run: |
+          echo "=== Schema Comparison ==="
+          echo ""
+          echo "Local tables:"
+          grep -c "CREATE TABLE" /tmp/local-schema.sql || true
+          echo "Production tables:"
+          grep -c "CREATE TABLE" /tmp/production-schema.sql || true
+          echo ""
+          echo "Local functions:"
+          grep -c "CREATE.*FUNCTION" /tmp/local-schema.sql || true
+          echo "Production functions:"
+          grep -c "CREATE.*FUNCTION" /tmp/production-schema.sql || true
+          echo ""
+          echo "Local indexes:"
+          grep -c "CREATE.*INDEX" /tmp/local-schema.sql || true
+          echo "Production indexes:"
+          grep -c "CREATE.*INDEX" /tmp/production-schema.sql || true
+          echo ""
+          echo "Local policies:"
+          grep -c "CREATE POLICY" /tmp/local-schema.sql || true
+          echo "Production policies:"
+          grep -c "CREATE POLICY" /tmp/production-schema.sql || true
+
+      - name: Upload schemas
+        uses: actions/upload-artifact@v4
+        with:
+          name: schema-comparison
+          path: |
+            /tmp/local-schema.sql
+            /tmp/production-schema.sql
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup
