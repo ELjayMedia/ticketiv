@@ -1,0 +1,46 @@
+name: Test Hardened Migration Chain
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-hardened-migrations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase
+        run: |
+          supabase db start
+          sleep 10
+          supabase status
+
+      - name: Reset database and apply migrations
+        run: |
+          supabase db reset --local --no-seed
+          echo "Database reset complete"
+
+      - name: Run hierarchy tests
+        run: |
+          PORT=$(supabase status 2>/dev/null | grep -oP '127\.0\.0\.1:\K\d+(?=/postgres)' || echo "54322")
+          PGPASSWORD=postgres psql -h localhost -p $PORT -U postgres -d postgres -f supabase/tests/tick395_396_397_hierarchy_tests.sql
+
+      - name: Verify search path hardened
+        run: |
+          PORT=$(supabase status 2>/dev/null | grep -oP '127\.0\.0\.1:\K\d+(?=/postgres)' || echo "54322")
+          echo "=== Search path check ==="
+          PGPASSWORD=postgres psql -h localhost -p $PORT -U postgres -d postgres -c "
+            SELECT proname, proconfig 
+            FROM pg_proc 
+            WHERE proname = 'fn_get_effective_payment_providers';
+          "
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup
