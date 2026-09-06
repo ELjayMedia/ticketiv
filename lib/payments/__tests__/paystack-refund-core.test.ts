@@ -1,6 +1,3 @@
-import { readFileSync, readdirSync } from "node:fs"
-import { join } from "node:path"
-
 import { describe, expect, it } from "vitest"
 
 import {
@@ -11,16 +8,10 @@ import {
   paystackRefundTransactionReference,
   paystackRefundWebhookEventId,
 } from "@/lib/payments/paystack-refund-core"
-
-const root = process.cwd()
+import { migrationContractAround } from "../../../tests/helpers/migration-contract"
 
 function readRefundCronMigrations() {
-  const dir = join(root, "supabase/migrations")
-  const files = readdirSync(dir).filter((name) =>
-    name.includes("refund_reconciliation"),
-  )
-
-  return files.map((name) => readFileSync(join(dir, name), "utf8")).join("\n")
+  return migrationContractAround("create or replace function public.fn_refund_reconciliation_tick", 1_000, 14_000)
 }
 
 describe("Paystack refund lifecycle helpers", () => {
@@ -69,12 +60,8 @@ describe("Paystack refund lifecycle helpers", () => {
 
   it("keeps lifecycle webhook audit ids distinct for the same refund", () => {
     const base = { data: { id: 91, transaction_reference: "paystack_order_attempt" } }
-    expect(paystackRefundWebhookEventId({ ...base, event: "refund.pending" })).toBe(
-      "refund.pending:91",
-    )
-    expect(paystackRefundWebhookEventId({ ...base, event: "refund.processed" })).toBe(
-      "refund.processed:91",
-    )
+    expect(paystackRefundWebhookEventId({ ...base, event: "refund.pending" })).toBe("refund.pending:91")
+    expect(paystackRefundWebhookEventId({ ...base, event: "refund.processed" })).toBe("refund.processed:91")
   })
 })
 

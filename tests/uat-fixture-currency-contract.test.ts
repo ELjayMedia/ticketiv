@@ -1,11 +1,11 @@
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
-
 import { describe, expect, it } from "vitest"
 
-const migration = readFileSync(
-  join(process.cwd(), "supabase/migrations/20260812033500_fix_uat_fixture_currency.sql"),
-  "utf8",
+import { migrationContractAround } from "./helpers/migration-contract"
+
+const migration = migrationContractAround(
+  "create or replace function public.fn_seed_uat_fixtures",
+  1_000,
+  32_000,
 )
 
 describe("UAT lifecycle fixture currency", () => {

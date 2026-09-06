@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { migrationContractAround } from "./helpers/migration-contract";
+
 function source(relativePath: string) {
   return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
@@ -13,8 +15,8 @@ const organizerForm = source("components/event-wizard/steps/TicketsStep.tsx");
 const organizerTicketForm = source("app/orgs/[orgId]/events/[eventId]/tickets/_components/ticket-type-form.tsx");
 const legacyOrganizerForm = source("components/tickets/create-ticket-type-form.tsx");
 const checkoutPage = source("app/(focused)/events/[id]/checkout/page.tsx");
-const serverGuard = source("supabase/migrations/20260726120000_rate_limit_rollout_checkout.sql");
-const availabilityGuard = source("supabase/migrations/20260809083000_align_ticket_purchase_limits.sql");
+const serverGuard = migrationContractAround("per_user_limit_exceeded:", 8_000, 8_000);
+const availabilityGuard = migrationContractAround("alter column per_user_limit drop default", 1_000, 7_000);
 
 describe("ticket purchase-limit contract", () => {
   it("does not reintroduce a default organizer purchase limit", () => {

@@ -2,24 +2,17 @@ import fs from "node:fs"
 import path from "node:path"
 import { describe, expect, it } from "vitest"
 
+import { migrationContractAround } from "./helpers/migration-contract"
+
 // TICK-320 — in-app account deletion is a hard store gate (Apple 5.1.1(v), Play
-// data-deletion policy). The flow works; nothing was stopping it from quietly
-// breaking.
-//
-// The failure modes worth guarding are all silent ones. Deleting the profile but
-// leaving the auth user means the person can still sign in and the store
-// requirement is unmet. Moving the destructive call onto the user's own client
-// would make deletion depend on RLS instead of a service-role RPC. Dropping the
-// confirmation or the blocker check turns a mis-click into an irreversible
-// delete. None of those break a build.
-//
-// Static assertions on purpose: no database credentials, so they run on every PR.
+// data-deletion policy). Static assertions run on every PR without DB credentials.
 
 const root = process.cwd()
 const read = (file: string) => fs.readFileSync(path.join(root, file), "utf8")
 
 const ACTION = "app/(app)/account/settings/actions.ts"
-const MIGRATION = "supabase/migrations/20260717193000_account_deletion_rpcs.sql"
+const deletionMigration = () =>
+  migrationContractAround("create or replace function public.fn_delete_account_for_user", 1_000, 18_000)
 
 function permissionSnapshot() {
   const base = JSON.parse(read("supabase/permissions/rpc-grants.json")).functions as Array<{
@@ -33,9 +26,7 @@ function permissionSnapshot() {
 
 describe("account deletion contract (TICK-320)", () => {
   it("actually removes the auth user, or the store requirement is not met", () => {
-    // "Account deletion completes in-app end-to-end; auth user cannot sign in
-    // afterwards." Anonymising the profile alone would leave a working login.
-    expect(read(MIGRATION)).toMatch(/delete\s+from\s+auth\.users/i)
+    expect(deletionMigration()).toMatch(/delete\s+from\s+auth\.users/i)
   })
 
   it("keeps the destructive RPC service-role only", () => {
@@ -48,9 +39,7 @@ describe("account deletion contract (TICK-320)", () => {
   })
 
   it("revokes the destructive RPC from the browser roles in the migration itself", () => {
-    // Supabase grants EXECUTE to anon/authenticated on function creation, so the
-    // migration has to revoke explicitly — revoking from PUBLIC is not enough.
-    const migration = read(MIGRATION)
+    const migration = deletionMigration()
     const revoke = migration.slice(migration.indexOf("revoke execute on function public.fn_delete_account_for_user"))
 
     expect(revoke).toMatch(/revoke execute on function public\.fn_delete_account_for_user\(uuid\)/)
@@ -62,8 +51,6 @@ describe("account deletion contract (TICK-320)", () => {
   })
 
   it("refuses to delete before checking the blockers", () => {
-    // Upcoming paid tickets or a sole org-owner role must stop the delete, and
-    // the check has to happen server-side rather than being trusted from the UI.
     const action = read(ACTION)
 
     expect(action).toContain("fn_get_my_account_deletion_status")
@@ -77,7 +64,6 @@ describe("account deletion contract (TICK-320)", () => {
     const action = read(ACTION)
 
     expect(action).toContain('admin.rpc("fn_delete_account_for_user"')
-    // The user-scoped client must not be the one issuing the destructive call.
     expect(action).not.toMatch(/supabase\.rpc\(\s*"fn_delete_account_for_user"/)
   })
 
