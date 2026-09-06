@@ -2,19 +2,13 @@ import fs from "node:fs"
 import path from "node:path"
 import { describe, expect, it } from "vitest"
 
-const queueSql = fs.readFileSync(
-  path.join(process.cwd(), "supabase/migrations/20260811133000_finance_reconciliation_issue_queue.sql"),
-  "utf8",
-)
-const grantSql = fs.readFileSync(
-  path.join(process.cwd(), "supabase/migrations/20260811135000_reconciliation_status_rpc_grants.sql"),
-  "utf8",
-)
+import { readMigrationChain } from "./helpers/migration-contract"
+
+const migrationSql = readMigrationChain()
+const queueSql = migrationSql
+const grantSql = migrationSql
+const operatorSql = migrationSql
 const opsAlerts = fs.readFileSync(path.join(process.cwd(), "app/api/cron/ops-alerts/route.ts"), "utf8")
-const operatorSql = fs.readFileSync(
-  path.join(process.cwd(), "supabase/migrations/20260813150000_finance_reconciliation_operator_actions.sql"),
-  "utf8",
-)
 const page = fs.readFileSync(path.join(process.cwd(), "app/super-admin/reconciliation/page.tsx"), "utf8")
 const actions = fs.readFileSync(path.join(process.cwd(), "app/super-admin/reconciliation/actions.ts"), "utf8")
 const data = fs.readFileSync(path.join(process.cwd(), "lib/data/admin/reconciliation.ts"), "utf8")
