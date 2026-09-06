@@ -20,6 +20,7 @@ const overview: FriendsOverview = {
   goingTogether: null,
   activity: [],
   friends: [],
+  requests: [],
   suggested: [],
   inviteHandle: "smit",
 }
