@@ -201,3 +201,44 @@ remain intentionally unapplied: `event_live_stats`, `event_live_stats_maintenanc
 - ✅ Comprehensive public-schema reference committed (enums + tables + constraints + indexes + views + matviews + 191 functions + 96 triggers + 179 RLS policies).
 - ✅ Approach decided: **`supabase db pull`** (MCP introspection cannot produce a *verifiable* multi-schema restorable baseline with GRANTs).
 - ⏳ **Remaining:** run `supabase db pull` + `supabase db reset` verification in a CLI/DB-connected environment, commit the result as the repo baseline. This is the only step that closes the acceptance criterion and it requires DB-connection access not present in the current session.
+
+## Post-compaction restore (2026-09-06)
+
+The 5 September baseline is a schema-only `pg_dump`. Two classes of production
+behaviour live outside a schema dump and were therefore dropped from the
+repository even though production kept running them:
+
+- **pg_cron schedules.** `cron.job` rows are not in any dumped schema. Only the
+  uptime watchdog was restored initially; the remaining ten jobs were not, so a
+  database rebuilt from the chain had no ops alerting, settlement ingest, refund
+  reconciliation, hold expiry, retention sweeps or rollups — silently, because
+  nothing fails when a job is simply never scheduled. Restored in
+  `20260906190000_restore_scheduled_jobs_after_baseline_compaction`, matched
+  against production's `cron.job` table.
+- **Routing configuration.** `payment_routing_rules` is shipped configuration,
+  not user data; with an empty table every checkout fails `no_matching_route`.
+  Restored in `20260906190500_restore_payment_routing_rules_after_baseline_compaction`.
+
+Both are idempotent and were verified by applying them twice to an empty
+PostgreSQL 16 cluster.
+
+### Contract tests after the compaction
+
+Contract tests used to grep migration files for hand-written SQL fragments. The
+dump states the same schema in a different shape — quoted identifiers, upper-case
+keywords, constraints and grants split out of the `create table` block — so those
+greps broke wholesale. `tests/helpers/migration-contract.ts` now normalises dump
+syntax and extracts whole objects (`migrationFunction`, `migrationFunctionGrants`,
+`migrationTable`, `migrationTableGrants`, `migrationColumn`, `migrationCronJob`),
+and the contracts assert the shipped end state rather than the steps that produced
+it. A contract must never depend on a migration filename or on the byte layout of
+the dump.
+
+### Known remaining gap
+
+Other reference data listed in `docs/phase6g-non-schema-extraction.md` as
+"include in baseline seed" is still absent from the chain: `admin_action_catalog`,
+`event_categories`, `feature_flags`, `pricing_plans` and the `storage.buckets`
+rows. Production holds them, so this is not a production incident, but a database
+rebuilt from the chain is not yet a working Ticketiv. `payment_provider_settings`
+is already seeded by TICK-395.

@@ -2,7 +2,7 @@ import fs from "node:fs"
 import path from "node:path"
 import { describe, expect, it } from "vitest"
 
-import { migrationContractAround } from "./helpers/migration-contract"
+import { migrationFunction, migrationFunctionGrants } from "./helpers/migration-contract"
 
 // TICK-320 — in-app account deletion is a hard store gate (Apple 5.1.1(v), Play
 // data-deletion policy). Static assertions run on every PR without DB credentials.
@@ -11,8 +11,7 @@ const root = process.cwd()
 const read = (file: string) => fs.readFileSync(path.join(root, file), "utf8")
 
 const ACTION = "app/(app)/account/settings/actions.ts"
-const deletionMigration = () =>
-  migrationContractAround("create or replace function public.fn_delete_account_for_user", 1_000, 18_000)
+const deletionMigration = () => migrationFunction("public.fn_delete_account_for_user")
 
 function permissionSnapshot() {
   const base = JSON.parse(read("supabase/permissions/rpc-grants.json")).functions as Array<{
@@ -39,11 +38,12 @@ describe("account deletion contract (TICK-320)", () => {
   })
 
   it("revokes the destructive RPC from the browser roles in the migration itself", () => {
-    const migration = deletionMigration()
-    const revoke = migration.slice(migration.indexOf("revoke execute on function public.fn_delete_account_for_user"))
+    const grants = migrationFunctionGrants("public.fn_delete_account_for_user")
 
-    expect(revoke).toMatch(/revoke execute on function public\.fn_delete_account_for_user\(uuid\)/)
-    expect(revoke.slice(0, 300)).toMatch(/anon|authenticated|public/)
+    expect(grants.publicExecute, "public still holds the default execute grant").toBe(false)
+    expect(grants.grantees).not.toContain("anon")
+    expect(grants.grantees).not.toContain("authenticated")
+    expect(grants.grantees).toContain("service_role")
   })
 
   it("requires an explicit typed confirmation", () => {

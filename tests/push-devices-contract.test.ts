@@ -2,12 +2,14 @@ import fs from "node:fs"
 import path from "node:path"
 import { describe, expect, it } from "vitest"
 
-import { migrationContractAround } from "./helpers/migration-contract"
+import { migrationFunction, migrationTable, migrationTableGrants } from "./helpers/migration-contract"
 
 const root = process.cwd()
 const read = (file: string) => fs.readFileSync(path.join(root, file), "utf8")
-const pushMigration = () =>
-  migrationContractAround("create table if not exists public.push_devices", 2_000, 30_000)
+
+const pushDevices = () => migrationTable("public.push_devices")
+const targetLookup = () => migrationFunction("public.fn_push_targets_for_user")
+const registerDevice = () => migrationFunction("public.fn_register_push_device")
 
 function snapshot() {
   const base = JSON.parse(read("supabase/permissions/rpc-grants.json")).functions as Array<{
@@ -50,8 +52,7 @@ describe("native push device contract (TICK-324)", () => {
   })
 
   it("applies the mute check inside the target lookup, not in the caller", () => {
-    const migration = pushMigration()
-    const lookup = migration.slice(migration.indexOf("function public.fn_push_targets_for_user"))
+    const lookup = targetLookup()
 
     expect(lookup).toContain("notification_mutes")
     expect(lookup).toMatch(/not\s+exists/i)
@@ -59,31 +60,26 @@ describe("native push device contract (TICK-324)", () => {
   })
 
   it("excludes tokens the provider has reported dead", () => {
-    const migration = pushMigration()
-    const lookup = migration.slice(migration.indexOf("function public.fn_push_targets_for_user"))
-
-    expect(lookup).toMatch(/disabled_at\s+is\s+null/i)
+    expect(targetLookup()).toMatch(/disabled_at\s+is\s+null/i)
   })
 
   it("reassigns a token when a handset changes owner", () => {
-    const migration = pushMigration()
-
-    expect(migration).toMatch(/delete\s+from\s+public\.push_devices[\s\S]{0,200}user_id\s*<>\s*v_user/i)
-    expect(migration).toContain("push_devices_service_token_key")
+    expect(registerDevice()).toMatch(
+      /delete\s+from\s+public\.push_devices[\s\S]{0,200}user_id\s*<>\s*v_user/i,
+    )
+    expect(pushDevices()).toContain("push_devices_service_token_key")
   })
 
   it("refreshes a rotated token in place instead of accumulating rows", () => {
-    const migration = pushMigration()
-
-    expect(migration).toContain("unique (user_id, service, device_id)")
-    expect(migration).toMatch(/on conflict \(user_id, service, device_id\) do update/)
+    expect(pushDevices()).toMatch(/unique\s*\(\s*user_id,\s*service,\s*device_id\s*\)/)
+    expect(registerDevice()).toMatch(/on conflict \(user_id, service, device_id\) do update/)
   })
 
   it("grants SELECT back after the blanket revoke, or the RLS policy is dead", () => {
-    const migration = pushMigration()
+    const grants = migrationTableGrants("public.push_devices")
 
-    expect(migration).toContain("grant select on public.push_devices to authenticated")
-    expect(migration).toContain("push_devices_select_own")
-    expect(migration).not.toMatch(/grant\s+(insert|update|delete)[^\n]*push_devices[^\n]*authenticated/i)
+    expect(grants.anon, "anon can reach push_devices directly").toBeUndefined()
+    expect(grants.authenticated, "authenticated cannot read its own devices").toEqual(["select"])
+    expect(pushDevices()).toContain("push_devices_select_own")
   })
 })
