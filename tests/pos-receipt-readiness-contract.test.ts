@@ -2,14 +2,15 @@ import fs from "node:fs"
 import path from "node:path"
 import { describe, expect, it } from "vitest"
 
+import { migrationContractAround } from "./helpers/migration-contract"
+
 const root = process.cwd()
 const read = (file: string) => fs.readFileSync(path.join(root, file), "utf8")
+const posMigration = () => migrationContractAround("pos_shift_open", 8_000, 18_000)
 
 describe("POS receipt and shift readiness", () => {
   it("keeps POS lifecycle audit rows inside the shared audit_action taxonomy", () => {
-    const migration = read(
-      "supabase/migrations/20260727230509_fix_pos_shift_audit_actions.sql",
-    )
+    const migration = posMigration()
 
     expect(migration).toContain("'event_type'', ''pos_shift_open'")
     expect(migration).toContain("'event_type'', ''pos_shift_close'")
@@ -19,9 +20,7 @@ describe("POS receipt and shift readiness", () => {
   })
 
   it("allows POS to fill contact fields only while they are unset", () => {
-    const migration = read(
-      "supabase/migrations/20260727230509_fix_pos_shift_audit_actions.sql",
-    )
+    const migration = posMigration()
 
     expect(migration).toContain("old.buyer_email is not null")
     expect(migration).toContain("old.buyer_phone is not null")
