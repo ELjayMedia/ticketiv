@@ -1,18 +1,16 @@
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
-
 import { describe, expect, it } from "vitest"
 
-const migration = readFileSync(
-  join(process.cwd(), "supabase/migrations/20260812180000_pricing_plan_effective_dating.sql"),
-  "utf8",
+import { migrationContractAround } from "./helpers/migration-contract"
+
+const migration = migrationContractAround(
+  "drop constraint if exists pricing_plans_org_id_active_key",
+  1_000,
+  4_000,
 )
 
 describe("pricing-plan effective dating", () => {
   it("removes the legacy constraint that limited inactive plan history", () => {
-    expect(migration).toContain(
-      "drop constraint if exists pricing_plans_org_id_active_key",
-    )
+    expect(migration).toContain("drop constraint if exists pricing_plans_org_id_active_key")
   })
 
   it("allows only one active organization plan while retaining inactive history", () => {
