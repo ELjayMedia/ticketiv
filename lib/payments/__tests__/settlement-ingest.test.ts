@@ -1,19 +1,15 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { describe, expect, it } from "vitest"
 
 import { mapPaystackSettlementMoney } from "@/lib/payments/paystack-settlements-core"
+import { migrationContractAround } from "../../../tests/helpers/migration-contract"
 
 const root = process.cwd()
 
 function readSettlementMigration() {
-  const dir = join(root, "supabase/migrations")
-  const file = readdirSync(dir).find((name) =>
-    name.endsWith("_settlement_ingest_pg_cron_schedule.sql"),
-  )
-  expect(file, "settlement ingest pg_cron migration is missing").toBeDefined()
-  return readFileSync(join(dir, file!), "utf8")
+  return migrationContractAround("create or replace function public.fn_settlement_ingest_tick", 1_000, 14_000)
 }
 
 describe("Paystack settlement accounting", () => {
@@ -48,10 +44,7 @@ describe("Paystack settlement accounting", () => {
   })
 
   it("walks every transaction page before recording a settlement", () => {
-    const source = readFileSync(
-      join(root, "lib/payments/paystack-settlements.ts"),
-      "utf8",
-    )
+    const source = readFileSync(join(root, "lib/payments/paystack-settlements.ts"), "utf8")
 
     expect(source).toContain("fetchSettlementTransactions")
     expect(source).toContain("page=${page}")
