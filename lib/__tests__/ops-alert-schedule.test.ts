@@ -3,30 +3,11 @@ import { join } from "node:path"
 
 import { describe, expect, it } from "vitest"
 
-// TICK-262 / ops cost — where the ops-alerts stopwatch lives.
-//
-// The endpoint runs every 5 minutes. Two of the three places that could hold
-// that schedule are wrong, and both are easy to reintroduce by accident:
-//
-//   GitHub Actions — bills per *started* minute, so ~8,640 runs/month burned
-//   ~8,640 minutes against a 2,000-minute private-repo allowance. This is where
-//   the schedule used to live.
-//
-//   Vercel Cron — the account is on the Hobby plan, which triggers cron jobs at
-//   most once per day. A 5-minute cadence is not expressible there, and a
-//   vercel.json that asks for one fails the production deployment.
-//
-// It now lives in pg_cron, next to the */5 job the database already runs. These
-// tests pin that down from both ends: the schedule exists in the migration, and
-// neither of the expensive/broken homes has quietly regained a sub-daily cron.
+import { migrationContractAround } from "../../tests/helpers/migration-contract"
 
 const root = process.cwd()
-const MIGRATIONS_DIR = join(root, "supabase/migrations")
 const WORKFLOWS_DIR = join(root, ".github/workflows")
 
-// A cron expression runs at most once a day only when both the minute and hour
-// fields are single fixed values. "0 4 * * *" qualifies; "*/5 * * * *" and
-// "0 * * * *" do not.
 function isAtMostDaily(schedule: string): boolean {
   const fields = schedule.trim().split(/\s+/)
   if (fields.length !== 5) return false
@@ -35,11 +16,7 @@ function isAtMostDaily(schedule: string): boolean {
 }
 
 function readMigration(): string {
-  const file = readdirSync(MIGRATIONS_DIR).find((name) =>
-    name.endsWith("_ops_alerts_pg_cron_schedule.sql")
-  )
-  expect(file, "ops alerts pg_cron migration is missing").toBeDefined()
-  return readFileSync(join(MIGRATIONS_DIR, file!), "utf8")
+  return migrationContractAround("create or replace function public.fn_ops_alerts_tick", 1_000, 14_000)
 }
 
 describe("ops alert scheduling", () => {
@@ -70,8 +47,6 @@ describe("ops alert scheduling", () => {
   it("does not leave the tick function callable from a browser session", () => {
     const migration = readMigration()
 
-    // Supabase grants EXECUTE to anon/authenticated on creation, so revoking
-    // from PUBLIC alone is not enough.
     expect(migration).toMatch(
       /revoke execute on function public\.fn_ops_alerts_tick\(\) from public, anon, authenticated/
     )
@@ -81,9 +56,6 @@ describe("ops alert scheduling", () => {
   it("records each delivery, because pg_net success only means 'queued'", () => {
     const migration = readMigration()
 
-    // net.http_get returns once the request is queued, so cron.job_run_details
-    // reports success even when the endpoint is down. The run log is the only
-    // thing that can tell those apart after net._http_response is pruned.
     expect(migration).toContain("public.ops_cron_runs")
     expect(migration).toContain("net._http_response")
   })
