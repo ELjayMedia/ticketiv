@@ -18,42 +18,32 @@ jobs:
         with:
           version: latest
 
-      - name: Prepare production migration set
+      - name: Show canonical migration chain
         run: |
-          # Back up full migration directory.
-          cp -R supabase/migrations /tmp/all-migrations
-
-          # Build a temporary directory from the
-          # 259-version production manifest only.
-          mkdir -p /tmp/production-migrations
-
-          while read VERSION; do
-            FILE=$(find /tmp/all-migrations -maxdepth 1 -name "${VERSION}_*.sql" -print -quit)
-
-            if [ -z "$FILE" ]; then
-              echo "Missing migration for production version: $VERSION"
-              exit 1
-            fi
-
-            cp "$FILE" /tmp/production-migrations/
-          done < docs/supabase-production-applied-migrations.txt
-
-          rm -rf supabase/migrations
-          mkdir -p supabase/migrations
-          cp /tmp/production-migrations/*.sql supabase/migrations/
-
-          echo "Production reconstruction migration count:"
-          find supabase/migrations -name '*.sql' | wc -l
+          set -euo pipefail
+          echo "Canonical migration files after the 2026-09-05 production-baseline compaction:"
+          find supabase/migrations -maxdepth 1 -name '*.sql' -printf '%f\n' | sort
+          echo "Migration count:"
+          find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l
 
       - name: Start local Supabase database
-        run: supabase db start
-
-      - name: Reconstruct production schema from migrations
-        run: supabase db reset --local --no-seed
-
-      - name: Show applied migration count
         run: |
-          supabase migration list --local || true
+          set -euo pipefail
+          supabase db start
+          supabase status
+
+      - name: Reconstruct schema from canonical migration chain
+        run: |
+          set -euo pipefail
+          # The repository intentionally compacted historical production
+          # versions into 20260905000000_production_baseline.sql. Rebuilding a
+          # deleted 259-file manifest is no longer a valid test. The release
+          # contract is now: baseline + every forward migration must reset from
+          # a clean local Supabase database.
+          supabase db reset --local --no-seed
+
+      - name: Show applied migrations
+        run: supabase migration list --local
 
       - name: Stop Supabase
         if: always()
