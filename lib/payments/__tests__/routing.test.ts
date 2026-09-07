@@ -8,7 +8,7 @@ import {
   selectPaymentProvider,
   type RoutingRule,
 } from "@/lib/payments/routing"
-import { migrationContractAround } from "../../../tests/helpers/migration-contract"
+import { migrationStatementsMatching } from "../../../tests/helpers/migration-contract"
 
 const rule = (r: Partial<RoutingRule>): RoutingRule => ({
   priority: 100,
@@ -123,16 +123,28 @@ describe("selectPaymentProvider", () => {
 })
 
 describe("SZL has a shipped route", () => {
-  const sql = migrationContractAround("MTN MoMo Collections is the only rail that settles SZL", 3_000, 8_000)
+  // The routing table is shipped configuration, not user data: a database built
+  // from the canonical migration chain has to be able to price an SZL order.
+  const seeds = migrationStatementsMatching(/^insert into public\.payment_routing_rules\b/)
+  const sql = seeds.join(";\n\n")
 
   it("ships a migration routing SZL to MoMo", () => {
+    expect(seeds, "no migration seeds payment_routing_rules").not.toEqual([])
     expect(sql).toContain("'SZL'")
     expect(sql).toContain("'momo'")
-    expect(sql).toContain("payment_routing_rules")
   })
 
   it("does not fall back to a provider that cannot settle SZL", () => {
     expect(sql).not.toMatch(/'SZL',\s*'momo',\s*'paystack'/)
+
+    // (priority, country_code, currency, provider, is_active, notes)
+    const rows = [...sql.replace(/::\w+/g, "").matchAll(/\(\s*\d+,\s*(null|'[^']*'),\s*'([^']*)',\s*'([^']*)',\s*(true|false)/g)]
+    const szlRails = rows
+      .filter(([, , currency, , active]) => currency === "SZL" && active === "true")
+      .map(([, , , provider]) => provider)
+
+    expect(szlRails, "the seed ships no active SZL rail").not.toEqual([])
+    expect(new Set(szlRails), "SZL must settle through MoMo only").toEqual(new Set(["momo"]))
   })
 })
 

@@ -1,12 +1,8 @@
 import { describe, expect, it } from "vitest"
 
-import { migrationContractAround } from "./helpers/migration-contract"
+import { migrationFunction, migrationFunctionGrants } from "./helpers/migration-contract"
 
-const migration = migrationContractAround(
-  "create or replace function public.fn_seed_uat_fixtures",
-  1_000,
-  32_000,
-)
+const migration = migrationFunction("public.fn_seed_uat_fixtures")
 
 describe("UAT lifecycle fixture currency", () => {
   it("pins the fixture to the Paystack launch currency instead of table defaults", () => {
@@ -22,11 +18,9 @@ describe("UAT lifecycle fixture currency", () => {
   })
 
   it("keeps the seed RPC service-role only", () => {
-    expect(migration).toContain(
-      "revoke execute on function public.fn_seed_uat_fixtures() from public, anon, authenticated;",
-    )
-    expect(migration).toContain(
-      "grant execute on function public.fn_seed_uat_fixtures() to service_role;",
-    )
+    const grants = migrationFunctionGrants("public.fn_seed_uat_fixtures")
+
+    expect(grants.publicExecute, "public still holds the default execute grant").toBe(false)
+    expect(grants.grantees).toEqual(["service_role"])
   })
 })
