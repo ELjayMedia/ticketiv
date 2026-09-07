@@ -3,9 +3,11 @@ import "server-only"
 import {
   centsToDeltaPayAmount,
   evaluateDeltaPayConfig,
+  DELTAPAY_PROD_BASE_URL,
   type DeltaPayConfig,
   type DeltaPaySessionStatus,
 } from "@/lib/payments/deltapay-core"
+import { assertProviderProductionReady } from "@/lib/payments/provider-readiness"
 
 export {
   centsToDeltaPayAmount,
@@ -86,6 +88,11 @@ async function deltaPayRequest<T>(path: string, init: RequestInit = {}): Promise
 export async function createDeltaPayHostedSession(
   input: CreateDeltaPaySessionInput,
 ): Promise<DeltaPayHostedSession> {
+  const config = getDeltaPayConfig()
+  if (config.operational && config.baseUrl === DELTAPAY_PROD_BASE_URL) {
+    await assertProviderProductionReady("deltapay")
+  }
+
   const payload = await deltaPayRequest<DeltaPayHostedSession>("/v1/hosted-checkout/sessions", {
     method: "POST",
     body: JSON.stringify({
