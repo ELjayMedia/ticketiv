@@ -1,3 +1,5 @@
+import { assertProviderProductionReady } from "@/lib/payments/provider-readiness"
+
 // MTN MoMo Collections API (Eswatini / mtnswaziland environment)
 // Credentials come from env vars — never hardcode.
 const MOMO_BASE_URL =
@@ -39,6 +41,11 @@ export async function requestMomoPayment(params: MomoRequestParams): Promise<str
   if (!Number.isInteger(params.amount) || params.amount <= 0) {
     throw new Error(`MoMo amount must be a whole positive SZL value, got ${params.amount}`)
   }
+
+  if (MOMO_ENVIRONMENT.trim().toLowerCase() !== "sandbox") {
+    await assertProviderProductionReady("momo")
+  }
+
   const token = await getMomoToken()
   const referenceId = params.referenceId
   const res = await fetch(`${MOMO_BASE_URL}/collection/v1_0/requesttopay`, {
