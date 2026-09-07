@@ -17,13 +17,33 @@ type ProviderReadinessRow = {
   blocked_reason: string | null
 }
 
+type ReadinessQueryResult<T> = Promise<{ data: T | null; error: unknown }>
+
+type ReadinessQuery = {
+  eq(column: string, value: string): {
+    maybeSingle<T>(): ReadinessQueryResult<T>
+  }
+}
+
+type ReadinessTableClient = {
+  select(columns: string): ReadinessQuery
+}
+
+type ReadinessAdminClient = {
+  from(relation: "payment_provider_readiness"): ReadinessTableClient
+}
+
 export async function getProviderProductionReadiness(
   provider: ProductionReadinessProvider,
 ): Promise<ProviderProductionReadiness> {
   const admin = createAdminClient()
   if (!admin) throw new Error("Supabase is not configured")
 
-  const { data, error } = await admin
+  // The table is introduced by the same PR, so the generated Database type from
+  // the current production schema cannot contain it until the migration lands.
+  // Keep this single lookup structurally typed; regenerate types after deploy.
+  const readinessAdmin = admin as unknown as ReadinessAdminClient
+  const { data, error } = await readinessAdmin
     .from("payment_provider_readiness")
     .select("provider, production_ready, approved_at, approved_by, evidence_refs, blocked_at, blocked_reason")
     .eq("provider", provider)
