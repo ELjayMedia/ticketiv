@@ -12,7 +12,8 @@ import {
   reportPaymentChannelUnavailable,
 } from "@/lib/payments/errors"
 import { drainPaymentOutbox } from "@/lib/payments/outbox"
-import { getPaystackSettings } from "@/lib/payments/paystack-config"
+import { getPaystackSettings, resolvePaystackKeyMode } from "@/lib/payments/paystack-config"
+import { assertProviderProductionReady } from "@/lib/payments/provider-readiness"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { resolvePaymentProvider } from "@/lib/payments/routing"
 
@@ -116,6 +117,11 @@ async function initializePaystackTransaction(order: LiveOrder, reference: string
     reportPaymentChannelUnavailable(error)
     throw error
   }
+
+  if (resolvePaystackKeyMode(settings.secretKey) === "live") {
+    await assertProviderProductionReady("paystack")
+  }
+
   const callbackUrl = returnUrl ?? settings.callbackUrl ?? `${APP_URL}/orders/${order.id}/confirmation`
 
   let response: Response
