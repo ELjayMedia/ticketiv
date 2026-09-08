@@ -4,12 +4,16 @@ import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 
 import { mapPaystackSettlementMoney } from "@/lib/payments/paystack-settlements-core"
-import { migrationContractAround } from "../../../tests/helpers/migration-contract"
+import {
+  migrationCronJob,
+  migrationFunction,
+  migrationFunctionGrants,
+} from "../../../tests/helpers/migration-contract"
 
 const root = process.cwd()
 
 function readSettlementMigration() {
-  return migrationContractAround("create or replace function public.fn_settlement_ingest_tick", 1_000, 14_000)
+  return migrationFunction("public.fn_settlement_ingest_tick")
 }
 
 describe("Paystack settlement accounting", () => {
@@ -59,11 +63,14 @@ describe("Paystack settlement accounting", () => {
 
 describe("settlement ingest scheduling", () => {
   it("runs daily from pg_cron and calls the secured endpoint", () => {
+    const job = migrationCronJob("ticketiv-settlement-ingest")
+
+    expect(job, "the settlement-ingest cron job is not scheduled by any migration").toBeDefined()
+    expect(job!.schedule).toBe("20 4 * * *")
+    expect(job!.command).toBe("select public.fn_settlement_ingest_tick();")
+
     const migration = readSettlementMigration()
 
-    expect(migration).toContain("'ticketiv-settlement-ingest'")
-    expect(migration).toContain("'20 4 * * *'")
-    expect(migration).toContain("select public.fn_settlement_ingest_tick();")
     expect(migration).toContain("net.http_get(")
     expect(migration).toContain("'Authorization', 'Bearer ' || v_secret")
   })
@@ -74,18 +81,16 @@ describe("settlement ingest scheduling", () => {
     expect(migration).toContain("'settlement_cron_url'")
     expect(migration).toContain("'ops_alert_cron_secret'")
     expect(migration).toContain("r.job = 'settlement-ingest'")
-    expect(migration).toContain("r.job = 'ops-alerts'")
+    expect(migration, "the ingest tick must not resolve another job's pg_net response").not.toContain(
+      "r.job = 'ops-alerts'",
+    )
   })
 
   it("does not expose the tick function to browser roles", () => {
-    const migration = readSettlementMigration()
+    const grants = migrationFunctionGrants("public.fn_settlement_ingest_tick")
 
-    expect(migration).toMatch(
-      /revoke execute on function public\.fn_settlement_ingest_tick\(\) from public, anon, authenticated/,
-    )
-    expect(migration).toContain(
-      "grant execute on function public.fn_settlement_ingest_tick() to service_role",
-    )
+    expect(grants.publicExecute, "public still holds the default execute grant").toBe(false)
+    expect(grants.grantees).toEqual(["service_role"])
   })
 
   it("keeps GitHub Actions as manual fallback only", () => {

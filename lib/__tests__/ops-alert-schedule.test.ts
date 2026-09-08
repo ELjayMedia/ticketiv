@@ -3,7 +3,7 @@ import { join } from "node:path"
 
 import { describe, expect, it } from "vitest"
 
-import { migrationContractAround } from "../../tests/helpers/migration-contract"
+import { migrationCronJob, migrationFunction, migrationFunctionGrants } from "../../tests/helpers/migration-contract"
 
 const root = process.cwd()
 const WORKFLOWS_DIR = join(root, ".github/workflows")
@@ -15,29 +15,26 @@ function isAtMostDaily(schedule: string): boolean {
   return /^\d+$/.test(minute) && /^\d+$/.test(hour)
 }
 
-function readMigration(): string {
-  return migrationContractAround("create or replace function public.fn_ops_alerts_tick", 1_000, 14_000)
-}
+const tick = () => migrationFunction("public.fn_ops_alerts_tick")
 
 describe("ops alert scheduling", () => {
   it("schedules the alert endpoint every five minutes in pg_cron", () => {
-    const migration = readMigration()
+    const job = migrationCronJob("ticketiv-ops-alerts")
 
-    expect(migration).toContain("cron.schedule(")
-    expect(migration).toContain("'ticketiv-ops-alerts'")
-    expect(migration).toContain("'*/5 * * * *'")
-    expect(migration).toContain("select public.fn_ops_alerts_tick();")
+    expect(job, "the ops-alert cron job is not scheduled by any migration").toBeDefined()
+    expect(job!.schedule).toBe("*/5 * * * *")
+    expect(job!.command).toBe("select public.fn_ops_alerts_tick();")
   })
 
   it("calls the secured endpoint with the same Bearer contract the route enforces", () => {
-    const migration = readMigration()
+    const migration = tick()
 
     expect(migration).toContain("net.http_get(")
     expect(migration).toContain("'Authorization', 'Bearer ' || v_secret")
   })
 
   it("keeps the URL and secret in Vault so rotation is not a migration", () => {
-    const migration = readMigration()
+    const migration = tick()
 
     expect(migration).toContain("vault.decrypted_secrets")
     expect(migration).toContain("'ops_alert_cron_url'")
@@ -45,19 +42,18 @@ describe("ops alert scheduling", () => {
   })
 
   it("does not leave the tick function callable from a browser session", () => {
-    const migration = readMigration()
+    const grants = migrationFunctionGrants("public.fn_ops_alerts_tick")
 
-    expect(migration).toMatch(
-      /revoke execute on function public\.fn_ops_alerts_tick\(\) from public, anon, authenticated/
-    )
-    expect(migration).toContain("grant execute on function public.fn_ops_alerts_tick() to service_role")
+    expect(grants.publicExecute, "public still holds the default execute grant").toBe(false)
+    expect(grants.grantees).toEqual(["service_role"])
   })
 
   it("records each delivery, because pg_net success only means 'queued'", () => {
-    const migration = readMigration()
+    const migration = tick()
 
     expect(migration).toContain("public.ops_cron_runs")
     expect(migration).toContain("net._http_response")
+    expect(migration).toContain("r.job = 'ops-alerts'")
   })
 
   it("no longer pays GitHub Actions minutes for the alert cadence", () => {

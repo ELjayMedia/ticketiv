@@ -8,10 +8,14 @@ import {
   paystackRefundTransactionReference,
   paystackRefundWebhookEventId,
 } from "@/lib/payments/paystack-refund-core"
-import { migrationContractAround } from "../../../tests/helpers/migration-contract"
+import {
+  migrationCronJob,
+  migrationFunction,
+  migrationFunctionGrants,
+} from "../../../tests/helpers/migration-contract"
 
 function readRefundCronMigrations() {
-  return migrationContractAround("create or replace function public.fn_refund_reconciliation_tick", 1_000, 14_000)
+  return migrationFunction("public.fn_refund_reconciliation_tick")
 }
 
 describe("Paystack refund lifecycle helpers", () => {
@@ -77,16 +81,17 @@ describe("Paystack refund reconciliation scheduling", () => {
   })
 
   it("keeps the scheduler service-only and on the canonical origin", () => {
-    const migrations = readRefundCronMigrations()
+    expect(readRefundCronMigrations()).toContain("https://ticketiv.app/api/cron/refunds")
 
-    expect(migrations).toContain("https://ticketiv.app/api/cron/refunds")
-    expect(migrations).toContain("'ticketiv-refund-reconciliation'")
-    expect(migrations).toContain("'*/15 * * * *'")
-    expect(migrations).toMatch(
-      /revoke execute on function public\.fn_refund_reconciliation_tick\(\) from public, anon, authenticated/,
-    )
-    expect(migrations).toContain(
-      "grant execute on function public.fn_refund_reconciliation_tick() to service_role",
-    )
+    const job = migrationCronJob("ticketiv-refund-reconciliation")
+
+    expect(job, "the refund-reconciliation cron job is not scheduled by any migration").toBeDefined()
+    expect(job!.schedule).toBe("*/15 * * * *")
+    expect(job!.command).toBe("select public.fn_refund_reconciliation_tick();")
+
+    const grants = migrationFunctionGrants("public.fn_refund_reconciliation_tick")
+
+    expect(grants.publicExecute, "public still holds the default execute grant").toBe(false)
+    expect(grants.grantees).toEqual(["service_role"])
   })
 })
