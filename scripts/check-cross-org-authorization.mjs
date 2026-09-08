@@ -4,15 +4,17 @@
 // users inside a transaction, impersonates them, attempts every high-risk
 // cross-tenant action, and rolls the whole thing back by raising at the end.
 // Because it seeds itself, it needs no fixture project and no pre-created
-// personas — only a service-role connection.
+// personas — only a privileged Supabase backend connection.
 //
 // Usage:
 //   node scripts/check-cross-org-authorization.mjs
 //
-// Requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY. Without
-// them the check SKIPS rather than fails, matching check-rpc-permissions.mjs:
-// CI does not always hold database credentials, and a check that cannot run
-// must not be mistaken for a check that passed.
+// Requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY. The env name
+// is retained for compatibility, but the value may be either the legacy JWT
+// service_role key or a modern sb_secret_... backend key. Without them the
+// check SKIPS rather than fails, matching check-rpc-permissions.mjs: CI does not
+// always hold database credentials, and a check that cannot run must not be
+// mistaken for a check that passed.
 //
 // Exit codes:
 //   0  every case refused (or skipped for missing credentials)
@@ -38,16 +40,24 @@ if (!url || !serviceKey) {
 
 const sql = readFileSync(SQL_PATH, "utf8")
 
+// Modern sb_secret_ keys are opaque API keys, not JWTs, so they belong in the
+// apikey header only. The legacy service_role key is a JWT and still needs the
+// Bearer header for this direct REST call. Normal application admin clients use
+// supabase-js, which handles both key types through the API gateway.
+const headers = {
+  apikey: serviceKey,
+  "Content-Type": "application/json",
+}
+if (!serviceKey.startsWith("sb_secret_")) {
+  headers.Authorization = `Bearer ${serviceKey}`
+}
+
 // The harness signals completion by raising, so a "successful" run arrives as
 // a Postgres error whose message carries the report. That is deliberate: it is
 // what guarantees the transaction rolls back and leaves nothing behind.
 const response = await fetch(`${url}/rest/v1/rpc/exec_sql`, {
   method: "POST",
-  headers: {
-    apikey: serviceKey,
-    Authorization: `Bearer ${serviceKey}`,
-    "Content-Type": "application/json",
-  },
+  headers,
   body: JSON.stringify({ query: sql }),
 })
 
