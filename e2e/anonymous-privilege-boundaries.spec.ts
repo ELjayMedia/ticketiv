@@ -15,8 +15,8 @@ test.describe("anonymous privilege boundaries", () => {
     await expect(page.getByText("Command centre", { exact: true })).toHaveCount(0)
   })
 
-  test("attendee account workspace redirects to sign in", async ({ page }) => {
-    await page.goto("/account")
+  test("attendee tickets workspace redirects to sign in", async ({ page }) => {
+    await page.goto("/tickets")
 
     await expect(page).toHaveURL(/\/login(?:\?|$)/)
   })
