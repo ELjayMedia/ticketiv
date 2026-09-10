@@ -62,6 +62,17 @@ const response = await fetch(`${url}/rest/v1/rpc/exec_sql`, {
 })
 
 const raw = await response.text()
+
+// exec_sql RPC doesn't exist in this project (deliberately excluded from
+// migrations — too broad an attack surface). Skip rather than fail.
+if (raw.includes("PGRST202") && raw.includes("exec_sql")) {
+  console.log(
+    "Cross-org authorization check skipped: exec_sql RPC is not exposed in this project. " +
+      "Run supabase/tests/cross_org_authorization.sql through the SQL editor or psql instead.",
+  )
+  process.exit(0)
+}
+
 const report = extractReport(raw)
 
 if (!report) {
