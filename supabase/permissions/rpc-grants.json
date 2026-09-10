@@ -1583,6 +1583,17 @@
     },
     {
       "schema": "public",
+      "name": "fn_get_effective_payment_providers",
+      "arguments": "p_org_id uuid, p_event_id uuid, p_ticket_type_id uuid",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
       "name": "fn_get_my_account_deletion_status",
       "arguments": "",
       "securityDefiner": true,
@@ -1894,6 +1905,17 @@
       "schema": "public",
       "name": "fn_ops_reconciliation_counts",
       "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_ops_uptime_watchdog",
+      "arguments": "p_force_test boolean",
       "securityDefiner": true,
       "searchPathPinned": true,
       "grantees": [
