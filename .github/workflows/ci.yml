@@ -68,6 +68,26 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Validate E2E runtime configuration
+        env:
+          E2E_STRICT: ${{ vars.E2E_STRICT || '0' }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          E2E_PAYSTACK_TEST_KEY: ${{ secrets.E2E_PAYSTACK_TEST_KEY }}
+        run: |
+          missing=0
+          for name in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing required E2E configuration: ${name}"
+              missing=1
+            fi
+          done
+          if [ "$E2E_STRICT" = "1" ] && [ -z "$E2E_PAYSTACK_TEST_KEY" ]; then
+            echo "::error::Strict checkout E2E is enabled but E2E_PAYSTACK_TEST_KEY is not configured."
+            missing=1
+          fi
+          exit "$missing"
+
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
 
@@ -77,14 +97,17 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          E2E_TEST_EVENT_SLUG: e2e-smoke-202609100528
+          E2E_TEST_BUYER_EMAIL: e2e-buyer@example.com
         run: node scripts/seed-uat.mjs
 
       # Boot a local dev server for deterministic E2E testing.
-      # This avoids testing production (which may have no public events).
+      # Ticketiv's public Supabase config prefers the modern publishable key and
+      # retains the project-safe fallback in lib/env-public.ts during migration.
       - name: Boot test server
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           pnpm dev &
@@ -97,8 +120,8 @@ jobs:
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:3000
           E2E_STRICT: ${{ vars.E2E_STRICT || '0' }}
-          E2E_TEST_EVENT_SLUG: ${{ secrets.E2E_TEST_EVENT_SLUG }}
-          E2E_TEST_BUYER_EMAIL: ${{ secrets.E2E_TEST_BUYER_EMAIL }}
+          E2E_TEST_EVENT_SLUG: e2e-smoke-202609100528
+          E2E_TEST_BUYER_EMAIL: e2e-buyer@example.com
           E2E_PAYSTACK_TEST_KEY: ${{ secrets.E2E_PAYSTACK_TEST_KEY }}
         run: pnpm test:e2e
 
