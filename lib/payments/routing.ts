@@ -17,7 +17,10 @@ import {
   reportPaymentChannelUnavailable,
 } from "@/lib/payments/errors"
 
-export const KNOWN_PROVIDERS: PaymentProvider[] = ["paystack", "manual", "momo", "deltapay"]
+// `manual` remains a valid stored PaymentProvider for historical/internal
+// payment records, but it is not an attendee checkout rail. Keep this list in
+// sync with CheckoutPaymentProvider so routing can never select `manual`.
+export const KNOWN_PROVIDERS: PaymentProvider[] = ["paystack", "momo", "deltapay"]
 
 export interface RoutingRule {
   priority: number | null
@@ -38,7 +41,7 @@ export interface RoutingContext {
   allowedProviders?: string[] | null
 }
 
-/** Normalise an allow-list to known providers. Empty result = no constraint. */
+/** Normalise an allow-list to known checkout providers. Empty result = no constraint. */
 export function normaliseAllowed(allowed: string[] | null | undefined): PaymentProvider[] {
   if (!allowed || allowed.length === 0) return []
   return allowed.filter(isKnown)
