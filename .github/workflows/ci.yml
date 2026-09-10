@@ -20,7 +20,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       # corepack must be enabled before setup-node so its `cache: pnpm` step can
       # resolve the pnpm store path (otherwise: "Unable to locate executable file: pnpm").
       - name: Enable corepack
@@ -52,12 +51,11 @@ jobs:
     needs: release-gate
     timeout-minutes: 20
     # Advisory by default. Set the E2E_STRICT repo variable to "1" once
-    # PLAYWRIGHT_BASE_URL points at seeded staging and branch protection should
-    # block on the browser journey.
+    # UAT fixtures are seeded and branch protection should block on the
+    # browser journey.
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Enable corepack
         run: corepack enable
 
@@ -73,17 +71,31 @@ jobs:
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
 
-      # Public-leg journeys (discover -> event detail) run against the target URL
-      # on every PR. Set the PLAYWRIGHT_BASE_URL repo variable to the PR preview
-      # or a seeded staging URL to gate the PR's own build; it defaults to
-      # production as a public-surface smoke. The authenticated checkout ->
-      # ticket -> scan and cross-org legs self-skip until the seeded staging
-      # secrets (E2E_TEST_EVENT_SLUG, E2E_TEST_BUYER_EMAIL,
-      # E2E_PAYSTACK_TEST_KEY) are configured — see e2e/discovery-to-checkout.spec.ts.
+      # Seed UAT fixtures so E2E tests have deterministic data to run against.
+      # This makes CI test the actual flow, not production's empty event list.
+      - name: Seed UAT fixtures
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/seed-uat.mjs
+
+      # Boot a local dev server for deterministic E2E testing.
+      # This avoids testing production (which may have no public events).
+      - name: Boot test server
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          pnpm dev &
+          npx wait-on http://localhost:3000
+
+      # E2E tests run against the local dev server with seeded UAT fixtures.
+      # CI fails when the actual flow is broken (not because production has no events).
       - name: Run E2E smoke
         continue-on-error: ${{ vars.E2E_STRICT != '1' }}
         env:
-          PLAYWRIGHT_BASE_URL: ${{ vars.PLAYWRIGHT_BASE_URL || 'https://ticketiv.app' }}
+          PLAYWRIGHT_BASE_URL: http://localhost:3000
           E2E_STRICT: ${{ vars.E2E_STRICT || '0' }}
           E2E_TEST_EVENT_SLUG: ${{ secrets.E2E_TEST_EVENT_SLUG }}
           E2E_TEST_BUYER_EMAIL: ${{ secrets.E2E_TEST_BUYER_EMAIL }}
