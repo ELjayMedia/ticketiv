@@ -23,9 +23,20 @@ if (!url || !serviceKey) {
 }
 
 const teardown = process.argv.includes("--teardown")
-const fn = teardown ? "fn_teardown_uat_fixtures" : "fn_seed_uat_fixtures"
-
 const client = createClient(url, serviceKey, { auth: { persistSession: false } })
+
+// Seed public discovery event first (for E2E tests)
+const { error: pubErr } = await client.rpc(
+  teardown ? "fn_teardown_public_discovery_event" : "fn_seed_public_discovery_event",
+)
+if (pubErr) {
+  console.error(`Public discovery event ${teardown ? "teardown" : "seed"} failed: ${pubErr.message}`)
+  process.exit(1)
+}
+console.log(`Public discovery event ${teardown ? "removed" : "seeded"}.`)
+
+// Seed UAT fixtures
+const fn = teardown ? "fn_teardown_uat_fixtures" : "fn_seed_uat_fixtures"
 const { data, error } = await client.rpc(fn)
 
 if (error) {
