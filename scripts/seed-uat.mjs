@@ -23,13 +23,24 @@ if (!url || !serviceKey) {
 }
 
 const teardown = process.argv.includes("--teardown")
-const fn = teardown ? "fn_teardown_uat_fixtures" : "fn_seed_uat_fixtures"
-
 const client = createClient(url, serviceKey, { auth: { persistSession: false } })
+
+// Seed UAT fixtures FIRST (this calls teardown internally)
+const fn = teardown ? "fn_teardown_uat_fixtures" : "fn_seed_uat_fixtures"
 const { data, error } = await client.rpc(fn)
 
 if (error) {
   console.error(`${fn} failed: ${error.message}`)
+  process.exit(1)
+}
+
+// Seed public discovery event AFTER UAT fixtures so it survives teardown
+// (UAT teardown deletes events by venue_id, and the public event uses its own venue)
+const { error: pubErr } = await client.rpc(
+  teardown ? "fn_teardown_public_discovery_event" : "fn_seed_public_discovery_event",
+)
+if (pubErr) {
+  console.error(`Public discovery event ${teardown ? "teardown" : "seed"} failed: ${pubErr.message}`)
   process.exit(1)
 }
 
