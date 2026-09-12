@@ -97,7 +97,7 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          E2E_TEST_EVENT_SLUG: e2e-smoke-202609100528
+          E2E_TEST_EVENT_SLUG: uat-public-discovery-event
           E2E_TEST_BUYER_EMAIL: e2e-buyer@example.com
         run: node scripts/seed-uat.mjs
 
@@ -120,7 +120,7 @@ jobs:
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:3000
           E2E_STRICT: ${{ vars.E2E_STRICT || '0' }}
-          E2E_TEST_EVENT_SLUG: e2e-smoke-202609100528
+          E2E_TEST_EVENT_SLUG: uat-public-discovery-event
           E2E_TEST_BUYER_EMAIL: e2e-buyer@example.com
           E2E_PAYSTACK_TEST_KEY: ${{ secrets.E2E_PAYSTACK_TEST_KEY }}
         run: pnpm test:e2e
