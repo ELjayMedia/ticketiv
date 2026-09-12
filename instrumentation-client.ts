@@ -11,9 +11,12 @@ const missingPostHogVariable = !posthogProjectToken
     : null
 
 if (missingPostHogVariable) {
+  // Analytics configuration must never prevent the attendee application from
+  // hydrating. Local development and CI intentionally run without PostHog in
+  // some environments; warn there, but keep product interactions functional.
   if (process.env.NODE_ENV === "development") {
-    throw new Error(
-      `${missingPostHogVariable} variable required by PostHog is missing or un-configured, this causes events to be silently missed. This error stops appearing once ${missingPostHogVariable} is configured`,
+    console.warn(
+      `${missingPostHogVariable} required by PostHog is not configured; analytics capture is disabled for this client session.`,
     )
   }
 } else if (posthogProjectToken && posthogHost) {
