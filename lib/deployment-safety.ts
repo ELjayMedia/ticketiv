@@ -60,7 +60,7 @@ export function describeDeploymentSafety(env: EnvBag = process.env): DeploymentS
 
   if (managedDeployment) {
     requireManagedEnv(env, "NEXT_PUBLIC_SUPABASE_URL", issues)
-    requireManagedEnv(env, "NEXT_PUBLIC_SUPABASE_ANON_KEY", issues)
+    requireSupabasePublicKey(env, issues)
     requireManagedEnv(env, "NEXT_PUBLIC_APP_URL", issues)
   }
 
@@ -115,6 +115,14 @@ export function getDeploymentSafetyBanner(env: EnvBag = process.env): Deployment
 function requireManagedEnv(env: EnvBag, key: string, issues: string[]) {
   if (!env[key]?.trim()) {
     issues.push(`${key} must be set for Vercel preview/production deployments.`)
+  }
+}
+
+function requireSupabasePublicKey(env: EnvBag, issues: string[]) {
+  if (!env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() && !env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()) {
+    issues.push(
+      "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY must be set for Vercel preview/production deployments.",
+    )
   }
 }
 
