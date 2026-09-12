@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
+import { resolveSupabasePublicKey } from "@/lib/env-public"
 import {
   isExpectedSignedOutAuthError,
   isStaleSupabaseRefreshTokenError,
@@ -145,7 +146,11 @@ export async function updateSession(request: NextRequest) {
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const supabaseKey = resolveSupabasePublicKey(
+    supabaseUrl,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  )
 
   // No Supabase configured → let everything through. Pages will handle their own
   // unauthenticated states. This avoids a 500 wall when env is missing.
