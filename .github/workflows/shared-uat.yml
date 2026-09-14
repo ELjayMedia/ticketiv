@@ -49,9 +49,16 @@ jobs:
       PLAYWRIGHT_BASE_URL: https://ticketiv.app
       E2E_STRICT: "1"
       E2E_ALLOW_SHARED_UAT: "1"
-      TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
-      TEST_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+      # Prefer dedicated TEST_* secrets when present. Ticketiv currently uses the
+      # same allow-listed Supabase project for production and UAT, so falling back
+      # to the already-configured CI credentials is intentional and still guarded
+      # by TEST_SUPABASE_ALLOW_PROJECT_REF below.
+      TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL || secrets.SUPABASE_URL }}
+      TEST_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_SERVICE_ROLE_KEY }}
       TEST_SUPABASE_ALLOW_PROJECT_REF: radsfmlsjznqvcpogluo
+      E2E_TEST_EVENT_SLUG: ${{ secrets.E2E_TEST_EVENT_SLUG }}
+      E2E_TEST_BUYER_EMAIL: ${{ secrets.E2E_TEST_BUYER_EMAIL }}
+      E2E_PAYSTACK_TEST_KEY: ${{ secrets.E2E_PAYSTACK_TEST_KEY }}
       TARGET_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
     steps:
@@ -131,14 +138,14 @@ jobs:
         run: |
           set -euo pipefail
           missing=()
-          for name in TEST_SUPABASE_URL TEST_SUPABASE_SERVICE_ROLE_KEY
+          for name in TEST_SUPABASE_URL TEST_SUPABASE_SERVICE_ROLE_KEY E2E_TEST_EVENT_SLUG E2E_TEST_BUYER_EMAIL E2E_PAYSTACK_TEST_KEY
           do
             if [[ -z "${!name:-}" ]]; then
               missing+=("$name")
             fi
           done
           if (( ${#missing[@]} > 0 )); then
-            printf 'Missing required shared-UAT secret(s): %s\n' "${missing[*]}" >&2
+            printf 'Missing required shared-UAT configuration: %s\n' "${missing[*]}" >&2
             exit 1
           fi
 
@@ -160,12 +167,20 @@ jobs:
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
 
+      - name: Seed deterministic shared UAT fixtures
+        id: seed
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ env.TEST_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ env.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+        run: pnpm seed:uat
+
       - name: Prove database money and scanner lifecycle
         run: pnpm exec vitest run tests/money-path-lifecycle.test.ts
 
-      - name: Run authenticated and privilege-boundary browser UAT serially
+      - name: Run checkout, authenticated and privilege-boundary browser UAT serially
         run: >-
           pnpm test:e2e
+          e2e/discovery-to-checkout.spec.ts
           e2e/anonymous-privilege-boundaries.spec.ts
           e2e/authenticated-org-boundaries.spec.ts
           e2e/refunded-ticket-propagation.spec.ts
@@ -218,8 +233,8 @@ jobs:
       - name: Remove deterministic shared fixtures
         if: ${{ always() && steps.dependencies.outputs.ready == '1' && env.TEST_SUPABASE_URL != '' && env.TEST_SUPABASE_SERVICE_ROLE_KEY != '' }}
         env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ env.TEST_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ env.TEST_SUPABASE_SERVICE_ROLE_KEY }}
         run: pnpm seed:uat:teardown
 
       - name: Upload Playwright failure artifacts
