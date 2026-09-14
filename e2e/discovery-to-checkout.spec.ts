@@ -126,8 +126,9 @@ test.describe("seeded guest checkout → hosted payment handoff", () => {
     await expect(paymentCta).toBeEnabled({ timeout: 10_000 })
     await paymentCta.click()
 
-    await page.waitForURL(/checkout\.paystack\.com|\/orders\/[^/]+\/confirmation/, {
-      timeout: 30_000,
-    })
+    await expect(page).toHaveURL(
+      /checkout\.paystack\.com|\/orders\/[^/]+\/confirmation/,
+      { timeout: 30_000 },
+    )
   })
 })
