@@ -5,7 +5,8 @@ import { resolveOrganizerEventLifecycle } from "@/lib/events/organizer-lifecycle
 const NOW = new Date("2026-09-27T10:00:00.000Z").getTime()
 
 describe("resolveOrganizerEventLifecycle", () => {
-  it("keeps explicit draft, archived and paused states distinct", () => {
+  it("keeps explicit cancelled, draft, archived and paused states distinct", () => {
+    expect(resolveOrganizerEventLifecycle({ status: "cancelled", starts_at: null }, null, NOW)).toBe("cancelled")
     expect(resolveOrganizerEventLifecycle({ status: "draft", starts_at: null }, null, NOW)).toBe("draft")
     expect(resolveOrganizerEventLifecycle({ status: "archived", starts_at: null }, null, NOW)).toBe("archived")
     expect(resolveOrganizerEventLifecycle({ status: "paused", starts_at: null }, null, NOW)).toBe("paused")
