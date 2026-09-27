@@ -142,8 +142,10 @@ export function MobileEvent({ event }: MobileEventProps) {
             <div className="mt-auto">
               <div className="flex flex-wrap gap-1.5">
                 <Chip size="sm" className="border-transparent bg-white/95 text-ink">{event.category}</Chip>
-                {event.lifecycle === "ended" && (
-                  <Chip size="sm" className="border-transparent bg-white/95 text-ink">Ended</Chip>
+                {(event.lifecycle === "ended" || event.lifecycle === "cancelled") && (
+                  <Chip size="sm" className="border-transparent bg-white/95 text-ink">
+                    {event.lifecycle === "cancelled" ? "Cancelled" : "Ended"}
+                  </Chip>
                 )}
               </div>
               <h1 className="mt-2.5 text-[30px] font-semibold leading-tight tracking-[-0.022em] text-white">{event.title}</h1>
@@ -152,11 +154,15 @@ export function MobileEvent({ event }: MobileEventProps) {
           </Photo>
         </div>
 
-        {event.lifecycle === "ended" && (
+        {(event.lifecycle === "ended" || event.lifecycle === "cancelled") && (
           <section className="px-5 pt-4">
             <Card className="border-line-2 bg-surface p-4" flat>
-              <div className="font-mono text-[10px] font-semibold uppercase tracking-wide text-ink-3">Past event</div>
-              <div className="mt-1 text-[15px] font-semibold text-ink">This event has ended</div>
+              <div className="font-mono text-[10px] font-semibold uppercase tracking-wide text-ink-3">
+                {event.lifecycle === "cancelled" ? "Cancelled event" : "Past event"}
+              </div>
+              <div className="mt-1 text-[15px] font-semibold text-ink">
+                {event.lifecycle === "cancelled" ? "This event has been cancelled" : "This event has ended"}
+              </div>
               <p className="mt-1 text-[12px] leading-relaxed text-ink-3">
                 This page is kept as event history. Ticket sales and entry actions are now closed.
               </p>
@@ -236,7 +242,7 @@ export function MobileEvent({ event }: MobileEventProps) {
             <h2 className="mb-3 text-h3">Tickets</h2>
             <ul className="flex flex-col gap-2">
               {ticketTypes.map((t) => {
-                const archiveClosed = event.lifecycle === "ended";
+                const archiveClosed = event.lifecycle === "ended" || event.lifecycle === "cancelled";
                 const soldOut = t.remaining === 0;
                 const selected = selectedTypeId === t.id;
                 const scarcity = soldOut || archiveClosed ? null : formatScarcityLabel(t.remaining);
@@ -317,10 +323,12 @@ export function MobileEvent({ event }: MobileEventProps) {
         <div className="h-24" />
       </div>
 
-      {event.lifecycle === "ended" ? (
+      {event.lifecycle === "ended" || event.lifecycle === "cancelled" ? (
         <div className="sticky bottom-0 flex items-center gap-3 border-t border-line bg-surface px-5 py-3.5 pb-7">
           <div className="flex flex-1 flex-col">
-            <span className="text-[13px] font-semibold">This event has ended</span>
+            <span className="text-[13px] font-semibold">
+              {event.lifecycle === "cancelled" ? "This event has been cancelled" : "This event has ended"}
+            </span>
             <span className="font-mono text-[11px] text-ink-3">Explore what this organizer is doing next.</span>
           </div>
           <Link href={event.organizerUpcomingHref} className="flex items-center justify-center gap-2 rounded-[var(--radius-md)] bg-ink px-4 py-3.5 text-[13px] font-semibold text-white hover:opacity-90">
