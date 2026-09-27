@@ -30,6 +30,7 @@ export interface SearchResultProp {
   /** "1.2k sold" / null. Hidden by the formatter below the safe-display
    *  threshold so we never manufacture momentum. */
   soldLabel?: string | null
+  isPast?: boolean
 }
 
 export interface ActiveFilter {
@@ -235,8 +236,14 @@ export function SearchResults({
                 {r.soldLabel && (
                   <span className="font-mono text-[11px] text-ink-3">{r.soldLabel}</span>
                 )}
-                <span className="inline-flex items-center rounded-md border border-ink bg-ink px-2.5 py-1 text-[12px] font-semibold text-white">
-                  Book
+                <span
+                  className={
+                    r.isPast
+                      ? "inline-flex items-center rounded-md border border-line-2 bg-surface px-2.5 py-1 text-[12px] font-semibold text-ink"
+                      : "inline-flex items-center rounded-md border border-ink bg-ink px-2.5 py-1 text-[12px] font-semibold text-white"
+                  }
+                >
+                  {r.isPast ? "View" : "Book"}
                 </span>
               </div>
             </Link>
