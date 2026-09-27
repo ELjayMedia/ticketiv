@@ -7465,6 +7465,7 @@ export type Database = {
           poster_url: string | null
           slug: string | null
           starts_at: string | null
+          status: Database["public"]["Enums"]["event_status"] | null
           title: string | null
           venue_address: string | null
           venue_capacity: number | null
@@ -7511,7 +7512,6 @@ export type Database = {
           city: string | null
           country: string | null
           currency: string | null
-          event_ends_at: string | null
           featured_priority: number | null
           id: string | null
           max_price_cents: number | null
@@ -7624,6 +7624,7 @@ export type Database = {
           cover_image_url: string | null
           currency: string | null
           current_owner_id: string | null
+          event_ends_at: string | null
           event_id: string | null
           event_slug: string | null
           event_starts_at: string | null
@@ -7747,6 +7748,7 @@ export type Database = {
           city: string | null
           country: string | null
           currency: string | null
+          event_ends_at: string | null
           featured_priority: number | null
           id: string | null
           last_order_at: string | null
