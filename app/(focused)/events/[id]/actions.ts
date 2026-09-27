@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation"
 import { ensureCheckoutIdentity } from "@/lib/auth/checkout-identity"
 import { getPublicEventBySlug } from "@/lib/adapters/events"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { isEventPast } from "@/lib/events/lifecycle"
+import { resolveEventLifecycle } from "@/lib/events/lifecycle"
 
 function redirectToLogin(eventSlug: string): never {
   const from = `/events/${encodeURIComponent(eventSlug)}`
@@ -45,10 +45,16 @@ export async function createSeatHoldAction(formData: FormData) {
     .limit(1)
     .maybeSingle()
 
-  if (isEventPast({
+  const lifecycle = resolveEventLifecycle({
     eventStartsAt: event.starts_at,
     eventEndsAt: finalDate?.ends_at ?? finalDate?.starts_at ?? null,
-  })) {
+    eventStatus: event.status,
+  })
+
+  if (lifecycle === "cancelled") {
+    redirect(`/events/${eventSlug}?cancelled=1`)
+  }
+  if (lifecycle === "ended") {
     redirect(`/events/${eventSlug}?ended=1`)
   }
 
