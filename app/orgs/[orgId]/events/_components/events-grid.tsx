@@ -20,7 +20,7 @@ export interface EventCardData {
   lifecycle: "active" | "upcoming" | "past" | "draft" | "archived" | "paused"
   lifecycle_end_at: string | null
   cover_image_url: string | null
-  stats: { tickets_sold: number; gross_sales_cents: number; checked_in_count: number }
+  stats: { tickets_sold: number; gross_sales_cents: number; checked_in_count: number; refunds_cents: number }
   capacity: number
 }
 
@@ -283,6 +283,18 @@ export function EventsGrid({ events, orgId, canDelete }: EventsGridProps) {
                           </p>
                           <p className="font-mono text-[16px] font-semibold tabular-nums text-ink">
                             {checkInRate.toFixed(0)}%
+                          </p>
+                        </div>
+                      )}
+                      {event.lifecycle === "past" && (
+                        <div className="flex flex-col gap-0.5">
+                          <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+                            Refunds
+                          </p>
+                          <p className="font-mono text-[16px] font-semibold tabular-nums text-ink">
+                            {event.stats.refunds_cents > 0
+                              ? formatPrice(event.stats.refunds_cents, "SZL")
+                              : "—"}
                           </p>
                         </div>
                       )}
