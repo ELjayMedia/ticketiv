@@ -12,7 +12,7 @@ import { formatRefundWindow, resolveRefundPolicy } from "@/lib/refund-policy";
 import type { EventPublicView } from "@/lib/schemas/views";
 import type { MobileEventData } from "@/components/quiet/screens/event-detail/mobile-event";
 import type { DesktopEventData } from "@/components/quiet/screens/event-detail/desktop-event";
-import { isEventPast } from "@/lib/events/lifecycle";
+import { resolveEventLifecycle } from "@/lib/events/lifecycle";
 
 export interface EventLineupRow {
   artist_id: string;
@@ -91,10 +91,13 @@ function mapFriends(rows: EventFriendRow[] | undefined) {
 
 export function mapEventDetail(row: EventPublicView, input: MapInput = {}): MobileEventData {
   const start = row.starts_at ? new Date(row.starts_at) : null;
-  const hasEnded = isEventPast({
+  const lifecycle = resolveEventLifecycle({
     eventStartsAt: row.starts_at,
     eventEndsAt: input.eventEndsAt,
+    eventStatus: row.status,
   });
+  const hasEnded = lifecycle === "ended";
+  const isCancelled = lifecycle === "cancelled";
 
   return {
     eventUuid: row.id,
@@ -134,6 +137,8 @@ export function mapEventDetail(row: EventPublicView, input: MapInput = {}): Mobi
     recentSoldWindow: input.recentSoldWindow,
     supportUrl: input.supportUrl,
     hasEnded,
+    isCancelled,
+    lifecycle,
     organizerHref: row.organizer_id ? `/organisers/${row.organizer_id}` : "/organisers",
   };
 }
