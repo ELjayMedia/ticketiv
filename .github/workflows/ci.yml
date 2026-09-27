@@ -82,6 +82,42 @@ jobs:
           done
           exit "$missing"
 
+      # TICK-409: prove the configured test credential can cross Paystack's
+      # initialize boundary before the browser test. Only sanitized provider
+      # status is printed; credentials, access codes and authorization URLs are
+      # never logged.
+      - name: Verify Paystack test initialization
+        env:
+          PAYSTACK_SECRET_KEY: ${{ secrets.E2E_PAYSTACK_TEST_KEY }}
+        run: |
+          node <<'NODE'
+          const response = await fetch("https://api.paystack.co/transaction/initialize", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              email: "e2e-buyer@example.com",
+              amount: 10000,
+              currency: "ZAR",
+              reference: `ticketiv_ci_${process.env.GITHUB_RUN_ID}_${process.env.GITHUB_RUN_ATTEMPT}`,
+              callback_url: "https://ticketiv.app/",
+            }),
+          })
+          const payload = await response.json().catch(() => ({}))
+          console.log(JSON.stringify({
+            httpStatus: response.status,
+            status: Boolean(payload.status),
+            message: payload.message ?? null,
+            code: payload.code ?? null,
+            type: payload.type ?? null,
+          }))
+          if (!response.ok || !payload.status || !payload.data?.authorization_url) {
+            process.exit(1)
+          }
+          NODE
+
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
 
