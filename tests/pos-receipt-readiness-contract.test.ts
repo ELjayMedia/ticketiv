@@ -23,7 +23,9 @@ describe("POS receipt and shift readiness", () => {
     }
 
     expect(
-      migrationStatementsMatching(/^alter type[\s\S]*add value/),
+      migrationStatementsMatching(
+        /^alter type\s+(?:public\.)?audit_action[\s\S]*add value/,
+      ),
       "POS lifecycle events must reuse the audit_action taxonomy, not extend the enum",
     ).toEqual([])
   })
