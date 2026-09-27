@@ -1,6 +1,7 @@
 
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { resolveEventLifecycle } from "@/lib/events/lifecycle"
 
 export interface OrganiserSummary {
   id: string
@@ -120,9 +121,14 @@ export async function getOrganiserEvents(orgId: string) {
   try {
     const { data, error } = await supabase
       .from("events")
-      .select("id, title, slug, description, starts_at, ends_at")
+      .select(`
+        id, title, slug, description, cover_image_url, starts_at, ends_at, city, status,
+        event_dates(starts_at, ends_at),
+        venue:venue_id(name),
+        ticket_types(price_cents, currency)
+      `)
       .eq("org_id", orgId)
-      .eq("status", "published")
+      .in("status", ["published", "cancelled"])
       .order("starts_at", { ascending: true })
 
     if (error) {
@@ -130,7 +136,54 @@ export async function getOrganiserEvents(orgId: string) {
       return []
     }
 
-    return data || []
+    const nowMs = Date.now()
+    return (data ?? []).map((event: any) => {
+      const dates = (event.event_dates ?? [])
+        .filter((date: any) => date?.starts_at)
+        .slice()
+        .sort((a: any, b: any) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
+      const nextDate = dates.find((date: any) => new Date(date.starts_at).getTime() >= nowMs)
+      const finalDate = dates
+        .slice()
+        .sort(
+          (a: any, b: any) =>
+            new Date(b.ends_at ?? b.starts_at).getTime() -
+            new Date(a.ends_at ?? a.starts_at).getTime(),
+        )[0]
+      const lifecycleEnd =
+        finalDate?.ends_at ?? finalDate?.starts_at ?? event.ends_at ?? event.starts_at ?? null
+      const lifecycle = resolveEventLifecycle({
+        eventStartsAt: event.starts_at,
+        eventEndsAt: lifecycleEnd,
+        eventStatus: event.status,
+        nowMs,
+      })
+      const priced = (event.ticket_types ?? []).filter(
+        (ticket: any) => typeof ticket.price_cents === "number",
+      )
+      const minPrice =
+        priced.length > 0
+          ? Math.min(...priced.map((ticket: any) => ticket.price_cents as number))
+          : null
+      const currency =
+        priced.find((ticket: any) => typeof ticket.currency === "string")?.currency ?? "SZL"
+
+      return {
+        id: event.id,
+        title: event.title,
+        slug: event.slug,
+        description: event.description,
+        poster_url: event.cover_image_url ?? null,
+        starts_at: nextDate?.starts_at ?? event.starts_at ?? finalDate?.starts_at ?? null,
+        city: event.city ?? null,
+        venue_name: event.venue?.name ?? null,
+        min_price_cents: minPrice,
+        currency,
+        status: event.status,
+        lifecycle,
+        lifecycle_end_at: lifecycleEnd,
+      }
+    })
   } catch (error) {
     console.error("[v0] Unexpected error fetching organiser events:", error)
     return []
