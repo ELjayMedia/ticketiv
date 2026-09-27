@@ -77,6 +77,9 @@ $function$;
 
 -- Direct event pages intentionally retain cancelled events while discovery
 -- remains backed by published-only public list views.
+-- Preserve the existing v_event_public column order and append status last:
+-- PostgreSQL CREATE OR REPLACE VIEW does not allow renaming/reordering existing
+-- output columns in place.
 create or replace view public.v_event_public as
 select
   e.id,
@@ -97,7 +100,6 @@ select
   e.org_id as organizer_id,
   o.name as organizer_name,
   o.logo as organizer_logo_url,
-  e.featured_priority,
   e.description,
   e.visibility,
   v.capacity as venue_capacity,
