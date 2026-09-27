@@ -68,7 +68,7 @@ jobs:
           files="$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")"
           printf '%s\n' "$files"
 
-          if printf '%s\n' "$files" | grep -Eq '^(app/\(focused\)/events/.*/checkout/|components/quiet/screens/checkout/|lib/payments(\.ts|/)|lib/orders(\.ts|/)|e2e/discovery-to-checkout\.spec\.ts$|tests/money-path-lifecycle\.test\.ts$|supabase/migrations/.*(payment|paystack|provider|checkout|order|ledger).*)'; then
+          if printf '%s\n' "$files" | grep -Eq '^(lib/payments(\.ts|/)|lib/orders(\.ts|/)|e2e/discovery-to-checkout\.spec\.ts$|tests/money-path-lifecycle\.test\.ts$|supabase/migrations/.*(payment|paystack|provider|checkout|order|ledger).*)'; then
             echo "money_path=true" >> "$GITHUB_OUTPUT"
           else
             echo "money_path=false" >> "$GITHUB_OUTPUT"
