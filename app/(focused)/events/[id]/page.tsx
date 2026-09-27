@@ -42,7 +42,7 @@ async function fetchEventExtras(eventId: string, organizerId: string | null) {
     };
   }
 
-  const [ttRes, lineupRes, eventRes, liveStatsRes, orgEventsRes] = await Promise.all([
+  const [ttRes, lineupRes, eventRes, liveStatsRes, orgEventsRes, finalDateRes] = await Promise.all([
     supabase
       .from("ticket_types")
       .select("id, name, price_cents, quota")
@@ -68,6 +68,13 @@ async function fetchEventExtras(eventId: string, organizerId: string | null) {
           .eq("org_id", organizerId)
           .eq("status", "published")
       : Promise.resolve({ count: null as number | null, error: null }),
+    supabase
+      .from("event_dates")
+      .select("starts_at, ends_at")
+      .eq("event_id", eventId)
+      .order("ends_at", { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   if (ttRes.error) console.error("[event-detail] ticket_types:", ttRes.error);
@@ -105,6 +112,10 @@ async function fetchEventExtras(eventId: string, organizerId: string | null) {
     attendeeCount: liveStatsRes.data?.tickets_sold ?? null,
     recentSoldCount: null as number | null,
     liveStats: liveStatsRes.data ?? null,
+    eventEndsAt:
+      finalDateRes.data?.ends_at ??
+      finalDateRes.data?.starts_at ??
+      null,
   };
 }
 
@@ -130,6 +141,7 @@ export default async function EventDetailPage({
     recentSoldCount,
     organizerEventsHosted,
     liveStats,
+    eventEndsAt,
   } = await fetchEventExtras(row.id, row.organizer_id ?? null);
 
   const trust = {
@@ -141,11 +153,12 @@ export default async function EventDetailPage({
     organizerEventsHosted,
   };
 
-  const mobile = mapEventDetail(row, { lineup, friends, refundPolicy, ticketTypes, ...trust });
+  const mobile = mapEventDetail(row, { lineup, friends, refundPolicy, ticketTypes, eventEndsAt, ...trust });
   const desktop = mapDesktopEventDetail(row, ticketTypes, {
     lineup,
     friends,
     refundPolicy,
+    eventEndsAt,
     ...trust,
   });
 
