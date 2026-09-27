@@ -17,6 +17,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { ensureCheckoutIdentity } from "@/lib/auth/checkout-identity"
 import { APP_URL } from "@/lib/env"
+import { assertEventTransactionsOpen } from "@/lib/events/lifecycle-server"
 
 const PAYMENT_PROVIDER_COOKIE = "ticketiv_payment_provider"
 
@@ -62,6 +63,7 @@ export async function startCheckoutAction(input: StartCheckoutInput): Promise<St
   const promoCode = input.promoCode?.trim() || null
 
   try {
+    await assertEventTransactionsOpen(input.eventId)
     // The UI bridge writes the buyer's selection to a short-lived first-party
     // cookie. Explicit callers can still pass provider directly. Either way the
     // requested key is revalidated against the event lock and current platform
