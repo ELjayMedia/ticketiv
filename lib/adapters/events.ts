@@ -1,5 +1,6 @@
 import { createPublicSupabaseClient } from "@/lib/supabase-public"
 import { validateSchema, EventsPublicViewSchema, EventPublicViewSchema, type EventsPublicView, type EventPublicView } from "@/lib/schemas/views"
+import { discoveryEventEndCutoffIso, type DiscoveryLifecycle } from "@/lib/events/discovery-window"
 
 export async function getPublicEventsList(params?: {
   limit?: number
@@ -9,12 +10,24 @@ export async function getPublicEventsList(params?: {
   search?: string
   startsAfter?: string
   sort?: "soonest" | "latest" | "price_low" | "price_high"
+  lifecycle?: DiscoveryLifecycle
+  nowMs?: number
 }): Promise<EventsPublicView[]> {
   const supabase = createPublicSupabaseClient()
   if (!supabase) return []
 
   try {
     let query = supabase.from("v_public_event_cards").select("*")
+    const lifecycle = params?.lifecycle ?? "current"
+    const lifecycleCutoff = discoveryEventEndCutoffIso(params?.nowMs)
+
+    // Lifecycle filtering is intentionally applied before range/pagination.
+    // This prevents ended events from consuming slots and keeps hasMore sane.
+    if (lifecycle === "current") {
+      query = query.gte("event_ends_at", lifecycleCutoff)
+    } else if (lifecycle === "past") {
+      query = query.lt("event_ends_at", lifecycleCutoff)
+    }
 
     if (params?.city) {
       query = query.ilike("city", `%${params.city}%`)
@@ -32,10 +45,11 @@ export async function getPublicEventsList(params?: {
       query = query.gte("starts_at", params.startsAfter)
     }
 
-    const orderColumn = params?.sort === "price_low" ? "min_price_cents" : 
-                        params?.sort === "price_high" ? "max_price_cents" :
-                        params?.sort === "latest" ? "starts_at" : "starts_at"
-    const ascending = params?.sort === "price_high" || params?.sort === "latest" ? false : true
+    const effectiveSort = params?.sort ?? (lifecycle === "past" ? "latest" : "soonest")
+    const orderColumn = effectiveSort === "price_low" ? "min_price_cents" : 
+                        effectiveSort === "price_high" ? "max_price_cents" :
+                        "starts_at"
+    const ascending = effectiveSort === "price_high" || effectiveSort === "latest" ? false : true
 
     query = query.order(orderColumn, { ascending })
 
