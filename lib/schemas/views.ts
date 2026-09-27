@@ -109,6 +109,9 @@ export const MyTicketsViewSchema = z.object({
   refunded_at: z.string().datetime({ offset: true }).nullable(),
   transferred_from_order_item_id: z.string().uuid().nullable(),
   current_owner_id: z.string().uuid().nullable().optional(),
+  // Canonical final occurrence end used for attendee/event lifecycle.
+  // Optional during rolling deploys while the DB view migration lands.
+  event_ends_at: z.string().datetime({ offset: true }).nullable().optional(),
 })
 
 export type MyTicketsView = z.infer<typeof MyTicketsViewSchema>
