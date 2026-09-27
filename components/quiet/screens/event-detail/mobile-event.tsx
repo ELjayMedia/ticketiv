@@ -46,6 +46,8 @@ export interface MobileEventData {
   recentSoldCount?: number | null;
   recentSoldWindow?: string;
   supportUrl?: string;
+  hasEnded?: boolean;
+  organizerHref?: string;
 }
 
 export function MobileEvent({ event }: MobileEventProps) {
@@ -144,6 +146,18 @@ export function MobileEvent({ event }: MobileEventProps) {
           </Photo>
         </div>
 
+        {event.hasEnded && (
+          <section className="px-5 pt-4">
+            <Card className="border-line-2 p-4" flat>
+              <div className="text-label">PAST EVENT</div>
+              <div className="mt-1 text-[16px] font-semibold">This event has ended</div>
+              <p className="mt-1 text-[13px] text-ink-3">
+                The event page remains available as part of Ticketiv&apos;s event history.
+              </p>
+            </Card>
+          </section>
+        )}
+
         <section className="px-5 pt-4">
           <div className="grid grid-cols-2 gap-3">
             <Card className="p-3" flat>
@@ -223,11 +237,11 @@ export function MobileEvent({ event }: MobileEventProps) {
                   <li key={t.id}>
                     <button
                       type="button"
-                      disabled={soldOut}
-                      onClick={() => !soldOut && setSelectedTypeId(t.id)}
+                      disabled={soldOut || event.hasEnded}
+                      onClick={() => !soldOut && !event.hasEnded && setSelectedTypeId(t.id)}
                       className={
                         "flex w-full items-center gap-3 rounded-[var(--radius-md)] border p-3 text-left transition-colors " +
-                        (soldOut
+                        (soldOut || event.hasEnded
                           ? "cursor-not-allowed border-line bg-surface opacity-50"
                           : selected
                           ? "border-accent bg-accent-soft"
@@ -295,7 +309,17 @@ export function MobileEvent({ event }: MobileEventProps) {
         <div className="h-24" />
       </div>
 
-      {event.fromPriceMinor == null ? (
+      {event.hasEnded ? (
+        <div className="sticky bottom-0 flex items-center gap-3 border-t border-line bg-surface px-5 py-3.5 pb-7">
+          <div className="flex flex-1 flex-col">
+            <span className="text-[13px] font-semibold">This event has ended</span>
+            <span className="font-mono text-[11px] text-ink-3">See what this organiser has coming up next.</span>
+          </div>
+          <Link href={event.organizerHref ?? "/organisers"} className="flex items-center justify-center gap-2 rounded-[var(--radius-md)] bg-ink px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90">
+            Upcoming events <Icon name="arrowR" size={16} />
+          </Link>
+        </div>
+      ) : event.fromPriceMinor == null ? (
         <div className="sticky bottom-0 flex items-center gap-3 border-t border-line bg-surface px-5 py-3.5 pb-7">
           <div className="flex flex-1 flex-col">
             <span className="text-[13px] font-semibold">Tickets not yet on sale</span>
