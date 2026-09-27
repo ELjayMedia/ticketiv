@@ -16,6 +16,7 @@ export const EventsPublicViewSchema = z.object({
   country: z.string().nullable(),
   poster_url: z.string().url().nullable(),
   starts_at: z.string().datetime({ offset: true }),
+  event_ends_at: z.string().datetime({ offset: true }).nullable().optional(),
   venue_id: z.string().uuid().nullable(),
   venue_name: z.string().nullable(),
   venue_address: z.string().nullable(),
