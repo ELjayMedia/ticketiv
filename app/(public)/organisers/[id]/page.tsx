@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { notFound } from "next/navigation"
 
 import { EventCardStandard as EventCard, type EventCardData } from "@/components/standardized/event-card-standard"
@@ -98,7 +99,7 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
                   new Date(a.lifecycle_end_at ?? a.starts_at ?? 0).getTime(),
               )
               .map((event: any) => (
-                <a
+                <Link
                   key={event.id}
                   href={`/events/${event.slug}`}
                   className="flex items-center justify-between gap-4 rounded-[var(--radius-md)] border border-line bg-surface px-4 py-3 transition-colors hover:bg-bg"
@@ -110,7 +111,7 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
                     </div>
                   </div>
                   <span className="text-[12px] font-semibold text-ink-3">View →</span>
-                </a>
+                </Link>
               ))}
           </div>
         </section>
