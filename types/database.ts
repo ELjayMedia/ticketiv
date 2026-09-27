@@ -7511,6 +7511,7 @@ export type Database = {
           city: string | null
           country: string | null
           currency: string | null
+          event_ends_at: string | null
           featured_priority: number | null
           id: string | null
           max_price_cents: number | null
@@ -8725,6 +8726,7 @@ export type Database = {
         Args: {
           p_category?: string
           p_city?: string
+          p_lifecycle?: string
           p_limit?: number
           p_max_price_cents?: number
           p_offset?: number
@@ -9149,7 +9151,7 @@ export type Database = {
         | "organizer_kiosk"
         | "scanner_unassigned"
       event_format: "single_day" | "multi_day"
-      event_status: "draft" | "published" | "archived" | "paused"
+      event_status: "draft" | "published" | "archived" | "paused" | "cancelled"
       fee_payer: "buyer" | "organizer"
       order_item_status:
         | "pending"
@@ -9366,7 +9368,7 @@ export const Constants = {
         "scanner_unassigned",
       ],
       event_format: ["single_day", "multi_day"],
-      event_status: ["draft", "published", "archived", "paused"],
+      event_status: ["draft", "published", "archived", "paused", "cancelled"],
       fee_payer: ["buyer", "organizer"],
       order_item_status: [
         "pending",
