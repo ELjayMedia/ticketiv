@@ -96,12 +96,16 @@ export function DesktopEvent({ event }: DesktopEventProps) {
 
       <div className="grid grid-cols-[1fr_380px] items-start gap-8 pt-8 pb-12">
         <div className="flex flex-col gap-7">
-          {event.hasEnded && (
+          {(event.hasEnded || event.isCancelled) && (
             <Card className="border-line-2 p-5" flat>
-              <div className="text-label">PAST EVENT</div>
-              <div className="mt-1 text-[18px] font-semibold">This event has ended</div>
+              <div className="text-label">{event.isCancelled ? "CANCELLED EVENT" : "PAST EVENT"}</div>
+              <div className="mt-1 text-[18px] font-semibold">
+                {event.isCancelled ? "This event was cancelled" : "This event has ended"}
+              </div>
               <p className="mt-1 text-[13px] text-ink-3">
-                This page remains available as a record of the event.
+                {event.isCancelled
+                  ? "Ticket sales are closed. This page remains available for the event record and organiser updates."
+                  : "This page remains available as a record of the event."}
               </p>
             </Card>
           )}
@@ -252,10 +256,12 @@ export function DesktopEvent({ event }: DesktopEventProps) {
         </div>
 
         <aside className="sticky top-6 self-start">
-          {event.hasEnded ? (
+          {(event.hasEnded || event.isCancelled) ? (
             <Card className="p-5">
-              <div className="text-label">PAST EVENT</div>
-              <div className="mt-2 text-[18px] font-semibold">Ticket sales have ended</div>
+              <div className="text-label">{event.isCancelled ? "CANCELLED EVENT" : "PAST EVENT"}</div>
+              <div className="mt-2 text-[18px] font-semibold">
+                {event.isCancelled ? "This event was cancelled" : "Ticket sales have ended"}
+              </div>
               <div className="mt-1 font-mono text-[11px] text-ink-3">
                 Browse upcoming events from this organiser instead.
               </div>
@@ -295,8 +301,8 @@ export function DesktopEvent({ event }: DesktopEventProps) {
                     <li key={t.id}>
                       <button
                         type="button"
-                        disabled={soldOut || event.hasEnded}
-                        onClick={() => !soldOut && !event.hasEnded && setSelectedTypeId(t.id)}
+                        disabled={soldOut || (event.hasEnded || event.isCancelled)}
+                        onClick={() => !soldOut && !(event.hasEnded || event.isCancelled) && setSelectedTypeId(t.id)}
                         className={
                           "flex w-full items-center gap-3 rounded-[var(--radius-md)] border p-3 text-left transition-colors " +
                           (soldOut
