@@ -36,6 +36,7 @@ const WHEN_LABEL: Record<string, string> = {
   weekend: "This weekend",
   week: "This week",
   month: "This month",
+  past: "Past events",
 }
 
 export function mapSearch(
@@ -78,6 +79,7 @@ export function mapSearch(
       organizerName: r.organizer_name ?? null,
       organizerVerified: Boolean(r.organizer_logo_url),
       soldLabel: formatSoldCount(r.tickets_sold),
+      isPast: filters.lifecycle === "past",
     }
   })
 
