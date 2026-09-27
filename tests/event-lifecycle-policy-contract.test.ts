@@ -11,10 +11,10 @@ describe("TICK-410 event lifecycle policy contract", () => {
     const discoverRoute = read("app/api/discover/events/route.ts");
     const search = read("lib/data/public/search.ts");
 
-    expect(adapter).toContain('lifecycle?: "current" | "past" | "all"');
+    expect(adapter).toContain("lifecycle?: DiscoveryLifecycle");
     expect(adapter).toContain('const lifecycle = params?.lifecycle ?? "current"');
     expect(adapter).toContain('query = query.lt("event_ends_at", lifecycleCutoff)');
-    expect(discoverRoute).toContain('searchParams.get("past") === "1" ? "past" : "current"');
+    expect(discoverRoute).toContain('searchParams.get("past") === "1" || when === "past"');
     expect(search).toContain('p_lifecycle: filters.lifecycle ?? "current"');
   });
 
@@ -43,7 +43,8 @@ describe("TICK-410 event lifecycle policy contract", () => {
     expect(filters).toContain('{ value: "past", label: "Past" }');
     expect(filters).toContain('{ value: "draft", label: "Draft" }');
     expect(organizerPage).toContain('from("event_dates")');
-    expect(organizerPage).toContain('statusFilter === "past"');
+    expect(organizerPage).toContain("resolveOrganizerEventLifecycle");
+    expect(organizerPage).toContain("lifecycleMap.get(event.id) === statusFilter");
   });
 
   it("models cancellation separately from publishing status", () => {
