@@ -2,6 +2,10 @@
 
 import "server-only"
 import { createPublicSupabaseClient } from "@/lib/supabase-public"
+import {
+  discoveryEventEndCutoffIso,
+  type DiscoveryLifecycle,
+} from "@/lib/events/discovery-window"
 
 export interface SearchFilters {
   q?: string
@@ -11,6 +15,7 @@ export interface SearchFilters {
   startsBefore?: string // ISO
   maxPriceCents?: number
   onlyFree?: boolean
+  lifecycle?: DiscoveryLifecycle
   limit?: number
   offset?: number
 }
@@ -56,6 +61,7 @@ export async function searchEvents(filters: SearchFilters): Promise<SearchResult
     p_only_free: filters.onlyFree ?? false,
     p_limit: filters.limit ?? 30,
     p_offset: filters.offset ?? 0,
+    p_lifecycle: filters.lifecycle ?? "current",
   })
 
   if (error) {
@@ -90,6 +96,7 @@ export async function getPublicSearchFacets(): Promise<SearchFacets> {
   const { data, error } = await supabase
     .from("v_public_event_cards")
     .select("category, city")
+    .gte("event_ends_at", discoveryEventEndCutoffIso())
     .limit(500)
 
   if (error || !data) {
@@ -111,7 +118,7 @@ export async function getPublicSearchFacets(): Promise<SearchFacets> {
 }
 
 /** Date-range presets accepted via `?when=` on the search route. */
-export type WhenPreset = "today" | "tonight" | "weekend" | "week" | "month"
+export type WhenPreset = "today" | "tonight" | "weekend" | "week" | "month" | "past"
 
 /**
  * Resolve a `when` preset into an ISO `startsAfter` / `startsBefore` pair.
@@ -149,6 +156,8 @@ export function resolveWhenPreset(
     case "month":
       end.setMonth(end.getMonth() + 1)
       break
+    case "past":
+      return { startsAfter: null, startsBefore: null }
     default:
       return { startsAfter: null, startsBefore: null }
   }
