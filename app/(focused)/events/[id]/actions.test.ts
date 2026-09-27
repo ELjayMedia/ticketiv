@@ -50,6 +50,7 @@ describe("createSeatHoldAction", () => {
     mocks.getPublicEventBySlug.mockResolvedValue({
       id: eventId,
       starts_at: "2026-09-28T18:00:00.000Z",
+      status: "published",
     })
     mocks.ensureCheckoutIdentity.mockResolvedValue({
       userId: "buyer-1",
@@ -112,6 +113,7 @@ describe("createSeatHoldAction", () => {
     mocks.getPublicEventBySlug.mockResolvedValue({
       id: eventId,
       starts_at: "2026-09-27T18:00:00.000Z",
+      status: "published",
     })
 
     const rpc = vi.fn()
@@ -136,6 +138,30 @@ describe("createSeatHoldAction", () => {
 
     expect(rpc).not.toHaveBeenCalled()
     vi.useRealTimers()
+  })
+
+  it("blocks cancelled events before attempting a hold", async () => {
+    mocks.getPublicEventBySlug.mockResolvedValue({
+      id: eventId,
+      starts_at: "2026-09-28T18:00:00.000Z",
+      status: "cancelled",
+    })
+
+    const rpc = vi.fn()
+    const from = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    })
+    mocks.createServerSupabaseClient.mockReturnValue({ rpc, from })
+
+    await expect(createSeatHoldAction(formData())).rejects.toThrow(
+      "NEXT_REDIRECT:/events/launch-night?cancelled=1",
+    )
+
+    expect(rpc).not.toHaveBeenCalled()
   })
 
   it("keeps RPC failures on the event-specific checkout error state", async () => {
