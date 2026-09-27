@@ -17,7 +17,7 @@ export interface EventCardData {
   description: string | null
   starts_at: string | null
   status: string
-  lifecycle: "active" | "upcoming" | "past" | "draft" | "archived" | "paused"
+  lifecycle: "active" | "upcoming" | "past" | "cancelled" | "draft" | "archived" | "paused"
   lifecycle_end_at: string | null
   cover_image_url: string | null
   stats: { tickets_sold: number; gross_sales_cents: number; checked_in_count: number; refunds_cents: number }
