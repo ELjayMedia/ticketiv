@@ -7,7 +7,9 @@ import { Chip } from "@/components/quiet/ui/chip"
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All" },
-  { value: "published", label: "Published" },
+  { value: "active", label: "Active" },
+  { value: "upcoming", label: "Upcoming" },
+  { value: "past", label: "Past" },
   { value: "draft", label: "Draft" },
   { value: "archived", label: "Archived" },
   { value: "paused", label: "Paused" },
@@ -64,7 +66,7 @@ export function EventsFilterBar({ currentQ, currentStatus }: EventsFilterBarProp
         />
       </div>
 
-      {/* Status filter chips */}
+      {/* Lifecycle/status filter chips */}
       <div className="flex flex-wrap gap-1.5">
         {STATUS_OPTIONS.map((opt) => (
           <Chip
