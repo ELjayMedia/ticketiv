@@ -18,6 +18,17 @@ export const dynamic = "force-dynamic"
 const STATUS_OPTIONS = ["all", "active", "upcoming", "past", "cancelled", "draft", "paused", "archived"] as const
 type StatusFilter = (typeof STATUS_OPTIONS)[number]
 
+type OrganizerEventRow = {
+  id: string
+  title: string
+  description: string | null
+  starts_at: string | null
+  ends_at: string | null
+  status: string
+  cover_image_url: string | null
+  cancelled_at: string | null
+}
+
 export default async function OrgEventsPage({
   params,
   searchParams,
@@ -53,7 +64,7 @@ export default async function OrgEventsPage({
     query = query.ilike("title", `%${searchQuery}%`)
   }
   const { data: eventsData = [] } = await query
-  const allEvents = eventsData ?? []
+  const allEvents = (eventsData ?? []) as OrganizerEventRow[]
 
   const statsMap = new Map<
     string,
