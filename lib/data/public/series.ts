@@ -8,6 +8,7 @@ export type SeriesDetailEvent = {
   title: string
   starts_at: string | null
   ends_at: string | null
+  lifecycle_end_at: string | null
   status: string
   cover_image_url: string | null
   city: string | null
@@ -41,6 +42,7 @@ type RawEvent = {
   cover_image_url: string | null
   city: string | null
   event_format: "single_day" | "multi_day" | null
+  event_dates: Array<{ starts_at: string | null; ends_at: string | null }> | null
   venue: { id: string; name: string; slug: string | null; city: string | null } | null
   ticket_types: Array<{ price_cents: number | null; currency: string | null }> | null
 }
@@ -56,6 +58,7 @@ export async function getSeriesBySlug(slug: string): Promise<SeriesDetailData | 
       organization:organizations(id, name, slug, logo),
       events(
         id, slug, title, starts_at, ends_at, status, cover_image_url, city, event_format,
+        event_dates(starts_at, ends_at),
         venue:venues(id, name, slug, city),
         ticket_types(price_cents, currency)
       )
@@ -80,18 +83,26 @@ export async function getSeriesBySlug(slug: string): Promise<SeriesDetailData | 
   }
 
   const raw = data as unknown as RawSeries
-  const rawEvents = (raw.events ?? []).filter((e) => e.status === "published")
+  const rawEvents = (raw.events ?? []).filter(
+    (e) => e.status === "published" || e.status === "cancelled",
+  )
 
   const events: SeriesDetailEvent[] = rawEvents.map((e) => {
     const priced = (e.ticket_types ?? []).filter((t) => typeof t.price_cents === "number")
     const minPrice = priced.length > 0 ? Math.min(...priced.map((t) => t.price_cents as number)) : null
     const currency = (e.ticket_types ?? []).find((t) => t.currency)?.currency ?? "SZL"
+    const finalOccurrence = (e.event_dates ?? [])
+      .map((date) => date.ends_at ?? date.starts_at)
+      .filter((value): value is string => Boolean(value))
+      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null
+
     return {
       id: e.id,
       slug: e.slug,
       title: e.title,
       starts_at: e.starts_at,
       ends_at: e.ends_at,
+      lifecycle_end_at: finalOccurrence ?? e.ends_at ?? e.starts_at,
       status: e.status,
       cover_image_url: e.cover_image_url,
       city: e.city,
