@@ -6,6 +6,7 @@ import { Chip } from "@/components/quiet/ui/chip"
 import { Photo } from "@/components/quiet/ui/primitives"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import type { ArtistRecord } from "@/types"
+import { resolveEventLifecycle } from "@/lib/events/lifecycle"
 
 interface ArtistPageProps {
   params: Promise<{ id: string }>
@@ -19,6 +20,7 @@ interface TourDateEvent {
   venue_name?: string
   city?: string
   display_order?: number
+  lifecycle: "upcoming" | "live" | "ended" | "cancelled"
 }
 
 export default async function ArtistPage({ params }: ArtistPageProps) {
@@ -50,14 +52,14 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
       .select(`
         display_order,
         events:events (
-          id, title, slug,
-          event_dates(starts_at),
+          id, title, slug, starts_at, ends_at, status,
+          event_dates(starts_at, ends_at),
           venues:venue_id(name)
         )
       `)
       .eq("artist_id", id)
       .eq("events.visibility", "public")
-      .eq("events.status", "published")
+      .in("events.status", ["published", "cancelled"])
 
     if (eventRelations && eventRelations.length > 0) {
       tourDates = eventRelations
@@ -65,16 +67,42 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
           const event = relation.events
           if (!event) return null
 
-          const eventDate = event.event_dates?.[0]?.starts_at
+          const nowMs = Date.now()
+          const dates = (event.event_dates ?? [])
+            .filter((date: any) => date?.starts_at)
+            .slice()
+            .sort(
+              (a: any, b: any) =>
+                new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime(),
+            )
+          const nextDate = dates.find(
+            (date: any) => new Date(date.starts_at).getTime() >= nowMs,
+          )
+          const finalDate = dates
+            .slice()
+            .sort(
+              (a: any, b: any) =>
+                new Date(b.ends_at ?? b.starts_at).getTime() -
+                new Date(a.ends_at ?? a.starts_at).getTime(),
+            )[0]
+          const lifecycleEnd =
+            finalDate?.ends_at ?? finalDate?.starts_at ?? event.ends_at ?? event.starts_at ?? null
+          const lifecycle = resolveEventLifecycle({
+            eventStartsAt: event.starts_at,
+            eventEndsAt: lifecycleEnd,
+            eventStatus: event.status,
+            nowMs,
+          })
 
           return {
             id: event.id,
             title: event.title,
             slug: event.slug,
-            starts_at: eventDate || "",
+            starts_at: nextDate?.starts_at ?? event.starts_at ?? finalDate?.starts_at ?? "",
             venue_name: event.venues?.name,
             city: undefined,
             display_order: relation.display_order || 2,
+            lifecycle,
           }
         })
         .filter(Boolean) as TourDateEvent[]
@@ -91,6 +119,13 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
       })
     }
   }
+
+  const currentDates = tourDates.filter(
+    (event) => event.lifecycle === "upcoming" || event.lifecycle === "live",
+  )
+  const historicalDates = tourDates
+    .filter((event) => event.lifecycle === "ended" || event.lifecycle === "cancelled")
+    .reverse()
 
   return (
     <main className="mx-auto flex w-full max-w-[1200px] flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
@@ -126,7 +161,7 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
       <section className="flex flex-col gap-6">
         <h2 className="text-h2">Tour dates</h2>
 
-        {tourDates.length === 0 ? (
+        {currentDates.length === 0 ? (
           <Card flat className="border-dashed">
             <div className="px-6 py-10 text-center">
               <p className="text-[13px] text-ink-3">
@@ -136,7 +171,7 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
           </Card>
         ) : (
           <div className="flex flex-col gap-3">
-            {tourDates.map((date) => {
+            {currentDates.map((date) => {
               const eventDate = new Date(date.starts_at)
               const isHeadlining = date.display_order === 1
 
@@ -182,6 +217,29 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
           </div>
         )}
       </section>
+
+      {historicalDates.length > 0 && (
+        <section className="flex flex-col gap-4">
+          <h2 className="text-h2">Past appearances</h2>
+          <div className="flex flex-col gap-2">
+            {historicalDates.map((date) => (
+              <Link key={date.id} href={`/events/${date.slug}`} className="block">
+                <Card className="transition-colors hover:bg-bg">
+                  <div className="flex items-center justify-between gap-4 p-4">
+                    <div className="min-w-0">
+                      <h3 className="truncate text-[14px] font-semibold text-ink">{date.title}</h3>
+                      <div className="mt-1 font-mono text-[11px] uppercase text-ink-3">
+                        {date.lifecycle === "cancelled" ? "Cancelled" : "Past event"}
+                      </div>
+                    </div>
+                    <span className="text-[12px] font-semibold text-ink-3">View →</span>
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="flex flex-wrap gap-4 border-t border-line pt-6">
         {(artist as any).website_url && (
