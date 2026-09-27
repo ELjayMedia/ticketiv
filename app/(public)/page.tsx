@@ -28,7 +28,6 @@ export default async function DiscoverPage() {
   const rows = await getPublicEventsList({
     limit: 36,
     sort: "soonest",
-    startsAfter: new Date().toISOString(),
   });
   const events = rows.map(mapDiscoverEvent);
   const { tonight, thisWeek, editorPick } = partitionDiscover(events);
