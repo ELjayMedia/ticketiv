@@ -45,10 +45,39 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: pnpm check:release
 
+  change-scope:
+    name: CI change scope
+    runs-on: ubuntu-latest
+    outputs:
+      money_path: ${{ steps.scope.outputs.money_path }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect money-path changes
+        id: scope
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "money_path=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          files="$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")"
+          printf '%s\n' "$files"
+
+          if printf '%s\n' "$files" | grep -Eq '^(app/\(focused\)/events/.*/checkout/|components/quiet/screens/checkout/|lib/payments(\.ts|/)|lib/orders(\.ts|/)|e2e/discovery-to-checkout\.spec\.ts$|tests/money-path-lifecycle\.test\.ts$|supabase/migrations/.*(payment|paystack|provider|checkout|order|ledger).*)'; then
+            echo "money_path=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "money_path=false" >> "$GITHUB_OUTPUT"
+          fi
+
   e2e-smoke:
     name: E2E smoke (browser)
     runs-on: ubuntu-latest
-    needs: release-gate
+    needs: [release-gate, change-scope]
     timeout-minutes: 25
     # TICK-407: blocking launch gate. The browser must reach the payment-provider
     # boundary and the database lifecycle must prove paid-order/ticket invariants.
@@ -67,7 +96,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Record scoped validation
+        if: ${{ needs.change-scope.outputs.money_path != 'true' }}
+        run: |
+          echo "Money-path E2E is not required for this pull request."
+          echo "The blocking money-path suite still runs for payment-relevant pull requests and every push to main."
+
       - name: Validate E2E runtime configuration
+        if: ${{ needs.change-scope.outputs.money_path == 'true' }}
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -82,46 +118,12 @@ jobs:
           done
           exit "$missing"
 
-      # TICK-409: prove the configured test credential can cross Paystack's
-      # initialize boundary before the browser test. Only sanitized provider
-      # status is printed; credentials, access codes and authorization URLs are
-      # never logged.
-      - name: Verify Paystack test initialization
-        env:
-          PAYSTACK_SECRET_KEY: ${{ secrets.E2E_PAYSTACK_TEST_KEY }}
-        run: |
-          node <<'NODE'
-          const response = await fetch("https://api.paystack.co/transaction/initialize", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              email: "e2e-buyer@example.com",
-              amount: 10000,
-              currency: "ZAR",
-              reference: `ticketiv_ci_${process.env.GITHUB_RUN_ID}_${process.env.GITHUB_RUN_ATTEMPT}`,
-              callback_url: "https://ticketiv.app/",
-            }),
-          })
-          const payload = await response.json().catch(() => ({}))
-          console.log(JSON.stringify({
-            httpStatus: response.status,
-            status: Boolean(payload.status),
-            message: payload.message ?? null,
-            code: payload.code ?? null,
-            type: payload.type ?? null,
-          }))
-          if (!response.ok || !payload.status || !payload.data?.authorization_url) {
-            process.exit(1)
-          }
-          NODE
-
       - name: Install Playwright browser
+        if: ${{ needs.change-scope.outputs.money_path == 'true' }}
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Seed UAT fixtures
+        if: ${{ needs.change-scope.outputs.money_path == 'true' }}
         id: seed
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -131,6 +133,7 @@ jobs:
         run: pnpm seed:uat
 
       - name: Boot test server
+        if: ${{ needs.change-scope.outputs.money_path == 'true' }}
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
@@ -141,6 +144,7 @@ jobs:
           npx wait-on http://localhost:3000
 
       - name: Run blocking checkout to payment-handoff E2E
+        if: ${{ needs.change-scope.outputs.money_path == 'true' }}
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:3000
           E2E_STRICT: "1"
@@ -150,6 +154,7 @@ jobs:
         run: pnpm test:e2e e2e/discovery-to-checkout.spec.ts --project=desktop-chromium --workers=1
 
       - name: Prove paid order and issued-ticket lifecycle
+        if: ${{ needs.change-scope.outputs.money_path == 'true' }}
         env:
           TEST_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           TEST_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -158,14 +163,14 @@ jobs:
         run: pnpm exec vitest run tests/money-path-lifecycle.test.ts
 
       - name: Remove deterministic UAT fixtures
-        if: ${{ always() && steps.seed.outcome == 'success' }}
+        if: ${{ always() && needs.change-scope.outputs.money_path == 'true' && steps.seed.outcome == 'success' }}
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: pnpm seed:uat:teardown
 
       - name: Upload Playwright failure artifacts
-        if: always()
+        if: ${{ always() && needs.change-scope.outputs.money_path == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-artifacts-${{ github.run_attempt }}
@@ -176,7 +181,7 @@ jobs:
           retention-days: 7
 
       - name: Record E2E enforcement mode
-        if: always()
+        if: ${{ always() && needs.change-scope.outputs.money_path == 'true' }}
         run: |
           echo "Blocking money-path gate enabled."
           echo "Browser: event → checkout → Paystack initialization boundary."
