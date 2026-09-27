@@ -41,7 +41,7 @@ export async function createSeatHoldAction(formData: FormData) {
     .from("event_dates")
     .select("starts_at, ends_at")
     .eq("event_id", event.id)
-    .order("ends_at", { ascending: false, nullsFirst: false })
+    .order("starts_at", { ascending: false, nullsFirst: false })
     .limit(1)
     .maybeSingle()
 
