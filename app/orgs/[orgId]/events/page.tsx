@@ -8,11 +8,14 @@ import { Icon } from "@/components/quiet/ui/icon"
 import { EmptyState } from "@/components/quiet/ui/empty-state"
 import { EventsFilterBar } from "./events-filter-bar"
 import { EventsGrid } from "./_components/events-grid"
-import { deriveEventLifecycle, type EventLifecycleState } from "@/lib/events/lifecycle"
+import {
+  resolveOrganizerEventLifecycle,
+  type OrganizerEventLifecycle,
+} from "@/lib/events/organizer-lifecycle"
 
 export const dynamic = "force-dynamic"
 
-const STATUS_OPTIONS = ["all", "active", "upcoming", "past", "draft"] as const
+const STATUS_OPTIONS = ["all", "active", "upcoming", "past", "cancelled", "draft", "paused", "archived"] as const
 type StatusFilter = (typeof STATUS_OPTIONS)[number]
 
 export default async function OrgEventsPage({
@@ -54,11 +57,11 @@ export default async function OrgEventsPage({
 
   const statsMap = new Map<
     string,
-    { tickets_sold: number; gross_sales_cents: number; checked_in_count: number }
+    { tickets_sold: number; gross_sales_cents: number; checked_in_count: number; refunds_cents: number }
   >()
   const capacityMap = new Map<string, number>()
   const finalOccurrenceMap = new Map<string, { starts_at: string; ends_at: string }>()
-  const lifecycleMap = new Map<string, EventLifecycleState>()
+  const lifecycleMap = new Map<string, OrganizerEventLifecycle>()
 
   const OWNER_ROLES = new Set(["organizer_owner", "organizer_admin", "admin"])
   let canDelete = false
@@ -81,7 +84,7 @@ export default async function OrgEventsPage({
 
   if (allEvents.length > 0) {
     const eventIds = allEvents.map((e) => e.id)
-    const [liveStatsResult, ttResult, datesResult] = await Promise.all([
+    const [liveStatsResult, ttResult, datesResult, refundLedgerResult] = await Promise.all([
       supabase
         .from("event_live_stats")
         .select("event_id, tickets_sold, gross_sales_cents, checked_in_count")
@@ -94,13 +97,31 @@ export default async function OrgEventsPage({
         .from("event_dates")
         .select("event_id, starts_at, ends_at")
         .in("event_id", eventIds),
+      supabase
+        .from("ledger_entries")
+        .select("event_id, amount_cents, refund_id")
+        .eq("org_id", orgId)
+        .in("event_id", eventIds)
+        .not("refund_id", "is", null),
     ])
     for (const s of liveStatsResult.data ?? []) {
       statsMap.set(s.event_id, {
         tickets_sold: s.tickets_sold ?? 0,
         gross_sales_cents: s.gross_sales_cents ?? 0,
         checked_in_count: s.checked_in_count ?? 0,
+        refunds_cents: 0,
       })
+    }
+    for (const refund of refundLedgerResult.data ?? []) {
+      if (!refund.event_id) continue
+      const current = statsMap.get(refund.event_id) ?? {
+        tickets_sold: 0,
+        gross_sales_cents: 0,
+        checked_in_count: 0,
+        refunds_cents: 0,
+      }
+      current.refunds_cents += Math.abs(refund.amount_cents ?? 0)
+      statsMap.set(refund.event_id, current)
     }
     for (const tt of ttResult.data ?? []) {
       capacityMap.set(tt.event_id, (capacityMap.get(tt.event_id) ?? 0) + (tt.quota ?? 0))
@@ -118,22 +139,20 @@ export default async function OrgEventsPage({
 
   for (const event of allEvents) {
     const finalOccurrence = finalOccurrenceMap.get(event.id)
-    lifecycleMap.set(event.id, deriveEventLifecycle({
-      status: event.cancelled_at ? "cancelled" : event.status,
-      eventStartsAt: finalOccurrence?.starts_at ?? event.starts_at,
-      eventEndsAt: finalOccurrence?.ends_at ?? event.ends_at ?? event.starts_at,
-    }))
+    lifecycleMap.set(event.id, resolveOrganizerEventLifecycle(
+      {
+        status: event.status,
+        starts_at: event.starts_at,
+        ends_at: event.ends_at,
+        cancelled_at: event.cancelled_at,
+      },
+      finalOccurrence?.ends_at ?? finalOccurrence?.starts_at ?? null,
+    ))
   }
 
-  const events = allEvents.filter((event) => {
-    if (statusFilter === "all") return true
-    if (statusFilter === "draft") return event.status === "draft"
-    const lifecycle = lifecycleMap.get(event.id)
-    if (statusFilter === "active") return event.status === "published" && lifecycle === "live"
-    if (statusFilter === "upcoming") return event.status === "published" && lifecycle === "upcoming"
-    if (statusFilter === "past") return lifecycle === "ended"
-    return true
-  })
+  const events = allEvents.filter((event) =>
+    statusFilter === "all" ? true : lifecycleMap.get(event.id) === statusFilter,
+  )
 
   return (
     <main className="flex-1 overflow-auto">
@@ -199,12 +218,13 @@ export default async function OrgEventsPage({
               description: event.description ?? null,
               starts_at: event.starts_at ?? null,
               status: event.status,
-              lifecycle: lifecycleMap.get(event.id) ?? "live",
+              lifecycle: lifecycleMap.get(event.id) ?? "active",
               cover_image_url: event.cover_image_url ?? null,
               stats: statsMap.get(event.id) ?? {
                 tickets_sold: 0,
                 gross_sales_cents: 0,
                 checked_in_count: 0,
+                refunds_cents: 0,
               },
               capacity: capacityMap.get(event.id) ?? 0,
             }))}
