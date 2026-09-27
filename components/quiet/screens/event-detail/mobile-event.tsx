@@ -47,6 +47,8 @@ export interface MobileEventData {
   recentSoldWindow?: string;
   supportUrl?: string;
   hasEnded?: boolean;
+  isCancelled?: boolean;
+  lifecycle?: "upcoming" | "live" | "ended" | "cancelled";
   organizerHref?: string;
 }
 
@@ -146,13 +148,17 @@ export function MobileEvent({ event }: MobileEventProps) {
           </Photo>
         </div>
 
-        {event.hasEnded && (
+        {(event.hasEnded || event.isCancelled) && (
           <section className="px-5 pt-4">
             <Card className="border-line-2 p-4" flat>
-              <div className="text-label">PAST EVENT</div>
-              <div className="mt-1 text-[16px] font-semibold">This event has ended</div>
+              <div className="text-label">{event.isCancelled ? "CANCELLED EVENT" : "PAST EVENT"}</div>
+              <div className="mt-1 text-[16px] font-semibold">
+                {event.isCancelled ? "This event was cancelled" : "This event has ended"}
+              </div>
               <p className="mt-1 text-[13px] text-ink-3">
-                The event page remains available as part of Ticketiv&apos;s event history.
+                {event.isCancelled
+                  ? "Ticket sales are closed. Keep this page for the event record and any organiser updates."
+                  : "The event page remains available as part of Ticketiv's event history."}
               </p>
             </Card>
           </section>
@@ -237,11 +243,11 @@ export function MobileEvent({ event }: MobileEventProps) {
                   <li key={t.id}>
                     <button
                       type="button"
-                      disabled={soldOut || event.hasEnded}
-                      onClick={() => !soldOut && !event.hasEnded && setSelectedTypeId(t.id)}
+                      disabled={soldOut || (event.hasEnded || event.isCancelled)}
+                      onClick={() => !soldOut && !(event.hasEnded || event.isCancelled) && setSelectedTypeId(t.id)}
                       className={
                         "flex w-full items-center gap-3 rounded-[var(--radius-md)] border p-3 text-left transition-colors " +
-                        (soldOut || event.hasEnded
+                        (soldOut || (event.hasEnded || event.isCancelled)
                           ? "cursor-not-allowed border-line bg-surface opacity-50"
                           : selected
                           ? "border-accent bg-accent-soft"
@@ -309,10 +315,12 @@ export function MobileEvent({ event }: MobileEventProps) {
         <div className="h-24" />
       </div>
 
-      {event.hasEnded ? (
+      {(event.hasEnded || event.isCancelled) ? (
         <div className="sticky bottom-0 flex items-center gap-3 border-t border-line bg-surface px-5 py-3.5 pb-7">
           <div className="flex flex-1 flex-col">
-            <span className="text-[13px] font-semibold">This event has ended</span>
+            <span className="text-[13px] font-semibold">
+              {event.isCancelled ? "This event was cancelled" : "This event has ended"}
+            </span>
             <span className="font-mono text-[11px] text-ink-3">See what this organiser has coming up next.</span>
           </div>
           <Link href={event.organizerHref ?? "/organisers"} className="flex items-center justify-center gap-2 rounded-[var(--radius-md)] bg-ink px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90">
