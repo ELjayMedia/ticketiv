@@ -9,6 +9,7 @@ import { formatSeriesDateRange } from "@/lib/series/date-range"
 import { SeriesEventRow } from "@/components/series/series-event-row"
 import { PastEventsAccordion } from "@/components/series/past-events-accordion"
 import { SeriesFollowButton } from "@/components/series/series-follow-button"
+import { resolveEventLifecycle } from "@/lib/events/lifecycle"
 
 export const dynamic = "force-dynamic"
 
@@ -30,8 +31,13 @@ function partitionEvents(events: SeriesDetailEvent[]): {
   const upcoming: SeriesDetailEvent[] = []
   const past: SeriesDetailEvent[] = []
   for (const e of events) {
-    const t = e.starts_at ? new Date(e.starts_at).getTime() : Infinity
-    if (t >= now) upcoming.push(e)
+    const lifecycle = resolveEventLifecycle({
+      eventStartsAt: e.starts_at,
+      eventEndsAt: e.lifecycle_end_at ?? e.ends_at,
+      eventStatus: e.status,
+      nowMs: now,
+    })
+    if (lifecycle === "upcoming" || lifecycle === "live") upcoming.push(e)
     else past.push(e)
   }
   past.reverse()
@@ -238,6 +244,7 @@ function SeasonSection({
 }) {
   const dateRange = formatSeriesDateRange(startsOn, endsOn)
   const all = [...past.slice().reverse(), ...upcoming]
+  const pastIds = new Set(past.map((event) => event.id))
 
   return (
     <section aria-labelledby="season-schedule-heading" className="flex flex-col gap-6">
@@ -249,11 +256,9 @@ function SeasonSection({
         <EmptyTile>Next dates coming soon — follow this series for updates</EmptyTile>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {all.map((event) => {
-            const isPast =
-              event.starts_at != null && new Date(event.starts_at).getTime() < Date.now()
-            return <SeriesEventRow key={event.id} event={event} past={isPast} />
-          })}
+          {all.map((event) => (
+            <SeriesEventRow key={event.id} event={event} past={pastIds.has(event.id)} />
+          ))}
         </div>
       )}
     </section>
