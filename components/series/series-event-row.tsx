@@ -26,12 +26,14 @@ function formatDate(event: SeriesDetailEvent): string {
 }
 
 export function SeriesEventRow({ event, past = false }: SeriesEventRowProps) {
+  const cancelled = event.status === "cancelled"
+  const historical = past || cancelled
   const venueLine = event.venue?.name && event.venue.city
     ? `${event.venue.name}, ${event.venue.city}`
     : event.venue?.name ?? event.city ?? "Location TBA"
 
   return (
-    <Card className={cn(past ? "opacity-60" : "transition-colors hover:border-line-2")}>
+    <Card className={cn(historical ? "opacity-60" : "transition-colors hover:border-line-2")}>
       <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-3">
@@ -43,15 +45,15 @@ export function SeriesEventRow({ event, past = false }: SeriesEventRowProps) {
             <Icon name="pin" size={12} />
             <span className="line-clamp-1">{venueLine}</span>
           </div>
-          {event.min_price_cents != null && !past && (
+          {event.min_price_cents != null && !historical && (
             <p className="text-[13px] font-semibold text-ink">
               From {formatCurrency(event.min_price_cents, event.currency)}
             </p>
           )}
         </div>
-        {past ? (
+        {historical ? (
           <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-ink-3">
-            Past event
+            {cancelled ? "Cancelled" : "Past event"}
           </span>
         ) : (
           <Link
