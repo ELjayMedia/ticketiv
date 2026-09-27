@@ -15,8 +15,11 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
   if (!organizer) notFound()
 
   const events = await getOrganiserEvents(id)
+  const currentEvents = events.filter((event: any) => event.lifecycle === "upcoming" || event.lifecycle === "live")
+  const pastEvents = events.filter((event: any) => event.lifecycle === "ended")
+  const cancelledEvents = events.filter((event: any) => event.lifecycle === "cancelled")
 
-  const organizerEvents: EventCardData[] = events.map((event: any) => ({
+  const mapEvent = (event: any): EventCardData => ({
     id: event.id,
     slug: event.slug,
     title: event.title,
@@ -32,7 +35,11 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
     organizer_logo_url: (organizer as any).logo ?? null,
     tickets_remaining: event.tickets_remaining,
     tickets_sold: event.tickets_sold ?? null,
-  }))
+  })
+
+  const organizerEvents = currentEvents.map(mapEvent)
+  const organizerPastEvents = pastEvents.map(mapEvent)
+  const organizerCancelledEvents = cancelledEvents.map(mapEvent)
 
   return (
     <main className="mx-auto flex w-full max-w-[1200px] flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
@@ -60,13 +67,13 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
 
       <section className="flex flex-col gap-4">
         <h2 className="text-h2">
-          {organizerEvents.length > 0 ? "Events by this organiser" : "No events yet"}
+          {organizerEvents.length > 0 ? "Upcoming events" : "No upcoming events"}
         </h2>
         {organizerEvents.length === 0 ? (
           <Card flat className="border-dashed">
             <div className="px-6 py-10 text-center">
               <p className="text-[13px] text-ink-3">
-                No events published yet. Check back soon for announcements.
+                No upcoming events at the moment. Past events remain available below.
               </p>
             </div>
           </Card>
@@ -78,6 +85,34 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
           </div>
         )}
       </section>
+
+      {organizerPastEvents.length > 0 && (
+        <section className="flex flex-col gap-4 border-t border-line pt-6">
+          <div>
+            <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">History</p>
+            <h2 className="text-h2">Past events</h2>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {organizerPastEvents.map((event) => (
+              <EventCard key={event.id} event={event} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {organizerCancelledEvents.length > 0 && (
+        <section className="flex flex-col gap-4 border-t border-line pt-6">
+          <div>
+            <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">History</p>
+            <h2 className="text-h2">Cancelled events</h2>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {organizerCancelledEvents.map((event) => (
+              <EventCard key={event.id} event={event} />
+            ))}
+          </div>
+        </section>
+      )}
     </main>
   )
 }
