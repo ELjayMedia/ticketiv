@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation"
 import { ensureCheckoutIdentity } from "@/lib/auth/checkout-identity"
 import { getPublicEventBySlug } from "@/lib/adapters/events"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { isEventPast } from "@/lib/events/lifecycle"
+import { deriveEventLifecycle } from "@/lib/events/lifecycle"
 
 function redirectToLogin(eventSlug: string): never {
   const from = `/events/${encodeURIComponent(eventSlug)}`
@@ -28,11 +28,13 @@ export async function createSeatHoldAction(formData: FormData) {
   const event = await getPublicEventBySlug(eventSlug)
   if (!event?.id) notFound()
 
-  if (isEventPast({
+  const lifecycle = deriveEventLifecycle({
+    status: event.status,
     eventStartsAt: event.starts_at,
     eventEndsAt: event.event_ends_at,
-  })) {
-    redirect(`/events/${eventSlug}?ended=1`)
+  })
+  if (lifecycle === "ended" || lifecycle === "cancelled") {
+    redirect(`/events/${eventSlug}?${lifecycle}=1`)
   }
 
   // The hardened hold RPC requires auth.uid(). Reuse the cookie-backed client
