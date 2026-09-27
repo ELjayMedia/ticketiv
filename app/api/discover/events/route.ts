@@ -9,38 +9,40 @@ export async function GET(req: NextRequest) {
   const category = searchParams.get("category") ?? undefined
   const when = searchParams.get("when") ?? undefined
 
-  const rows = await getPublicEventsList({
-    limit,
-    offset,
-    sort: "soonest",
-    category,
-  })
-
-  // Apply "when" filter in-process (matches partition logic in discover.ts)
   const now = Date.now()
   const sixHours = 6 * 60 * 60 * 1000
   const sevenDays = 7 * 24 * 60 * 60 * 1000
 
-  const mapped = rows.map(mapDiscoverEvent)
-  const filtered =
-    when === "tonight"
-      ? mapped.filter(
-          (e) =>
-            e.startsAtMs !== null &&
-            e.startsAtMs - now >= 0 &&
-            e.startsAtMs - now <= sixHours,
-        )
-      : when === "thisWeek"
-        ? mapped.filter(
-            (e) =>
-              e.startsAtMs !== null &&
-              e.startsAtMs - now > sixHours &&
-              e.startsAtMs - now <= sevenDays,
-          )
-        : mapped
+  let startsAfter: string | undefined
+  let startsBefore: string | undefined
+
+  if (when === "tonight") {
+    startsAfter = new Date(now).toISOString()
+    startsBefore = new Date(now + sixHours).toISOString()
+  } else if (when === "thisWeek") {
+    startsAfter = new Date(now + sixHours).toISOString()
+    startsBefore = new Date(now + sevenDays).toISOString()
+  }
+
+  const lifecycle = when === "past" ? "past" as const : "current" as const
+
+  // Ask for one extra row so hasMore reflects the already lifecycle-filtered
+  // database result instead of guessing from a full-sized page.
+  const rows = await getPublicEventsList({
+    limit: limit + 1,
+    offset,
+    sort: lifecycle === "past" ? "latest" : "soonest",
+    category,
+    startsAfter,
+    startsBefore,
+    lifecycle,
+    nowMs: now,
+  })
+
+  const page = rows.slice(0, limit).map(mapDiscoverEvent)
 
   return NextResponse.json({
-    events: filtered,
-    hasMore: rows.length === limit,
+    events: page,
+    hasMore: rows.length > limit,
   })
 }
