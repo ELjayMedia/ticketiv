@@ -29,6 +29,7 @@ const WHEN_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
   { value: "weekend", label: "This weekend" },
   { value: "week", label: "This week" },
   { value: "month", label: "This month" },
+  { value: "past", label: "Past events" },
 ]
 
 function titleCase(value: string): string {
