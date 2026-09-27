@@ -105,7 +105,7 @@ export default async function OrgEventsPage({
 
   const statsMap = new Map<
     string,
-    { tickets_sold: number; gross_sales_cents: number; checked_in_count: number }
+    { tickets_sold: number; gross_sales_cents: number; checked_in_count: number; refunds_cents: number }
   >()
   const capacityMap = new Map<string, number>()
 
@@ -130,7 +130,7 @@ export default async function OrgEventsPage({
 
   if (events.length > 0) {
     const eventIds = events.map((e) => e.id)
-    const [liveStatsResult, ttResult] = await Promise.all([
+    const [liveStatsResult, ttResult, refundLedgerResult] = await Promise.all([
       supabase
         .from("event_live_stats")
         .select("event_id, tickets_sold, gross_sales_cents, checked_in_count")
@@ -139,13 +139,31 @@ export default async function OrgEventsPage({
         .from("ticket_types")
         .select("event_id, quota")
         .in("event_id", eventIds),
+      supabase
+        .from("ledger_entries")
+        .select("event_id, amount_cents, refund_id")
+        .eq("org_id", orgId)
+        .in("event_id", eventIds)
+        .not("refund_id", "is", null),
     ])
     for (const s of liveStatsResult.data ?? []) {
       statsMap.set(s.event_id, {
         tickets_sold: s.tickets_sold ?? 0,
         gross_sales_cents: s.gross_sales_cents ?? 0,
         checked_in_count: s.checked_in_count ?? 0,
+        refunds_cents: 0,
       })
+    }
+    for (const refund of refundLedgerResult.data ?? []) {
+      if (!refund.event_id) continue
+      const current = statsMap.get(refund.event_id) ?? {
+        tickets_sold: 0,
+        gross_sales_cents: 0,
+        checked_in_count: 0,
+        refunds_cents: 0,
+      }
+      current.refunds_cents += Math.abs(refund.amount_cents ?? 0)
+      statsMap.set(refund.event_id, current)
     }
     for (const tt of ttResult.data ?? []) {
       capacityMap.set(tt.event_id, (capacityMap.get(tt.event_id) ?? 0) + (tt.quota ?? 0))
@@ -223,6 +241,7 @@ export default async function OrgEventsPage({
                 tickets_sold: 0,
                 gross_sales_cents: 0,
                 checked_in_count: 0,
+                refunds_cents: 0,
               },
               capacity: capacityMap.get(event.id) ?? 0,
             }))}
