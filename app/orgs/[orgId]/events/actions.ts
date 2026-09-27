@@ -99,7 +99,7 @@ export async function duplicateEvent(
 export async function transitionEventStatus(
   orgId: string,
   eventId: string,
-  newStatus: "paused" | "published" | "archived",
+  newStatus: "paused" | "published" | "archived" | "cancelled",
 ): Promise<{ ok: boolean; activeHolders?: number; error?: string }> {
   const supabase = createServerSupabaseClient()
   if (!supabase) return { ok: false, error: "Not authenticated" }
