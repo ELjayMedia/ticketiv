@@ -47,7 +47,10 @@ describe("createSeatHoldAction", () => {
     mocks.notFound.mockImplementation(() => {
       throw new Error("NEXT_NOT_FOUND")
     })
-    mocks.getPublicEventBySlug.mockResolvedValue({ id: eventId })
+    mocks.getPublicEventBySlug.mockResolvedValue({
+      id: eventId,
+      starts_at: "2026-09-28T18:00:00.000Z",
+    })
     mocks.ensureCheckoutIdentity.mockResolvedValue({
       userId: "buyer-1",
       email: null,
@@ -57,7 +60,15 @@ describe("createSeatHoldAction", () => {
 
   it("creates the hold with the same authenticated client used for checkout identity", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: "hold-code", error: null })
-    const supabase = { rpc }
+    const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null })
+    const from = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      maybeSingle,
+    })
+    const supabase = { rpc, from }
     mocks.createServerSupabaseClient.mockReturnValue(supabase)
 
     await expect(createSeatHoldAction(formData())).rejects.toThrow(
@@ -95,10 +106,49 @@ describe("createSeatHoldAction", () => {
     expect(mocks.ensureCheckoutIdentity).not.toHaveBeenCalled()
   })
 
+  it("blocks stale clients from creating holds after the event lifecycle ends", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-09-28T02:00:00.001Z"))
+    mocks.getPublicEventBySlug.mockResolvedValue({
+      id: eventId,
+      starts_at: "2026-09-27T18:00:00.000Z",
+    })
+
+    const rpc = vi.fn()
+    const from = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          starts_at: "2026-09-27T18:00:00.000Z",
+          ends_at: "2026-09-27T23:00:00.000Z",
+        },
+        error: null,
+      }),
+    })
+    mocks.createServerSupabaseClient.mockReturnValue({ rpc, from })
+
+    await expect(createSeatHoldAction(formData())).rejects.toThrow(
+      "NEXT_REDIRECT:/events/launch-night?ended=1",
+    )
+
+    expect(rpc).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
   it("keeps RPC failures on the event-specific checkout error state", async () => {
     const error = { code: "28000", message: "authentication_required" }
     const rpc = vi.fn().mockResolvedValue({ data: null, error })
-    mocks.createServerSupabaseClient.mockReturnValue({ rpc })
+    const from = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    })
+    mocks.createServerSupabaseClient.mockReturnValue({ rpc, from })
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined)
 
     await expect(createSeatHoldAction(formData())).rejects.toThrow(
