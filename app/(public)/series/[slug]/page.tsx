@@ -9,7 +9,7 @@ import { formatSeriesDateRange } from "@/lib/series/date-range"
 import { SeriesEventRow } from "@/components/series/series-event-row"
 import { PastEventsAccordion } from "@/components/series/past-events-accordion"
 import { SeriesFollowButton } from "@/components/series/series-follow-button"
-import { resolveEventLifecycle } from "@/lib/events/lifecycle"
+import { partitionSeriesEvents } from "@/lib/series/event-lifecycle"
 
 export const dynamic = "force-dynamic"
 
@@ -23,34 +23,13 @@ const SERIES_TYPE_LABELS: Record<"tour" | "recurring" | "season", string> = {
   season: "Season",
 }
 
-function partitionEvents(events: SeriesDetailEvent[]): {
-  upcoming: SeriesDetailEvent[]
-  past: SeriesDetailEvent[]
-} {
-  const now = Date.now()
-  const upcoming: SeriesDetailEvent[] = []
-  const past: SeriesDetailEvent[] = []
-  for (const e of events) {
-    const lifecycle = resolveEventLifecycle({
-      eventStartsAt: e.starts_at,
-      eventEndsAt: e.lifecycle_end_at ?? e.ends_at,
-      eventStatus: e.status,
-      nowMs: now,
-    })
-    if (lifecycle === "upcoming" || lifecycle === "live") upcoming.push(e)
-    else past.push(e)
-  }
-  past.reverse()
-  return { upcoming, past }
-}
-
 export default async function SeriesPage({ params }: SeriesPageProps) {
   const { slug } = await params
   const series = await getSeriesBySlug(slug)
   if (!series) notFound()
 
   const followState = await getSeriesFollowState(series.id)
-  const { upcoming, past } = partitionEvents(series.events)
+  const { upcoming, past } = partitionSeriesEvents(series.events)
 
   return (
     <main className="pb-16">
