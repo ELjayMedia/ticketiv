@@ -8,35 +8,12 @@ import { Icon } from "@/components/quiet/ui/icon"
 import { EmptyState } from "@/components/quiet/ui/empty-state"
 import { EventsFilterBar } from "./events-filter-bar"
 import { EventsGrid } from "./_components/events-grid"
-import { isEventPast } from "@/lib/events/lifecycle"
+import { resolveOrganizerEventLifecycle } from "@/lib/events/organizer-lifecycle"
 
 export const dynamic = "force-dynamic"
 
 const STATUS_OPTIONS = ["all", "active", "upcoming", "past", "draft", "archived", "paused"] as const
 type StatusFilter = (typeof STATUS_OPTIONS)[number]
-
-type EventLifecycleBucket = Exclude<StatusFilter, "all">
-
-function lifecycleBucket(
-  event: { status: string; starts_at: string | null; ends_at?: string | null },
-  finalOccurrenceEnd: string | null,
-  nowMs: number,
-): EventLifecycleBucket {
-  if (event.status === "draft") return "draft"
-  if (event.status === "archived") return "archived"
-  if (event.status === "paused") return "paused"
-
-  const ended = isEventPast({
-    eventStartsAt: event.starts_at,
-    eventEndsAt: finalOccurrenceEnd ?? event.ends_at ?? null,
-    nowMs,
-  })
-  if (ended) return "past"
-
-  const startMs = event.starts_at ? new Date(event.starts_at).getTime() : Number.POSITIVE_INFINITY
-  if (event.status === "published" && startMs <= nowMs) return "active"
-  return "upcoming"
-}
 
 export default async function OrgEventsPage({
   params,
@@ -95,7 +72,7 @@ export default async function OrgEventsPage({
   const nowMs = Date.now()
   const withLifecycle = rawEvents.map((event) => ({
     ...event,
-    lifecycle: lifecycleBucket(event, finalEndByEvent.get(event.id) ?? null, nowMs),
+    lifecycle: resolveOrganizerEventLifecycle(event, finalEndByEvent.get(event.id) ?? null, nowMs),
     lifecycle_end_at: finalEndByEvent.get(event.id) ?? event.ends_at ?? event.starts_at ?? null,
   }))
   const events =
