@@ -7465,6 +7465,7 @@ export type Database = {
           poster_url: string | null
           slug: string | null
           starts_at: string | null
+          status: Database["public"]["Enums"]["event_status"] | null
           title: string | null
           venue_address: string | null
           venue_capacity: number | null
@@ -7623,6 +7624,7 @@ export type Database = {
           cover_image_url: string | null
           currency: string | null
           current_owner_id: string | null
+          event_ends_at: string | null
           event_id: string | null
           event_slug: string | null
           event_starts_at: string | null
@@ -9149,7 +9151,7 @@ export type Database = {
         | "organizer_kiosk"
         | "scanner_unassigned"
       event_format: "single_day" | "multi_day"
-      event_status: "draft" | "published" | "archived" | "paused"
+      event_status: "draft" | "published" | "archived" | "paused" | "cancelled"
       fee_payer: "buyer" | "organizer"
       order_item_status:
         | "pending"
@@ -9366,7 +9368,7 @@ export const Constants = {
         "scanner_unassigned",
       ],
       event_format: ["single_day", "multi_day"],
-      event_status: ["draft", "published", "archived", "paused"],
+      event_status: ["draft", "published", "archived", "paused", "cancelled"],
       fee_payer: ["buyer", "organizer"],
       order_item_status: [
         "pending",
