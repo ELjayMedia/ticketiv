@@ -39,6 +39,7 @@ export type EventsPublicView = z.infer<typeof EventsPublicViewSchema>
 
 // v_event_public: Single event detail by slug
 export const EventPublicViewSchema = EventsPublicViewSchema.extend({
+  status: z.enum(["published", "cancelled"]),
   description: z.string().nullable(),
   visibility: z.enum(["public", "private", "unlisted"]),
   venue_capacity: z.number().int().nullable(),
