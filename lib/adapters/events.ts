@@ -9,6 +9,7 @@ export async function getPublicEventsList(params?: {
   category?: string
   search?: string
   startsAfter?: string
+  startsBefore?: string
   sort?: "soonest" | "latest" | "price_low" | "price_high"
   lifecycle?: DiscoveryLifecycle
   nowMs?: number
@@ -43,6 +44,10 @@ export async function getPublicEventsList(params?: {
 
     if (params?.startsAfter) {
       query = query.gte("starts_at", params.startsAfter)
+    }
+
+    if (params?.startsBefore) {
+      query = query.lte("starts_at", params.startsBefore)
     }
 
     const effectiveSort = params?.sort ?? (lifecycle === "past" ? "latest" : "soonest")
