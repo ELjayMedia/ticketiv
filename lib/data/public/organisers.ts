@@ -1,6 +1,7 @@
 
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { deriveEventLifecycle } from "@/lib/events/lifecycle"
 
 export interface OrganiserSummary {
   id: string
@@ -118,11 +119,10 @@ export async function getOrganiserEvents(orgId: string) {
   if (!supabase) return []
 
   try {
-    const { data, error } = await supabase
-      .from("events")
-      .select("id, title, slug, description, starts_at, ends_at")
-      .eq("org_id", orgId)
-      .eq("status", "published")
+    const { data, error } = await (supabase
+      .from("v_events_public") as any)
+      .select("*")
+      .eq("organizer_id", orgId)
       .order("starts_at", { ascending: true })
 
     if (error) {
@@ -130,7 +130,14 @@ export async function getOrganiserEvents(orgId: string) {
       return []
     }
 
-    return data || []
+    return (data ?? []).map((event: any) => ({
+      ...event,
+      lifecycle: deriveEventLifecycle({
+        status: event.event_status,
+        eventStartsAt: event.starts_at,
+        eventEndsAt: event.event_ends_at,
+      }),
+    }))
   } catch (error) {
     console.error("[v0] Unexpected error fetching organiser events:", error)
     return []
