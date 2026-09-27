@@ -7,10 +7,10 @@ import { Chip } from "@/components/quiet/ui/chip"
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All" },
-  { value: "published", label: "Published" },
+  { value: "active", label: "Active" },
+  { value: "upcoming", label: "Upcoming" },
+  { value: "past", label: "Past" },
   { value: "draft", label: "Draft" },
-  { value: "archived", label: "Archived" },
-  { value: "paused", label: "Paused" },
 ] as const
 
 interface EventsFilterBarProps {
