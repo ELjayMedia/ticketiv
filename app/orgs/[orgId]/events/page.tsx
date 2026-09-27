@@ -40,9 +40,9 @@ export default async function OrgEventsPage({
   const statusFilter: StatusFilter =
     (STATUS_OPTIONS.includes(rawStatus as StatusFilter) ? rawStatus : "all") as StatusFilter
 
-  let query = supabase
-    .from("events")
-    .select("id, title, description, starts_at, ends_at, status, cover_image_url")
+  let query = (supabase
+    .from("events") as any)
+    .select("id, title, description, starts_at, ends_at, status, cover_image_url, cancelled_at")
     .eq("org_id", orgId)
     .order("starts_at", { ascending: false })
 
@@ -119,7 +119,7 @@ export default async function OrgEventsPage({
   for (const event of allEvents) {
     const finalOccurrence = finalOccurrenceMap.get(event.id)
     lifecycleMap.set(event.id, deriveEventLifecycle({
-      status: event.status,
+      status: event.cancelled_at ? "cancelled" : event.status,
       eventStartsAt: finalOccurrence?.starts_at ?? event.starts_at,
       eventEndsAt: finalOccurrence?.ends_at ?? event.ends_at ?? event.starts_at,
     }))
