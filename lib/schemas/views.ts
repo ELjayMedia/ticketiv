@@ -33,6 +33,7 @@ export const EventsPublicViewSchema = z.object({
   last_order_at: z.string().datetime({ offset: true }).nullable().optional(),
   last_scan_at: z.string().datetime({ offset: true }).nullable().optional(),
   live_stats_updated_at: z.string().datetime({ offset: true }).nullable().optional(),
+  event_ends_at: z.string().datetime({ offset: true }).nullable().optional(),
 })
 
 export type EventsPublicView = z.infer<typeof EventsPublicViewSchema>
