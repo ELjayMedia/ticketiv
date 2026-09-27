@@ -8,12 +8,14 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "9", 10), 36)
   const category = searchParams.get("category") ?? undefined
   const when = searchParams.get("when") ?? undefined
+  const lifecycle = searchParams.get("past") === "1" ? "past" : "current"
 
   const rows = await getPublicEventsList({
     limit,
     offset,
-    sort: "soonest",
+    sort: lifecycle === "past" ? "latest" : "soonest",
     category,
+    lifecycle,
   })
 
   // Apply "when" filter in-process (matches partition logic in discover.ts)
