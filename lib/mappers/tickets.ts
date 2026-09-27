@@ -2,8 +2,8 @@
  * Map `v_my_tickets` rows into the props the Quiet tickets screens want.
  *
  * The view returns one row per `order_item`, scoped by RLS to the current
- * user (buyer_id = auth.uid()). We partition by `event_starts_at` to find
- * the featured ticket (next upcoming), the rest of upcoming, and past.
+ * user (buyer_id = auth.uid()). We partition by the event lifecycle to find
+ * the featured ticket (next upcoming), the rest of upcoming/live, and past.
  *
  * Status precedence (most-specific wins):
  *   refunded > revoked > transferred > checked_in > issued
@@ -16,6 +16,7 @@ import { formatEventDate, formatTimeRange } from "@/lib/format";
 import { resolveRefundPolicy, refundQuoteForHoursBefore, formatRefundWindow } from "@/lib/refund-policy";
 import type { MyTicketsView } from "@/lib/schemas/views";
 import { ticketDisplayStatus, type TicketDisplayStatus } from "@/lib/ticket-status";
+import { isEventPast } from "@/lib/events/lifecycle";
 
 export { ticketDisplayStatus, type TicketDisplayStatus } from "@/lib/ticket-status";
 
@@ -243,17 +244,22 @@ export function mapMyTickets(rows: MyTicketsView[]): MyTicketsProps {
   // is fair game — but featured-eligible is narrower (must be valid + future).
   const visible = rows.filter((r) => ticketDisplayStatus(r) !== "pending");
 
-  // A successful scan completes the attendee journey immediately. Treat a
-  // checked-in ticket as past even when the event start time is still in the
-  // future (for example, when doors open before the advertised start).
+  // Event history is schedule-driven. A scan changes ticket state to
+  // checked_in, but the ticket remains in the active event context until the
+  // final occurrence has ended and the operational grace window has elapsed.
   const isPastTicket = (row: MyTicketsView): boolean =>
-    ticketDisplayStatus(row) === "checked_in"
-    || !row.event_starts_at
-    || new Date(row.event_starts_at).getTime() < now;
+    isEventPast({
+      eventStartsAt: row.event_starts_at,
+      eventEndsAt: row.event_ends_at,
+      nowMs: now,
+    });
+
+  const sortTime = (row: MyTicketsView): number =>
+    row.event_starts_at ? new Date(row.event_starts_at).getTime() : Number.MAX_SAFE_INTEGER;
 
   const upcomingRows = visible
     .filter((r) => !isPastTicket(r))
-    .sort((a, b) => new Date(a.event_starts_at!).getTime() - new Date(b.event_starts_at!).getTime());
+    .sort((a, b) => sortTime(a) - sortTime(b));
 
   const pastRows = visible
     .filter(isPastTicket)
