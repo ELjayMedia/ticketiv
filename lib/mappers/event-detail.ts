@@ -12,6 +12,7 @@ import { formatRefundWindow, resolveRefundPolicy } from "@/lib/refund-policy";
 import type { EventPublicView } from "@/lib/schemas/views";
 import type { MobileEventData } from "@/components/quiet/screens/event-detail/mobile-event";
 import type { DesktopEventData } from "@/components/quiet/screens/event-detail/desktop-event";
+import { isEventPast } from "@/lib/events/lifecycle";
 
 export interface EventLineupRow {
   artist_id: string;
@@ -43,6 +44,8 @@ interface MapInput {
   organizerEventsHosted?: number | null;
   /** Ticket types for the selector on the event detail page. */
   ticketTypes?: TicketTypeRow[];
+  /** Final event_dates occurrence end, used for archive state. */
+  eventEndsAt?: string | null;
 }
 
 function durationLabel(start: Date | null, end: Date | null): string | null {
@@ -88,6 +91,10 @@ function mapFriends(rows: EventFriendRow[] | undefined) {
 
 export function mapEventDetail(row: EventPublicView, input: MapInput = {}): MobileEventData {
   const start = row.starts_at ? new Date(row.starts_at) : null;
+  const hasEnded = isEventPast({
+    eventStartsAt: row.starts_at,
+    eventEndsAt: input.eventEndsAt,
+  });
 
   return {
     eventUuid: row.id,
@@ -126,6 +133,8 @@ export function mapEventDetail(row: EventPublicView, input: MapInput = {}): Mobi
     recentSoldCount: input.recentSoldCount ?? null,
     recentSoldWindow: input.recentSoldWindow,
     supportUrl: input.supportUrl,
+    hasEnded,
+    organizerHref: row.organizer_id ? `/organisers/${row.organizer_id}` : "/organisers",
   };
 }
 
