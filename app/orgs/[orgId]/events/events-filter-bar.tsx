@@ -10,6 +10,7 @@ const STATUS_OPTIONS = [
   { value: "active", label: "Active" },
   { value: "upcoming", label: "Upcoming" },
   { value: "past", label: "Past" },
+  { value: "cancelled", label: "Cancelled" },
   { value: "draft", label: "Draft" },
   { value: "archived", label: "Archived" },
   { value: "paused", label: "Paused" },
