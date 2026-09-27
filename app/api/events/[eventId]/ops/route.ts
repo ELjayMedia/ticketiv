@@ -27,9 +27,9 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   if (!userId) return NextResponse.json({ error: "Authentication required" }, { status: 401 })
 
   const admin = createAdminClient()
-  const { data: event, error: eventError } = await admin
-    .from("events")
-    .select("id, org_id, title, status, visibility, category, venue_id, starts_at, ends_at, city, cover_image_url, refund_policy, confirmation_message, venues(id, name, city, address, capacity)")
+  const { data: event, error: eventError } = await (admin
+    .from("events") as any)
+    .select("id, org_id, title, status, visibility, category, venue_id, starts_at, ends_at, cancelled_at, city, cover_image_url, refund_policy, confirmation_message, venues(id, name, city, address, capacity)")
     .eq("id", eventId)
     .maybeSingle()
 
@@ -85,7 +85,10 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   ]
 
   return NextResponse.json({
-    event,
+    event: {
+      ...event,
+      status: event.cancelled_at ? "cancelled" : event.status,
+    },
     tickets,
     orders: orders.slice(0, 10),
     metrics: {
