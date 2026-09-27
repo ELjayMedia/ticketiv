@@ -17,6 +17,8 @@ export interface EventCardData {
   description: string | null
   starts_at: string | null
   status: string
+  lifecycle: "active" | "upcoming" | "past" | "draft" | "archived" | "paused"
+  lifecycle_end_at: string | null
   cover_image_url: string | null
   stats: { tickets_sold: number; gross_sales_cents: number; checked_in_count: number }
   capacity: number
@@ -199,8 +201,8 @@ export function EventsGrid({ events, orgId, canDelete }: EventsGridProps) {
                     </button>
 
                     <div className="absolute right-3 top-3">
-                      <Chip size="sm" variant={event.status === "published" ? "active" : "muted"}>
-                        {event.status}
+                      <Chip size="sm" variant={event.lifecycle === "active" || event.lifecycle === "upcoming" ? "active" : "muted"}>
+                        {event.lifecycle}
                       </Chip>
                     </div>
                   </div>
@@ -277,7 +279,7 @@ export function EventsGrid({ events, orgId, canDelete }: EventsGridProps) {
                       {checkInRate !== null && (
                         <div className="flex flex-col gap-0.5">
                           <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                            Check-in rate
+                            {event.lifecycle === "past" ? "Attendance" : "Check-in rate"}
                           </p>
                           <p className="font-mono text-[16px] font-semibold tabular-nums text-ink">
                             {checkInRate.toFixed(0)}%
@@ -288,7 +290,12 @@ export function EventsGrid({ events, orgId, canDelete }: EventsGridProps) {
 
                     <CardDivider />
 
-                    <div className="flex justify-end">
+                    <div className="flex items-center justify-between gap-3">
+                      {event.lifecycle === "past" ? (
+                        <span className="font-mono text-[10px] uppercase text-ink-3">
+                          Post-event summary
+                        </span>
+                      ) : <span />}
                       <DuplicateEventButton orgId={orgId} eventId={event.id} />
                     </div>
                   </CardBody>
