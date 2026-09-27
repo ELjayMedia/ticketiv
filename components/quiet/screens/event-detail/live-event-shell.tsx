@@ -64,7 +64,10 @@ export function LiveEventShell({ eventId, mobile, desktop, initialStats = null }
     Number.isFinite(stats.tickets_available) &&
     stats.tickets_available <= 0
 
-  const showWaitlistEntry = liveSoldOut || allTicketTypesSoldOut
+  const showWaitlistEntry =
+    !mobile.hasEnded &&
+    !mobile.isCancelled &&
+    (liveSoldOut || allTicketTypesSoldOut)
   const waitlistHref = `/waitlist?eventId=${encodeURIComponent(eventId)}`
 
   return (
