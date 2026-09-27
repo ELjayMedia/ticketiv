@@ -12,7 +12,7 @@ import { resolveOrganizerEventLifecycle } from "@/lib/events/organizer-lifecycle
 
 export const dynamic = "force-dynamic"
 
-const STATUS_OPTIONS = ["all", "active", "upcoming", "past", "draft", "archived", "paused"] as const
+const STATUS_OPTIONS = ["all", "active", "upcoming", "past", "cancelled", "draft", "archived", "paused"] as const
 type StatusFilter = (typeof STATUS_OPTIONS)[number]
 
 export default async function OrgEventsPage({
