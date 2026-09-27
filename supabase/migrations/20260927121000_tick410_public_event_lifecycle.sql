@@ -3,7 +3,10 @@
 -- Past is derived from final occurrence end + 3h; there is no stored past boolean.
 -- Cancellation is an explicit terminal state and remains directly addressable.
 
-alter type public.event_status add value if not exists 'cancelled';
+alter table public.events
+  add column if not exists cancelled_at timestamptz,
+  add column if not exists cancelled_by uuid,
+  add column if not exists cancellation_reason text;
 
 create or replace function public.fn_transition_event_status_unchecked(
   p_event_id uuid,
@@ -39,6 +42,10 @@ begin
     raise exception 'Insufficient permissions';
   end if;
 
+  if v_event.cancelled_at is not null then
+    raise exception 'Event is already cancelled';
+  end if;
+
   if p_new_status not in ('paused', 'published', 'archived', 'cancelled') then
     raise exception 'Invalid target status: %', p_new_status;
   end if;
@@ -60,10 +67,18 @@ begin
   where event_id = p_event_id
     and status in ('issued', 'checked_in');
 
-  update events
-  set status = p_new_status::event_status,
-      updated_at = now()
-  where id = p_event_id;
+  if p_new_status = 'cancelled' then
+    update events
+    set cancelled_at = now(),
+        cancelled_by = v_user_id,
+        updated_at = now()
+    where id = p_event_id;
+  else
+    update events
+    set status = p_new_status::event_status,
+        updated_at = now()
+    where id = p_event_id;
+  end if;
 
   return json_build_object(
     'status', p_new_status,
@@ -95,7 +110,7 @@ select
   o.name as organizer_name,
   o.logo as organizer_logo_url,
   e.featured_priority,
-  e.status::text as event_status,
+  case when e.cancelled_at is not null then 'cancelled' else e.status::text end as event_status,
   coalesce(finald.ends_at, finald.starts_at, e.ends_at, e.starts_at) as event_ends_at
 from public.events e
 left join public.venues v on v.id = e.venue_id
@@ -123,7 +138,7 @@ left join lateral (
   order by coalesce(d.ends_at, d.starts_at) desc
   limit 1
 ) finald on true
-where e.status::text in ('published', 'cancelled')
+where (e.status = 'published'::event_status or e.cancelled_at is not null)
   and e.visibility = 'public'::text;
 
 create or replace view public.v_public_event_cards
@@ -184,6 +199,7 @@ left join lateral (
   limit 1
 ) finald on true
 where e.status = 'published'::event_status
+  and e.cancelled_at is null
   and e.visibility = 'public'::text
   and (e.publish_at is null or e.publish_at <= now())
   and (e.unpublish_at is null or e.unpublish_at > now());
@@ -307,6 +323,7 @@ as $function$
       limit 1
     ) finald on true
     where e.status = 'published'
+      and e.cancelled_at is null
       and e.visibility = 'public'
       and (e.publish_at is null or e.publish_at <= now())
       and (e.unpublish_at is null or e.unpublish_at > now())
