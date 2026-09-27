@@ -47,7 +47,7 @@ export async function searchEvents(filters: SearchFilters): Promise<SearchResult
   const supabase = createPublicSupabaseClient()
   if (!supabase) return { query: filters.q ?? "", totalReturned: 0, rows: [] }
 
-  const { data, error } = await supabase.rpc("fn_search_events", {
+  const { data, error } = await (supabase.rpc as any)("fn_search_events", {
     p_query: filters.q ?? undefined,
     p_category: filters.category ?? undefined,
     p_city: filters.city ?? undefined,
