@@ -47,6 +47,24 @@ describe("past event detail lifecycle (TICK-413)", () => {
     expect(mapped.organizerHref).toBe("/organisers/22222222-2222-4222-8222-222222222222")
   })
 
+  it("maps explicit cancellation separately from an ended event", () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-09-20T19:00:00.000Z"))
+
+    const cancelled = {
+      ...EVENT_ROW,
+      status: "cancelled",
+    } as unknown as EventPublicView
+
+    const mapped = mapEventDetail(cancelled, {
+      eventEndsAt: "2026-09-20T20:00:00.000Z",
+    })
+
+    expect(mapped.lifecycle).toBe("cancelled")
+    expect(mapped.isCancelled).toBe(true)
+    expect(mapped.hasEnded).toBe(false)
+  })
+
   it("keeps desktop and mobile archive state aligned", () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date("2026-09-21T10:00:00.000Z"))
