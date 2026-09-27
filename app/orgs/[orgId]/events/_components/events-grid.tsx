@@ -10,7 +10,7 @@ import { Button } from "@/components/quiet/ui/button"
 import { DuplicateEventButton } from "./duplicate-event-button"
 import { bulkTransitionEventStatus, bulkDeleteEvents } from "../actions"
 import { formatPrice } from "@/lib/format"
-import type { EventLifecycleState } from "@/lib/events/lifecycle"
+import type { OrganizerEventLifecycle } from "@/lib/events/organizer-lifecycle"
 
 export interface EventCardData {
   id: string
@@ -18,9 +18,9 @@ export interface EventCardData {
   description: string | null
   starts_at: string | null
   status: string
-  lifecycle: EventLifecycleState
+  lifecycle: OrganizerEventLifecycle
   cover_image_url: string | null
-  stats: { tickets_sold: number; gross_sales_cents: number; checked_in_count: number }
+  stats: { tickets_sold: number; gross_sales_cents: number; checked_in_count: number; refunds_cents: number }
   capacity: number
 }
 
@@ -201,16 +201,8 @@ export function EventsGrid({ events, orgId, canDelete }: EventsGridProps) {
                     </button>
 
                     <div className="absolute right-3 top-3">
-                      <Chip size="sm" variant={event.lifecycle === "live" ? "active" : "muted"}>
-                        {event.status === "draft"
-                          ? "Draft"
-                          : event.lifecycle === "ended"
-                            ? "Past"
-                            : event.lifecycle === "upcoming"
-                              ? "Upcoming"
-                              : event.lifecycle === "cancelled"
-                                ? "Cancelled"
-                                : "Active"}
+                      <Chip size="sm" variant={event.lifecycle === "active" || event.lifecycle === "upcoming" ? "active" : "muted"}>
+                        {event.lifecycle.charAt(0).toUpperCase() + event.lifecycle.slice(1)}
                       </Chip>
                     </div>
                   </div>
@@ -284,20 +276,22 @@ export function EventsGrid({ events, orgId, canDelete }: EventsGridProps) {
                           </p>
                         </div>
                       )}
-                      {event.lifecycle === "ended" && (
+                      {event.lifecycle === "past" && (
                         <div className="flex flex-col gap-0.5">
                           <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                            Checked in
+                            Refunds
                           </p>
                           <p className="font-mono text-[16px] font-semibold tabular-nums text-ink">
-                            {event.stats.checked_in_count.toLocaleString()}
+                            {event.stats.refunds_cents > 0
+                              ? formatPrice(event.stats.refunds_cents, "SZL")
+                              : "—"}
                           </p>
                         </div>
                       )}
                       {checkInRate !== null && (
                         <div className="flex flex-col gap-0.5">
                           <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                            Check-in rate
+                            {event.lifecycle === "past" ? "Attendance" : "Check-in rate"}
                           </p>
                           <p className="font-mono text-[16px] font-semibold tabular-nums text-ink">
                             {checkInRate.toFixed(0)}%
