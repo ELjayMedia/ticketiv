@@ -43,6 +43,7 @@ export default async function SearchPage({
     startsBefore,
     maxPriceCents: sp.maxPriceCents ? Number(sp.maxPriceCents) : undefined,
     onlyFree: sp.onlyFree === "1" || sp.onlyFree === "true",
+    lifecycle: sp.when === "past" ? "past" : "current",
     limit: 30,
   }
 
