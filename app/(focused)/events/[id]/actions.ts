@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation"
 import { ensureCheckoutIdentity } from "@/lib/auth/checkout-identity"
 import { getPublicEventBySlug } from "@/lib/adapters/events"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { isEventPast } from "@/lib/events/lifecycle"
 
 function redirectToLogin(eventSlug: string): never {
   const from = `/events/${encodeURIComponent(eventSlug)}`
@@ -35,6 +36,21 @@ export async function createSeatHoldAction(formData: FormData) {
 
   const identity = await ensureCheckoutIdentity(supabase)
   if (!identity) redirectToLogin(eventSlug)
+
+  const { data: finalDate } = await supabase
+    .from("event_dates")
+    .select("starts_at, ends_at")
+    .eq("event_id", event.id)
+    .order("ends_at", { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (isEventPast({
+    eventStartsAt: event.starts_at,
+    eventEndsAt: finalDate?.ends_at ?? finalDate?.starts_at ?? null,
+  })) {
+    redirect(`/events/${eventSlug}?ended=1`)
+  }
 
   const { data: holdCode, error } = await (supabase.rpc as any)("fn_create_seat_hold", {
     p_event_id: event.id,
