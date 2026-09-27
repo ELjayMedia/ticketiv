@@ -30,10 +30,11 @@ export function EventStatusControls({
 }: EventStatusControlsProps) {
   const [pauseOpen, setPauseOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
+  const [cancelOpen, setCancelOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
-  async function handleTransition(newStatus: "paused" | "published" | "archived") {
+  async function handleTransition(newStatus: "paused" | "published" | "archived" | "cancelled") {
     setLoading(true)
     setError("")
     try {
@@ -44,6 +45,7 @@ export function EventStatusControls({
       }
       setPauseOpen(false)
       setArchiveOpen(false)
+      setCancelOpen(false)
       posthog.capture("event_status_changed", { event_id: eventId, status: newStatus })
       onSuccess()
     } catch (err: any) {
@@ -102,8 +104,52 @@ export function EventStatusControls({
         </Button>
       )}
 
-      {/* Archive — any non-archived status */}
-      {status !== "archived" && (
+      {/* Cancel — published/paused only; terminal once confirmed. */}
+      {(status === "published" || status === "paused") && (
+        <Modal open={cancelOpen} onOpenChange={setCancelOpen}>
+          <ModalTrigger asChild>
+            <Button variant="outline" size="md" className="border-danger/40 text-danger hover:bg-danger-soft">
+              <Icon name="close" size={14} />
+              Cancel event
+            </Button>
+          </ModalTrigger>
+          <ModalContent title="Cancel event" size="sm">
+            <p className="text-[14px] text-ink-2">
+              Cancelling immediately stops new ticket sales and marks the public event page as cancelled.
+              This is a terminal event state.
+            </p>
+            {issuedTickets > 0 && (
+              <div className="mt-3 rounded-[var(--radius-md)] border border-warning/30 bg-warning/10 p-3">
+                <p className="text-[13px] text-warning">
+                  <strong>{issuedTickets.toLocaleString()}</strong> issued or checked-in ticket
+                  {issuedTickets !== 1 ? "s" : ""} are associated with this event. Refund and attendee
+                  communication remain separate operational actions.
+                </p>
+              </div>
+            )}
+            {error && <p className="mt-3 text-[13px] text-danger">{error}</p>}
+            <ModalFooter>
+              <ModalClose asChild>
+                <Button variant="ghost" size="md" disabled={loading}>
+                  Keep event
+                </Button>
+              </ModalClose>
+              <Button
+                variant="primary"
+                size="md"
+                disabled={loading}
+                className="bg-danger border-danger hover:bg-danger/90"
+                onClick={() => handleTransition("cancelled")}
+              >
+                {loading ? "Cancelling…" : "Confirm cancellation"}
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+      )}
+
+      {/* Archive — any non-archived/non-cancelled status */}
+      {status !== "archived" && status !== "cancelled" && (
         <Modal open={archiveOpen} onOpenChange={setArchiveOpen}>
           <ModalTrigger asChild>
             <Button variant="ghost" size="md" className="text-danger hover:bg-danger-soft">
