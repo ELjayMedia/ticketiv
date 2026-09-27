@@ -12,6 +12,7 @@ import { formatRefundWindow, resolveRefundPolicy } from "@/lib/refund-policy";
 import type { EventPublicView } from "@/lib/schemas/views";
 import type { MobileEventData } from "@/components/quiet/screens/event-detail/mobile-event";
 import type { DesktopEventData } from "@/components/quiet/screens/event-detail/desktop-event";
+import { deriveEventLifecycle } from "@/lib/events/lifecycle";
 
 export interface EventLineupRow {
   artist_id: string;
@@ -102,7 +103,7 @@ export function mapEventDetail(row: EventPublicView, input: MapInput = {}): Mobi
       name: row.venue_name ?? "Venue TBA",
       distanceKm: 0,
     },
-    facts: buildFacts(row, input.refundPolicy),
+    facts: buildFacts(row, input.refundPolicy, row.event_ends_at),
     lineup: mapLineup(input.lineup),
     organizer: {
       name: row.organizer_name ?? "Ticketiv",
@@ -126,6 +127,13 @@ export function mapEventDetail(row: EventPublicView, input: MapInput = {}): Mobi
     recentSoldCount: input.recentSoldCount ?? null,
     recentSoldWindow: input.recentSoldWindow,
     supportUrl: input.supportUrl,
+    lifecycle: deriveEventLifecycle({
+      eventStartsAt: row.starts_at,
+      eventEndsAt: row.event_ends_at,
+    }),
+    organizerUpcomingHref: row.organizer_name
+      ? `/search?q=${encodeURIComponent(row.organizer_name)}`
+      : "/search",
   };
 }
 
