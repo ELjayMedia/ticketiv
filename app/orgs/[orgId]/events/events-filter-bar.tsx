@@ -10,7 +10,10 @@ const STATUS_OPTIONS = [
   { value: "active", label: "Active" },
   { value: "upcoming", label: "Upcoming" },
   { value: "past", label: "Past" },
+  { value: "cancelled", label: "Cancelled" },
   { value: "draft", label: "Draft" },
+  { value: "paused", label: "Paused" },
+  { value: "archived", label: "Archived" },
 ] as const
 
 interface EventsFilterBarProps {
