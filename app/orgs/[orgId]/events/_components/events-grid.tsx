@@ -10,6 +10,7 @@ import { Button } from "@/components/quiet/ui/button"
 import { DuplicateEventButton } from "./duplicate-event-button"
 import { bulkTransitionEventStatus, bulkDeleteEvents } from "../actions"
 import { formatPrice } from "@/lib/format"
+import type { EventLifecycleState } from "@/lib/events/lifecycle"
 
 export interface EventCardData {
   id: string
@@ -17,6 +18,7 @@ export interface EventCardData {
   description: string | null
   starts_at: string | null
   status: string
+  lifecycle: EventLifecycleState
   cover_image_url: string | null
   stats: { tickets_sold: number; gross_sales_cents: number; checked_in_count: number }
   capacity: number
@@ -199,8 +201,16 @@ export function EventsGrid({ events, orgId, canDelete }: EventsGridProps) {
                     </button>
 
                     <div className="absolute right-3 top-3">
-                      <Chip size="sm" variant={event.status === "published" ? "active" : "muted"}>
-                        {event.status}
+                      <Chip size="sm" variant={event.lifecycle === "live" ? "active" : "muted"}>
+                        {event.status === "draft"
+                          ? "Draft"
+                          : event.lifecycle === "ended"
+                            ? "Past"
+                            : event.lifecycle === "upcoming"
+                              ? "Upcoming"
+                              : event.lifecycle === "cancelled"
+                                ? "Cancelled"
+                                : "Active"}
                       </Chip>
                     </div>
                   </div>
@@ -271,6 +281,16 @@ export function EventsGrid({ events, orgId, canDelete }: EventsGridProps) {
                             ].join(" ")}
                           >
                             {sellThroughPct.toFixed(0)}%
+                          </p>
+                        </div>
+                      )}
+                      {event.lifecycle === "ended" && (
+                        <div className="flex flex-col gap-0.5">
+                          <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+                            Checked in
+                          </p>
+                          <p className="font-mono text-[16px] font-semibold tabular-nums text-ink">
+                            {event.stats.checked_in_count.toLocaleString()}
                           </p>
                         </div>
                       )}
