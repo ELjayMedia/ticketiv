@@ -160,6 +160,7 @@ export default async function EventDetailPage({
         ? formatPriceLabel(row.min_price_cents, asCurrency(row.currency), { prefix: "From" })
         : null,
     category: row.category ?? null,
+    lifecycle: mobile.lifecycle === "draft" ? "upcoming" : mobile.lifecycle,
   };
 
   return (
