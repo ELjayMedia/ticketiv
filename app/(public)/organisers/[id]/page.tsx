@@ -16,7 +16,14 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
 
   const events = await getOrganiserEvents(id)
 
-  const organizerEvents: EventCardData[] = events.map((event: any) => ({
+  const currentEvents = events.filter(
+    (event: any) => event.lifecycle === "upcoming" || event.lifecycle === "live",
+  )
+  const historicalEvents = events.filter(
+    (event: any) => event.lifecycle === "ended" || event.lifecycle === "cancelled",
+  )
+
+  const organizerEvents: EventCardData[] = currentEvents.map((event: any) => ({
     id: event.id,
     slug: event.slug,
     title: event.title,
@@ -60,13 +67,13 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
 
       <section className="flex flex-col gap-4">
         <h2 className="text-h2">
-          {organizerEvents.length > 0 ? "Events by this organiser" : "No events yet"}
+          {organizerEvents.length > 0 ? "Upcoming & live events" : "No upcoming events"}
         </h2>
         {organizerEvents.length === 0 ? (
           <Card flat className="border-dashed">
             <div className="px-6 py-10 text-center">
               <p className="text-[13px] text-ink-3">
-                No events published yet. Check back soon for announcements.
+                No upcoming events at the moment. Check back soon for announcements.
               </p>
             </div>
           </Card>
@@ -78,6 +85,36 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
           </div>
         )}
       </section>
+
+      {historicalEvents.length > 0 && (
+        <section className="flex flex-col gap-4">
+          <h2 className="text-h2">Past events</h2>
+          <div className="flex flex-col gap-2">
+            {historicalEvents
+              .slice()
+              .sort(
+                (a: any, b: any) =>
+                  new Date(b.lifecycle_end_at ?? b.starts_at ?? 0).getTime() -
+                  new Date(a.lifecycle_end_at ?? a.starts_at ?? 0).getTime(),
+              )
+              .map((event: any) => (
+                <a
+                  key={event.id}
+                  href={`/events/${event.slug}`}
+                  className="flex items-center justify-between gap-4 rounded-[var(--radius-md)] border border-line bg-surface px-4 py-3 transition-colors hover:bg-bg"
+                >
+                  <div className="min-w-0">
+                    <div className="truncate text-[14px] font-semibold text-ink">{event.title}</div>
+                    <div className="mt-0.5 font-mono text-[11px] uppercase text-ink-3">
+                      {event.status === "cancelled" ? "Cancelled" : "Past event"}
+                    </div>
+                  </div>
+                  <span className="text-[12px] font-semibold text-ink-3">View →</span>
+                </a>
+              ))}
+          </div>
+        </section>
+      )}
     </main>
   )
 }
