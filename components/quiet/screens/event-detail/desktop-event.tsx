@@ -85,8 +85,10 @@ export function DesktopEvent({ event }: DesktopEventProps) {
               <Chip size="sm" className="border-transparent bg-white/95 text-ink">
                 {event.category}
               </Chip>
-              {event.lifecycle === "ended" && (
-                <Chip size="sm" className="border-transparent bg-white/95 text-ink">Ended</Chip>
+              {(event.lifecycle === "ended" || event.lifecycle === "cancelled") && (
+                <Chip size="sm" className="border-transparent bg-white/95 text-ink">
+                  {event.lifecycle === "cancelled" ? "Cancelled" : "Ended"}
+                </Chip>
               )}
             </div>
             <h1 className="mt-3 text-[56px] font-semibold leading-none tracking-[-0.025em] text-white">
@@ -248,10 +250,14 @@ export function DesktopEvent({ event }: DesktopEventProps) {
         </div>
 
         <aside className="sticky top-6 self-start">
-          {event.lifecycle === "ended" ? (
+          {event.lifecycle === "ended" || event.lifecycle === "cancelled" ? (
             <Card className="p-5">
-              <div className="font-mono text-[10px] font-semibold uppercase tracking-wide text-ink-3">Past event</div>
-              <div className="mt-2 text-[18px] font-semibold">This event has ended</div>
+              <div className="font-mono text-[10px] font-semibold uppercase tracking-wide text-ink-3">
+                {event.lifecycle === "cancelled" ? "Cancelled event" : "Past event"}
+              </div>
+              <div className="mt-2 text-[18px] font-semibold">
+                {event.lifecycle === "cancelled" ? "This event has been cancelled" : "This event has ended"}
+              </div>
               <p className="mt-2 text-[13px] leading-relaxed text-ink-3">
                 The event page remains available as history, but ticket sales and entry actions are closed.
               </p>
