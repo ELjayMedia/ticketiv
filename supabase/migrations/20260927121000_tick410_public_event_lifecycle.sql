@@ -1,6 +1,76 @@
 -- TICK-410 / TICK-412 / TICK-415
 -- Canonical public lifecycle end time and schedule-driven search.
 -- Past is derived from final occurrence end + 3h; there is no stored past boolean.
+-- Cancellation is an explicit terminal state and remains directly addressable.
+
+alter type public.event_status add value if not exists 'cancelled';
+
+create or replace function public.fn_transition_event_status_unchecked(
+  p_event_id uuid,
+  p_new_status text
+)
+returns json
+language plpgsql
+security definer
+set search_path to 'public'
+as $function$
+declare
+  v_user_id uuid := (select auth.uid());
+  v_event events%rowtype;
+  v_active_holders integer;
+begin
+  if v_user_id is null then
+    raise exception 'authentication required';
+  end if;
+
+  select * into v_event from events where id = p_event_id;
+  if not found then
+    raise exception 'Event not found';
+  end if;
+
+  if not exists (
+    select 1 from org_members
+    where org_id = v_event.org_id
+      and user_id = v_user_id
+      and role = any(array['organizer_owner', 'organizer_admin']::app_role[])
+  ) and not exists (
+    select 1 from admin_users where user_id = v_user_id and active = true
+  ) then
+    raise exception 'Insufficient permissions';
+  end if;
+
+  if p_new_status not in ('paused', 'published', 'archived', 'cancelled') then
+    raise exception 'Invalid target status: %', p_new_status;
+  end if;
+  if p_new_status = 'paused' and v_event.status::text <> 'published' then
+    raise exception 'Can only pause a published event (current: %)', v_event.status;
+  end if;
+  if p_new_status = 'published' and v_event.status::text <> 'paused' then
+    raise exception 'Can only resume a paused event (current: %)', v_event.status;
+  end if;
+  if p_new_status = 'archived' and v_event.status::text = 'archived' then
+    raise exception 'Event is already archived';
+  end if;
+  if p_new_status = 'cancelled' and v_event.status::text not in ('published', 'paused') then
+    raise exception 'Can only cancel a published or paused event (current: %)', v_event.status;
+  end if;
+
+  select count(*) into v_active_holders
+  from tickets
+  where event_id = p_event_id
+    and status in ('issued', 'checked_in');
+
+  update events
+  set status = p_new_status::event_status,
+      updated_at = now()
+  where id = p_event_id;
+
+  return json_build_object(
+    'status', p_new_status,
+    'active_holders', v_active_holders
+  );
+end;
+$function$;
 
 create or replace view public.v_events_public
 with (security_invoker = true)
@@ -25,6 +95,7 @@ select
   o.name as organizer_name,
   o.logo as organizer_logo_url,
   e.featured_priority,
+  e.status::text as event_status,
   coalesce(finald.ends_at, finald.starts_at, e.ends_at, e.starts_at) as event_ends_at
 from public.events e
 left join public.venues v on v.id = e.venue_id
@@ -52,7 +123,7 @@ left join lateral (
   order by coalesce(d.ends_at, d.starts_at) desc
   limit 1
 ) finald on true
-where e.status = 'published'::event_status
+where e.status::text in ('published', 'cancelled')
   and e.visibility = 'public'::text;
 
 create or replace view public.v_public_event_cards
@@ -142,6 +213,7 @@ select
   e.description,
   e.visibility,
   v.capacity as venue_capacity,
+  ev.event_status as status,
   ev.event_ends_at
 from public.v_events_public ev
 join public.events e on e.id = ev.id
@@ -169,6 +241,7 @@ select
   organizer_id,
   organizer_name,
   organizer_logo_url,
+  event_status,
   event_ends_at
 from public.v_events_public;
 
