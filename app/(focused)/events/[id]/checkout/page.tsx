@@ -17,6 +17,7 @@ import {
 } from "@/lib/payments/errors";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isEventPast } from "@/lib/events/lifecycle";
 
 /**
  * `/events/[id]/checkout`
@@ -155,6 +156,12 @@ export default async function CheckoutPage({
 
   const row = await getPublicEventBySlug(id);
   if (!row) notFound();
+  if (isEventPast({
+    eventStartsAt: row.starts_at,
+    eventEndsAt: row.event_ends_at,
+  })) {
+    redirect(`/events/${id}?ended=1`);
+  }
 
   const sharedProps = mapCheckoutEvent(row);
   const [{ ticketTypes, plan }, paymentMethods] = await Promise.all([
