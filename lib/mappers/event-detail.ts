@@ -128,6 +128,7 @@ export function mapEventDetail(row: EventPublicView, input: MapInput = {}): Mobi
     recentSoldWindow: input.recentSoldWindow,
     supportUrl: input.supportUrl,
     lifecycle: deriveEventLifecycle({
+      status: row.status,
       eventStartsAt: row.starts_at,
       eventEndsAt: row.event_ends_at,
     }),
