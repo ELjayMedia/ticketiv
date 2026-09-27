@@ -66,6 +66,7 @@ export function LiveEventShell({ eventId, mobile, desktop, initialStats = null }
 
   const showWaitlistEntry =
     mergedMobile.lifecycle !== "ended" &&
+    mergedMobile.lifecycle !== "cancelled" &&
     (liveSoldOut || allTicketTypesSoldOut)
   const waitlistHref = `/waitlist?eventId=${encodeURIComponent(eventId)}`
 
