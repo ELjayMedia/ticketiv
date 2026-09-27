@@ -14,9 +14,9 @@ export async function getEventTransactionLifecycle(eventId: string): Promise<Eve
   const admin = createAdminClient();
 
   const [{ data: event, error: eventError }, { data: finalOccurrence, error: dateError }] = await Promise.all([
-    admin
-      .from("events")
-      .select("id, status, starts_at, ends_at")
+    (admin
+      .from("events") as any)
+      .select("id, status, starts_at, ends_at, cancelled_at")
       .eq("id", eventId)
       .maybeSingle(),
     admin
@@ -43,7 +43,7 @@ export async function getEventTransactionLifecycle(eventId: string): Promise<Eve
   return {
     publicationStatus: String(event.status ?? ""),
     lifecycle: deriveEventLifecycle({
-      status: String(event.status ?? ""),
+      status: event.cancelled_at ? "cancelled" : String(event.status ?? ""),
       eventStartsAt: startsAt,
       eventEndsAt: endsAt,
     }),
