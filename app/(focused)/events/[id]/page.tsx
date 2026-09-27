@@ -72,7 +72,7 @@ async function fetchEventExtras(eventId: string, organizerId: string | null) {
       .from("event_dates")
       .select("starts_at, ends_at")
       .eq("event_id", eventId)
-      .order("ends_at", { ascending: false, nullsFirst: false })
+      .order("starts_at", { ascending: false, nullsFirst: false })
       .limit(1)
       .maybeSingle(),
   ]);
