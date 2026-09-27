@@ -4,6 +4,7 @@ export type OrganizerEventLifecycle =
   | "active"
   | "upcoming"
   | "past"
+  | "cancelled"
   | "draft"
   | "archived"
   | "paused"
@@ -13,6 +14,7 @@ export function resolveOrganizerEventLifecycle(
   finalOccurrenceEnd: string | null,
   nowMs: number = Date.now(),
 ): OrganizerEventLifecycle {
+  if (event.status === "cancelled") return "cancelled"
   if (event.status === "draft") return "draft"
   if (event.status === "archived") return "archived"
   if (event.status === "paused") return "paused"
