@@ -8,6 +8,7 @@ export async function getPublicEventsList(params?: {
   category?: string
   search?: string
   startsAfter?: string
+  lifecycle?: "current" | "past" | "all"
   sort?: "soonest" | "latest" | "price_low" | "price_high"
 }): Promise<EventsPublicView[]> {
   const supabase = createPublicSupabaseClient()
@@ -15,6 +16,14 @@ export async function getPublicEventsList(params?: {
 
   try {
     let query = supabase.from("v_public_event_cards").select("*")
+
+    const lifecycle = params?.lifecycle ?? "current"
+    const lifecycleCutoff = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
+    if (lifecycle === "current") {
+      query = query.or(`event_ends_at.is.null,event_ends_at.gte.${lifecycleCutoff}`)
+    } else if (lifecycle === "past") {
+      query = query.lt("event_ends_at", lifecycleCutoff)
+    }
 
     if (params?.city) {
       query = query.ilike("city", `%${params.city}%`)
