@@ -8,11 +8,35 @@ import { Icon } from "@/components/quiet/ui/icon"
 import { EmptyState } from "@/components/quiet/ui/empty-state"
 import { EventsFilterBar } from "./events-filter-bar"
 import { EventsGrid } from "./_components/events-grid"
+import { isEventPast } from "@/lib/events/lifecycle"
 
 export const dynamic = "force-dynamic"
 
-const STATUS_OPTIONS = ["all", "published", "draft", "archived", "paused"] as const
+const STATUS_OPTIONS = ["all", "active", "upcoming", "past", "draft", "archived", "paused"] as const
 type StatusFilter = (typeof STATUS_OPTIONS)[number]
+
+type EventLifecycleBucket = Exclude<StatusFilter, "all">
+
+function lifecycleBucket(
+  event: { status: string; starts_at: string | null; ends_at?: string | null },
+  finalOccurrenceEnd: string | null,
+  nowMs: number,
+): EventLifecycleBucket {
+  if (event.status === "draft") return "draft"
+  if (event.status === "archived") return "archived"
+  if (event.status === "paused") return "paused"
+
+  const ended = isEventPast({
+    eventStartsAt: event.starts_at,
+    eventEndsAt: finalOccurrenceEnd ?? event.ends_at ?? null,
+    nowMs,
+  })
+  if (ended) return "past"
+
+  const startMs = event.starts_at ? new Date(event.starts_at).getTime() : Number.POSITIVE_INFINITY
+  if (event.status === "published" && startMs <= nowMs) return "active"
+  return "upcoming"
+}
 
 export default async function OrgEventsPage({
   params,
@@ -41,19 +65,43 @@ export default async function OrgEventsPage({
 
   let query = supabase
     .from("events")
-    .select("id, title, description, starts_at, status, cover_image_url")
+    .select("id, title, description, starts_at, ends_at, status, cover_image_url")
     .eq("org_id", orgId)
     .order("starts_at", { ascending: false })
 
   if (searchQuery) {
     query = query.ilike("title", `%${searchQuery}%`)
   }
-  if (statusFilter !== "all") {
-    query = query.eq("status", statusFilter as any)
+  const { data: eventsData = [] } = await query
+  const rawEvents = eventsData ?? []
+
+  const finalEndByEvent = new Map<string, string>()
+  if (rawEvents.length > 0) {
+    const { data: occurrenceRows } = await supabase
+      .from("event_dates")
+      .select("event_id, starts_at, ends_at")
+      .in("event_id", rawEvents.map((event) => event.id))
+
+    for (const occurrence of occurrenceRows ?? []) {
+      const candidate = occurrence.ends_at ?? occurrence.starts_at
+      if (!candidate) continue
+      const current = finalEndByEvent.get(occurrence.event_id)
+      if (!current || new Date(candidate).getTime() > new Date(current).getTime()) {
+        finalEndByEvent.set(occurrence.event_id, candidate)
+      }
+    }
   }
 
-  const { data: eventsData = [] } = await query
-  const events = eventsData ?? []
+  const nowMs = Date.now()
+  const withLifecycle = rawEvents.map((event) => ({
+    ...event,
+    lifecycle: lifecycleBucket(event, finalEndByEvent.get(event.id) ?? null, nowMs),
+    lifecycle_end_at: finalEndByEvent.get(event.id) ?? event.ends_at ?? event.starts_at ?? null,
+  }))
+  const events =
+    statusFilter === "all"
+      ? withLifecycle
+      : withLifecycle.filter((event) => event.lifecycle === statusFilter)
 
   const statsMap = new Map<
     string,
@@ -168,6 +216,8 @@ export default async function OrgEventsPage({
               description: event.description ?? null,
               starts_at: event.starts_at ?? null,
               status: event.status,
+              lifecycle: event.lifecycle,
+              lifecycle_end_at: event.lifecycle_end_at,
               cover_image_url: event.cover_image_url ?? null,
               stats: statsMap.get(event.id) ?? {
                 tickets_sold: 0,
