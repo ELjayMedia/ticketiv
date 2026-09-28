@@ -41,7 +41,7 @@ export default async function OrgEventsPage({
 
   let query = supabase
     .from("events")
-    .select("id, title, description, starts_at, status, cover_image_url")
+    .select("id, title, description, starts_at, ends_at, status, cover_image_url")
     .eq("org_id", orgId)
     .order("starts_at", { ascending: false })
 
