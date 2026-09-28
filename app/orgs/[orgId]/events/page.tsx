@@ -53,7 +53,20 @@ export default async function OrgEventsPage({
   }
 
   const { data: eventsData = [] } = await query
-  const events = eventsData ?? []
+  const nowMs = Date.now()
+  const events = (eventsData ?? []).map((event) => {
+    const eventEndMs = event.ends_at
+      ? Date.parse(event.ends_at)
+      : event.starts_at
+        ? Date.parse(event.starts_at)
+        : Number.NaN
+    const { ends_at: _endsAt, ...eventCard } = event
+
+    return {
+      ...eventCard,
+      is_finished: Number.isFinite(eventEndMs) && eventEndMs < nowMs,
+    }
+  })
 
   const statsMap = new Map<
     string,
