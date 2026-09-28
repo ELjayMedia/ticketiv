@@ -60,10 +60,8 @@ export default async function OrgEventsPage({
       : event.starts_at
         ? Date.parse(event.starts_at)
         : Number.NaN
-    const { ends_at: _endsAt, ...eventCard } = event
-
     return {
-      ...eventCard,
+      ...event,
       is_finished: Number.isFinite(eventEndMs) && eventEndMs < nowMs,
     }
   })
@@ -180,6 +178,7 @@ export default async function OrgEventsPage({
               title: event.title,
               description: event.description ?? null,
               starts_at: event.starts_at ?? null,
+              is_finished: event.is_finished,
               status: event.status,
               cover_image_url: event.cover_image_url ?? null,
               stats: statsMap.get(event.id) ?? {
