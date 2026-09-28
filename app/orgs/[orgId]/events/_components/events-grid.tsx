@@ -16,7 +16,7 @@ export interface EventCardData {
   title: string
   description: string | null
   starts_at: string | null
-  ends_at: string | null
+  is_finished: boolean
   status: string
   cover_image_url: string | null
   stats: { tickets_sold: number; gross_sales_cents: number; checked_in_count: number }
@@ -150,12 +150,7 @@ export function EventsGrid({ events, orgId, canDelete }: EventsGridProps) {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {events.map((event) => {
           const isSelected = selected.has(event.id)
-          const eventEndMs = event.ends_at
-            ? Date.parse(event.ends_at)
-            : event.starts_at
-              ? Date.parse(event.starts_at)
-              : Number.NaN
-          const isFinished = Number.isFinite(eventEndMs) && eventEndMs < Date.now()
+          const isFinished = event.is_finished
           const sellThroughPct =
             event.capacity > 0
               ? Math.min(100, (event.stats.tickets_sold / event.capacity) * 100)
