@@ -41,7 +41,7 @@ export default async function OrgEventsPage({
 
   let query = supabase
     .from("events")
-    .select("id, title, description, starts_at, status, cover_image_url")
+    .select("id, title, description, starts_at, ends_at, status, cover_image_url")
     .eq("org_id", orgId)
     .order("starts_at", { ascending: false })
 
@@ -53,7 +53,18 @@ export default async function OrgEventsPage({
   }
 
   const { data: eventsData = [] } = await query
-  const events = eventsData ?? []
+  const nowMs = Date.now()
+  const events = (eventsData ?? []).map((event) => {
+    const eventEndMs = event.ends_at
+      ? Date.parse(event.ends_at)
+      : event.starts_at
+        ? Date.parse(event.starts_at)
+        : Number.NaN
+    return {
+      ...event,
+      is_finished: Number.isFinite(eventEndMs) && eventEndMs < nowMs,
+    }
+  })
 
   const statsMap = new Map<
     string,
@@ -167,6 +178,7 @@ export default async function OrgEventsPage({
               title: event.title,
               description: event.description ?? null,
               starts_at: event.starts_at ?? null,
+              is_finished: event.is_finished,
               status: event.status,
               cover_image_url: event.cover_image_url ?? null,
               stats: statsMap.get(event.id) ?? {
