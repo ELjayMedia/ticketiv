@@ -11,6 +11,7 @@ import { SuggestedEventsRow } from "@/components/quiet/screens/discover/suggeste
 import { DiscoverFilterChips } from "@/components/quiet/screens/discover/discover-filter-chips";
 import { LoadMoreSection } from "@/components/quiet/screens/discover/load-more-section";
 import { PHOTOS } from "@/lib/photos";
+import type { DiscoverSection } from "@/lib/data/public/discover-feed";
 import type { DiscoverEvent } from "@/lib/mappers/discover";
 
 /* ──────────────────────────────────────────────────────────────
@@ -18,10 +19,11 @@ import type { DiscoverEvent } from "@/lib/mappers/discover";
  * ────────────────────────────────────────────────────────────── */
 
 interface DesktopDiscoverProps {
-  events?: DiscoverEvent[];
+  /** Not ended, starting within 7 days (includes tonight and events already under way). */
+  thisWeek?: DiscoverSection;
+  /** Every published event starting after this week. */
+  upcoming?: DiscoverSection;
   editorPick?: DiscoverEvent | null;
-  city?: string;
-  totalEvents?: number;
 }
 
 const CATEGORIES = [
@@ -45,15 +47,6 @@ interface GridRow {
   stockType: "sold-out" | "low" | null;
   verified: boolean;
 }
-
-const DEFAULT_GRID: GridRow[] = [
-  { href: "/events/tribal-tales", photo: PHOTOS.dj_neon, title: "Tribal Tales · Vol 4", when: "Wed 30 Aug · 15:50", venue: "Cafe Natarani", price: "E450", chip: undefined, stockLabel: "Only 5 left", stockType: "low", trustLabel: null, verified: false },
-  { href: "/events/sunset-set", photo: PHOTOS.singer_red, title: "Sunset Set", when: "Sat 26 Aug · 18:00", venue: "Riverside Park", price: "E600", chip: undefined, stockLabel: null, stockType: null, trustLabel: null, verified: false },
-  { href: "/events/stand-up-saturday", photo: PHOTOS.comedy_club, title: "Stand-up Saturday", when: "Sat 26 Aug · 21:30", venue: "House of MG", price: "E300", chip: undefined, stockLabel: null, stockType: null, trustLabel: null, verified: false },
-  { href: "/events/pottery-and-wine", photo: PHOTOS.workshop, title: "Pottery & Wine", when: "Sun 27 Aug · 14:00", venue: "The Loft", price: "E1,200", chip: undefined, stockLabel: "Sold out", stockType: "sold-out", trustLabel: null, verified: false },
-  { href: "/events/macbeth-revisited", photo: PHOTOS.theatre_curtain, title: "Macbeth · revisited", when: "Thu 31 Aug · 19:00", venue: "Standard Theatre", price: "E550", chip: undefined, stockLabel: null, stockType: null, trustLabel: null, verified: false },
-  { href: "/events/night-market-mbabane", photo: PHOTOS.food_market, title: "Night Market: Mbabane", when: "Fri 25 Aug · 17:00", venue: "Coronation Park", price: "Free", chip: undefined, stockLabel: null, stockType: null, trustLabel: null, verified: false },
-];
 
 interface HeroRow {
   href: string;
@@ -113,14 +106,11 @@ function toHero(ev: DiscoverEvent): HeroRow {
 }
 
 export function DesktopDiscover({
-  events,
+  thisWeek = { events: [], hasMore: false },
+  upcoming = { events: [], hasMore: false },
   editorPick,
-  city = "Mbabane",
-  totalEvents,
 }: DesktopDiscoverProps = {}) {
-  const GRID_EVENTS = events && events.length > 0 ? events.map(toGrid) : DEFAULT_GRID;
   const HERO = editorPick ? toHero(editorPick) : DEFAULT_HERO;
-  const total = totalEvents ?? events?.length ?? 42;
   return (
     <div className="mx-auto max-w-[1280px] px-10 py-6">
       {/* Inline search bar — desktop discover's prominent entry point.
@@ -159,10 +149,10 @@ export function DesktopDiscover({
             Free
           </Link>
           <Link
-            href="/search?when=weekend"
+            href="/search?when=week"
             className="rounded-full border border-line bg-bg px-2.5 py-1 text-[11px] font-semibold text-ink-3 hover:text-ink"
           >
-            Weekend
+            This week
           </Link>
         </div>
         <button
@@ -176,22 +166,10 @@ export function DesktopDiscover({
       {/* Page header */}
       <div className="flex items-end justify-between pb-4">
         <div>
-          <div className="text-label">Showing events near</div>
-          <h1 className="mt-1 inline-flex items-center gap-2 text-[40px] font-semibold leading-none tracking-[-0.025em]">
-            {city} <Icon name="chevD" size={28} />
-          </h1>
-          <p className="mt-2 font-mono text-[12px] text-ink-3">
-            {total} EVENTS
-          </p>
+          <div className="text-label">Discover</div>
+          <h1 className="mt-1 text-[40px] font-semibold leading-none tracking-[-0.025em]">What&apos;s on</h1>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            href="/search?when=week"
-            className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-1.5 text-[13px] font-medium hover:bg-bg"
-          >
-            <Icon name="cal" size={14} /> This week
-            <Icon name="chevD" size={12} />
-          </Link>
           <Link
             href="/search"
             className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-1.5 text-[13px] font-medium hover:bg-bg"
@@ -298,23 +276,57 @@ export function DesktopDiscover({
           </div>
         </aside>
 
-        {/* Right: grid */}
-        <div>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-h2">This week</h2>
-            <div className="flex items-center gap-1 font-mono text-[11px] text-ink-3">
-              SORT BY
-              <button className="ml-1 inline-flex items-center gap-1 rounded border border-line-2 px-2 py-0.5 text-ink">
-                Recommended <Icon name="chevD" size={10} />
-              </button>
-            </div>
-          </div>
+        {/* Right: this week + upcoming */}
+        <div className="flex flex-col gap-10">
+          <DesktopEventGridSection
+            title="This week"
+            subtitle="Happening in the next 7 days"
+            section={thisWeek}
+            when="thisWeek"
+            emptyText="No events in the next 7 days. See what's coming up below."
+          />
+          <DesktopEventGridSection
+            title="Upcoming"
+            subtitle="All events after this week"
+            section={upcoming}
+            when="upcoming"
+            emptyText="No other upcoming events yet."
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
 
-          <LoadMoreSection
-            initialEvents={events ?? []}
-            totalCount={totalEvents ?? (events?.length ?? 0)}
-            batchSize={9}
-            renderEvents={(evs) => (
+function DesktopEventGridSection({
+  title,
+  subtitle,
+  section,
+  when,
+  emptyText,
+}: {
+  title: string;
+  subtitle: string;
+  section: DiscoverSection;
+  when: "thisWeek" | "upcoming";
+  emptyText: string;
+}) {
+  return (
+    <section>
+      <div className="mb-4">
+        <h2 className="text-h2">{title}</h2>
+        <p className="mt-0.5 font-mono text-[11px] uppercase text-ink-3">{subtitle}</p>
+      </div>
+      {section.events.length === 0 ? (
+        <Card flat className="border-dashed p-6 text-center text-[13px] text-ink-3">{emptyText}</Card>
+      ) : (
+        <LoadMoreSection
+          initialEvents={section.events}
+          // LoadMoreSection only needs to know whether more exist; the API reports exact hasMore.
+          totalCount={section.events.length + (section.hasMore ? 1 : 0)}
+          batchSize={9}
+          when={when}
+          renderEvents={(evs) => (
               <div className="grid grid-cols-3 gap-4">
                 {evs.map(toGrid).map((e) => (
                   <Link
@@ -368,11 +380,10 @@ export function DesktopDiscover({
                   </Link>
                 ))}
               </div>
-            )}
-          />
-        </div>
-      </div>
-    </div>
+          )}
+        />
+      )}
+    </section>
   );
 }
 

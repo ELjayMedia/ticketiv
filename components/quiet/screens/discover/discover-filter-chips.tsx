@@ -15,11 +15,11 @@ const CATEGORY_CHIPS = [
   { label: "Free", value: "free" },
 ] as const
 
+// Discover is not limited to tonight/this weekend or a location: "This week" is the next 7 days and
+// "Upcoming" is every event that has not taken place yet (search with no date preset).
 const WHEN_CHIPS = [
-  { label: "Today", value: "today" },
-  { label: "Tonight", value: "tonight" },
-  { label: "This weekend", value: "weekend" },
-  { label: "Next week", value: "week" },
+  { label: "This week", value: "week" },
+  { label: "Upcoming", value: "upcoming" },
   { label: "Past events", value: "past" },
 ] as const
 
@@ -61,7 +61,7 @@ export function DiscoverFilterChips({
             variant={isActive ? "active" : "default"}
             size="md"
             onClick={() =>
-              isActive
+              isActive || chip.value === "upcoming"
                 ? router.push("/search")
                 : navigate({ when: chip.value })
             }
