@@ -2,13 +2,14 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/quiet/ui/button"
 import { Icon } from "@/components/quiet/ui/icon"
 import { Logo } from "@/components/Logo"
+import { authLinkErrorMessage } from "@/lib/auth/auth-link-errors"
 import { createClient } from "@/lib/supabase/client"
 
 export default function ResetPasswordContent() {
@@ -19,6 +20,23 @@ export default function ResetPasswordContent() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
+  // The reset link establishes a recovery session before this page loads; without it, updateUser cannot work.
+  const [linkState, setLinkState] = useState<"checking" | "ready" | "invalid">("checking")
+
+  useEffect(() => {
+    let active = true
+    createClient()
+      .auth.getUser()
+      .then(({ data, error: userError }) => {
+        if (active) setLinkState(!userError && data.user ? "ready" : "invalid")
+      })
+      .catch(() => {
+        if (active) setLinkState("invalid")
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,7 +60,7 @@ export default function ResetPasswordContent() {
 
       if (updateError) {
         if (updateError.message.toLowerCase().includes("session")) {
-          setError("Your reset link has expired. Please request a new one.")
+          setLinkState("invalid")
         } else {
           setError(updateError.message || "Failed to reset password. Please try again.")
         }
@@ -79,6 +97,31 @@ export default function ResetPasswordContent() {
           </h1>
           <p className="mt-3 text-[14px] text-ink-3">Your password has been successfully reset.</p>
           <p className="mt-2 font-mono text-[11px] uppercase tracking-wider text-ink-4">Redirecting to login…</p>
+        </section>
+      </main>
+    )
+  }
+
+  if (linkState === "invalid") {
+    return (
+      <main className="mx-auto flex min-h-dvh max-w-md flex-col px-6 py-10">
+        <header className="flex items-center justify-between">
+          <Link href="/" aria-label="Back to home">
+            <Logo />
+          </Link>
+        </header>
+        <section className="flex flex-1 flex-col justify-center pb-24 pt-12">
+          <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Reset link</p>
+          <h1 className="mt-3 text-[32px] font-semibold leading-[1.05] tracking-tight text-ink">
+            This link no longer works.
+          </h1>
+          <p className="mt-3 text-[14px] leading-6 text-ink-3">{authLinkErrorMessage("recovery_link_invalid")}</p>
+          <Link
+            href="/forgot-password"
+            className="mt-8 inline-flex min-h-10 items-center justify-center rounded-[var(--radius)] border border-accent bg-accent px-4 py-2.5 text-[14px] font-semibold text-white transition hover:opacity-90"
+          >
+            Request a new reset link
+          </Link>
         </section>
       </main>
     )
@@ -144,7 +187,7 @@ export default function ResetPasswordContent() {
             </div>
           )}
 
-          <Button type="submit" variant="primary" size="md" disabled={loading} block>
+          <Button type="submit" variant="primary" size="md" disabled={loading || linkState !== "ready"} block>
             {loading ? "Resetting password…" : "Reset password"}
           </Button>
         </form>
