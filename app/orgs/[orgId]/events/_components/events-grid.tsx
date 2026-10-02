@@ -17,6 +17,7 @@ export interface EventCardData {
   title: string
   description: string | null
   starts_at: string | null
+  is_finished: boolean
   status: string
   lifecycle: OrganizerEventLifecycle
   cover_image_url: string | null
@@ -151,6 +152,7 @@ export function EventsGrid({ events, orgId, canDelete }: EventsGridProps) {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {events.map((event) => {
           const isSelected = selected.has(event.id)
+          const isFinished = event.is_finished
           const sellThroughPct =
             event.capacity > 0
               ? Math.min(100, (event.stats.tickets_sold / event.capacity) * 100)
@@ -174,12 +176,31 @@ export function EventsGrid({ events, orgId, canDelete }: EventsGridProps) {
                       <img
                         src={event.cover_image_url}
                         alt={event.title}
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        className={[
+                          "h-full w-full object-cover transition-all duration-300",
+                          isFinished
+                            ? "grayscale brightness-[0.68] saturate-0"
+                            : "group-hover:scale-105",
+                        ].join(" ")}
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center">
                         <Icon name="cal" size={32} className="text-ink-4" />
                       </div>
+                    )}
+
+                    {isFinished && (
+                      <>
+                        <div
+                          className="pointer-events-none absolute inset-0 bg-black/15"
+                          aria-hidden="true"
+                        />
+                        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                          <span className="rounded-full border border-white/30 bg-black/70 px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-white shadow-sm backdrop-blur-sm">
+                            Finished
+                          </span>
+                        </div>
+                      </>
                     )}
 
                     {/* Checkbox overlay — top-left */}

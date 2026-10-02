@@ -228,6 +228,7 @@ export default async function OrgEventsPage({
               title: event.title,
               description: event.description ?? null,
               starts_at: event.starts_at ?? null,
+              is_finished: lifecycleMap.get(event.id) === "past",
               status: event.status,
               lifecycle: lifecycleMap.get(event.id) ?? "active",
               cover_image_url: event.cover_image_url ?? null,
