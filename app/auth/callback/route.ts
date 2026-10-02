@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 
+import { failedAuthLinkDestination } from "@/lib/auth/auth-link-errors"
 import { createClient } from "@/lib/supabase/server"
 
 function getSafeNext(request: NextRequest) {
@@ -38,19 +39,24 @@ export async function GET(request: NextRequest) {
   redirectTo.pathname = next
   redirectTo.search = ""
 
-  if (!code) {
-    redirectTo.pathname = "/login"
-    redirectTo.searchParams.set("error", "missing_auth_code")
+  const fail = (fallback: "missing_auth_code" | "auth_callback_failed") => {
+    const destination = failedAuthLinkDestination(next, fallback)
+    redirectTo.pathname = destination.pathname
+    redirectTo.search = ""
+    redirectTo.searchParams.set("error", destination.error)
     return NextResponse.redirect(redirectTo)
+  }
+
+  if (!code) {
+    return fail("missing_auth_code")
   }
 
   const supabase = await createClient()
   const { error } = await supabase.auth.exchangeCodeForSession(code)
 
   if (error) {
-    redirectTo.pathname = "/login"
-    redirectTo.searchParams.set("error", "auth_callback_failed")
-    return NextResponse.redirect(redirectTo)
+    // PKCE codes only exchange in the browser that requested them (e.g. a reset email opened on a phone fails).
+    return fail("auth_callback_failed")
   }
 
   try {
