@@ -115,9 +115,9 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
   const [organizer, setOrganizer] = useState<OrganizerSignupPayload>(emptyOrganizerSignup)
   const [busy, setBusy] = useState(false)
   // Email-link routes (/auth/confirm, /auth/callback, reset password) report outcomes via query params.
-  const [error, setError] = useState<string | null>(() => authLinkErrorMessage(search.get("error")))
+  const [error, setError] = useState<string | null>(() => authLinkErrorMessage(search?.get("error")))
   const [success, setSuccess] = useState<string | null>(() =>
-    search.get("message") === "password-reset" ? "Password updated. Log in with your new password." : null,
+    search?.get("message") === "password-reset" ? "Password updated. Log in with your new password." : null,
   )
 
   const organizerReady = Boolean(
