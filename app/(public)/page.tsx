@@ -2,12 +2,11 @@ import { MobileDiscover } from "@/components/quiet/screens/discover/mobile-disco
 import { DesktopDiscover } from "@/components/quiet/screens/discover/desktop-discover";
 import { ConsumerFrame } from "@/components/quiet/shell/consumer-frame";
 import { PublicSessionDesktopNav } from "@/components/quiet/shell/public-session-desktop-nav";
-import { getPublicEventsList } from "@/lib/adapters/events";
-import { mapDiscoverEvent, partitionDiscover } from "@/lib/mappers/discover";
+import { getDiscoverFeed } from "@/lib/data/public/discover-feed";
 
 export const metadata = {
   title: "Discover what's on",
-  description: "Live events, festivals, comedy and workshops near you.",
+  description: "Live events, festivals, comedy and workshops this week and coming up.",
 };
 
 // Public discovery reads the anonymous `v_public_event_cards` read model via a
@@ -22,37 +21,20 @@ export const revalidate = 60;
  * Both viewports are rendered as siblings and toggled with Tailwind so the
  * page stays a pure RSC (no useMediaQuery hydration mismatch). Data comes
  * from `v_public_event_cards` via lib/adapters/events.ts, mapped into a
- * UI-friendly shape and partitioned client-side into Tonight / This week.
+ * UI-friendly shape and split into "This week" and "Upcoming" (lib/data/public/discover-feed).
  */
 export default async function DiscoverPage() {
-  const rows = await getPublicEventsList({
-    limit: 36,
-    sort: "soonest",
-    startsAfter: new Date().toISOString(),
-  });
-  const events = rows.map(mapDiscoverEvent);
-  const { tonight, thisWeek, editorPick } = partitionDiscover(events);
-  const thisWeekEvents = thisWeek.length > 0 ? thisWeek : events.slice(0, 6);
+  const { thisWeek, upcoming, editorPick } = await getDiscoverFeed();
 
   return (
     <ConsumerFrame desktopNav={<PublicSessionDesktopNav />}>
       <div className="md:hidden">
-        <MobileDiscover
-          tonight={tonight}
-          thisWeek={thisWeekEvents}
-          editorPick={editorPick}
-          eventCount={events.length}
-          thisWeekTotal={events.length}
-        />
+        <MobileDiscover thisWeek={thisWeek} upcoming={upcoming} editorPick={editorPick} />
       </div>
       {/* Desktop search is owned by the persistent top navigation. Hide the
           discover screen's legacy inline form while retaining its filter tools. */}
       <div className="hidden md:block [&>div>form]:hidden">
-        <DesktopDiscover
-          events={events.slice(0, 9)}
-          editorPick={editorPick}
-          totalEvents={events.length}
-        />
+        <DesktopDiscover thisWeek={thisWeek} upcoming={upcoming} editorPick={editorPick} />
       </div>
     </ConsumerFrame>
   );

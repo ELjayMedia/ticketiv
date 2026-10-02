@@ -86,24 +86,14 @@ export function mapDiscoverEvent(row: EventsPublicView & { featured_priority?: n
   };
 }
 
-export function partitionDiscover(events: DiscoverEvent[]) {
-  const now = Date.now();
-  const sixHours = 6 * 60 * 60 * 1000;
-  const sevenDays = 7 * 24 * 60 * 60 * 1000;
-  const tonight: DiscoverEvent[] = [];
-  const thisWeek: DiscoverEvent[] = [];
+/** Discover's "This week" window: everything that has not ended and starts within the next 7 days. */
+export const DISCOVER_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-  // Editor's pick: highest featured_priority wins; fallback to first upcoming.
+/** Editor's pick: highest featured_priority wins; otherwise the soonest event. */
+export function pickEditorPick(events: DiscoverEvent[]): DiscoverEvent | null {
   let editorPick: DiscoverEvent | null = null;
   let bestPriority = -1;
-
   for (const ev of events) {
-    if (ev.startsAtMs === null) continue;
-    const delta = ev.startsAtMs - now;
-    if (delta < 0) continue;
-    if (delta <= sixHours) tonight.push(ev);
-    else if (delta <= sevenDays) thisWeek.push(ev);
-
     if (ev.featuredPriority !== null && ev.featuredPriority > bestPriority) {
       editorPick = ev;
       bestPriority = ev.featuredPriority;
@@ -111,5 +101,5 @@ export function partitionDiscover(events: DiscoverEvent[]) {
       editorPick = ev;
     }
   }
-  return { tonight, thisWeek, editorPick };
+  return editorPick;
 }
