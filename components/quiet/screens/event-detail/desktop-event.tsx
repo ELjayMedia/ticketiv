@@ -81,9 +81,16 @@ export function DesktopEvent({ event }: DesktopEventProps) {
       <div className="pt-6">
         <Photo src={event.posterUrl} height={420} overlay="dim" className="rounded-2xl">
           <div className="mt-auto">
-            <Chip size="sm" className="border-transparent bg-white/95 text-ink">
-              {event.category}
-            </Chip>
+            <div className="flex flex-wrap gap-1.5">
+              <Chip size="sm" className="border-transparent bg-white/95 text-ink">
+                {event.category}
+              </Chip>
+              {(event.lifecycle === "ended" || event.lifecycle === "cancelled") && (
+                <Chip size="sm" className="border-transparent bg-white/95 text-ink">
+                  {event.lifecycle === "cancelled" ? "Cancelled" : "Ended"}
+                </Chip>
+              )}
+            </div>
             <h1 className="mt-3 text-[56px] font-semibold leading-none tracking-[-0.025em] text-white">
               {event.title}
             </h1>
@@ -243,7 +250,22 @@ export function DesktopEvent({ event }: DesktopEventProps) {
         </div>
 
         <aside className="sticky top-6 self-start">
-          {ticketTypes.length === 0 ? (
+          {event.lifecycle === "ended" || event.lifecycle === "cancelled" ? (
+            <Card className="p-5">
+              <div className="font-mono text-[10px] font-semibold uppercase tracking-wide text-ink-3">
+                {event.lifecycle === "cancelled" ? "Cancelled event" : "Past event"}
+              </div>
+              <div className="mt-2 text-[18px] font-semibold">
+                {event.lifecycle === "cancelled" ? "This event has been cancelled" : "This event has ended"}
+              </div>
+              <p className="mt-2 text-[13px] leading-relaxed text-ink-3">
+                The event page remains available as history, but ticket sales and entry actions are closed.
+              </p>
+              <Link href={event.organizerUpcomingHref} className="mt-5 flex items-center justify-center gap-2 rounded-[var(--radius-md)] bg-ink px-4 py-3 text-[14px] font-semibold text-white hover:opacity-90">
+                See upcoming events <Icon name="arrowR" size={14} />
+              </Link>
+            </Card>
+          ) : ticketTypes.length === 0 ? (
             <Card className="p-5">
               <div className="text-label">TICKETS</div>
               <div className="mt-2 text-[15px] font-semibold">Not yet on sale</div>

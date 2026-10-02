@@ -15,6 +15,7 @@ export interface SelectedFilters {
   city: string | null
   when: string | null
   onlyFree: boolean
+  past: boolean
 }
 
 interface SearchFilterBarProps {
@@ -58,6 +59,20 @@ export function SearchFilterBar({ categories, cities, selected }: SearchFilterBa
     params.delete("offset")
     router.replace(`/search?${params.toString()}`)
   }, [router, sp, selected.onlyFree])
+
+  const togglePast = React.useCallback(() => {
+    const params = new URLSearchParams(sp?.toString() ?? "")
+    if (selected.past) {
+      params.delete("past")
+    } else {
+      params.set("past", "1")
+      params.delete("when")
+      params.delete("startsAfter")
+      params.delete("startsBefore")
+    }
+    params.delete("offset")
+    router.replace(`/search?${params.toString()}`)
+  }, [router, sp, selected.past])
 
   const hasCategories = categories.length > 0
   const hasCities = cities.length > 0
@@ -112,6 +127,20 @@ export function SearchFilterBar({ categories, cities, selected }: SearchFilterBa
             ))}
           </FilterSelect>
         )}
+
+        <button
+          type="button"
+          onClick={togglePast}
+          aria-pressed={selected.past}
+          className={
+            "inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors " +
+            (selected.past
+              ? "border-transparent bg-accent text-white"
+              : "border-line-2 bg-surface text-ink hover:border-line")
+          }
+        >
+          <Icon name="cal" size={11} /> Past events
+        </button>
 
         {/* Free only toggle */}
         <button

@@ -27,6 +27,7 @@ function ticket(overrides: Partial<MyTicketsView> = {}): MyTicketsView {
     venue_name: "Main Hall",
     venue_address: "Mbabane",
     event_starts_at: "2026-08-09T12:00:00.000Z",
+    event_ends_at: "2026-08-09T14:00:00.000Z",
     order_item_status: "issued",
     refunded_at: null,
     transferred_from_order_item_id: null,
@@ -39,7 +40,7 @@ afterEach(() => {
 });
 
 describe("mapMyTickets", () => {
-  it("moves a successfully checked-in future ticket to Past immediately", () => {
+  it("keeps a successfully checked-in ticket in the active event context", () => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
 
@@ -51,13 +52,44 @@ describe("mapMyTickets", () => {
     ]);
 
     expect(result.featured).toBeUndefined();
-    expect(result.upcoming).toHaveLength(0);
-    expect(result.past).toHaveLength(1);
-    expect(result.past[0]).toMatchObject({
+    expect(result.upcoming).toHaveLength(1);
+    expect(result.past).toHaveLength(0);
+    expect(result.upcoming[0]).toMatchObject({
       status: "checked_in",
       checkedInAt: "2026-08-09T09:55:00.000Z",
     });
-    expect(result.counts).toEqual({ upcoming: 0, past: 1, transfers: 0 });
+    expect(result.counts).toEqual({ upcoming: 1, past: 0, transfers: 0 });
+  });
+
+  it("keeps a checked-in ticket active through end plus the three-hour grace window", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-09T17:00:00.000Z"));
+
+    const result = mapMyTickets([
+      ticket({
+        order_item_status: "checked_in",
+        checked_in_at: "2026-08-09T12:05:00.000Z",
+      }),
+    ]);
+
+    expect(result.upcoming).toHaveLength(1);
+    expect(result.past).toHaveLength(0);
+  });
+
+  it("moves a checked-in ticket to Past after the event end grace window", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-09T17:00:00.001Z"));
+
+    const result = mapMyTickets([
+      ticket({
+        order_item_status: "checked_in",
+        checked_in_at: "2026-08-09T12:05:00.000Z",
+      }),
+    ]);
+
+    expect(result.upcoming).toHaveLength(0);
+    expect(result.past).toHaveLength(1);
+    expect(result.past[0].status).toBe("checked_in");
   });
 
   it("keeps an unscanned future ticket in Upcoming", () => {

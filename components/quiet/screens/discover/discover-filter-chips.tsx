@@ -20,6 +20,7 @@ const WHEN_CHIPS = [
   { label: "Tonight", value: "tonight" },
   { label: "This weekend", value: "weekend" },
   { label: "Next week", value: "week" },
+  { label: "Past events", value: "past" },
 ] as const
 
 interface DiscoverFilterChipsProps {

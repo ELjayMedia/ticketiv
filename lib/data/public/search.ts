@@ -13,6 +13,7 @@ export interface SearchFilters {
   onlyFree?: boolean
   limit?: number
   offset?: number
+  lifecycle?: "current" | "past"
 }
 
 export interface SearchResultRow {
@@ -46,7 +47,7 @@ export async function searchEvents(filters: SearchFilters): Promise<SearchResult
   const supabase = createPublicSupabaseClient()
   if (!supabase) return { query: filters.q ?? "", totalReturned: 0, rows: [] }
 
-  const { data, error } = await supabase.rpc("fn_search_events", {
+  const { data, error } = await (supabase.rpc as any)("fn_search_events", {
     p_query: filters.q ?? undefined,
     p_category: filters.category ?? undefined,
     p_city: filters.city ?? undefined,
@@ -56,6 +57,7 @@ export async function searchEvents(filters: SearchFilters): Promise<SearchResult
     p_only_free: filters.onlyFree ?? false,
     p_limit: filters.limit ?? 30,
     p_offset: filters.offset ?? 0,
+    p_lifecycle: filters.lifecycle ?? "current",
   })
 
   if (error) {
@@ -87,9 +89,11 @@ export async function getPublicSearchFacets(): Promise<SearchFacets> {
   const supabase = createPublicSupabaseClient()
   if (!supabase) return { categories: [], cities: [] }
 
+  const lifecycleCutoff = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
   const { data, error } = await supabase
     .from("v_public_event_cards")
     .select("category, city")
+    .or(`event_ends_at.is.null,event_ends_at.gte.${lifecycleCutoff}`)
     .limit(500)
 
   if (error || !data) {

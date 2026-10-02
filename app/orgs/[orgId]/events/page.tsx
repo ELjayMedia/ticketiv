@@ -8,11 +8,26 @@ import { Icon } from "@/components/quiet/ui/icon"
 import { EmptyState } from "@/components/quiet/ui/empty-state"
 import { EventsFilterBar } from "./events-filter-bar"
 import { EventsGrid } from "./_components/events-grid"
+import {
+  resolveOrganizerEventLifecycle,
+  type OrganizerEventLifecycle,
+} from "@/lib/events/organizer-lifecycle"
 
 export const dynamic = "force-dynamic"
 
-const STATUS_OPTIONS = ["all", "published", "draft", "archived", "paused"] as const
+const STATUS_OPTIONS = ["all", "active", "upcoming", "past", "cancelled", "draft", "paused", "archived"] as const
 type StatusFilter = (typeof STATUS_OPTIONS)[number]
+
+type OrganizerEventRow = {
+  id: string
+  title: string
+  description: string | null
+  starts_at: string | null
+  ends_at: string | null
+  status: string
+  cover_image_url: string | null
+  cancelled_at: string | null
+}
 
 export default async function OrgEventsPage({
   params,
@@ -39,38 +54,25 @@ export default async function OrgEventsPage({
   const statusFilter: StatusFilter =
     (STATUS_OPTIONS.includes(rawStatus as StatusFilter) ? rawStatus : "all") as StatusFilter
 
-  let query = supabase
-    .from("events")
-    .select("id, title, description, starts_at, ends_at, status, cover_image_url")
+  let query = (supabase
+    .from("events") as any)
+    .select("id, title, description, starts_at, ends_at, status, cover_image_url, cancelled_at")
     .eq("org_id", orgId)
     .order("starts_at", { ascending: false })
 
   if (searchQuery) {
     query = query.ilike("title", `%${searchQuery}%`)
   }
-  if (statusFilter !== "all") {
-    query = query.eq("status", statusFilter as any)
-  }
-
   const { data: eventsData = [] } = await query
-  const nowMs = Date.now()
-  const events = (eventsData ?? []).map((event) => {
-    const eventEndMs = event.ends_at
-      ? Date.parse(event.ends_at)
-      : event.starts_at
-        ? Date.parse(event.starts_at)
-        : Number.NaN
-    return {
-      ...event,
-      is_finished: Number.isFinite(eventEndMs) && eventEndMs < nowMs,
-    }
-  })
+  const allEvents = (eventsData ?? []) as OrganizerEventRow[]
 
   const statsMap = new Map<
     string,
-    { tickets_sold: number; gross_sales_cents: number; checked_in_count: number }
+    { tickets_sold: number; gross_sales_cents: number; checked_in_count: number; refunds_cents: number }
   >()
   const capacityMap = new Map<string, number>()
+  const finalOccurrenceMap = new Map<string, { starts_at: string; ends_at: string }>()
+  const lifecycleMap = new Map<string, OrganizerEventLifecycle>()
 
   const OWNER_ROLES = new Set(["organizer_owner", "organizer_admin", "admin"])
   let canDelete = false
@@ -91,9 +93,9 @@ export default async function OrgEventsPage({
     if (adminRow) canDelete = true
   }
 
-  if (events.length > 0) {
-    const eventIds = events.map((e) => e.id)
-    const [liveStatsResult, ttResult] = await Promise.all([
+  if (allEvents.length > 0) {
+    const eventIds = allEvents.map((e) => e.id)
+    const [liveStatsResult, ttResult, datesResult, refundLedgerResult] = await Promise.all([
       supabase
         .from("event_live_stats")
         .select("event_id, tickets_sold, gross_sales_cents, checked_in_count")
@@ -102,18 +104,66 @@ export default async function OrgEventsPage({
         .from("ticket_types")
         .select("event_id, quota")
         .in("event_id", eventIds),
+      supabase
+        .from("event_dates")
+        .select("event_id, starts_at, ends_at")
+        .in("event_id", eventIds),
+      supabase
+        .from("ledger_entries")
+        .select("event_id, amount_cents, refund_id")
+        .eq("org_id", orgId)
+        .in("event_id", eventIds)
+        .not("refund_id", "is", null),
     ])
     for (const s of liveStatsResult.data ?? []) {
       statsMap.set(s.event_id, {
         tickets_sold: s.tickets_sold ?? 0,
         gross_sales_cents: s.gross_sales_cents ?? 0,
         checked_in_count: s.checked_in_count ?? 0,
+        refunds_cents: 0,
       })
+    }
+    for (const refund of refundLedgerResult.data ?? []) {
+      if (!refund.event_id) continue
+      const current = statsMap.get(refund.event_id) ?? {
+        tickets_sold: 0,
+        gross_sales_cents: 0,
+        checked_in_count: 0,
+        refunds_cents: 0,
+      }
+      current.refunds_cents += Math.abs(refund.amount_cents ?? 0)
+      statsMap.set(refund.event_id, current)
     }
     for (const tt of ttResult.data ?? []) {
       capacityMap.set(tt.event_id, (capacityMap.get(tt.event_id) ?? 0) + (tt.quota ?? 0))
     }
+    for (const occurrence of datesResult.data ?? []) {
+      const current = finalOccurrenceMap.get(occurrence.event_id)
+      if (!current || new Date(occurrence.ends_at).getTime() > new Date(current.ends_at).getTime()) {
+        finalOccurrenceMap.set(occurrence.event_id, {
+          starts_at: occurrence.starts_at,
+          ends_at: occurrence.ends_at,
+        })
+      }
+    }
   }
+
+  for (const event of allEvents) {
+    const finalOccurrence = finalOccurrenceMap.get(event.id)
+    lifecycleMap.set(event.id, resolveOrganizerEventLifecycle(
+      {
+        status: event.status,
+        starts_at: event.starts_at,
+        ends_at: event.ends_at,
+        cancelled_at: event.cancelled_at,
+      },
+      finalOccurrence?.ends_at ?? finalOccurrence?.starts_at ?? null,
+    ))
+  }
+
+  const events = allEvents.filter((event) =>
+    statusFilter === "all" ? true : lifecycleMap.get(event.id) === statusFilter,
+  )
 
   return (
     <main className="flex-1 overflow-auto">
@@ -178,13 +228,15 @@ export default async function OrgEventsPage({
               title: event.title,
               description: event.description ?? null,
               starts_at: event.starts_at ?? null,
-              is_finished: event.is_finished,
+              is_finished: lifecycleMap.get(event.id) === "past",
               status: event.status,
+              lifecycle: lifecycleMap.get(event.id) ?? "active",
               cover_image_url: event.cover_image_url ?? null,
               stats: statsMap.get(event.id) ?? {
                 tickets_sold: 0,
                 gross_sales_cents: 0,
                 checked_in_count: 0,
+                refunds_cents: 0,
               },
               capacity: capacityMap.get(event.id) ?? 0,
             }))}

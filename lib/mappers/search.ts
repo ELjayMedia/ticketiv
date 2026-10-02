@@ -40,7 +40,7 @@ const WHEN_LABEL: Record<string, string> = {
 
 export function mapSearch(
   results: SearchResults,
-  filters: SearchFilters & { when?: string },
+  filters: SearchFilters & { when?: string; past?: string },
   facets: SearchFacets = { categories: [], cities: [] },
 ): SearchResultsProps {
   const active: ActiveFilter[] = []
@@ -50,6 +50,7 @@ export function mapSearch(
     active.push({ key: "when", label: WHEN_LABEL[filters.when] })
   }
   if (filters.onlyFree) active.push({ key: "onlyFree", label: "Free only" })
+  if (filters.lifecycle === "past") active.push({ key: "past", label: "Past events" })
   if (filters.startsAfter && !filters.when) {
     const d = new Date(filters.startsAfter)
     active.push({ key: "startsAfter", label: `From ${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` })
@@ -92,6 +93,7 @@ export function mapSearch(
       city: filters.city ?? null,
       when: filters.when ?? null,
       onlyFree: Boolean(filters.onlyFree),
+      past: filters.lifecycle === "past",
     },
   }
 }

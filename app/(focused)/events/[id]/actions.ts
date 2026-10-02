@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation"
 import { ensureCheckoutIdentity } from "@/lib/auth/checkout-identity"
 import { getPublicEventBySlug } from "@/lib/adapters/events"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { deriveEventLifecycle } from "@/lib/events/lifecycle"
 
 function redirectToLogin(eventSlug: string): never {
   const from = `/events/${encodeURIComponent(eventSlug)}`
@@ -26,6 +27,15 @@ export async function createSeatHoldAction(formData: FormData) {
   // state from buyers and makes checkout debugging difficult.
   const event = await getPublicEventBySlug(eventSlug)
   if (!event?.id) notFound()
+
+  const lifecycle = deriveEventLifecycle({
+    status: event.status,
+    eventStartsAt: event.starts_at,
+    eventEndsAt: event.event_ends_at,
+  })
+  if (lifecycle === "ended" || lifecycle === "cancelled") {
+    redirect(`/events/${eventSlug}?${lifecycle}=1`)
+  }
 
   // The hardened hold RPC requires auth.uid(). Reuse the cookie-backed client
   // that establishes an anonymous checkout identity for signed-out buyers so

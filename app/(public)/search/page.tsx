@@ -19,6 +19,7 @@ interface SP {
   startsBefore?: string
   maxPriceCents?: string
   onlyFree?: string
+  past?: string
 }
 
 export default async function SearchPage({
@@ -43,6 +44,10 @@ export default async function SearchPage({
     startsBefore,
     maxPriceCents: sp.maxPriceCents ? Number(sp.maxPriceCents) : undefined,
     onlyFree: sp.onlyFree === "1" || sp.onlyFree === "true",
+    lifecycle:
+      sp.past === "1" || sp.past === "true" || sp.when === "past"
+        ? "past"
+        : "current",
     limit: 30,
   }
 
@@ -50,7 +55,7 @@ export default async function SearchPage({
     searchEvents(filters),
     getPublicSearchFacets(),
   ])
-  const props = mapSearch(results, { ...filters, when: sp.when }, facets)
+  const props = mapSearch(results, { ...filters, when: sp.when, past: sp.past }, facets)
 
   return (
     <div className="mx-auto max-w-[480px] md:max-w-[680px]">

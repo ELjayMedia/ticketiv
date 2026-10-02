@@ -16,6 +16,7 @@ export const EventsPublicViewSchema = z.object({
   country: z.string().nullable(),
   poster_url: z.string().url().nullable(),
   starts_at: z.string().datetime({ offset: true }),
+  event_ends_at: z.string().datetime({ offset: true }).nullable().optional(),
   venue_id: z.string().uuid().nullable(),
   venue_name: z.string().nullable(),
   venue_address: z.string().nullable(),
@@ -39,6 +40,7 @@ export type EventsPublicView = z.infer<typeof EventsPublicViewSchema>
 
 // v_event_public: Single event detail by slug
 export const EventPublicViewSchema = EventsPublicViewSchema.extend({
+  status: z.string(),
   description: z.string().nullable(),
   visibility: z.enum(["public", "private", "unlisted"]),
   venue_capacity: z.number().int().nullable(),
@@ -109,6 +111,9 @@ export const MyTicketsViewSchema = z.object({
   refunded_at: z.string().datetime({ offset: true }).nullable(),
   transferred_from_order_item_id: z.string().uuid().nullable(),
   current_owner_id: z.string().uuid().nullable().optional(),
+  // Canonical final occurrence end used for attendee/event lifecycle.
+  // Optional during rolling deploys while the DB view migration lands.
+  event_ends_at: z.string().datetime({ offset: true }).nullable().optional(),
 })
 
 export type MyTicketsView = z.infer<typeof MyTicketsViewSchema>

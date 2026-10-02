@@ -19,6 +19,7 @@ import {
 } from "@/lib/format";
 import type { Currency } from "@/lib/format";
 import { ExpandableText } from "./expandable-text";
+import type { EventLifecycleState } from "@/lib/events/lifecycle";
 
 export interface MobileEventProps {
   event?: MobileEventData;
@@ -46,6 +47,8 @@ export interface MobileEventData {
   recentSoldCount?: number | null;
   recentSoldWindow?: string;
   supportUrl?: string;
+  lifecycle: EventLifecycleState;
+  organizerUpcomingHref: string;
 }
 
 export function MobileEvent({ event }: MobileEventProps) {
@@ -137,12 +140,35 @@ export function MobileEvent({ event }: MobileEventProps) {
             </div>
 
             <div className="mt-auto">
-              <Chip size="sm" className="border-transparent bg-white/95 text-ink">{event.category}</Chip>
+              <div className="flex flex-wrap gap-1.5">
+                <Chip size="sm" className="border-transparent bg-white/95 text-ink">{event.category}</Chip>
+                {(event.lifecycle === "ended" || event.lifecycle === "cancelled") && (
+                  <Chip size="sm" className="border-transparent bg-white/95 text-ink">
+                    {event.lifecycle === "cancelled" ? "Cancelled" : "Ended"}
+                  </Chip>
+                )}
+              </div>
               <h1 className="mt-2.5 text-[30px] font-semibold leading-tight tracking-[-0.022em] text-white">{event.title}</h1>
               <div className="mt-1 font-mono text-[12px] uppercase text-white/85">{formatLineupLabel(event.lineup.map((a) => a.name))}</div>
             </div>
           </Photo>
         </div>
+
+        {(event.lifecycle === "ended" || event.lifecycle === "cancelled") && (
+          <section className="px-5 pt-4">
+            <Card className="border-line-2 bg-surface p-4" flat>
+              <div className="font-mono text-[10px] font-semibold uppercase tracking-wide text-ink-3">
+                {event.lifecycle === "cancelled" ? "Cancelled event" : "Past event"}
+              </div>
+              <div className="mt-1 text-[15px] font-semibold text-ink">
+                {event.lifecycle === "cancelled" ? "This event has been cancelled" : "This event has ended"}
+              </div>
+              <p className="mt-1 text-[12px] leading-relaxed text-ink-3">
+                This page is kept as event history. Ticket sales and entry actions are now closed.
+              </p>
+            </Card>
+          </section>
+        )}
 
         <section className="px-5 pt-4">
           <div className="grid grid-cols-2 gap-3">
@@ -216,18 +242,19 @@ export function MobileEvent({ event }: MobileEventProps) {
             <h2 className="mb-3 text-h3">Tickets</h2>
             <ul className="flex flex-col gap-2">
               {ticketTypes.map((t) => {
+                const archiveClosed = event.lifecycle === "ended" || event.lifecycle === "cancelled";
                 const soldOut = t.remaining === 0;
                 const selected = selectedTypeId === t.id;
-                const scarcity = soldOut ? null : formatScarcityLabel(t.remaining);
+                const scarcity = soldOut || archiveClosed ? null : formatScarcityLabel(t.remaining);
                 return (
                   <li key={t.id}>
                     <button
                       type="button"
-                      disabled={soldOut}
-                      onClick={() => !soldOut && setSelectedTypeId(t.id)}
+                      disabled={soldOut || archiveClosed}
+                      onClick={() => !soldOut && !archiveClosed && setSelectedTypeId(t.id)}
                       className={
                         "flex w-full items-center gap-3 rounded-[var(--radius-md)] border p-3 text-left transition-colors " +
-                        (soldOut
+                        (soldOut || archiveClosed
                           ? "cursor-not-allowed border-line bg-surface opacity-50"
                           : selected
                           ? "border-accent bg-accent-soft"
@@ -237,7 +264,8 @@ export function MobileEvent({ event }: MobileEventProps) {
                       <div className="flex min-w-0 flex-1 flex-col">
                         <span className="text-[14px] font-semibold">{t.name}</span>
                         {scarcity && <span className="mt-0.5 font-mono text-[10px] font-semibold uppercase text-accent">{scarcity}</span>}
-                        {soldOut && <span className="mt-0.5 font-mono text-[10px] font-semibold uppercase text-ink-3">Sold out</span>}
+                        {archiveClosed && <span className="mt-0.5 font-mono text-[10px] font-semibold uppercase text-ink-3">Sales closed</span>}
+                        {!archiveClosed && soldOut && <span className="mt-0.5 font-mono text-[10px] font-semibold uppercase text-ink-3">Sold out</span>}
                       </div>
                       <span className={"font-mono text-[14px] font-semibold " + (soldOut ? "line-through" : "")}>{formatPrice(t.priceMinor, event.currency ?? "SZL")}</span>
                     </button>
@@ -295,7 +323,19 @@ export function MobileEvent({ event }: MobileEventProps) {
         <div className="h-24" />
       </div>
 
-      {event.fromPriceMinor == null ? (
+      {event.lifecycle === "ended" || event.lifecycle === "cancelled" ? (
+        <div className="sticky bottom-0 flex items-center gap-3 border-t border-line bg-surface px-5 py-3.5 pb-7">
+          <div className="flex flex-1 flex-col">
+            <span className="text-[13px] font-semibold">
+              {event.lifecycle === "cancelled" ? "This event has been cancelled" : "This event has ended"}
+            </span>
+            <span className="font-mono text-[11px] text-ink-3">Explore what this organizer is doing next.</span>
+          </div>
+          <Link href={event.organizerUpcomingHref} className="flex items-center justify-center gap-2 rounded-[var(--radius-md)] bg-ink px-4 py-3.5 text-[13px] font-semibold text-white hover:opacity-90">
+            Upcoming events <Icon name="arrowR" size={16} />
+          </Link>
+        </div>
+      ) : event.fromPriceMinor == null ? (
         <div className="sticky bottom-0 flex items-center gap-3 border-t border-line bg-surface px-5 py-3.5 pb-7">
           <div className="flex flex-1 flex-col">
             <span className="text-[13px] font-semibold">Tickets not yet on sale</span>

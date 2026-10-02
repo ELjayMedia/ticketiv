@@ -236,7 +236,7 @@ export function SearchResults({
                   <span className="font-mono text-[11px] text-ink-3">{r.soldLabel}</span>
                 )}
                 <span className="inline-flex items-center rounded-md border border-ink bg-ink px-2.5 py-1 text-[12px] font-semibold text-white">
-                  Book
+                  {selected.past ? "View" : "Book"}
                 </span>
               </div>
             </Link>

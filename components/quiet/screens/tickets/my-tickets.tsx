@@ -326,8 +326,8 @@ export function MyTickets({
           onComplete={() => {
             const ticketId = celebration.ticketId;
             setCelebration(null);
-            setSeg("past");
-            router.replace(`/tickets?tab=past&checkedIn=${encodeURIComponent(ticketId)}`);
+            setSeg("upcoming");
+            router.replace(`/tickets?tab=upcoming&checkedIn=${encodeURIComponent(ticketId)}`);
           }}
         />
       )}

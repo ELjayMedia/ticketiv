@@ -9,7 +9,7 @@
  * timestamp; entries older than `MAX_AGE_MS` (30 days) are pruned on read.
  */
 
-const STORAGE_KEY = "ticketiv:recently-viewed:v1";
+const STORAGE_KEY = "ticketiv:recently-viewed:v2";
 const MAX_ENTRIES = 8;
 const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -25,6 +25,8 @@ export interface RecentlyViewedEvent {
   priceLabel: string | null;
   /** Event category (e.g. "Music", "Comedy") — used for "Suggested for you". */
   category?: string | null;
+  /** Lifecycle at the time the detail page was viewed. */
+  lifecycle: "upcoming" | "live" | "ended" | "cancelled";
   /** Epoch ms when the event was viewed; drives ordering + expiry. */
   viewedAt: number;
 }
@@ -55,9 +57,11 @@ export function getRecentlyViewed(): RecentlyViewedEvent[] {
           !!e &&
           typeof e === "object" &&
           typeof (e as RecentlyViewedEvent).slug === "string" &&
-          typeof (e as RecentlyViewedEvent).title === "string",
+          typeof (e as RecentlyViewedEvent).title === "string" &&
+          ["upcoming", "live", "ended", "cancelled"].includes((e as RecentlyViewedEvent).lifecycle),
       )
       .filter((e) => isFresh(e, now))
+      .filter((e) => e.lifecycle === "upcoming" || e.lifecycle === "live")
       .sort((a, b) => b.viewedAt - a.viewedAt)
       .slice(0, MAX_ENTRIES);
   } catch {

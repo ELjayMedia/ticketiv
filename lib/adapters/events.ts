@@ -1,5 +1,6 @@
 import { createPublicSupabaseClient } from "@/lib/supabase-public"
 import { validateSchema, EventsPublicViewSchema, EventPublicViewSchema, type EventsPublicView, type EventPublicView } from "@/lib/schemas/views"
+import { discoveryEventEndCutoffIso, type DiscoveryLifecycle } from "@/lib/events/discovery-window"
 
 export async function getPublicEventsList(params?: {
   limit?: number
@@ -8,6 +9,9 @@ export async function getPublicEventsList(params?: {
   category?: string
   search?: string
   startsAfter?: string
+  startsBefore?: string
+  lifecycle?: DiscoveryLifecycle
+  nowMs?: number
   sort?: "soonest" | "latest" | "price_low" | "price_high"
 }): Promise<EventsPublicView[]> {
   const supabase = createPublicSupabaseClient()
@@ -15,6 +19,14 @@ export async function getPublicEventsList(params?: {
 
   try {
     let query = supabase.from("v_public_event_cards").select("*")
+
+    const lifecycle = params?.lifecycle ?? "current"
+    const lifecycleCutoff = discoveryEventEndCutoffIso(params?.nowMs)
+    if (lifecycle === "current") {
+      query = query.or(`event_ends_at.is.null,event_ends_at.gte.${lifecycleCutoff}`)
+    } else if (lifecycle === "past") {
+      query = query.lt("event_ends_at", lifecycleCutoff)
+    }
 
     if (params?.city) {
       query = query.ilike("city", `%${params.city}%`)
@@ -30,6 +42,10 @@ export async function getPublicEventsList(params?: {
 
     if (params?.startsAfter) {
       query = query.gte("starts_at", params.startsAfter)
+    }
+
+    if (params?.startsBefore) {
+      query = query.lte("starts_at", params.startsBefore)
     }
 
     const orderColumn = params?.sort === "price_low" ? "min_price_cents" : 

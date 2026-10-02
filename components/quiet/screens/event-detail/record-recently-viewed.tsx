@@ -10,6 +10,7 @@ interface RecordRecentlyViewedProps {
   dateShort: string;
   priceLabel: string | null;
   category?: string | null;
+  lifecycle: "upcoming" | "live" | "ended" | "cancelled";
 }
 
 /**
@@ -24,10 +25,11 @@ export function RecordRecentlyViewed({
   dateShort,
   priceLabel,
   category,
+  lifecycle,
 }: RecordRecentlyViewedProps) {
   useEffect(() => {
-    recordRecentlyViewed({ slug, title, photo, dateShort, priceLabel, category });
-  }, [slug, title, photo, dateShort, priceLabel, category]);
+    recordRecentlyViewed({ slug, title, photo, dateShort, priceLabel, category, lifecycle });
+  }, [slug, title, photo, dateShort, priceLabel, category, lifecycle]);
 
   return null;
 }
