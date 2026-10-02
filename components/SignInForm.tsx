@@ -15,6 +15,7 @@ import {
   validateOrganizerSignup,
   type OrganizerSignupPayload,
 } from "@/lib/auth/organizer-signup"
+import { authLinkErrorMessage } from "@/lib/auth/auth-link-errors"
 import { createClient } from "@/lib/supabase/client"
 import posthog from "posthog-js"
 
@@ -113,8 +114,11 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
   const [account, setAccount] = useState<AccountSignup>(emptyAccountSignup)
   const [organizer, setOrganizer] = useState<OrganizerSignupPayload>(emptyOrganizerSignup)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  // Email-link routes (/auth/confirm, /auth/callback, reset password) report outcomes via query params.
+  const [error, setError] = useState<string | null>(() => authLinkErrorMessage(search.get("error")))
+  const [success, setSuccess] = useState<string | null>(() =>
+    search.get("message") === "password-reset" ? "Password updated. Log in with your new password." : null,
+  )
 
   const organizerReady = Boolean(
     organizer.firstName.trim() && organizer.surname.trim() && organizer.phone.trim() && organizer.email.trim(),

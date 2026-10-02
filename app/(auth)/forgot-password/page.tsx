@@ -2,13 +2,14 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 
 import { Button } from "@/components/quiet/ui/button"
 import { FormField } from "@/components/quiet/ui/form"
 import { Icon } from "@/components/quiet/ui/icon"
 import { Logo } from "@/components/Logo"
+import { authLinkErrorMessage } from "@/lib/auth/auth-link-errors"
 import { buildTicketivPublicUrl } from "@/lib/public-url"
 import { createClient } from "@/lib/supabase"
 
@@ -17,6 +18,12 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
+
+  useEffect(() => {
+    // Read on the client so the page stays statically renderable (no useSearchParams Suspense bailout).
+    const message = authLinkErrorMessage(new URLSearchParams(window.location.search).get("error"))
+    if (message) setError(message)
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,7 +52,7 @@ export default function ForgotPasswordPage() {
 
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: buildTicketivPublicUrl(
-          "/auth/callback?next=/reset-password",
+          "/auth/confirm?next=/reset-password",
           window.location.origin,
         ),
       })
@@ -86,7 +93,7 @@ export default function ForgotPasswordPage() {
             <div className="flex flex-col gap-1">
               <p className="text-[14px] font-semibold text-ink">Reset link sent.</p>
               <p className="text-[13px] text-ink-3">
-                Check your inbox and follow the instructions. The link expires shortly — open it on the same device.
+                If an account exists for that email, a reset link is on its way. It works once and expires after an hour — check your spam folder if it does not arrive.
               </p>
             </div>
           </div>
