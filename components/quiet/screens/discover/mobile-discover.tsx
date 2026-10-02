@@ -12,33 +12,15 @@ import { SuggestedEventsRow } from "@/components/quiet/screens/discover/suggeste
 import { DiscoverFilterChips } from "@/components/quiet/screens/discover/discover-filter-chips";
 import { LoadMoreSection } from "@/components/quiet/screens/discover/load-more-section";
 import { PHOTOS } from "@/lib/photos";
+import type { DiscoverSection } from "@/lib/data/public/discover-feed";
 import type { DiscoverEvent } from "@/lib/mappers/discover";
 
 interface MobileDiscoverProps {
-  tonight?: DiscoverEvent[];
-  thisWeek?: DiscoverEvent[];
+  /** Not ended, starting within 7 days (includes tonight and events already under way). */
+  thisWeek?: DiscoverSection;
+  /** Every published event starting after this week. */
+  upcoming?: DiscoverSection;
   editorPick?: DiscoverEvent | null;
-  city?: string;
-  eventCount?: number;
-  /** Total count of thisWeek events (for LoadMore pagination). */
-  thisWeekTotal?: number;
-}
-
-
-interface TonightRow {
-  href: string;
-  photo: string;
-  title: string;
-  sub: string;
-  time: string;
-  venue: string;
-  price: string;
-  chip: string;
-  chipVariant: "muted" | "accent";
-  trustLabel: string | null;
-  stockLabel: string | null;
-  stockType: "sold-out" | "low" | null;
-  verified: boolean;
 }
 
 interface WeekRow {
@@ -66,24 +48,6 @@ interface EditorPickRow {
   bottomChip: string;
   trustLabel: string | null;
   verified: boolean;
-}
-
-function toTonight(ev: DiscoverEvent): TonightRow {
-  return {
-    href: ev.href,
-    photo: ev.photo || PHOTOS.dj_neon,
-    title: ev.title,
-    sub: ev.category ?? "Live event",
-    time: ev.timeShort || "Time TBA",
-    venue: ev.venue,
-    price: ev.priceLabel,
-    chip: ev.city ?? "Tonight",
-    chipVariant: "muted",
-    trustLabel: ev.soldLabel,
-    stockLabel: ev.stockLabel,
-    stockType: ev.stockType,
-    verified: ev.organizerVerified,
-  };
 }
 
 function toWeek(ev: DiscoverEvent): WeekRow {
@@ -118,18 +82,11 @@ function toEditorPick(ev: DiscoverEvent): EditorPickRow {
 }
 
 export function MobileDiscover({
-  tonight: tonightProp,
-  thisWeek: thisWeekProp,
+  thisWeek = { events: [], hasMore: false },
+  upcoming = { events: [], hasMore: false },
   editorPick: editorPickProp,
-  city = "Mbabane",
-  eventCount,
-  thisWeekTotal,
 }: MobileDiscoverProps = {}) {
-  const TONIGHT = tonightProp?.map(toTonight) ?? [];
-  const THIS_WEEK = thisWeekProp?.map(toWeek) ?? [];
   const HERO = editorPickProp ? toEditorPick(editorPickProp) : null;
-  const derivedTotal = (tonightProp?.length ?? 0) + (thisWeekProp?.length ?? 0);
-  const total = eventCount ?? derivedTotal;
 
   return (
     <div className="flex flex-col">
@@ -151,12 +108,8 @@ export function MobileDiscover({
       </header>
 
       <div className="px-5 pb-3.5">
-        <div className="text-label">Showing events near</div>
-        <div className="mt-0.5 flex items-baseline gap-1">
-          <h1 className="text-h1 inline-flex items-center gap-1">{city} <Icon name="chevD" size={18} /></h1>
-          <span className="flex-1" />
-          <span className="font-mono text-[11px] text-ink-3">{total} events</span>
-        </div>
+        <div className="text-label">Discover</div>
+        <h1 className="text-h1 mt-0.5">What&apos;s on</h1>
       </div>
 
       <div className="px-5 pb-4">
@@ -199,52 +152,56 @@ export function MobileDiscover({
         <EmptySection title="No featured event yet" body="Featured events will appear here once published events are available." />
       )}
 
-      <section className="pb-6">
-        <div className="flex items-end justify-between px-5 pb-3">
-          <div>
-            <div className="flex items-center gap-2"><h3 className="text-h2 text-[18px]">Tonight</h3><Chip variant="accent" size="sm">{TONIGHT.length} live</Chip></div>
-            <p className="mt-0.5 font-mono text-[11px] text-ink-3">EVENTS STARTING IN THE NEXT 6 HOURS</p>
-          </div>
-          <Link href="/search?when=tonight" className="text-[13px] text-accent">See all</Link>
-        </div>
-        {TONIGHT.length === 0 ? (
-          <EmptySection title="No events tonight" body="Check back soon or broaden your search filters." compact />
-        ) : (
-          <div className="no-scrollbar flex gap-3 overflow-x-auto px-5">
-            {TONIGHT.map((e) => (
-              <Link key={e.href} href={e.href} className="block w-[240px] shrink-0">
-                <Card className="overflow-hidden">
-                  <Photo src={e.photo} height={140} overlay="dim"><div className="mt-auto flex items-center gap-1.5"><Chip className="border-transparent bg-white/95 text-ink" size="sm">{e.time}</Chip><Chip variant={e.chipVariant} size="sm">{e.chip}</Chip></div></Photo>
-                  <div className="p-3">
-                    <div className="text-h3 flex items-center gap-1 truncate"><span className="truncate">{e.title}</span>{e.verified && <VerifiedMark size={12} title="Verified organizer" />}</div>
-                    <div className="mt-0.5 truncate text-[12px] text-ink-3">{e.sub} · {e.venue}</div>
-                    <div className="mt-2 flex items-center justify-between gap-2">
-                      <span className="font-mono text-[13px] font-semibold">{e.price}</span>
-                      {e.stockLabel ? (
-                        <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase ${e.stockType === "sold-out" ? "bg-danger-soft text-danger" : "bg-warning/10 text-warning"}`}>{e.stockLabel}</span>
-                      ) : e.trustLabel ? (
-                        <span className="font-mono text-[11px] text-ink-3">{e.trustLabel}</span>
-                      ) : null}
-                    </div>
-                  </div>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
+      <EventListSection
+        title="This week"
+        subtitle="HAPPENING IN THE NEXT 7 DAYS"
+        section={thisWeek}
+        when="thisWeek"
+        emptyText="No events in the next 7 days. See what's coming up below."
+      />
 
-      <section className="px-5 pb-6">
-        <div className="mb-3 flex items-end justify-between"><h3 className="text-h2 text-[18px]">This week</h3><span className="font-mono text-[11px] text-ink-3">{THIS_WEEK.length} EVENTS</span></div>
-        {THIS_WEEK.length === 0 ? (
-          <Card flat className="border-dashed p-5 text-center text-[13px] text-ink-3">No events listed this week.</Card>
-        ) : (
-          <LoadMoreSection
-            initialEvents={thisWeekProp ?? []}
-            totalCount={thisWeekTotal ?? THIS_WEEK.length}
-            batchSize={6}
-            when="thisWeek"
-            renderEvents={(evs) => (
+      <EventListSection
+        title="Upcoming"
+        subtitle="ALL EVENTS AFTER THIS WEEK"
+        section={upcoming}
+        when="upcoming"
+        emptyText="No other upcoming events yet."
+      />
+
+      <SuggestedEventsRow variant="mobile" />
+    </div>
+  );
+}
+
+function EventListSection({
+  title,
+  subtitle,
+  section,
+  when,
+  emptyText,
+}: {
+  title: string;
+  subtitle: string;
+  section: DiscoverSection;
+  when: "thisWeek" | "upcoming";
+  emptyText: string;
+}) {
+  return (
+    <section className="px-5 pb-6">
+      <div className="mb-3">
+        <h3 className="text-h2 text-[18px]">{title}</h3>
+        <p className="mt-0.5 font-mono text-[11px] text-ink-3">{subtitle}</p>
+      </div>
+      {section.events.length === 0 ? (
+        <Card flat className="border-dashed p-5 text-center text-[13px] text-ink-3">{emptyText}</Card>
+      ) : (
+        <LoadMoreSection
+          initialEvents={section.events}
+          // LoadMoreSection only needs to know whether more exist; the API reports exact hasMore.
+          totalCount={section.events.length + (section.hasMore ? 1 : 0)}
+          batchSize={6}
+          when={when}
+          renderEvents={(evs) => (
               <ul className="flex flex-col gap-3">
                 {evs.map(toWeek).map((e) => (
                   <li key={e.href}>
@@ -268,13 +225,10 @@ export function MobileDiscover({
                   </li>
                 ))}
               </ul>
-            )}
-          />
-        )}
-      </section>
-
-      <SuggestedEventsRow variant="mobile" />
-    </div>
+          )}
+        />
+      )}
+    </section>
   );
 }
 

@@ -12,7 +12,12 @@ describe("public discovery cache boundary", () => {
     expect(fs.existsSync(path.join(root, "app/(consumer)/page.tsx"))).toBe(false);
     expect(discovery).toContain('export const dynamic = "force-static"');
     expect(discovery).toContain("export const revalidate = 60");
-    expect(discovery).toContain("getPublicEventsList");
+    // Discover reads through the shared feed, which must stay on the cookie-free public adapter.
+    expect(discovery).toContain("getDiscoverFeed");
+    const feed = read("lib/data/public/discover-feed.ts");
+    expect(feed).toContain('from "@/lib/adapters/events"');
+    expect(feed).toContain("getPublicEventsList");
+    expect(feed).not.toContain("getCurrentUserProfile");
     expect(discovery).not.toContain("getCurrentUserProfile");
     expect(discovery).not.toContain("getMyContexts");
   });
