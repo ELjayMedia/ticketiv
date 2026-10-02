@@ -2485,11 +2485,10 @@
     {
       "schema": "public",
       "name": "fn_search_events",
-      "arguments": "p_query text, p_category text, p_city text, p_starts_after timestamp with time zone, p_starts_before timestamp with time zone, p_max_price_cents integer, p_only_free boolean, p_limit integer, p_offset integer",
+      "arguments": "p_query text, p_category text, p_city text, p_starts_after timestamp with time zone, p_starts_before timestamp with time zone, p_max_price_cents integer, p_only_free boolean, p_limit integer, p_offset integer, p_lifecycle text",
       "securityDefiner": false,
       "searchPathPinned": true,
       "grantees": [
-        "PUBLIC",
         "anon",
         "authenticated",
         "postgres",
