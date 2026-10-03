@@ -6,19 +6,10 @@ import { Chip } from "@/components/quiet/ui/chip"
 import { Photo } from "@/components/quiet/ui/primitives"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import type { ArtistRecord } from "@/types"
+import { splitArtistTourDates, toArtistTourDate, type ArtistTourDate } from "@/lib/events/artist-tour-dates"
 
 interface ArtistPageProps {
   params: Promise<{ id: string }>
-}
-
-interface TourDateEvent {
-  id: string
-  title: string
-  slug: string
-  starts_at: string
-  venue_name?: string
-  city?: string
-  display_order?: number
 }
 
 export default async function ArtistPage({ params }: ArtistPageProps) {
@@ -42,7 +33,7 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
     notFound()
   }
 
-  let tourDates: TourDateEvent[] = []
+  let tourDates: ArtistTourDate[] = []
 
   if (supabase) {
     const { data: eventRelations } = await supabase
@@ -50,47 +41,24 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
       .select(`
         display_order,
         events:events (
-          id, title, slug,
-          event_dates(starts_at),
+          id, title, slug, starts_at, ends_at, status, cancelled_at,
+          event_dates(starts_at, ends_at),
           venues:venue_id(name)
         )
       `)
       .eq("artist_id", id)
       .eq("events.visibility", "public")
-      .eq("events.status", "published")
+      // Published events plus cancelled ones (kept as history, never transactional).
+      .or("status.eq.published,cancelled_at.not.is.null", { referencedTable: "events" })
 
     if (eventRelations && eventRelations.length > 0) {
       tourDates = eventRelations
-        .map((relation: any) => {
-          const event = relation.events
-          if (!event) return null
-
-          const eventDate = event.event_dates?.[0]?.starts_at
-
-          return {
-            id: event.id,
-            title: event.title,
-            slug: event.slug,
-            starts_at: eventDate || "",
-            venue_name: event.venues?.name,
-            city: undefined,
-            display_order: relation.display_order || 2,
-          }
-        })
-        .filter(Boolean) as TourDateEvent[]
-
-      tourDates.sort((a, b) => {
-        const dateA = new Date(a.starts_at).getTime()
-        const dateB = new Date(b.starts_at).getTime()
-
-        if (dateA !== dateB) {
-          return dateA - dateB
-        }
-
-        return (a.display_order || 2) - (b.display_order || 2)
-      })
+        .filter((relation: any) => relation.events)
+        .map((relation: any) => toArtistTourDate(relation.events, relation.display_order || 2))
     }
   }
+
+  const { current: currentDates, past: pastDates } = splitArtistTourDates(tourDates)
 
   return (
     <main className="mx-auto flex w-full max-w-[1200px] flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
@@ -126,7 +94,7 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
       <section className="flex flex-col gap-6">
         <h2 className="text-h2">Tour dates</h2>
 
-        {tourDates.length === 0 ? (
+        {currentDates.length === 0 ? (
           <Card flat className="border-dashed">
             <div className="px-6 py-10 text-center">
               <p className="text-[13px] text-ink-3">
@@ -136,7 +104,7 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
           </Card>
         ) : (
           <div className="flex flex-col gap-3">
-            {tourDates.map((date) => {
+            {currentDates.map((date) => {
               const eventDate = new Date(date.starts_at)
               const isHeadlining = date.display_order === 1
 
@@ -182,6 +150,29 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
           </div>
         )}
       </section>
+
+      {pastDates.length > 0 && (
+        <section className="flex flex-col gap-4">
+          <h2 className="text-h2">Past appearances</h2>
+          <div className="flex flex-col gap-2">
+            {pastDates.map((date) => (
+              <Link key={date.id} href={`/events/${date.slug}`} className="block">
+                <Card className="transition-colors hover:bg-bg">
+                  <div className="flex items-center justify-between gap-4 p-4">
+                    <div className="min-w-0">
+                      <h3 className="truncate text-[14px] font-semibold text-ink">{date.title}</h3>
+                      <div className="mt-1 font-mono text-[11px] uppercase text-ink-3">
+                        {date.lifecycle === "cancelled" ? "Cancelled" : "Past event"}
+                      </div>
+                    </div>
+                    <span className="text-[12px] font-semibold text-ink-3">View →</span>
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="flex flex-wrap gap-4 border-t border-line pt-6">
         {(artist as any).website_url && (
