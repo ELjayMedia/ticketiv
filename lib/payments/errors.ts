@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto"
+import * as Sentry from "@sentry/nextjs"
 
 export type PaymentChannelFailureReason =
   | "missing_configuration"
@@ -35,5 +36,9 @@ export function reportPaymentChannelUnavailable(error: PaymentChannelUnavailable
     correlationId: error.correlationId,
     reason: error.reason,
     ...error.diagnostic,
+  })
+  Sentry.captureException(error, {
+    tags: { area: "payment-handoff", reason: error.reason },
+    extra: { correlationId: error.correlationId, ...error.diagnostic },
   })
 }
