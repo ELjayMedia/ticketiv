@@ -51,6 +51,15 @@ export interface CreatePaymentAttemptInput {
   countryCode?: string | null
 }
 
+/** Paystack references only allow alphanumerics plus `-`, `.` and `=`. */
+export function buildProviderPaymentReference(
+  provider: PaymentProvider,
+  orderId: string,
+  nonce: string,
+): string {
+  return `${provider}-${orderId}-${nonce}`
+}
+
 export interface CompleteVerifiedPaymentInput {
   orderId: string
   provider: PaymentProvider
@@ -267,7 +276,7 @@ export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
     throw new Error("Unable to create payment attempt")
   }
 
-  const extRef = `${provider}_${order.id}_${randomUUID()}`
+  const extRef = buildProviderPaymentReference(provider, order.id, randomUUID())
   const attemptNo = (count ?? 0) + 1
   const paystackPayload = provider === "paystack"
     ? await initializePaystackTransaction(order, extRef, input.returnUrl)
