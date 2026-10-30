@@ -117,6 +117,47 @@ describe("Supabase middleware session recovery", () => {
     )
   })
 
+  function mockGuestWithoutHandle() {
+    const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null })
+    const query = { select: vi.fn(), eq: vi.fn(), maybeSingle }
+    query.select.mockReturnValue(query)
+    query.eq.mockReturnValue(query)
+    mocks.createServerClient.mockReturnValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "guest-1", is_anonymous: true } },
+          error: null,
+        }),
+      },
+      from: vi.fn().mockReturnValue(query),
+    })
+  }
+
+  it.each([
+    "/orders/order-1/confirmation",
+    "/orders/order-1/momo",
+    "/orders/order-1/refund",
+    "/tickets/ticket-1",
+  ])("lets guest buyers without a handle reach %s", async (path) => {
+    mockGuestWithoutHandle()
+
+    const response = await updateSession(new NextRequest(`https://ticketiv.app${path}`))
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get("location")).toBeNull()
+  })
+
+  it.each(["/tickets/ticket-1/resale", "/tickets/ticket-1/transfer", "/profile"])(
+    "still sends handle-less users to onboarding for account feature %s",
+    async (path) => {
+      mockGuestWithoutHandle()
+
+      const response = await updateSession(new NextRequest(`https://ticketiv.app${path}`))
+
+      expect(response.headers.get("location")).toBe("https://ticketiv.app/onboarding")
+    },
+  )
+
   it("keeps unexpected middleware failures visible", async () => {
     const error = new Error("Auth service unavailable")
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined)
