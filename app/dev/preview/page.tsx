@@ -26,6 +26,11 @@ import { PHOTOS } from "@/lib/photos";
  * Every shipped screen rendered inside its target device chrome
  * (phone 390×844, browser 1440×900) for visual QA without devtools.
  */
+
+const PREVIEW_CART = [
+  { ticketTypeId: "preview-regular", name: "Regular", priceMinor: 50000, currency: "SZL" as const, quantity: 2 },
+  { ticketTypeId: "preview-vip", name: "VIP", priceMinor: 120000, currency: "SZL" as const, quantity: 1 },
+];
 export default function PreviewIndexPage() {
   if (process.env.NODE_ENV !== "development") notFound();
 
@@ -99,7 +104,8 @@ export default function PreviewIndexPage() {
                 eventPhoto={PHOTOS.dj_set}
                 eventWhenLabel="Wed 30 Aug · 15:50"
                 eventVenue="Cafe Natarani"
-                ticketTypes={[]}
+                lines={PREVIEW_CART}
+                editTicketsHref="/events/tribal-tales?tickets=1"
               />
             </PhoneShell>
           </PreviewArtboard>
@@ -115,10 +121,8 @@ export default function PreviewIndexPage() {
                 eventTitle="Tribal Tales"
                 eventPhoto={PHOTOS.dj_set}
                 eventWhenLabel="Wed 30 Aug · 15:50"
-                ticketTypeId=""
-                ticketTypeName="Regular"
-                quantity={2}
-                subtotalMinor={100000}
+                lines={PREVIEW_CART}
+                editTicketsHref="/events/tribal-tales?tickets=1"
                 bookingFeeMinor={10000}
                 vatRate={0.15}
               />

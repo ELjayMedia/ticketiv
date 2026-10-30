@@ -9,7 +9,7 @@ import { Button } from "@/components/quiet/ui/button";
 import { FormField, Stepper } from "@/components/quiet/ui/form";
 import { useRouter } from "next/navigation";
 import { formatPrice, formatHoldTimer } from "@/lib/format";
-import type { Currency } from "@/lib/format";
+import { cartSubtotalMinor, type CheckoutCartLine } from "@/lib/mappers/checkout";
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
 import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/actions";
 import { describePromoFailure } from "@/lib/checkout/promo-copy";
@@ -38,11 +38,10 @@ interface DesktopCheckoutProps {
   eventWhenLabel: string;
   /** Seats already picked (reserved seating); empty for GA events */
   seats?: string[];
-  ticketTypeId: string;
-  ticketTypeName: string;
-  quantity: number;
-  subtotalMinor: number;
-  currency?: Currency;
+  /** Cart from the ticket picker, already clamped to live availability. */
+  lines: ReadonlyArray<CheckoutCartLine>;
+  /** Back to the event page's ticket picker with this cart preloaded. */
+  editTicketsHref: string;
   bookingFeeMinor: number;
   vatRate: number;
   appliedPromo?: { code: string; description: string; savedMinor: number };
@@ -65,11 +64,8 @@ export function DesktopCheckout({
   eventPhoto,
   eventWhenLabel,
   seats = [],
-  ticketTypeId,
-  ticketTypeName,
-  quantity,
-  subtotalMinor,
-  currency = "SZL",
+  lines,
+  editTicketsHref,
   bookingFeeMinor,
   vatRate,
   appliedPromo,
@@ -77,6 +73,12 @@ export function DesktopCheckout({
   defaultBuyerEmail = "",
 }: DesktopCheckoutProps) {
   const router = useRouter();
+  const items = lines.map((l) => ({ ticketTypeId: l.ticketTypeId, quantity: l.quantity }));
+  const quantity = items.reduce((sum, l) => sum + l.quantity, 0);
+  // One attendee slot per ticket, labelled with its ticket type.
+  const attendeeTicketNames = lines.flatMap((l) => Array.from({ length: l.quantity }, () => l.name));
+  const currency = lines[0]?.currency ?? "SZL";
+  const subtotalMinor = cartSubtotalMinor(lines);
   const [holdRemaining, setHoldRemaining] = React.useState(holdSeconds);
   const [guaranteeOpen, setGuaranteeOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
@@ -102,7 +104,7 @@ export function DesktopCheckout({
       const result = await startCheckoutAction({
         eventId: eventUuid,
         buyerEmail: buyerEmail.trim() || "promo-check@placeholder.invalid",
-        items: [{ ticketTypeId, quantity }],
+        items,
         promoCode: promoInput.trim(),
       });
       if (!result.ok) {
@@ -117,21 +119,11 @@ export function DesktopCheckout({
 
   async function handleContinueToPayment() {
     setSubmitError(null);
-    if (!ticketTypeId) {
-      setSubmitError("Select a ticket type before continuing.");
-      trackBuyerFunnel("checkout_error", {
-        event_id: eventUuid,
-        event_slug: eventId,
-        reason: "missing_ticket_type",
-        surface: "desktop_checkout",
-      });
-      return;
-    }
     setSubmitting(true);
     const result = await startCheckoutAction({
       eventId: eventUuid,
       buyerEmail: buyerEmail.trim(),
-      items: [{ ticketTypeId, quantity }],
+      items,
       promoCode: promoInput.trim() || null,
     });
     if (!result.ok) {
@@ -159,8 +151,9 @@ export function DesktopCheckout({
     trackBuyerFunnel("payment_redirect", {
       event_id: eventUuid,
       event_slug: eventId,
-      ticket_type_id: ticketTypeId,
+      ticket_type_id: lines.length === 1 ? lines[0].ticketTypeId : null,
       quantity,
+      line_count: lines.length,
       total_minor: total,
       provider: result.checkoutUrl ? "paystack" : "internal",
       surface: "desktop_checkout",
@@ -304,7 +297,7 @@ export function DesktopCheckout({
                         </span>
                         <span className="text-[14px] font-semibold">
                           Ticket {i + 1}
-                          {seat ? ` · Seat ${seat}` : ""} · {ticketTypeName}
+                          {seat ? ` · Seat ${seat}` : ""} · {attendeeTicketNames[i]}
                         </span>
                       </div>
                       <span className="flex-1" />
@@ -499,10 +492,19 @@ export function DesktopCheckout({
           <Divider />
 
           <div className="flex flex-col gap-1 py-3">
-            <SummaryRow
-              label={`${quantity} × ${ticketTypeName}`}
-              value={formatPrice(subtotalMinor, currency)}
-            />
+            <div className="mb-1 flex items-center">
+              <span className="text-label flex-1">Your tickets</span>
+              <Link href={editTicketsHref} className="text-[12px] font-semibold text-accent hover:underline">
+                Edit
+              </Link>
+            </div>
+            {lines.map((l) => (
+              <SummaryRow
+                key={l.ticketTypeId}
+                label={`${l.quantity} × ${l.name}`}
+                value={formatPrice(l.priceMinor * l.quantity, l.currency)}
+              />
+            ))}
             <SummaryRow label="Booking fee" value={formatPrice(bookingFeeMinor, currency)} />
             <SummaryRow
               label={`VAT ${Math.round(vatRate * 100)}%`}

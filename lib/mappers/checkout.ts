@@ -29,6 +29,38 @@ export interface CheckoutTicketTypeProp {
   sublabel?: string;
   perUserLimit: number | null;
   perOrderLimit: number | null;
+  salesStatus: string | null;
+}
+
+/** A priced cart line, ready for the checkout summary. */
+export interface CheckoutCartLine {
+  ticketTypeId: string;
+  name: string;
+  priceMinor: number;
+  currency: Currency;
+  quantity: number;
+}
+
+export function mapCheckoutCartLines(
+  cart: ReadonlyArray<{ ticketTypeId: string; quantity: number }>,
+  types: ReadonlyArray<CheckoutTicketTypeProp>,
+): CheckoutCartLine[] {
+  const byId = new Map(types.map((t) => [t.id, t]));
+  return cart.flatMap((line) => {
+    const type = byId.get(line.ticketTypeId);
+    if (!type) return [];
+    return [{
+      ticketTypeId: type.id,
+      name: type.name,
+      priceMinor: type.priceMinor,
+      currency: type.currency,
+      quantity: line.quantity,
+    }];
+  });
+}
+
+export function cartSubtotalMinor(lines: ReadonlyArray<CheckoutCartLine>): number {
+  return lines.reduce((sum, l) => sum + l.priceMinor * l.quantity, 0);
 }
 
 export interface CheckoutEventProps {
@@ -64,6 +96,7 @@ export function mapCheckoutTicketType(t: CheckoutTicketTypeRow): CheckoutTicketT
     remaining: t.remaining,
     perUserLimit: t.per_user_limit ?? null,
     perOrderLimit: t.per_order_limit ?? null,
+    salesStatus: t.sales_status ?? null,
     sublabel,
   };
 }
@@ -78,6 +111,9 @@ export interface CheckoutPricingPlan {
  * fee if set; otherwise applies the percentage to subtotal. Callers pass
  * subtotal in cents (sum of `price_cents * qty`).
  */
+/** VAT applied to the ticket subtotal in every checkout quote. */
+export const CHECKOUT_VAT_RATE = 0.15;
+
 export function bookingFeeFor(plan: CheckoutPricingPlan | null, subtotalCents: number): number {
   if (!plan) return 0;
   if (plan.platform_fixed_cents && plan.platform_fixed_cents > 0) return plan.platform_fixed_cents;
