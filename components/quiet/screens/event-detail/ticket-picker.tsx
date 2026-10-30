@@ -21,7 +21,7 @@ import {
   ticketTypeLimit,
   type CartLine,
 } from "@/lib/checkout/cart";
-import { CHECKOUT_VAT_RATE, bookingFeeFor } from "@/lib/mappers/checkout";
+import { CHECKOUT_VAT_RATE, bookingFeeFor } from "@/lib/checkout/pricing";
 import { formatPrice, formatScarcityLabel } from "@/lib/format";
 
 /* ──────────────────────────────────────────────────────────────

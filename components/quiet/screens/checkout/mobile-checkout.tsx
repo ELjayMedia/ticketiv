@@ -15,7 +15,7 @@ import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/action
 import { describePromoFailure } from "@/lib/checkout/promo-copy";
 import { PromoCodeInput, type PromoResult } from "@/components/quiet/screens/checkout/promo-code-input";
 import { trackBuyerFunnel } from "@/components/analytics/buyer-funnel";
-import { cartSubtotalMinor, type CheckoutCartLine } from "@/lib/mappers/checkout";
+import { cartSubtotalMinor, type CheckoutCartLine } from "@/lib/checkout/pricing";
 
 /* ──────────────────────────────────────────────────────────────
  * Mobile checkout · `/events/[id]/checkout` on phones.
@@ -247,8 +247,8 @@ export function MobileCheckout({
           </Link>
         </header>
 
-        {/* Progress indicator: Tickets → Details → Payment → Done */}
-        <MobileCheckoutProgress currentIndex={0} />
+        {/* Progress indicator: Tickets (done in the picker) → Details → Payment → Done */}
+        <MobileCheckoutProgress currentIndex={1} />
 
         {/* Event ribbon */}
         <div className="mx-5 mb-4 flex items-center gap-2.5 rounded-xl bg-ink p-3">

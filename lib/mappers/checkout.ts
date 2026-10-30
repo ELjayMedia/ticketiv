@@ -8,6 +8,15 @@ import { PHOTOS } from "@/lib/photos";
 import { formatEventDate, formatTimeRange, type Currency } from "@/lib/format";
 import { asCurrency } from "@/lib/currency";
 import type { EventPublicView } from "@/lib/schemas/views";
+import type { CheckoutCartLine } from "@/lib/checkout/pricing";
+
+export {
+  CHECKOUT_VAT_RATE,
+  bookingFeeFor,
+  cartSubtotalMinor,
+  type CheckoutCartLine,
+  type CheckoutPricingPlan,
+} from "@/lib/checkout/pricing";
 
 export interface CheckoutTicketTypeRow {
   id: string;
@@ -32,15 +41,6 @@ export interface CheckoutTicketTypeProp {
   salesStatus: string | null;
 }
 
-/** A priced cart line, ready for the checkout summary. */
-export interface CheckoutCartLine {
-  ticketTypeId: string;
-  name: string;
-  priceMinor: number;
-  currency: Currency;
-  quantity: number;
-}
-
 export function mapCheckoutCartLines(
   cart: ReadonlyArray<{ ticketTypeId: string; quantity: number }>,
   types: ReadonlyArray<CheckoutTicketTypeProp>,
@@ -57,10 +57,6 @@ export function mapCheckoutCartLines(
       quantity: line.quantity,
     }];
   });
-}
-
-export function cartSubtotalMinor(lines: ReadonlyArray<CheckoutCartLine>): number {
-  return lines.reduce((sum, l) => sum + l.priceMinor * l.quantity, 0);
 }
 
 export interface CheckoutEventProps {
@@ -101,24 +97,3 @@ export function mapCheckoutTicketType(t: CheckoutTicketTypeRow): CheckoutTicketT
   };
 }
 
-export interface CheckoutPricingPlan {
-  platform_fixed_cents: number | null;
-  platform_percent_bps: number | null;
-}
-
-/**
- * Resolve a booking fee in minor units from the pricing plan. Prefers a fixed
- * fee if set; otherwise applies the percentage to subtotal. Callers pass
- * subtotal in cents (sum of `price_cents * qty`).
- */
-/** VAT applied to the ticket subtotal in every checkout quote. */
-export const CHECKOUT_VAT_RATE = 0.15;
-
-export function bookingFeeFor(plan: CheckoutPricingPlan | null, subtotalCents: number): number {
-  if (!plan) return 0;
-  if (plan.platform_fixed_cents && plan.platform_fixed_cents > 0) return plan.platform_fixed_cents;
-  if (plan.platform_percent_bps && plan.platform_percent_bps > 0) {
-    return Math.round((subtotalCents * plan.platform_percent_bps) / 10000);
-  }
-  return 0;
-}

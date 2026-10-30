@@ -9,7 +9,7 @@ import { Button } from "@/components/quiet/ui/button";
 import { FormField, Stepper } from "@/components/quiet/ui/form";
 import { useRouter } from "next/navigation";
 import { formatPrice, formatHoldTimer } from "@/lib/format";
-import { cartSubtotalMinor, type CheckoutCartLine } from "@/lib/mappers/checkout";
+import { cartSubtotalMinor, type CheckoutCartLine } from "@/lib/checkout/pricing";
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
 import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/actions";
 import { describePromoFailure } from "@/lib/checkout/promo-copy";
