@@ -8,6 +8,7 @@ import { PHOTOS } from "@/lib/photos";
 import { asCurrency } from "@/lib/currency";
 import type { Currency } from "@/lib/format";
 import type { BuyerOrder } from "@/lib/data/attendee/orders";
+import { calendarLinks } from "@/lib/calendar-links";
 
 export type ConfirmationState = "paid" | "pending" | "failed" | "refunded";
 
@@ -34,6 +35,11 @@ export interface ConfirmationProps {
   /** Slug of the event so failed/pending states can offer a retry CTA. */
   eventSlug: string | null;
   firstTicketId: string;
+  /** Zero-total registration (free event) rather than a payment. */
+  isFree: boolean;
+  /** e.g. "2× General admission, 1× VIP" across every ticket type. */
+  ticketSummary: string;
+  calendar: { google: string; ics: string } | null;
 }
 
 const SHORT_DATE = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" });
@@ -52,10 +58,12 @@ function deriveState(orderStatus: string): ConfirmationState {
   }
 }
 
-function copyForState(state: ConfirmationState): { headline: string; statusNote: string; paymentDescription: string } {
+function copyForState(state: ConfirmationState, isFree: boolean): { headline: string; statusNote: string; paymentDescription: string } {
   switch (state) {
     case "paid":
-      return { headline: "You're going.", statusNote: "Tickets issued", paymentDescription: "Paid" };
+      return isFree
+        ? { headline: "You're registered.", statusNote: "Tickets issued", paymentDescription: "Free" }
+        : { headline: "You're going.", statusNote: "Tickets issued", paymentDescription: "Paid" };
     case "pending":
       return {
         headline: "Confirming your payment…",
@@ -82,7 +90,14 @@ export function mapConfirmation(order: BuyerOrder): ConfirmationProps {
   const start = first?.event_starts_at ? new Date(first.event_starts_at) : null;
   const ticketName = first?.ticket_type_name ?? "General";
   const state = deriveState(order.status);
-  const copy = copyForState(state);
+  const isFree = order.total_cents === 0;
+  const copy = copyForState(state, isFree);
+  const counts = new Map<string, number>();
+  for (const item of order.items) {
+    const name = item.ticket_type_name ?? "General";
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+  const ticketSummary = [...counts].map(([name, n]) => `${n}× ${name}`).join(", ");
 
   return {
     id: order.id,
@@ -103,5 +118,16 @@ export function mapConfirmation(order: BuyerOrder): ConfirmationProps {
     receiptEmail: order.buyer_email ?? "",
     eventSlug: first?.event_slug ?? null,
     firstTicketId: first?.id ?? "",
+    isFree,
+    ticketSummary,
+    calendar: start
+      ? calendarLinks({
+          uid: order.id,
+          title: first?.event_title ?? "Event",
+          start,
+          location: first?.venue_name ?? null,
+          details: `Ticketiv order #${order.id.slice(0, 6).toUpperCase()} · ${ticketSummary}`,
+        })
+      : null,
   };
 }

@@ -42,12 +42,15 @@ async function fetchEventExtras(eventId: string, organizerId: string | null) {
     };
   }
 
-  const [ttRes, lineupRes, eventRes, liveStatsRes, orgEventsRes] = await Promise.all([
+  const [ttRes, remainingRes, lineupRes, eventRes, liveStatsRes, orgEventsRes] = await Promise.all([
     supabase
       .from("ticket_types")
       .select("id, name, price_cents, quota")
       .eq("event_id", eventId)
+      .neq("sales_status", "hidden")
       .order("price_cents", { ascending: true }),
+    // Live stock, so sold-out labels and the "From" price are accurate.
+    (supabase.rpc as any)("fn_ticket_type_remaining", { p_event_id: eventId }),
     supabase
       .from("events")
       .select("event_artists(role, artist:artist_id(id, name, slug, image_url))")
@@ -91,8 +94,14 @@ async function fetchEventExtras(eventId: string, organizerId: string | null) {
       role: entry.role,
     }));
 
+  const remainingMap = new Map<string, number>(
+    ((remainingRes.data ?? []) as Array<{ ticket_type_id: string; remaining: number }>).map(
+      (r) => [r.ticket_type_id, r.remaining],
+    ),
+  );
+
   return {
-    ticketTypes: ttRes.data ?? [],
+    ticketTypes: (ttRes.data ?? []).map((t) => ({ ...t, remaining: remainingMap.get(t.id) ?? null })),
     lineup,
     // Friends-going is user-scoped, so keep it out of the cached public RSC
     // payload. A client/user-scoped enhancement can hydrate this later.

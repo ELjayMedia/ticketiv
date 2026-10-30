@@ -3,7 +3,7 @@
 import { cookies } from "next/headers"
 
 import { createOrder } from "@/lib/orders"
-import { createPaymentAttempt, type PaymentProvider } from "@/lib/payments"
+import { completeFreeOrder, createPaymentAttempt, type PaymentProvider } from "@/lib/payments"
 import {
   assertPaymentProviderAvailableForEvent,
   getEffectivePaymentProvidersForEvent,
@@ -25,6 +25,8 @@ export interface StartCheckoutInput {
   eventId: string
   items: Array<{ ticketTypeId: string; quantity: number }>
   buyerEmail: string
+  buyerFirstName?: string
+  buyerLastName?: string
   /** Optional promo code applied to the new order before payment starts. */
   promoCode?: string | null
   provider?: PaymentProvider
@@ -42,7 +44,8 @@ export type StartCheckoutResult =
       ok: true
       orderId: string
       checkoutUrl: string | null
-      provider: CheckoutPaymentProvider
+      /** "free" when a zero-total order was registered without payment. */
+      provider: CheckoutPaymentProvider | "free"
       promo: PromoApplyResult | null
     }
   | { ok: false; error: string }
@@ -64,6 +67,28 @@ export async function startCheckoutAction(input: StartCheckoutInput): Promise<St
 
   try {
     await assertEventTransactionsOpen(input.eventId)
+
+    // Free events (Eventbrite "Register"): no payment provider is involved,
+    // so provider availability must not block them.
+    if (await isFreeCart(items)) {
+      const order = await createOrder({
+        eventId: input.eventId,
+        purchaserId: identity.userId,
+        purchaserEmail: buyerEmail,
+        purchaserFirstName: input.buyerFirstName?.trim() || undefined,
+        purchaserLastName: input.buyerLastName?.trim() || undefined,
+        items,
+      })
+      await completeFreeOrder(order.order.id, identity.userId)
+      return {
+        ok: true,
+        orderId: order.order.id,
+        checkoutUrl: `/orders/${order.order.id}/confirmation`,
+        provider: "free",
+        promo: null,
+      }
+    }
+
     // The UI bridge writes the buyer's selection to a short-lived first-party
     // cookie. Explicit callers can still pass provider directly. Either way the
     // requested key is revalidated against the event lock and current platform
@@ -95,6 +120,8 @@ export async function startCheckoutAction(input: StartCheckoutInput): Promise<St
       eventId: input.eventId,
       purchaserId: identity.userId,
       purchaserEmail: buyerEmail,
+      purchaserFirstName: input.buyerFirstName?.trim() || undefined,
+      purchaserLastName: input.buyerLastName?.trim() || undefined,
       items,
     })
 
@@ -105,6 +132,18 @@ export async function startCheckoutAction(input: StartCheckoutInput): Promise<St
     let promo: PromoApplyResult | null = null
     if (promoCode) {
       promo = await runApplyPromoCode(order.order.id, promoCode, identity.userId)
+    }
+
+    // A 100%-off promo leaves nothing to pay: settle it like a free order.
+    if (promo?.applied && (await orderTotalCents(order.order.id)) === 0) {
+      await completeFreeOrder(order.order.id, identity.userId)
+      return {
+        ok: true,
+        orderId: order.order.id,
+        checkoutUrl: `/orders/${order.order.id}/confirmation`,
+        provider: "free",
+        promo,
+      }
     }
 
     // MoMo needs an Eswatini MSISDN, which is collected on the dedicated
@@ -138,6 +177,21 @@ export async function startCheckoutAction(input: StartCheckoutInput): Promise<St
     console.error("startCheckoutAction failed", error)
     return { ok: false, error: error?.message ?? "Unable to start checkout" }
   }
+}
+
+/** True when every requested ticket type is priced at zero. */
+async function isFreeCart(items: Array<{ ticketTypeId: string }>): Promise<boolean> {
+  const admin = createAdminClient()
+  const ids = [...new Set(items.map((i) => i.ticketTypeId))]
+  const { data, error } = await admin.from("ticket_types").select("id, price_cents").in("id", ids)
+  if (error || !data || data.length !== ids.length) return false
+  return data.every((t) => t.price_cents === 0)
+}
+
+async function orderTotalCents(orderId: string): Promise<number | null> {
+  const admin = createAdminClient()
+  const { data } = await admin.from("orders").select("total_cents").eq("id", orderId).maybeSingle()
+  return data?.total_cents ?? null
 }
 
 /**

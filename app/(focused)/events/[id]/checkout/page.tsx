@@ -6,8 +6,6 @@ import { CheckoutProviderBridge } from "@/components/quiet/screens/checkout/chec
 import { CheckoutStartTracker } from "@/components/analytics/buyer-funnel";
 import { getPublicEventBySlug } from "@/lib/adapters/events";
 import {
-  CHECKOUT_VAT_RATE,
-  bookingFeeFor,
   cartSubtotalMinor,
   mapCheckoutCartLines,
   mapCheckoutEvent,
@@ -97,37 +95,31 @@ export default async function CheckoutPage({
   }
 
   const sharedProps = mapCheckoutEvent(row);
-  const [{ ticketTypes, plan }, paymentMethods] = await Promise.all([
+  const [{ ticketTypes }, paymentMethods] = await Promise.all([
     loadCheckoutAvailability(row.id),
     getEffectivePaymentMethodsForEvent(row.id),
   ]);
 
-  // Prefill the buyer-email field when the buyer is already signed in (and
-  // their account carries a real address — not an anonymous guest from a
-  // previous visit). Empty otherwise; the UI collects it from guests.
+  // Signed-in buyers get their details prefilled and a fixed email. Guests —
+  // no session, or an anonymous checkout identity from an earlier visit —
+  // fill in contact details and may log in, returning to this exact checkout.
   const {
     data: { user },
   } = supabase ? await supabase.auth.getUser() : { data: { user: null } };
-  const defaultBuyerEmail = user?.email ?? "";
-  let defaultBuyerName =
-    (user?.user_metadata?.full_name as string | undefined) ??
-    (user?.user_metadata?.name as string | undefined) ??
-    "";
-  let defaultBuyerPhone =
-    (user?.user_metadata?.phone as string | undefined) ??
-    (user?.user_metadata?.phone_number as string | undefined) ??
-    user?.phone ??
-    "";
+  const isGuest = !user || Boolean((user as { is_anonymous?: boolean }).is_anonymous) || !user.email;
+  const defaultBuyerEmail = isGuest ? "" : user!.email ?? "";
+  const metadataName = String(user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? "").trim();
+  let defaultBuyerFirstName = metadataName.split(/\s+/)[0] ?? "";
+  let defaultBuyerLastName = metadataName.split(/\s+/).slice(1).join(" ");
 
-  if (user) {
+  if (user && !isGuest) {
     const { data: profile } = await supabase!
       .from("profiles")
-      .select("name, surname, display_name, phone")
+      .select("name, surname")
       .eq("user_id", user.id)
       .maybeSingle();
-    const profileName = [profile?.name, profile?.surname].filter(Boolean).join(" ");
-    defaultBuyerName = profile?.display_name ?? (profileName || defaultBuyerName);
-    defaultBuyerPhone = profile?.phone ?? defaultBuyerPhone;
+    defaultBuyerFirstName = profile?.name ?? defaultBuyerFirstName;
+    defaultBuyerLastName = profile?.surname ?? defaultBuyerLastName;
   }
 
   const mappedTypes = ticketTypes.map(mapCheckoutTicketType);
@@ -149,11 +141,21 @@ export default async function CheckoutPage({
     redirect(`/events/${id}?${pickerParams.toString()}`);
   }
   const cartLines = mapCheckoutCartLines(cart, mappedTypes);
-  const subtotal = cartSubtotalMinor(cartLines);
-  const bookingFee = bookingFeeFor(plan, subtotal);
+  const isFree = cartSubtotalMinor(cartLines) === 0;
   const editTicketsHref = `/events/${id}?${new URLSearchParams({ tickets: "1", items: serializeCart(cart) }).toString()}`;
+  const checkoutParams = new URLSearchParams({ items: serializeCart(cart) });
+  if (holdCode) checkoutParams.set("hold", holdCode);
+  const loginHref = `/login?${new URLSearchParams({ next: `/events/${id}/checkout?${checkoutParams.toString()}` }).toString()}`;
+  const buyerProps = {
+    isGuest,
+    loginHref,
+    defaultBuyerEmail,
+    defaultBuyerFirstName,
+    defaultBuyerLastName,
+  };
 
-  if (paymentMethods.length === 0) {
+  // Free registrations never touch a payment provider.
+  if (paymentMethods.length === 0 && !isFree) {
     const unavailable = createPaymentChannelUnavailableError("no_matching_route", {
       eventId: row.id,
       eventSlug: row.slug,
@@ -209,12 +211,8 @@ export default async function CheckoutPage({
             lines={cartLines}
             editTicketsHref={editTicketsHref}
             paymentMethods={paymentMethods}
-            bookingFeeMinor={bookingFee}
-            vatRate={CHECKOUT_VAT_RATE}
             holdSeconds={holdSeconds}
-            defaultBuyerEmail={defaultBuyerEmail}
-            defaultBuyerName={defaultBuyerName}
-            defaultBuyerPhone={defaultBuyerPhone}
+            {...buyerProps}
           />
         </CheckoutProviderBridge>
       </div>
@@ -223,17 +221,16 @@ export default async function CheckoutPage({
           methods={paymentMethods}
           eventId={row.id}
           eventSlug={row.slug}
-          showDesktopPicker
+          surface="desktop_checkout"
         >
           <DesktopCheckout
             {...sharedProps}
             eventUuid={row.id}
             lines={cartLines}
             editTicketsHref={editTicketsHref}
-            bookingFeeMinor={bookingFee}
-            vatRate={CHECKOUT_VAT_RATE}
+            paymentMethods={paymentMethods}
             holdSeconds={holdSeconds}
-            defaultBuyerEmail={defaultBuyerEmail}
+            {...buyerProps}
           />
         </CheckoutProviderBridge>
       </div>

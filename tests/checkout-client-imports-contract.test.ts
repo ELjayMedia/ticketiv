@@ -9,6 +9,9 @@ const CLIENT_FILES = [
   "components/quiet/screens/event-detail/ticket-picker.tsx",
   "components/quiet/screens/checkout/mobile-checkout.tsx",
   "components/quiet/screens/checkout/desktop-checkout.tsx",
+  "components/quiet/screens/checkout/contact-section.tsx",
+  "components/quiet/screens/checkout/use-checkout.ts",
+  "lib/calendar-links.ts",
   "lib/checkout/cart.ts",
   "lib/checkout/pricing.ts",
 ];

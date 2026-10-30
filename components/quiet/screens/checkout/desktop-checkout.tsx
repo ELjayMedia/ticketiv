@@ -6,27 +6,22 @@ import { Icon } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider } from "@/components/quiet/ui/primitives";
 import { Button } from "@/components/quiet/ui/button";
-import { FormField, Stepper } from "@/components/quiet/ui/form";
+import { RadioCard, Stepper } from "@/components/quiet/ui/form";
 import { useRouter } from "next/navigation";
 import { formatPrice, formatHoldTimer } from "@/lib/format";
-import { cartSubtotalMinor, type CheckoutCartLine } from "@/lib/checkout/pricing";
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
-import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/actions";
-import { describePromoFailure } from "@/lib/checkout/promo-copy";
-import { PromoCodeInput, type PromoResult } from "@/components/quiet/screens/checkout/promo-code-input";
-import { trackBuyerFunnel } from "@/components/analytics/buyer-funnel";
+import { PromoCodeInput } from "@/components/quiet/screens/checkout/promo-code-input";
+import { ContactSection } from "@/components/quiet/screens/checkout/contact-section";
+import { useCheckout } from "@/components/quiet/screens/checkout/use-checkout";
+import type { CheckoutCartLine } from "@/lib/checkout/pricing";
 
 /* ──────────────────────────────────────────────────────────────
  * Desktop checkout · `/events/[id]/checkout` on md+
  *
- * Multi-step: Cart → Details → Payment → Done. We render Details
- * here as the worked step; the others reuse the same layout.
- *
- * Right column is a sticky 360-px order summary. Left column is
- * a stacked form: buyer details, per-attendee details, promo.
- *
- * State is local; Phase 2 wires a server action to commit to
- * Supabase `orders` and `order_items`.
+ * Eventbrite-style single page: contact information (guest-friendly,
+ * optional log in), promo and payment in the left column; a sticky
+ * order summary with the hold timer on the right. Free carts skip
+ * payment and register directly.
  * ────────────────────────────────────────────────────────────── */
 
 interface DesktopCheckoutProps {
@@ -42,20 +37,16 @@ interface DesktopCheckoutProps {
   lines: ReadonlyArray<CheckoutCartLine>;
   /** Back to the event page's ticket picker with this cart preloaded. */
   editTicketsHref: string;
-  bookingFeeMinor: number;
-  vatRate: number;
-  appliedPromo?: { code: string; description: string; savedMinor: number };
+  paymentMethods?: ReadonlyArray<{ id: string; label: string; sub: string; type: "card" | "mobile_money" | "ewallet" }>;
   holdSeconds?: number;
-  /** Buyer's email; prefilled for signed-in users, empty for guests. */
+  /** No session, or an anonymous guest session from an earlier visit. */
+  isGuest?: boolean;
+  /** Log in and come straight back to this checkout. */
+  loginHref?: string;
   defaultBuyerEmail?: string;
+  defaultBuyerFirstName?: string;
+  defaultBuyerLastName?: string;
 }
-
-const STEPS = [
-  { label: "Cart" },
-  { label: "Details" },
-  { label: "Payment" },
-  { label: "Done" },
-];
 
 export function DesktopCheckout({
   eventId,
@@ -66,104 +57,34 @@ export function DesktopCheckout({
   seats = [],
   lines,
   editTicketsHref,
-  bookingFeeMinor,
-  vatRate,
-  appliedPromo,
+  paymentMethods = [],
   holdSeconds = 522,
+  isGuest = true,
+  loginHref = "/login",
   defaultBuyerEmail = "",
+  defaultBuyerFirstName = "",
+  defaultBuyerLastName = "",
 }: DesktopCheckoutProps) {
   const router = useRouter();
-  const items = lines.map((l) => ({ ticketTypeId: l.ticketTypeId, quantity: l.quantity }));
-  const quantity = items.reduce((sum, l) => sum + l.quantity, 0);
-  // One attendee slot per ticket, labelled with its ticket type.
-  const attendeeTicketNames = lines.flatMap((l) => Array.from({ length: l.quantity }, () => l.name));
-  const currency = lines[0]?.currency ?? "SZL";
-  const subtotalMinor = cartSubtotalMinor(lines);
+  const checkout = useCheckout({
+    eventId,
+    eventUuid,
+    lines,
+    isGuest,
+    defaultContact: {
+      firstName: defaultBuyerFirstName,
+      lastName: defaultBuyerLastName,
+      email: defaultBuyerEmail,
+    },
+    surface: "desktop_checkout",
+  });
+  const { currency, discount, total, isFree, submitting } = checkout;
+  const [paymentId, setPaymentId] = React.useState(paymentMethods[0]?.id);
   const [holdRemaining, setHoldRemaining] = React.useState(holdSeconds);
   const [guaranteeOpen, setGuaranteeOpen] = React.useState(false);
-  const [submitting, setSubmitting] = React.useState(false);
-  const [submitError, setSubmitError] = React.useState<string | null>(null);
-  const [buyerEmail, setBuyerEmail] = React.useState(defaultBuyerEmail);
-  const [buyerName, setBuyerName] = React.useState("");
-  const [buyerPhone, setBuyerPhone] = React.useState("");
-  const [attendeeDetails, setAttendeeDetails] = React.useState<Array<{ name: string; phone: string }>>(() =>
-    Array.from({ length: quantity }, () => ({ name: "", phone: "" }))
-  );
-  const [promoInput, setPromoInput] = React.useState("");
-  const [promoFeedback, setPromoFeedback] = React.useState<string | null>(null);
-  const [policyAccepted, setPolicyAccepted] = React.useState(false);
-  const [isApplyingPromo, setIsApplyingPromo] = React.useState(false);
-  const [activePromo, setActivePromo] = React.useState(appliedPromo ?? null);
-  const [validatedPromo, setValidatedPromo] = React.useState<PromoResult | null>(null);
-
-  async function handleApplyPromo() {
-    if (!promoInput.trim()) return;
-    setIsApplyingPromo(true);
-    setPromoFeedback(null);
-    try {
-      const result = await startCheckoutAction({
-        eventId: eventUuid,
-        buyerEmail: buyerEmail.trim() || "promo-check@placeholder.invalid",
-        items,
-        promoCode: promoInput.trim(),
-      });
-      if (!result.ok) {
-        setPromoFeedback(result.error);
-      } else if (result.promo && !result.promo.applied) {
-        setPromoFeedback(describePromoFailure(result.promo.reason));
-      }
-    } finally {
-      setIsApplyingPromo(false);
-    }
-  }
-
-  async function handleContinueToPayment() {
-    setSubmitError(null);
-    setSubmitting(true);
-    const result = await startCheckoutAction({
-      eventId: eventUuid,
-      buyerEmail: buyerEmail.trim(),
-      items,
-      promoCode: promoInput.trim() || null,
-    });
-    if (!result.ok) {
-      setSubmitError(result.error);
-      trackBuyerFunnel("checkout_error", {
-        event_id: eventUuid,
-        event_slug: eventId,
-        reason: result.error,
-        surface: "desktop_checkout",
-      });
-      setSubmitting(false);
-      return;
-    }
-    if (result.promo && !result.promo.applied) {
-      setPromoFeedback(describePromoFailure(result.promo.reason));
-      trackBuyerFunnel("checkout_error", {
-        event_id: eventUuid,
-        event_slug: eventId,
-        reason: `promo_${result.promo.reason}`,
-        surface: "desktop_checkout",
-      });
-      setSubmitting(false);
-      return;
-    }
-    trackBuyerFunnel("payment_redirect", {
-      event_id: eventUuid,
-      event_slug: eventId,
-      ticket_type_id: lines.length === 1 ? lines[0].ticketTypeId : null,
-      quantity,
-      line_count: lines.length,
-      total_minor: total,
-      provider: result.checkoutUrl ? "paystack" : "internal",
-      surface: "desktop_checkout",
-    });
-    if (result.checkoutUrl) {
-      window.location.assign(result.checkoutUrl);
-    } else {
-      router.push(`/orders/${result.orderId}/confirmation`);
-    }
-  }
+  const steps = isFree
+    ? [{ label: "Tickets" }, { label: "Details" }, { label: "Done" }]
+    : [{ label: "Tickets" }, { label: "Details" }, { label: "Payment" }, { label: "Done" }];
 
   const { stats: liveStats } = useEventLiveStats(eventId);
   const lastStatsAtRef = React.useRef<string | null>(null);
@@ -175,6 +96,12 @@ export function DesktopCheckout({
     lastStatsAtRef.current = liveStats.updated_at ?? null;
   }, [liveStats?.updated_at, router]);
 
+  // Hold expiry returns the buyer to the event page (TICK-200 parity with mobile).
+  React.useEffect(() => {
+    if (holdSeconds <= 0) return;
+    if (holdRemaining <= 0) router.replace(`/events/${eventId}?hold_expired=1`);
+  }, [holdRemaining, holdSeconds, eventId, router]);
+
   useHoldExtension(holdRemaining, setHoldRemaining, holdSeconds);
 
   React.useEffect(() => {
@@ -183,14 +110,9 @@ export function DesktopCheckout({
     return () => clearInterval(i);
   }, [holdRemaining]);
 
-  const vat = Math.round(subtotalMinor * vatRate);
-  const discount = activePromo?.savedMinor ?? 0;
-  const promoDiscount = validatedPromo
-    ? validatedPromo.discountType === "percent"
-      ? Math.round(subtotalMinor * validatedPromo.discountValue / 100)
-      : validatedPromo.discountValue
-    : 0;
-  const total = subtotalMinor + bookingFeeMinor + vat - discount - promoDiscount;
+  const ctaLabel = submitting
+    ? isFree ? "Registering…" : "Starting payment…"
+    : isFree ? "Register" : `Pay ${formatPrice(total, currency)}`;
 
   return (
     <div className="min-h-dvh bg-bg">
@@ -211,7 +133,7 @@ export function DesktopCheckout({
             ‹ back to event
           </Link>
           <span className="flex-1" />
-          <Stepper steps={STEPS} currentIndex={1} />
+          <Stepper steps={steps} currentIndex={1} />
           <span className="h-4 w-px bg-line" />
           <DesktopHoldTimerLabel remaining={holdRemaining} />
         </div>
@@ -221,211 +143,57 @@ export function DesktopCheckout({
       <div className="mx-auto grid max-w-[1100px] grid-cols-[1fr_360px] items-start gap-8 px-10 py-8">
         {/* ── Form column ─────────────────────────────────── */}
         <div className="flex flex-col gap-4">
-          {/* Buyer */}
           <Card className="p-5">
-            <div className="mb-3.5 flex items-center justify-between">
-              <h2 className="text-[18px] font-semibold tracking-[-0.02em]">
-                Buyer details
-              </h2>
-              <span className="font-mono text-[11px] text-ink-3">1 of 3</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                label="Full name"
-                value={buyerName}
-                onChange={(e) => setBuyerName(e.target.value)}
-                placeholder="Your full name"
-                autoFocus
-                disabled={submitting}
-              />
-              <FormField
-                label="Email"
-                type="email"
-                value={buyerEmail}
-                onChange={(e) => setBuyerEmail(e.target.value)}
-                placeholder="you@example.com"
-                autoComplete="email"
-                disabled={submitting}
-              />
-              <FormField
-                label="Phone (+268)"
-                type="tel"
-                value={buyerPhone}
-                onChange={(e) => setBuyerPhone(e.target.value)}
-                placeholder="76 123 4567"
-                disabled={submitting}
-              />
-              <FormField label="Country" defaultValue="Eswatini" readOnly />
-            </div>
+            <h2 className="mb-3.5 text-[18px] font-semibold tracking-[-0.02em]">
+              Contact information
+            </h2>
+            <ContactSection
+              idPrefix="d-contact"
+              layout="grid"
+              values={checkout.contact}
+              onChange={checkout.setContact}
+              isGuest={isGuest}
+              loginHref={loginHref}
+              disabled={submitting}
+              showErrors={checkout.showErrors}
+            />
           </Card>
 
-          {/* Attendees */}
-          <Card className="p-5">
-            <div className="mb-3.5 flex items-center justify-between">
-              <h2 className="text-[18px] font-semibold tracking-[-0.02em]">
-                Attendee details{" "}
-                <span className="font-mono text-[12px] font-medium text-ink-3">
-                  · {quantity} attendee{quantity === 1 ? "" : "s"}
-                </span>
-              </h2>
-              <span className="font-mono text-[11px] text-ink-3">2 of 3</span>
-            </div>
-
-            <div className="flex flex-col gap-2.5">
-              {Array.from({ length: quantity }).map((_, i) => {
-                const isFirst = i === 0;
-                const seat = seats[i];
-                return (
-                  <div
-                    key={i}
-                    className={
-                      "rounded-[var(--radius-md)] border p-3.5 " +
-                      (isFirst
-                        ? "border-accent bg-accent-soft"
-                        : "border-line")
-                    }
-                  >
-                    <div className="mb-3 flex items-center">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={
-                            "inline-flex h-5 w-5 items-center justify-center rounded-md font-mono text-[11px] font-bold text-white " +
-                            (isFirst ? "bg-accent" : "bg-ink")
-                          }
-                        >
-                          {i + 1}
-                        </span>
-                        <span className="text-[14px] font-semibold">
-                          Ticket {i + 1}
-                          {seat ? ` · Seat ${seat}` : ""} · {attendeeTicketNames[i]}
-                        </span>
-                      </div>
-                      <span className="flex-1" />
-                      {isFirst && (
-                        <span className="inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-accent">
-                          <Icon name="check" size={11} strokeWidth={3} />
-                          SAME AS BUYER
-                        </span>
-                      )}
-                    </div>
-                    {!isFirst && (
-                      <div className="grid grid-cols-2 gap-2.5">
-                        <FormField
-                          label="Name"
-                          placeholder="Full name"
-                          value={attendeeDetails[i]?.name ?? ""}
-                          onChange={(e) =>
-                            setAttendeeDetails((prev) =>
-                              prev.map((a, j) => j === i ? { ...a, name: e.target.value } : a)
-                            )
-                          }
-                          disabled={submitting}
-                        />
-                        <FormField
-                          label="Phone"
-                          type="tel"
-                          placeholder="+268 …"
-                          value={attendeeDetails[i]?.phone ?? ""}
-                          onChange={(e) =>
-                            setAttendeeDetails((prev) =>
-                              prev.map((a, j) => j === i ? { ...a, phone: e.target.value } : a)
-                            )
-                          }
-                          disabled={submitting}
-                        />
-                      </div>
-                    )}
-                    {isFirst && (
-                      <span className="font-mono text-[11px] text-ink-3">
-                        Your buyer details will be used for this ticket.
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-
-          {/* Promo */}
-          <Card className="p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-[18px] font-semibold tracking-[-0.02em]">
-                Promo code
-              </h2>
-              <span className="font-mono text-[11px] text-ink-3">3 of 3</span>
-            </div>
-            <div className="flex items-end gap-2">
-              <div className="flex-1">
-                <FormField
-                  label=""
-                  placeholder="Enter code"
-                  value={promoInput}
-                  onChange={(event) => {
-                    setPromoInput(event.target.value);
-                    if (promoFeedback) setPromoFeedback(null);
-                  }}
-                  className="!gap-0"
-                  disabled={isApplyingPromo || submitting}
-                />
-              </div>
-              <Button
-                variant="default"
-                type="button"
-                onClick={handleApplyPromo}
-                disabled={isApplyingPromo || submitting}
-              >
-                {isApplyingPromo ? "Applying…" : "Apply"}
-              </Button>
-            </div>
-            {promoFeedback && (
-              <p role="alert" className="mt-2 text-[12px] text-danger">
-                {promoFeedback}
+          {!isFree && (
+            <Card className="p-5">
+              <h2 className="mb-1 text-[18px] font-semibold tracking-[-0.02em]">Payment</h2>
+              <p className="mb-3.5 font-mono text-[11px] text-ink-3">
+                Only methods accepted by this organizer are shown.
               </p>
-            )}
-            {activePromo && (
-              <div className="mt-3 flex items-center gap-2.5 rounded-md border border-accent bg-accent-soft p-3">
-                <div className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-white">
-                  <Icon name="check" size={12} strokeWidth={3} />
-                </div>
-                <div className="flex flex-1 flex-col">
-                  <span className="text-[13px] font-semibold">
-                    {activePromo.code} applied
-                  </span>
-                  <span className="font-mono text-[11px] text-ink-3">
-                    {activePromo.description} · saved{" "}
-                    {formatPrice(activePromo.savedMinor, currency)}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className="text-[12px] font-semibold text-accent"
-                  onClick={() => {
-                    setActivePromo(null);
-                    setPromoInput("");
-                  }}
-                >
-                  Remove
-                </button>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {paymentMethods.map((p) => (
+                  <RadioCard
+                    key={p.id}
+                    name="payment"
+                    value={p.id}
+                    selected={paymentId === p.id}
+                    onChange={setPaymentId}
+                    title={p.label}
+                    subtitle={p.sub}
+                  />
+                ))}
               </div>
-            )}
-            <div className="mt-4">
-              <PromoCodeInput
-                eventId={eventUuid}
-                onApply={(result) => {
-                  setValidatedPromo(result);
-                  if (result) setPromoInput(result.promoId);
-                }}
-              />
-            </div>
-          </Card>
+              <div className="mt-4">
+                <PromoCodeInput eventId={eventUuid} onApply={checkout.setPromo} />
+                {checkout.promoError && (
+                  <p role="alert" className="mt-1.5 text-[12px] text-danger">{checkout.promoError}</p>
+                )}
+              </div>
+            </Card>
+          )}
 
           <div className="flex flex-col gap-2">
             <div className="flex items-start gap-2 text-[12px] text-ink-3">
               <input
                 id="desktop-policy-acceptance"
                 type="checkbox"
-                checked={policyAccepted}
-                onChange={(e) => setPolicyAccepted(e.target.checked)}
+                checked={checkout.accepted}
+                onChange={(e) => checkout.setAccepted(e.target.checked)}
                 className="mt-0.5 accent-accent"
               />
               <span>
@@ -439,34 +207,29 @@ export function DesktopCheckout({
                 </Link>
               </span>
             </div>
-            {holdRemaining <= 0 && (
-              <div role="alert" className="rounded-md border border-danger/40 bg-danger/5 px-3 py-2 text-[12px] text-danger">
-                Your hold has expired — go back and select tickets again.
+            {checkout.submitError && (
+              <div role="alert" className="rounded-md border border-danger/40 bg-danger-soft px-3 py-2 text-[12px] text-danger">
+                {checkout.submitError}
               </div>
             )}
             <div className="flex items-center gap-2">
               <Button
                 variant="default"
                 className="flex-1"
-                onClick={() => router.push(`/events/${eventId}`)}
+                onClick={() => router.push(editTicketsHref as "/")}
               >
                 Back
               </Button>
               <button
                 type="button"
-                onClick={handleContinueToPayment}
-                disabled={submitting || !buyerEmail.trim() || holdRemaining <= 0 || !policyAccepted}
+                onClick={checkout.submit}
+                disabled={submitting || holdRemaining <= 0}
                 className="flex flex-[2] items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-2.5 text-[14px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {submitting ? "Starting payment…" : "Continue to payment"}
+                {ctaLabel}
                 {!submitting && <Icon name="arrowR" size={14} />}
               </button>
             </div>
-            {submitError && (
-              <div role="alert" className="rounded-md border border-danger/40 bg-danger/5 px-3 py-2 text-[12px] text-danger">
-                {submitError}
-              </div>
-            )}
           </div>
         </div>
 
@@ -505,22 +268,10 @@ export function DesktopCheckout({
                 value={formatPrice(l.priceMinor * l.quantity, l.currency)}
               />
             ))}
-            <SummaryRow label="Booking fee" value={formatPrice(bookingFeeMinor, currency)} />
-            <SummaryRow
-              label={`VAT ${Math.round(vatRate * 100)}%`}
-              value={formatPrice(vat, currency)}
-            />
-            {activePromo && (
+            {discount > 0 && checkout.promo && (
               <SummaryRow
-                label={activePromo.code}
+                label={`Promo ${checkout.promo.code}`}
                 value={`−${formatPrice(discount, currency)}`}
-                accent
-              />
-            )}
-            {validatedPromo && promoDiscount > 0 && (
-              <SummaryRow
-                label="Promo"
-                value={`−${formatPrice(promoDiscount, currency)}`}
                 accent
               />
             )}
@@ -545,23 +296,19 @@ export function DesktopCheckout({
               <Icon name="zap" size={12} />
               <span>
                 {holdRemaining <= 0
-                  ? "Your hold has expired. Restart checkout to continue."
-                  : `Your seats are held for ${formatHoldTimer(holdRemaining)}`}
+                  ? "Your hold has expired. Pick your tickets again to continue."
+                  : `Your tickets are held for ${formatHoldTimer(holdRemaining)}`}
               </span>
             </div>
           </div>
 
-          <div className="mt-3 flex items-center gap-1.5 font-mono text-[10px] text-ink-3">
-            <Icon name="check" size={12} className="text-success" />
-            <span>Free transfer · partial refund · QR + wallet</span>
-          </div>
           <div className="mt-3 rounded-md border border-line bg-bg p-3">
             <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold">
               <Icon name="check" size={12} className="text-success" />
-              Secure checkout
+              {isFree ? "Free registration" : "Secure checkout"}
             </div>
             <p className="font-mono text-[10px] leading-relaxed text-ink-3">
-              Encrypted payment · refund policy per organizer · contact us anytime.
+              Tickets emailed to you · no account needed · refund policy per organizer.
             </p>
             <div className="mt-1.5 flex items-center gap-3">
               <button

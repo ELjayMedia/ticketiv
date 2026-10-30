@@ -319,6 +319,40 @@ export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
 }
 
 /**
+ * Complete a zero-total order (free event registration). There is no
+ * provider to verify against, so the guard is the order itself: it must
+ * belong to the buyer, be pending, and total exactly 0. Settlement then runs
+ * through the same atomic RPC as paid orders, issuing tickets and queueing
+ * delivery, with a synthetic `free:<orderId>` reference for idempotency.
+ */
+export async function completeFreeOrder(orderId: string, buyerId: string) {
+  const { supabase, order } = await getPendingOrder(orderId, buyerId)
+  if (order.total_cents !== 0) {
+    throw new Error("Order is not free")
+  }
+
+  const { data, error } = await supabase
+    .rpc("fn_complete_order_payment", {
+      p_order_id: order.id,
+      p_provider: "free",
+      p_ext_payment_id: `free:${order.id}`,
+      p_amount_cents: 0,
+      p_currency: order.currency,
+      p_payload: { source: "free_registration" },
+    })
+    .maybeSingle<{ completed_order_id: string; issued_item_count: number }>()
+
+  if (error) {
+    console.error("Failed to complete free order", error)
+    throw new Error("Unable to complete registration")
+  }
+  if (!data) throw new Error("Registration completion returned no result")
+
+  await drainPaymentOutbox()
+  return { orderId: data.completed_order_id, issuedItemCount: data.issued_item_count }
+}
+
+/**
  * Complete a payment whose authenticity the caller has already verified.
  * The database RPC is the single atomic completion path and is idempotent.
  */

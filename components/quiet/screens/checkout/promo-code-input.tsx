@@ -5,6 +5,8 @@ import { Icon } from "@/components/quiet/ui/icon"
 import { Button } from "@/components/quiet/ui/button"
 
 export interface PromoResult {
+  /** The code as entered — what fn_apply_promo_code_to_order expects. */
+  code: string
   promoId: string
   discountType: "percent" | "fixed"
   discountValue: number
@@ -34,8 +36,9 @@ export function PromoCodeInput({ eventId, onApply }: PromoCodeInputProps) {
       })
       const json = await res.json()
       if (json.valid) {
-        setApplied(json)
-        onApply(json)
+        const result: PromoResult = { ...json, code: code.trim() }
+        setApplied(result)
+        onApply(result)
         setError(null)
       } else {
         setError(json.error ?? "Invalid code")

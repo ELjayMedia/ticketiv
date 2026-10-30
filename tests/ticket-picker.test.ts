@@ -84,7 +84,6 @@ beforeEach(() => {
   nav.search = ""
   nav.replace.mockReset()
   actions.loadTicketPickerAction.mockResolvedValue({
-    plan: { platform_fixed_cents: 1000, platform_percent_bps: null },
     ticketTypes: [
       { id: GA, name: "General", priceMinor: 10000, currency: "SZL", remaining: 100, perUserLimit: null, perOrderLimit: 2, salesStatus: "on_sale" },
       { id: VIP, name: "VIP", priceMinor: 30000, currency: "SZL", remaining: 1, perUserLimit: null, perOrderLimit: null, salesStatus: "on_sale" },
@@ -117,9 +116,23 @@ describe("TicketPicker", () => {
     // Paused type is shown but cannot be added.
     expect(document.body.querySelector('[aria-label="Early bird quantity"]')).toBeNull()
     expect(dialog()?.textContent).toContain("Sales paused")
-    // 2×100 + 1×300 = 500, + 10 booking fee + 15% VAT (75) = 585
+    // Buyers pay the ticket price only: 2×100 + 1×300 = 500, no fee or VAT added.
     expect(dialog()?.textContent).toContain("Check out")
-    expect(dialog()?.textContent).toMatch(/585/)
+    expect(dialog()?.textContent).toMatch(/Total.*500/)
+    expect(dialog()?.textContent).not.toMatch(/Booking fee|VAT/)
+  })
+
+  it("labels a free cart Register", async () => {
+    actions.loadTicketPickerAction.mockResolvedValue({
+      ticketTypes: [
+        { id: GA, name: "RSVP", priceMinor: 0, currency: "SZL", remaining: 50, perUserLimit: null, perOrderLimit: null, salesStatus: "on_sale" },
+      ],
+    })
+    await mount()
+    await act(async () => (document.getElementById("open") as HTMLButtonElement).click())
+    expect(cartValue()).toBe(`${GA}:1`) // lone type is preselected
+    expect(dialog()?.textContent).toContain("Register")
+    expect(dialog()?.textContent).not.toContain("Check out")
   })
 
   it("preselects the ticket type the buyer tapped", async () => {

@@ -10,13 +10,7 @@ import { asCurrency } from "@/lib/currency";
 import type { EventPublicView } from "@/lib/schemas/views";
 import type { CheckoutCartLine } from "@/lib/checkout/pricing";
 
-export {
-  CHECKOUT_VAT_RATE,
-  bookingFeeFor,
-  cartSubtotalMinor,
-  type CheckoutCartLine,
-  type CheckoutPricingPlan,
-} from "@/lib/checkout/pricing";
+export { cartSubtotalMinor, type CheckoutCartLine } from "@/lib/checkout/pricing";
 
 export interface CheckoutTicketTypeRow {
   id: string;
