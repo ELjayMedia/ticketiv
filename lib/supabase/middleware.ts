@@ -220,10 +220,16 @@ export async function updateSession(request: NextRequest) {
       return redirectToLogin(request, path)
     }
 
-    // Handle gate for app/profile/payment/order/ticket routes
+    // Handle gate for app/profile/payment/order/ticket routes. Buyer-owned
+    // order and ticket pages are exempt: guest (anonymous) buyers never have a
+    // handle, and paying (MoMo approval), confirming, refunding or opening a
+    // ticket must not detour through onboarding. RLS still scopes the reads to
+    // the buyer. Resale and transfer stay gated — they are account features.
     const requiresHandle = ["/app/", "/profile", "/payments", "/checkout/", "/orders/", "/tickets/"]
-    const isOrderConfirmation = /^\/orders\/[^/]+\/confirmation$/.test(path)
-    if (!isOrderConfirmation && requiresHandle.some((p) => path.startsWith(p))) {
+    const isBuyerOwnedPage =
+      /^\/orders\/[^/]+(\/(confirmation|momo|refund))?$/.test(path) ||
+      /^\/tickets\/[^/]+$/.test(path)
+    if (!isBuyerOwnedPage && requiresHandle.some((p) => path.startsWith(p))) {
       if (!(await hasHandle())) {
         return NextResponse.redirect(new URL("/onboarding", request.url))
       }

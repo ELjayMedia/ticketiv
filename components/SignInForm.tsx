@@ -221,7 +221,7 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
 
       setBusy(false)
       posthog.capture("login_completed")
-      const redirectTo = safeRedirect(search?.get("redirectTo") || search?.get("from"), "/")
+      const redirectTo = safeRedirect(search?.get("redirectTo") || search?.get("from") || search?.get("next"), "/")
       router.push(redirectTo as "/")
       router.refresh()
       return
