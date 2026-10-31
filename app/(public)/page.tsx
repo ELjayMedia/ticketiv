@@ -24,17 +24,21 @@ export const revalidate = 60;
  * UI-friendly shape and split into "This week" and "Upcoming" (lib/data/public/discover-feed).
  */
 export default async function DiscoverPage() {
-  const { thisWeek, upcoming, editorPick } = await getDiscoverFeed();
+  const { thisWeek, upcoming, editorPick, featured } = await getDiscoverFeed();
 
   return (
     <ConsumerFrame desktopNav={<PublicSessionDesktopNav />}>
       <div className="md:hidden">
         <MobileDiscover thisWeek={thisWeek} upcoming={upcoming} editorPick={editorPick} />
       </div>
-      {/* Desktop search is owned by the persistent top navigation. Hide the
-          discover screen's legacy inline form while retaining its filter tools. */}
-      <div className="hidden md:block [&>div>form]:hidden">
-        <DesktopDiscover thisWeek={thisWeek} upcoming={upcoming} editorPick={editorPick} />
+      {/* Desktop search lives in the persistent top navigation. */}
+      <div className="hidden md:block">
+        <DesktopDiscover
+          thisWeek={thisWeek}
+          upcoming={upcoming}
+          editorPick={editorPick}
+          featured={featured}
+        />
       </div>
     </ConsumerFrame>
   );
