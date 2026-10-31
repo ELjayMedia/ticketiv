@@ -10,7 +10,7 @@ export const metadata = {
 export const revalidate = 60;
 
 export default async function BrowsePage() {
-  const { thisWeek, upcoming, editorPick } = await getDiscoverFeed();
+  const { thisWeek, upcoming, editorPick, featured } = await getDiscoverFeed();
 
   return (
     <>
@@ -18,7 +18,7 @@ export default async function BrowsePage() {
         <MobileDiscover thisWeek={thisWeek} upcoming={upcoming} editorPick={editorPick} />
       </div>
       <div className="hidden md:block">
-        <DesktopDiscover thisWeek={thisWeek} upcoming={upcoming} editorPick={editorPick} />
+        <DesktopDiscover thisWeek={thisWeek} upcoming={upcoming} editorPick={editorPick} featured={featured} />
       </div>
     </>
   );
