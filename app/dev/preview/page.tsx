@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { TicketPickerProvider } from "@/components/quiet/screens/event-detail/ticket-picker";
 import {
   PhoneShell,
   BrowserShell,
@@ -72,6 +73,24 @@ export default function PreviewIndexPage() {
               <DesktopDiscover />
             </BrowserShell>
           </PreviewArtboard>
+
+          <PreviewArtboard label="Desktop nav · signed in · profile menu (click the avatar)" wide>
+            <BrowserShell url="ticketiv.app" tabs={["Ticketiv"]}>
+              <div data-preview="signed-in-nav">
+                <DesktopNav
+                  signedIn
+                  displayName="Ada"
+                  fullName="Ada Lovelace"
+                  email="ada@example.com"
+                  contexts={[
+                    { key: "personal", kind: "personal", label: "Personal", href: "/me" },
+                    { key: "org:demo", kind: "org", label: "Sunset Collective", sublabel: "Organizer owner", href: "/orgs/demo/dashboard" },
+                  ]}
+                />
+              </div>
+              <div className="h-[760px] bg-bg" />
+            </BrowserShell>
+          </PreviewArtboard>
         </PreviewSection>
 
         <PreviewSection
@@ -81,7 +100,9 @@ export default function PreviewIndexPage() {
         >
           <PreviewArtboard label="Event detail · /events/[id] · mobile">
             <PhoneShell>
-              <MobileEvent />
+              <TicketPickerProvider eventSlug="tribal-tales" eventUuid="" eventTitle="Tribal Tales" eventWhenLabel="Wed 30 Aug · 15:50">
+                <MobileEvent />
+              </TicketPickerProvider>
             </PhoneShell>
           </PreviewArtboard>
 
@@ -91,7 +112,9 @@ export default function PreviewIndexPage() {
               tabs={["Tribal Tales · Ticketiv"]}
             >
               <DesktopNav breadcrumb="Discover > Music > Tribal Tales" />
-              <DesktopEvent />
+              <TicketPickerProvider eventSlug="tribal-tales" eventUuid="" eventTitle="Tribal Tales" eventWhenLabel="Wed 30 Aug · 15:50">
+                <DesktopEvent />
+              </TicketPickerProvider>
             </BrowserShell>
           </PreviewArtboard>
 

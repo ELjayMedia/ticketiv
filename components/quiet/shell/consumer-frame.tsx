@@ -17,6 +17,8 @@ interface ConsumerFrameProps {
   children: React.ReactNode;
   signedIn?: boolean;
   displayName?: string;
+  fullName?: string;
+  email?: string;
   avatarUrl?: string;
   contexts?: UserContext[];
   activeContextKey?: string | null;
@@ -28,6 +30,8 @@ export function ConsumerFrame({
   children,
   signedIn = false,
   displayName,
+  fullName,
+  email,
   avatarUrl,
   contexts = [],
   activeContextKey = null,
@@ -40,6 +44,8 @@ export function ConsumerFrame({
           <DesktopNav
             signedIn={signedIn}
             displayName={displayName}
+            fullName={fullName}
+            email={email}
             avatarUrl={avatarUrl}
             contexts={contexts}
             activeContextKey={activeContextKey}
