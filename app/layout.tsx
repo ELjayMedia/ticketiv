@@ -5,6 +5,7 @@ import "@fontsource-variable/jetbrains-mono/wght.css";
 import "./globals.css";
 import { DeploymentEnvironmentBanner } from "@/components/deployment-environment-banner";
 import { SearchOverlayProvider } from "@/components/quiet/search/search-overlay";
+import { ToastProvider } from "@/components/quiet/ui/toast";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://ticketiv.app"),
@@ -41,7 +42,9 @@ export default function RootLayout({
     <html lang="en">
       <body className="bg-bg text-ink antialiased">
         <DeploymentEnvironmentBanner />
-        <SearchOverlayProvider>{children}</SearchOverlayProvider>
+        <ToastProvider>
+          <SearchOverlayProvider>{children}</SearchOverlayProvider>
+        </ToastProvider>
         <Analytics />
       </body>
     </html>

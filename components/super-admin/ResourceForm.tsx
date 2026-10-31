@@ -1,7 +1,4 @@
 import type { AdminResource } from "@/lib/super-admin/resources"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { FieldHelpTooltip } from "@/components/super-admin/FieldHelpTooltip"
 import {
   formatAdminCell,
@@ -11,6 +8,8 @@ import {
   isRelationField,
   type LookupMaps,
 } from "@/lib/super-admin/display"
+import { Button } from "@/components/quiet/ui/button";
+import { Input, Label } from "@/components/quiet/ui/form";
 
 function toInputDateTime(value: unknown) {
   if (!value) return ""
@@ -55,7 +54,7 @@ export function ResourceForm({
   lookups?: LookupMaps
 }) {
   return (
-    <form action={action} className="grid gap-4 rounded-2xl border bg-card p-5 shadow-sm md:grid-cols-2">
+    <form action={action} className="grid gap-4 rounded-2xl border bg-surface p-5 shadow-sm md:grid-cols-2">
       {resource.fields.map((field) => {
         const value = record?.[field.name] ?? defaults?.[field.name]
         const relationOptions = getRelationOptions(field.name, lookups)
@@ -64,7 +63,7 @@ export function ResourceForm({
           return (
             <div key={field.name} className="space-y-2 md:col-span-2">
               <FieldLabel name={field.name} />
-              <Input value={formatAdminCell(field.name, value, lookups)} readOnly className="h-11 rounded-full bg-muted" />
+              <Input value={formatAdminCell(field.name, value, lookups)} readOnly className="h-11 rounded-full bg-surface-2" />
             </div>
           )
         }
@@ -78,7 +77,7 @@ export function ResourceForm({
                 name={field.name}
                 defaultValue={formatValue(field.type, value)}
                 required={field.required}
-                className="flex h-11 w-full rounded-full border border-input bg-background px-4 py-2 text-sm"
+                className="flex h-11 w-full rounded-full border border-line-2 bg-surface px-4 py-2 text-sm"
               >
                 <option value="">Select {getFieldLabel(field.name).toLowerCase()}</option>
                 {relationOptions.map((option) => (
@@ -98,7 +97,7 @@ export function ResourceForm({
                 name={field.name}
                 defaultValue={formatValue(field.type, value) || field.options?.[0] || ""}
                 required={field.required}
-                className="flex h-11 w-full rounded-full border border-input bg-background px-4 py-2 text-sm"
+                className="flex h-11 w-full rounded-full border border-line-2 bg-surface px-4 py-2 text-sm"
               >
                 {field.options?.map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
@@ -128,7 +127,7 @@ export function ResourceForm({
                 defaultValue={formatValue(field.type, value)}
                 placeholder={field.placeholder}
                 required={field.required}
-                className="min-h-28 w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm"
+                className="min-h-28 w-full rounded-2xl border border-line-2 bg-surface px-4 py-3 text-sm"
               />
             </div>
           )
@@ -153,7 +152,7 @@ export function ResourceForm({
       })}
 
       <div className="flex justify-end md:col-span-2">
-        <Button type="submit" className="rounded-full">{submitLabel}</Button>
+        <Button variant="accent" type="submit" className="rounded-full">{submitLabel}</Button>
       </div>
     </form>
   )

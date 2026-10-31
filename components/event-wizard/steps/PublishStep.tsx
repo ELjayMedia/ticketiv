@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { AlertCircle, ArrowRight, CheckCircle2 } from "lucide-react"
+import { Button } from "@/components/quiet/ui/button";
+import { Chip } from "@/components/quiet/ui/chip";
 
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 
 type ReadinessCheck = {
   key: string
@@ -76,7 +76,7 @@ export function PublishStep({ event, onSaving }: { event: any; onSaving: () => v
     }
   }
 
-  if (loading) return <div className="p-2 text-sm text-muted-foreground">Loading publish state…</div>
+  if (loading) return <div className="p-2 text-sm text-ink-3">Loading publish state…</div>
 
   const published = currentEvent?.status === "published"
   const ready = Boolean(readiness?.ready)
@@ -88,7 +88,7 @@ export function PublishStep({ event, onSaving }: { event: any; onSaving: () => v
     <div className="space-y-5">
       <div>
         <h2 className="text-lg font-semibold">Publish event</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-ink-3">
           The readiness checklist alongside the wizard is the single source of truth for going live.
         </p>
       </div>
@@ -98,10 +98,10 @@ export function PublishStep({ event, onSaving }: { event: any; onSaving: () => v
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="font-medium">Public availability</h3>
-              <Badge variant={published ? "default" : "secondary"}>{published ? "Published" : "Draft"}</Badge>
-              <Badge variant={ready ? "default" : "outline"}>{ready ? "Ready" : `${blockers.length} required left`}</Badge>
+              <Chip size="sm" variant={published ? "accent" : "muted"}>{published ? "Published" : "Draft"}</Chip>
+              <Chip size="sm" variant={ready ? "accent" : "default"}>{ready ? "Ready" : `${blockers.length} required left`}</Chip>
             </div>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-sm text-ink-3">
               {published
                 ? "This event is currently visible through its public event page."
                 : ready
@@ -112,7 +112,8 @@ export function PublishStep({ event, onSaving }: { event: any; onSaving: () => v
 
           <Button
             onClick={togglePublish}
-            variant={published ? "destructive" : "default"}
+            variant={published ? "outline" : "accent"}
+            className={published ? "text-danger" : undefined}
             disabled={saving || (!published && !ready)}
           >
             {saving ? "Updating…" : published ? "Unpublish" : "Publish event"}
@@ -125,7 +126,7 @@ export function PublishStep({ event, onSaving }: { event: any; onSaving: () => v
           <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
           <div>
             <p className="font-medium">Required setup complete</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-sm text-ink-3">
               Recommended event-day items can still be completed after publishing.
             </p>
           </div>
@@ -136,7 +137,7 @@ export function PublishStep({ event, onSaving }: { event: any; onSaving: () => v
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
             <div className="min-w-0 flex-1">
               <p className="font-medium">Publication is blocked by {blockers.length} required item{blockers.length === 1 ? "" : "s"}</p>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-sm text-ink-3">
                 Use the Fix actions in the readiness checklist. They open the exact wizard step or workspace screen needed.
               </p>
               {firstBlocker && firstBlockerHref ? (

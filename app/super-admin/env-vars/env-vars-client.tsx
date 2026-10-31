@@ -7,7 +7,7 @@ import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
 import { cn } from "@/lib/cn"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/components/quiet/ui/toast"
 
 type EnvTarget = "production" | "preview" | "development"
 type EnvType = "plain" | "secret" | "encrypted" | "system"
@@ -99,7 +99,7 @@ export function EnvVarsClient() {
 
   const showError = useCallback(
     (message: string) => {
-      toast({ variant: "destructive", title: "Something went wrong", description: message })
+      toast({ variant: "error", title: "Something went wrong", description: message })
     },
     [toast],
   )
@@ -201,6 +201,7 @@ export function EnvVarsClient() {
       if (!res.ok) throw new Error(data.error ?? "Request failed")
 
       toast({
+        variant: "success",
         title: form.mode === "create" ? "Environment variable created" : "Environment variable updated",
         description: form.key,
       })
@@ -226,7 +227,7 @@ export function EnvVarsClient() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Delete failed")
-      toast({ title: "Environment variable deleted", description: target.key })
+      toast({ variant: "success", title: "Environment variable deleted", description: target.key })
     } catch (error) {
       showError(error instanceof Error ? error.message : "Delete failed")
       await fetchEnvVars()

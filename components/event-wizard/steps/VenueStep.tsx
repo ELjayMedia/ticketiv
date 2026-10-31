@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { Building2, CheckCircle2, MapPin, Plus, RotateCcw, Search } from "lucide-react"
+import { Button } from "@/components/quiet/ui/button";
+import { Input } from "@/components/quiet/ui/form";
 
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 
 export function VenueStep({ eventId, onSaving }: { eventId: string; onSaving: () => void }) {
   const [venueId, setVenueId] = useState("")
@@ -117,27 +117,27 @@ export function VenueStep({ eventId, onSaving }: { eventId: string; onSaving: ()
     }
   }
 
-  if (loading) return <div className="p-2 text-sm text-muted-foreground">Loading venues…</div>
+  if (loading) return <div className="p-2 text-sm text-ink-3">Loading venues…</div>
 
   return (
     <div className="space-y-5">
-      <div className="rounded-lg border bg-muted/30 p-4">
+      <div className="rounded-lg border bg-surface-2/30 p-4">
         <div className="flex gap-3">
-          <Building2 className="mt-0.5 h-5 w-5 text-muted-foreground" />
+          <Building2 className="mt-0.5 h-5 w-5 text-ink-3" />
           <div>
             <h3 className="font-medium">Reusable venue setup</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Type a venue name to search existing venues. Select a match to reuse it, or keep typing and add city, address and capacity to create a reusable venue safely.</p>
+            <p className="mt-1 text-sm text-ink-3">Type a venue name to search existing venues. Select a match to reuse it, or keep typing and add city, address and capacity to create a reusable venue safely.</p>
           </div>
         </div>
       </div>
 
       {selectedVenue && (
-        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+        <div className="rounded-lg border border-accent/30 bg-accent/5 p-3 text-sm">
           <div className="flex items-start gap-2">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 text-primary" />
+            <CheckCircle2 className="mt-0.5 h-4 w-4 text-accent" />
             <div>
               <p className="font-medium">Selected existing venue</p>
-              <p className="text-muted-foreground">{selectedVenue.name} {[selectedVenue.city, selectedVenue.address].filter(Boolean).join(" • ")}</p>
+              <p className="text-ink-3">{selectedVenue.name} {[selectedVenue.city, selectedVenue.address].filter(Boolean).join(" • ")}</p>
             </div>
           </div>
         </div>
@@ -146,7 +146,7 @@ export function VenueStep({ eventId, onSaving }: { eventId: string; onSaving: ()
       <div className="space-y-2">
         <label className="text-sm font-medium">Venue name *</label>
         <div className="relative">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-3 h-4 w-4 text-ink-3" />
           <Input
             value={venueName}
             onChange={(e) => {
@@ -158,17 +158,17 @@ export function VenueStep({ eventId, onSaving }: { eventId: string; onSaving: ()
             disabled={saving}
           />
         </div>
-        {searching && <p className="text-xs text-muted-foreground">Searching venues…</p>}
+        {searching && <p className="text-xs text-ink-3">Searching venues…</p>}
       </div>
 
       {showSuggestions && (
         <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">Suggested existing venues</p>
-          <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border bg-background p-2">
+          <p className="text-xs font-medium text-ink-3">Suggested existing venues</p>
+          <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border bg-surface p-2">
             {venues.map((venue) => (
-              <button key={venue.id} type="button" onClick={() => selectVenue(venue)} className="w-full rounded-md p-3 text-left text-sm transition hover:bg-accent">
-                <span className="flex items-center gap-2 font-medium"><MapPin className="h-4 w-4 text-muted-foreground" />{venue.name}</span>
-                <span className="mt-1 block pl-6 text-xs text-muted-foreground">{[venue.city, venue.address, venue.capacity ? `${venue.capacity} capacity` : null].filter(Boolean).join(" • ") || "No location details yet"}</span>
+              <button key={venue.id} type="button" onClick={() => selectVenue(venue)} className="w-full rounded-md p-3 text-left text-sm transition hover:bg-surface-2">
+                <span className="flex items-center gap-2 font-medium"><MapPin className="h-4 w-4 text-ink-3" />{venue.name}</span>
+                <span className="mt-1 block pl-6 text-xs text-ink-3">{[venue.city, venue.address, venue.capacity ? `${venue.capacity} capacity` : null].filter(Boolean).join(" • ") || "No location details yet"}</span>
               </button>
             ))}
           </div>
@@ -176,7 +176,7 @@ export function VenueStep({ eventId, onSaving }: { eventId: string; onSaving: ()
       )}
 
       {!venueId && venueName.trim() && (
-        <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+        <div className="rounded-lg border border-dashed p-3 text-sm text-ink-3">
           <div className="flex gap-2"><Plus className="mt-0.5 h-4 w-4" /><span>“{venueName.trim()}” will be created or safely reused if the same venue and city already exist.</span></div>
         </div>
       )}
@@ -205,7 +205,7 @@ export function VenueStep({ eventId, onSaving }: { eventId: string; onSaving: ()
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      <Button onClick={saveVenue} disabled={saving || (!venueId && !venueName.trim())} className="w-full">
+      <Button variant="accent" onClick={saveVenue} disabled={saving || (!venueId && !venueName.trim())} className="w-full">
         {saving ? "Saving venue…" : venueId ? "Use selected venue" : "Create / reuse venue"}
       </Button>
     </div>

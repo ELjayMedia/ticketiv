@@ -3,11 +3,10 @@
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { CalendarPlus } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { generateSeriesEventsAction } from "@/app/orgs/[orgId]/series/actions"
+import { Button } from "@/components/quiet/ui/button";
+import { Input, Label } from "@/components/quiet/ui/form";
 
 interface GenerateEventsButtonProps {
   orgId: string
@@ -32,10 +31,10 @@ export function GenerateEventsButton({ orgId, seriesId }: GenerateEventsButtonPr
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border/50 bg-card/40 p-4 sm:flex-row sm:items-end">
+    <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface/40 p-4 sm:flex-row sm:items-end">
       <div className="space-y-1.5">
         <Label htmlFor="generate-count">Generate from recurrence pattern</Label>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-ink-3">
           Creates draft events on the next dates — add venue and tickets before publishing.
         </p>
       </div>
@@ -54,7 +53,7 @@ export function GenerateEventsButton({ orgId, seriesId }: GenerateEventsButtonPr
             className="w-20"
           />
         </div>
-        <Button type="button" onClick={handleGenerate} disabled={isPending}>
+        <Button variant="accent" type="button" onClick={handleGenerate} disabled={isPending}>
           <CalendarPlus className="mr-1.5 h-4 w-4" aria-hidden="true" />
           {isPending ? "Generating…" : "Generate"}
         </Button>

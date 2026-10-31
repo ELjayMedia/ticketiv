@@ -288,3 +288,20 @@ function mulberry32(a: number): () => number {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
+
+/** Thin accent progress bar. `value` is 0–100. */
+export function Progress({ value, className, label }: { value: number; className?: string; label?: string }) {
+  const pct = Math.max(0, Math.min(100, Math.round(value)));
+  return (
+    <div
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={pct}
+      aria-label={label}
+      className={cn("h-1.5 w-full overflow-hidden rounded-full bg-surface-2", className)}
+    >
+      <div className="h-full rounded-full bg-accent transition-[width] duration-300" style={{ width: `${pct}%` }} />
+    </div>
+  );
+}

@@ -2,7 +2,7 @@
 
 import QRCode from "react-qr-code"
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/cn"
 
 type TicketQrCodeProps = {
   value: string

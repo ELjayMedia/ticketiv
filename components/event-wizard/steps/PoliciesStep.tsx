@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { Button } from "@/components/quiet/ui/button";
+import { Input, Textarea } from "@/components/quiet/ui/form";
 
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 
 interface ProviderOption {
   id: string
@@ -88,7 +87,7 @@ export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving:
     }
   }
 
-  if (loading) return <div className="p-2 text-sm text-muted-foreground">Loading payments and policies…</div>
+  if (loading) return <div className="p-2 text-sm text-ink-3">Loading payments and policies…</div>
 
   const selectedUnavailable = providerOptions.filter(
     (option) => selectedProviders.includes(option.id) && (!option.enabled || !option.operational),
@@ -100,7 +99,7 @@ export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving:
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-semibold">Payments & buyer policies</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-ink-3">
           Choose how buyers can pay and define what they should expect after purchase.
         </p>
       </div>
@@ -108,7 +107,7 @@ export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving:
       <section className="space-y-3 rounded-lg border p-4">
         <div>
           <h3 className="font-medium">Payment methods *</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-xs text-ink-3">
             Only Ticketiv-supported methods appear here. Leave every option unselected to accept all operational methods.
           </p>
         </div>
@@ -127,7 +126,7 @@ export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving:
 
         <div className="flex flex-col gap-2">
           {providerOptions.length === 0 ? (
-            <span className="text-xs text-muted-foreground">No Ticketiv payment methods are currently configured.</span>
+            <span className="text-xs text-ink-3">No Ticketiv payment methods are currently configured.</span>
           ) : (
             providerOptions.map((option) => {
               const active = selectedProviders.includes(option.id)
@@ -146,7 +145,7 @@ export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving:
                         ? "border-amber-500 bg-amber-50"
                         : "border-ink bg-ink text-surface"
                       : unavailable
-                        ? "border-line bg-muted/40 text-muted-foreground"
+                        ? "border-line bg-surface-2/40 text-ink-3"
                         : "border-line-2 bg-surface text-ink hover:border-ink")
                   }
                 >
@@ -164,7 +163,7 @@ export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving:
           )}
         </div>
 
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-ink-3">
           {selectedProviders.length === 0
             ? operationalOptions.length > 0
               ? `All operational methods will be offered: ${operationalOptions.map((option) => option.label).join(", ")}.`
@@ -184,7 +183,7 @@ export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving:
       <section className="space-y-4 rounded-lg border p-4">
         <div>
           <h3 className="font-medium">Refund or support policy *</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-xs text-ink-3">
             Add a refund policy, a confirmation message, or both. At least one is required for publication.
           </p>
         </div>
@@ -226,13 +225,13 @@ export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving:
             className="mt-2"
             disabled={saving}
           />
-          <p className="mt-1 text-xs text-muted-foreground">Separate each field with a comma.</p>
+          <p className="mt-1 text-xs text-ink-3">Separate each field with a comma.</p>
         </div>
       </section>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-      <Button onClick={save} disabled={saving || selectedUnavailable.length > 0} className="w-full">
+      <Button variant="accent" onClick={save} disabled={saving || selectedUnavailable.length > 0} className="w-full">
         {saving ? "Saving payments & policies…" : "Save payments & policies"}
       </Button>
     </div>

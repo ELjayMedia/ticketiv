@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { AlertTriangle, ArrowRight, CheckCircle2, CircleDashed, Rocket } from "lucide-react"
+import { Card, CardBody } from "@/components/quiet/ui/card";
+import { Chip } from "@/components/quiet/ui/chip";
+import { Progress } from "@/components/quiet/ui/primitives";
 
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
 
 const WIZARD_STEPS = new Set(["basics", "lineup", "schedule", "venue", "tickets", "policies", "publish"])
 
@@ -111,8 +111,8 @@ export function EventReadinessPanel({
     return (
       <section className="space-y-2" aria-label={title}>
         <div className="flex items-center justify-between gap-2">
-          <h3 className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">{title}</h3>
-          <span className="text-xs text-muted-foreground">
+          <h3 className="font-mono text-[11px] uppercase tracking-wider text-ink-3">{title}</h3>
+          <span className="text-xs text-ink-3">
             {groupItems.filter((item) => item.complete).length}/{groupItems.length}
           </span>
         </div>
@@ -125,25 +125,25 @@ export function EventReadinessPanel({
                 {item.complete ? (
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
                 ) : (
-                  <CircleDashed className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <CircleDashed className="mt-0.5 h-4 w-4 shrink-0 text-ink-3" />
                 )}
 
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <p className="text-sm font-medium">{item.label}</p>
-                    <Badge variant={item.complete ? "default" : "outline"}>
+                    <Chip size="sm" variant={item.complete ? "accent" : "default"}>
                       {item.complete ? "Complete" : item.recommended ? "Recommended" : "Required"}
-                    </Badge>
+                    </Chip>
                   </div>
 
                   {!item.complete && item.hint ? (
-                    <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{item.hint}</p>
+                    <p className="mt-1.5 text-xs leading-relaxed text-ink-3">{item.hint}</p>
                   ) : null}
 
                   {action ? (
                     <Link
                       href={action.href}
-                      className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-surface-2"
                     >
                       {action.label}
                       <ArrowRight className="h-3.5 w-3.5" />
@@ -159,34 +159,34 @@ export function EventReadinessPanel({
   }
 
   return (
-    <Card className="border-border/60 bg-background/95 backdrop-blur lg:sticky lg:top-4">
-      <CardHeader className="pb-3">
+    <Card className="border-line bg-surface/95 backdrop-blur lg:sticky lg:top-4">
+      <div className="px-4 pt-4 pb-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <CardTitle className="text-base">Readiness checklist</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <h3 className="text-h3 text-base">Readiness checklist</h3>
+            <p className="mt-1 text-sm text-ink-3">
               Complete the required items to publish, then finish the event-day recommendations.
             </p>
           </div>
           {publishEligible ? (
-            <Badge className="gap-1"><Rocket className="h-3 w-3" /> Ready</Badge>
+            <Chip size="sm" variant="accent" className="gap-1"><Rocket className="h-3 w-3" /> Ready</Chip>
           ) : (
-            <Badge variant="outline" className="gap-1"><AlertTriangle className="h-3 w-3" /> {requiredRemaining} left</Badge>
+            <Chip size="sm" variant="default" className="gap-1"><AlertTriangle className="h-3 w-3" /> {requiredRemaining} left</Chip>
           )}
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="space-y-5">
+      <CardBody className="space-y-5">
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span className="font-medium">Overall completion</span>
-            <span className="text-muted-foreground">{completeCount}/{items.length || 0} · {completion}%</span>
+            <span className="text-ink-3">{completeCount}/{items.length || 0} · {completion}%</span>
           </div>
           <Progress value={completion} />
         </div>
 
-        {loading ? <div className="text-sm text-muted-foreground">Loading readiness…</div> : null}
-        {error ? <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div> : null}
+        {loading ? <div className="text-sm text-ink-3">Loading readiness…</div> : null}
+        {error ? <div className="rounded-md border border-danger/30 bg-danger-soft p-3 text-sm text-danger">{error}</div> : null}
 
         {!loading && !error ? (
           <div className="space-y-5">
@@ -194,7 +194,7 @@ export function EventReadinessPanel({
             {renderGroup("Recommended before event day", recommendedItems)}
           </div>
         ) : null}
-      </CardContent>
+      </CardBody>
     </Card>
   )
 }
