@@ -8,6 +8,7 @@ type FunnelProps = Record<string, FunnelValue>;
 
 type BuyerFunnelEvent =
   | "event_view"
+  | "ticket_picker_open"
   | "add_to_checkout"
   | "checkout_start"
   | "checkout_error"

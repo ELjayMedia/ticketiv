@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useMemo } from "react"
 import { MobileEvent, type MobileEventData } from "@/components/quiet/screens/event-detail/mobile-event"
 import { DesktopEvent, type DesktopEventData } from "@/components/quiet/screens/event-detail/desktop-event"
+import { TicketPickerProvider } from "@/components/quiet/screens/event-detail/ticket-picker"
 import { EventSocialStrip } from "@/components/quiet/screens/event-detail/event-social-strip"
 import { useEventLiveStats, type EventLiveStats } from "@/lib/hooks/use-event-live-stats"
 
@@ -71,7 +72,12 @@ export function LiveEventShell({ eventId, mobile, desktop, initialStats = null }
   const waitlistHref = `/waitlist?eventId=${encodeURIComponent(eventId)}`
 
   return (
-    <>
+    <TicketPickerProvider
+      eventSlug={mobile.id}
+      eventUuid={eventId}
+      eventTitle={mobile.title}
+      eventWhenLabel={`${mobile.dateLabel} · ${mobile.timeLabel}`}
+    >
       {showWaitlistEntry && (
         <SoldOutWaitlistBanner href={waitlistHref} />
       )}
@@ -86,7 +92,7 @@ export function LiveEventShell({ eventId, mobile, desktop, initialStats = null }
       <div className="hidden md:block">
         <DesktopEvent event={mergedDesktop} />
       </div>
-    </>
+    </TicketPickerProvider>
   )
 }
 

@@ -2,13 +2,12 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { createSeatHoldAction } from "@/app/(focused)/events/[id]/actions";
+import { useTicketPicker } from "@/components/quiet/screens/event-detail/ticket-picker";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider, Avatar } from "@/components/quiet/ui/primitives";
 import { Button } from "@/components/quiet/ui/button";
-import { trackBuyerFunnel } from "@/components/analytics/buyer-funnel";
 import {
   formatPrice,
   formatGoingCount,
@@ -42,8 +41,7 @@ export function DesktopEvent({ event }: DesktopEventProps) {
   const [followedOrganizer, setFollowedOrganizer] = React.useState(false);
   const [friendsModalOpen, setFriendsModalOpen] = React.useState(false);
   const ticketTypes = event?.ticketTypes ?? [];
-  const firstAvailable = ticketTypes.find((t) => t.remaining !== 0) ?? ticketTypes[0];
-  const [selectedTypeId, setSelectedTypeId] = React.useState<string | undefined>(firstAvailable?.id);
+  const picker = useTicketPicker();
 
   if (!event) {
     return (
@@ -287,60 +285,37 @@ export function DesktopEvent({ event }: DesktopEventProps) {
               </div>
 
               <Divider className="my-4" />
-              <div className="text-label mb-2">Pick a ticket</div>
-              <ul className="flex flex-col gap-2">
+              <ul className="flex flex-col gap-1.5">
                 {ticketTypes.map((t) => {
                   const soldOut = t.remaining === 0;
-                  const selected = selectedTypeId === t.id;
                   const scarcity = soldOut ? null : formatScarcityLabel(t.remaining);
                   return (
                     <li key={t.id}>
                       <button
                         type="button"
                         disabled={soldOut}
-                        onClick={() => !soldOut && setSelectedTypeId(t.id)}
-                        className={
-                          "flex w-full items-center gap-3 rounded-[var(--radius-md)] border p-3 text-left transition-colors " +
-                          (soldOut
-                            ? "cursor-not-allowed border-line bg-surface opacity-50"
-                            : selected
-                            ? "border-accent bg-accent-soft"
-                            : "border-line hover:border-line-2")
-                        }
+                        onClick={() => picker.open(t.id)}
+                        className="flex w-full items-center gap-3 rounded-[var(--radius-md)] border border-line px-3 py-2.5 text-left transition-colors hover:border-line-2 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <div className="flex min-w-0 flex-1 flex-col">
-                          <span className="text-[14px] font-semibold">{t.name}</span>
-                          {t.description && <span className="font-mono text-[11px] text-ink-3">{t.description}</span>}
-                          {scarcity && <span className="mt-0.5 font-mono text-[10px] font-semibold uppercase text-accent">{scarcity}</span>}
-                          {soldOut && <span className="mt-0.5 font-mono text-[10px] font-semibold uppercase text-ink-3">Sold out</span>}
+                          <span className="truncate text-[13px] font-semibold">{t.name}</span>
+                          {scarcity && <span className="font-mono text-[10px] font-semibold uppercase text-accent">{scarcity}</span>}
+                          {soldOut && <span className="font-mono text-[10px] font-semibold uppercase text-ink-3">Sold out</span>}
                         </div>
-                        <span className={"font-mono text-[14px] font-semibold " + (soldOut ? "line-through" : "")}>{formatPrice(t.priceMinor, event.currency ?? "SZL")}</span>
+                        <span className={"font-mono text-[13px] font-semibold " + (soldOut ? "line-through" : "")}>{formatPrice(t.priceMinor, event.currency ?? "SZL")}</span>
                       </button>
                     </li>
                   );
                 })}
               </ul>
 
-              <form action={createSeatHoldAction}>
-                <input type="hidden" name="eventSlug" value={event.id} />
-                <input type="hidden" name="quantity" value="1" />
-                <input type="hidden" name="ticketTypeId" value={selectedTypeId ?? ""} />
-                <button
-                  type="submit"
-                  onClick={() =>
-                    trackBuyerFunnel("add_to_checkout", {
-                      event_id: event.eventUuid,
-                      event_slug: event.id,
-                      ticket_type_id: selectedTypeId ?? null,
-                      quantity: 1,
-                      surface: "desktop_event_detail",
-                    })
-                  }
-                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3 text-[14px] font-semibold text-white hover:opacity-90"
-                >
-                  Continue <Icon name="arrowR" size={14} />
-                </button>
-              </form>
+              <button
+                type="button"
+                onClick={() => picker.open()}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3 text-[14px] font-semibold text-white hover:opacity-90"
+              >
+                Get tickets <Icon name="arrowR" size={14} />
+              </button>
               <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 font-mono text-[11px] text-ink-3">
                 <Link href="/refund-policy" className="font-semibold text-accent hover:underline">
                   Refund policy

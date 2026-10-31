@@ -3,14 +3,13 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createSeatHoldAction } from "@/app/(focused)/events/[id]/actions";
+import { useTicketPicker } from "@/components/quiet/screens/event-detail/ticket-picker";
 import { toggleFavourite } from "@/app/(consumer)/favourites/actions";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider, Avatar, AvatarStack } from "@/components/quiet/ui/primitives";
 import { Button } from "@/components/quiet/ui/button";
-import { trackBuyerFunnel } from "@/components/analytics/buyer-funnel";
 import {
   formatPrice,
   formatGoingCount,
@@ -58,9 +57,7 @@ export function MobileEvent({ event }: MobileEventProps) {
   const [followedArtists, setFollowedArtists] = React.useState<Set<string>>(new Set());
   const [followedOrganizer, setFollowedOrganizer] = React.useState(false);
   const ticketTypes = event?.ticketTypes ?? [];
-  const firstAvailable = ticketTypes.find((t) => t.remaining !== 0) ?? ticketTypes[0];
-  const [selectedTypeId, setSelectedTypeId] = React.useState<string | undefined>(firstAvailable?.id);
-  const selectedTicket = ticketTypes.find((ticket) => ticket.id === selectedTypeId) ?? firstAvailable;
+  const picker = useTicketPicker();
 
   if (!event) {
     return (
@@ -244,20 +241,17 @@ export function MobileEvent({ event }: MobileEventProps) {
               {ticketTypes.map((t) => {
                 const archiveClosed = event.lifecycle === "ended" || event.lifecycle === "cancelled";
                 const soldOut = t.remaining === 0;
-                const selected = selectedTypeId === t.id;
                 const scarcity = soldOut || archiveClosed ? null : formatScarcityLabel(t.remaining);
                 return (
                   <li key={t.id}>
                     <button
                       type="button"
                       disabled={soldOut || archiveClosed}
-                      onClick={() => !soldOut && !archiveClosed && setSelectedTypeId(t.id)}
+                      onClick={() => picker.open(t.id)}
                       className={
                         "flex w-full items-center gap-3 rounded-[var(--radius-md)] border p-3 text-left transition-colors " +
                         (soldOut || archiveClosed
                           ? "cursor-not-allowed border-line bg-surface opacity-50"
-                          : selected
-                          ? "border-accent bg-accent-soft"
                           : "border-line hover:border-line-2")
                       }
                     >
@@ -345,27 +339,14 @@ export function MobileEvent({ event }: MobileEventProps) {
         </div>
       ) : (
         <div className="sticky bottom-0 flex items-center gap-3 border-t border-line bg-surface px-5 py-3.5 pb-7">
-          <div className="flex flex-col"><span className="text-label">{selectedTicket ? "Selected" : "From"}</span><span className="font-mono text-[20px] font-semibold leading-none">{formatPrice(selectedTicket?.priceMinor ?? event.fromPriceMinor, event.currency ?? "SZL")}</span></div>
-          <form action={createSeatHoldAction} className="flex flex-1">
-            <input type="hidden" name="eventSlug" value={event.id} />
-            <input type="hidden" name="quantity" value="1" />
-            <input type="hidden" name="ticketTypeId" value={selectedTypeId ?? ""} />
-            <button
-              type="submit"
-              onClick={() =>
-                trackBuyerFunnel("add_to_checkout", {
-                  event_id: event.eventUuid,
-                  event_slug: event.id,
-                  ticket_type_id: selectedTypeId ?? null,
-                  quantity: 1,
-                  surface: "mobile_event_detail",
-                })
-              }
-              className="flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90"
-            >
-              Get tickets <Icon name="arrowR" size={16} />
-            </button>
-          </form>
+          <div className="flex flex-col"><span className="text-label">From</span><span className="font-mono text-[20px] font-semibold leading-none">{formatPrice(event.fromPriceMinor, event.currency ?? "SZL")}</span></div>
+          <button
+            type="button"
+            onClick={() => picker.open()}
+            className="flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90"
+          >
+            Get tickets <Icon name="arrowR" size={16} />
+          </button>
         </div>
       )}
     </div>

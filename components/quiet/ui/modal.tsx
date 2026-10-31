@@ -32,6 +32,8 @@ interface ModalContentProps {
   /** Hide the close × button */
   hideClose?: boolean;
   className?: string;
+  /** Pinned below the scrolling body (e.g. a primary action bar). */
+  footer?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -48,6 +50,7 @@ export function ModalContent({
   size = "md",
   hideClose = false,
   className,
+  footer,
   children,
 }: ModalContentProps) {
   return (
@@ -87,6 +90,7 @@ export function ModalContent({
           </div>
         )}
         <div className="flex-1 overflow-y-auto p-5">{children}</div>
+        {footer}
       </Dialog.Content>
     </Dialog.Portal>
   );

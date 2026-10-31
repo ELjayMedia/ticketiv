@@ -14,7 +14,7 @@ const updateRoute = source("app/api/events/[eventId]/tickets/[ticketTypeId]/rout
 const organizerForm = source("components/event-wizard/steps/TicketsStep.tsx");
 const organizerTicketForm = source("app/orgs/[orgId]/events/[eventId]/tickets/_components/ticket-type-form.tsx");
 const legacyOrganizerForm = source("components/tickets/create-ticket-type-form.tsx");
-const checkoutPage = source("app/(focused)/events/[id]/checkout/page.tsx");
+const checkoutAvailability = source("lib/checkout/availability.ts");
 const serverGuard = migrationFunction("public.fn_create_inventory_protected_order");
 const availabilityGuard = migrationFunction("public.fn_ticket_type_remaining");
 
@@ -32,9 +32,9 @@ describe("ticket purchase-limit contract", () => {
   });
 
   it("loads and maps the online per-order limit for checkout", () => {
-    expect(checkoutPage).toContain('.from("ticket_type_channels")');
-    expect(checkoutPage).toContain('.eq("channel", "online")');
-    expect(checkoutPage).toContain("per_order_limit: perOrderLimitMap.get(t.id) ?? null");
+    expect(checkoutAvailability).toContain('.from("ticket_type_channels")');
+    expect(checkoutAvailability).toContain('.eq("channel", "online")');
+    expect(checkoutAvailability).toContain("per_order_limit: perOrderLimitMap.get(t.id) ?? null");
   });
 
   it("validates updated limits against persisted organizer settings", () => {

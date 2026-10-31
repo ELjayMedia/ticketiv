@@ -5,23 +5,17 @@ import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider } from "@/components/quiet/ui/primitives";
-import {
-  RadioCard,
-  QuantityStepper,
-} from "@/components/quiet/ui/form";
+import { RadioCard } from "@/components/quiet/ui/form";
 import { Modal, ModalContent, ModalFooter } from "@/components/quiet/ui/modal";
-import { useRouter, useSearchParams } from "next/navigation";
-import { formatPrice, formatHoldTimer, formatScarcityLabel } from "@/lib/format";
+import { useRouter } from "next/navigation";
+import { formatPrice, formatHoldTimer } from "@/lib/format";
 import type { Currency } from "@/lib/format";
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
 import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/actions";
 import { describePromoFailure } from "@/lib/checkout/promo-copy";
 import { PromoCodeInput, type PromoResult } from "@/components/quiet/screens/checkout/promo-code-input";
 import { trackBuyerFunnel } from "@/components/analytics/buyer-funnel";
-import {
-  getEffectivePurchaseLimit,
-  normalizeConfiguredPurchaseLimit,
-} from "@/lib/tickets/purchase-limits";
+import { cartSubtotalMinor, type CheckoutCartLine } from "@/lib/checkout/pricing";
 
 /* ──────────────────────────────────────────────────────────────
  * Mobile checkout · `/events/[id]/checkout` on phones.
@@ -44,16 +38,10 @@ export interface MobileCheckoutProps {
   eventVenue: string;
   /** Initial seconds of hold (Supabase reservation TTL). */
   holdSeconds?: number;
-  ticketTypes: ReadonlyArray<{
-    id: string;
-    name: string;
-    priceMinor: number;
-    currency?: Currency;
-    remaining: number | null;
-    perUserLimit: number | null;
-    perOrderLimit: number | null;
-    sublabel?: string;
-  }>;
+  /** Cart from the ticket picker, already clamped to live availability. */
+  lines: ReadonlyArray<CheckoutCartLine>;
+  /** Back to the event page's ticket picker with this cart preloaded. */
+  editTicketsHref: string;
   paymentMethods?: ReadonlyArray<{
     id: string;
     label: string;
@@ -70,8 +58,6 @@ export interface MobileCheckoutProps {
   /** Signed-in buyer profile defaults. */
   defaultBuyerName?: string;
   defaultBuyerPhone?: string;
-  /** Ticket type pre-selected from the event detail page hold. */
-  defaultTicketTypeId?: string;
 }
 
 
@@ -83,7 +69,8 @@ export function MobileCheckout({
   eventWhenLabel,
   eventVenue,
   holdSeconds = 522,
-  ticketTypes,
+  lines,
+  editTicketsHref,
   paymentMethods = [],
   appliedPromo,
   bookingFeeMinor = 10000,
@@ -91,10 +78,8 @@ export function MobileCheckout({
   defaultBuyerEmail = "",
   defaultBuyerName = "",
   defaultBuyerPhone = "",
-  defaultTicketTypeId,
 }: MobileCheckoutProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { stats: liveStats } = useEventLiveStats(eventId);
   const lastStatsAtRef = React.useRef<string | null>(null);
   React.useEffect(() => {
@@ -105,18 +90,6 @@ export function MobileCheckout({
     lastStatsAtRef.current = liveStats.updated_at ?? null;
   }, [liveStats?.updated_at, router]);
 
-  const firstAvailable = ticketTypes.find((t) => t.remaining !== 0);
-
-  // TICK-198: initialise from URL params so back-button / share restores cart
-  const [ticketTypeId, setTicketTypeId] = React.useState(
-    searchParams?.get("tt") ??
-      defaultTicketTypeId ??
-      firstAvailable?.id ??
-      ticketTypes[0]?.id
-  );
-  const [quantity, setQuantity] = React.useState(
-    Math.max(1, Number(searchParams?.get("qty")) || 1)
-  );
   const [paymentId, setPaymentId] = React.useState(paymentMethods[0]?.id);
   const [holdRemaining, setHoldRemaining] = React.useState(holdSeconds);
   const [activePromo, setActivePromo] = React.useState(appliedPromo ?? null);
@@ -133,22 +106,9 @@ export function MobileCheckout({
   const [validatedPromo, setValidatedPromo] = React.useState<PromoResult | null>(null);
   const [attendeeName, setAttendeeName] = React.useState(defaultBuyerName);
   const [attendeePhone, setAttendeePhone] = React.useState(defaultBuyerPhone);
-  const selectedTicket = ticketTypes.find((t) => t.id === ticketTypeId);
-  const perUserLimit = normalizeConfiguredPurchaseLimit(selectedTicket?.perUserLimit);
-  const perOrderLimit = normalizeConfiguredPurchaseLimit(selectedTicket?.perOrderLimit);
-  const configuredLimit = getEffectivePurchaseLimit({
-    perUserLimit,
-    perOrderLimit,
-    remaining: null,
-  });
-  const effectiveLimit = getEffectivePurchaseLimit({
-    perUserLimit,
-    perOrderLimit,
-    remaining: selectedTicket?.remaining,
-  });
-  const effectiveQuantity = effectiveLimit == null
-    ? quantity
-    : Math.max(1, Math.min(quantity, effectiveLimit));
+  const items = lines.map((l) => ({ ticketTypeId: l.ticketTypeId, quantity: l.quantity }));
+  const totalQuantity = items.reduce((sum, l) => sum + l.quantity, 0);
+  const singleTicketTypeId = lines.length === 1 ? lines[0].ticketTypeId : null;
 
   async function handleApplyPromo() {
     const code = promoInput.trim().toUpperCase();
@@ -163,7 +123,7 @@ export function MobileCheckout({
       const result = await startCheckoutAction({
         eventId: eventUuid,
         buyerEmail: buyerEmail.trim(),
-        items: [{ ticketTypeId: ticketTypeId ?? "", quantity: effectiveQuantity }],
+        items,
         promoCode: code,
       });
       if (!result.ok) {
@@ -180,25 +140,11 @@ export function MobileCheckout({
 
   async function handlePay() {
     setSubmitError(null);
-    if (!ticketTypeId) {
-      setSubmitError("Select a ticket type before paying.");
-      trackBuyerFunnel("checkout_error", {
-        event_id: eventUuid,
-        event_slug: eventId,
-        reason: "missing_ticket_type",
-        surface: "mobile_checkout",
-      });
-      return;
-    }
-    if (effectiveLimit === 0) {
-      setSubmitError("This ticket type is sold out. Choose another ticket type.");
-      return;
-    }
     setSubmitting(true);
     const result = await startCheckoutAction({
       eventId: eventUuid,
       buyerEmail: buyerEmail.trim(),
-      items: [{ ticketTypeId, quantity: effectiveQuantity }],
+      items,
       promoCode: promoInput.trim() || null,
     });
     if (!result.ok) {
@@ -228,8 +174,9 @@ export function MobileCheckout({
     trackBuyerFunnel("payment_redirect", {
       event_id: eventUuid,
       event_slug: eventId,
-      ticket_type_id: ticketTypeId,
-      quantity: effectiveQuantity,
+      ticket_type_id: singleTicketTypeId,
+      quantity: totalQuantity,
+      line_count: lines.length,
       total_minor: total,
       provider: result.checkoutUrl ? "paystack" : "internal",
       surface: "mobile_checkout",
@@ -240,15 +187,6 @@ export function MobileCheckout({
       router.push(`/orders/${result.orderId}/confirmation`);
     }
   }
-
-  // TICK-198: keep URL in sync with cart state (shallow replace, no server re-render)
-  React.useEffect(() => {
-    const next = new URLSearchParams(searchParams?.toString() ?? "");
-    if (ticketTypeId) next.set("tt", ticketTypeId); else next.delete("tt");
-    next.set("qty", String(effectiveQuantity));
-    router.replace(`?${next.toString()}`, { scroll: false });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ticketTypeId, effectiveQuantity]);
 
   // TICK-200: when the hold expires (holdRemaining hits 0), redirect to
   // the event page with a banner so the buyer can request a new hold.
@@ -271,8 +209,8 @@ export function MobileCheckout({
     return () => clearInterval(i);
   }, [holdRemaining]);
 
-  const currency = selectedTicket?.currency ?? ticketTypes[0]?.currency ?? "SZL";
-  const subtotal = (selectedTicket?.priceMinor ?? 0) * effectiveQuantity;
+  const currency = lines[0]?.currency ?? "SZL";
+  const subtotal = cartSubtotalMinor(lines);
   const fee = bookingFeeMinor;
   const vat = Math.round(subtotal * vatRate);
   const discount = activePromo?.savedMinor ?? 0;
@@ -309,8 +247,8 @@ export function MobileCheckout({
           </Link>
         </header>
 
-        {/* Progress indicator: Tickets → Details → Payment → Done */}
-        <MobileCheckoutProgress currentIndex={0} />
+        {/* Progress indicator: Tickets (done in the picker) → Details → Payment → Done */}
+        <MobileCheckoutProgress currentIndex={1} />
 
         {/* Event ribbon */}
         <div className="mx-5 mb-4 flex items-center gap-2.5 rounded-xl bg-ink p-3">
@@ -326,69 +264,22 @@ export function MobileCheckout({
           <Icon name="chevR" size={16} className="text-white/50" />
         </div>
 
-        {/* Ticket type */}
+        {/* Your tickets — chosen in the picker; edit goes back there. */}
         <section className="px-5 pb-4">
-          <div className="text-label mb-2">Ticket type</div>
-          <div className="flex flex-col gap-1.5">
-            {ticketTypes.map((t) => {
-              const soldOut = t.remaining === 0;
-              const scarcity = soldOut ? null : formatScarcityLabel(t.remaining);
-              return (
-                <RadioCard
-                  key={t.id}
-                  name="ticket-type"
-                  value={t.id}
-                  selected={ticketTypeId === t.id}
-                  disabled={soldOut}
-                  onChange={setTicketTypeId}
-                  title={t.name}
-                  subtitle={
-                    soldOut
-                      ? "Sold out"
-                      : scarcity ?? t.sublabel
-                  }
-                  trailing={
-                    <span
-                      className={
-                        "font-mono text-[14px] font-semibold " +
-                        (soldOut ? "line-through" : "")
-                      }
-                    >
-                      {formatPrice(t.priceMinor, t.currency ?? currency)}
-                    </span>
-                  }
-                />
-              );
-            })}
-          </div>
-        </section>
-
-        {/* TICK-199: Sold-out warning for selected ticket type */}
-        {selectedTicket?.remaining === 0 && (
-          <div
-            role="alert"
-            className="mx-5 mb-4 flex items-center gap-2 rounded-[var(--radius-md)] border border-danger/40 bg-danger-soft px-3 py-2.5 text-[13px] font-semibold text-danger"
-          >
-            <Icon name="zap" size={15} />
-            This ticket type just sold out. Please choose another or{" "}
-            <Link href="/waitlist" className="underline decoration-danger/40">
-              join the waitlist
+          <div className="mb-2 flex items-center">
+            <span className="text-label flex-1">Your tickets</span>
+            <Link href={editTicketsHref} className="text-[12px] font-semibold text-accent">
+              Edit
             </Link>
-            .
           </div>
-        )}
-
-        {/* Quantity */}
-        <section className="px-5 pb-4">
-          <Card className="flex items-center gap-3 px-3 py-2.5" flat>
-            <span className="flex-1 text-[13px] font-medium">Quantity</span>
-            <span className="font-mono text-[10px] text-ink-3">{configuredLimit == null ? "No purchase limit" : `max ${configuredLimit}`}</span>
-            <QuantityStepper
-              value={effectiveQuantity}
-              onChange={setQuantity}
-              min={1}
-              max={effectiveLimit ?? undefined}
-            />
+          <Card className="flex flex-col divide-y divide-line px-3" flat>
+            {lines.map((l) => (
+              <div key={l.ticketTypeId} className="flex items-center gap-3 py-2.5">
+                <span className="font-mono text-[13px] font-semibold tabular-nums">{l.quantity}×</span>
+                <span className="flex-1 text-[13px] font-medium">{l.name}</span>
+                <span className="font-mono text-[13px] tabular-nums">{formatPrice(l.priceMinor * l.quantity, l.currency)}</span>
+              </div>
+            ))}
           </Card>
         </section>
 
@@ -557,7 +448,13 @@ export function MobileCheckout({
         {/* Summary */}
         <section className="px-5 pb-4">
           <Card className="bg-bg p-3.5" flat>
-            <SummaryRow label={`${effectiveQuantity} × ${selectedTicket?.name ?? "—"}`} value={formatPrice(subtotal, currency)} />
+            {lines.map((l) => (
+              <SummaryRow
+                key={l.ticketTypeId}
+                label={`${l.quantity} × ${l.name}`}
+                value={formatPrice(l.priceMinor * l.quantity, l.currency)}
+              />
+            ))}
             <SummaryRow label="Booking fee" value={formatPrice(fee, currency)} />
             <SummaryRow label={`VAT ${Math.round(vatRate * 100)}%`} value={formatPrice(vat, currency)} />
             {activePromo && (
@@ -651,7 +548,7 @@ export function MobileCheckout({
         <button
           type="button"
           onClick={handlePay}
-          disabled={!accepted || holdRemaining <= 0 || submitting || !buyerEmail.trim() || effectiveLimit === 0}
+          disabled={!accepted || holdRemaining <= 0 || submitting || !buyerEmail.trim() || lines.length === 0}
           className="flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting ? "Starting payment…" : `Pay ${formatPrice(total, currency)}`}

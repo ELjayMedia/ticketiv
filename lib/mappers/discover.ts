@@ -90,6 +90,21 @@ export function mapDiscoverEvent(row: EventsPublicView & { featured_priority?: n
 export const DISCOVER_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** Editor's pick: highest featured_priority wins; otherwise the soonest event. */
+/**
+ * Featured carousel slides: organizer-promoted events (highest
+ * featured_priority first), topped up with the soonest others so the hero is
+ * never empty. Slide one is always the same event as pickEditorPick.
+ */
+export function pickFeatured(events: DiscoverEvent[], max = 6): DiscoverEvent[] {
+  const seen = new Set<string>();
+  const unique = events.filter((ev) => !seen.has(ev.id) && seen.add(ev.id));
+  const promoted = unique
+    .filter((ev) => ev.featuredPriority !== null)
+    .sort((a, b) => (b.featuredPriority ?? 0) - (a.featuredPriority ?? 0));
+  const rest = unique.filter((ev) => ev.featuredPriority === null);
+  return [...promoted, ...rest].slice(0, max);
+}
+
 export function pickEditorPick(events: DiscoverEvent[]): DiscoverEvent | null {
   let editorPick: DiscoverEvent | null = null;
   let bestPriority = -1;

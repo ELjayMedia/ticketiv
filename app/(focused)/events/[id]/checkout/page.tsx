@@ -6,10 +6,15 @@ import { CheckoutProviderBridge } from "@/components/quiet/screens/checkout/chec
 import { CheckoutStartTracker } from "@/components/analytics/buyer-funnel";
 import { getPublicEventBySlug } from "@/lib/adapters/events";
 import {
+  CHECKOUT_VAT_RATE,
+  bookingFeeFor,
+  cartSubtotalMinor,
+  mapCheckoutCartLines,
   mapCheckoutEvent,
   mapCheckoutTicketType,
-  bookingFeeFor,
 } from "@/lib/mappers/checkout";
+import { loadCheckoutAvailability } from "@/lib/checkout/availability";
+import { clampCart, parseCartParam, serializeCart, type CartLine } from "@/lib/checkout/cart";
 import { getEffectivePaymentMethodsForEvent } from "@/lib/payments/availability";
 import {
   createPaymentChannelUnavailableError,
@@ -22,101 +27,25 @@ import { deriveEventLifecycle } from "@/lib/events/lifecycle";
 /**
  * `/events/[id]/checkout`
  *
- * `[id]` is the event slug. Reads ticket_types and the event's org pricing
- * plan from Supabase, then hands the screens a ready-to-render shape.
- * Cart selection state (qty, picked ticket type) lives in the screens.
- *
- * Hold timer (`holdSeconds`) is still placeholder — TICK-16 cart-persist
- * and the seat_holds reservation flow land separately.
+ * `[id]` is the event slug. The cart arrives from the ticket picker as
+ * `?hold=…&items=typeId:qty,…`; it is re-clamped against live availability
+ * here and handed to the screens as priced lines. Editing tickets goes back
+ * to the picker (`/events/[id]?tickets=1&items=…`) rather than re-picking
+ * inside checkout. Legacy `?tt=&qty=` links still resolve to a cart.
  */
 export const metadata = { title: "Checkout" };
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
-
-async function fetchCheckoutExtras(eventId: string) {
-  const supabase = await createServerSupabaseClient();
-  if (!supabase)
-    return {
-      ticketTypes: [] as Array<{ id: string; name: string; price_cents: number; currency: string; remaining: number | null; sales_status: string | null; per_user_limit: number | null; per_order_limit: number | null }>,
-      plan: null as { platform_fixed_cents: number | null; platform_percent_bps: number | null } | null,
-      orgId: null as string | null,
-    };
-
-  const { data: eventRow } = await supabase
-    .from("events")
-    .select("org_id")
-    .eq("id", eventId)
-    .maybeSingle();
-
-  const orgId = eventRow?.org_id ?? null;
-  const admin = createAdminClient();
-
-  const [ttRes, remainingRes, planRes, channelRes] = await Promise.all([
-    supabase
-      .from("ticket_types")
-      .select("id, name, price_cents, currency, quota, sales_status, per_user_limit")
-      .eq("event_id", eventId)
-      // Hidden ticket types are organizer-only (comp / employee / unpublished).
-      // They should never appear in the public listing or be reachable by URL.
-      .neq("sales_status", "hidden")
-      .order("price_cents", { ascending: true }),
-    (supabase.rpc as any)("fn_ticket_type_remaining", { p_event_id: eventId }),
-    orgId
-      ? supabase
-          .from("pricing_plans")
-          .select("platform_fixed_cents, platform_percent_bps")
-          .eq("org_id", orgId)
-          .eq("active", true)
-          .order("effective_from", { ascending: false })
-          .limit(1)
-          .maybeSingle()
-      : Promise.resolve({ data: null, error: null } as const),
-    admin
-      .from("ticket_type_channels")
-      .select("ticket_type_id, per_order_limit, ticket_types!inner(event_id)")
-      .eq("channel", "online")
-      .eq("ticket_types.event_id", eventId),
-  ]);
-
-  if (ttRes.error) console.error("[checkout] ticket_types:", ttRes.error);
-  if (remainingRes.error) console.error("[checkout] fn_ticket_type_remaining:", remainingRes.error);
-  if ("error" in planRes && planRes.error) console.error("[checkout] pricing_plans:", planRes.error);
-  if (channelRes.error) console.error("[checkout] ticket_type_channels:", channelRes.error);
-
-  const remainingMap = new Map<string, number>(
-    ((remainingRes.data ?? []) as Array<{ ticket_type_id: string; remaining: number }>).map(
-      (r) => [r.ticket_type_id, r.remaining],
-    ),
-  );
-  const perOrderLimitMap = new Map<string, number | null>(
-    (channelRes.data ?? []).map((channel) => [channel.ticket_type_id, channel.per_order_limit]),
-  );
-
-  return {
-    ticketTypes: (ttRes.data ?? []).map((t) => ({
-      id: t.id,
-      name: t.name,
-      price_cents: t.price_cents,
-      currency: t.currency,
-      sales_status: t.sales_status,
-      per_user_limit: t.per_user_limit,
-      per_order_limit: perOrderLimitMap.get(t.id) ?? null,
-      remaining: remainingMap.get(t.id) ?? null,
-    })),
-    plan: planRes.data ?? null,
-    orgId,
-  };
-}
 
 export default async function CheckoutPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ hold?: string }>;
+  searchParams: Promise<{ hold?: string; items?: string; tt?: string; qty?: string }>;
 }) {
   const { id } = await params;
-  const { hold: holdCode } = await searchParams;
+  const { hold: holdCode, items: itemsParam, tt, qty } = await searchParams;
 
   const supabase = await createServerSupabaseClient();
 
@@ -133,12 +62,12 @@ export default async function CheckoutPage({
   // a hold code (e.g. hold creation failure) fall through with holdSeconds = 0.
   // Admin client is required because seat_holds has no SELECT RLS policy.
   let holdSeconds = 0;
-  let holdTicketTypeId: string | null = null;
+  let holdCart: CartLine[] = [];
   if (holdCode) {
     const admin = createAdminClient();
     const { data: hold } = await admin
       .from("seat_holds")
-      .select("id, expires_at, ticket_type_id")
+      .select("id, expires_at, ticket_type_id, quantity")
       .eq("hold_code", holdCode)
       .eq("event_id", eventUuidFromSlug)
       .eq("status", "active")
@@ -151,7 +80,9 @@ export default async function CheckoutPage({
       0,
       Math.floor((new Date(hold.expires_at ?? "").getTime() - Date.now()) / 1000),
     );
-    holdTicketTypeId = hold.ticket_type_id ?? null;
+    if (hold.ticket_type_id) {
+      holdCart = [{ ticketTypeId: hold.ticket_type_id, quantity: hold.quantity }];
+    }
   }
 
   const row = await getPublicEventBySlug(id);
@@ -167,7 +98,7 @@ export default async function CheckoutPage({
 
   const sharedProps = mapCheckoutEvent(row);
   const [{ ticketTypes, plan }, paymentMethods] = await Promise.all([
-    fetchCheckoutExtras(row.id),
+    loadCheckoutAvailability(row.id),
     getEffectivePaymentMethodsForEvent(row.id),
   ]);
 
@@ -200,10 +131,27 @@ export default async function CheckoutPage({
   }
 
   const mappedTypes = ticketTypes.map(mapCheckoutTicketType);
-  const holdType = holdTicketTypeId ? mappedTypes.find((t) => t.id === holdTicketTypeId) : null;
-  const firstSellable = holdType ?? mappedTypes.find((t) => t.remaining !== 0) ?? mappedTypes[0];
-  const subtotalForFirst = firstSellable ? firstSellable.priceMinor : 0;
-  const bookingFee = bookingFeeFor(plan, subtotalForFirst);
+  const requestedCart =
+    parseCartParam(itemsParam).length > 0
+      ? parseCartParam(itemsParam)
+      : tt
+        ? [{ ticketTypeId: tt, quantity: Math.max(1, Number(qty) || 1) }]
+        : holdCart;
+  const cart = clampCart(requestedCart, mappedTypes);
+  // Nothing (left) to buy — send the buyer back to the picker with whatever
+  // they had, so they can choose again instead of paying for nothing.
+  if (cart.length === 0) {
+    const pickerParams = new URLSearchParams({ tickets: "1" });
+    if (requestedCart.length > 0) {
+      pickerParams.set("items", serializeCart(requestedCart));
+      pickerParams.set("unavailable", "1");
+    }
+    redirect(`/events/${id}?${pickerParams.toString()}`);
+  }
+  const cartLines = mapCheckoutCartLines(cart, mappedTypes);
+  const subtotal = cartSubtotalMinor(cartLines);
+  const bookingFee = bookingFeeFor(plan, subtotal);
+  const editTicketsHref = `/events/${id}?${new URLSearchParams({ tickets: "1", items: serializeCart(cart) }).toString()}`;
 
   if (paymentMethods.length === 0) {
     const unavailable = createPaymentChannelUnavailableError("no_matching_route", {
@@ -258,14 +206,15 @@ export default async function CheckoutPage({
           <MobileCheckout
             {...sharedProps}
             eventUuid={row.id}
-            ticketTypes={mappedTypes}
+            lines={cartLines}
+            editTicketsHref={editTicketsHref}
             paymentMethods={paymentMethods}
             bookingFeeMinor={bookingFee}
+            vatRate={CHECKOUT_VAT_RATE}
             holdSeconds={holdSeconds}
             defaultBuyerEmail={defaultBuyerEmail}
             defaultBuyerName={defaultBuyerName}
             defaultBuyerPhone={defaultBuyerPhone}
-            defaultTicketTypeId={firstSellable?.id}
           />
         </CheckoutProviderBridge>
       </div>
@@ -279,13 +228,10 @@ export default async function CheckoutPage({
           <DesktopCheckout
             {...sharedProps}
             eventUuid={row.id}
-            ticketTypeId={firstSellable?.id ?? ""}
-            ticketTypeName={firstSellable?.name ?? "General"}
-            quantity={1}
-            subtotalMinor={subtotalForFirst}
-            currency={firstSellable?.currency}
+            lines={cartLines}
+            editTicketsHref={editTicketsHref}
             bookingFeeMinor={bookingFee}
-            vatRate={0.15}
+            vatRate={CHECKOUT_VAT_RATE}
             holdSeconds={holdSeconds}
             defaultBuyerEmail={defaultBuyerEmail}
           />

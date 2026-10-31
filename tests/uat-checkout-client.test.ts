@@ -48,15 +48,16 @@ vi.mock("@/app/(focused)/events/[id]/checkout/actions", () => ({
 import { MobileCheckout } from "@/components/quiet/screens/checkout/mobile-checkout"
 import { DesktopCheckout } from "@/components/quiet/screens/checkout/desktop-checkout"
 
-const ticketTypes = [
+const lines = [
   {
-    id: "00000000-0000-4000-8000-000000000601",
+    ticketTypeId: "00000000-0000-4000-8000-000000000601",
     name: "General Seating",
     priceMinor: 15000,
-    remaining: null,
-    sublabel: undefined,
+    currency: "SZL",
+    quantity: 1,
   },
 ]
+const editTicketsHref = "/events/gathering-of-worshipers-test?tickets=1"
 
 const mobileProps = {
   eventId: "gathering-of-worshipers-test",
@@ -66,11 +67,11 @@ const mobileProps = {
   eventWhenLabel: "Sat 7 Feb · 16:00",
   eventVenue: "Somhlolo National Stadium",
   holdSeconds: 518,
-  ticketTypes,
+  lines,
+  editTicketsHref,
   bookingFeeMinor: 0,
   vatRate: 0.15,
   defaultBuyerEmail: "",
-  defaultTicketTypeId: "00000000-0000-4000-8000-000000000601",
 }
 
 afterEach(() => {
@@ -117,10 +118,8 @@ describe("UAT B4 client-mount repro", () => {
         eventTitle: "Gathering of Worshipers",
         eventPhoto: "/images/dj-set.jpg",
         eventWhenLabel: "Sat 7 Feb · 16:00",
-        ticketTypeId: "00000000-0000-4000-8000-000000000601",
-        ticketTypeName: "General Seating",
-        quantity: 1,
-        subtotalMinor: 15000,
+        lines,
+        editTicketsHref,
         bookingFeeMinor: 0,
         vatRate: 0.15,
         holdSeconds: 518,
