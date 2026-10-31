@@ -10,6 +10,7 @@ import { RecentlyViewedSection } from "@/components/quiet/screens/discover/recen
 import { SuggestedEventsRow } from "@/components/quiet/screens/discover/suggested-events-row";
 import { DiscoverFilterChips } from "@/components/quiet/screens/discover/discover-filter-chips";
 import { LoadMoreSection } from "@/components/quiet/screens/discover/load-more-section";
+import { FeaturedHero } from "@/components/quiet/screens/discover/featured-hero";
 import { PHOTOS } from "@/lib/photos";
 import type { DiscoverSection } from "@/lib/data/public/discover-feed";
 import type { DiscoverEvent } from "@/lib/mappers/discover";
@@ -24,15 +25,9 @@ interface DesktopDiscoverProps {
   /** Every published event starting after this week. */
   upcoming?: DiscoverSection;
   editorPick?: DiscoverEvent | null;
+  /** Hero carousel slides (pickFeatured); falls back to the editor's pick. */
+  featured?: ReadonlyArray<DiscoverEvent>;
 }
-
-const CATEGORIES = [
-  { icon: "music", label: "Music", href: "/search?category=Music" },
-  { icon: "fire", label: "Comedy", href: "/search?category=Comedy" },
-  { icon: "users", label: "Workshops", href: "/search?category=Workshop" },
-  { icon: "ticket", label: "Theatre", href: "/search?category=Theatre" },
-  { icon: "spark", label: "Festivals", href: "/search?category=Festival" },
-] as const;
 
 interface GridRow {
   href: string;
@@ -47,32 +42,6 @@ interface GridRow {
   stockType: "sold-out" | "low" | null;
   verified: boolean;
 }
-
-interface HeroRow {
-  href: string;
-  photo: string;
-  title: string;
-  dateLabel: string;
-  venue: string;
-  priceLabel: string;
-  topChip: string;
-  subtitle: string;
-  trustLabel: string | null;
-  verified: boolean;
-}
-
-const DEFAULT_HERO: HeroRow = {
-  href: "/events/river-sound-fest",
-  photo: PHOTOS.crowd_smoke,
-  title: "River Sound Fest",
-  dateLabel: "FRI 25 → SUN 27 JUL · RIVERSIDE PARK",
-  venue: "Riverside Park",
-  priceLabel: "E2,400",
-  topChip: "Editor's pick · 3-day festival",
-  subtitle: "22 artists across 3 stages. Camping & food vendors on-site. Day passes from E950.",
-  trustLabel: null,
-  verified: false,
-};
 
 function toGrid(ev: DiscoverEvent): GridRow {
   return {
@@ -90,84 +59,22 @@ function toGrid(ev: DiscoverEvent): GridRow {
   };
 }
 
-function toHero(ev: DiscoverEvent): HeroRow {
-  return {
-    href: ev.href,
-    photo: ev.photo || PHOTOS.crowd_smoke,
-    title: ev.title,
-    dateLabel: ev.whenLabel.toUpperCase() + (ev.venue ? ` · ${ev.venue.toUpperCase()}` : ""),
-    venue: ev.venue,
-    priceLabel: ev.priceLabel.replace(/^From\s+/, ""),
-    topChip: `Editor's pick · ${ev.category ?? "Featured"}`,
-    subtitle: ev.category ? `Curated for fans of ${ev.category.toLowerCase()}.` : "",
-    trustLabel: ev.soldLabel,
-    verified: ev.organizerVerified,
-  };
-}
-
 export function DesktopDiscover({
   thisWeek = { events: [], hasMore: false },
   upcoming = { events: [], hasMore: false },
   editorPick,
+  featured,
 }: DesktopDiscoverProps = {}) {
-  const HERO = editorPick ? toHero(editorPick) : DEFAULT_HERO;
+  const slides = featured?.length ? featured : editorPick ? [editorPick] : [];
   return (
     <div className="mx-auto max-w-[1280px] px-10 py-6">
-      {/* Inline search bar — desktop discover's prominent entry point.
-          Plain HTML GET form so we stay a server component. */}
-      <form
-        action="/search"
-        method="get"
-        role="search"
-        className="mb-4 flex items-center gap-2 rounded-[var(--radius-md)] border border-line bg-surface px-4 py-3 focus-within:border-line-2"
-      >
-        <Icon name="search" size={16} className="text-ink-3" />
-        <input
-          type="text"
-          name="q"
-          placeholder="Search events, artists, venues…"
-          aria-label="Search events"
-          className="flex-1 bg-transparent text-[14px] font-medium outline-none placeholder:text-ink-3"
-        />
-        <div className="hidden items-center gap-1 md:flex">
-          <Link
-            href="/search?category=Music"
-            className="rounded-full border border-line bg-bg px-2.5 py-1 text-[11px] font-semibold text-ink-3 hover:text-ink"
-          >
-            Music
-          </Link>
-          <Link
-            href="/search?category=Comedy"
-            className="rounded-full border border-line bg-bg px-2.5 py-1 text-[11px] font-semibold text-ink-3 hover:text-ink"
-          >
-            Comedy
-          </Link>
-          <Link
-            href="/search?onlyFree=1"
-            className="rounded-full border border-line bg-bg px-2.5 py-1 text-[11px] font-semibold text-ink-3 hover:text-ink"
-          >
-            Free
-          </Link>
-          <Link
-            href="/search?when=week"
-            className="rounded-full border border-line bg-bg px-2.5 py-1 text-[11px] font-semibold text-ink-3 hover:text-ink"
-          >
-            This week
-          </Link>
-        </div>
-        <button
-          type="submit"
-          className="inline-flex items-center gap-1 rounded-[var(--radius)] bg-ink px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-ink-2"
-        >
-          Search
-        </button>
-      </form>
+      <FeaturedHero events={slides} />
 
       {/* Page header */}
       <div className="flex items-end justify-between pb-4">
         <div>
           <div className="text-label">Discover</div>
-          <h1 className="mt-1 text-[40px] font-semibold leading-none tracking-[-0.025em]">What&apos;s on</h1>
+          <h1 className="mt-1 text-[32px] font-semibold leading-none tracking-[-0.025em]">What&apos;s on</h1>
         </div>
         <div className="flex items-center gap-2">
           <Link
@@ -186,97 +93,11 @@ export function DesktopDiscover({
         </Suspense>
       </div>
 
-      {/* Editor's pick hero */}
-      <Card className="mb-8 overflow-hidden">
-        <div className="grid grid-cols-[1fr_320px]">
-          <Photo src={HERO.photo} height={380} overlay="heavy">
-            <div className="flex items-start justify-between">
-              <Chip variant="accent" size="sm" className="bg-white/95 text-accent">
-                <Icon name="spark" size={11} /> {HERO.topChip}
-              </Chip>
-              <div className="text-right text-white">
-                <div className="text-label text-white/90">WHERE</div>
-                <div className="font-mono text-[13px] font-semibold">{HERO.venue.toUpperCase()}</div>
-              </div>
-            </div>
-            <div className="mt-auto flex items-end justify-between gap-8">
-              <div>
-                <div className="text-label text-white/90">{HERO.dateLabel}</div>
-                <div className="mt-2 inline-flex items-center gap-3 text-[64px] font-semibold leading-[0.85] tracking-[-0.025em] text-white">
-                  <span>{HERO.title}</span>
-                  {HERO.verified && (
-                    <VerifiedMark size={24} title="Verified organizer" />
-                  )}
-                </div>
-              </div>
-            </div>
-          </Photo>
-          <div className="flex flex-col p-6">
-            <div className="text-label">FROM</div>
-            <div className="mt-1 font-mono text-[44px] font-semibold leading-none">
-              {HERO.priceLabel}
-            </div>
-            {HERO.subtitle && (
-              <p className="mt-3 text-[13px] text-ink-3">{HERO.subtitle}</p>
-            )}
-            {HERO.trustLabel && (
-              <p className="mt-2 font-mono text-[11px] text-ink-3">
-                {HERO.trustLabel}
-              </p>
-            )}
-            <Divider className="my-4" />
-            <Link
-              href={HERO.href}
-              className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-[var(--radius)] bg-accent px-4 py-2.5 text-[13px] font-semibold text-white hover:opacity-90"
-            >
-              Get tickets <Icon name="arrowR" size={14} />
-            </Link>
-          </div>
-        </div>
-      </Card>
-
       <RecentlyViewedSection variant="desktop" />
 
       <SuggestedEventsRow variant="desktop" />
 
-      {/* Two-column: categories + grid */}
-      <div className="grid grid-cols-[200px_1fr] gap-8">
-        {/* Left: categories */}
-        <aside className="sticky top-6 self-start">
-          <div className="text-label mb-3">Browse by</div>
-          <ul className="flex flex-col">
-            {CATEGORIES.map((c) => (
-              <li key={c.label}>
-                <Link
-                  href={c.href}
-                  className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-[13px] hover:bg-bg"
-                >
-                  <Icon name={c.icon} size={16} className="text-ink-3" />
-                  <span className="flex-1 text-left">{c.label}</span>
-                  <Icon name="chevR" size={12} className="text-ink-3" />
-                </Link>
-              </li>
-            ))}
-          </ul>
-          <Divider className="my-4" />
-          <div className="text-label mb-3">Price</div>
-          <div className="flex flex-col gap-1 text-[13px]">
-            <Link href="/search?onlyFree=1" className="rounded-md px-2 py-1.5 hover:bg-bg">
-              Free
-            </Link>
-            <Link href="/search?maxPriceCents=50000" className="rounded-md px-2 py-1.5 hover:bg-bg">
-              Under E500
-            </Link>
-            <Link href="/search?maxPriceCents=150000" className="rounded-md px-2 py-1.5 hover:bg-bg">
-              E500 – E1,500
-            </Link>
-            <Link href="/search" className="rounded-md px-2 py-1.5 hover:bg-bg">
-              E1,500+
-            </Link>
-          </div>
-        </aside>
-
-        {/* Right: this week + upcoming */}
+      {/* This week + upcoming */}
         <div className="flex flex-col gap-10">
           <DesktopEventGridSection
             title="This week"
@@ -293,7 +114,6 @@ export function DesktopDiscover({
             emptyText="No other upcoming events yet."
           />
         </div>
-      </div>
     </div>
   );
 }
@@ -327,7 +147,7 @@ function DesktopEventGridSection({
           batchSize={9}
           when={when}
           renderEvents={(evs) => (
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-4 gap-4">
                 {evs.map(toGrid).map((e) => (
                   <Link
                     key={e.href}

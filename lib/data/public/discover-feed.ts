@@ -1,5 +1,5 @@
 import { getPublicEventsList } from "@/lib/adapters/events"
-import { DISCOVER_WEEK_MS, mapDiscoverEvent, pickEditorPick, type DiscoverEvent } from "@/lib/mappers/discover"
+import { DISCOVER_WEEK_MS, mapDiscoverEvent, pickEditorPick, pickFeatured, type DiscoverEvent } from "@/lib/mappers/discover"
 
 /**
  * Discover feed: "This week" (not ended, starting within 7 days — includes tonight and events already
@@ -41,5 +41,6 @@ export async function getDiscoverFeed(nowMs: number = Date.now()) {
     getDiscoverSection("thisWeek", { limit: 12, nowMs }),
     getDiscoverSection("upcoming", { limit: 9, nowMs }),
   ])
-  return { thisWeek, upcoming, editorPick: pickEditorPick([...thisWeek.events, ...upcoming.events]) }
+  const all = [...thisWeek.events, ...upcoming.events]
+  return { thisWeek, upcoming, editorPick: pickEditorPick(all), featured: pickFeatured(all) }
 }

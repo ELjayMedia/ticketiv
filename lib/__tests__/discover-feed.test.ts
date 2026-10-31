@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({ getPublicEventsList: vi.fn() }))
 vi.mock("@/lib/adapters/events", () => ({ getPublicEventsList: mocks.getPublicEventsList }))
 
 import { getDiscoverFeed, getDiscoverSection } from "@/lib/data/public/discover-feed"
-import { DISCOVER_WEEK_MS, pickEditorPick, type DiscoverEvent } from "@/lib/mappers/discover"
+import { DISCOVER_WEEK_MS, pickEditorPick, pickFeatured, type DiscoverEvent } from "@/lib/mappers/discover"
 
 const NOW = Date.parse("2026-10-02T12:00:00Z")
 const WEEK_END = new Date(NOW + DISCOVER_WEEK_MS).toISOString()
@@ -53,6 +53,16 @@ describe("discover feed", () => {
     expect(feed.thisWeek.events.map((e) => e.id)).toEqual(["soon"])
     expect(feed.upcoming.events.map((e) => e.id)).toEqual(["featured"])
     expect(feed.editorPick?.id).toBe("featured")
+    expect(feed.featured.map((e) => e.id)).toEqual(["featured", "soon"])
+  })
+
+  it("orders featured slides by priority, tops up with the rest, dedupes and caps", () => {
+    const ev = (id: string, featuredPriority: number | null) => ({ id, featuredPriority }) as DiscoverEvent
+    const events = [ev("a", null), ev("b", 2), ev("c", 9), ev("a", null), ev("d", null)]
+    expect(pickFeatured(events).map((e) => e.id)).toEqual(["c", "b", "a", "d"])
+    expect(pickFeatured(events, 2).map((e) => e.id)).toEqual(["c", "b"])
+    expect(pickFeatured(events)[0].id).toBe(pickEditorPick(events)?.id)
+    expect(pickFeatured([])).toEqual([])
   })
 
   it("falls back to the soonest event when nothing is featured", () => {
