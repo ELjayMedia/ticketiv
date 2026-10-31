@@ -10,6 +10,8 @@ import { createClient } from "@/lib/supabase/client";
 interface NavIdentity {
   signedIn: boolean;
   displayName?: string;
+  fullName?: string;
+  email?: string;
   avatarUrl?: string;
   contexts?: UserContext[];
   activeContextKey?: string | null;
@@ -17,8 +19,10 @@ interface NavIdentity {
 
 const SIGNED_OUT: NavIdentity = { signedIn: false };
 
-function getNavIdentity(user: User | null): NavIdentity {
-  if (!user) return SIGNED_OUT;
+export function getNavIdentity(user: User | null): NavIdentity {
+  // Guest checkout mints an anonymous Supabase user; that isn't a signed-in
+  // account, so the nav keeps offering "Sign in" rather than an empty avatar.
+  if (!user || (user as { is_anonymous?: boolean }).is_anonymous) return SIGNED_OUT;
 
   const metadata = user.user_metadata ?? {};
   const fullName = [
@@ -33,6 +37,8 @@ function getNavIdentity(user: User | null): NavIdentity {
   return {
     signedIn: true,
     displayName: fullName?.trim().split(" ")[0] ?? user.email?.split("@")[0],
+    fullName: fullName?.trim(),
+    email: user.email ?? undefined,
     avatarUrl,
   };
 }
@@ -52,7 +58,7 @@ export function PublicSessionDesktopNav() {
       if (!active) return;
 
       setIdentity(nextIdentity);
-      if (!user) return;
+      if (!nextIdentity.signedIn) return;
 
       try {
         const response = await fetch("/api/auth/contexts");

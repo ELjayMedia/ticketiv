@@ -35,6 +35,8 @@ export default async function ConsumerLayout({
     <ConsumerFrame
       signedIn={!!profile}
       displayName={displayName}
+      fullName={profile?.full_name ?? undefined}
+      email={profile?.email || undefined}
       avatarUrl={profile?.avatar_url ?? undefined}
       contexts={contexts}
       activeContextKey={activeContextKey}

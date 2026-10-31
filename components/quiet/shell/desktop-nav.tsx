@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "@/components/quiet/ui/icon";
-import { Avatar } from "@/components/quiet/ui/primitives";
+import { ProfileMenu } from "@/components/quiet/shell/profile-menu";
 import { SearchTrigger } from "@/components/quiet/search/search-overlay";
 import { ContextSwitcher } from "@/components/quiet/shell/context-switcher";
 import type { UserContext } from "@/lib/data/identity/contexts";
@@ -25,6 +25,9 @@ interface DesktopNavProps {
   signedIn?: boolean;
   /** Signed-in user's display name (first name preferred) */
   displayName?: string;
+  /** Full name and email for the profile menu header. */
+  fullName?: string;
+  email?: string;
   /** Context-switcher entries from the effective-roles resolver (TICK-275). */
   contexts?: UserContext[];
   /** The user's last-used context key (cookie-persisted). */
@@ -36,6 +39,8 @@ export function DesktopNav({
   avatarUrl,
   signedIn = false,
   displayName,
+  fullName,
+  email,
   contexts = [],
   activeContextKey = null,
 }: DesktopNavProps) {
@@ -108,11 +113,6 @@ export function DesktopNav({
 
         {signedIn ? (
           <>
-            {displayName && (
-              <span className="hidden max-w-[180px] truncate text-[12px] text-ink-3 lg:inline">
-                Hi, {displayName}
-              </span>
-            )}
             <Link
               href="/notifications"
               aria-label="Notifications"
@@ -120,7 +120,13 @@ export function DesktopNav({
             >
               <Icon name="bell" size={20} />
             </Link>
-            <Avatar src={avatarUrl} size={28} />
+            <ProfileMenu
+              displayName={displayName}
+              fullName={fullName}
+              email={email}
+              avatarUrl={avatarUrl}
+              contexts={contexts}
+            />
           </>
         ) : (
           <>
