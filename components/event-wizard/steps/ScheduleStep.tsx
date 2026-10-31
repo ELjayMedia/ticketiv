@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { CalendarDays, Plus, Trash2 } from "lucide-react"
+import { Button } from "@/components/quiet/ui/button";
+import { Input } from "@/components/quiet/ui/form";
 
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
 
 type DateRow = {
   starts_at: string
@@ -97,15 +97,15 @@ export function ScheduleStep({ eventId, onSaving }: { eventId: string; onSaving:
     }
   }
 
-  if (loading) return <div className="p-2 text-sm text-muted-foreground">Loading schedule...</div>
+  if (loading) return <div className="p-2 text-sm text-ink-3">Loading schedule...</div>
 
   return (
     <div className="space-y-5">
-      <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+      <div className="rounded-lg border bg-surface-2/30 p-4 text-sm text-ink-3">
         <div className="flex gap-3">
           <CalendarDays className="mt-0.5 h-5 w-5" />
           <div>
-            <p className="font-medium text-foreground">Canonical event schedule</p>
+            <p className="font-medium text-ink">Canonical event schedule</p>
             <p className="mt-1">The earliest event date becomes the canonical start date and the latest end date becomes the canonical end date for public browsing and checkout. Additional dates support future festival and multi-day event flows.</p>
           </div>
         </div>
@@ -117,11 +117,11 @@ export function ScheduleStep({ eventId, onSaving }: { eventId: string; onSaving:
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-medium">{isMultiDay ? `Session ${index + 1}` : "Main event schedule"}</p>
-                <p className="text-xs text-muted-foreground">{index === 0 ? "Canonical start date" : "Additional festival/session date"}</p>
+                <p className="text-xs text-ink-3">{index === 0 ? "Canonical start date" : "Additional festival/session date"}</p>
               </div>
 
               {dates.length > 1 ? (
-                <Button type="button" variant="ghost" size="icon" onClick={() => removeDate(index)} disabled={saving}>
+                <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="Remove date" onClick={() => removeDate(index)} disabled={saving}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               ) : null}
@@ -153,7 +153,7 @@ export function ScheduleStep({ eventId, onSaving }: { eventId: string; onSaving:
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      <Button onClick={saveSchedule} disabled={saving || dates.some((row) => !row.starts_at || !row.ends_at)} className="w-full">
+      <Button variant="accent" onClick={saveSchedule} disabled={saving || dates.some((row) => !row.starts_at || !row.ends_at)} className="w-full">
         {saving ? "Saving schedule..." : isMultiDay ? "Save festival schedule" : "Save schedule"}
       </Button>
     </div>

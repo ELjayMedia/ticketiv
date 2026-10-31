@@ -117,6 +117,16 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // The retired Pages Router "safe mode" placeholders used to answer these
+  // paths with a static "No events to show" page; send them to the live
+  // App Router equivalents instead.
+  async redirects() {
+    return [
+      { source: "/events", destination: "/browse", permanent: false },
+      { source: "/artists", destination: "/search", permanent: false },
+      { source: "/categories", destination: "/browse", permanent: false },
+    ]
+  },
   async rewrites() {
     return [
       { source: "/hifi", destination: "/hifi/index.html" },

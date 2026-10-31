@@ -1,6 +1,47 @@
 import * as React from "react";
 import { cn } from "@/lib/cn";
 
+/** Shared text-control styling for FormField, Input and Textarea. */
+export function controlClassName(error?: boolean) {
+  return cn(
+    "w-full rounded-md border bg-surface px-3 py-2.5 text-[14px] font-medium",
+    "outline-none transition-shadow duration-100",
+    "placeholder:text-ink-4 disabled:cursor-not-allowed disabled:opacity-50",
+    error
+      ? "border-danger focus:ring-2 focus:ring-danger/20"
+      : "border-line-2 focus:border-accent focus:ring-[3px] focus:ring-accent-soft"
+  );
+}
+
+/** Bare text input (use FormField when you also want a label + hint). */
+export const Input = React.forwardRef<
+  HTMLInputElement,
+  React.InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }
+>(({ className, invalid, ...rest }, ref) => (
+  <input ref={ref} aria-invalid={invalid || undefined} className={cn(controlClassName(invalid), className)} {...rest} />
+));
+Input.displayName = "Input";
+
+/** Multi-line text input with the same styling as Input. */
+export const Textarea = React.forwardRef<
+  HTMLTextAreaElement,
+  React.TextareaHTMLAttributes<HTMLTextAreaElement> & { invalid?: boolean }
+>(({ className, invalid, rows = 4, ...rest }, ref) => (
+  <textarea
+    ref={ref}
+    rows={rows}
+    aria-invalid={invalid || undefined}
+    className={cn(controlClassName(invalid), "min-h-[88px] resize-y leading-relaxed", className)}
+    {...rest}
+  />
+));
+Textarea.displayName = "Textarea";
+
+/** Field label matching FormField's label style. */
+export function Label({ className, ...rest }: React.LabelHTMLAttributes<HTMLLabelElement>) {
+  return <label className={cn("text-label", className)} {...rest} />;
+}
+
 /* ──────────────────────────────────────────────────────────────
  * FormField — input with label, supports controlled and uncontrolled.
  * Focus ring matches the Quiet design (accent border + soft halo).
@@ -21,14 +62,7 @@ export const FormField = React.forwardRef<HTMLInputElement, FormFieldProps>(
         <input
           ref={ref}
           id={inputId}
-          className={cn(
-            "rounded-md border bg-surface px-3 py-2.5 text-[14px] font-medium",
-            "outline-none transition-shadow duration-100",
-            "placeholder:text-ink-4",
-            error
-              ? "border-danger focus:ring-2 focus:ring-danger/20"
-              : "border-line-2 focus:border-accent focus:ring-[3px] focus:ring-accent-soft"
-          )}
+          className={controlClassName(!!error)}
           aria-invalid={!!error || undefined}
           aria-describedby={hint || error ? `${inputId}-desc` : undefined}
           {...rest}

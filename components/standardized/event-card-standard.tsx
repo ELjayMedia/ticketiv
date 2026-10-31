@@ -6,16 +6,16 @@ import { useRouter } from "next/navigation"
 import { MapPin, Heart, CheckCircle2 } from "lucide-react"
 import { useState } from "react"
 import { toggleFavourite } from "@/app/(consumer)/favourites/actions"
-import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import {
   formatPriceLabel,
   formatVenueLabel,
   formatSoldCount,
   type Currency,
 } from "@/lib/format"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/cn"
+import { Button } from "@/components/quiet/ui/button";
+import { Card } from "@/components/quiet/ui/card";
+import { Chip } from "@/components/quiet/ui/chip";
 
 /**
  * Standardized EventCard data contract (from v_events_public).
@@ -143,7 +143,7 @@ export function EventCardStandard({ event, onSave }: EventCardProps) {
       {/* Mobile: Row layout */}
       <Link
         href={href}
-        className="lg:hidden flex p-4 bg-background hover:bg-accent/50 transition-colors min-h-[96px] rounded-sm items-center gap-3"
+        className="lg:hidden flex p-4 bg-surface hover:bg-surface-2 transition-colors min-h-[96px] rounded-sm items-center gap-3"
       >
         <div className="shrink-0">
           <img
@@ -156,31 +156,31 @@ export function EventCardStandard({ event, onSave }: EventCardProps) {
 
         <div className="flex-1 min-w-0 space-y-1">
           <h3 className="font-semibold text-sm leading-tight line-clamp-2">{event.title}</h3>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-ink-3">
             {formatDateShort(event.starts_at)} • {venueLabel}
           </p>
           <div className="flex items-center gap-2 text-xs">
             <span className="font-medium">{priceLabel}</span>
             {soldLabel && (
-              <span className="font-mono text-[10px] text-muted-foreground">
+              <span className="font-mono text-[10px] text-ink-3">
                 · {soldLabel}
               </span>
             )}
           </div>
           {badgeText && (
-            <Badge
-              variant={event.is_promoted ? "default" : "secondary"}
+            <Chip size="sm"
+              variant={event.is_promoted ? "accent" : "muted"}
               className="text-[10px] h-5 px-2 font-semibold"
             >
               {badgeText}
-            </Badge>
+            </Chip>
           )}
           {event.organizer_name && (
-            <p className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+            <p className="inline-flex items-center gap-1 text-[10px] text-ink-3">
               <span>by {event.organizer_name}</span>
               {verified && (
                 <CheckCircle2
-                  className="h-3 w-3 text-primary"
+                  className="h-3 w-3 text-accent"
                   aria-label="Verified organizer"
                 />
               )}
@@ -190,8 +190,8 @@ export function EventCardStandard({ event, onSave }: EventCardProps) {
 
         <Button
           variant="ghost"
-          size="icon"
-          className={cn("shrink-0 h-11 w-11 rounded-full hover:bg-accent", isSaved && "text-primary")}
+          size="sm"
+          className={cn("shrink-0 h-11 w-11 rounded-full p-0 hover:bg-accent-soft", isSaved && "text-accent")}
           onClick={handleSaveClick}
           disabled={isSaving}
           aria-label={isSaved ? "Remove from saved" : "Save event"}
@@ -202,8 +202,8 @@ export function EventCardStandard({ event, onSave }: EventCardProps) {
 
       {/* Desktop: Card layout */}
       <Link href={href} className="hidden lg:block group">
-        <Card className="h-full overflow-hidden rounded-xl border bg-card transition hover:shadow-lg hover:border-primary/50">
-          <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
+        <Card className="h-full overflow-hidden rounded-xl border bg-surface transition hover:shadow-lg hover:border-accent/50">
+          <div className="relative aspect-[16/9] w-full overflow-hidden bg-surface-2">
             <img
               src={event.poster_url || "/placeholder.svg?height=256&width=384"}
               alt={event.title}
@@ -212,54 +212,54 @@ export function EventCardStandard({ event, onSave }: EventCardProps) {
             />
 
             {badgeText && (
-              <Badge
-                variant={event.is_promoted ? "default" : "secondary"}
-                className="absolute left-3 top-3 bg-background/90 backdrop-blur"
+              <Chip size="sm"
+                variant={event.is_promoted ? "accent" : "muted"}
+                className="absolute left-3 top-3 bg-surface/90 backdrop-blur"
               >
                 {badgeText}
-              </Badge>
+              </Chip>
             )}
 
             <Button
               variant="ghost"
-              size="icon"
-              className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity bg-background/90 backdrop-blur hover:bg-background"
+              size="sm"
+              className="absolute right-3 top-3 h-9 w-9 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-surface/90 backdrop-blur hover:bg-surface"
               onClick={handleSaveClick}
               disabled={isSaving}
               aria-label={isSaved ? "Remove from saved" : "Save event"}
             >
-              <Heart className={`h-4 w-4 ${isSaved ? "fill-primary text-primary" : ""}`} />
+              <Heart className={`h-4 w-4 ${isSaved ? "fill-accent text-accent" : ""}`} />
             </Button>
           </div>
 
           <div className="p-4 px-2.5 py-6 space-y-1">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 text-sm text-ink-3">
               <span className="text-xs">{formatDateShort(event.starts_at)}</span>
             </div>
 
-            <h3 className="line-clamp-2 font-semibold leading-snug text-foreground text-base">{event.title}</h3>
+            <h3 className="line-clamp-2 font-semibold leading-snug text-ink text-base">{event.title}</h3>
 
             {event.organizer_name && (
-              <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <p className="inline-flex items-center gap-1 text-xs text-ink-3">
                 <span>by {event.organizer_name}</span>
                 {verified && (
                   <CheckCircle2
-                    className="h-3 w-3 text-primary"
+                    className="h-3 w-3 text-accent"
                     aria-label="Verified organizer"
                   />
                 )}
               </p>
             )}
 
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 text-sm text-ink-3">
               <MapPin className="h-4 w-4" />
               <span className="line-clamp-1 text-xs">{venueLabel}</span>
             </div>
 
             <div className="flex items-center justify-between pt-1 text-sm">
-              <span className="font-medium text-foreground">{priceLabel}</span>
+              <span className="font-medium text-ink">{priceLabel}</span>
               {soldLabel && (
-                <span className="font-mono text-[11px] text-muted-foreground">
+                <span className="font-mono text-[11px] text-ink-3">
                   {soldLabel}
                 </span>
               )}

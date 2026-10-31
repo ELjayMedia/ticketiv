@@ -2,11 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { Check, Plus, Search, Trash2, UserRound } from "lucide-react"
+import { Button } from "@/components/quiet/ui/button";
+import { Chip } from "@/components/quiet/ui/chip";
+import { Input, Textarea } from "@/components/quiet/ui/form";
 
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 
 type ArtistProfile = {
   id: string
@@ -174,11 +173,11 @@ export function LineupStep({ eventId, onSaving }: { eventId: string; onSaving: (
     }
   }
 
-  if (loading) return <div className="p-2 text-sm text-muted-foreground">Loading lineup…</div>
+  if (loading) return <div className="p-2 text-sm text-ink-3">Loading lineup…</div>
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+      <div className="rounded-lg border bg-surface-2/30 p-4 text-sm text-ink-3">
         Artist profiles are shared across Ticketiv. Search before creating a new one so every organiser can reuse the
         same profile. A performer does not need an account yet; the profile can be claimed after launch.
       </div>
@@ -186,11 +185,11 @@ export function LineupStep({ eventId, onSaving }: { eventId: string; onSaving: (
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <h3 className="font-medium">Current lineup</h3>
-          <Badge variant="outline">{lineup.length}</Badge>
+          <Chip size="sm" variant="default">{lineup.length}</Chip>
         </div>
 
         {lineup.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No lineup added yet.</p>
+          <p className="text-sm text-ink-3">No lineup added yet.</p>
         ) : (
           <div className="space-y-2">
             {lineup.map((item) => {
@@ -208,18 +207,18 @@ export function LineupStep({ eventId, onSaving }: { eventId: string; onSaving: (
                         className="h-10 w-10 shrink-0 rounded-full border object-cover"
                       />
                     ) : (
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border bg-muted">
-                        <UserRound className="h-4 w-4 text-muted-foreground" />
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border bg-surface-2">
+                        <UserRound className="h-4 w-4 text-ink-3" />
                       </span>
                     )}
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="truncate font-medium">{profile?.name || "Unnamed"}</p>
-                        <Badge variant={profile?.is_claimed ? "default" : "secondary"}>
+                        <Chip size="sm" variant={profile?.is_claimed ? "accent" : "muted"}>
                           {profile?.is_claimed ? "Claimed" : "Unclaimed"}
-                        </Badge>
+                        </Chip>
                       </div>
-                      <p className="text-sm text-muted-foreground">{item.role || "performer"}</p>
+                      <p className="text-sm text-ink-3">{item.role || "performer"}</p>
                     </div>
                   </div>
                   <button
@@ -240,13 +239,13 @@ export function LineupStep({ eventId, onSaving }: { eventId: string; onSaving: (
 
       <div className="border-t pt-5">
         <h3 className="font-medium">Add artist or featured guest</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-ink-3">
           Select an existing profile or enter a new name. Exact duplicate names are automatically reused.
         </p>
 
         <div className="mt-4 space-y-4">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-ink-3" />
             <Input
               aria-label="Search or enter artist name"
               placeholder="Search or enter artist name"
@@ -258,9 +257,9 @@ export function LineupStep({ eventId, onSaving }: { eventId: string; onSaving: (
             />
 
             {!selectedArtist && (searching || suggestions.length > 0) ? (
-              <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border bg-background shadow-lg">
+              <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border bg-surface shadow-lg">
                 {searching ? (
-                  <p className="px-3 py-3 text-sm text-muted-foreground">Searching profiles…</p>
+                  <p className="px-3 py-3 text-sm text-ink-3">Searching profiles…</p>
                 ) : (
                   <div className="max-h-72 overflow-y-auto p-1">
                     {suggestions.map((profile) => {
@@ -271,23 +270,23 @@ export function LineupStep({ eventId, onSaving }: { eventId: string; onSaving: (
                           key={profile.id}
                           disabled={alreadyLinked}
                           onClick={() => chooseArtist(profile)}
-                          className="flex w-full items-start gap-3 rounded-md px-3 py-2 text-left hover:bg-muted disabled:cursor-not-allowed disabled:opacity-55"
+                          className="flex w-full items-start gap-3 rounded-md px-3 py-2 text-left hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-55"
                         >
                           {profile.image_url ? (
                             <img src={profile.image_url} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
                           ) : (
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted">
-                              <UserRound className="h-4 w-4 text-muted-foreground" />
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-2">
+                              <UserRound className="h-4 w-4 text-ink-3" />
                             </span>
                           )}
                           <span className="min-w-0 flex-1">
                             <span className="flex flex-wrap items-center gap-2">
                               <span className="font-medium">{profile.name}</span>
-                              <Badge variant={profile.is_claimed ? "default" : "secondary"}>
+                              <Chip size="sm" variant={profile.is_claimed ? "accent" : "muted"}>
                                 {profile.is_claimed ? "Claimed" : "Unclaimed"}
-                              </Badge>
+                              </Chip>
                             </span>
-                            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                            <span className="mt-0.5 block truncate text-xs text-ink-3">
                               {alreadyLinked ? "Already on this lineup" : profile.bio || "Reusable Ticketiv artist profile"}
                             </span>
                           </span>
@@ -306,7 +305,7 @@ export function LineupStep({ eventId, onSaving }: { eventId: string; onSaving: (
                 <Check className="mt-0.5 h-4 w-4 text-emerald-700" />
                 <div>
                   <p className="text-sm font-medium">Using {selectedArtist.name}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-ink-3">
                     Existing details stay protected. Missing bio or image fields can be filled below.
                   </p>
                 </div>
@@ -316,7 +315,7 @@ export function LineupStep({ eventId, onSaving }: { eventId: string; onSaving: (
               </Button>
             </div>
           ) : artist.name.trim().length >= 2 && !searching && !exactMatch ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-ink-3">
               No exact profile selected. Adding this lineup item will create an unclaimed reusable artist profile, or
               reuse an exact normalized match if one already exists.
             </p>
@@ -344,7 +343,7 @@ export function LineupStep({ eventId, onSaving }: { eventId: string; onSaving: (
 
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-          <Button onClick={() => void addArtist()} disabled={saving || !artist.name.trim()} className="w-full gap-2">
+          <Button variant="accent" onClick={() => void addArtist()} disabled={saving || !artist.name.trim()} className="w-full gap-2">
             <Plus className="h-4 w-4" />
             {saving ? "Saving lineup…" : selectedArtist ? "Add existing profile to lineup" : "Add to lineup"}
           </Button>

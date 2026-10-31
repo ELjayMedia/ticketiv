@@ -2,13 +2,13 @@
 
 import { useState, useRef } from "react"
 import { useParams } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats"
 import { CheckCircle2, AlertCircle, Zap, QrCode } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/cn"
+import { Button } from "@/components/quiet/ui/button";
+import { Card, CardBody } from "@/components/quiet/ui/card";
+import { Chip } from "@/components/quiet/ui/chip";
+import { Input } from "@/components/quiet/ui/form";
 
 interface CheckinResult {
   success: boolean
@@ -104,7 +104,7 @@ export function CheckinScanner() {
 
   const lastCheckin = history[0]
   const statusColor = !lastCheckin
-    ? "bg-background"
+    ? "bg-surface"
     : lastCheckin.status === "success"
       ? "bg-green-50 border-green-200"
       : lastCheckin.status === "duplicate"
@@ -131,16 +131,16 @@ export function CheckinScanner() {
         {/* Scanner Input */}
         <div className="lg:col-span-2 space-y-4">
           <Card className="border-2">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+            <div className="flex flex-col gap-1 px-4 pt-4">
+              <h3 className="text-h3 flex items-center gap-2">
                 <QrCode className="h-5 w-5" />
                 Scan QR Code
-              </CardTitle>
-              <CardDescription>
+              </h3>
+              <p className="text-[13px] text-ink-3">
                 Scan a ticket QR code or paste the ticket code to check in attendees
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+              </p>
+            </div>
+            <CardBody>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <Input
                   ref={inputRef}
@@ -153,17 +153,17 @@ export function CheckinScanner() {
                   autoFocus
                   autoComplete="off"
                 />
-                <Button type="submit" className="w-full" disabled={isProcessing || !qrInput.trim()}>
+                <Button variant="accent" type="submit" className="w-full" disabled={isProcessing || !qrInput.trim()}>
                   {isProcessing ? "Processing..." : "Check In"}
                 </Button>
               </form>
-            </CardContent>
+            </CardBody>
           </Card>
 
           {/* Feedback Card */}
           {lastCheckin && (
             <Card className={cn("border-2 transition-all", statusColor)}>
-              <CardContent className="pt-6 text-center">
+              <CardBody className="pt-6 text-center">
                 {statusIcon}
                 <p className="font-semibold text-lg mb-1">
                   {lastCheckin.status === "success"
@@ -172,44 +172,44 @@ export function CheckinScanner() {
                       ? "Already Checked In"
                       : "Error"}
                 </p>
-                <p className="text-sm text-muted-foreground mb-2">{lastCheckin.message}</p>
-                <Badge
+                <p className="text-sm text-ink-3 mb-2">{lastCheckin.message}</p>
+                <Chip size="sm"
                   variant={
                     lastCheckin.status === "success"
-                      ? "default"
+                      ? "accent"
                       : lastCheckin.status === "duplicate"
-                        ? "secondary"
-                        : "destructive"
+                        ? "muted"
+                        : "muted"
                   }
                   className="text-xs font-mono"
                 >
                   {lastCheckin.ticket_code.substring(0, 20)}...
-                </Badge>
-              </CardContent>
+                </Chip>
+              </CardBody>
             </Card>
           )}
         </div>
 
         {/* Stats Sidebar */}
         <div className="space-y-4">
-          <Card className="bg-gradient-to-br from-primary/5 to-primary/10">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Total Checked In</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <Card className="bg-gradient-to-br from-accent/5 to-accent/10">
+            <div className="px-4 pt-4 pb-3">
+              <h3 className="text-h3 text-sm font-medium">Total Checked In</h3>
+            </div>
+            <CardBody>
               <div className="text-4xl font-bold">{totalCheckedIn}</div>
-              <p className="text-xs text-muted-foreground mt-2">attendees</p>
-            </CardContent>
+              <p className="text-xs text-ink-3 mt-2">attendees</p>
+            </CardBody>
           </Card>
 
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Recent Activity</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <div className="px-4 pt-4 pb-3">
+              <h3 className="text-h3 text-sm font-medium">Recent Activity</h3>
+            </div>
+            <CardBody>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {history.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-4">No activity yet</p>
+                  <p className="text-xs text-ink-3 text-center py-4">No activity yet</p>
                 ) : (
                   history.map((entry, idx) => (
                     <div
@@ -232,7 +232,7 @@ export function CheckinScanner() {
                   ))
                 )}
               </div>
-            </CardContent>
+            </CardBody>
           </Card>
         </div>
       </div>

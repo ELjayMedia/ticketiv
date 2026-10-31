@@ -5,13 +5,8 @@ import { useRouter } from "next/navigation"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Check, Loader2, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/cn"
 import { seriesFormSchema, type SeriesFormValues } from "@/lib/series/schema"
 import { generateSeriesSlug } from "@/lib/series/slug"
 import {
@@ -19,6 +14,9 @@ import {
   updateSeriesAction,
   checkSlugAvailableAction,
 } from "@/app/orgs/[orgId]/series/actions"
+import { Button } from "@/components/quiet/ui/button";
+import { Input, Label, Textarea } from "@/components/quiet/ui/form";
+import { Select, SelectOption } from "@/components/quiet/ui/select";
 
 const WEEK_DAYS: Array<{ key: "MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU"; label: string }> = [
   { key: "MO", label: "Mon" },
@@ -138,7 +136,7 @@ export function SeriesForm({ orgId, initial, mode }: SeriesFormProps) {
       <div className="space-y-2">
         <Label htmlFor="title">Title</Label>
         <Input id="title" {...register("title")} placeholder="Summer Sessions 2026" />
-        {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
+        {errors.title && <p className="text-xs text-danger">{errors.title.message}</p>}
       </div>
 
       <div className="space-y-2">
@@ -155,16 +153,16 @@ export function SeriesForm({ orgId, initial, mode }: SeriesFormProps) {
             className="pr-9"
           />
           <div className="absolute right-2 top-1/2 -translate-y-1/2">
-            {slugStatus === "checking" && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+            {slugStatus === "checking" && <Loader2 className="h-4 w-4 animate-spin text-ink-3" />}
             {slugStatus === "available" && <Check className="h-4 w-4 text-green-600" />}
-            {slugStatus === "taken" && <X className="h-4 w-4 text-destructive" />}
+            {slugStatus === "taken" && <X className="h-4 w-4 text-danger" />}
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-ink-3">
           Public URL: /series/{slug || "your-slug"}
-          {slugStatus === "taken" && <span className="ml-2 text-destructive">Already taken</span>}
+          {slugStatus === "taken" && <span className="ml-2 text-danger">Already taken</span>}
         </p>
-        {errors.slug && <p className="text-xs text-destructive">{errors.slug.message}</p>}
+        {errors.slug && <p className="text-xs text-danger">{errors.slug.message}</p>}
       </div>
 
       <div className="space-y-2">
@@ -187,11 +185,11 @@ export function SeriesForm({ orgId, initial, mode }: SeriesFormProps) {
                     onClick={() => field.onChange(opt.key)}
                     className={cn(
                       "rounded-xl border p-3 text-left transition-colors",
-                      active ? "border-primary bg-primary/5" : "border-border/50 hover:bg-accent/50",
+                      active ? "border-accent bg-accent/5" : "border-line hover:bg-surface-2",
                     )}
                   >
                     <p className="text-sm font-semibold">{opt.title}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{opt.desc}</p>
+                    <p className="mt-0.5 text-xs text-ink-3">{opt.desc}</p>
                   </button>
                 )
               })}
@@ -214,7 +212,7 @@ export function SeriesForm({ orgId, initial, mode }: SeriesFormProps) {
         <Label htmlFor="cover_image_url">Cover image URL</Label>
         <Input id="cover_image_url" type="url" {...register("cover_image_url")} placeholder="https://…" />
         {errors.cover_image_url && (
-          <p className="text-xs text-destructive">{errors.cover_image_url.message}</p>
+          <p className="text-xs text-danger">{errors.cover_image_url.message}</p>
         )}
       </div>
 
@@ -226,7 +224,7 @@ export function SeriesForm({ orgId, initial, mode }: SeriesFormProps) {
         <div className="space-y-2">
           <Label htmlFor="ends_on">Ends on (optional)</Label>
           <Input id="ends_on" type="date" {...register("ends_on")} />
-          {errors.ends_on && <p className="text-xs text-destructive">{errors.ends_on.message}</p>}
+          {errors.ends_on && <p className="text-xs text-danger">{errors.ends_on.message}</p>}
         </div>
       </div>
 
@@ -240,7 +238,7 @@ export function SeriesForm({ orgId, initial, mode }: SeriesFormProps) {
               | { freq: "monthly"; bymonthday?: number; time?: string }
               | { freq: "daily"; time?: string }
             return (
-              <div className="space-y-4 rounded-xl border border-border/50 bg-card/40 p-4">
+              <div className="space-y-4 rounded-xl border border-line bg-surface/40 p-4">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Frequency</Label>
@@ -252,14 +250,9 @@ export function SeriesForm({ orgId, initial, mode }: SeriesFormProps) {
                         else field.onChange({ freq: "daily", time: pattern.time ?? "20:00" })
                       }}
                     >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                        <SelectItem value="daily">Daily</SelectItem>
-                      </SelectContent>
+                      <SelectOption value="weekly">Weekly</SelectOption>
+                      <SelectOption value="monthly">Monthly</SelectOption>
+                      <SelectOption value="daily">Daily</SelectOption>
                     </Select>
                   </div>
                   <div className="space-y-2">
@@ -292,8 +285,8 @@ export function SeriesForm({ orgId, initial, mode }: SeriesFormProps) {
                             className={cn(
                               "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                               checked
-                                ? "border-primary bg-primary text-primary-foreground"
-                                : "border-border/50 hover:bg-accent/50",
+                                ? "border-accent bg-accent text-white"
+                                : "border-line hover:bg-surface-2",
                             )}
                           >
                             {d.label}
@@ -326,7 +319,7 @@ export function SeriesForm({ orgId, initial, mode }: SeriesFormProps) {
       )}
 
       <div className="flex items-center gap-3">
-        <Button type="submit" disabled={isPending || slugStatus === "taken"}>
+        <Button variant="accent" type="submit" disabled={isPending || slugStatus === "taken"}>
           {isPending ? "Saving…" : mode === "create" ? "Create series" : "Save changes"}
         </Button>
         <Button type="button" variant="outline" onClick={() => router.back()} disabled={isPending}>

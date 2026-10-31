@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
 import { cn } from "@/lib/cn";
 
 type Variant = "default" | "primary" | "accent" | "ghost" | "outline";
@@ -9,6 +10,8 @@ interface ButtonProps
   variant?: Variant;
   size?: Size;
   block?: boolean;
+  /** Render the child element (e.g. a Link) with button styling. */
+  asChild?: boolean;
 }
 
 const base =
@@ -36,10 +39,12 @@ const sizes: Record<Size, string> = {
 };
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = "default", size = "md", block, type = "button", ...props }, ref) => (
-    <button
+  ({ className, variant = "default", size = "md", block, asChild, type = "button", ...props }, ref) => {
+    const Comp = asChild ? Slot : "button";
+    return (
+    <Comp
       ref={ref}
-      type={type}
+      type={asChild ? undefined : type}
       className={cn(
         base,
         variants[variant],
@@ -49,6 +54,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       )}
       {...props}
     />
-  )
+    );
+  }
 );
 Button.displayName = "Button";
