@@ -115,13 +115,8 @@ export function mapEventDetail(row: EventPublicView, input: MapInput = {}): Mobi
     },
     goingFriends: mapFriends(input.friends),
     currency: asCurrency(row.currency),
-    fromPriceMinor: row.min_price_cents ?? null,
-    ticketTypes: (input.ticketTypes ?? []).map((t) => ({
-      id: t.id,
-      name: t.name,
-      priceMinor: t.price_cents,
-      remaining: t.quota,
-    })),
+    fromPriceMinor: fromPriceFor(input.ticketTypes, row.min_price_cents ?? null),
+    ticketTypes: (input.ticketTypes ?? []).map(mapTicketType),
     attendeeCount: input.attendeeCount ?? null,
     soldCount: input.soldCount ?? null,
     recentSoldCount: input.recentSoldCount ?? null,
@@ -143,6 +138,24 @@ interface TicketTypeRow {
   name: string;
   price_cents: number;
   quota: number | null;
+  /** Live stock from fn_ticket_type_remaining; falls back to quota. */
+  remaining?: number | null;
+}
+
+function mapTicketType(t: TicketTypeRow) {
+  return {
+    id: t.id,
+    name: t.name,
+    priceMinor: t.price_cents,
+    remaining: t.remaining !== undefined ? t.remaining : t.quota,
+  };
+}
+
+/** "From" = cheapest type still available; the view's min price otherwise. */
+function fromPriceFor(types: TicketTypeRow[] | undefined, fallback: number | null): number | null {
+  const available = (types ?? []).filter((t) => mapTicketType(t).remaining !== 0);
+  if (available.length === 0) return fallback;
+  return Math.min(...available.map((t) => t.price_cents));
 }
 
 export function mapDesktopEventDetail(
@@ -155,14 +168,10 @@ export function mapDesktopEventDetail(
     ...base,
     // When the picker is empty, suppress the headline price so the panel
     // renders the "not yet on sale" state instead of "From Free".
-    fromPriceMinor: ticketTypes.length === 0 ? null : base.fromPriceMinor,
+    fromPriceMinor:
+      ticketTypes.length === 0 ? null : fromPriceFor(ticketTypes, base.fromPriceMinor),
     longDescription: row.description ?? "",
     amenities: [],
-    ticketTypes: ticketTypes.map((t) => ({
-      id: t.id,
-      name: t.name,
-      priceMinor: t.price_cents,
-      remaining: t.quota,
-    })),
+    ticketTypes: ticketTypes.map(mapTicketType),
   };
 }

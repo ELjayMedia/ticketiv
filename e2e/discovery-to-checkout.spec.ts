@@ -79,50 +79,61 @@ test.describe("seeded guest checkout → hosted payment handoff", () => {
     await page.goto(`/events/${encodeURIComponent(eventSlug)}`)
     await expect(page.locator("h1").first()).toHaveText(/\S/)
 
-    const checkoutCta = page.getByRole("button", { name: /continue|get tickets/i }).last()
-    await expect(checkoutCta).toBeEnabled()
-    await checkoutCta.click()
-    await page.waitForURL(/\/events\/[^/]+\/checkout/)
+    // Get tickets opens the ticket picker (Eventbrite-style). A lone on-sale
+    // type is preselected; otherwise add one ticket of the first available type.
+    const getTickets = page.getByRole("button", { name: /get tickets/i }).last()
+    await expect(getTickets).toBeEnabled()
+    await getTickets.click()
+    const picker = page.getByRole("dialog")
+    await expect(picker).toBeVisible()
+    const pickerCheckout = picker.getByRole("button", { name: /check out|select tickets/i })
+    await expect(pickerCheckout).toBeVisible({ timeout: 15_000 })
+    if (/select tickets/i.test((await pickerCheckout.textContent()) ?? "")) {
+      await picker.getByRole("button", { name: "Increase" }).and(picker.locator(":enabled")).first().click()
+    }
+    await expect(picker.getByRole("button", { name: /check out/i })).toBeEnabled()
+    await picker.getByRole("button", { name: /check out/i }).click()
 
+    // A failed hold returns to the picker (?hold_failed=1) instead of checkout,
+    // so waiting for /checkout also proves the hold was created.
+    await page.waitForURL(/\/events\/[^/]+(\/checkout|\?.*hold_failed=1)/)
     const checkoutUrl = new URL(page.url())
     expect(checkoutUrl.searchParams.get("hold_failed"), "seat-hold creation must not fail").not.toBe("1")
+    expect(checkoutUrl.pathname, "picker must hand off to checkout").toMatch(/\/checkout$/)
     expect(checkoutUrl.searchParams.get("hold"), "checkout must carry an active seat hold").toBeTruthy()
+    expect(checkoutUrl.searchParams.get("items"), "checkout must carry the picked cart").toBeTruthy()
 
     // Mobile and desktop checkout trees are both mounted, with CSS hiding one.
-    // Fill the visible buyer fields with user-like interactions, then assert the
-    // gates that actually control the payment CTA before crossing the provider boundary.
-    const buyerNameField = page.locator('input[placeholder="Your full name"]:visible').first()
-    await expect(buyerNameField).toBeVisible()
-    await buyerNameField.click()
-    await buyerNameField.pressSequentially("UAT Buyer")
-    await expect(buyerNameField).toHaveValue("UAT Buyer")
+    // Fill the visible guest contact fields with user-like interactions, then
+    // assert the gates that control the payment CTA before crossing the
+    // provider boundary.
+    async function typeInto(selector: string, value: string) {
+      const field = page.locator(`${selector}:visible`).first()
+      await expect(field).toBeVisible()
+      await field.click()
+      await field.fill("")
+      await field.pressSequentially(value)
+      await expect(field).toHaveValue(value)
+      return field
+    }
+    await typeInto('input[id$="-contact-firstName"]', "UAT")
+    await typeInto('input[id$="-contact-lastName"]', "Buyer")
+    const buyerEmailField = await typeInto('input[id$="-contact-email"]', buyerEmail)
+    await typeInto('input[id$="-contact-confirmEmail"]', buyerEmail)
 
-    const buyerEmailField = page.locator('input[type="email"]:visible').first()
-    await expect(buyerEmailField).toBeVisible()
-    await buyerEmailField.click()
-    await buyerEmailField.fill("")
-    await buyerEmailField.pressSequentially(buyerEmail)
-    await expect(buyerEmailField).toHaveValue(buyerEmail)
-
-    const buyerPhoneField = page.locator('input[type="tel"]:visible').first()
-    await expect(buyerPhoneField).toBeVisible()
-    await buyerPhoneField.click()
-    await buyerPhoneField.pressSequentially("76123456")
-    await expect(buyerPhoneField).not.toHaveValue("")
-
-    const policyCheckbox = page.locator("#desktop-policy-acceptance")
+    const policyCheckbox = page.locator('input[id$="-policy-acceptance"]:visible').first()
     await expect(policyCheckbox).toBeVisible()
     await policyCheckbox.click()
     await expect(policyCheckbox).toBeChecked()
 
-    // The checkout component enables payment when React has buyer email,
-    // an active hold and accepted policy. These assertions make CI failures
-    // diagnostic rather than hiding a hydration/state regression.
     await expect(buyerEmailField, "buyer email must remain populated in the controlled checkout form").toHaveValue(buyerEmail)
     await expect(policyCheckbox, "refund/terms acceptance must remain checked").toBeChecked()
-    await expect(page.getByText(/your seats are held for/i), "seat hold must remain active before payment").toBeVisible()
+    await expect(
+      page.getByText(/(tickets are held|holds) for/i).locator("visible=true").first(),
+      "seat hold must remain active before payment",
+    ).toBeVisible()
 
-    const paymentCta = page.getByRole("button", { name: /continue to payment/i })
+    const paymentCta = page.getByRole("button", { name: /^pay /i })
     await expect(paymentCta).toBeEnabled({ timeout: 10_000 })
     await paymentCta.click()
 

@@ -123,8 +123,6 @@ export default function PreviewIndexPage() {
                 eventWhenLabel="Wed 30 Aug · 15:50"
                 lines={PREVIEW_CART}
                 editTicketsHref="/events/tribal-tales?tickets=1"
-                bookingFeeMinor={10000}
-                vatRate={0.15}
               />
             </BrowserShell>
           </PreviewArtboard>

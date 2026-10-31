@@ -9,20 +9,19 @@ import { RadioCard } from "@/components/quiet/ui/form";
 import { Modal, ModalContent, ModalFooter } from "@/components/quiet/ui/modal";
 import { useRouter } from "next/navigation";
 import { formatPrice, formatHoldTimer } from "@/lib/format";
-import type { Currency } from "@/lib/format";
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
-import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/actions";
-import { describePromoFailure } from "@/lib/checkout/promo-copy";
-import { PromoCodeInput, type PromoResult } from "@/components/quiet/screens/checkout/promo-code-input";
-import { trackBuyerFunnel } from "@/components/analytics/buyer-funnel";
-import { cartSubtotalMinor, type CheckoutCartLine } from "@/lib/checkout/pricing";
+import { PromoCodeInput } from "@/components/quiet/screens/checkout/promo-code-input";
+import { ContactSection } from "@/components/quiet/screens/checkout/contact-section";
+import { useCheckout } from "@/components/quiet/screens/checkout/use-checkout";
+import type { CheckoutCartLine } from "@/lib/checkout/pricing";
 
 /* ──────────────────────────────────────────────────────────────
  * Mobile checkout · `/events/[id]/checkout` on phones.
  *
- * Single page (no multi-step), single-column. Top hold-timer
- * decrements client-side; on expiry the Phase 2 wiring will
- * release the cart via /api/checkout/release.
+ * Single column, Eventbrite-style: tickets (chosen in the picker,
+ * editable), contact information (guest-friendly, optional log in),
+ * promo, payment, then a sticky Pay / Register bar. The hold timer
+ * decrements client-side and returns to the event page on expiry.
  *
  * "use client" because of the timer + state — the data fetch
  * is done by the parent server component and passed in.
@@ -48,18 +47,14 @@ export interface MobileCheckoutProps {
     sub: string;
     type: "card" | "mobile_money" | "ewallet";
   }>;
-  /** Promo banner pre-applied (e.g. WELCOME10). */
-  appliedPromo?: { code: string; description: string; savedMinor: number };
-  /** Fixed booking fee in minor units */
-  bookingFeeMinor?: number;
-  vatRate?: number;
-  /** Buyer's email; prefilled for signed-in users, empty for guests. */
+  /** No session, or an anonymous guest session from an earlier visit. */
+  isGuest?: boolean;
+  /** Log in and come straight back to this checkout. */
+  loginHref?: string;
   defaultBuyerEmail?: string;
-  /** Signed-in buyer profile defaults. */
-  defaultBuyerName?: string;
-  defaultBuyerPhone?: string;
+  defaultBuyerFirstName?: string;
+  defaultBuyerLastName?: string;
 }
-
 
 export function MobileCheckout({
   eventId,
@@ -72,12 +67,11 @@ export function MobileCheckout({
   lines,
   editTicketsHref,
   paymentMethods = [],
-  appliedPromo,
-  bookingFeeMinor = 10000,
-  vatRate = 0.15,
+  isGuest = true,
+  loginHref = "/login",
   defaultBuyerEmail = "",
-  defaultBuyerName = "",
-  defaultBuyerPhone = "",
+  defaultBuyerFirstName = "",
+  defaultBuyerLastName = "",
 }: MobileCheckoutProps) {
   const router = useRouter();
   const { stats: liveStats } = useEventLiveStats(eventId);
@@ -90,103 +84,22 @@ export function MobileCheckout({
     lastStatsAtRef.current = liveStats.updated_at ?? null;
   }, [liveStats?.updated_at, router]);
 
+  const checkout = useCheckout({
+    eventId,
+    eventUuid,
+    lines,
+    isGuest,
+    defaultContact: {
+      firstName: defaultBuyerFirstName,
+      lastName: defaultBuyerLastName,
+      email: defaultBuyerEmail,
+    },
+    surface: "mobile_checkout",
+  });
+  const { currency, subtotal, discount, total, isFree, submitting } = checkout;
   const [paymentId, setPaymentId] = React.useState(paymentMethods[0]?.id);
   const [holdRemaining, setHoldRemaining] = React.useState(holdSeconds);
-  const [activePromo, setActivePromo] = React.useState(appliedPromo ?? null);
-  const [accepted, setAccepted] = React.useState(false);
   const [guaranteeOpen, setGuaranteeOpen] = React.useState(false);
-  const [submitting, setSubmitting] = React.useState(false);
-  const [submitError, setSubmitError] = React.useState<string | null>(null);
-  const [buyerEmail, setBuyerEmail] = React.useState(defaultBuyerEmail);
-  const [promoInput, setPromoInput] = React.useState("");
-  const [promoFeedback, setPromoFeedback] = React.useState<
-    { ok: true; label: string; savedMinor: number } | { ok: false; message: string } | null
-  >(null);
-  const [isApplyingPromo, setIsApplyingPromo] = React.useState(false);
-  const [validatedPromo, setValidatedPromo] = React.useState<PromoResult | null>(null);
-  const [attendeeName, setAttendeeName] = React.useState(defaultBuyerName);
-  const [attendeePhone, setAttendeePhone] = React.useState(defaultBuyerPhone);
-  const items = lines.map((l) => ({ ticketTypeId: l.ticketTypeId, quantity: l.quantity }));
-  const totalQuantity = items.reduce((sum, l) => sum + l.quantity, 0);
-  const singleTicketTypeId = lines.length === 1 ? lines[0].ticketTypeId : null;
-
-  async function handleApplyPromo() {
-    const code = promoInput.trim().toUpperCase();
-    if (!code) return;
-    if (!buyerEmail.trim()) {
-      setPromoFeedback({ ok: false, message: "Enter your email to apply a promo code." });
-      return;
-    }
-    setIsApplyingPromo(true);
-    setPromoFeedback(null);
-    try {
-      const result = await startCheckoutAction({
-        eventId: eventUuid,
-        buyerEmail: buyerEmail.trim(),
-        items,
-        promoCode: code,
-      });
-      if (!result.ok) {
-        setPromoFeedback({ ok: false, message: result.error });
-      } else if (result.promo && !result.promo.applied) {
-        setPromoFeedback({ ok: false, message: describePromoFailure(result.promo.reason) });
-      } else {
-        setPromoFeedback({ ok: true, label: code, savedMinor: result.promo?.adjustmentCents ?? 0 });
-      }
-    } finally {
-      setIsApplyingPromo(false);
-    }
-  }
-
-  async function handlePay() {
-    setSubmitError(null);
-    setSubmitting(true);
-    const result = await startCheckoutAction({
-      eventId: eventUuid,
-      buyerEmail: buyerEmail.trim(),
-      items,
-      promoCode: promoInput.trim() || null,
-    });
-    if (!result.ok) {
-      setSubmitError(result.error);
-      trackBuyerFunnel("checkout_error", {
-        event_id: eventUuid,
-        event_slug: eventId,
-        reason: result.error,
-        surface: "mobile_checkout",
-      });
-      setSubmitting(false);
-      return;
-    }
-    // Surface promo-apply failure but proceed — the order itself was created.
-    // Buyer can choose not to follow the Paystack redirect and retry.
-    if (result.promo && !result.promo.applied) {
-      setPromoFeedback({ ok: false, message: describePromoFailure(result.promo.reason) });
-      trackBuyerFunnel("checkout_error", {
-        event_id: eventUuid,
-        event_slug: eventId,
-        reason: `promo_${result.promo.reason}`,
-        surface: "mobile_checkout",
-      });
-      setSubmitting(false);
-      return;
-    }
-    trackBuyerFunnel("payment_redirect", {
-      event_id: eventUuid,
-      event_slug: eventId,
-      ticket_type_id: singleTicketTypeId,
-      quantity: totalQuantity,
-      line_count: lines.length,
-      total_minor: total,
-      provider: result.checkoutUrl ? "paystack" : "internal",
-      surface: "mobile_checkout",
-    });
-    if (result.checkoutUrl) {
-      window.location.assign(result.checkoutUrl);
-    } else {
-      router.push(`/orders/${result.orderId}/confirmation`);
-    }
-  }
 
   // TICK-200: when the hold expires (holdRemaining hits 0), redirect to
   // the event page with a banner so the buyer can request a new hold.
@@ -209,17 +122,9 @@ export function MobileCheckout({
     return () => clearInterval(i);
   }, [holdRemaining]);
 
-  const currency = lines[0]?.currency ?? "SZL";
-  const subtotal = cartSubtotalMinor(lines);
-  const fee = bookingFeeMinor;
-  const vat = Math.round(subtotal * vatRate);
-  const discount = activePromo?.savedMinor ?? 0;
-  const promoDiscount = validatedPromo
-    ? validatedPromo.discountType === "percent"
-      ? Math.round(subtotal * validatedPromo.discountValue / 100)
-      : validatedPromo.discountValue
-    : 0;
-  const total = subtotal + fee + vat - discount - promoDiscount;
+  const ctaLabel = submitting
+    ? isFree ? "Registering…" : "Starting payment…"
+    : isFree ? "Register" : `Pay ${formatPrice(total, currency)}`;
 
   return (
     <div className="flex h-full flex-col bg-bg">
@@ -236,7 +141,7 @@ export function MobileCheckout({
             <Icon name="close" size={22} />
           </Link>
           <div className="flex flex-1 flex-col leading-tight">
-            <span className="text-[15px] font-semibold">Checkout</span>
+            <span className="text-[15px] font-semibold">{isFree ? "Register" : "Checkout"}</span>
             <HoldTimerLabel remaining={holdRemaining} />
           </div>
           <Link
@@ -261,11 +166,10 @@ export function MobileCheckout({
               {eventWhenLabel} · {eventVenue}
             </span>
           </div>
-          <Icon name="chevR" size={16} className="text-white/50" />
         </div>
 
         {/* Your tickets — chosen in the picker; edit goes back there. */}
-        <section className="px-5 pb-4">
+        <section className="px-5 pb-5">
           <div className="mb-2 flex items-center">
             <span className="text-label flex-1">Your tickets</span>
             <Link href={editTicketsHref} className="text-[12px] font-semibold text-accent">
@@ -283,167 +187,50 @@ export function MobileCheckout({
           </Card>
         </section>
 
-        {/* Attendee details */}
-        <section className="px-5 pb-4">
-          <div className="text-label mb-2">Attendee details</div>
-          <div className="flex flex-col gap-2">
-            <input
-              type="text"
-              autoComplete="name"
-              value={attendeeName}
-              onChange={(e) => setAttendeeName(e.target.value)}
-              placeholder="Full name"
-              className="h-10 w-full rounded-[var(--radius-md)] border border-line bg-surface px-3 text-[14px] placeholder:text-ink-3 focus:border-accent focus:outline-none"
-              disabled={submitting}
-            />
-            <input
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              value={attendeePhone}
-              onChange={(e) => setAttendeePhone(e.target.value)}
-              placeholder="Phone number (optional)"
-              className="h-10 w-full rounded-[var(--radius-md)] border border-line bg-surface px-3 text-[14px] placeholder:text-ink-3 focus:border-accent focus:outline-none"
-              disabled={submitting}
-            />
-          </div>
-        </section>
-
-        {/* Promo */}
-        {activePromo && (
-          <section className="px-5 pb-4">
-            <Card
-              className="flex items-center gap-2.5 border-[color:var(--color-accent-soft)] bg-[#fbf7ff] px-3 py-2.5"
-              flat
-            >
-              <div className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-accent text-[14px] font-bold text-white">
-                %
-              </div>
-              <div className="flex flex-1 flex-col">
-                <span className="text-[13px] font-semibold">
-                  {activePromo.code} applied
-                </span>
-                <span className="font-mono text-[11px] text-ink-3">
-                  {activePromo.description} · saved{" "}
-                  {formatPrice(activePromo.savedMinor, currency)}
-                </span>
-              </div>
-              <button
-                type="button"
-                className="text-[12px] font-semibold text-accent"
-                onClick={() => {
-                  setActivePromo(null);
-                  setPromoInput("");
-                }}
-              >
-                Remove
-              </button>
-            </Card>
-          </section>
-        )}
-
-        {/* Promo code entry */}
-        <section className="px-5 pb-4">
-          <label htmlFor="promo-code" className="text-label mb-1.5 block">
-            Promo code
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-              id="promo-code"
-              type="text"
-              autoCapitalize="characters"
-              inputMode="text"
-              value={promoInput}
-              onChange={(event) => {
-                setPromoInput(event.target.value);
-                if (promoFeedback) setPromoFeedback(null);
-              }}
-              placeholder="Add a code"
-              className="h-9 flex-1 rounded-[var(--radius-md)] border border-line bg-surface px-3 font-mono text-[13px] uppercase tracking-wide placeholder:normal-case placeholder:text-ink-3 focus:border-accent focus:outline-none"
-              disabled={submitting || isApplyingPromo || promoFeedback?.ok === true}
-            />
-            <button
-              type="button"
-              onClick={handleApplyPromo}
-              disabled={!promoInput.trim() || submitting || isApplyingPromo || promoFeedback?.ok === true}
-              className="h-9 shrink-0 rounded-[var(--radius-md)] border border-line-2 bg-surface px-3 font-mono text-[12px] font-semibold text-ink disabled:opacity-40"
-            >
-              {isApplyingPromo ? "Applying…" : "Apply"}
-            </button>
-          </div>
-          {promoFeedback?.ok === true && (
-            <div className="mt-1.5 flex items-center gap-1.5">
-              <p className="flex-1 text-[12px] text-accent">
-                {promoFeedback.label} — verified at checkout
-              </p>
-              <button
-                type="button"
-                onClick={() => { setPromoFeedback(null); setPromoInput(""); }}
-                className="text-[11px] text-ink-3 hover:text-ink"
-              >
-                Remove
-              </button>
-            </div>
-          )}
-          {promoFeedback?.ok === false && (
-            <p role="alert" className="mt-1.5 text-[12px] text-danger">
-              {promoFeedback.message}
-            </p>
-          )}
-          <div className="mt-3">
-            <PromoCodeInput
-              eventId={eventUuid}
-              onApply={(result) => {
-                setValidatedPromo(result);
-                if (result) setPromoInput(result.promoId);
-              }}
-            />
-          </div>
-        </section>
-
-        {/* Buyer email — required so the ticket can be delivered. Prefilled
-            for signed-in buyers, collected from guests. */}
-        <section className="px-5 pb-4">
-          <label htmlFor="buyer-email" className="text-label mb-2 block">Send ticket to</label>
-          <input
-            id="buyer-email"
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            value={buyerEmail}
-            onChange={(e) => setBuyerEmail(e.target.value)}
-            placeholder="you@example.com"
-            className="h-10 w-full rounded-[var(--radius-md)] border border-line bg-surface px-3 text-[14px] placeholder:text-ink-3 focus:border-accent focus:outline-none"
+        {/* Contact information */}
+        <section className="px-5 pb-5">
+          <h2 className="mb-3 text-[16px] font-semibold tracking-[-0.01em]">Contact information</h2>
+          <ContactSection
+            idPrefix="m-contact"
+            values={checkout.contact}
+            onChange={checkout.setContact}
+            isGuest={isGuest}
+            loginHref={loginHref}
             disabled={submitting}
+            showErrors={checkout.showErrors}
           />
         </section>
 
+        {/* Promo */}
+        {!isFree && (
+          <section className="px-5 pb-5">
+            <PromoCodeInput eventId={eventUuid} onApply={checkout.setPromo} />
+            {checkout.promoError && (
+              <p role="alert" className="mt-1.5 text-[12px] text-danger">{checkout.promoError}</p>
+            )}
+          </section>
+        )}
+
         {/* Payment */}
-        <section className="px-5 pb-4">
-          <div className="text-label mb-2">Pay with</div>
-          <div className="flex flex-col gap-1.5">
-            {paymentMethods.map((p) => (
-              <RadioCard
-                key={p.id}
-                name="payment"
-                value={p.id}
-                selected={paymentId === p.id}
-                onChange={setPaymentId}
-                leading={<PaymentBadge type={p.type} />}
-                title={p.label}
-                subtitle={p.sub}
-              />
-            ))}
-            <button
-              onClick={() => router.push("/profile")}
-              className="flex items-center gap-3 rounded-[var(--radius-md)] border border-line p-3 text-[13px] text-ink-3 hover:border-line-2"
-            >
-              <span className="inline-block h-[18px] w-[18px] rounded-full border-2 border-line-2" />
-              <Icon name="plus" size={20} />
-              <span>Add new payment method</span>
-            </button>
-          </div>
-        </section>
+        {!isFree && (
+          <section className="px-5 pb-5">
+            <div className="text-label mb-2">Pay with</div>
+            <div className="flex flex-col gap-1.5">
+              {paymentMethods.map((p) => (
+                <RadioCard
+                  key={p.id}
+                  name="payment"
+                  value={p.id}
+                  selected={paymentId === p.id}
+                  onChange={setPaymentId}
+                  leading={<PaymentBadge type={p.type} />}
+                  title={p.label}
+                  subtitle={p.sub}
+                />
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Summary */}
         <section className="px-5 pb-4">
@@ -455,19 +242,10 @@ export function MobileCheckout({
                 value={formatPrice(l.priceMinor * l.quantity, l.currency)}
               />
             ))}
-            <SummaryRow label="Booking fee" value={formatPrice(fee, currency)} />
-            <SummaryRow label={`VAT ${Math.round(vatRate * 100)}%`} value={formatPrice(vat, currency)} />
-            {activePromo && (
+            {discount > 0 && checkout.promo && (
               <SummaryRow
-                label={activePromo.code}
+                label={`Promo ${checkout.promo.code}`}
                 value={`−${formatPrice(discount, currency)}`}
-                accent
-              />
-            )}
-            {validatedPromo && promoDiscount > 0 && (
-              <SummaryRow
-                label="Promo"
-                value={`−${formatPrice(promoDiscount, currency)}`}
                 accent
               />
             )}
@@ -486,12 +264,12 @@ export function MobileCheckout({
           <Card className="bg-bg p-3.5" flat>
             <div className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold">
               <Icon name="check" size={14} className="text-success" />
-              Secure checkout
+              {isFree ? "Free registration" : "Secure checkout"}
             </div>
             <ul className="flex flex-col gap-1 font-mono text-[11px] text-ink-3">
-              <li>Encrypted payment · cards & mobile money</li>
+              {!isFree && <li>Encrypted payment · cards & mobile money</li>}
+              <li>Tickets emailed to you · no account needed</li>
               <li>Refund window per organizer policy</li>
-              <li>Free transfer to friends, anytime before doors</li>
             </ul>
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
               <button
@@ -518,8 +296,8 @@ export function MobileCheckout({
           <input
             id="mobile-policy-acceptance"
             type="checkbox"
-            checked={accepted}
-            onChange={(e) => setAccepted(e.target.checked)}
+            checked={checkout.accepted}
+            onChange={(e) => checkout.setAccepted(e.target.checked)}
             className="mt-0.5 accent-accent"
           />
           <span>
@@ -537,7 +315,15 @@ export function MobileCheckout({
         <div className="h-20" />
       </div>
 
-      {/* Sticky pay */}
+      {checkout.submitError && (
+        <div
+          role="alert"
+          className="border-t border-danger/40 bg-danger-soft px-5 py-2 text-[12px] text-danger"
+        >
+          {checkout.submitError}
+        </div>
+      )}
+      {/* Sticky pay / register */}
       <div className="sticky bottom-0 flex items-center gap-3 border-t border-line bg-surface px-5 py-3.5 pb-7">
         <div className="flex flex-col">
           <span className="text-label">Total</span>
@@ -547,22 +333,14 @@ export function MobileCheckout({
         </div>
         <button
           type="button"
-          onClick={handlePay}
-          disabled={!accepted || holdRemaining <= 0 || submitting || !buyerEmail.trim() || lines.length === 0}
+          onClick={checkout.submit}
+          disabled={holdRemaining <= 0 || submitting || lines.length === 0}
           className="flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {submitting ? "Starting payment…" : `Pay ${formatPrice(total, currency)}`}
+          {ctaLabel}
           {!submitting && <Icon name="arrowR" size={16} />}
         </button>
       </div>
-      {submitError && (
-        <div
-          role="alert"
-          className="border-t border-danger/40 bg-danger/5 px-5 py-2 text-[12px] text-danger"
-        >
-          {submitError}
-        </div>
-      )}
     </div>
   );
 }
