@@ -5,26 +5,66 @@ import { ensureCheckoutIdentity } from "@/lib/auth/checkout-identity"
 import { getPublicEventBySlug } from "@/lib/adapters/events"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { deriveEventLifecycle } from "@/lib/events/lifecycle"
+import { loadCheckoutAvailability } from "@/lib/checkout/availability"
+import { cartQuantity, clampCart, parseCartParam, serializeCart } from "@/lib/checkout/cart"
+import {
+  mapCheckoutTicketType,
+  type CheckoutPricingPlan,
+  type CheckoutTicketTypeProp,
+} from "@/lib/mappers/checkout"
 
 function redirectToLogin(eventSlug: string): never {
   const from = `/events/${encodeURIComponent(eventSlug)}`
   redirect(`/login?from=${encodeURIComponent(from)}`)
 }
 
+export interface TicketPickerData {
+  ticketTypes: CheckoutTicketTypeProp[]
+  plan: CheckoutPricingPlan | null
+}
+
+/**
+ * Fresh availability for the ticket picker. Called when the picker opens so
+ * remaining stock and limits are live rather than the event page's ISR copy.
+ */
+export async function loadTicketPickerAction(eventSlug: string): Promise<TicketPickerData | null> {
+  const event = await getPublicEventBySlug(eventSlug)
+  if (!event?.id) return null
+  const { ticketTypes, plan } = await loadCheckoutAvailability(event.id)
+  return { ticketTypes: ticketTypes.map(mapCheckoutTicketType), plan }
+}
+
+function pickerUrl(eventSlug: string, cart: string, flag?: string): string {
+  const params = new URLSearchParams({ tickets: "1" })
+  if (cart) params.set("items", cart)
+  if (flag) params.set(flag, "1")
+  return `/events/${eventSlug}?${params.toString()}`
+}
+
+/**
+ * Ticket picker "Check out": validate the cart against live availability,
+ * create one seat hold for its total quantity, and open checkout carrying
+ * the cart in `items`. Guests get an anonymous checkout identity — signing
+ * in is never required to buy.
+ *
+ * seat_holds is a checkout countdown, not an inventory reservation (stock is
+ * reserved by the pending order's items), so one hold covers a cart spanning
+ * several ticket types. ticket_type_id is only set for single-type carts.
+ */
 export async function createSeatHoldAction(formData: FormData) {
   const eventSlug = (formData.get("eventSlug") as string | null)?.trim()
-  const quantity = Math.max(1, Number(formData.get("quantity") ?? 1))
-  const ticketTypeId = (formData.get("ticketTypeId") as string | null)?.trim() || null
-
   if (!eventSlug) notFound()
+
+  // Legacy single-type form (ticketTypeId + quantity) still maps to a cart.
+  const legacyTypeId = (formData.get("ticketTypeId") as string | null)?.trim()
+  const requested = parseCartParam(
+    (formData.get("items") as string | null) ??
+      (legacyTypeId ? `${legacyTypeId}:${Math.max(1, Number(formData.get("quantity") ?? 1))}` : null),
+  )
 
   // Resolve slug → UUID using the same adapter the event detail page uses,
   // so we get consistent view-based access (v_event_public) regardless of
   // the caller's auth state.
-  //
-  // Do not redirect to /browse on failure here. This flow is already scoped
-  // to a specific event and falling back to discovery hides the actual error
-  // state from buyers and makes checkout debugging difficult.
   const event = await getPublicEventBySlug(eventSlug)
   if (!event?.id) notFound()
 
@@ -37,6 +77,11 @@ export async function createSeatHoldAction(formData: FormData) {
     redirect(`/events/${eventSlug}?${lifecycle}=1`)
   }
 
+  const { ticketTypes } = await loadCheckoutAvailability(event.id)
+  const cart = clampCart(requested, ticketTypes.map(mapCheckoutTicketType))
+  if (cart.length === 0) redirect(pickerUrl(eventSlug, serializeCart(requested), "unavailable"))
+  const items = serializeCart(cart)
+
   // The hardened hold RPC requires auth.uid(). Reuse the cookie-backed client
   // that establishes an anonymous checkout identity for signed-out buyers so
   // both guest and signed-in holds retain their buyer attribution.
@@ -48,14 +93,14 @@ export async function createSeatHoldAction(formData: FormData) {
 
   const { data: holdCode, error } = await (supabase.rpc as any)("fn_create_seat_hold", {
     p_event_id: event.id,
-    p_quantity: quantity,
-    p_ticket_type_id: ticketTypeId,
+    p_quantity: cartQuantity(cart),
+    p_ticket_type_id: cart.length === 1 ? cart[0].ticketTypeId : null,
   })
 
   if (error || !holdCode) {
     console.error("[createSeatHold] failed", error)
-    redirect(`/events/${eventSlug}/checkout?hold_failed=1`)
+    redirect(pickerUrl(eventSlug, items, "hold_failed"))
   }
 
-  redirect(`/events/${eventSlug}/checkout?hold=${holdCode}`)
+  redirect(`/events/${eventSlug}/checkout?${new URLSearchParams({ hold: holdCode, items }).toString()}`)
 }

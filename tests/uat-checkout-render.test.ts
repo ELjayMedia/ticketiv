@@ -47,15 +47,16 @@ import { DesktopCheckout } from "@/components/quiet/screens/checkout/desktop-che
 
 // Production-exact composition for the UAT event: one GA type at E150.00,
 // remaining=null (anon 42501 at the time), active hold, guest buyer.
-const ticketTypes = [
+const lines = [
   {
-    id: "00000000-0000-4000-8000-000000000601",
+    ticketTypeId: "00000000-0000-4000-8000-000000000601",
     name: "General Seating",
     priceMinor: 15000,
-    remaining: null,
-    sublabel: undefined,
+    currency: "SZL",
+    quantity: 1,
   },
 ]
+const editTicketsHref = "/events/gathering-of-worshipers-test?tickets=1"
 
 describe("UAT B4 checkout render repro", () => {
   it("renders MobileCheckout without throwing", () => {
@@ -68,11 +69,11 @@ describe("UAT B4 checkout render repro", () => {
         eventWhenLabel: "Sat 7 Feb · 16:00",
         eventVenue: "Somhlolo National Stadium",
         holdSeconds: 518,
-        ticketTypes,
+        lines,
+        editTicketsHref,
         bookingFeeMinor: 0,
         vatRate: 0.15,
         defaultBuyerEmail: "",
-        defaultTicketTypeId: "00000000-0000-4000-8000-000000000601",
       }),
     )
     expect(html.length).toBeGreaterThan(100)
@@ -86,10 +87,8 @@ describe("UAT B4 checkout render repro", () => {
         eventTitle: "Gathering of Worshipers",
         eventPhoto: "/images/dj-set.jpg",
         eventWhenLabel: "Sat 7 Feb · 16:00",
-        ticketTypeId: "00000000-0000-4000-8000-000000000601",
-        ticketTypeName: "General Seating",
-        quantity: 1,
-        subtotalMinor: 15000,
+        lines,
+        editTicketsHref,
         bookingFeeMinor: 0,
         vatRate: 0.15,
         holdSeconds: 518,
