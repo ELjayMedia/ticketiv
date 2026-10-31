@@ -42,7 +42,7 @@ export function FeaturedHero({ events }: { events: ReadonlyArray<DiscoverEvent> 
     <section
       aria-roledescription="carousel"
       aria-label="Featured events"
-      className="relative mb-10 h-[clamp(380px,42vw,540px)] overflow-hidden rounded-[var(--radius-xl)] bg-ink shadow-[var(--shadow-card)]"
+      className="relative mb-10 h-[clamp(285px,31.5vw,405px)] overflow-hidden rounded-[var(--radius-xl)] bg-ink shadow-[var(--shadow-card)]"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocusCapture={() => setPaused(true)}
@@ -85,14 +85,14 @@ export function FeaturedHero({ events }: { events: ReadonlyArray<DiscoverEvent> 
       )}
 
       {/* Copy + CTA */}
-      <div className="absolute bottom-14 left-10 z-[2] flex max-w-[min(640px,60%)] flex-col items-start gap-3">
+      <div className="absolute bottom-11 left-20 z-[2] flex max-w-[min(640px,60%)] flex-col items-start gap-3">
         {current.category && (
           <span className="rounded-full bg-white/90 px-2.5 py-1 font-mono text-[11px] font-semibold uppercase tracking-wider text-accent">
             {current.featuredPriority !== null ? "Featured" : "Coming up"} · {current.category}
           </span>
         )}
         <div className="rounded-[var(--radius-md)] bg-black/55 px-4 py-3 backdrop-blur-sm">
-          <h2 className="text-[clamp(28px,3.2vw,44px)] font-semibold leading-[1.05] tracking-[-0.02em] text-white">
+          <h2 className="text-[clamp(24px,2.6vw,36px)] font-semibold leading-[1.05] tracking-[-0.02em] text-white">
             {current.title}
           </h2>
           <p className="mt-1.5 font-mono text-[12px] uppercase tracking-wider text-white/80">

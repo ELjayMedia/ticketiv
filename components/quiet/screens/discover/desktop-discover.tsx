@@ -11,7 +11,6 @@ import { SuggestedEventsRow } from "@/components/quiet/screens/discover/suggeste
 import { DiscoverFilterChips } from "@/components/quiet/screens/discover/discover-filter-chips";
 import { LoadMoreSection } from "@/components/quiet/screens/discover/load-more-section";
 import { FeaturedHero } from "@/components/quiet/screens/discover/featured-hero";
-import { AnnouncementBar } from "@/components/quiet/screens/discover/announcement-bar";
 import { PHOTOS } from "@/lib/photos";
 import type { DiscoverSection } from "@/lib/data/public/discover-feed";
 import type { DiscoverEvent } from "@/lib/mappers/discover";
@@ -29,14 +28,6 @@ interface DesktopDiscoverProps {
   /** Hero carousel slides (pickFeatured); falls back to the editor's pick. */
   featured?: ReadonlyArray<DiscoverEvent>;
 }
-
-const CATEGORIES = [
-  { icon: "music", label: "Music", href: "/search?category=Music" },
-  { icon: "fire", label: "Comedy", href: "/search?category=Comedy" },
-  { icon: "users", label: "Workshops", href: "/search?category=Workshop" },
-  { icon: "ticket", label: "Theatre", href: "/search?category=Theatre" },
-  { icon: "spark", label: "Festivals", href: "/search?category=Festival" },
-] as const;
 
 interface GridRow {
   href: string;
@@ -77,10 +68,6 @@ export function DesktopDiscover({
   const slides = featured?.length ? featured : editorPick ? [editorPick] : [];
   return (
     <div className="mx-auto max-w-[1280px] px-10 py-6">
-      <AnnouncementBar>
-        Ticketiv is Southern Africa&apos;s home for live events — buy in minutes, no account needed.
-      </AnnouncementBar>
-
       <FeaturedHero events={slides} />
 
       {/* Page header */}
@@ -110,44 +97,7 @@ export function DesktopDiscover({
 
       <SuggestedEventsRow variant="desktop" />
 
-      {/* Two-column: categories + grid */}
-      <div className="grid grid-cols-[200px_1fr] gap-8">
-        {/* Left: categories */}
-        <aside className="sticky top-6 self-start">
-          <div className="text-label mb-3">Browse by</div>
-          <ul className="flex flex-col">
-            {CATEGORIES.map((c) => (
-              <li key={c.label}>
-                <Link
-                  href={c.href}
-                  className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-[13px] hover:bg-bg"
-                >
-                  <Icon name={c.icon} size={16} className="text-ink-3" />
-                  <span className="flex-1 text-left">{c.label}</span>
-                  <Icon name="chevR" size={12} className="text-ink-3" />
-                </Link>
-              </li>
-            ))}
-          </ul>
-          <Divider className="my-4" />
-          <div className="text-label mb-3">Price</div>
-          <div className="flex flex-col gap-1 text-[13px]">
-            <Link href="/search?onlyFree=1" className="rounded-md px-2 py-1.5 hover:bg-bg">
-              Free
-            </Link>
-            <Link href="/search?maxPriceCents=50000" className="rounded-md px-2 py-1.5 hover:bg-bg">
-              Under E500
-            </Link>
-            <Link href="/search?maxPriceCents=150000" className="rounded-md px-2 py-1.5 hover:bg-bg">
-              E500 – E1,500
-            </Link>
-            <Link href="/search" className="rounded-md px-2 py-1.5 hover:bg-bg">
-              E1,500+
-            </Link>
-          </div>
-        </aside>
-
-        {/* Right: this week + upcoming */}
+      {/* This week + upcoming */}
         <div className="flex flex-col gap-10">
           <DesktopEventGridSection
             title="This week"
@@ -164,7 +114,6 @@ export function DesktopDiscover({
             emptyText="No other upcoming events yet."
           />
         </div>
-      </div>
     </div>
   );
 }
@@ -198,7 +147,7 @@ function DesktopEventGridSection({
           batchSize={9}
           when={when}
           renderEvents={(evs) => (
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-4 gap-4">
                 {evs.map(toGrid).map((e) => (
                   <Link
                     key={e.href}
