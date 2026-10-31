@@ -1,11 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { Button } from "@/components/quiet/ui/button";
+import { Input, Textarea } from "@/components/quiet/ui/form";
+import { Select, SelectOption } from "@/components/quiet/ui/select";
 
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
 
 type CategoryOption = {
   id: string
@@ -162,13 +161,13 @@ export function BasicsStep({
     await save({ coverImageUrl: "" })
   }
 
-  if (loading) return <div className="p-2 text-sm text-muted-foreground">Loading event basics…</div>
+  if (loading) return <div className="p-2 text-sm text-ink-3">Loading event basics…</div>
 
   return (
     <div className="space-y-5">
       <div>
         <h2 className="text-lg font-semibold">Event basics</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-ink-3">
           Set the public identity and discovery details for this event.
         </p>
       </div>
@@ -199,19 +198,20 @@ export function BasicsStep({
 
       <div>
         <label className="text-sm font-medium">Category *</label>
-        <Select value={category || undefined} onValueChange={handleCategoryChange} disabled={saving || uploading || categories.length === 0}>
-          <SelectTrigger className="mt-2">
-            <SelectValue placeholder={categories.length === 0 ? "No active categories available" : "Select a category"} />
-          </SelectTrigger>
-          <SelectContent>
-            {categories.map((item) => (
-              <SelectItem key={item.id} value={item.slug}>
-                {item.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
+        <Select
+          value={category || undefined}
+          onValueChange={handleCategoryChange}
+          disabled={saving || uploading || categories.length === 0}
+          placeholder={categories.length === 0 ? "No active categories available" : "Select a category"}
+          className="mt-2"
+        >
+          {categories.map((item) => (
+            <SelectOption key={item.id} value={item.slug}>
+              {item.name}
+            </SelectOption>
+          ))}
         </Select>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="mt-1 text-xs text-ink-3">
           Categories are managed by Ticketiv and determine where the event appears in discovery.
         </p>
       </div>
@@ -219,17 +219,17 @@ export function BasicsStep({
       <div className="space-y-3">
         <div>
           <label className="text-sm font-medium">Cover image *</label>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-xs text-ink-3">
             Use a landscape image that remains clear on mobile. JPG, PNG or WebP up to 8 MB.
           </p>
         </div>
 
         {coverImageUrl ? (
-          <div className="overflow-hidden rounded-lg border bg-muted">
+          <div className="overflow-hidden rounded-lg border bg-surface-2">
             <img src={coverImageUrl} alt="Event cover preview" className="aspect-[16/9] w-full object-cover" />
           </div>
         ) : (
-          <div className="flex aspect-[16/9] items-center justify-center rounded-lg border border-dashed bg-muted/30 px-6 text-center text-sm text-muted-foreground">
+          <div className="flex aspect-[16/9] items-center justify-center rounded-lg border border-dashed bg-surface-2/30 px-6 text-center text-sm text-ink-3">
             No cover image uploaded yet
           </div>
         )}
@@ -254,7 +254,7 @@ export function BasicsStep({
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-      <Button onClick={() => void save()} disabled={saving || uploading || !title.trim()} className="w-full">
+      <Button variant="accent" onClick={() => void save()} disabled={saving || uploading || !title.trim()} className="w-full">
         {uploading ? "Uploading cover…" : saving ? "Saving changes…" : "Save basics"}
       </Button>
     </div>

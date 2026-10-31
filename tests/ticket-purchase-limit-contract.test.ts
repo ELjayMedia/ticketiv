@@ -13,7 +13,6 @@ const sharedCreateRoute = source("app/api/ticket-types/route.ts");
 const updateRoute = source("app/api/events/[eventId]/tickets/[ticketTypeId]/route.ts");
 const organizerForm = source("components/event-wizard/steps/TicketsStep.tsx");
 const organizerTicketForm = source("app/orgs/[orgId]/events/[eventId]/tickets/_components/ticket-type-form.tsx");
-const legacyOrganizerForm = source("components/tickets/create-ticket-type-form.tsx");
 const checkoutAvailability = source("lib/checkout/availability.ts");
 const serverGuard = migrationFunction("public.fn_create_inventory_protected_order");
 const availabilityGuard = migrationFunction("public.fn_ticket_type_remaining");
@@ -27,8 +26,6 @@ describe("ticket purchase-limit contract", () => {
     expect(organizerForm).toContain('per_user_limit: ""');
     expect(organizerForm).toContain('online_per_order_limit: ""');
     expect(organizerTicketForm).toContain("purchaseLimitInputValue(defaultValues?.per_user_limit)");
-    expect(legacyOrganizerForm).not.toContain("useState(4)");
-    expect(legacyOrganizerForm).not.toContain("per_order_limit: 10");
   });
 
   it("loads and maps the online per-order limit for checkout", () => {

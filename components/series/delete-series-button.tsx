@@ -4,9 +4,9 @@ import { useTransition } from "react"
 import { useRouter } from "next/navigation"
 import * as AlertDialog from "@radix-ui/react-alert-dialog"
 import { Trash2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { deleteSeriesAction } from "@/app/orgs/[orgId]/series/actions"
+import { Button } from "@/components/quiet/ui/button";
 
 interface DeleteSeriesButtonProps {
   orgId: string
@@ -40,18 +40,18 @@ export function DeleteSeriesButton({
   return (
     <AlertDialog.Root>
       <AlertDialog.Trigger asChild>
-        <Button type="button" variant="outline" size="sm" className="text-destructive hover:text-destructive">
+        <Button type="button" variant="outline" size="sm" className="text-danger hover:text-danger">
           <Trash2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
           Delete series
         </Button>
       </AlertDialog.Trigger>
       <AlertDialog.Portal>
         <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
-        <AlertDialog.Content className="fixed left-1/2 top-1/2 z-50 w-[90vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-background p-6 shadow-lg">
+        <AlertDialog.Content className="fixed left-1/2 top-1/2 z-50 w-[90vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-line bg-surface p-6 shadow-lg">
           <AlertDialog.Title className="font-display text-lg font-bold">
             Delete “{seriesTitle}”?
           </AlertDialog.Title>
-          <AlertDialog.Description className="mt-2 text-sm text-muted-foreground">
+          <AlertDialog.Description className="mt-2 text-sm text-ink-3">
             {childEventCount > 0 ? (
               <>
                 {childEventCount} event{childEventCount === 1 ? "" : "s"} in this series will be kept
@@ -70,7 +70,7 @@ export function DeleteSeriesButton({
             </AlertDialog.Cancel>
             <Button
               type="button"
-              variant="destructive"
+              variant="outline"
               size="sm"
               onClick={handleDelete}
               disabled={isPending}
