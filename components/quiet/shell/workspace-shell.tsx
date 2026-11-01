@@ -9,6 +9,9 @@ import { Button } from "@/components/quiet/ui/button";
 import { cn } from "@/lib/cn";
 import { createClient } from "@/lib/supabase";
 import type { WorkspaceType } from "@/lib/navigation";
+
+/** Organizers use the /orgs/[orgId] workspace (OrgSidebar), not this shell. */
+type ShellWorkspace = Extract<WorkspaceType, "scanner" | "app">;
 import {
   ATTENDEE_TABS,
   isFocusedAttendeePath,
@@ -16,51 +19,12 @@ import {
 
 interface NavItem {
   href: string;
-  orgHref?: (orgId: string) => string;
   label: string;
   icon: IconName;
   match: (pathname: string) => boolean;
 }
 
-const WORKSPACE_NAV: Record<Extract<WorkspaceType, "organizer" | "scanner" | "app">, NavItem[]> = {
-  organizer: [
-    {
-      href: "/events",
-      orgHref: (orgId) => `/orgs/${orgId}/events`,
-      label: "Events",
-      icon: "cal",
-      match: (p) =>
-        p.startsWith("/events") ||
-        /^\/orgs\/[^/]+\/(?:dashboard|events|series|pricing-plans|feature-flags)(?:\/|$)/.test(p),
-    },
-    {
-      href: "/payouts",
-      orgHref: (orgId) => `/orgs/${orgId}/payouts`,
-      label: "Payouts",
-      icon: "wallet",
-      match: (p) => p.startsWith("/payouts") || /^\/orgs\/[^/]+\/(?:payouts|finance)(?:\/|$)/.test(p),
-    },
-    {
-      href: "/devices",
-      orgHref: (orgId) => `/orgs/${orgId}/events`,
-      label: "Devices",
-      icon: "qr",
-      match: (p) => p.startsWith("/devices") || /^\/orgs\/[^/]+\/events\/[^/]+\/staff(?:\/|$)/.test(p),
-    },
-    {
-      href: "/scan",
-      label: "Scanner",
-      icon: "check",
-      match: (p) => p.startsWith("/scan"),
-    },
-    {
-      href: "/guide",
-      orgHref: (orgId) => `/orgs/${orgId}/onboarding`,
-      label: "Guide",
-      icon: "spark",
-      match: (p) => p.startsWith("/guide") || /^\/orgs\/[^/]+\/onboarding(?:\/|$)/.test(p),
-    },
-  ],
+const WORKSPACE_NAV: Record<ShellWorkspace, NavItem[]> = {
   scanner: [
     {
       href: "/scan",
@@ -90,29 +54,15 @@ const WORKSPACE_NAV: Record<Extract<WorkspaceType, "organizer" | "scanner" | "ap
   app: ATTENDEE_TABS,
 };
 
-const WORKSPACE_LABEL: Record<Extract<WorkspaceType, "organizer" | "scanner" | "app">, string> = {
-  organizer: "Organizer",
+const WORKSPACE_LABEL: Record<ShellWorkspace, string> = {
   scanner: "Scanner",
   app: "Attendee",
 };
 
 type ShellUser = { id?: string; email?: string; name?: string };
 
-function getOrgIdFromPathname(pathname: string) {
-  return pathname.match(/^\/orgs\/([^/]+)/)?.[1] ?? null;
-}
-
-function resolveWorkspaceHref(
-  item: NavItem,
-  workspace: Extract<WorkspaceType, "organizer" | "scanner" | "app">,
-  pathname: string
-) {
-  const orgId = workspace === "organizer" ? getOrgIdFromPathname(pathname) : null;
-  return orgId && item.orgHref ? item.orgHref(orgId) : item.href;
-}
-
 interface WorkspaceShellProps {
-  workspace: Extract<WorkspaceType, "organizer" | "scanner" | "app">;
+  workspace: ShellWorkspace;
   children: React.ReactNode;
   requireAuth?: boolean;
 }
@@ -278,7 +228,7 @@ function DesktopWorkspaceNav({
   user,
   onLogout,
 }: {
-  workspace: Extract<WorkspaceType, "organizer" | "scanner" | "app">;
+  workspace: ShellWorkspace;
   user?: ShellUser;
   onLogout: () => void;
 }) {
@@ -303,7 +253,7 @@ function DesktopWorkspaceNav({
         <nav className="ml-4 flex items-center gap-1 text-[13px]">
           {items.map((item) => {
             const active = item.match(pathname);
-            const href = resolveWorkspaceHref(item, workspace, pathname);
+            const href = item.href;
             return (
               <Link
                 key={item.label}
@@ -353,7 +303,7 @@ function DesktopWorkspaceNav({
 function MobileWorkspaceTabs({
   workspace,
 }: {
-  workspace: Extract<WorkspaceType, "organizer" | "scanner" | "app">;
+  workspace: ShellWorkspace;
 }) {
   const pathname = usePathname() ?? "";
   const items = WORKSPACE_NAV[workspace];
@@ -367,7 +317,7 @@ function MobileWorkspaceTabs({
     >
       {items.map((item) => {
         const active = item.match(pathname);
-        const href = resolveWorkspaceHref(item, workspace, pathname);
+        const href = item.href;
         return (
           <Link
             key={item.label}

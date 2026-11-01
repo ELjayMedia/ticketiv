@@ -11,7 +11,7 @@ export const metadata = { title: "Choose organisation" }
 
 /**
  * Organisation picker. The single entry point for users who belong to more
- * than one organisation; `resolve-org` sends them here. Users with zero orgs
+ * than one organisation. Users with zero orgs
  * are routed to onboarding and users with exactly one go straight to its
  * dashboard, so this page only renders a list when there's a real choice.
  */

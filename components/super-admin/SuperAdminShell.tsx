@@ -182,7 +182,7 @@ export function SuperAdminShell({ children, userEmail }: { children: React.React
               <span>Search events, orders, payouts...</span>
             </div>
             <Button asChild variant="outline" className="ml-auto rounded-full md:ml-0"><Link href="/super-admin/readiness">Readiness</Link></Button>
-            <Button variant="accent" asChild className="rounded-full"><Link href="/events/create">Create event</Link></Button>
+            <Button variant="accent" asChild className="rounded-full"><Link href="/orgs">Organizer workspace</Link></Button>
           </div>
           <div className="flex gap-2 overflow-x-auto px-4 pb-3 sm:px-6 lg:hidden">
             {NAV_GROUPS.flatMap((group) => group.items).map((item) => {
