@@ -3,6 +3,7 @@ import Link from "next/link"
 import { Card, CardBody } from "@/components/quiet/ui/card"
 import { getMyOrgCapabilities } from "@/lib/data/organizer/access"
 import { NewEventForm } from "./new-event-form"
+import { requireOrgManager } from "@/lib/organizer/access"
 
 export const metadata = { title: "Create event" }
 export const dynamic = "force-dynamic"
@@ -18,6 +19,7 @@ export default async function NewEventPage({
   params: Promise<{ orgId: string }>
 }) {
   const { orgId } = await params
+  await requireOrgManager(orgId)
   const caps = await getMyOrgCapabilities(orgId)
 
   if (!caps.manage) {

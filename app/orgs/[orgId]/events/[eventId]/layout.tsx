@@ -1,15 +1,16 @@
 import type React from "react"
 import { redirect } from "next/navigation"
 
-import { ORGANIZER_MANAGER_ROLES } from "@/lib/org-management"
+import { canWorkEvent, getOrganizerAccess } from "@/lib/organizer/access"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 /**
  * Event workspace layout.
  *
- * Allows platform admins, organizer managers, and active event staff while
- * confirming that the event belongs to the organization in the URL.
+ * Allows anyone who may work this event (platform admins, org members with an
+ * organizer role, and active event staff) while confirming that the event
+ * belongs to the organization in the URL.
  */
 export default async function EventWorkspaceLayout({
   params,
@@ -43,35 +44,10 @@ export default async function EventWorkspaceLayout({
 
   if (eventError || !event || event.org_id !== orgId) redirect("/403")
 
-  const { data: globalAdmin } = await admin
-    .from("admin_users")
-    .select("user_id")
-    .eq("user_id", user.id)
-    .eq("active", true)
-    .maybeSingle()
-
-  if (globalAdmin) return <>{children}</>
-
-  const { data: orgMember } = await admin
-    .from("org_members")
-    .select("role")
-    .eq("user_id", user.id)
-    .eq("org_id", orgId)
-    .maybeSingle()
-
-  if (orgMember?.role && ORGANIZER_MANAGER_ROLES.has(String(orgMember.role))) {
-    return <>{children}</>
-  }
-
-  const { data: eventStaff } = await admin
-    .from("event_staff")
-    .select("role")
-    .eq("user_id", user.id)
-    .eq("event_id", eventId)
-    .eq("active", true)
-    .maybeSingle()
-
-  if (eventStaff) return <>{children}</>
+  // Org members with an organizer role work every event; event staff only
+  // the events they are assigned to (ADR 0002). Pages check their section.
+  const access = await getOrganizerAccess(orgId)
+  if (access && canWorkEvent(access, eventId)) return <>{children}</>
 
   console.warn("[event-workspace] User denied event access:", user.id, eventId)
   redirect("/403")

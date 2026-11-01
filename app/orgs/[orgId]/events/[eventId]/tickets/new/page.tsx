@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Icon } from "@/components/quiet/ui/icon"
 import { TicketTypeForm } from "../_components/ticket-type-form"
+import { requireEventManager } from "@/lib/organizer/access"
 
 export default async function NewTicketTypePage({
   params,
@@ -8,6 +9,7 @@ export default async function NewTicketTypePage({
   params: Promise<{ orgId: string; eventId: string }>
 }) {
   const { orgId, eventId } = await params
+  await requireEventManager(orgId, eventId)
 
   return (
     <main className="flex-1 overflow-auto">

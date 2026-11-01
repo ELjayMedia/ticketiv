@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { EventOperationsClient } from "./operations-client"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requireEventManager } from "@/lib/organizer/access"
 
 interface OperationsPageProps {
   params: Promise<{ orgId: string; eventId: string }>
@@ -10,6 +11,7 @@ interface OperationsPageProps {
 
 export default async function EventOperationsPage({ params }: OperationsPageProps) {
   const { orgId, eventId } = await params
+  await requireEventManager(orgId, eventId)
   const supabase = createServerSupabaseClient()
 
   if (!supabase) redirect("/login")

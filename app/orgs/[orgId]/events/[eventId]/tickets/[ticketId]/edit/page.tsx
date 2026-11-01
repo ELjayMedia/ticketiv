@@ -3,6 +3,7 @@ import Link from "next/link"
 import { Icon } from "@/components/quiet/ui/icon"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { TicketTypeForm } from "../../_components/ticket-type-form"
+import { requireEventManager } from "@/lib/organizer/access"
 
 export default async function EditTicketTypePage({
   params,
@@ -10,6 +11,7 @@ export default async function EditTicketTypePage({
   params: Promise<{ orgId: string; eventId: string; ticketId: string }>
 }) {
   const { orgId, eventId, ticketId } = await params
+  await requireEventManager(orgId, eventId)
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return redirect("/login")
