@@ -1,0 +1,92 @@
+name: Google Play listings
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: Google Play app
+        required: true
+        type: choice
+        options: [ticketiv, access]
+      operation:
+        description: Export approved assets or sync reviewed listing content
+        required: true
+        type: choice
+        default: export
+        options: [export, sync]
+      confirmation:
+        description: For sync, type SYNC_GOOGLE_PLAY_LISTING
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: google-play-${{ inputs.app }}
+  cancel-in-progress: false
+
+jobs:
+  listing:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PLAY_APP: ${{ inputs.app }}
+      PLAY_OPERATION: ${{ inputs.operation }}
+      PLAY_CONFIRMATION: ${{ inputs.confirmation }}
+    steps:
+      - name: Checkout selected main commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate operation and confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$PLAY_APP" == ticketiv || "$PLAY_APP" == access ]]
+          [[ "$PLAY_OPERATION" == export || "$PLAY_OPERATION" == sync ]]
+          if [[ "$PLAY_OPERATION" == sync && "$PLAY_CONFIRMATION" != SYNC_GOOGLE_PLAY_LISTING ]]; then
+            echo 'Listing sync requires SYNC_GOOGLE_PLAY_LISTING' >&2
+            exit 1
+          fi
+
+      - name: Validate listing tooling
+        run: node --test scripts/*play*.test.mjs scripts/tests/play-listings.test.mjs
+
+      - name: Export approved Console listing without publishing
+        if: inputs.operation == 'export'
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/google-play.mjs export --app "$PLAY_APP" --output .play-listing-export
+
+      - name: Upload exported artwork and listing text
+        if: inputs.operation == 'export'
+        uses: actions/upload-artifact@v4
+        with:
+          name: google-play-listing-${{ inputs.app }}-${{ github.run_id }}
+          path: .play-listing-export/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Sync reviewed listing and retain approved Console images
+        if: inputs.operation == 'sync'
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/google-play.mjs sync --app "$PLAY_APP"
+
+      - name: Record operation
+        shell: bash
+        run: |
+          {
+            echo '### Google Play listing'
+            echo "- App: $PLAY_APP"
+            echo "- Operation: $PLAY_OPERATION"
+            echo "- Source commit: $GITHUB_SHA"
+          } >> "$GITHUB_STEP_SUMMARY"

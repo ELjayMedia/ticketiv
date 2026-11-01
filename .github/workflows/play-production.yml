@@ -1,0 +1,169 @@
+name: Google Play production promotion
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: App to promote from internal testing
+        required: true
+        type: choice
+        options: [ticketiv, access]
+      release_commit:
+        description: Full lowercase SHA of the tested commit on main
+        required: true
+        type: string
+      source_run_id:
+        description: Successful Android signed internal-publish workflow run ID
+        required: true
+        type: string
+      version_code:
+        description: Internal version code (the source run number)
+        required: true
+        type: string
+      release_confirmation:
+        description: Type PROMOTE_TICKETIV_PLAY or PROMOTE_TICKETIV_ACCESS_PLAY
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: google-play-${{ inputs.app }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify exact release commit and signed bundle
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      bundle_sha256: ${{ steps.receipt.outputs.bundle_sha256 }}
+      receipt_name: ${{ steps.source.outputs.receipt_name }}
+    env:
+      PLAY_APP: ${{ inputs.app }}
+      RELEASE_COMMIT: ${{ inputs.release_commit }}
+      SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+      VERSION_CODE: ${{ inputs.version_code }}
+      RELEASE_CONFIRMATION: ${{ inputs.release_confirmation }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout trusted workflow commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Require explicit production confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$PLAY_APP" in
+            ticketiv) expected="PROMOTE_TICKETIV_PLAY" ;;
+            access) expected="PROMOTE_TICKETIV_ACCESS_PLAY" ;;
+            *) echo "Unknown app" >&2; exit 1 ;;
+          esac
+          if [[ "$RELEASE_CONFIRMATION" != "$expected" ]]; then
+            echo "Production confirmation does not match the selected app" >&2
+            exit 1
+          fi
+
+      - name: Verify source upload and exact-commit CI
+        id: source
+        run: >-
+          node scripts/verify-play-release.mjs
+          --app "$PLAY_APP" --commit "$RELEASE_COMMIT"
+          --source-run-id "$SOURCE_RUN_ID" --version-code "$VERSION_CODE"
+
+      - name: Download receipt from the verified signed upload
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ steps.source.outputs.receipt_name }}
+          run-id: ${{ steps.source.outputs.source_run_id }}
+          github-token: ${{ github.token }}
+          path: .play-release-receipt
+
+      - name: Match signed bundle receipt to source run
+        id: receipt
+        run: >-
+          node scripts/verify-play-release.mjs
+          --app "$PLAY_APP" --commit "$RELEASE_COMMIT"
+          --source-run-id "$SOURCE_RUN_ID" --version-code "$VERSION_CODE"
+          --receipt .play-release-receipt/play-release-receipt.json
+
+  promote:
+    name: Sync listing and start a 10% production rollout
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: google-play-production
+    env:
+      PLAY_APP: ${{ inputs.app }}
+      RELEASE_COMMIT: ${{ inputs.release_commit }}
+      SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+      VERSION_CODE: ${{ inputs.version_code }}
+      BUNDLE_SHA256: ${{ needs.verify.outputs.bundle_sha256 }}
+      GH_TOKEN: ${{ github.token }}
+      GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+    steps:
+      - name: Checkout the verified release commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_commit }}
+          path: release
+
+      - name: Checkout trusted verification tooling
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: control
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Download the verified release receipt
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.verify.outputs.receipt_name }}
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ github.token }}
+          path: .play-release-receipt
+
+      - name: Recheck source and CI after environment approval
+        run: >-
+          node control/scripts/verify-play-release.mjs
+          --app "$PLAY_APP" --commit "$RELEASE_COMMIT"
+          --source-run-id "$SOURCE_RUN_ID" --version-code "$VERSION_CODE"
+          --receipt .play-release-receipt/play-release-receipt.json
+
+      - name: Validate release listing
+        working-directory: release
+        run: node scripts/validate-play-listings.mjs --app "$PLAY_APP" --require-images
+
+      - name: Sync listing and promote the verified internal bundle to 10% of production
+        working-directory: release
+        run: >-
+          node scripts/google-play.mjs promote --app "$PLAY_APP"
+          --version-code "$VERSION_CODE" --bundle-sha256 "$BUNDLE_SHA256"
+          --user-fraction 0.1
+
+      - name: Record release identity
+        shell: bash
+        run: |
+          {
+            echo "### Google Play production rollout"
+            echo "- App: $PLAY_APP"
+            echo "- Commit: $RELEASE_COMMIT"
+            echo "- Source run: $SOURCE_RUN_ID"
+            echo "- Version code: $VERSION_CODE"
+            echo "- Bundle SHA-256: $BUNDLE_SHA256"
+            echo "- Initial production rollout: 10% (subject to Play review)"
+          } >> "$GITHUB_STEP_SUMMARY"
