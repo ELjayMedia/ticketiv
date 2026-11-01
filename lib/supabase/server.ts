@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import { getRequiredSupabasePublicConfig } from "@/lib/env-public"
 import type { Database } from "@/types/database"
+import { authCookieOptions } from "@/lib/organizer/host"
 
 /**
  * Supabase client for authenticated Server Components, Server Actions, and
@@ -13,6 +14,7 @@ export async function createClient() {
   const cookieStore = await cookies()
 
   return createServerClient<Database>(config.url, config.anonKey, {
+    cookieOptions: authCookieOptions(),
     cookies: {
       getAll() {
         return cookieStore.getAll()

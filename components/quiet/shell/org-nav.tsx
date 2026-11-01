@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon, type IconName } from "@/components/quiet/ui/icon";
 import { cn } from "@/lib/cn";
+import { attendeeSiteUrl } from "@/lib/organizer/host";
 import {
   canChangeSettings,
   canManageTeam,
@@ -128,7 +129,7 @@ export function OrgSidebar({ orgId, orgName, roleLabel, ...access }: OrgNavProps
 
       <div className="flex flex-col gap-0.5 border-t border-line p-2">
         <Link
-          href="/"
+          href={attendeeSiteUrl("/")}
           className="flex items-center gap-2.5 rounded-[var(--radius)] px-3 py-2 text-[13px] font-medium text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink"
         >
           <Icon name="ticket" size={16} />
@@ -152,7 +153,7 @@ export function OrgTopTabs({ orgId, orgName, ...access }: OrgNavProps) {
         </span>
         <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-ink">{orgName}</span>
         <Link
-          href="/"
+          href={attendeeSiteUrl("/")}
           className="inline-flex items-center gap-1 rounded-full border border-line-2 px-2.5 py-1 text-[12px] font-medium text-ink-2 hover:bg-surface-2"
         >
           <Icon name="ticket" size={13} />

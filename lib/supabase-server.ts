@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import { getSupabasePublicConfig } from "./env-public"
 import type { Database } from "@/types/database"
+import { authCookieOptions } from "@/lib/organizer/host"
 
 /**
  * Legacy synchronous wrapper kept for compatibility with existing pages that
@@ -19,6 +20,7 @@ export function createServerSupabaseClient() {
   }
 
   return createServerClient<Database>(config.url, config.anonKey, {
+    cookieOptions: authCookieOptions(),
     cookies: {
       async getAll() {
         const cookieStore = await cookies()
