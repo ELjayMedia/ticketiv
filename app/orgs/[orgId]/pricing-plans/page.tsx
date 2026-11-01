@@ -10,6 +10,7 @@ import {
   rateFromSettingRow,
   ticketFeeCents,
 } from "@/lib/fees/platform-fee"
+import { requireOrganizerSection } from "@/lib/organizer/access"
 
 export const dynamic = "force-dynamic"
 export const metadata = { title: "Ticketiv fees" }
@@ -23,6 +24,7 @@ const EXAMPLE_PRICES_CENTS = [5000, 15000, 50000]
  */
 export default async function PricingPlansPage({ params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params
+  await requireOrganizerSection(orgId, "settings", { settings: true })
   await requireOrgCapability(orgId, "manage")
 
   const supabase = createServerSupabaseClient()

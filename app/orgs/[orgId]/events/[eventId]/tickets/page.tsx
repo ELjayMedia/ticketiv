@@ -8,11 +8,13 @@ import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
 import { DeleteTicketTypeButton } from "./_components/delete-ticket-type-button"
 import { ToggleSalesStatusButton } from "./_components/toggle-sales-status-button"
+import { requireEventManager } from "@/lib/organizer/access"
 
 export const dynamic = "force-dynamic"
 
 export default async function TicketsPage({ params }: { params: Promise<{ orgId: string; eventId: string }> }) {
   const { orgId, eventId } = await params
+  await requireEventManager(orgId, eventId)
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return redirect("/login")

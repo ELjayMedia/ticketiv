@@ -1,7 +1,6 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { requireOrgCapability } from "@/lib/data/organizer/access"
 
 import { Card, CardBody } from "@/components/quiet/ui/card"
 import { Icon } from "@/components/quiet/ui/icon"
@@ -12,6 +11,8 @@ import {
   resolveOrganizerEventLifecycle,
   type OrganizerEventLifecycle,
 } from "@/lib/events/organizer-lifecycle"
+import { canManageEventIn, requireOrganizerSection } from "@/lib/organizer/access"
+import { DoorEventList } from "./_components/door-event-list"
 
 export const dynamic = "force-dynamic"
 
@@ -37,6 +38,7 @@ export default async function OrgEventsPage({
   searchParams: Promise<{ q?: string; status?: string }>
 }) {
   const { orgId } = await params
+  const access = await requireOrganizerSection(orgId, "events")
   const returnPath = `/orgs/${orgId}/events`
   const supabase = createServerSupabaseClient()
 
@@ -47,7 +49,32 @@ export default async function OrgEventsPage({
   } = await supabase.auth.getSession()
   if (!session) return redirect(`/login?next=${encodeURIComponent(returnPath)}`)
 
-  await requireOrgCapability(orgId, "manage")
+  // Door staff and event-only assignments get their own list: the events they
+  // work, each opening the door page (scan, guestlist, box office).
+  if (access.role !== "manager") {
+    let doorQuery = supabase
+      .from("events")
+      .select("id, title, starts_at, ends_at, status, cover_image_url")
+      .eq("org_id", orgId)
+      .order("starts_at", { ascending: true })
+    if (access.eventIds) doorQuery = doorQuery.in("id", access.eventIds.length ? access.eventIds : ["00000000-0000-0000-0000-000000000000"])
+    const { data: doorEvents } = await doorQuery
+    return (
+      <DoorEventList
+        orgId={orgId}
+        events={(doorEvents ?? []).map((event) => ({
+          id: String(event.id),
+          title: String(event.title ?? "Untitled event"),
+          starts_at: event.starts_at ? String(event.starts_at) : null,
+          ends_at: event.ends_at ? String(event.ends_at) : null,
+          status: String(event.status ?? ""),
+          cover_image_url: event.cover_image_url ? String(event.cover_image_url) : null,
+          manages: canManageEventIn(access, String(event.id)),
+        }))}
+      />
+    )
+  }
+
   const { q: rawQ, status: rawStatus } = await searchParams
 
   const searchQuery = rawQ?.trim() ?? ""

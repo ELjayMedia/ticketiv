@@ -6,6 +6,7 @@ import { requireOrgCapability } from "@/lib/data/organizer/access"
 import { Card, CardBody } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
+import { requireOrganizerSection } from "@/lib/organizer/access"
 
 export const dynamic = "force-dynamic"
 
@@ -19,6 +20,7 @@ interface FeatureFlag {
 
 export default async function FeatureFlagsPage({ params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params
+  await requireOrganizerSection(orgId, "settings", { settings: true })
   await requireOrgCapability(orgId, "manage")
 
   const supabase = createServerSupabaseClient()

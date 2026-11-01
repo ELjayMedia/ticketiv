@@ -10,11 +10,13 @@ import { getMyOrgCapabilities } from "@/lib/data/organizer/access"
 import { buildOrganizerSetupSteps, needsOrganizerSetup } from "@/lib/data/organizer/readiness"
 import { getOrgEventKPIs } from "@/lib/adapters/kpis"
 import DashboardCharts from "./dashboard-charts"
+import { requireOrganizerSection } from "@/lib/organizer/access"
 
 export const dynamic = "force-dynamic"
 
 export default async function OrgDashboardPage({ params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params
+  await requireOrganizerSection(orgId, "dashboard")
   const returnPath = `/orgs/${orgId}/dashboard`
   const supabase = createServerSupabaseClient()
 

@@ -7,6 +7,7 @@ import { EventManagementTabs } from "@/components/event-management-tabs"
 import { getMyOrgCapabilities } from "@/lib/data/organizer/access"
 import { requireOrganizerEventManager } from "@/lib/org-management"
 import { DuplicateEventButton } from "../_components/duplicate-event-button"
+import { requireEventManager } from "@/lib/organizer/access"
 
 export const dynamic = "force-dynamic"
 
@@ -19,6 +20,7 @@ interface EventDetailPageProps {
 
 export default async function EventDetailPage({ params }: EventDetailPageProps) {
   const { orgId, eventId } = await params
+  await requireEventManager(orgId, eventId)
   const { event } = await requireOrganizerEventManager(orgId, eventId)
   const caps = await getMyOrgCapabilities(orgId)
 

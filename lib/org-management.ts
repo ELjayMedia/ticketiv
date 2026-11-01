@@ -5,6 +5,8 @@ import { redirect } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
+import { organizerRoleFrom } from "@ticketiv/shared"
+
 export const ORGANIZER_MANAGER_ROLES = new Set(["admin", "organizer", "organizer_owner", "organizer_admin"])
 
 const EVENT_MANAGER_ROLES = new Set(["organizer_owner", "organizer_admin", "admin", "organizer"])
@@ -114,8 +116,11 @@ export async function requireEventScannerAccess<TEvent extends ManagedEvent = Ma
     .eq("user_id", userId)
     .maybeSingle()
 
-  if (member?.role && ORGANIZER_MANAGER_ROLES.has(String(member.role))) {
-    return { userId, event, accessRole: String(member.role) }
+  // Managers, and org-level door staff and scanners (ADR 0002), scan every event.
+  const memberRole = member?.role ? String(member.role) : null
+  const orgRole = organizerRoleFrom(memberRole)
+  if (memberRole && (ORGANIZER_MANAGER_ROLES.has(memberRole) || orgRole === "staff" || orgRole === "scanner")) {
+    return { userId, event, accessRole: memberRole }
   }
 
   const { data: staff } = await admin

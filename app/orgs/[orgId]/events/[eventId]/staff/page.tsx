@@ -7,6 +7,7 @@ import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Icon } from "@/components/quiet/ui/icon"
 import { EventStaffClient, type StaffMember } from "./staff-client"
 import { DevicesClient, type DeviceRow } from "./devices-client"
+import { requireEventManager } from "@/lib/organizer/access"
 
 export const dynamic = "force-dynamic"
 
@@ -16,6 +17,7 @@ const MANAGER_ROLES = new Set(["admin", "organizer", "organizer_owner", "organiz
 
 export default async function EventStaffPage({ params }: { params: Promise<{ orgId: string; eventId: string }> }) {
   const { orgId, eventId } = await params
+  await requireEventManager(orgId, eventId)
 
   const supabase = createServerSupabaseClient()
   if (!supabase) redirect("/login")

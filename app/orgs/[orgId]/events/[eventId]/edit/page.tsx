@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation"
 import { requireOrganizerEventManager } from "@/lib/org-management"
 import EventWizardClient from "./EventWizardClient"
+import { requireEventManager } from "@/lib/organizer/access"
 
 export const dynamic = "force-dynamic"
 
 export default async function EventEditPage({ params }: { params: Promise<{ orgId: string; eventId: string }> }) {
   const { orgId, eventId } = await params
+  await requireEventManager(orgId, eventId)
 
   // Authorize the organizer (and confirm the event belongs to the org)
   // before rendering the editor; the wizard client fetches its own event
