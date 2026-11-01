@@ -8,6 +8,7 @@ export type CreateOrgResult =
 
 const ERROR_COPY: Record<string, string> = {
   authentication_required: "Please sign in before creating an organisation.",
+  claimed_account_required: "Verify your email first: register as an organizer, then create your organisation.",
   name_required: "Enter an organisation name.",
 }
 

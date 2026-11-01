@@ -13,24 +13,33 @@ export async function getActiveContextKey(): Promise<string | null> {
   return store.get(CONTEXT_COOKIE)?.value ?? null
 }
 
+/** Where the attendee ("Personal") side starts after login. */
+export const PERSONAL_LANDING = "/"
+
 /**
- * Smart landing:
+ * Smart landing after login (`/launch`):
  *   - returning user with a still-valid last context → that context
+ *     (Personal lands on Discover, not the profile page)
+ *   - belongs to an organisation → that organisation's dashboard
  *   - only a Door/Scan role beyond Personal → Scan
- *   - otherwise (incl. first-ever login) → Personal
+ *   - otherwise (attendees, first-ever login) → Discover
  */
 export function pickLanding(contexts: UserContext[], lastKey: string | null): string {
-  if (contexts.length === 0) return "/me"
+  const hrefFor = (c: UserContext) => (c.kind === "personal" ? PERSONAL_LANDING : c.href)
+  if (contexts.length === 0) return PERSONAL_LANDING
 
   if (lastKey) {
     const last = contexts.find((c) => c.key === lastKey)
-    if (last) return last.href
+    if (last) return hrefFor(last)
   }
+
+  const org = contexts.find((c) => c.kind === "org")
+  if (org) return org.href
 
   const nonPersonal = contexts.filter((c) => c.kind !== "personal")
   if (nonPersonal.length === 1 && nonPersonal[0].kind === "scan") {
     return nonPersonal[0].href
   }
 
-  return contexts.find((c) => c.kind === "personal")?.href ?? contexts[0].href
+  return PERSONAL_LANDING
 }
