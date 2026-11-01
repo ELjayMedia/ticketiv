@@ -1,10 +1,11 @@
 /**
- * Renders the printable ticket (A5 portrait) to a PNG for sharing on
- * WhatsApp / email. Drawn on a canvas in the browser so it needs no extra
- * dependencies and works with any cover format the browser can decode.
+ * Renders the shareable ticket image (portrait card) for WhatsApp / email.
+ * Drawn on a canvas in the browser so it needs no extra dependencies and
+ * works with any cover format the browser can decode.
  *
- * The layout mirrors `TicketPrintCard`: cover image, title, date/venue,
- * a tear line, then the QR beside holder / ticket / order details.
+ * Layout: cover image, title, date/venue, a tear line, then the QR beside
+ * holder / ticket / order details. This is deliberately not the printed
+ * strip (`TicketPrintCard`): a tall card reads better in a chat thread.
  *
  * The QR is passed in as the SVG markup already rendered on the page, so
  * the image always encodes exactly what the gate scanner expects.
@@ -24,7 +25,7 @@ export interface TicketImageData {
   qrSvg: string;
 }
 
-// A5 at 150 dpi (148 × 210 mm) — prints cleanly and stays sharp on phones.
+// Portrait 1240 × 1748 (A5 proportion) — stays sharp when opened on a phone.
 export const TICKET_IMAGE_WIDTH = 1240;
 export const TICKET_IMAGE_HEIGHT = 1748;
 
