@@ -11,9 +11,9 @@ import type { TicketViewProp } from "@/lib/mappers/tickets";
  * cut out along the edges.
  *
  * Hidden on screen and shown only by `@media print` (see the style
- * block in TicketView). The same layout is drawn to a PNG by
- * `renderTicketImage` for sharing on WhatsApp / email, and that
- * renderer reads the QR SVG from this card so both always match.
+ * block in TicketView). The shared image (`renderTicketImage`) uses its
+ * own portrait layout but reads the QR SVG from this card, so the code
+ * in both always matches.
  * ────────────────────────────────────────────────────────────── */
 
 export const TICKET_PRINT_ID = "ticket-print";
