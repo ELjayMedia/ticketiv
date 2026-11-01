@@ -63,11 +63,47 @@ test("committed listings validate with explicit preservation of approved Console
   }
 })
 
-test("preservation cannot silently mix in local artwork", async (t) => {
-  const { root } = await fixture(t, (manifest) => {
+test("preservation with any local artwork requires a complete snapshot before publishing", async (t) => {
+  const { root } = await fixture(t, async (manifest, dir) => {
     manifest.images = { "en-US": { icon: ["icon.png"] } }
+    await writeFile(join(dir, "icon.png"), png(512, 512))
   })
-  await assert.rejects(loadListing("ticketiv", { root }), /preserve-existing forbids local images/)
+  assert.deepEqual((await loadListing("ticketiv", { root })).missingImages, ["en-US/featureGraphic", "en-US/phoneScreenshots"])
+  await assert.rejects(loadListing("ticketiv", { root, requireImages: true }), /missing required Play artwork/)
+})
+
+test("preserved snapshots allow already accepted tall screenshots and remain hashable", async (t) => {
+  const { root, directory } = await fixture(t, async (manifest, dir) => {
+    manifest.images = { "en-US": { icon: ["icon.png"], featureGraphic: ["feature.png"], phoneScreenshots: ["screen1.png", "screen2.png"] } }
+    await Promise.all([
+      writeFile(join(dir, "icon.png"), png(512, 512)),
+      writeFile(join(dir, "feature.png"), png(1024, 500)),
+      writeFile(join(dir, "screen1.png"), png(1080, 2400)),
+      writeFile(join(dir, "screen2.png"), png(1080, 2400)),
+    ])
+  })
+  const snapshot = await loadListing("ticketiv", { root, requireImages: true })
+  assert.equal(snapshot.images["en-US"].phoneScreenshots[0].height, 2400)
+  assert.match(snapshot.images["en-US"].phoneScreenshots[0].sha256, /^[a-f0-9]{64}$/)
+  const manifest = JSON.parse(await readFile(join(directory, "listing.json"), "utf8"))
+  manifest.imagePolicy = "replace"
+  await writeFile(join(directory, "listing.json"), JSON.stringify(manifest))
+  await assert.rejects(loadListing("ticketiv", { root, requireImages: true }), /aspect ratio/)
+})
+
+test("preserved snapshot completeness applies across all declared locales", async (t) => {
+  const { root } = await fixture(t, async (manifest, dir) => {
+    manifest.listings["pt-PT"] = { ...manifest.listings["en-US"] }
+    await writeFile(join(dir, "whatsnew/whatsnew-pt-PT"), "Melhorias.\n")
+    manifest.images = { "en-US": { icon: ["icon.png"], featureGraphic: ["feature.png"], phoneScreenshots: ["screen1.png", "screen2.png"] } }
+    await Promise.all([
+      writeFile(join(dir, "icon.png"), png(512, 512)),
+      writeFile(join(dir, "feature.png"), png(1024, 500)),
+      writeFile(join(dir, "screen1.png"), png(1080, 2400)),
+      writeFile(join(dir, "screen2.png"), png(1080, 2400)),
+    ])
+  })
+  await assert.rejects(loadListing("ticketiv", { root, requireImages: true }), /pt-PT\/icon.*pt-PT\/featureGraphic.*pt-PT\/phoneScreenshots/)
 })
 
 test("replacement requires real complete local image sets before publishing", async (t) => {
@@ -168,6 +204,12 @@ test("image checks reject wrong formats, sizes and aspect ratios", () => {
   assert.throws(() => inspectImage(png(400, 1200), "phoneScreenshots"), /2:1/)
   assert.throws(() => inspectImage(Buffer.alloc(1024 * 1024 + 1), "icon"), /exceeds/)
   assert.throws(() => inspectImage(png(512, 512), "banner"), /Unsupported image type/)
+  assert.equal(inspectImage(png(1080, 2400), "phoneScreenshots", "existing", { existing: true }).height, 2400)
+  assert.throws(() => inspectImage(Buffer.from("invalid"), "phoneScreenshots", "existing", { existing: true }), /PNG or JPEG/)
+  assert.throws(() => inspectImage(png(256, 256), "icon", "existing", { existing: true }), /512 x 512/)
+  assert.throws(() => inspectImage(png(1024, 501), "featureGraphic", "existing", { existing: true }), /1024 x 500/)
+  assert.throws(() => inspectImage(png(300, 600), "phoneScreenshots", "existing", { existing: true }), /between 320 and 3840/)
+  assert.throws(() => inspectImage(Buffer.alloc(8 * 1024 * 1024 + 1), "phoneScreenshots", "existing", { existing: true }), /exceeds/)
 })
 
 test("PNG and JPEG dimensions are read with bounds checks", async () => {

@@ -67,7 +67,7 @@ function within(parent, child) {
   return path !== "" && path !== ".." && !path.startsWith(`..${sep}`) && !isAbsolute(path)
 }
 
-export function inspectImage(bytes, type, label = "image") {
+export function inspectImage(bytes, type, label = "image", { existing = false } = {}) {
   check(IMAGE_TYPES.includes(type), `Unsupported image type: ${type}`)
   const limit = type === "icon" ? 1024 * 1024 : 8 * 1024 * 1024
   check(bytes.length <= limit, `${label} exceeds ${limit} bytes`)
@@ -79,12 +79,14 @@ export function inspectImage(bytes, type, label = "image") {
     check(width === 1024 && height === 500, `${label}: feature graphic must be 1024 x 500`)
   } else {
     check(Math.min(width, height) >= 320 && Math.max(width, height) <= 3840, `${label}: screenshot dimensions must be between 320 and 3840 pixels`)
-    check(Math.max(width, height) <= 2 * Math.min(width, height), `${label}: screenshot aspect ratio must not exceed 2:1`)
+    // Existing Console originals are preserved, never submitted again. Their
+    // accepted geometry must not block export or metadata-only updates.
+    check(existing || Math.max(width, height) <= 2 * Math.min(width, height), `${label}: screenshot aspect ratio must not exceed 2:1`)
   }
   return { ...dimensions, sha256: createHash("sha256").update(bytes).digest("hex") }
 }
 
-async function loadImage(directory, filename, type) {
+async function loadImage(directory, filename, type, existing) {
   check(typeof filename === "string" && filename.length > 0, `${type} image path must be nonempty text`)
   check(!isAbsolute(filename) && !filename.includes("\\"), `${type} image must use a relative path`)
   const path = resolve(directory, filename)
@@ -96,12 +98,12 @@ async function loadImage(directory, filename, type) {
   check(info.isFile(), `${filename} must be a regular file`)
   check(info.size <= 8 * 1024 * 1024, `${filename} exceeds 8 MiB`)
   const bytes = await readFile(actual)
-  return { path: actual, relativePath: filename, ...inspectImage(bytes, type, filename) }
+  return { path: actual, relativePath: filename, ...inspectImage(bytes, type, filename, { existing }) }
 }
 
 /**
- * preserve-existing forbids local image changes: the API client must validate
- * the existing Console image inventory before committing a metadata edit.
+ * preserve-existing never uploads local images: optional versioned snapshots
+ * must match the Console originals in the API client before a metadata edit.
  * replace requires complete local artwork when publishing with requireImages:true.
  */
 export async function loadListing(app, { requireImages = false, root = REPO_ROOT } = {}) {
@@ -118,6 +120,8 @@ export async function loadListing(app, { requireImages = false, root = REPO_ROOT
   check(["preserve-existing", "replace"].includes(manifest.imagePolicy), "imagePolicy must explicitly be preserve-existing or replace")
   object(manifest.listings, "listings")
   object(manifest.images, "images")
+  const hasSnapshots = Object.values(manifest.images).some((images) =>
+    images && typeof images === "object" && Object.values(images).some((paths) => Array.isArray(paths) && paths.length > 0))
   check(Object.hasOwn(manifest.listings, manifest.defaultLanguage), "defaultLanguage must have listing text")
   const listings = {}
   const images = {}
@@ -143,11 +147,10 @@ export async function loadListing(app, { requireImages = false, root = REPO_ROOT
     for (const type of IMAGE_TYPES) {
       const filenames = localeImages[type] ?? []
       check(Array.isArray(filenames), `${locale} ${type} must be an array`)
-      check(manifest.imagePolicy !== "preserve-existing" || filenames.length === 0, "preserve-existing forbids local images; use replace to publish versioned artwork")
       check(new Set(filenames).size === filenames.length, `${locale} ${type} contains duplicate image paths`)
       check(filenames.length <= (type === "phoneScreenshots" ? 8 : 1), `${locale} ${type} has too many images`)
-      if (manifest.imagePolicy === "replace" && filenames.length < (type === "phoneScreenshots" ? 2 : 1)) missingImages.push(`${locale}/${type}`)
-      images[locale][type] = await Promise.all(filenames.map((filename) => loadImage(directory, filename, type)))
+      if ((manifest.imagePolicy === "replace" || hasSnapshots) && filenames.length < (type === "phoneScreenshots" ? 2 : 1)) missingImages.push(`${locale}/${type}`)
+      images[locale][type] = await Promise.all(filenames.map((filename) => loadImage(directory, filename, type, manifest.imagePolicy === "preserve-existing")))
     }
   }
   for (const locale of Object.keys(manifest.images)) {

@@ -76,7 +76,7 @@ export async function downloadImage(image, type, fetcher = fetch) {
     chunks.push(chunk)
   }
   const bytes = Buffer.concat(chunks)
-  return { bytes, ...inspectImage(bytes, type, `Console ${type}`) }
+  return { bytes, ...inspectImage(bytes, type, `Console ${type}`, { existing: true }) }
 }
 
 async function imageInventory(client, edit, locale, type, fetcher) {
@@ -94,7 +94,14 @@ async function applyListing(client, edit, listing, fetcher) {
   // Check every preserved asset before making any changes in the edit.
   if (listing.imagePolicy === "preserve-existing") {
     for (const locale of Object.keys(listing.listings)) {
-      for (const type of IMAGE_TYPES) await imageInventory(client, edit, locale, type, fetcher)
+      for (const type of IMAGE_TYPES) {
+        const remote = await imageInventory(client, edit, locale, type, fetcher)
+        const snapshot = listing.images[locale][type]
+        if (snapshot.length) {
+          check(snapshot.length === remote.length && snapshot.every((image, index) => image.sha256 === remote[index].sha256),
+            `Console ${locale}/${type} differs from the versioned snapshot; export and review the current approved assets`)
+        }
+      }
     }
   }
   await client(`${edit}/details`, { method: "PATCH", body: { defaultLanguage: listing.defaultLanguage } })
@@ -125,7 +132,7 @@ export async function exportListing(client, app, output, fetcher = fetch) {
     const response = await client(`${edit}/listings`)
     const internal = await client(`${edit}/tracks/internal`)
     const notes = internal.releases?.find((r) => r.status === "completed")?.releaseNotes ?? []
-    const manifest = { packageName: APPS[app].packageName, defaultLanguage: details.defaultLanguage, imagePolicy: "replace", listings: {}, images: {} }
+    const manifest = { packageName: APPS[app].packageName, defaultLanguage: details.defaultLanguage, imagePolicy: "preserve-existing", listings: {}, images: {} }
     check(Array.isArray(response.listings) && response.listings.length > 0, "Console listing has no text")
     for (const listing of response.listings) {
       const locale = listing.language
@@ -150,7 +157,7 @@ export async function exportListing(client, app, output, fetcher = fetch) {
       }
     }
     await writeFile(resolve(output, "listing.json"), `${JSON.stringify(manifest, null, 2)}\n`)
-    await writeFile(resolve(output, "IMPORT.md"), "Copy listing.json and images/ into the app's store-listing directory. Review all text and images before committing. Keep existing whatsnew/ release notes; add a whatsnew-LOCALE file for any newly imported locale. Run pnpm check:play before submitting. This export makes no Play changes.\n")
+    await writeFile(resolve(output, "IMPORT.md"), "Copy listing.json and images/ into the app's store-listing directory. Review all text and images before committing. The preserve-existing policy verifies these snapshots against Console originals without reuploading or modifying approved artwork. Keep existing whatsnew/ release notes; add a whatsnew-LOCALE file for any newly imported locale. Run pnpm check:play before submitting. This export makes no Play changes.\n")
     return manifest
   })
 }

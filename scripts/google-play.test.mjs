@@ -52,8 +52,8 @@ function mockPlay(overrides = {}) {
     downloads.push({ url: String(url), options })
     const type = Object.keys(counts).find((candidate) => String(url).includes(`/${candidate}-`))
     assert.ok(type, `unexpected image URL: ${url}`)
-    const dimensions = type === "icon" ? [512, 512] : type === "featureGraphic" ? [1024, 500] : [720, 1280]
-    return new Response(pngHeader(...dimensions))
+    const dimensions = type === "icon" ? [512, 512] : type === "featureGraphic" ? [1024, 500] : (overrides.screenshotDimensions ?? [720, 1280])
+    return new Response(Buffer.concat([pngHeader(...dimensions), Buffer.from(String(url))]))
   }
   return { client: handler, fetcher, calls, downloads }
 }
@@ -139,13 +139,13 @@ test("Play HTTP client uses authenticated upload and JSON endpoints correctly", 
   await assert.rejects(failing("edits/e"), (error) => error.message.includes("403") && !error.message.includes("private Google response"))
 })
 
-test("Console export writes a complete replace manifest and only reads/deletes its temporary edit", async (t) => {
+test("Console export writes a complete preservation snapshot and only reads/deletes its temporary edit", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "play-export-"))
   t.after(() => rm(root, { recursive: true, force: true }))
   const output = join(root, APPS.ticketiv.directory)
   const mock = mockPlay()
   const manifest = await exportListing(mock.client, "ticketiv", output, mock.fetcher)
-  assert.equal(manifest.imagePolicy, "replace")
+  assert.equal(manifest.imagePolicy, "preserve-existing")
   assert.equal(manifest.images["en-US"].phoneScreenshots.length, 2)
   assert.ok(!committed(mock.calls))
   assert.ok(deletedEdit(mock.calls))
@@ -154,6 +154,51 @@ test("Console export writes a complete replace manifest and only reads/deletes i
   const loaded = await loadListing("ticketiv", { root, requireImages: true })
   assert.equal(loaded.images["en-US"].featureGraphic[0].width, 1024)
   assert.deepEqual(loaded.listings["en-US"], text)
+})
+
+test("approved tall screenshots export and sync as hash-checked snapshots without reuploading", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "play-tall-export-"))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  const output = join(root, APPS.ticketiv.directory)
+  const mock = mockPlay({ screenshotDimensions: [1080, 2400] })
+  await exportListing(mock.client, "ticketiv", output, mock.fetcher)
+  const loaded = await loadListing("ticketiv", { root, requireImages: true })
+  assert.equal(loaded.imagePolicy, "preserve-existing")
+  assert.equal(loaded.images["en-US"].phoneScreenshots[0].height, 2400)
+  const sync = mockPlay({ screenshotDimensions: [1080, 2400] })
+  await syncListing(sync.client, loaded, sync.fetcher)
+  assert.ok(committed(sync.calls))
+  assert.ok(!sync.calls.some((call) => call.method === "DELETE" || call.upload))
+})
+
+test("changed Console originals block metadata sync against versioned snapshots", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "play-drift-export-"))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  const original = mockPlay({ screenshotDimensions: [1080, 2400] })
+  await exportListing(original.client, "ticketiv", join(root, APPS.ticketiv.directory), original.fetcher)
+  const loaded = await loadListing("ticketiv", { root, requireImages: true })
+  const changed = mockPlay({ screenshotDimensions: [1080, 2340] })
+  await assert.rejects(syncListing(changed.client, loaded, changed.fetcher), /differs from the versioned snapshot/)
+  assert.ok(!committed(changed.calls))
+  assert.ok(!changed.calls.some((call) => ["PUT", "PATCH"].includes(call.method)))
+  assert.ok(deletedEdit(changed.calls))
+})
+
+test("changed screenshot order or count blocks preservation before any metadata update", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "play-order-export-"))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  const original = mockPlay()
+  await exportListing(original.client, "ticketiv", join(root, APPS.ticketiv.directory), original.fetcher)
+  const loaded = await loadListing("ticketiv", { root, requireImages: true })
+  for (const indices of [[1, 0], [0, 1, 2]]) {
+    const changed = mockPlay({ handler: (path, { method }) => path.endsWith("/phoneScreenshots") && method === "GET" ? {
+      images: indices.map((index) => ({ url: `https://play-lh.googleusercontent.com/phoneScreenshots-${index}=w600` })),
+    } : undefined })
+    await assert.rejects(syncListing(changed.client, loaded, changed.fetcher), /differs from the versioned snapshot/)
+    assert.ok(!committed(changed.calls))
+    assert.ok(!changed.calls.some((call) => ["PUT", "PATCH"].includes(call.method)))
+    assert.ok(deletedEdit(changed.calls))
+  }
 })
 
 test("failed exports clean up their temporary edit without committing", async (t) => {
