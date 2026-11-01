@@ -88,7 +88,7 @@ describe("ticket print contract", () => {
     expect(view).toMatch(/print:hidden/)
   })
 
-  it("shares the print layout as an image file, not the page URL", () => {
+  it("shares the ticket as an image file, not the page URL", () => {
     expect(view).toContain("renderTicketImage")
     expect(view).toContain("files: [file]")
     expect(view).not.toContain("url: window.location.href")
