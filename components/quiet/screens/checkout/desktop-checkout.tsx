@@ -9,7 +9,7 @@ import { Button } from "@/components/quiet/ui/button";
 import { FormField, Stepper } from "@/components/quiet/ui/form";
 import { useRouter } from "next/navigation";
 import { formatPrice, formatHoldTimer } from "@/lib/format";
-import { cartSubtotalMinor, type CheckoutCartLine } from "@/lib/checkout/pricing";
+import { cartSubtotalMinor, checkoutTotalMinor, type CheckoutCartLine } from "@/lib/checkout/pricing";
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
 import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/actions";
 import { describePromoFailure } from "@/lib/checkout/promo-copy";
@@ -42,8 +42,6 @@ interface DesktopCheckoutProps {
   lines: ReadonlyArray<CheckoutCartLine>;
   /** Back to the event page's ticket picker with this cart preloaded. */
   editTicketsHref: string;
-  bookingFeeMinor: number;
-  vatRate: number;
   appliedPromo?: { code: string; description: string; savedMinor: number };
   holdSeconds?: number;
   /** Buyer's email; prefilled for signed-in users, empty for guests. */
@@ -66,8 +64,6 @@ export function DesktopCheckout({
   seats = [],
   lines,
   editTicketsHref,
-  bookingFeeMinor,
-  vatRate,
   appliedPromo,
   holdSeconds = 522,
   defaultBuyerEmail = "",
@@ -183,14 +179,13 @@ export function DesktopCheckout({
     return () => clearInterval(i);
   }, [holdRemaining]);
 
-  const vat = Math.round(subtotalMinor * vatRate);
   const discount = activePromo?.savedMinor ?? 0;
   const promoDiscount = validatedPromo
     ? validatedPromo.discountType === "percent"
       ? Math.round(subtotalMinor * validatedPromo.discountValue / 100)
       : validatedPromo.discountValue
     : 0;
-  const total = subtotalMinor + bookingFeeMinor + vat - discount - promoDiscount;
+  const total = checkoutTotalMinor(subtotalMinor, discount + promoDiscount);
 
   return (
     <div className="min-h-dvh bg-bg">
@@ -505,11 +500,6 @@ export function DesktopCheckout({
                 value={formatPrice(l.priceMinor * l.quantity, l.currency)}
               />
             ))}
-            <SummaryRow label="Booking fee" value={formatPrice(bookingFeeMinor, currency)} />
-            <SummaryRow
-              label={`VAT ${Math.round(vatRate * 100)}%`}
-              value={formatPrice(vat, currency)}
-            />
             {activePromo && (
               <SummaryRow
                 label={activePromo.code}

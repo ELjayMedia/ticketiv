@@ -69,8 +69,6 @@ const mobileProps = {
   holdSeconds: 518,
   lines,
   editTicketsHref,
-  bookingFeeMinor: 0,
-  vatRate: 0.15,
   defaultBuyerEmail: "",
 }
 
@@ -120,8 +118,6 @@ describe("UAT B4 client-mount repro", () => {
         eventWhenLabel: "Sat 7 Feb · 16:00",
         lines,
         editTicketsHref,
-        bookingFeeMinor: 0,
-        vatRate: 0.15,
         holdSeconds: 518,
         defaultBuyerEmail: "",
       }),

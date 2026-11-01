@@ -1,7 +1,13 @@
 /**
- * Client-safe checkout pricing: cart lines, booking fee and VAT. Kept free
- * of server imports so the ticket picker and checkout screens (client
- * components) can quote the same totals the server computes.
+ * Client-safe checkout pricing. Kept free of server imports so the ticket
+ * picker and checkout screens (client components) can quote totals.
+ *
+ * The quote must equal what the buyer is charged. The order RPC
+ * (`fn_create_inventory_protected_order`) charges the ticket subtotal
+ * (`total_cents = subtotal_cents`, platform fee 0, no VAT line), and a promo
+ * code is then applied to that total. So buyers see: subtotal − promo.
+ * If fees or VAT are ever charged, add them in the RPC first and quote them
+ * here from the same source.
  */
 
 import type { Currency } from "@/lib/format";
@@ -15,28 +21,11 @@ export interface CheckoutCartLine {
   quantity: number;
 }
 
-export interface CheckoutPricingPlan {
-  platform_fixed_cents: number | null;
-  platform_percent_bps: number | null;
-}
-
-/** VAT applied to the ticket subtotal in every checkout quote. */
-export const CHECKOUT_VAT_RATE = 0.15;
-
-/**
- * Resolve a booking fee in minor units from the pricing plan. Prefers a fixed
- * fee if set; otherwise applies the percentage to subtotal. Callers pass
- * subtotal in cents (sum of `price_cents * qty`).
- */
-export function bookingFeeFor(plan: CheckoutPricingPlan | null, subtotalCents: number): number {
-  if (!plan) return 0;
-  if (plan.platform_fixed_cents && plan.platform_fixed_cents > 0) return plan.platform_fixed_cents;
-  if (plan.platform_percent_bps && plan.platform_percent_bps > 0) {
-    return Math.round((subtotalCents * plan.platform_percent_bps) / 10000);
-  }
-  return 0;
-}
-
 export function cartSubtotalMinor(lines: ReadonlyArray<CheckoutCartLine>): number {
   return lines.reduce((sum, l) => sum + l.priceMinor * l.quantity, 0);
+}
+
+/** What the buyer pays: the subtotal less any discounts, never below zero. */
+export function checkoutTotalMinor(subtotalMinor: number, discountsMinor: number): number {
+  return Math.max(0, subtotalMinor - discountsMinor);
 }

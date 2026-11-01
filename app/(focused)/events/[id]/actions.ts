@@ -9,7 +9,6 @@ import { loadCheckoutAvailability } from "@/lib/checkout/availability"
 import { cartQuantity, clampCart, parseCartParam, serializeCart } from "@/lib/checkout/cart"
 import {
   mapCheckoutTicketType,
-  type CheckoutPricingPlan,
   type CheckoutTicketTypeProp,
 } from "@/lib/mappers/checkout"
 
@@ -20,7 +19,6 @@ function redirectToLogin(eventSlug: string): never {
 
 export interface TicketPickerData {
   ticketTypes: CheckoutTicketTypeProp[]
-  plan: CheckoutPricingPlan | null
 }
 
 /**
@@ -30,8 +28,8 @@ export interface TicketPickerData {
 export async function loadTicketPickerAction(eventSlug: string): Promise<TicketPickerData | null> {
   const event = await getPublicEventBySlug(eventSlug)
   if (!event?.id) return null
-  const { ticketTypes, plan } = await loadCheckoutAvailability(event.id)
-  return { ticketTypes: ticketTypes.map(mapCheckoutTicketType), plan }
+  const { ticketTypes } = await loadCheckoutAvailability(event.id)
+  return { ticketTypes: ticketTypes.map(mapCheckoutTicketType) }
 }
 
 function pickerUrl(eventSlug: string, cart: string, flag?: string): string {
