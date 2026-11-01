@@ -1,3 +1,15 @@
 {
-  "functions": []
+  "functions": [
+    {
+      "schema": "public",
+      "name": "admin_set_platform_fee",
+      "arguments": "p_percent_bps integer, p_fixed_per_ticket_cents integer, p_actor_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    }
+  ]
 }

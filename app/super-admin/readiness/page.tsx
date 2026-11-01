@@ -55,7 +55,6 @@ const CHECKS: CheckDefinition[] = [
   { key: "has_refund_or_support", label: "Refund or support policy set", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
   { key: "has_active_staff", label: "Check-in staff assigned", actionLabel: "Event staff", href: (event) => adminResourceHref("event-staff", { event_id: event.event_id, role: "scanner", active: "true" }) },
   { key: "has_live_stats_row", label: "Live stats initialized", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
-  { key: "has_active_pricing_plan", label: "Active pricing plan", actionLabel: "Pricing", href: (event) => adminResourceHref("pricing-plans", orgDefaults(event, { currency: "SZL", active: "true" })) },
   { key: "has_payout_account", label: "Payout account present", actionLabel: "Payout accounts", href: (event) => adminResourceHref("payout-accounts", orgDefaults(event)) },
 ]
 
@@ -129,12 +128,11 @@ export default async function SuperAdminReadinessPage() {
         </Link>
       </div>
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <SummaryTile label="Ready" value={`${readyCount}/${totalEvents}`} />
         <SummaryTile label="Missing payouts" value={missingCount(sourceRows, "has_payout_account")} />
         <SummaryTile label="Missing staff" value={missingCount(sourceRows, "has_active_staff")} />
         <SummaryTile label="Missing support" value={missingCount(sourceRows, "has_refund_or_support")} />
-        <SummaryTile label="Missing pricing" value={missingCount(sourceRows, "has_active_pricing_plan")} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">

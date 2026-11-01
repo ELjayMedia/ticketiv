@@ -5,49 +5,54 @@ import { describe, expect, it } from "vitest"
 
 import { migrationFunction, migrationFunctionGrants } from "./helpers/migration-contract"
 
-const migration = migrationFunction("public.admin_create_pricing_plan_version")
+const writer = migrationFunction("public.admin_set_platform_fee")
+const trigger = migrationFunction("app.recompute_order_totals")
 const action = readFileSync(join(process.cwd(), "app/super-admin/pricing/actions.ts"), "utf8")
-const form = readFileSync(join(process.cwd(), "app/super-admin/pricing/PricingPlanForm.tsx"), "utf8")
+const form = readFileSync(join(process.cwd(), "app/super-admin/pricing/PlatformFeeForm.tsx"), "utf8")
 const page = readFileSync(join(process.cwd(), "app/super-admin/pricing/page.tsx"), "utf8")
 
-describe("super-admin pricing versioning", () => {
+describe("platform fee (super admin)", () => {
   it("keeps the atomic writer service-role only", () => {
-    expect(migration).toContain("security definer")
-    expect(migration).toContain("pg_advisory_xact_lock")
+    expect(writer).toContain("security definer")
+    expect(writer).toContain("pg_advisory_xact_lock")
 
-    const grants = migrationFunctionGrants("public.admin_create_pricing_plan_version")
-
+    const grants = migrationFunctionGrants("public.admin_set_platform_fee")
     expect(grants.publicExecute, "public still holds the default execute grant").toBe(false)
     expect(grants.grantees).toEqual(["service_role"])
   })
 
-  it("versions instead of restating historical pricing", () => {
-    expect(migration).toContain("set active = false")
-    expect(migration).toContain("insert into public.pricing_plans")
-    expect(migration).toContain("'create_pricing_plan_version'")
-    expect(migration).toContain("insert into public.audit_log")
-    expect(migration).not.toMatch(/update public\.orders/i)
+  it("versions the rate and audits every change without touching orders", () => {
+    expect(writer).toContain("set active = false")
+    expect(writer).toContain("insert into public.platform_fee_settings")
+    expect(writer).toContain("'set_platform_fee'")
+    expect(writer).toContain("insert into public.audit_log")
+    expect(writer).not.toMatch(/update public\.orders/i)
   })
 
-  it("pins the canonical organizer-paid order model", () => {
-    expect(migration).toContain("p_platform_percent_bps")
-    expect(migration).toContain("platform_fixed_cents")
-    expect(migration).toContain("'organizer'::public.fee_payer")
-    expect(migration).toContain("p_min_platform_fee_cents")
+  it("prices new orders per ticket from the platform setting, paid by the organizer", () => {
+    expect(trigger).toContain("from public.platform_fee_settings")
+    expect(trigger).toContain("'platform_fixed_per_ticket_cents'")
+    expect(trigger).toContain("'fees_paid_by', 'organizer'")
+    // Free tickets pay nothing; a ticket's fee is capped at its price.
+    expect(trigger).toContain("filter (where tt.price_cents > 0)")
+    expect(trigger).toMatch(/least\(\s*tt\.price_cents/)
   })
 
-  it("requires a real super-admin server action and surfaces the break-even guard", () => {
+  it("never reprices settled orders", () => {
+    expect(trigger).toContain("old.status is distinct from 'pending'::public.order_status")
+  })
+
+  it("requires a real super-admin server action", () => {
     expect(action).toContain('requireAdminRole(["super_admin"])')
-    expect(action).toContain("admin_create_pricing_plan_version")
-    expect(form).toContain("Break-even guard")
-    expect(form).toContain("commission is at or below the processor percentage")
-    expect(page).toContain("Pricing change history")
+    expect(action).toContain("admin_set_platform_fee")
     expect(page).toContain('requireAdminRole(["super_admin"])')
+    expect(page).toContain("Fee history")
+    expect(form).toContain("Applies to orders placed from now on")
   })
 
   it("does not wire payout fees into order pricing", () => {
     expect(page).toContain("Withdrawal fees and minimum payout thresholds stay outside order math")
-    expect(migration).not.toMatch(/withdrawal_fee/i)
-    expect(migration).not.toMatch(/minimum_payout/i)
+    expect(writer).not.toMatch(/withdrawal_fee/i)
+    expect(writer).not.toMatch(/minimum_payout/i)
   })
 })

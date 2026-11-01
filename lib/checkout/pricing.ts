@@ -3,11 +3,12 @@
  * picker and checkout screens (client components) can quote totals.
  *
  * The quote must equal what the buyer is charged. The order RPC
- * (`fn_create_inventory_protected_order`) charges the ticket subtotal
- * (`total_cents = subtotal_cents`, platform fee 0, no VAT line), and a promo
- * code is then applied to that total. So buyers see: subtotal − promo.
- * If fees or VAT are ever charged, add them in the RPC first and quote them
- * here from the same source.
+ * (`fn_create_inventory_protected_order`) charges the ticket subtotal, and
+ * a promo code is then applied to that total. So buyers see: subtotal − promo.
+ * Ticketiv's platform fee is not added for buyers: it is deducted from the
+ * organizer's payout (see lib/fees/platform-fee.ts). If a buyer-side fee or
+ * VAT is ever charged, add it in the database first and quote it here from
+ * the same source.
  */
 
 import type { Currency } from "@/lib/format";
