@@ -72,7 +72,6 @@ describe("createSeatHoldAction", () => {
     mocks.getPublicEventBySlug.mockResolvedValue({ id: eventId })
     mocks.loadCheckoutAvailability.mockResolvedValue({
       ticketTypes: [ticketType(GA), ticketType(VIP, { remaining: 1 })],
-      plan: null,
       orgId: null,
     })
     mocks.ensureCheckoutIdentity.mockResolvedValue({
@@ -121,7 +120,6 @@ describe("createSeatHoldAction", () => {
     mocks.createServerSupabaseClient.mockReturnValue({ rpc })
     mocks.loadCheckoutAvailability.mockResolvedValue({
       ticketTypes: [ticketType(GA, { remaining: 0 })],
-      plan: null,
       orgId: null,
     })
 

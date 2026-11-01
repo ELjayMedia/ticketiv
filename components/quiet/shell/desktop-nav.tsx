@@ -12,8 +12,9 @@ import { cn } from "@/lib/cn";
 const NAV_ITEMS = [
   { href: "/", label: "Discover" },
   { href: "/series", label: "Series" },
-  { href: "/calendar", label: "Calendar" },
-  { href: "/organizers", label: "Organizers" },
+  // Calendar is the signed-in user's own calendar; hidden when signed out.
+  { href: "/calendar", label: "Calendar", signedInOnly: true },
+  { href: "/organisers", label: "Organisers" },
 ];
 
 interface DesktopNavProps {
@@ -78,7 +79,7 @@ export function DesktopNav({
 
         {!breadcrumb && (
           <nav className="hidden shrink-0 items-center gap-1 text-[14px] font-medium lg:flex">
-            {NAV_ITEMS.map((item) => {
+            {NAV_ITEMS.filter((item) => signedIn || !item.signedInOnly).map((item) => {
               const active =
                 item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
               return (

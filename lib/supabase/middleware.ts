@@ -117,6 +117,8 @@ export async function updateSession(request: NextRequest) {
     "/categories",
     "/category/",
     "/organisers",
+    "/search",
+    "/series",
     "/host",
     "/marketplace",
     "/privacy",

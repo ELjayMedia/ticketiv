@@ -6,9 +6,6 @@ import { CheckoutProviderBridge } from "@/components/quiet/screens/checkout/chec
 import { CheckoutStartTracker } from "@/components/analytics/buyer-funnel";
 import { getPublicEventBySlug } from "@/lib/adapters/events";
 import {
-  CHECKOUT_VAT_RATE,
-  bookingFeeFor,
-  cartSubtotalMinor,
   mapCheckoutCartLines,
   mapCheckoutEvent,
   mapCheckoutTicketType,
@@ -97,7 +94,7 @@ export default async function CheckoutPage({
   }
 
   const sharedProps = mapCheckoutEvent(row);
-  const [{ ticketTypes, plan }, paymentMethods] = await Promise.all([
+  const [{ ticketTypes }, paymentMethods] = await Promise.all([
     loadCheckoutAvailability(row.id),
     getEffectivePaymentMethodsForEvent(row.id),
   ]);
@@ -149,8 +146,6 @@ export default async function CheckoutPage({
     redirect(`/events/${id}?${pickerParams.toString()}`);
   }
   const cartLines = mapCheckoutCartLines(cart, mappedTypes);
-  const subtotal = cartSubtotalMinor(cartLines);
-  const bookingFee = bookingFeeFor(plan, subtotal);
   const editTicketsHref = `/events/${id}?${new URLSearchParams({ tickets: "1", items: serializeCart(cart) }).toString()}`;
 
   if (paymentMethods.length === 0) {
@@ -209,8 +204,6 @@ export default async function CheckoutPage({
             lines={cartLines}
             editTicketsHref={editTicketsHref}
             paymentMethods={paymentMethods}
-            bookingFeeMinor={bookingFee}
-            vatRate={CHECKOUT_VAT_RATE}
             holdSeconds={holdSeconds}
             defaultBuyerEmail={defaultBuyerEmail}
             defaultBuyerName={defaultBuyerName}
@@ -230,8 +223,6 @@ export default async function CheckoutPage({
             eventUuid={row.id}
             lines={cartLines}
             editTicketsHref={editTicketsHref}
-            bookingFeeMinor={bookingFee}
-            vatRate={CHECKOUT_VAT_RATE}
             holdSeconds={holdSeconds}
             defaultBuyerEmail={defaultBuyerEmail}
           />
