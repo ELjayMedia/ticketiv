@@ -13,6 +13,9 @@ pnpm check:release
 
 `check:release` runs lint, unit/regression tests, TypeScript, the demo-pattern guard and a production Next.js build. GitHub Actions runs the same command for pull requests and `main`.
 
+For Google Play listing assets, internal uploads and promotion of an exact verified
+bundle to production, follow [Google Play listings and releases](GOOGLE_PLAY_RELEASES.md).
+
 ## Web platform
 
 Release only when all items are evidenced against the deployment commit:
