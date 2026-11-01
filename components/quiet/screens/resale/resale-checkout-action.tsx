@@ -42,7 +42,7 @@ export function ResaleCheckoutAction({
         </div>
 
         {completeState?.message && (
-          <div className="rounded-[var(--radius)] border border-[#f1d0c8] bg-[#fdf0ec] px-3 py-2 font-mono text-[11px] text-[#c1422b]">
+          <div className="rounded-[var(--radius)] border border-danger/30 bg-danger-soft px-3 py-2 font-mono text-[11px] text-danger">
             {completeState.message}
           </div>
         )}
@@ -76,7 +76,7 @@ export function ResaleCheckoutAction({
     <form action={createAction} className="space-y-2">
       <input type="hidden" name="listingId" value={listingId} />
       {createState?.message && (
-        <div className="rounded-[var(--radius)] border border-[#f1d0c8] bg-[#fdf0ec] px-3 py-2 font-mono text-[11px] text-[#c1422b]">
+        <div className="rounded-[var(--radius)] border border-danger/30 bg-danger-soft px-3 py-2 font-mono text-[11px] text-danger">
           {createState.message}
         </div>
       )}

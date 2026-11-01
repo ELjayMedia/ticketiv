@@ -1,9 +1,9 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { CalendarDays, Plus, Trash2 } from "lucide-react"
 import { Button } from "@/components/quiet/ui/button";
 import { Input } from "@/components/quiet/ui/form";
+import { Icon } from "@/components/quiet/ui/icon"
 
 
 type DateRow = {
@@ -103,7 +103,7 @@ export function ScheduleStep({ eventId, onSaving }: { eventId: string; onSaving:
     <div className="space-y-5">
       <div className="rounded-lg border bg-surface-2/30 p-4 text-sm text-ink-3">
         <div className="flex gap-3">
-          <CalendarDays className="mt-0.5 h-5 w-5" />
+          <Icon name="cal" className="mt-0.5 h-5 w-5" />
           <div>
             <p className="font-medium text-ink">Canonical event schedule</p>
             <p className="mt-1">The earliest event date becomes the canonical start date and the latest end date becomes the canonical end date for public browsing and checkout. Additional dates support future festival and multi-day event flows.</p>
@@ -122,7 +122,7 @@ export function ScheduleStep({ eventId, onSaving }: { eventId: string; onSaving:
 
               {dates.length > 1 ? (
                 <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="Remove date" onClick={() => removeDate(index)} disabled={saving}>
-                  <Trash2 className="h-4 w-4" />
+                  <Icon name="trash" className="h-4 w-4" />
                 </Button>
               ) : null}
             </div>
@@ -143,7 +143,7 @@ export function ScheduleStep({ eventId, onSaving }: { eventId: string; onSaving:
       </div>
 
       <Button type="button" variant="outline" onClick={addDate} className="w-full gap-2" disabled={saving}>
-        <Plus className="h-4 w-4" /> Add another event date
+        <Icon name="plus" className="h-4 w-4" /> Add another event date
       </Button>
 
       <div>
@@ -151,7 +151,7 @@ export function ScheduleStep({ eventId, onSaving }: { eventId: string; onSaving:
         <Input value={tz} onChange={(e) => setTz(e.target.value)} placeholder="Africa/Mbabane" className="mt-2" disabled={saving} />
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
       <Button variant="accent" onClick={saveSchedule} disabled={saving || dates.some((row) => !row.starts_at || !row.ends_at)} className="w-full">
         {saving ? "Saving schedule..." : isMultiDay ? "Save festival schedule" : "Save schedule"}

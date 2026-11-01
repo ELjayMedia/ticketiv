@@ -42,8 +42,8 @@ const ROLE_COLUMNS = ["owner", "admin", "event_admin", "scanner", "pos", "suppor
 function roleBadgeClass(role: string): string {
   if (role.includes("owner")) return "bg-accent-soft text-accent"
   if (role.includes("admin") || role === "pos") return "bg-accent-soft text-accent"
-  if (role === "scanner" || role === "organizer_scanner") return "bg-[#f3f1ee] text-ink-2"
-  return "bg-[#f3f1ee] text-ink-3"
+  if (role === "scanner" || role === "organizer_scanner") return "bg-surface-2 text-ink-2"
+  return "bg-surface-2 text-ink-3"
 }
 
 export function TeamRoles({ orgId, orgName, members, pendingInvites }: TeamRolesProps) {
@@ -122,7 +122,7 @@ export function TeamRoles({ orgId, orgName, members, pendingInvites }: TeamRoles
                 )}
                 <span className="font-semibold">{m.name}</span>
                 {m.flag === "never_logged_in" && (
-                  <span className="rounded bg-[#fdf6ed] px-1.5 py-0.5 font-mono text-[9px] font-semibold text-[#c1841c]">
+                  <span className="rounded bg-warning-soft px-1.5 py-0.5 font-mono text-[9px] font-semibold text-warning">
                     NEVER LOGGED IN
                   </span>
                 )}

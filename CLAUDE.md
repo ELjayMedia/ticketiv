@@ -30,7 +30,7 @@ The project uses a bespoke **Quiet UI** design system, not shadcn/ui. Do not use
 - `Card`, `CardBody`, `CardDivider`
 - `Button` — variants: `default | primary | accent | ghost | outline`, sizes: `xs | sm | md | lg`
 - `Chip` — variants: `default | active | accent | muted`
-- `Icon` — import `IconName` type too; valid names: `search heart bell user pin cal ticket share filter chevR chevL chevD chevU plus minus arrowR arrowUR close check map music spark copy fire zap globe wallet qr clock fileText download trash settings trending users globe`
+- `Icon` — import `IconName` type too (a strict union: an invalid name fails typecheck); the only icon set, never `lucide-react`. Valid names: `search heart bell user pin cal ticket share filter chevR chevL chevD chevU plus minus arrowR arrowUR close check map music spark copy fire zap globe wallet qr nfc clock fileText download trash settings trending checkCircle alertCircle alert info ring loader refresh menu logout shield building card receipt flag key activity clipboard users`
 - `FormField` — controlled input with label
 
 ### CSS design tokens (use these, not Tailwind defaults)
@@ -40,7 +40,8 @@ text-ink       text-ink-2        text-ink-3        text-ink-4
 border-line    border-line-2
 text-accent    bg-accent-soft
 text-danger    bg-danger-soft
-text-warning
+text-warning   bg-warning-soft
+text-success   bg-success-soft
 var(--radius)  var(--radius-md)  var(--radius-lg)  var(--radius-xl)
 var(--shadow-card)
 ```

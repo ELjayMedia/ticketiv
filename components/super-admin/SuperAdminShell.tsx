@@ -1,96 +1,70 @@
 import Link from "next/link"
-import {
-  Activity,
-  BadgeDollarSign,
-  Building2,
-  CalendarDays,
-  CheckCircle2,
-  ChevronRight,
-  ClipboardList,
-  CreditCard,
-  Download,
-  Flag,
-  KeyRound,
-  LogOut,
-  Menu,
-  QrCode,
-  ReceiptText,
-  Search,
-  Settings,
-  ShieldCheck,
-  Sparkles,
-  Ticket,
-  UserCircle,
-  Users,
-  WalletCards,
-  Webhook,
-  type LucideIcon,
-} from "lucide-react"
 
 import { signOutSuperAdminAction } from "@/app/super-admin/actions"
 import { Button } from "@/components/quiet/ui/button";
+import { Icon, type IconName } from "@/components/quiet/ui/icon"
 
 const NAV_GROUPS: Array<{
   label: string
-  items: Array<{ label: string; href: string; icon: LucideIcon; active?: boolean }>
+  items: Array<{ label: string; href: string; icon: IconName; active?: boolean }>
 }> = [
   {
     label: "Workspace",
     items: [
-      { label: "Overview", href: "/super-admin", icon: Activity },
-      { label: "Events", href: "/super-admin/events", icon: CalendarDays },
-      { label: "Orders", href: "/super-admin/orders", icon: ReceiptText },
-      { label: "Issued Tickets", href: "/super-admin/order-items", icon: Users },
-      { label: "Ticket Types", href: "/super-admin/ticket-types", icon: Ticket },
+      { label: "Overview", href: "/super-admin", icon: "activity" },
+      { label: "Events", href: "/super-admin/events", icon: "cal" },
+      { label: "Orders", href: "/super-admin/orders", icon: "receipt" },
+      { label: "Issued Tickets", href: "/super-admin/order-items", icon: "users" },
+      { label: "Ticket Types", href: "/super-admin/ticket-types", icon: "ticket" },
     ],
   },
   {
     label: "Event Operations",
     items: [
-      { label: "Event Categories", href: "/super-admin/event-categories", icon: Flag },
-      { label: "Guestlists", href: "/super-admin/guestlist-entries", icon: ClipboardList },
-      { label: "Coupons & Vouchers", href: "/super-admin/price-rules", icon: Flag },
-      { label: "Scanning & Devices", href: "/super-admin/devices", icon: QrCode },
-      { label: "Staff", href: "/super-admin/event-staff", icon: UserCircle },
-      { label: "Readiness Checklist", href: "/super-admin/readiness", icon: CheckCircle2 },
+      { label: "Event Categories", href: "/super-admin/event-categories", icon: "flag" },
+      { label: "Guestlists", href: "/super-admin/guestlist-entries", icon: "clipboard" },
+      { label: "Coupons & Vouchers", href: "/super-admin/price-rules", icon: "flag" },
+      { label: "Scanning & Devices", href: "/super-admin/devices", icon: "qr" },
+      { label: "Staff", href: "/super-admin/event-staff", icon: "user" },
+      { label: "Readiness Checklist", href: "/super-admin/readiness", icon: "checkCircle" },
     ],
   },
   {
     label: "TapBand",
     items: [
-      { label: "Operations", href: "/super-admin/workspaces/tapband-operations", icon: Activity },
-      { label: "Batches", href: "/super-admin/credential-batches", icon: ClipboardList },
-      { label: "Inventory", href: "/super-admin/credential-inventory", icon: Ticket },
-      { label: "Credentials", href: "/super-admin/physical-credentials", icon: ShieldCheck },
-      { label: "Entitlements", href: "/super-admin/credential-entitlements", icon: Users },
-      { label: "Tap Audit", href: "/super-admin/credential-taps", icon: QrCode },
-      { label: "Config", href: "/super-admin/tapband-feature-configs", icon: Settings },
-      { label: "Kill Switches", href: "/super-admin/tapband-kill-switches", icon: Flag },
+      { label: "Operations", href: "/super-admin/workspaces/tapband-operations", icon: "activity" },
+      { label: "Batches", href: "/super-admin/credential-batches", icon: "clipboard" },
+      { label: "Inventory", href: "/super-admin/credential-inventory", icon: "ticket" },
+      { label: "Credentials", href: "/super-admin/physical-credentials", icon: "shield" },
+      { label: "Entitlements", href: "/super-admin/credential-entitlements", icon: "users" },
+      { label: "Tap Audit", href: "/super-admin/credential-taps", icon: "qr" },
+      { label: "Config", href: "/super-admin/tapband-feature-configs", icon: "settings" },
+      { label: "Kill Switches", href: "/super-admin/tapband-kill-switches", icon: "flag" },
     ],
   },
   {
     label: "Finance",
     items: [
-      { label: "Payments", href: "/super-admin/payments", icon: CreditCard },
-      { label: "Payment Attempts", href: "/super-admin/payment-attempts", icon: Activity },
-      { label: "Reconciliation", href: "/super-admin/reconciliation", icon: ClipboardList },
-      { label: "Payouts", href: "/super-admin/payouts", icon: BadgeDollarSign },
-      { label: "Refunds", href: "/super-admin/refunds", icon: WalletCards },
-      { label: "Ledger", href: "/super-admin/ledger-entries", icon: ReceiptText },
-      { label: "CSV Exports", href: "/super-admin/exports/orders", icon: Download },
+      { label: "Payments", href: "/super-admin/payments", icon: "card" },
+      { label: "Payment Attempts", href: "/super-admin/payment-attempts", icon: "activity" },
+      { label: "Reconciliation", href: "/super-admin/reconciliation", icon: "clipboard" },
+      { label: "Payouts", href: "/super-admin/payouts", icon: "wallet" },
+      { label: "Refunds", href: "/super-admin/refunds", icon: "wallet" },
+      { label: "Ledger", href: "/super-admin/ledger-entries", icon: "receipt" },
+      { label: "CSV Exports", href: "/super-admin/exports/orders", icon: "download" },
     ],
   },
   {
     label: "Admin / Controls",
     items: [
-      { label: "Organizations", href: "/super-admin/organizations", icon: Building2 },
-      { label: "Org Members", href: "/super-admin/org-members", icon: Users },
-      { label: "Feature Flags", href: "/super-admin/feature-flags", icon: Sparkles },
-      { label: "Audit Logs", href: "/super-admin/audit", icon: ShieldCheck },
-      { label: "Webhooks", href: "/super-admin/webhooks", icon: Webhook },
-      { label: "Env Vars", href: "/super-admin/env-vars", icon: KeyRound },
-      { label: "Jobs", href: "/super-admin/jobs", icon: Settings },
-      { label: "Realtime Health", href: "/super-admin/realtime-health", icon: Activity },
+      { label: "Organizations", href: "/super-admin/organizations", icon: "building" },
+      { label: "Org Members", href: "/super-admin/org-members", icon: "users" },
+      { label: "Feature Flags", href: "/super-admin/feature-flags", icon: "spark" },
+      { label: "Audit Logs", href: "/super-admin/audit", icon: "shield" },
+      { label: "Webhooks", href: "/super-admin/webhooks", icon: "share" },
+      { label: "Env Vars", href: "/super-admin/env-vars", icon: "key" },
+      { label: "Jobs", href: "/super-admin/jobs", icon: "settings" },
+      { label: "Realtime Health", href: "/super-admin/realtime-health", icon: "activity" },
     ],
   },
 ]
@@ -123,14 +97,14 @@ export function SuperAdminShell({ children, userEmail }: { children: React.React
         <div className="border-t p-3">
           <div className="rounded-2xl border bg-surface p-3">
             <div className="flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2"><UserCircle className="h-5 w-5" /></span>
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2"><Icon name="user" className="h-5 w-5" /></span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">Super Admin</p>
                 <p className="truncate text-xs text-ink-3">{userEmail ?? "Ticketiv control room"}</p>
               </div>
             </div>
             <form action={signOutSuperAdminAction} className="mt-3">
-              <Button type="submit" variant="outline" className="h-9 w-full rounded-full text-xs"><LogOut className="mr-2 h-3.5 w-3.5" /> Sign out</Button>
+              <Button type="submit" variant="outline" className="h-9 w-full rounded-full text-xs"><Icon name="logout" className="mr-2 h-3.5 w-3.5" /> Sign out</Button>
             </form>
           </div>
         </div>
@@ -144,7 +118,7 @@ export function SuperAdminShell({ children, userEmail }: { children: React.React
                 className="inline-flex size-9 cursor-pointer list-none items-center justify-center rounded-full border bg-surface shadow-xs transition hover:bg-surface-2 hover:text-ink [&::-webkit-details-marker]:hidden"
                 aria-label="Open dashboard navigation"
               >
-                <Menu className="h-4 w-4" />
+                <Icon name="menu" className="h-4 w-4" />
               </summary>
               <div className="fixed inset-x-0 top-16 z-50 max-h-[calc(100dvh-4rem)] overflow-y-auto border-b bg-surface p-4 shadow-lg">
                 <div className="grid gap-4">
@@ -153,16 +127,15 @@ export function SuperAdminShell({ children, userEmail }: { children: React.React
                       <p className="px-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-ink-3">{group.label}</p>
                       <div className="grid gap-2">
                         {group.items.map((item) => {
-                          const Icon = item.icon
                           return (
                             <Link
                               key={`mobile-menu-${group.label}-${item.label}`}
                               href={item.href}
                               className="flex items-center gap-3 rounded-xl border bg-surface px-3 py-2.5 text-sm font-medium text-ink shadow-xs transition hover:bg-surface-2"
                             >
-                              <Icon className="h-4 w-4 shrink-0 text-ink-3" />
+                              <Icon name={item.icon} className="h-4 w-4 shrink-0 text-ink-3" />
                               <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                              <ChevronRight className="h-4 w-4 shrink-0 text-ink-3" />
+                              <Icon name="chevR" className="h-4 w-4 shrink-0 text-ink-3" />
                             </Link>
                           )
                         })}
@@ -174,11 +147,11 @@ export function SuperAdminShell({ children, userEmail }: { children: React.React
             </details>
             <div className="hidden items-center gap-1 text-sm text-ink-3 md:flex">
               <Link href="/super-admin" className="font-medium text-ink">Super Admin</Link>
-              <ChevronRight className="h-4 w-4" />
+              <Icon name="chevR" className="h-4 w-4" />
               <span>Command Centre</span>
             </div>
             <div className="ml-auto hidden max-w-sm items-center gap-2 rounded-full border bg-surface-2/40 px-3 py-2 text-sm text-ink-3 md:flex">
-              <Search className="h-4 w-4" />
+              <Icon name="search" className="h-4 w-4" />
               <span>Search events, orders, payouts...</span>
             </div>
             <Button asChild variant="outline" className="ml-auto rounded-full md:ml-0"><Link href="/super-admin/readiness">Readiness</Link></Button>
@@ -186,8 +159,7 @@ export function SuperAdminShell({ children, userEmail }: { children: React.React
           </div>
           <div className="flex gap-2 overflow-x-auto px-4 pb-3 sm:px-6 lg:hidden">
             {NAV_GROUPS.flatMap((group) => group.items).map((item) => {
-              const Icon = item.icon
-              return <Link key={item.label} href={item.href} className={item.active ? "inline-flex shrink-0 items-center gap-2 rounded-full bg-accent px-3 py-1.5 text-xs font-medium text-white" : "inline-flex shrink-0 items-center gap-2 rounded-full border bg-surface px-3 py-1.5 text-xs font-medium"}><Icon className="h-3.5 w-3.5" />{item.label}</Link>
+              return <Link key={item.label} href={item.href} className={item.active ? "inline-flex shrink-0 items-center gap-2 rounded-full bg-accent px-3 py-1.5 text-xs font-medium text-white" : "inline-flex shrink-0 items-center gap-2 rounded-full border bg-surface px-3 py-1.5 text-xs font-medium"}><Icon name={item.icon} className="h-3.5 w-3.5" />{item.label}</Link>
             })}
           </div>
         </header>
@@ -197,10 +169,10 @@ export function SuperAdminShell({ children, userEmail }: { children: React.React
   )
 }
 
-function ShellNavLink({ label, href, icon: Icon, active }: { label: string; href: string; icon: LucideIcon; active?: boolean }) {
+function ShellNavLink({ label, href, icon, active }: { label: string; href: string; icon: IconName; active?: boolean }) {
   return (
     <Link href={href} className={active ? "flex items-center gap-3 rounded-xl bg-accent px-3 py-2 text-sm font-medium text-white shadow-sm" : "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-ink-3 transition hover:bg-surface-2 hover:text-ink"}>
-      <Icon className="h-4 w-4 shrink-0" />
+      <Icon name={icon} className="h-4 w-4 shrink-0" />
       <span className="min-w-0 flex-1 truncate">{label}</span>
     </Link>
   )

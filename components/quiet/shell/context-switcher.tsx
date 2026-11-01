@@ -14,12 +14,13 @@ const KIND_ICON: Record<ContextKind, IconName> = {
 }
 
 // Per-context accent so the user always knows which hat they're wearing.
-const KIND_COLOR: Record<ContextKind, string> = {
-  personal: "#6366f1",
-  org: "#0ea5e9",
-  talent: "#ec4899",
-  scan: "#f59e0b",
-  admin: "#ef4444",
+// Quiet tokens only: one colour per kind of workspace.
+const KIND_BG: Record<ContextKind, string> = {
+  personal: "bg-accent",
+  org: "bg-ink",
+  talent: "bg-ink-2",
+  scan: "bg-warning",
+  admin: "bg-danger",
 }
 
 export function ContextSwitcher({
@@ -64,8 +65,7 @@ export function ContextSwitcher({
         className="flex items-center gap-2 rounded-[var(--radius)] border border-line-2 bg-surface px-2.5 py-1.5 text-[13px] transition-colors hover:bg-bg disabled:opacity-60"
       >
         <span
-          className="inline-flex h-5 w-5 items-center justify-center rounded-md text-white"
-          style={{ backgroundColor: KIND_COLOR[current.kind] }}
+          className={`inline-flex h-5 w-5 items-center justify-center rounded-md text-white ${KIND_BG[current.kind]}`}
         >
           <Icon name={KIND_ICON[current.kind]} size={12} />
         </span>
@@ -90,8 +90,7 @@ export function ContextSwitcher({
               }
             >
               <span
-                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-white"
-                style={{ backgroundColor: KIND_COLOR[c.kind] }}
+                className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-white ${KIND_BG[c.kind]}`}
               >
                 <Icon name={KIND_ICON[c.kind]} size={14} />
               </span>

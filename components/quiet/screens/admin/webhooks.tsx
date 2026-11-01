@@ -21,8 +21,8 @@ type Tab = "outbound" | "inbound"
 function statusClass(code: number | null): string {
   if (code === null) return "bg-line text-ink-3"
   if (code >= 200 && code < 300) return "bg-accent-soft text-accent"
-  if (code >= 400 && code < 500) return "bg-[#fdf6ed] text-[#c1841c]"
-  if (code >= 500) return "bg-[#fdf0ec] text-[#c1422b]"
+  if (code >= 400 && code < 500) return "bg-warning-soft text-warning"
+  if (code >= 500) return "bg-danger-soft text-danger"
   return "bg-line text-ink-3"
 }
 
@@ -137,7 +137,7 @@ export function WebhooksScreen({ overview }: { overview: WebhooksOverview }) {
                     {e.events.length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1">
                         {e.events.slice(0, 4).map((evt) => (
-                          <span key={evt} className="rounded bg-[#f3f1ee] px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-ink-3">
+                          <span key={evt} className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-ink-3">
                             {evt}
                           </span>
                         ))}
@@ -170,7 +170,7 @@ export function WebhooksScreen({ overview }: { overview: WebhooksOverview }) {
                       disabled={busy === e.id}
                       onClick={() => remove(e.id, e.url)}
                       aria-label="Delete endpoint"
-                      className="rounded-md p-1 text-ink-3 hover:bg-[#fdf0ec] hover:text-[#c1422b] disabled:opacity-50"
+                      className="rounded-md p-1 text-ink-3 hover:bg-danger-soft hover:text-danger disabled:opacity-50"
                     >
                       <Icon name="close" size={12} />
                     </button>
@@ -247,7 +247,7 @@ export function WebhooksScreen({ overview }: { overview: WebhooksOverview }) {
                 <span className="font-mono text-[11px] text-ink-3">{relative(w.received_at)}</span>
                 <span
                   className={`inline-flex w-fit items-center rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase ${
-                    w.processed_at ? "bg-accent-soft text-accent" : "bg-[#fdf6ed] text-[#c1841c]"
+                    w.processed_at ? "bg-accent-soft text-accent" : "bg-warning-soft text-warning"
                   }`}
                 >
                   {w.processed_at ? "DONE" : "PENDING"}
@@ -400,13 +400,13 @@ function NewEndpointDialog({ onDismiss }: { onDismiss: () => void }) {
               type="checkbox"
               checked={enabled}
               onChange={(e) => setEnabled(e.target.checked)}
-              className="h-4 w-4 accent-[#6b3fbd]"
+              className="h-4 w-4 accent-accent"
             />
             Enable immediately
           </label>
         </div>
         {err && (
-          <div className="mt-3 rounded-md bg-[#fdf0ec] px-3 py-2 font-mono text-xs text-[#c1422b]">{err}</div>
+          <div className="mt-3 rounded-md bg-danger-soft px-3 py-2 font-mono text-xs text-danger">{err}</div>
         )}
         <div className="mt-4 flex justify-end gap-2">
           <Button type="button" variant="default" size="xs" onClick={onDismiss}>
@@ -459,14 +459,14 @@ function DispatcherPanel() {
         <div className="flex flex-col">
           <span className="text-h3">Outbound dispatch worker</span>
           <span className="font-mono text-[11px] text-ink-3">
-            Edge function <code className="rounded bg-[#f3f1ee] px-1">webhook-dispatch</code> sweeps pending deliveries with HMAC-SHA256 signature
+            Edge function <code className="rounded bg-surface-2 px-1">webhook-dispatch</code> sweeps pending deliveries with HMAC-SHA256 signature
           </span>
         </div>
         <div className="flex items-center gap-2">
           {msg && (
             <span
               className={`font-mono text-[10px] font-semibold ${
-                ok ? "text-accent" : "text-[#c1422b]"
+                ok ? "text-accent" : "text-danger"
               }`}
             >
               {msg}

@@ -91,7 +91,7 @@ export function RoutingScreen({ overview, canAct = true }: { overview: RoutingOv
               <span className="font-mono text-ink-3">{r.fallback_provider ?? "—"}</span>
               <span
                 className={`inline-flex w-fit items-center rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase ${
-                  r.is_active ? "bg-accent-soft text-accent" : "bg-[#f3f1ee] text-ink-3"
+                  r.is_active ? "bg-accent-soft text-accent" : "bg-surface-2 text-ink-3"
                 }`}
               >
                 {r.is_active ? "on" : "off"}
@@ -114,7 +114,7 @@ export function RoutingScreen({ overview, canAct = true }: { overview: RoutingOv
                     disabled={busy === r.id}
                     onClick={() => remove(r.id, `${r.country_code ?? "any"}/${r.currency ?? "any"} → ${r.provider}`)}
                     aria-label="Delete rule"
-                    className="rounded-md p-1 text-ink-3 hover:bg-[#fdf0ec] hover:text-[#c1422b] disabled:opacity-50"
+                    className="rounded-md p-1 text-ink-3 hover:bg-danger-soft hover:text-danger disabled:opacity-50"
                   >
                     <Icon name="close" size={12} />
                   </button>
@@ -152,7 +152,7 @@ export function RoutingScreen({ overview, canAct = true }: { overview: RoutingOv
                 <span className="font-semibold">{p.provider}</span>
                 <span
                   className={`inline-flex items-center rounded px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase ${
-                    p.is_enabled ? "bg-accent-soft text-accent" : "bg-[#f3f1ee] text-ink-3"
+                    p.is_enabled ? "bg-accent-soft text-accent" : "bg-surface-2 text-ink-3"
                   }`}
                 >
                   {p.is_enabled ? "on" : "off"}
@@ -168,8 +168,8 @@ export function RoutingScreen({ overview, canAct = true }: { overview: RoutingOv
                     : p.success_rate_24h >= 97
                       ? "text-accent"
                       : p.success_rate_24h >= 90
-                        ? "text-[#c1841c]"
-                        : "text-[#c1422b]"
+                        ? "text-warning"
+                        : "text-danger"
                 }`}
               >
                 {p.success_rate_24h === null ? "—" : `${p.success_rate_24h}%`}
@@ -309,7 +309,7 @@ function NewRuleDialog({ providers, onDismiss }: { providers: string[]; onDismis
           </RuleField>
         </div>
         {err && (
-          <div className="mt-3 rounded-md bg-[#fdf0ec] px-3 py-2 font-mono text-xs text-[#c1422b]">{err}</div>
+          <div className="mt-3 rounded-md bg-danger-soft px-3 py-2 font-mono text-xs text-danger">{err}</div>
         )}
         <div className="mt-4 flex justify-end gap-2">
           <Button type="button" variant="default" size="xs" onClick={onDismiss}>

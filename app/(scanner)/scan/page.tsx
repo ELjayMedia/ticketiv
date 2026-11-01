@@ -7,7 +7,7 @@ import jsQR from "jsqr"
 import { Button } from "@/components/quiet/ui/button"
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
-import { Icon } from "@/components/quiet/ui/icon"
+import { Icon, type IconName } from "@/components/quiet/ui/icon"
 import { cn } from "@/lib/cn"
 import {
   evaluateScannerOfflineManifest,
@@ -108,10 +108,10 @@ function persistOfflineQueue(queue: OfflineScanPayload[]) {
 const fieldClass =
   "rounded-md border border-line-2 bg-surface px-3 py-2.5 text-[14px] font-medium text-ink placeholder:text-ink-4 outline-none transition-shadow duration-100 focus:border-accent focus:ring-[3px] focus:ring-accent-soft"
 
-const TONE_STYLES: Record<ScannerOutcomeTone, { border: string; icon: string }> = {
-  success: { border: "border-accent/40 bg-accent-soft text-ink", icon: "check" },
-  warning: { border: "border-warning/40 bg-warning/10 text-ink", icon: "bell" },
-  danger: { border: "border-danger/40 bg-danger/5 text-danger", icon: "close" },
+const TONE_STYLES: Record<ScannerOutcomeTone, { border: string; icon: IconName }> = {
+  success: { border: "border-accent/40 bg-accent-soft text-ink", icon: "checkCircle" },
+  warning: { border: "border-warning/40 bg-warning/10 text-ink", icon: "alert" },
+  danger: { border: "border-danger/40 bg-danger/5 text-danger", icon: "alertCircle" },
   muted: { border: "border-line bg-bg text-ink-3", icon: "clock" },
 }
 

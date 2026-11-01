@@ -92,7 +92,7 @@ export function SearchResults({
           <Icon name="chevL" size={22} />
         </button>
         <form
-          className="flex flex-1 items-center gap-2 rounded-md bg-[#f3f1ee] px-3 py-2"
+          className="flex flex-1 items-center gap-2 rounded-md bg-surface-2 px-3 py-2"
           onSubmit={(e) => {
             e.preventDefault()
             submit(draft)

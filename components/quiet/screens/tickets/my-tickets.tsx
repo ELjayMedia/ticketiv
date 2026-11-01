@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { acceptTransfer, cancelTransfer, declineTransfer } from "@/lib/data/attendee/transfers";
 import { createClientSupabaseClient } from "@/lib/supabase-client";
 import Link from "next/link";
-import { Icon } from "@/components/quiet/ui/icon";
+import { Icon, type IconName } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
 import { Card } from "@/components/quiet/ui/card";
 import {
@@ -111,7 +111,7 @@ const STATUS_CHIP: Record<
   },
   transferred: {
     label: "↗ Transferred",
-    className: "border-transparent bg-[#fdf0ec] text-[#c1422b]",
+    className: "border-transparent bg-danger-soft text-danger",
   },
   refunded: {
     label: "Refunded",
@@ -565,7 +565,7 @@ export function MyTickets({
             <section className="px-5 pt-4">
               <div className="text-label mb-2">Action needed</div>
               <Card
-                className="border-[#fde2c1] bg-[#fdf6ed] p-3.5"
+                className="border-warning/30 bg-warning-soft p-3.5"
                 flat
               >
                 <div className="flex items-center gap-3">
@@ -645,7 +645,7 @@ export function MyTickets({
             {_inbound && (
               <section className="pb-4">
                 <div className="text-label mb-2">Action needed</div>
-                <Card className="border-[#fde2c1] bg-[#fdf6ed] p-3.5" flat>
+                <Card className="border-warning/30 bg-warning-soft p-3.5" flat>
                   <div className="flex items-center gap-3">
                     <Avatar src={_inbound.fromPhoto} size={36} />
                     <div className="flex flex-1 flex-col">
@@ -877,8 +877,8 @@ const TRANSFER_STATUS: Record<
   TransferStatus,
   { label: string; className: string }
 > = {
-  requested: { label: "Pending", className: "border-transparent bg-[#fdf6ed] text-[#a36a18]" },
-  pending: { label: "Pending", className: "border-transparent bg-[#fdf6ed] text-[#a36a18]" },
+  requested: { label: "Pending", className: "border-transparent bg-warning-soft text-warning" },
+  pending: { label: "Pending", className: "border-transparent bg-warning-soft text-warning" },
   accepted: { label: "Accepted", className: "border-transparent bg-accent-soft text-accent" },
   completed: { label: "Completed", className: "border-transparent bg-accent-soft text-accent" },
   declined: { label: "Declined", className: "border-transparent bg-line/40 text-ink-3" },
@@ -899,7 +899,7 @@ function EmptyState({
   title,
   subtitle,
 }: {
-  icon: string;
+  icon: IconName;
   title: string;
   subtitle: string;
 }) {

@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { AlertCircle, ArrowRight, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/quiet/ui/button";
 import { Chip } from "@/components/quiet/ui/chip";
+import { Icon } from "@/components/quiet/ui/icon"
 
 
 type ReadinessCheck = {
@@ -122,8 +122,8 @@ export function PublishStep({ event, onSaving }: { event: any; onSaving: () => v
       </div>
 
       {ready ? (
-        <div className="flex items-start gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4">
-          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+        <div className="flex items-start gap-3 rounded-lg border border-success/30 bg-success/5 p-4">
+          <Icon name="checkCircle" className="mt-0.5 h-5 w-5 shrink-0 text-success" />
           <div>
             <p className="font-medium">Required setup complete</p>
             <p className="mt-1 text-sm text-ink-3">
@@ -132,9 +132,9 @@ export function PublishStep({ event, onSaving }: { event: any; onSaving: () => v
           </div>
         </div>
       ) : (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+        <div className="rounded-lg border border-warning/30 bg-warning/5 p-4">
           <div className="flex items-start gap-3">
-            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+            <Icon name="alertCircle" className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
             <div className="min-w-0 flex-1">
               <p className="font-medium">Publication is blocked by {blockers.length} required item{blockers.length === 1 ? "" : "s"}</p>
               <p className="mt-1 text-sm text-ink-3">
@@ -143,10 +143,10 @@ export function PublishStep({ event, onSaving }: { event: any; onSaving: () => v
               {firstBlocker && firstBlockerHref ? (
                 <Link
                   href={firstBlockerHref}
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-amber-600/30 px-3 py-2 text-sm font-medium text-amber-900 transition-colors hover:bg-amber-500/10"
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-warning/30 px-3 py-2 text-sm font-medium text-warning transition-colors hover:bg-warning/10"
                 >
                   Fix {firstBlocker.label.toLowerCase()}
-                  <ArrowRight className="h-4 w-4" />
+                  <Icon name="arrowR" className="h-4 w-4" />
                 </Link>
               ) : null}
             </div>
@@ -154,7 +154,7 @@ export function PublishStep({ event, onSaving }: { event: any; onSaving: () => v
         </div>
       )}
 
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
     </div>
   )
 }

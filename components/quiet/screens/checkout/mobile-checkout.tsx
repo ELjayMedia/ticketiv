@@ -306,7 +306,7 @@ export function MobileCheckout({
         {activePromo && (
           <section className="px-5 pb-4">
             <Card
-              className="flex items-center gap-2.5 border-[color:var(--color-accent-soft)] bg-[#fbf7ff] px-3 py-2.5"
+              className="flex items-center gap-2.5 border-[color:var(--color-accent-soft)] bg-accent-soft px-3 py-2.5"
               flat
             >
               <div className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-accent text-[14px] font-bold text-white">

@@ -103,10 +103,10 @@ function StatusBadge({ status }: { status: string }) {
     paid: { bg: "bg-accent-soft", fg: "text-accent" },
     verified: { bg: "bg-accent-soft", fg: "text-accent" },
     ready: { bg: "bg-accent-soft", fg: "text-accent" },
-    pending: { bg: "bg-[#fdf6ed]", fg: "text-[#c1841c]" },
-    processing: { bg: "bg-[#fdf6ed]", fg: "text-[#c1841c]" },
-    needs_setup: { bg: "bg-[#fdf6ed]", fg: "text-[#c1841c]" },
-    failed: { bg: "bg-[#fdf0ec]", fg: "text-[#c1422b]" },
+    pending: { bg: "bg-warning-soft", fg: "text-warning" },
+    processing: { bg: "bg-warning-soft", fg: "text-warning" },
+    needs_setup: { bg: "bg-warning-soft", fg: "text-warning" },
+    failed: { bg: "bg-danger-soft", fg: "text-danger" },
   }
   const s = map[status] ?? map.pending
   return (
@@ -302,7 +302,7 @@ export function PayoutsLedger(p: PayoutsLedgerProps) {
                 {a.sub && <div className="mt-0.5 font-mono text-[10px] text-ink-3">{a.sub}</div>}
                 <div
                   className={`mt-2 font-mono text-[10px] font-semibold uppercase ${
-                    a.status === "verified" ? "text-accent" : "text-[#c1841c]"
+                    a.status === "verified" ? "text-accent" : "text-warning"
                   }`}
                 >
                   ● {a.status}
@@ -340,7 +340,7 @@ function PaymentReadinessCard({ readiness }: { readiness: PayoutsLedgerProps["pa
             <div key={check.label} className="rounded-[var(--radius)] border border-line p-3">
               <div className="text-label">{check.label}</div>
               <div className="mt-1 flex items-center gap-1.5 font-mono text-[11px]">
-                <span className={check.ready ? "text-accent" : "text-[#c1841c]"}>●</span>
+                <span className={check.ready ? "text-accent" : "text-warning"}>●</span>
                 <span className="truncate">{check.value}</span>
               </div>
             </div>

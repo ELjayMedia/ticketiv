@@ -2,7 +2,7 @@ import { cn } from "@/lib/cn";
 
 /* Stroked 24×24 icon paths — designed to be paired one-to-one with the
  * mockup library, so visual fidelity to the hi-fi designs is exact. */
-const PATHS: Record<string, string> = {
+const PATHS = {
   search: "M15.5 15.5 21 21 M10 17a7 7 0 100-14 7 7 0 000 14z",
   heart:
     "M12 21s-7-4.5-9.5-9C.5 8.5 2 4 6 4c2 0 3 .8 4 2 1-1.2 2-2 4-2 4 0 5.5 4.5 3.5 8-2.5 4.5-9.5 9-9.5 9z",
@@ -46,14 +46,33 @@ const PATHS: Record<string, string> = {
   settings:
     "M12 15a3 3 0 100-6 3 3 0 000 6z M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.6 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.6-1.1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H10a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V10a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z",
   trending: "M3 17l6-6 4 4 8-8 M21 7h-6 M21 7v6",
+  // Status
+  checkCircle: "M12 21a9 9 0 100-18 9 9 0 000 18z M8 12.5l2.5 2.5L16 9.5",
+  alertCircle: "M12 21a9 9 0 100-18 9 9 0 000 18z M12 7.5v5.5 M12 16.5h.01",
+  alert: "M10.3 4.2L2.5 18a2 2 0 001.7 3h15.6a2 2 0 001.7-3L13.7 4.2a2 2 0 00-3.4 0z M12 9.5v4 M12 17h.01",
+  info: "M12 21a9 9 0 100-18 9 9 0 000 18z M12 11v5.5 M12 7.5h.01",
+  ring: "M12 21a9 9 0 100-18 9 9 0 000 18z",
+  loader: "M12 3a9 9 0 109 9",
+  // Actions & objects
+  refresh: "M3 12a9 9 0 102.6-6.4L3 8 M3 3v5h5",
+  menu: "M4 6h16 M4 12h16 M4 18h16",
+  logout: "M9 4H5a1 1 0 00-1 1v14a1 1 0 001 1h4 M16 17l5-5-5-5 M21 12H9",
+  shield: "M12 3l8 3v6c0 4.8-3.4 8-8 9-4.6-1-8-4.2-8-9V6l8-3z M9 12l2 2 4-4",
+  building: "M4 21V5a2 2 0 012-2h8a2 2 0 012 2v16 M16 9h2a2 2 0 012 2v10 M3 21h18 M8 7h4 M8 11h4 M8 15h4",
+  card: "M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z M3 10h18 M7 15h3",
+  receipt: "M6 3h12v18l-3-2-3 2-3-2-3 2V3z M9 8h6 M9 12h6 M9 16h3",
+  flag: "M5 21V4 M5 4h12l-2.5 4L17 12H5",
+  key: "M8 15a4 4 0 100-8 4 4 0 000 8z M12 11h9 M17 11v3 M20 11v2",
+  activity: "M3 12h4l3-8 4 16 3-8h4",
+  clipboard: "M9 3h6v4H9z M7 5H5v16h14V5h-2 M9 12h6 M9 16h4",
   users:
     "M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2 M9 11a4 4 0 100-8 4 4 0 000 8z M22 21v-2a4 4 0 00-3-3.87 M16 3.13a4 4 0 010 7.75",
-};
+} satisfies Record<string, string>;
 
 export type IconName = keyof typeof PATHS;
 
 interface IconProps extends React.SVGAttributes<SVGSVGElement> {
-  name: IconName | string;
+  name: IconName;
   size?: number;
   strokeWidth?: number;
 }

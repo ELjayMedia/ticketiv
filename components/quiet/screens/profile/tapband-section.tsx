@@ -2,7 +2,7 @@ import Link from "next/link"
 
 import { TapBandLostAction } from "@/components/quiet/screens/profile/tapband-lost-action"
 import { Card } from "@/components/quiet/ui/card"
-import { Icon } from "@/components/quiet/ui/icon"
+import { Icon, type IconName } from "@/components/quiet/ui/icon"
 import type {
   MyTapBandProfile,
   TapBandCredentialCard,
@@ -147,7 +147,7 @@ function InfoRows() {
   )
 }
 
-function InfoRow({ icon, text }: { icon: string; text: string }) {
+function InfoRow({ icon, text }: { icon: IconName; text: string }) {
   return (
     <div className="flex items-start gap-2 rounded-[var(--radius)] bg-bg/70 px-3 py-2">
       <Icon name={icon} size={13} className="mt-0.5 text-ink-3" />

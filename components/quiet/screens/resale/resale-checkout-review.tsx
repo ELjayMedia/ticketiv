@@ -52,7 +52,7 @@ export function ResaleCheckoutReview({ listing, pendingOrderId, pendingPaymentId
         </header>
         <section className="px-5">
           <Card className="p-6 text-center">
-            <div className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#fdf0ec] text-[#c1422b]">
+            <div className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-danger-soft text-danger">
               <Icon name="ticket" size={22} />
             </div>
             <div className="mt-4 text-[15px] font-semibold">No active listing found</div>
@@ -152,10 +152,10 @@ export function ResaleCheckoutReview({ listing, pendingOrderId, pendingPaymentId
           </div>
         </Card>
 
-        <Card className="border-[#f3dfb7] bg-[#fdf6ed] p-3.5">
+        <Card className="border-warning/30 bg-warning-soft p-3.5">
           <div className="flex items-start gap-3">
-            <Icon name="clock" size={16} className="mt-0.5 text-[#8a5f08]" />
-            <p className="font-mono text-[11px] leading-relaxed text-[#8a5f08]">
+            <Icon name="clock" size={16} className="mt-0.5 text-warning" />
+            <p className="font-mono text-[11px] leading-relaxed text-warning">
               This step creates the pending resale checkout only. Ticket ownership transfer remains blocked until a real payment is marked as succeeded.
             </p>
           </div>

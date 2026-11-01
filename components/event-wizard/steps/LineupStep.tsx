@@ -1,10 +1,10 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Check, Plus, Search, Trash2, UserRound } from "lucide-react"
 import { Button } from "@/components/quiet/ui/button";
 import { Chip } from "@/components/quiet/ui/chip";
 import { Input, Textarea } from "@/components/quiet/ui/form";
+import { Icon } from "@/components/quiet/ui/icon"
 
 
 type ArtistProfile = {
@@ -208,7 +208,7 @@ export function LineupStep({ eventId, onSaving }: { eventId: string; onSaving: (
                       />
                     ) : (
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border bg-surface-2">
-                        <UserRound className="h-4 w-4 text-ink-3" />
+                        <Icon name="user" className="h-4 w-4 text-ink-3" />
                       </span>
                     )}
                     <div className="min-w-0">
@@ -226,9 +226,9 @@ export function LineupStep({ eventId, onSaving }: { eventId: string; onSaving: (
                     aria-label={`Remove ${profile?.name ?? "artist"} from lineup`}
                     disabled={saving}
                     onClick={() => void removeArtist(item.artist_id)}
-                    className="rounded-md p-2 text-red-600 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+                    className="rounded-md p-2 text-danger hover:bg-danger-soft hover:text-danger disabled:opacity-50"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Icon name="trash" className="h-4 w-4" />
                   </button>
                 </div>
               )
@@ -245,7 +245,7 @@ export function LineupStep({ eventId, onSaving }: { eventId: string; onSaving: (
 
         <div className="mt-4 space-y-4">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-ink-3" />
+            <Icon name="search" className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-ink-3" />
             <Input
               aria-label="Search or enter artist name"
               placeholder="Search or enter artist name"
@@ -276,7 +276,7 @@ export function LineupStep({ eventId, onSaving }: { eventId: string; onSaving: (
                             <img src={profile.image_url} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
                           ) : (
                             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-2">
-                              <UserRound className="h-4 w-4 text-ink-3" />
+                              <Icon name="user" className="h-4 w-4 text-ink-3" />
                             </span>
                           )}
                           <span className="min-w-0 flex-1">
@@ -300,9 +300,9 @@ export function LineupStep({ eventId, onSaving }: { eventId: string; onSaving: (
           </div>
 
           {selectedArtist ? (
-            <div className="flex items-start justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50/50 p-3">
+            <div className="flex items-start justify-between gap-3 rounded-lg border border-success/30 bg-success-soft p-3">
               <div className="flex items-start gap-2">
-                <Check className="mt-0.5 h-4 w-4 text-emerald-700" />
+                <Icon name="check" className="mt-0.5 h-4 w-4 text-success" />
                 <div>
                   <p className="text-sm font-medium">Using {selectedArtist.name}</p>
                   <p className="text-xs text-ink-3">
@@ -341,10 +341,10 @@ export function LineupStep({ eventId, onSaving }: { eventId: string; onSaving: (
             disabled={saving}
           />
 
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          {error ? <p className="text-sm text-danger">{error}</p> : null}
 
           <Button variant="accent" onClick={() => void addArtist()} disabled={saving || !artist.name.trim()} className="w-full gap-2">
-            <Plus className="h-4 w-4" />
+            <Icon name="plus" className="h-4 w-4" />
             {saving ? "Saving lineup…" : selectedArtist ? "Add existing profile to lineup" : "Add to lineup"}
           </Button>
         </div>

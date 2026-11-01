@@ -82,7 +82,7 @@ export function Resale({
             <span className="text-label">Resell</span>
             <span className="text-[15px] font-semibold">List your ticket</span>
           </div>
-          <span className="rounded bg-[#f3f1ee] px-2 py-0.5 font-mono text-[10px] uppercase text-ink-3">
+          <span className="rounded bg-surface-2 px-2 py-0.5 font-mono text-[10px] uppercase text-ink-3">
             Safe transfer
           </span>
         </header>
@@ -188,13 +188,13 @@ export function Resale({
 
         {/* Caps notice */}
         <section className="px-5 pb-3.5">
-          <div className="flex items-start gap-2.5 rounded-[var(--radius-md)] border border-[#fde2c1] bg-[#fdf6ed] p-3">
-            <Icon name="zap" size={16} className="mt-0.5 text-[#c1841c]" />
+          <div className="flex items-start gap-2.5 rounded-[var(--radius-md)] border border-warning/30 bg-warning-soft p-3">
+            <Icon name="zap" size={16} className="mt-0.5 text-warning" />
             <div className="flex flex-1 flex-col gap-0.5">
               <span className="text-[12px] font-semibold">
                 Resale cap on this event
               </span>
-              <span className="font-mono text-[11px] text-[#7a5210]">
+              <span className="font-mono text-[11px] text-warning">
                 up to {Math.round(capRate * 100)}% of face · max{" "}
                 {formatPrice(capMinor)}
               </span>

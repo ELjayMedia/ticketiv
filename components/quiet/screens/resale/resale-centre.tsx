@@ -61,9 +61,9 @@ function statusTone(status: string): { label: string; className: string } {
     return { label: "Completed", className: "bg-accent-soft text-accent" };
   }
   if (["expired", "cancelled", "canceled", "failed"].includes(normalized)) {
-    return { label: normalized.replaceAll("_", " "), className: "bg-[#fdf0ec] text-[#c1422b]" };
+    return { label: normalized.replaceAll("_", " "), className: "bg-danger-soft text-danger" };
   }
-  return { label: normalized.replaceAll("_", " ") || "Pending", className: "bg-[#fdf6ed] text-[#c1841c]" };
+  return { label: normalized.replaceAll("_", " ") || "Pending", className: "bg-warning-soft text-warning" };
 }
 
 export function TicketListingsCentre({

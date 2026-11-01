@@ -37,7 +37,7 @@ const EXPORTS: ExportDef[] = [
     kind: "refunds",
     label: "Refunds",
     description: "Refund records including provider reference and processing status.",
-    icon: "arrowL",
+    icon: "refresh",
     columns: "id, payment_id, status, type, amount_cents, amount_szl, currency, provider_ref, processed_at, created_at",
   },
   {

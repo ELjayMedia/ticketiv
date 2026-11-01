@@ -2,11 +2,11 @@
 
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { CalendarPlus } from "lucide-react"
 import { toast } from "sonner"
 import { generateSeriesEventsAction } from "@/app/orgs/[orgId]/series/actions"
 import { Button } from "@/components/quiet/ui/button";
 import { Input, Label } from "@/components/quiet/ui/form";
+import { Icon } from "@/components/quiet/ui/icon"
 
 interface GenerateEventsButtonProps {
   orgId: string
@@ -54,7 +54,7 @@ export function GenerateEventsButton({ orgId, seriesId }: GenerateEventsButtonPr
           />
         </div>
         <Button variant="accent" type="button" onClick={handleGenerate} disabled={isPending}>
-          <CalendarPlus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+          <Icon name="cal" className="mr-1.5 h-4 w-4" aria-hidden="true" />
           {isPending ? "Generating…" : "Generate"}
         </Button>
       </div>

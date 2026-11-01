@@ -3,7 +3,6 @@
 import type React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { MapPin, Heart, CheckCircle2 } from "lucide-react"
 import { useState } from "react"
 import { toggleFavourite } from "@/app/(consumer)/favourites/actions"
 import {
@@ -16,6 +15,7 @@ import { cn } from "@/lib/cn"
 import { Button } from "@/components/quiet/ui/button";
 import { Card } from "@/components/quiet/ui/card";
 import { Chip } from "@/components/quiet/ui/chip";
+import { Icon } from "@/components/quiet/ui/icon"
 
 /**
  * Standardized EventCard data contract (from v_events_public).
@@ -179,7 +179,7 @@ export function EventCardStandard({ event, onSave }: EventCardProps) {
             <p className="inline-flex items-center gap-1 text-[10px] text-ink-3">
               <span>by {event.organizer_name}</span>
               {verified && (
-                <CheckCircle2
+                <Icon name="checkCircle"
                   className="h-3 w-3 text-accent"
                   aria-label="Verified organizer"
                 />
@@ -196,7 +196,7 @@ export function EventCardStandard({ event, onSave }: EventCardProps) {
           disabled={isSaving}
           aria-label={isSaved ? "Remove from saved" : "Save event"}
         >
-          <Heart className={cn("h-5 w-5", isSaved && "fill-current")} />
+          <Icon name="heart" className={cn("h-5 w-5", isSaved && "fill-current")} />
         </Button>
       </Link>
 
@@ -228,7 +228,7 @@ export function EventCardStandard({ event, onSave }: EventCardProps) {
               disabled={isSaving}
               aria-label={isSaved ? "Remove from saved" : "Save event"}
             >
-              <Heart className={`h-4 w-4 ${isSaved ? "fill-accent text-accent" : ""}`} />
+              <Icon name="heart" className={`h-4 w-4 ${isSaved ? "fill-accent text-accent" : ""}`} />
             </Button>
           </div>
 
@@ -243,7 +243,7 @@ export function EventCardStandard({ event, onSave }: EventCardProps) {
               <p className="inline-flex items-center gap-1 text-xs text-ink-3">
                 <span>by {event.organizer_name}</span>
                 {verified && (
-                  <CheckCircle2
+                  <Icon name="checkCircle"
                     className="h-3 w-3 text-accent"
                     aria-label="Verified organizer"
                   />
@@ -252,7 +252,7 @@ export function EventCardStandard({ event, onSave }: EventCardProps) {
             )}
 
             <div className="flex items-center gap-2 text-sm text-ink-3">
-              <MapPin className="h-4 w-4" />
+              <Icon name="pin" className="h-4 w-4" />
               <span className="line-clamp-1 text-xs">{venueLabel}</span>
             </div>
 

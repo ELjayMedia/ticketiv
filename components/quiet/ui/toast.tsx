@@ -3,7 +3,7 @@
 import * as React from "react";
 import * as ToastPrimitive from "@radix-ui/react-toast";
 import { cn } from "@/lib/cn";
-import { Icon } from "@/components/quiet/ui/icon";
+import { Icon, type IconName } from "@/components/quiet/ui/icon";
 
 /* ── Toast system ─────────────────────────────────────────────────
  * Provider + imperative hook.
@@ -79,10 +79,10 @@ const variantStyles: Record<ToastVariant, string> = {
   loading: "bg-surface border-line text-ink",
 };
 
-const variantIconName: Partial<Record<ToastVariant, string>> = {
-  success: "check",
-  error: "close",
-  warning: "zap",
+const variantIconName: Partial<Record<ToastVariant, IconName>> = {
+  success: "checkCircle",
+  error: "alertCircle",
+  warning: "alert",
 };
 
 const variantIconStyle: Partial<Record<ToastVariant, string>> = {

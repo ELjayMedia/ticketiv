@@ -49,9 +49,9 @@ interface AdminPayoutBalanceRow {
 const STATUS_ORDER: PayoutStatus[] = ["requested", "processing", "failed", "paid", "cancelled"]
 
 const STATUS_META: Record<PayoutStatus, { label: string; tone: string; blurb: string }> = {
-  requested: { label: "Requested", tone: "bg-[#fdf6ed] text-[#c1841c]", blurb: "Awaiting review" },
+  requested: { label: "Requested", tone: "bg-warning-soft text-warning", blurb: "Awaiting review" },
   processing: { label: "Processing", tone: "bg-accent-soft text-accent", blurb: "Being settled" },
-  failed: { label: "Failed", tone: "bg-[#fdf0ec] text-[#c1422b]", blurb: "Needs attention" },
+  failed: { label: "Failed", tone: "bg-danger-soft text-danger", blurb: "Needs attention" },
   paid: { label: "Paid", tone: "bg-accent-soft text-accent", blurb: "Settled" },
   cancelled: { label: "Cancelled", tone: "bg-line/50 text-ink-3", blurb: "Closed" },
 }
