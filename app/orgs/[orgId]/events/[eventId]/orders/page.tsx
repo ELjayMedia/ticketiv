@@ -10,6 +10,7 @@ import { AttendeesBulkTable } from "./attendees-bulk-table"
 import { CompTicketButton } from "./comp-ticket-button"
 import { EmailAttendeesButton } from "./email-attendees-button"
 import { LiveOrderKpis } from "./live-kpis"
+import { requireEventManager } from "@/lib/organizer/access"
 
 export const dynamic = "force-dynamic"
 
@@ -63,6 +64,7 @@ export default async function OrdersPage({
   searchParams?: Promise<{ view?: string; status?: string; q?: string; page?: string }>
 }) {
   const { orgId, eventId } = await params
+  await requireEventManager(orgId, eventId)
   const sp = searchParams ? await searchParams : {}
   const view: View = sp.view === "attendees" ? "attendees" : "orders"
   const rawStatus = (sp.status ?? "").trim()

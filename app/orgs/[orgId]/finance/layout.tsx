@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 
 import { requireOrgCapability } from "@/lib/data/organizer/access"
+import { requireOrganizerSection } from "@/lib/organizer/access"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export const dynamic = "force-dynamic"
@@ -24,6 +25,7 @@ export default async function OrgFinanceLayout({
 
   if (!user) redirect(`/login?next=${encodeURIComponent(returnPath)}`)
 
+  await requireOrganizerSection(orgId, "finance")
   await requireOrgCapability(orgId, "payouts")
   return children
 }

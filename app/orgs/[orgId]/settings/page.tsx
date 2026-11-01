@@ -5,6 +5,7 @@ import { Icon } from "@/components/quiet/ui/icon"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { getMyOrgCapabilities } from "@/lib/data/organizer/access"
 import { DeleteWorkspacePanel } from "../dashboard/delete-workspace-panel"
+import { requireOrganizerSection } from "@/lib/organizer/access"
 
 export const dynamic = "force-dynamic"
 
@@ -16,6 +17,7 @@ export default async function WorkspaceSettingsPage({
   searchParams: Promise<{ deleteError?: string }>
 }) {
   const { orgId } = await params
+  await requireOrganizerSection(orgId, "settings", { settings: true })
   const { deleteError } = await searchParams
   const returnPath = `/orgs/${orgId}/settings`
   const supabase = createServerSupabaseClient()

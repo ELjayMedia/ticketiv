@@ -254,33 +254,13 @@ export async function updateSession(request: NextRequest) {
       return response
     }
 
-    // Org routes: /orgs/:orgId/* — requires org membership, or platform-admin
-    // access. Platform admins manage every org workspace (mirrors the DB RLS,
-    // where app.is_org_manager() already includes app.is_platform_admin()).
-    const orgMatch = path.match(/^\/orgs\/([^/]+)/)
-    if (orgMatch) {
-      const orgId = orgMatch[1]
-      try {
-        const { data: memberRow } = await supabase
-          .from("org_members")
-          .select("org_id")
-          .eq("user_id", user.id)
-          .eq("org_id", orgId)
-          .maybeSingle()
-        if (!memberRow) {
-          const { data: adminRow } = await supabase
-            .from("admin_users")
-            .select("user_id")
-            .eq("user_id", user.id)
-            .eq("active", true)
-            .maybeSingle()
-          if (!adminRow) {
-            return NextResponse.redirect(new URL("/403", request.url))
-          }
-        }
-      } catch {
-        return NextResponse.redirect(new URL("/403", request.url))
-      }
+    // Org routes: /orgs/:orgId/* only need a signed-in user here. Who may
+    // enter is decided by the org layout (getOrganizerAccess): org members,
+    // platform admins, and people assigned to one of the org's events — the
+    // last are invisible to this RLS-scoped client (event_staff is hidden from
+    // authenticated reads), so a membership check here would turn away door
+    // staff. Data stays protected by RLS either way.
+    if (/^\/orgs\/[^/]+/.test(path)) {
       return response
     }
 

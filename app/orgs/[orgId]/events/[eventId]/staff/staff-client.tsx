@@ -17,7 +17,7 @@ export type StaffMember = {
 
 const ROLES = [
   { value: "scanner", label: "Scanner" },
-  { value: "organizer_staff", label: "Event Staff" },
+  { value: "organizer_staff", label: "Door staff" },
   { value: "organizer_admin", label: "Event Admin" },
 ]
 

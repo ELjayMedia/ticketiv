@@ -83,11 +83,15 @@ export interface UserAuthzContext {
 // INTERNAL HELPERS - Role to Action Mapping
 // ============================================================================
 
-// Role groups, per the TICK-277 Owner/Finance/Manager/Door matrix. Legacy
-// "admin"/"organizer" are treated as full (owner-equivalent) for back-compat.
+// Role groups, per the TICK-277 Owner/Finance/Manager/Door matrix, revised by
+// ADR 0002: organizer_staff is DOOR STAFF (scan, guestlist, box office), not a
+// manager. Legacy "admin"/"organizer" are treated as full (owner-equivalent).
+// Mirrors packages/shared/src/organizer-roles.ts and the database split
+// (app.is_org_manager vs app.is_org_operator).
 const OWNER_ROLES = ["organizer_owner", "admin", "organizer"]
-const MANAGER_ROLES = ["organizer_admin", "organizer_staff"]
+const MANAGER_ROLES = ["organizer_admin"]
 const FINANCE_ROLES = ["finance"]
+const STAFF_ROLES = ["organizer_staff", "staff", "pos"]
 const DOOR_ROLES = ["scanner", "organizer_scanner"]
 
 function inAny(role: string | null, ...sets: string[][]): boolean {
@@ -115,9 +119,9 @@ function orgRoleCanCreateEvents(role: OrgRole | null): boolean {
   return inAny(role, OWNER_ROLES, MANAGER_ROLES)
 }
 
-// Door (event scanner) + Owner/Manager: scan tickets.
+// Door (scanner) + door staff + Owner/Manager: scan tickets.
 function eventRoleCanScan(role: EventRole | null): boolean {
-  return inAny(role, DOOR_ROLES, OWNER_ROLES, MANAGER_ROLES)
+  return inAny(role, DOOR_ROLES, STAFF_ROLES, OWNER_ROLES, MANAGER_ROLES)
 }
 
 // Owner + Manager: manage an event (door-only roles cannot).
