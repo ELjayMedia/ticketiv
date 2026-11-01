@@ -537,19 +537,19 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
                   : null)}
           </div>
 
-          {/* Actions */}
-          <div className={`grid gap-2 px-4 pt-2 ${ticket.isValid ? "grid-cols-3" : "grid-cols-1"}`}>
-            {ticket.isValid && (
+          {/* Actions — transfer and resell stay one tap away; the rest is in More. */}
+          <div className={`grid gap-2 px-4 pt-2 ${canTransferOrResell ? "grid-cols-3" : "grid-cols-1"}`}>
+            {canTransferOrResell && (
               <>
-                <ActionButton onClick={handleWallet} disabled={walletBusy} icon="wallet">
-                  {walletBusy ? "Working…" : "Wallet"}
+                <ActionButton href={`/tickets/${ticket.id}/transfer`} icon="arrowUR">
+                  Transfer
                 </ActionButton>
-                <ActionButton onClick={handleSend} disabled={sending} icon="share" primary>
-                  {sending ? "Preparing…" : "Send"}
+                <ActionButton href={`/tickets/${ticket.id}/resale`} icon="copy">
+                  Resell
                 </ActionButton>
               </>
             )}
-            <ActionButton onClick={() => setMoreOpen(true)} icon="chevU">
+            <ActionButton onClick={() => setMoreOpen(true)} icon="chevU" primary>
               More
             </ActionButton>
           </div>
@@ -588,22 +588,36 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
         <ModalContent title="Ticket options" size="sm">
           <div className="flex flex-col py-1">
             {ticket.isValid && (
-              <SheetRow
-                icon={isSaved ? "check" : "download"}
-                onClick={handleOfflineSave}
-                disabled={offlineBusy}
-                hint={isSaved ? "QR works with no signal at the gate" : "Keeps the QR working with no signal"}
-              >
-                {offlineLabel}
-              </SheetRow>
-            )}
-            {canTransferOrResell && (
               <>
-                <SheetRow icon="arrowUR" href={`/tickets/${ticket.id}/transfer`} hint="Send it to a friend's Ticketiv account">
-                  Transfer
+                <SheetRow
+                  icon="share"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    void handleSend();
+                  }}
+                  disabled={sending}
+                  hint="As an image for WhatsApp or email"
+                >
+                  {sending ? "Preparing…" : "Send ticket"}
                 </SheetRow>
-                <SheetRow icon="copy" href={`/tickets/${ticket.id}/resale`} hint="List it for another fan to buy">
-                  Resell
+                <SheetRow
+                  icon="wallet"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    void handleWallet();
+                  }}
+                  disabled={walletBusy}
+                  hint="Apple Wallet or Google Wallet"
+                >
+                  {walletBusy ? "Working…" : "Add to Wallet"}
+                </SheetRow>
+                <SheetRow
+                  icon={isSaved ? "check" : "download"}
+                  onClick={handleOfflineSave}
+                  disabled={offlineBusy}
+                  hint={isSaved ? "QR works with no signal at the gate" : "Keeps the QR working with no signal"}
+                >
+                  {offlineLabel}
                 </SheetRow>
               </>
             )}
@@ -658,22 +672,31 @@ function StubField({ label, value }: { label: string; value: string }) {
 function ActionButton({
   icon,
   primary,
+  href,
   children,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { icon: IconName; primary?: boolean }) {
-  return (
-    <button
-      type="button"
-      {...props}
-      className={
-        "inline-flex h-12 items-center justify-center gap-2 rounded-[var(--radius-lg)] text-[13px] font-semibold transition-colors disabled:opacity-60 "
-        + (primary
-          ? "bg-white text-ink hover:bg-white/90"
-          : "border border-white/15 bg-white/10 text-white backdrop-blur hover:bg-white/20")
-      }
-    >
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { icon: IconName; primary?: boolean; href?: string }) {
+  const className =
+    "inline-flex h-12 items-center justify-center gap-2 rounded-[var(--radius-lg)] text-[13px] font-semibold transition-colors disabled:opacity-60 "
+    + (primary
+      ? "bg-white text-ink hover:bg-white/90"
+      : "border border-white/15 bg-white/10 text-white backdrop-blur hover:bg-white/20");
+  const body = (
+    <>
       <Icon name={icon} size={16} />
       {children}
+    </>
+  );
+  if (href) {
+    return (
+      <Link href={href} className={className}>
+        {body}
+      </Link>
+    );
+  }
+  return (
+    <button type="button" {...props} className={className}>
+      {body}
     </button>
   );
 }
