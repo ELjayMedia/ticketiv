@@ -147,7 +147,7 @@ export function ProfileScreen({ user, appVersion, tapBand, orgContexts, adminCon
 
   return (
     <div className="bg-bg pb-24">
-      <div className="h-14" />
+      <div className="h-[max(env(safe-area-inset-top),0.25rem)]" />
 
       <header className="flex items-center gap-2.5 px-5 pb-2 pt-2">
         <span className="flex-1" />

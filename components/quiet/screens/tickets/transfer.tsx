@@ -128,7 +128,7 @@ export function Transfer({ ticket, friends = [] }: TransferProps) {
   return (
     <div className="flex h-full flex-col bg-bg">
       <div className="flex-1 overflow-y-auto no-scrollbar">
-        <div className="h-14" />
+        <div className="h-[max(env(safe-area-inset-top),0.25rem)]" />
 
         <header className="flex items-center gap-2.5 px-5 pb-3 pt-2">
           <Link
