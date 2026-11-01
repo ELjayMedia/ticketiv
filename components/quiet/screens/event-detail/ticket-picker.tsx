@@ -21,7 +21,6 @@ import {
   ticketTypeLimit,
   type CartLine,
 } from "@/lib/checkout/cart";
-import { CHECKOUT_VAT_RATE, bookingFeeFor } from "@/lib/checkout/pricing";
 import { formatPrice, formatScarcityLabel } from "@/lib/format";
 
 /* ──────────────────────────────────────────────────────────────
@@ -216,9 +215,8 @@ function TicketPickerDialog({
   const totalQty = cartQuantity(cart);
   const currency = types[0]?.currency ?? "SZL";
   const subtotal = types.reduce((sum, t) => sum + t.priceMinor * (quantities[t.id] ?? 0), 0);
-  const fee = totalQty > 0 ? bookingFeeFor(data?.plan ?? null, subtotal) : 0;
-  const vat = Math.round(subtotal * CHECKOUT_VAT_RATE);
-  const total = subtotal + fee + vat;
+  // Buyers are charged the ticket subtotal (see lib/checkout/pricing.ts).
+  const total = subtotal;
   const allSoldOut = types.length > 0 && types.every((t) => ticketTypeLimit(t) === 0);
 
   return (
@@ -246,11 +244,10 @@ function TicketPickerDialog({
           <input type="hidden" name="items" value={serializeCart(cart)} />
           {totalQty > 0 && (
             <div className="mb-3 flex flex-col gap-0.5">
-              <SummaryRow label={`Subtotal · ${totalQty} ticket${totalQty === 1 ? "" : "s"}`} value={formatPrice(subtotal, currency)} />
-              {fee > 0 && <SummaryRow label="Booking fee" value={formatPrice(fee, currency)} />}
-              {vat > 0 && <SummaryRow label={`VAT ${Math.round(CHECKOUT_VAT_RATE * 100)}%`} value={formatPrice(vat, currency)} />}
-              <div className="mt-1 flex items-center">
-                <span className="flex-1 text-[14px] font-semibold">Total</span>
+              <div className="flex items-center">
+                <span className="flex-1 text-[14px] font-semibold">
+                  Total · {totalQty} ticket{totalQty === 1 ? "" : "s"}
+                </span>
                 <span className="font-mono text-[18px] font-semibold tabular-nums">{formatPrice(total, currency)}</span>
               </div>
             </div>
@@ -374,14 +371,5 @@ function CheckoutButton({ disabled }: { disabled: boolean }) {
       {pending ? "Reserving your tickets…" : disabled ? "Select tickets" : "Check out"}
       {!pending && !disabled && <Icon name="arrowR" size={16} />}
     </button>
-  );
-}
-
-function SummaryRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center">
-      <span className="flex-1 font-mono text-[12px] text-ink-3">{label}</span>
-      <span className="font-mono text-[12px] tabular-nums text-ink">{value}</span>
-    </div>
   );
 }

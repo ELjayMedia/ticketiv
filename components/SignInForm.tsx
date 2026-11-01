@@ -221,7 +221,9 @@ export function SignInForm({ mode = "login" }: { mode?: AuthMode }) {
 
       setBusy(false)
       posthog.capture("login_completed")
-      const redirectTo = safeRedirect(search?.get("redirectTo") || search?.get("from") || search?.get("next"), "/")
+      // No explicit destination → /launch picks the right workspace (an
+      // organizer lands on their org dashboard, an attendee on Discover).
+      const redirectTo = safeRedirect(search?.get("redirectTo") || search?.get("from") || search?.get("next"), "/launch")
       router.push(redirectTo as "/")
       router.refresh()
       return

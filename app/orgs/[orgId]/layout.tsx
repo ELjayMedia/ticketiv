@@ -1,14 +1,27 @@
 import type React from "react"
-import Link from "next/link"
 import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { Icon } from "@/components/quiet/ui/icon"
+import { OrgSidebar, OrgTopTabs } from "@/components/quiet/shell/org-nav"
+import { ORGANIZER_MANAGER_ROLES } from "@/lib/org-management"
 
 /**
  * Org-scoped layout
  * Enforces that user is a member of the org before accessing any subroutes
  * e.g., /orgs/[orgId]/dashboard, /orgs/[orgId]/members, /orgs/[orgId]/settings, etc.
+ * and frames every page with the workspace navigation (sidebar on desktop,
+ * sticky section tabs on phones).
  */
+
+const ROLE_LABELS: Record<string, string> = {
+  organizer_owner: "Owner",
+  organizer_admin: "Admin",
+  admin: "Admin",
+  organizer: "Organizer",
+  organizer_staff: "Staff",
+  staff: "Staff",
+  scanner: "Scanner",
+  member: "Member",
+}
 export default async function OrgLayout({
   children,
   params,
@@ -65,21 +78,26 @@ export default async function OrgLayout({
     }
   }
 
-  const isOwner = membership?.role === "organizer_owner"
+  const role = membership?.role ? String(membership.role) : null
+  const isOwner = role === "organizer_owner"
+  // No membership row here means a platform admin (door staff and others
+  // were redirected above); they manage every workspace.
+  const canManage = role === null || ORGANIZER_MANAGER_ROLES.has(role)
+
+  const { data: org } = await supabase.from("organizations").select("name").eq("id", orgId).maybeSingle()
+  const navProps = {
+    orgId,
+    orgName: org?.name ?? "Your organisation",
+    roleLabel: role ? (ROLE_LABELS[role] ?? null) : "Platform admin",
+    canManage,
+    isOwner,
+  }
 
   return (
-    <>
-      {children}
-      {isOwner && (
-        <Link
-          href={`/orgs/${orgId}/settings`}
-          className="fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 rounded-full border border-line-2 bg-surface px-4 py-2.5 text-[13px] font-semibold text-ink shadow-lg hover:bg-bg"
-          aria-label="Workspace settings"
-        >
-          <Icon name="settings" size={15} />
-          Workspace settings
-        </Link>
-      )}
-    </>
+    <div className="min-h-dvh bg-bg md:flex">
+      <OrgSidebar {...navProps} />
+      <OrgTopTabs {...navProps} />
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
   )
 }
