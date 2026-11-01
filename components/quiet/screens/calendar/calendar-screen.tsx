@@ -143,7 +143,7 @@ export function CalendarScreen(props: CalendarProps = {}) {
 
   return (
     <div className="bg-bg pb-24">
-      <div className="h-14" />
+      <div className="h-[max(env(safe-area-inset-top),0.25rem)]" />
 
       {/* Header */}
       <header className="flex items-end gap-2.5 px-5 pb-3 pt-2">

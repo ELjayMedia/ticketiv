@@ -90,7 +90,7 @@ export function MobileDiscover({
 
   return (
     <div className="flex flex-col">
-      <div className="h-14" />
+      <div className="h-[max(env(safe-area-inset-top),0.25rem)]" />
 
       <header className="flex items-center gap-2 px-5 pb-4 pt-2">
         <Link href="/" className="flex items-center gap-1.5">

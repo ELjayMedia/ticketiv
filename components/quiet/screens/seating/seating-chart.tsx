@@ -75,7 +75,7 @@ export function SeatingChart({ chart, currency = "₹", onSelectionChange }: Sea
 
   return (
     <div className="bg-bg pb-24">
-      <div className="h-14" />
+      <div className="h-[max(env(safe-area-inset-top),0.25rem)]" />
 
       {/* Header */}
       <div className="flex items-center gap-2.5 px-5 pb-3.5 pt-2">

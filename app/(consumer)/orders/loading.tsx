@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/quiet/ui/skeleton";
 export default function OrdersLoading() {
   return (
     <div className="mx-auto max-w-[480px] bg-bg pb-24">
-      <div className="h-14" />
+      <div className="h-[max(env(safe-area-inset-top),0.25rem)]" />
       <div className="px-5 pb-4 pt-2">
         <Skeleton className="mb-5 h-9 w-9 rounded-full" />
         <Skeleton className="h-3 w-16 mb-2" />

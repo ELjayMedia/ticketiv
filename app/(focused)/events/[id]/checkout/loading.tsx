@@ -4,7 +4,7 @@ export default function CheckoutLoading() {
   return (
     <div className="flex h-dvh flex-col bg-bg md:hidden">
       <div className="flex-1 overflow-y-auto">
-        <div className="h-14" />
+        <div className="h-[max(env(safe-area-inset-top),0.25rem)]" />
         {/* Header */}
         <div className="flex items-center gap-2.5 px-5 pb-3 pt-2">
           <Skeleton circle size={36} />

@@ -27,7 +27,7 @@ export function AccountEmptyPage({
 }: AccountEmptyPageProps) {
   return (
     <div className="mx-auto max-w-[480px] bg-bg pb-24">
-      <div className="h-14" />
+      <div className="h-[max(env(safe-area-inset-top),0.25rem)]" />
 
       <header className="px-5 pb-4 pt-2">
         <Link
