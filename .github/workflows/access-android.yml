@@ -11,6 +11,9 @@ on:
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
+      - "scripts/*play*.mjs"
+      - "scripts/tests/play-listings.test.mjs"
+      - ".github/workflows/play-*.yml"
   push:
     branches:
       - main
@@ -23,6 +26,9 @@ on:
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
+      - "scripts/*play*.mjs"
+      - "scripts/tests/play-listings.test.mjs"
+      - ".github/workflows/play-*.yml"
   workflow_dispatch:
     inputs:
       build_upload_signed_play:
@@ -44,7 +50,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: access-android-${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && inputs.build_upload_signed_play && 'upload-signed' || github.ref }}
+  group: ${{ github.event_name == 'workflow_dispatch' && inputs.build_upload_signed_play && 'google-play-access' || format('access-android-{0}', github.ref) }}
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' || !inputs.build_upload_signed_play }}
 
 jobs:
@@ -108,7 +114,7 @@ jobs:
       inputs.build_upload_signed_play &&
       inputs.release_confirmation == 'UPLOAD_TICKETIV_ACCESS_PLAY'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     env:
       TICKETIV_ACCESS_ANDROID_VERSION_CODE: ${{ github.run_number }}
       TICKETIV_ACCESS_ANDROID_VERSION_NAME: 0.1.${{ github.run_number }}
@@ -177,6 +183,13 @@ jobs:
           printf '%s' "$TICKETIV_ACCESS_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
           test -s "$keystore_path"
           echo "TICKETIV_ACCESS_UPLOAD_STORE_FILE=$keystore_path" >> "$GITHUB_ENV"
+
+      - name: Run exact-commit release verification
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: pnpm check:release
 
       - name: Build upload-signed Play AAB
         env:
@@ -251,6 +264,22 @@ jobs:
           tracks: internal
           status: completed
           whatsNewDirectory: apps/access/store-listing/whatsnew
+
+      - name: Record verified internal release receipt
+        if: inputs.publish_to_play_internal
+        run: >-
+          node scripts/create-play-release-receipt.mjs --app access
+          --bundle apps/access/.artifacts/ticketiv-access-play-upload-signed.aab
+          --output apps/access/.artifacts/play-release-receipt.json
+
+      - name: Upload internal release receipt
+        if: inputs.publish_to_play_internal
+        uses: actions/upload-artifact@v4
+        with:
+          name: play-release-receipt-access-${{ github.run_id }}-${{ github.run_attempt }}
+          path: apps/access/.artifacts/play-release-receipt.json
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Remove upload keystore
         if: always() && steps.keystore.outcome != 'skipped'

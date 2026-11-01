@@ -1,0 +1,13 @@
+{
+  "packageName": "com.ticketiv.app",
+  "defaultLanguage": "en-US",
+  "imagePolicy": "preserve-existing",
+  "listings": {
+    "en-US": {
+      "title": "Ticketiv",
+      "shortDescription": "Discover events, book tickets and keep your entry QR codes together.",
+      "fullDescription": "Find your next event with Ticketiv. Browse available events, view event details and choose your tickets. Checkout opens through Ticketiv's supported payment processors.\n\nKeep your delivered tickets together in My Tickets and display the ticket QR code when you arrive. Tickets saved on your device remain available when you are offline. Connect to the internet to discover events, complete a purchase and download new tickets before you travel.\n\nOpen event pages and ticket links shared with you by email or by an event organizer. Ticket availability, entry conditions and refund rules depend on the event.\n\nNeed help with an order or ticket? Contact support@ticketiv.app."
+    }
+  },
+  "images": {}
+}
