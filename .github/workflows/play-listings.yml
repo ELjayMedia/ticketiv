@@ -64,14 +64,14 @@ jobs:
         if: inputs.operation == 'export'
         env:
           GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
-        run: node scripts/google-play.mjs export --app "$PLAY_APP" --output .play-listing-export
+        run: node scripts/google-play.mjs export --app "$PLAY_APP" --output play-listing-export
 
       - name: Upload exported artwork and listing text
         if: inputs.operation == 'export'
         uses: actions/upload-artifact@v4
         with:
           name: google-play-listing-${{ inputs.app }}-${{ github.run_id }}
-          path: .play-listing-export/
+          path: play-listing-export/
           if-no-files-found: error
           retention-days: 30
 
