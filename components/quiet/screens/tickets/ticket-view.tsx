@@ -30,8 +30,8 @@ import {
  * the gate needs (image, title, date, venue, holder, type, QR) fits one
  * phone screen; secondary actions live in the "More" sheet.
  *
- * Print renders `TicketPrintCard` (A5, white) instead of this screen,
- * and "Send" shares that same layout as a PNG for WhatsApp / email.
+ * Print renders `TicketPrintCard` (a landscape ticket strip) instead,
+ * and "Send ticket" shares a portrait ticket card PNG for WhatsApp / email.
  *
  * The QR is generated first-party from the issued ticket_code. The
  * scanner submits that exact UUID through the existing gate validation
@@ -390,9 +390,9 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
 
   return (
     <>
-      {/* Print shows only the A5 ticket card. */}
+      {/* Print shows only the ticket strip. */}
       <style>{`@media print {
-        @page { size: A5 portrait; margin: 0; }
+        @page { size: A4 portrait; margin: 10mm; }
         html, body { background: #fff !important; }
         body * { visibility: hidden !important; }
         #${TICKET_PRINT_ID}, #${TICKET_PRINT_ID} * { visibility: visible !important; }
@@ -624,7 +624,7 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
             <SheetRow icon="map" href={mapsUrl} external hint={[ticket.venueName, ticket.venueAddress].filter(Boolean).join(", ")}>
               Directions
             </SheetRow>
-            <SheetRow icon="fileText" onClick={handlePrint} hint="A5 page with the QR">
+            <SheetRow icon="fileText" onClick={handlePrint} hint="Cut-out ticket strip with the QR">
               Print ticket
             </SheetRow>
           </div>
