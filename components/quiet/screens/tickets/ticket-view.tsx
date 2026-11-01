@@ -31,7 +31,7 @@ import {
  * phone screen; secondary actions live in the "More" sheet.
  *
  * Print renders `TicketPrintCard` (a landscape ticket strip) instead,
- * and "Send ticket" shares that same strip as a PNG for WhatsApp / email.
+ * and "Send ticket" shares a portrait ticket card PNG for WhatsApp / email.
  *
  * The QR is generated first-party from the issued ticket_code. The
  * scanner submits that exact UUID through the existing gate validation

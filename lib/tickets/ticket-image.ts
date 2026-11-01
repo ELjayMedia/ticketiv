@@ -1,11 +1,11 @@
 /**
- * Renders the printable ticket strip to a PNG for sharing on WhatsApp /
- * email. Drawn on a canvas in the browser so it needs no extra
- * dependencies and works with any cover format the browser can decode.
+ * Renders the shareable ticket image (portrait card) for WhatsApp / email.
+ * Drawn on a canvas in the browser so it needs no extra dependencies and
+ * works with any cover format the browser can decode.
  *
- * The layout mirrors `TicketPrintCard`: the cover fills the left with the
- * title, date, venue, holder and ticket type over a dark fade; a dashed
- * tear line with notches separates the white QR stub on the right.
+ * Layout: cover image, title, date/venue, a tear line, then the QR beside
+ * holder / ticket / order details. This is deliberately not the printed
+ * strip (`TicketPrintCard`): a tall card reads better in a chat thread.
  *
  * The QR is passed in as the SVG markup already rendered on the page, so
  * the image always encodes exactly what the gate scanner expects.
@@ -25,11 +25,12 @@ export interface TicketImageData {
   qrSvg: string;
 }
 
-// Same 190 × 70 proportion as the printed strip, at ~320 dpi.
-export const TICKET_IMAGE_WIDTH = 2400;
-export const TICKET_IMAGE_HEIGHT = 880;
+// Portrait 1240 × 1748 (A5 proportion) — stays sharp when opened on a phone.
+export const TICKET_IMAGE_WIDTH = 1240;
+export const TICKET_IMAGE_HEIGHT = 1748;
 
 const INK = "#0a0a0c";
+const INK_2 = "#2a2a2e";
 const INK_3 = "#6e6c70";
 const LINE = "#ececea";
 const LINE_2 = "#d8d6d3";
@@ -60,146 +61,114 @@ function draw(
 ): HTMLCanvasElement {
   const W = TICKET_IMAGE_WIDTH;
   const H = TICKET_IMAGE_HEIGHT;
-  const STUB_W = 660;
-  const CUT_X = W - STUB_W;
-  const P = 88;
+  const P = 84;
   const canvas = document.createElement("canvas");
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas is not available");
 
-  // Page behind the rounded strip.
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, W, H);
 
+  // Cover (16:9, rounded)
+  const coverW = W - P * 2;
+  const coverH = Math.round((coverW * 9) / 16);
   ctx.save();
-  roundRect(ctx, 0, 0, W, H, 44);
+  roundRect(ctx, P, P, coverW, coverH, 36);
   ctx.clip();
-
-  // ── Left: cover + dark fade ───────────────────────────────────
   if (cover) {
-    drawCover(ctx, cover, 0, 0, CUT_X, H);
+    drawCover(ctx, cover, P, P, coverW, coverH);
   } else {
-    const g = ctx.createLinearGradient(0, 0, CUT_X, H);
+    const g = ctx.createLinearGradient(P, P, P + coverW, P + coverH);
     g.addColorStop(0, INK);
     g.addColorStop(1, ACCENT);
     ctx.fillStyle = g;
-    ctx.fillRect(0, 0, CUT_X, H);
+    ctx.fillRect(P, P, coverW, coverH);
   }
-  const fade = ctx.createLinearGradient(0, 0, CUT_X, 0);
-  fade.addColorStop(0, "rgba(10,10,12,0.92)");
-  fade.addColorStop(0.5, "rgba(10,10,12,0.72)");
-  fade.addColorStop(0.88, "rgba(10,10,12,0.15)");
-  fade.addColorStop(1, "rgba(10,10,12,0.1)");
-  ctx.fillStyle = fade;
-  ctx.fillRect(0, 0, CUT_X, H);
+  ctx.restore();
 
-  ctx.fillStyle = "#ffffff";
+  // Title (max two lines)
+  let y = P + coverH + 64;
+  ctx.fillStyle = INK;
   ctx.textBaseline = "top";
+  ctx.font = `800 76px ${SANS}`;
+  for (const line of wrap(ctx, d.eventTitle, coverW, 2)) {
+    ctx.fillText(line, P, y);
+    y += 86;
+  }
 
-  // Top label
-  ctx.globalAlpha = 0.8;
-  ctx.font = `500 28px ${MONO}`;
-  setLetterSpacing(ctx, "4px");
-  ctx.fillText("TICKETIV · ADMIT ONE", P, P);
-  setLetterSpacing(ctx, "0px");
-  ctx.globalAlpha = 1;
-
-  // Bottom fields (holder, ticket)
-  const fieldsTop = H - P - 76;
-  let fx = P;
-  const field = (label: string, value: string, maxW: number) => {
-    ctx.globalAlpha = 0.65;
-    ctx.font = `500 22px ${MONO}`;
-    setLetterSpacing(ctx, "3px");
-    ctx.fillText(label.toUpperCase(), fx, fieldsTop);
-    setLetterSpacing(ctx, "0px");
-    ctx.globalAlpha = 1;
-    ctx.font = `700 40px ${SANS}`;
-    const text = fit(ctx, value, maxW);
-    ctx.fillText(text, fx, fieldsTop + 34);
-    fx += Math.max(ctx.measureText(text).width, ctx.measureText(label).width) + 96;
-  };
-  if (d.holderName) field("Holder", d.holderName, 640);
-  field("Ticket", d.typeLabel, 520);
-
-  // Middle block: title, when, where — centred between label and fields.
-  const textW = 1120;
-  ctx.font = `900 132px ${SANS}`;
-  const titleLines = wrap(ctx, d.eventTitle.toUpperCase(), textW, 2);
+  // Date · time, then venue
+  y += 8;
+  ctx.font = `600 30px ${MONO}`;
+  ctx.fillStyle = INK_2;
   const when = [d.dateLabel.toUpperCase(), d.timeLabel].filter(Boolean).join(" · ");
-  const where = [d.venueName, d.venueAddress].filter(Boolean).join(" · ").toUpperCase();
-  const blockH = titleLines.length * 126 + 30 + 42 + (where ? 14 + 34 : 0);
-  const areaTop = P + 60;
-  const areaBottom = fieldsTop - 40;
-  let y = Math.max(areaTop, areaTop + (areaBottom - areaTop - blockH) / 2);
-  for (const line of titleLines) {
-    ctx.fillText(line, P - 4, y);
-    y += 126;
-  }
-  y += 30;
-  ctx.font = `700 40px ${MONO}`;
-  ctx.fillText(fit(ctx, when, textW), P, y);
-  y += 42 + 14;
-  if (where) {
-    ctx.globalAlpha = 0.85;
-    ctx.font = `500 32px ${MONO}`;
-    ctx.fillText(fit(ctx, where, textW), P, y);
-    ctx.globalAlpha = 1;
-  }
-
-  // ── Right: white QR stub ──────────────────────────────────────
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(CUT_X, 0, STUB_W, H);
-  const cx = CUT_X + STUB_W / 2;
-  const qrSize = 480;
-  const stubTop = (H - (26 + 34 + qrSize + 34 + 30)) / 2;
-  ctx.textAlign = "center";
-  ctx.font = `500 26px ${SANS}`;
+  ctx.fillText(fit(ctx, when, coverW), P, y);
+  y += 46;
+  const where = [d.venueName, d.venueAddress].filter(Boolean).join(", ");
   ctx.fillStyle = INK_3;
-  setLetterSpacing(ctx, "2px");
-  ctx.fillText("SCAN AT GATE", cx, stubTop);
-  setLetterSpacing(ctx, "0px");
-  const qrY = stubTop + 26 + 34;
+  ctx.fillText(fit(ctx, where.toUpperCase(), coverW), P, y);
+  y += 72;
+
+  // Tear line
   ctx.save();
-  roundRect(ctx, cx - qrSize / 2, qrY, qrSize, qrSize, 24);
+  ctx.strokeStyle = LINE_2;
+  ctx.lineWidth = 4;
+  ctx.setLineDash([16, 12]);
+  ctx.beginPath();
+  ctx.moveTo(P, y);
+  ctx.lineTo(W - P, y);
+  ctx.stroke();
+  ctx.restore();
+  y += 56;
+
+  // QR block
+  const qrSize = 500;
+  ctx.save();
+  roundRect(ctx, P, y, qrSize, qrSize, 28);
+  ctx.fillStyle = "#ffffff";
+  ctx.fill();
   ctx.strokeStyle = LINE;
   ctx.lineWidth = 3;
   ctx.stroke();
   ctx.restore();
-  ctx.drawImage(qr, cx - qrSize / 2 + 22, qrY + 22, qrSize - 44, qrSize - 44);
-  ctx.font = `500 30px ${MONO}`;
+  ctx.drawImage(qr, P + 26, y + 26, qrSize - 52, qrSize - 52);
+
+  // Details column
+  const colX = P + qrSize + 56;
+  const colW = W - P - colX;
+  let cy = y + 12;
+  const field = (label: string, value: string) => {
+    ctx.font = `500 24px ${SANS}`;
+    ctx.fillStyle = INK_3;
+    setLetterSpacing(ctx, "2px");
+    ctx.fillText(label.toUpperCase(), colX, cy);
+    setLetterSpacing(ctx, "0px");
+    cy += 36;
+    ctx.font = `600 38px ${SANS}`;
+    ctx.fillStyle = INK;
+    for (const line of wrap(ctx, value, colW, 2)) {
+      ctx.fillText(line, colX, cy);
+      cy += 46;
+    }
+    cy += 30;
+  };
+  if (d.holderName) field("Holder", d.holderName);
+  field("Ticket", d.typeLabel);
+  ctx.font = `500 26px ${MONO}`;
   ctx.fillStyle = INK_3;
-  ctx.fillText(`#${d.orderNumber} · ${d.shortCode}`, cx, qrY + qrSize + 34);
+  ctx.fillText(fit(ctx, `#${d.orderNumber} · ${d.shortCode}`, colW), colX, cy);
+
+  // Footer
+  ctx.textBaseline = "alphabetic";
+  ctx.font = `500 24px ${SANS}`;
+  ctx.fillStyle = INK_3;
+  ctx.fillText("Show this QR at the gate · one entry per ticket", P, H - P);
+  ctx.font = `600 24px ${MONO}`;
+  ctx.fillStyle = ACCENT;
+  ctx.textAlign = "right";
+  ctx.fillText("ticketiv.app", W - P, H - P);
   ctx.textAlign = "left";
-
-  // ── Tear line + notches ───────────────────────────────────────
-  ctx.save();
-  ctx.strokeStyle = LINE_2;
-  ctx.lineWidth = 5;
-  ctx.setLineDash([18, 14]);
-  ctx.beginPath();
-  ctx.moveTo(CUT_X, 0);
-  ctx.lineTo(CUT_X, H);
-  ctx.stroke();
-  ctx.restore();
-  ctx.fillStyle = "#ffffff";
-  for (const ny of [0, H]) {
-    ctx.beginPath();
-    ctx.arc(CUT_X, ny, 34, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  ctx.restore();
-
-  // Hairline edge so the strip reads as a ticket on white backgrounds.
-  ctx.save();
-  roundRect(ctx, 1.5, 1.5, W - 3, H - 3, 43);
-  ctx.strokeStyle = LINE_2;
-  ctx.lineWidth = 3;
-  ctx.stroke();
-  ctx.restore();
 
   return canvas;
 }
