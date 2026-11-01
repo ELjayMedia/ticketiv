@@ -61,8 +61,8 @@ function recoverSignedOutSession(request: NextRequest, path: string, error: unkn
  *   /onboarding — requires session, allowed without a handle
  *
  * Protected (auth required, optionally + handle):
- *   /orgs/*, /app/*, /events/create, /admin/*, /dashboard,
- *   /payouts, /finance, /profile, /payments, /checkout/*, /orders/*, /tickets/*, /devices
+ *   /orgs/*, /app/*, /admin/*,
+ *   /profile, /payments, /checkout/*, /orders/*, /tickets/*
  *
  * Safety:
  *   Public routes are returned before any Supabase call. This prevents a slow or
@@ -132,7 +132,7 @@ export async function updateSession(request: NextRequest) {
     path === "/super-admin/login" || publicPrefixes.some((p) => path.startsWith(p))
   const isRootOrEvent =
     path === "/" ||
-    (path.startsWith("/events") && !path.startsWith("/events/create"))
+    path.startsWith("/events")
 
   // Public browsing routes must never wait on Supabase auth. The page/API code
   // can still load public data, but the middleware should not block rendering.

@@ -26,7 +26,7 @@ export async function requireSuperAdmin() {
     .maybeSingle()
 
   if (!data) {
-    redirect("/dashboard")
+    redirect("/")
   }
 
   return user
