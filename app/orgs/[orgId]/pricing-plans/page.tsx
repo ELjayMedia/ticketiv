@@ -1,26 +1,26 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
-import Link from "next/link"
 import { requireOrgCapability } from "@/lib/data/organizer/access"
 
-import { Button } from "@/components/quiet/ui/button"
 import { Card, CardBody } from "@/components/quiet/ui/card"
-import { Icon } from "@/components/quiet/ui/icon"
+import { formatPrice } from "@/lib/format"
+import {
+  formatPlatformFeeRate,
+  organizerNetPerTicketCents,
+  rateFromSettingRow,
+  ticketFeeCents,
+} from "@/lib/fees/platform-fee"
 
 export const dynamic = "force-dynamic"
+export const metadata = { title: "Ticketiv fees" }
 
-interface PricingPlan {
-  id: string
-  active: boolean
-  currency: string
-  effective_from: string
-  platform_percent_bps: number
-  platform_fixed_cents: number
-  platform_fee_payer: string
-  processor_percent_bps: number
-  processor_fixed_cents: number
-}
+const EXAMPLE_PRICES_CENTS = [5000, 15000, 50000]
 
+/**
+ * `/orgs/[orgId]/pricing-plans` — what Ticketiv charges this organisation.
+ * One platform-wide rate (public.platform_fee_settings), deducted from
+ * payouts. Set by super admins under Pricing & fees.
+ */
 export default async function PricingPlansPage({ params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params
   await requireOrgCapability(orgId, "manage")
@@ -28,99 +28,67 @@ export default async function PricingPlansPage({ params }: { params: Promise<{ o
   const supabase = createServerSupabaseClient()
   if (!supabase) return redirect("/login")
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  if (!session) return redirect("/login")
-
-  const { data: orgData } = await supabase
-    .from("organizations")
-    .select("id, name")
-    .eq("id", orgId)
+  const { data: setting } = await (supabase as any)
+    .from("platform_fee_settings")
+    .select("percent_bps, fixed_per_ticket_cents, currency, effective_from")
+    .eq("active", true)
     .maybeSingle()
-  if (!orgData) return redirect("/403")
-  const org = orgData
-
-  const { data: plans = [] } = await supabase
-    .from("pricing_plans")
-    .select("id, active, currency, effective_from, platform_percent_bps, platform_fixed_cents, platform_fee_payer, processor_percent_bps, processor_fixed_cents")
-    .eq("org_id", orgId)
-  const pricingPlans = (plans ?? []) as PricingPlan[]
+  const rate = rateFromSettingRow(setting)
+  const hasFee = rate.percentBps > 0 || rate.fixedPerTicketCents > 0
 
   return (
-    <main className="flex-1 overflow-auto">
-      <div className="container mx-auto flex flex-col gap-6 p-6">
-        <div className="flex items-center gap-3">
-          <Link
-            href={`/orgs/${orgId}/dashboard`}
-            aria-label="Back"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink hover:bg-bg"
-          >
-            <Icon name="chevL" size={16} />
-          </Link>
-          <div className="flex flex-col gap-1">
-            <h1 className="text-h1">Pricing plans</h1>
-            <p className="text-[13px] text-ink-3">{org?.name}</p>
-          </div>
-        </div>
-
-        {pricingPlans.length === 0 ? (
-          <Card>
-            <CardBody className="flex flex-col items-center gap-3 py-12 text-center">
-              <p className="text-[13px] text-ink-3">No pricing plans configured.</p>
-            </CardBody>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            {pricingPlans.map((plan) => (
-              <Card key={plan.id} className="flex flex-col">
-                <CardBody className="flex flex-1 flex-col gap-5">
-                  <div className="flex flex-col gap-1">
-                    <p className="text-h3">{plan.currency} plan</p>
-                    <p className="text-[12px] text-ink-3">
-                      Effective {new Date(plan.effective_from).toLocaleDateString()}
-                      {plan.active ? "" : " · Inactive"}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                      <Icon name="wallet" size={12} />
-                      Platform: {(plan.platform_percent_bps / 100).toFixed(2)}%
-                      {plan.platform_fixed_cents > 0
-                        ? ` + ${(plan.platform_fixed_cents / 100).toLocaleString("en-SZ", { minimumFractionDigits: 2 })} ${plan.currency}`
-                        : ""}
-                    </p>
-                    <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                      <Icon name="wallet" size={12} />
-                      Processor: {(plan.processor_percent_bps / 100).toFixed(2)}%
-                      {plan.processor_fixed_cents > 0
-                        ? ` + ${(plan.processor_fixed_cents / 100).toLocaleString("en-SZ", { minimumFractionDigits: 2 })} ${plan.currency}`
-                        : ""}
-                    </p>
-                    <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                      Fees paid by: {plan.platform_fee_payer}
-                    </p>
-                  </div>
-
-                  <Button variant="primary" size="md" block className="mt-auto">
-                    View details
-                  </Button>
-                </CardBody>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        <Card>
-          <CardBody className="flex flex-col gap-2 p-5">
-            <p className="text-h3">About pricing</p>
-            <p className="text-[13px] text-ink-3">
-              Pricing plans are managed by your account administrator. Contact support if you need to change your plan.
-            </p>
-          </CardBody>
-        </Card>
+    <main className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-8 sm:px-6">
+      <div className="flex flex-col gap-1">
+        <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Settings</span>
+        <h1 className="text-h1">Ticketiv fees</h1>
+        <p className="text-[13px] text-ink-3">What Ticketiv keeps from each ticket you sell.</p>
       </div>
+
+      <Card>
+        <CardBody className="flex flex-col gap-4 p-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="text-h3">Platform fee</p>
+            <p className="font-mono text-[18px] font-semibold tabular-nums text-ink">{formatPlatformFeeRate(rate)}</p>
+          </div>
+          <p className="text-[13px] leading-5 text-ink-2">
+            {hasFee
+              ? "Taken from your payout for every paid ticket. Your buyers pay only the ticket price, and free tickets are never charged."
+              : "Ticketiv currently takes no fee. Your buyers pay only the ticket price."}
+          </p>
+
+          {hasFee ? (
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="text-left font-mono text-[10px] uppercase tracking-wider text-ink-3">
+                  <th className="pb-1.5 font-medium">Ticket price</th>
+                  <th className="pb-1.5 text-right font-medium">Ticketiv fee</th>
+                  <th className="pb-1.5 text-right font-medium">You receive</th>
+                </tr>
+              </thead>
+              <tbody className="font-mono tabular-nums text-ink">
+                {EXAMPLE_PRICES_CENTS.map((price) => (
+                  <tr key={price} className="border-t border-line">
+                    <td className="py-2">{formatPrice(price, rate.currency, { decimals: true })}</td>
+                    <td className="py-2 text-right">{formatPrice(ticketFeeCents(price, rate), rate.currency, { decimals: true })}</td>
+                    <td className="py-2 text-right">{formatPrice(organizerNetPerTicketCents(price, rate), rate.currency, { decimals: true })}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
+
+          {setting?.effective_from ? (
+            <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+              In effect since {new Date(setting.effective_from).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+            </p>
+          ) : null}
+        </CardBody>
+      </Card>
+
+      <p className="text-[12px] leading-5 text-ink-3">
+        Each order keeps the fee that applied when it was placed. Your payouts and finance pages show the fees deducted
+        so far. Questions about fees? Contact Ticketiv support.
+      </p>
     </main>
   )
 }
