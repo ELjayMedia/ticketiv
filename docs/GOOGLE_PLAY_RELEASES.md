@@ -22,7 +22,7 @@ local image files by locale and Google Play image type:
 {
   "packageName": "com.ticketiv.app",
   "defaultLanguage": "en-US",
-  "imagePolicy": "replace",
+  "imagePolicy": "preserve-existing",
   "listings": {
     "en-US": {
       "title": "Ticketiv",
@@ -54,14 +54,21 @@ Each additional listing locale also needs a matching
 The initial manifests use `imagePolicy: "preserve-existing"` because both apps
 already have approved assets in Play Console. Sync preserves those images and
 checks that the required icon, feature graphic and phone screenshots exist for
-every declared locale before committing the edit. Do not include local image
-paths with this policy. This permits reviewed text updates without replacing the
-approved graphics.
+every declared locale before committing the edit. This policy can omit local
+images or include a complete local snapshot of the approved Console originals.
+When snapshots are present, sync downloads the current originals and compares
+their ordered SHA-256 hashes with the local files before committing. Any changed,
+missing or reordered image fails the comparison. Sync never uploads images under
+this policy. This permits reviewed text updates while preserving approved
+graphics and detects Console artwork drift once snapshots are versioned.
 
-Use `imagePolicy: "replace"` when committing assets exported from Play Console or
-reviewed replacement images. Strict publication then requires complete, valid
-local assets for every declared locale. An ordinary source check accepts an
-incomplete replacement asset set so drafts can be reviewed; publication rejects it.
+Use `imagePolicy: "replace"` only when publishing new, reviewed artwork. Changing
+the policy is an explicit decision to replace the Console image set. Strict
+publication then requires complete, valid local assets for every declared locale,
+including all upload dimension and aspect-ratio checks. An ordinary source check
+accepts an incomplete replacement asset set so drafts can be reviewed; publication
+rejects it. Existing approved Console snapshots are preserved as originals, even
+when their dimensions do not satisfy the stricter rules for new uploads.
 
 ## Import an existing Play Console listing
 
@@ -70,8 +77,10 @@ choose the relevant `app`, and set `operation` to `export`. Download the
 `google-play-listing-<app>-<run_id>` artifact, review the text and images, then copy the
 exported `listing.json` and image directory into that app's `store-listing`
 directory in a pull request. Preserve `whatsnew/` release notes when copying.
-The export uses `imagePolicy: "replace"` so the committed files become the
-reviewable source of truth. Export artifacts are retained for 30 days.
+The export uses `imagePolicy: "preserve-existing"` and records paths to the
+downloaded originals. Commit those snapshots to version the approved image set
+without re-uploading it; subsequent syncs compare it against the Console as
+described above. Export artifacts are retained for 30 days.
 
 Export reads the existing listing into an uncommitted Play edit and discards the
 edit; it does not publish changes. Treat the artifact as source material to
@@ -98,16 +107,20 @@ node scripts/validate-play-listings.mjs --app ticketiv --require-images
 ```
 
 The validator checks package identity, locale structure, description lengths, image
-types and dimensions, and that image paths stay inside the listing directory.
-With the replacement policy, strict publication also requires an icon, feature
-graphic and at least two phone screenshots for every locale. With the preservation
-policy, the publishing script checks the actual Play Console image set.
+formats, and that image paths stay inside the listing directory. With the
+replacement policy, strict publication requires an icon, feature graphic and at
+least two phone screenshots for every locale and enforces the upload dimension
+and aspect-ratio rules. With the preservation policy, the publishing script checks
+the actual Play Console image set and compares any local snapshots in order.
+Preservation and export do not reject an existing approved screenshot merely
+because it is taller than the upload validator permits.
 
 After review and merge, run **Google Play listings** from `main`, select the app,
 set `operation` to `sync`, and enter `SYNC_GOOGLE_PLAY_LISTING` in `confirmation`.
-It validates local content before opening a Play edit,
-updates the supplied localized text and image types, validates the edit with
-Google Play and commits it. Listing sync can change the public store page
+It validates local content before opening a Play edit, updates the supplied
+localized text, and either preserves or replaces the images according to the
+manifest policy. It validates the edit with Google Play and commits it. Listing
+sync can change the public store page
 independently of an app rollout; review it with the same care as a release.
 
 The corresponding command is:
