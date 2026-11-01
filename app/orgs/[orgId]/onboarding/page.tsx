@@ -6,6 +6,7 @@ import { Icon } from "@/components/quiet/ui/icon"
 import { OnboardingChecklist } from "@/components/quiet/screens/organizer/onboarding-checklist"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { buildOrganizerSetupSteps } from "@/lib/data/organizer/readiness"
+import { requireOrganizerSection } from "@/lib/organizer/access"
 
 export const dynamic = "force-dynamic"
 
@@ -15,6 +16,7 @@ export default async function OrgOnboardingPage({
   params: Promise<{ orgId: string }>
 }) {
   const { orgId } = await params
+  await requireOrganizerSection(orgId, "dashboard")
   const supabase = createServerSupabaseClient()
 
   if (!supabase) {

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { Icon } from "@/components/quiet/ui/icon"
 import { GuestlistTab } from "@/components/event-management/guestlist-tab"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { requireOrganizerSection } from "@/lib/organizer/access"
 
 export const dynamic = "force-dynamic"
 
@@ -13,6 +14,7 @@ export default async function GuestlistPage({
   params: Promise<{ orgId: string; eventId: string }>
 }) {
   const { orgId, eventId } = await params
+  await requireOrganizerSection(orgId, "guestlist", { eventId })
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return redirect("/login")

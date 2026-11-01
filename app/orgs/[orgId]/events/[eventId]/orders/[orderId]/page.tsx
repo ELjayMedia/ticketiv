@@ -8,6 +8,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { ManualRefundCompletionButton } from "./manual-refund-completion-button"
 import { OrderSupportActions } from "./order-support-actions"
 import { RefundApprovalButton } from "./refund-approval-button"
+import { requireEventManager } from "@/lib/organizer/access"
 
 export const dynamic = "force-dynamic"
 
@@ -31,6 +32,7 @@ export default async function OrderDetailPage({
   params: Promise<{ orgId: string; eventId: string; orderId: string }>
 }) {
   const { orgId, eventId, orderId } = await params
+  await requireEventManager(orgId, eventId)
   const returnTo = `/orgs/${orgId}/events/${eventId}/orders/${orderId}`
   const supabase = createServerSupabaseClient()
   if (!supabase) return redirect(`/login?next=${encodeURIComponent(returnTo)}`)

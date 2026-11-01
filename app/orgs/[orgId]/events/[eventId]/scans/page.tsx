@@ -6,6 +6,7 @@ import { Button } from "@/components/quiet/ui/button"
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
+import { requireEventManager } from "@/lib/organizer/access"
 
 export const dynamic = "force-dynamic"
 
@@ -48,6 +49,7 @@ function StatTile({
 
 export default async function ScansPage({ params }: { params: Promise<{ orgId: string; eventId: string }> }) {
   const { orgId, eventId } = await params
+  await requireEventManager(orgId, eventId)
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return redirect("/login")

@@ -5,18 +5,33 @@ const labels = (items: { label: string }[]) => items.map((i) => i.label)
 const item = (label: string) => ORG_NAV_ITEMS.find((i) => i.label === label)!
 
 describe("organizer workspace navigation", () => {
-  it("shows owners every section, including Settings", () => {
-    expect(labels(visibleOrgNavItems({ canManage: true, isOwner: true }))).toEqual([
+  it("shows owners every workspace section, including Settings", () => {
+    expect(labels(visibleOrgNavItems({ role: "manager", storedRole: "organizer_owner", isPlatformAdmin: false }))).toEqual([
       "Dashboard", "Events", "Series", "Finance", "Payouts", "Team", "Settings",
     ])
   })
 
-  it("hides owner-only Settings from other managers", () => {
-    expect(labels(visibleOrgNavItems({ canManage: true, isOwner: false }))).not.toContain("Settings")
+  it("hides owner-only Settings from admins, and shows platform admins everything", () => {
+    expect(labels(visibleOrgNavItems({ role: "manager", storedRole: "organizer_admin", isPlatformAdmin: false }))).not.toContain("Settings")
+    expect(labels(visibleOrgNavItems({ role: "manager", storedRole: null, isPlatformAdmin: true }))).toContain("Settings")
   })
 
-  it("shows staff and scanners only the sections they can open", () => {
-    expect(labels(visibleOrgNavItems({ canManage: false, isOwner: false }))).toEqual(["Dashboard", "Events"])
+  it("gives finance a money-only menu", () => {
+    expect(labels(visibleOrgNavItems({ role: "finance", storedRole: "finance", isPlatformAdmin: false }))).toEqual([
+      "Dashboard", "Finance", "Payouts",
+    ])
+  })
+
+  it("gives door staff their events and the scanner", () => {
+    expect(labels(visibleOrgNavItems({ role: "staff", storedRole: "organizer_staff", isPlatformAdmin: false }))).toEqual([
+      "Events", "Scan",
+    ])
+  })
+
+  it("gives scanners only the scanner, which opens /scan", () => {
+    const items = visibleOrgNavItems({ role: "scanner", storedRole: null, isPlatformAdmin: false })
+    expect(labels(items)).toEqual(["Scan"])
+    expect(items[0].href).toBe("/scan")
   })
 
   it("marks the section for nested pages as active", () => {

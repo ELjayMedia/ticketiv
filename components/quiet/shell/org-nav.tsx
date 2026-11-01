@@ -4,6 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon, type IconName } from "@/components/quiet/ui/icon";
 import { cn } from "@/lib/cn";
+import {
+  canChangeSettings,
+  canManageTeam,
+  canOpenSection,
+  type OrganizerRole,
+  type OrganizerSection,
+} from "@ticketiv/shared";
 
 /* ──────────────────────────────────────────────────────────────
  * Organizer workspace navigation for every /orgs/[orgId]/… page.
@@ -13,38 +20,59 @@ import { cn } from "@/lib/cn";
  * name and horizontally scrollable section tabs (pages keep their own
  * bottom action bars, so the strip stays at the top).
  *
- * Managers (owner / admin / organizer) see every section; other members
- * (staff, scanner) see only the sections they can open.
+ * Each organizer role (ADR 0002) sees only its sections: managers see
+ * everything, finance sees money pages, door staff see their events and
+ * the scanner, scanners see the scanner.
  * ────────────────────────────────────────────────────────────── */
 
 interface OrgNavItem {
   label: string;
   icon: IconName;
+  section: OrganizerSection;
+  /** Workspace path segment, or an absolute href for items outside the workspace. */
   path: string;
+  href?: string;
   /** Extra path segments that also mark this item active. */
   also?: string[];
-  managersOnly?: boolean;
-  ownersOnly?: boolean;
 }
 
 export const ORG_NAV_ITEMS: OrgNavItem[] = [
-  { label: "Dashboard", icon: "trending", path: "dashboard", also: ["onboarding"] },
-  { label: "Events", icon: "cal", path: "events" },
-  { label: "Series", icon: "spark", path: "series", managersOnly: true },
-  { label: "Finance", icon: "fileText", path: "finance", managersOnly: true },
-  { label: "Payouts", icon: "wallet", path: "payouts", managersOnly: true },
-  { label: "Team", icon: "users", path: "team", managersOnly: true },
+  { label: "Dashboard", icon: "trending", section: "dashboard", path: "dashboard", also: ["onboarding"] },
+  { label: "Events", icon: "cal", section: "events", path: "events" },
+  { label: "Series", icon: "spark", section: "series", path: "series" },
+  { label: "Finance", icon: "fileText", section: "finance", path: "finance" },
+  { label: "Payouts", icon: "wallet", section: "payouts", path: "payouts" },
+  { label: "Team", icon: "users", section: "team", path: "team" },
   {
     label: "Settings",
     icon: "settings",
+    section: "settings",
     path: "settings",
     also: ["profile", "feature-flags", "pricing-plans"],
-    ownersOnly: true,
   },
+  { label: "Scan", icon: "qr", section: "scan", path: "scan", href: "/scan" },
 ];
 
-export function visibleOrgNavItems({ canManage, isOwner }: { canManage: boolean; isOwner: boolean }) {
-  return ORG_NAV_ITEMS.filter((item) => (item.ownersOnly ? isOwner : item.managersOnly ? canManage : true));
+export interface OrgNavAccess {
+  role: OrganizerRole;
+  /** org_members.role (null for platform admins and event-only assignments). */
+  storedRole: string | null;
+  isPlatformAdmin: boolean;
+}
+
+export function visibleOrgNavItems({ role, storedRole, isPlatformAdmin }: OrgNavAccess) {
+  return ORG_NAV_ITEMS.filter((item) => {
+    if (!canOpenSection(role, item.section)) return false;
+    if (item.section === "team") return isPlatformAdmin || canManageTeam(storedRole);
+    if (item.section === "settings") return isPlatformAdmin || canChangeSettings(storedRole);
+    // Managers reach the scanner from each event; the tab is for door roles.
+    if (item.section === "scan") return role !== "manager" && role !== "finance";
+    return true;
+  });
+}
+
+function itemHref(item: OrgNavItem, orgId: string) {
+  return item.href ?? `/orgs/${orgId}/${item.path}`;
 }
 
 export function isOrgNavItemActive(item: OrgNavItem, orgId: string, pathname: string): boolean {
@@ -54,17 +82,15 @@ export function isOrgNavItemActive(item: OrgNavItem, orgId: string, pathname: st
   });
 }
 
-interface OrgNavProps {
+interface OrgNavProps extends OrgNavAccess {
   orgId: string;
   orgName: string;
   roleLabel: string | null;
-  canManage: boolean;
-  isOwner: boolean;
 }
 
-export function OrgSidebar({ orgId, orgName, roleLabel, canManage, isOwner }: OrgNavProps) {
+export function OrgSidebar({ orgId, orgName, roleLabel, ...access }: OrgNavProps) {
   const pathname = usePathname() ?? "";
-  const items = visibleOrgNavItems({ canManage, isOwner });
+  const items = visibleOrgNavItems(access);
 
   return (
     <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-line bg-surface md:flex print:hidden">
@@ -86,7 +112,7 @@ export function OrgSidebar({ orgId, orgName, roleLabel, canManage, isOwner }: Or
           return (
             <Link
               key={item.path}
-              href={`/orgs/${orgId}/${item.path}`}
+              href={itemHref(item, orgId)}
               aria-current={active ? "page" : undefined}
               className={cn(
                 "flex items-center gap-2.5 rounded-[var(--radius)] px-3 py-2 text-[14px] font-medium transition-colors",
@@ -114,9 +140,9 @@ export function OrgSidebar({ orgId, orgName, roleLabel, canManage, isOwner }: Or
   );
 }
 
-export function OrgTopTabs({ orgId, orgName, canManage, isOwner }: OrgNavProps) {
+export function OrgTopTabs({ orgId, orgName, ...access }: OrgNavProps) {
   const pathname = usePathname() ?? "";
-  const items = visibleOrgNavItems({ canManage, isOwner });
+  const items = visibleOrgNavItems(access);
 
   return (
     <div className="sticky top-0 z-30 border-b border-line bg-surface pt-[env(safe-area-inset-top)] md:hidden print:hidden">
@@ -139,7 +165,7 @@ export function OrgTopTabs({ orgId, orgName, canManage, isOwner }: OrgNavProps) 
           return (
             <Link
               key={item.path}
-              href={`/orgs/${orgId}/${item.path}`}
+              href={itemHref(item, orgId)}
               aria-current={active ? "page" : undefined}
               className={cn(
                 "inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors",

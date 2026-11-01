@@ -85,7 +85,7 @@ export async function getMyContexts(): Promise<UserContext[]> {
       kind: "org",
       label: orgName.get(id) ?? "Organisation",
       sublabel: info.role_label,
-      href: `/orgs/${id}/dashboard`,
+      href: `/orgs/${id}`,
     })
   }
 

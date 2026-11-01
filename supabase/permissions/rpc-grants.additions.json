@@ -10,6 +10,19 @@
         "postgres",
         "service_role"
       ]
+    },
+    {
+      "schema": "app",
+      "name": "is_org_operator",
+      "arguments": "p_org uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "anon",
+        "authenticated",
+        "dashboard_user",
+        "postgres"
+      ]
     }
   ]
 }

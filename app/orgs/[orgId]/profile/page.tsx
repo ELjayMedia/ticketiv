@@ -8,6 +8,7 @@ import { Icon } from "@/components/quiet/ui/icon"
 import { requireOrgCapability } from "@/lib/data/organizer/access"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { updateOrgProfileAction } from "./actions"
+import { requireOrganizerSection } from "@/lib/organizer/access"
 
 export const metadata = { title: "Organization profile" }
 export const dynamic = "force-dynamic"
@@ -26,6 +27,7 @@ export default async function OrgProfilePage({
   searchParams?: Promise<SearchParams>
 }) {
   const { orgId } = await params
+  await requireOrganizerSection(orgId, "settings", { settings: true })
   const query = searchParams ? await searchParams : {}
 
   await requireOrgCapability(orgId, "manage")
