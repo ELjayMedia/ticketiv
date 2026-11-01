@@ -70,7 +70,7 @@ const STATUS_BADGE: Record<
   transferred: {
     chip: {
       label: "↗ Transferred",
-      className: "border-transparent bg-[#fdf0ec] text-[#c1422b]",
+      className: "border-transparent bg-danger-soft text-danger",
     },
     headline: "Transferred to someone else",
     copy: "You no longer own this ticket. The QR is hidden.",
@@ -523,7 +523,7 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
           <div className="min-h-[18px] px-5 pt-2 text-center text-[11px] text-white/75" role="status">
             {notice
               ?? (offlineState.phase === "error" && offlineState.message
-                ? <span className="text-[#ffb4a8]">{offlineState.message}</span>
+                ? <span className="text-danger-soft">{offlineState.message}</span>
                 : isSaved
                   ? (
                     <span className="inline-flex items-center gap-1">

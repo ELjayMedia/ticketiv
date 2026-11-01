@@ -3,10 +3,10 @@
 import { useTransition } from "react"
 import { useRouter } from "next/navigation"
 import * as AlertDialog from "@radix-ui/react-alert-dialog"
-import { Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { deleteSeriesAction } from "@/app/orgs/[orgId]/series/actions"
 import { Button } from "@/components/quiet/ui/button";
+import { Icon } from "@/components/quiet/ui/icon"
 
 interface DeleteSeriesButtonProps {
   orgId: string
@@ -41,7 +41,7 @@ export function DeleteSeriesButton({
     <AlertDialog.Root>
       <AlertDialog.Trigger asChild>
         <Button type="button" variant="outline" size="sm" className="text-danger hover:text-danger">
-          <Trash2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
+          <Icon name="trash" className="mr-1.5 h-4 w-4" aria-hidden="true" />
           Delete series
         </Button>
       </AlertDialog.Trigger>

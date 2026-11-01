@@ -48,7 +48,6 @@ export default async function SuperAdminWorkspacePage({ params }: { params: Prom
 
   const actions = (actionResult.data ?? []) as CatalogAction[]
   const countMap = new Map(counts)
-  const WorkspaceIcon = workspace.icon
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
@@ -64,7 +63,7 @@ export default async function SuperAdminWorkspacePage({ params }: { params: Prom
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="flex flex-col gap-3">
             <span className="inline-flex w-fit rounded-full border border-line bg-bg p-3 text-ink">
-              <WorkspaceIcon className="h-6 w-6" />
+              <Icon name={workspace.icon} size={24} />
             </span>
             <h1 className="text-h1">{workspace.title}</h1>
             <p className="max-w-2xl text-[13px] leading-6 text-ink-3">{workspace.description}</p>

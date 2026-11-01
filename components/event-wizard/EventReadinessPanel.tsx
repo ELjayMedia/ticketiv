@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { AlertTriangle, ArrowRight, CheckCircle2, CircleDashed, Rocket } from "lucide-react"
 import { Card, CardBody } from "@/components/quiet/ui/card";
 import { Chip } from "@/components/quiet/ui/chip";
 import { Progress } from "@/components/quiet/ui/primitives";
+import { Icon } from "@/components/quiet/ui/icon"
 
 
 const WIZARD_STEPS = new Set(["basics", "lineup", "schedule", "venue", "tickets", "policies", "publish"])
@@ -123,9 +123,9 @@ export function EventReadinessPanel({
             <div key={item.key} className="rounded-lg border p-3">
               <div className="flex items-start gap-3">
                 {item.complete ? (
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                  <Icon name="checkCircle" className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                 ) : (
-                  <CircleDashed className="mt-0.5 h-4 w-4 shrink-0 text-ink-3" />
+                  <Icon name="ring" className="mt-0.5 h-4 w-4 shrink-0 text-ink-3" />
                 )}
 
                 <div className="min-w-0 flex-1">
@@ -146,7 +146,7 @@ export function EventReadinessPanel({
                       className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-surface-2"
                     >
                       {action.label}
-                      <ArrowRight className="h-3.5 w-3.5" />
+                      <Icon name="arrowR" className="h-3.5 w-3.5" />
                     </Link>
                   ) : null}
                 </div>
@@ -169,9 +169,9 @@ export function EventReadinessPanel({
             </p>
           </div>
           {publishEligible ? (
-            <Chip size="sm" variant="accent" className="gap-1"><Rocket className="h-3 w-3" /> Ready</Chip>
+            <Chip size="sm" variant="accent" className="gap-1"><Icon name="spark" className="h-3 w-3" /> Ready</Chip>
           ) : (
-            <Chip size="sm" variant="default" className="gap-1"><AlertTriangle className="h-3 w-3" /> {requiredRemaining} left</Chip>
+            <Chip size="sm" variant="default" className="gap-1"><Icon name="alert" className="h-3 w-3" /> {requiredRemaining} left</Chip>
           )}
         </div>
       </div>

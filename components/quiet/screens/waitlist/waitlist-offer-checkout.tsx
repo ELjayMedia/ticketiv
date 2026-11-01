@@ -52,7 +52,7 @@ export function WaitlistOfferCheckout({ offer, pendingOrderId, pendingPaymentId,
         </header>
         <section className="px-5">
           <Card className="p-6 text-center">
-            <div className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#fdf0ec] text-[#c1422b]">
+            <div className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-danger-soft text-danger">
               <Icon name="clock" size={22} />
             </div>
             <div className="mt-4 text-[15px] font-semibold">No active offer found</div>
@@ -104,7 +104,7 @@ export function WaitlistOfferCheckout({ offer, pendingOrderId, pendingPaymentId,
                 {offer.eventTitle ?? "Event"} · {quantity} requested
               </p>
               {expiry && (
-                <p className={`mt-2 font-mono text-[11px] font-semibold ${expiry.expired ? "text-[#c1422b]" : "text-accent"}`}>
+                <p className={`mt-2 font-mono text-[11px] font-semibold ${expiry.expired ? "text-danger" : "text-accent"}`}>
                   {expiry.label}
                 </p>
               )}
@@ -148,10 +148,10 @@ export function WaitlistOfferCheckout({ offer, pendingOrderId, pendingPaymentId,
           </div>
         </Card>
 
-        <Card className="border-[#f3dfb7] bg-[#fdf6ed] p-3.5">
+        <Card className="border-warning/30 bg-warning-soft p-3.5">
           <div className="flex items-start gap-3">
-            <Icon name="clock" size={16} className="mt-0.5 text-[#8a5f08]" />
-            <p className="font-mono text-[11px] leading-relaxed text-[#8a5f08]">
+            <Icon name="clock" size={16} className="mt-0.5 text-warning" />
+            <p className="font-mono text-[11px] leading-relaxed text-warning">
               Tickets are issued only after the linked payment succeeds. Until then, this offer remains in checkout pending state.
             </p>
           </div>

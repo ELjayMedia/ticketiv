@@ -22,8 +22,8 @@ export interface FeatureFlagsScreenProps {
 
 const STATE_META: Record<string, { fg: string; bg: string; label: string }> = {
   live: { fg: "text-accent", bg: "bg-accent-soft", label: "LIVE" },
-  rollout: { fg: "text-[#c1841c]", bg: "bg-[#fdf6ed]", label: "ROLLOUT" },
-  off: { fg: "text-ink-3", bg: "bg-[#f3f1ee]", label: "OFF" },
+  rollout: { fg: "text-warning", bg: "bg-warning-soft", label: "ROLLOUT" },
+  off: { fg: "text-ink-3", bg: "bg-surface-2", label: "OFF" },
 }
 
 function stateFor(f: PlatformFlag): keyof typeof STATE_META {
@@ -87,7 +87,7 @@ export function FeatureFlagsScreen({ flags, canAct = true }: FeatureFlagsScreenP
 
       {/* Rollout banner */}
       {inRollout > 0 && (
-        <Card className="border-[#fde2c1] bg-[#fdf6ed] p-5">
+        <Card className="border-warning/30 bg-warning-soft p-5">
           <div className="text-h3 mb-1">{inRollout} flag{inRollout === 1 ? "" : "s"} in rollout</div>
           <div className="text-sm text-ink-2">
             Partial rollouts are evaluated per-request. Move to 100% when validated, or pause to halt.
@@ -133,7 +133,7 @@ export function FeatureFlagsScreen({ flags, canAct = true }: FeatureFlagsScreenP
                   {f.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1">
                       {f.tags.map((t) => (
-                        <span key={t} className="rounded bg-[#f3f1ee] px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-ink-3">
+                        <span key={t} className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-ink-3">
                           {t}
                         </span>
                       ))}
@@ -181,7 +181,7 @@ export function FeatureFlagsScreen({ flags, canAct = true }: FeatureFlagsScreenP
                         disabled={busy === f.id}
                         onClick={() => remove(f)}
                         aria-label={`Delete ${f.key}`}
-                        className="rounded-md p-1 text-ink-3 hover:bg-[#fdf0ec] hover:text-[#c1422b] disabled:opacity-50"
+                        className="rounded-md p-1 text-ink-3 hover:bg-danger-soft hover:text-danger disabled:opacity-50"
                       >
                         <Icon name="close" size={14} />
                       </button>
@@ -288,13 +288,13 @@ function NewFlagDialog({ onDismiss }: { onDismiss: () => void }) {
               type="checkbox"
               checked={enabled}
               onChange={(e) => setEnabled(e.target.checked)}
-              className="h-4 w-4 accent-[#6b3fbd]"
+              className="h-4 w-4 accent-accent"
             />
             Enable immediately
           </label>
         </div>
         {err && (
-          <div className="mt-3 rounded-md bg-[#fdf0ec] px-3 py-2 font-mono text-xs text-[#c1422b]">{err}</div>
+          <div className="mt-3 rounded-md bg-danger-soft px-3 py-2 font-mono text-xs text-danger">{err}</div>
         )}
         <div className="mt-4 flex justify-end gap-2">
           <Button type="button" variant="default" size="xs" onClick={onDismiss}>

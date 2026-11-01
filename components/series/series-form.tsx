@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Check, Loader2, X } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/cn"
 import { seriesFormSchema, type SeriesFormValues } from "@/lib/series/schema"
@@ -17,6 +16,7 @@ import {
 import { Button } from "@/components/quiet/ui/button";
 import { Input, Label, Textarea } from "@/components/quiet/ui/form";
 import { Select, SelectOption } from "@/components/quiet/ui/select";
+import { Icon } from "@/components/quiet/ui/icon"
 
 const WEEK_DAYS: Array<{ key: "MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU"; label: string }> = [
   { key: "MO", label: "Mon" },
@@ -153,9 +153,9 @@ export function SeriesForm({ orgId, initial, mode }: SeriesFormProps) {
             className="pr-9"
           />
           <div className="absolute right-2 top-1/2 -translate-y-1/2">
-            {slugStatus === "checking" && <Loader2 className="h-4 w-4 animate-spin text-ink-3" />}
-            {slugStatus === "available" && <Check className="h-4 w-4 text-green-600" />}
-            {slugStatus === "taken" && <X className="h-4 w-4 text-danger" />}
+            {slugStatus === "checking" && <Icon name="loader" className="h-4 w-4 animate-spin text-ink-3" />}
+            {slugStatus === "available" && <Icon name="check" className="h-4 w-4 text-success" />}
+            {slugStatus === "taken" && <Icon name="close" className="h-4 w-4 text-danger" />}
           </div>
         </div>
         <p className="text-xs text-ink-3">

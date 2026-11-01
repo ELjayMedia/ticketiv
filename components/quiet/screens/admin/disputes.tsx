@@ -30,10 +30,10 @@ function relative(iso: string | null): string {
 function statusClass(status: DisputeStatus): string {
   switch (status) {
     case "open":
-      return "bg-[#fdf0ec] text-[#c1422b]"
+      return "bg-danger-soft text-danger"
     case "investigating":
     case "awaiting_customer":
-      return "bg-[#fdf6ed] text-[#c1841c]"
+      return "bg-warning-soft text-warning"
     case "resolved":
       return "bg-accent-soft text-accent"
     default:
@@ -138,7 +138,7 @@ export function DisputesScreen({ overview }: { overview: DisputesOverview }) {
                     {money(d.amount_cents, d.currency)}
                   </span>
                   {d.assigned_to == null && OPEN_STATUSES.includes(d.status) && (
-                    <span className="font-mono text-[10px] text-[#c1841c]">unassigned</span>
+                    <span className="font-mono text-[10px] text-warning">unassigned</span>
                   )}
                 </div>
                 <span className="truncate text-xs text-ink-2">{d.reason ?? "No reason recorded"}</span>

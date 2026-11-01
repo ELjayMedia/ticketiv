@@ -29,11 +29,11 @@ function jobState(j: JobRow): "pending" | "in_flight" | "failed" | "done" {
 function stateClass(state: ReturnType<typeof jobState>): string {
   switch (state) {
     case "pending":
-      return "bg-[#fdf6ed] text-[#c1841c]"
+      return "bg-warning-soft text-warning"
     case "in_flight":
       return "bg-accent-soft text-accent"
     case "failed":
-      return "bg-[#fdf0ec] text-[#c1422b]"
+      return "bg-danger-soft text-danger"
     default:
       return "bg-line text-ink-3"
   }
@@ -47,7 +47,7 @@ export function JobsScreen({ overview }: { overview: JobsOverview }) {
           <div className="font-mono text-[10px] uppercase tracking-wider text-ink-3">PLATFORM / JOBS</div>
           <h1 className="text-h1 mt-1">Jobs queue</h1>
           <div className="font-mono text-[11px] text-ink-3">
-            grouped by kind · derived from <code className="rounded bg-[#f3f1ee] px-1">public.jobs</code>
+            grouped by kind · derived from <code className="rounded bg-surface-2 px-1">public.jobs</code>
           </div>
         </div>
       </div>
@@ -82,9 +82,9 @@ export function JobsScreen({ overview }: { overview: JobsOverview }) {
             >
               <span className="font-mono font-semibold">{k.kind}</span>
               <span className="font-mono">{k.total}</span>
-              <span className="font-mono text-[#c1841c]">{k.pending}</span>
+              <span className="font-mono text-warning">{k.pending}</span>
               <span className="font-mono text-accent">{k.in_flight}</span>
-              <span className="font-mono text-[#c1422b]">{k.failed}</span>
+              <span className="font-mono text-danger">{k.failed}</span>
               <span className="font-mono text-[11px] text-ink-3">
                 {k.oldest_pending_iso ? relative(k.oldest_pending_iso) + " ago" : "—"}
               </span>
@@ -154,9 +154,9 @@ function KPI({
     accent === "ok"
       ? "text-accent"
       : accent === "warn"
-        ? "text-[#c1841c]"
+        ? "text-warning"
         : accent === "danger"
-          ? "text-[#c1422b]"
+          ? "text-danger"
           : ""
   return (
     <Card className="flex-1 p-4">

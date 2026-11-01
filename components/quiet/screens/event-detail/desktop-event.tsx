@@ -186,7 +186,7 @@ export function DesktopEvent({ event }: DesktopEventProps) {
             {activeTab === "Venue" && (
               <div className="py-5">
                 <Card className="grid grid-cols-2 overflow-hidden p-0">
-                  <div className="relative h-[220px] bg-[#e8e6e2]">
+                  <div className="relative h-[220px] bg-line">
                     <svg viewBox="0 0 400 220" className="absolute inset-0 h-full w-full">
                       <path d="M0,100 L400,80 M0,140 L400,120 M180,0 L200,220" stroke="#d4d2cc" strokeWidth="2" />
                       <circle cx="200" cy="110" r="10" fill="var(--color-accent)" />

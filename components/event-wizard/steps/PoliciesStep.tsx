@@ -113,7 +113,7 @@ export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving:
         </div>
 
         {operationalOptions.length === 0 ? (
-          <div className="rounded-md border border-amber-500/40 bg-amber-50 p-3 text-sm text-amber-900">
+          <div className="rounded-md border border-warning/40 bg-warning-soft p-3 text-sm text-warning">
             <p className="font-medium">No operational payment method is available</p>
             <p className="mt-1 text-xs leading-relaxed">
               Ticketiv platform credentials must be completed or enabled before this event can be published.
@@ -142,7 +142,7 @@ export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving:
                     "rounded-lg border px-3 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 " +
                     (active
                       ? unavailable
-                        ? "border-amber-500 bg-amber-50"
+                        ? "border-warning bg-warning-soft"
                         : "border-ink bg-ink text-surface"
                       : unavailable
                         ? "border-line bg-surface-2/40 text-ink-3"
@@ -156,7 +156,7 @@ export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving:
                     </span>
                   </span>
                   <span className="mt-0.5 block text-xs opacity-75">{option.sub}</span>
-                  {option.warning ? <span className="mt-1 block text-xs text-amber-700">{option.warning}</span> : null}
+                  {option.warning ? <span className="mt-1 block text-xs text-warning">{option.warning}</span> : null}
                 </button>
               )
             })
@@ -174,7 +174,7 @@ export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving:
         </p>
 
         {selectedUnavailable.length > 0 ? (
-          <p className="rounded-md border border-amber-500/40 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <p className="rounded-md border border-warning/40 bg-warning-soft px-3 py-2 text-xs text-warning">
             Remove the non-operational method before saving, or ask Ticketiv platform administration to complete its configuration.
           </p>
         ) : null}
@@ -210,7 +210,7 @@ export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving:
           />
         </div>
 
-        <p className={hasBuyerPolicy ? "text-xs text-emerald-700" : "text-xs text-amber-700"}>
+        <p className={hasBuyerPolicy ? "text-xs text-success" : "text-xs text-warning"}>
           {hasBuyerPolicy ? "Buyer policy requirement is complete." : "Add a refund policy or confirmation message to complete this requirement."}
         </p>
       </section>
@@ -229,7 +229,7 @@ export function PoliciesStep({ eventId, onSaving }: { eventId: string; onSaving:
         </div>
       </section>
 
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
 
       <Button variant="accent" onClick={save} disabled={saving || selectedUnavailable.length > 0} className="w-full">
         {saving ? "Saving payments & policies…" : "Save payments & policies"}

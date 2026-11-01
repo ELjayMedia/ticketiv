@@ -31,7 +31,10 @@
   --color-danger: #ef4444;
   --color-danger-soft: #fee2e2;
   --color-success: #16a34a;
-  --color-warning: #f59e0b;
+  --color-success-soft: #e8f5ec;
+  /* Amber dark enough to read as text (≈5:1 on white); also used for tints and borders. */
+  --color-warning: #b45309;
+  --color-warning-soft: #fdf6ed;
 
   /* type */
   --font-sans: "Inter Tight Variable", "Inter", system-ui, -apple-system, sans-serif;

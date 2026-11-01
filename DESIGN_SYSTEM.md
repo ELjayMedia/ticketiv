@@ -19,7 +19,7 @@ unstyled.
 | Text | `text-ink` (primary), `text-ink-2`, `text-ink-3` (secondary/meta), `text-ink-4` (placeholders) |
 | Borders | `border-line` (dividers, cards), `border-line-2` (inputs, outlined buttons) |
 | Accent (violet) | `bg-accent`, `text-accent`, `bg-accent-soft`, `ring-accent/30` |
-| Status | `text-danger` / `bg-danger-soft`, `text-success`, `text-warning` |
+| Status | `text-danger` / `bg-danger-soft`, `text-warning` / `bg-warning-soft`, `text-success` / `bg-success-soft`. Tint with opacity (`bg-warning/10`, `border-danger/30`). |
 | Radius | `rounded-[var(--radius)]` (8), `--radius-md` (10), `--radius-lg` (12), `--radius-xl` (16) |
 | Shadow | `shadow-[var(--shadow-card)]`, `shadow-[var(--shadow-elev)]` |
 
@@ -52,7 +52,7 @@ font-mono text-[22px] font-semibold tabular-nums ← big numbers
 | `Button` | variants `default` · `primary` · `accent` · `ghost` · `outline`; sizes `xs` · `sm` · `md`. Defaults to `type="button"` — pass `type="submit"` in forms. |
 | `Card`, `CardBody`, `CardDivider` | `flat` prop removes the shadow. |
 | `Chip` | variants `default` · `active` · `accent` · `muted` — use for badges and status pills. |
-| `Icon` (+ `IconName`) | See the icon map in `icon.tsx`; there is no `circle`, `x` or `arrowL`. |
+| `Icon` (+ `IconName`) | The only icon set (no lucide). `IconName` is a strict union, so an unknown name fails typecheck. Names: `search` `heart` `bell` `user` `pin` `cal` `ticket` `share` `filter` `chevR` `chevL` `chevD` `chevU` `plus` `minus` `arrowR` `arrowUR` `close` `check` `map` `music` `spark` `copy` `fire` `zap` `globe` `wallet` `qr` `nfc` `clock` `fileText` `download` `trash` `settings` `trending` `checkCircle` `alertCircle` `alert` `info` `ring` `loader` `refresh` `menu` `logout` `shield` `building` `card` `receipt` `flag` `key` `activity` `clipboard` `users`. |
 | `FormField`, `Input`, `Textarea`, `Label` | `FormField` = label + input + hint/error. The bare primitives share its styling. |
 | `RadioCard`, `Stepper`, `QuantityStepper` | Checkout-style selection and progress. |
 | `Select`, `SelectOption` | Radix Select with Quiet styling; supports `label`, `hint`, `error`. |

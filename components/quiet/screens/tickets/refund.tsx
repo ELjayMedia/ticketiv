@@ -256,7 +256,7 @@ export function Refund({
         </section>
 
         <section className="px-5 pb-4">
-          <Card className="border-[color:var(--color-accent-soft)] bg-[#fbf7ff] p-3.5" flat>
+          <Card className="border-[color:var(--color-accent-soft)] bg-accent-soft p-3.5" flat>
             <div className="text-label mb-2 text-accent">{policy.label}</div>
             {policy.bands.length > 0 ? (
               <ul className="flex flex-col gap-1.5">

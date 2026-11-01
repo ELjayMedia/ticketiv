@@ -21,11 +21,11 @@ export interface SeatingChartProps {
 
 function stateClass(state: SeatState, isPremium: boolean, isBalcony: boolean): string {
   if (state === "sold") return "bg-line text-ink-3 border-line"
-  if (state === "hold") return "bg-[#fde2c1] border-[#d4a667] text-ink"
+  if (state === "hold") return "bg-warning/30 border-warning/50 text-ink"
   if (state === "pick") return "bg-accent border-accent text-white"
   // available
-  if (isPremium) return "bg-[#fbf7ff] border-accent-soft text-ink"
-  if (isBalcony) return "bg-[#fafaf7] border-line-2 text-ink"
+  if (isPremium) return "bg-accent-soft border-accent-soft text-ink"
+  if (isBalcony) return "bg-bg border-line-2 text-ink"
   return "bg-surface border-line-2 text-ink"
 }
 
@@ -175,8 +175,8 @@ export function SeatingChart({ chart, currency = "₹", onSelectionChange }: Sea
             ["bg-surface", "border-line-2", "Available"],
             ["bg-accent", "border-accent", "Selected"],
             ["bg-line", "border-line", "Sold"],
-            ["bg-[#fde2c1]", "border-[#d4a667]", "On hold"],
-            ["bg-[#fbf7ff]", "border-accent-soft", "Premium"],
+            ["bg-warning/30", "border-warning/50", "On hold"],
+            ["bg-accent-soft", "border-accent-soft", "Premium"],
           ] as Array<[string, string, string]>
         ).map(([bg, border, label]) => (
           <div key={label} className="flex items-center gap-1">

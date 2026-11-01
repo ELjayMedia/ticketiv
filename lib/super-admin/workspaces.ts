@@ -1,22 +1,11 @@
-import {
-  Activity,
-  BadgeDollarSign,
-  Building2,
-  CalendarDays,
-  Flag,
-  QrCode,
-  RadioTower,
-  ReceiptText,
-  Settings2,
-  Ticket,
-} from "lucide-react"
+import type { IconName } from "@/components/quiet/ui/icon"
 
 export type AdminWorkspace = {
   key: string
   title: string
   description: string
   href: string
-  icon: typeof CalendarDays
+  icon: IconName
   resources: string[]
   operatingQuestions: string[]
   nextBusinessActions: string[]
@@ -27,7 +16,7 @@ export const ADMIN_WORKSPACES: AdminWorkspace[] = [
     key: "event-operations",
     title: "Event Operations",
     href: "/super-admin/workspaces/event-operations",
-    icon: CalendarDays,
+    icon: "cal",
     description: "Control the lifecycle of events from draft to published, archived or cancelled.",
     resources: ["events", "venues", "artists", "event-artists", "event-dates"],
     operatingQuestions: [
@@ -41,7 +30,7 @@ export const ADMIN_WORKSPACES: AdminWorkspace[] = [
     key: "organizer-operations",
     title: "Organizer Operations",
     href: "/super-admin/workspaces/organizer-operations",
-    icon: Building2,
+    icon: "building",
     description: "Manage promoters, companies, members, venues and commercial access.",
     resources: ["organizations", "org-members", "venues", "pricing-plans", "feature-flags"],
     operatingQuestions: [
@@ -55,7 +44,7 @@ export const ADMIN_WORKSPACES: AdminWorkspace[] = [
     key: "ticket-inventory",
     title: "Ticket Inventory",
     href: "/super-admin/workspaces/ticket-inventory",
-    icon: Ticket,
+    icon: "ticket",
     description: "Manage ticket tiers, quotas, sales channels, seating and guest allocations.",
     resources: ["ticket-types", "ticket-type-channels", "seat-maps", "seats", "seat-holds", "guestlist-entries"],
     operatingQuestions: [
@@ -69,7 +58,7 @@ export const ADMIN_WORKSPACES: AdminWorkspace[] = [
     key: "sales-orders",
     title: "Sales & Orders",
     href: "/super-admin/workspaces/sales-orders",
-    icon: ReceiptText,
+    icon: "receipt",
     description: "Track orders, issued tickets, buyer details, transfers and resale behaviour.",
     resources: ["orders", "order-items", "transfers", "resale-listings", "waitlists"],
     operatingQuestions: [
@@ -83,7 +72,7 @@ export const ADMIN_WORKSPACES: AdminWorkspace[] = [
     key: "payments-finance",
     title: "Payments & Finance",
     href: "/super-admin/workspaces/payments-finance",
-    icon: BadgeDollarSign,
+    icon: "wallet",
     description: "Monitor provider payments, payment attempts, refunds, ledgers and payouts.",
     resources: ["payments", "payment-attempts", "refunds", "refund-items", "ledger-entries", "payouts", "payout-accounts"],
     operatingQuestions: [
@@ -97,7 +86,7 @@ export const ADMIN_WORKSPACES: AdminWorkspace[] = [
     key: "access-control",
     title: "Access Control",
     href: "/super-admin/workspaces/access-control",
-    icon: QrCode,
+    icon: "qr",
     description: "Operate scanner devices, staff access, device sessions and venue entry logs.",
     resources: ["event-staff", "devices", "device-sessions", "scans"],
     operatingQuestions: [
@@ -111,7 +100,7 @@ export const ADMIN_WORKSPACES: AdminWorkspace[] = [
     key: "tapband-operations",
     title: "TapBand Operations",
     href: "/super-admin/workspaces/tapband-operations",
-    icon: Activity,
+    icon: "activity",
     description: "Monitor and control TapBand telemetry, feature scope, kill switches and credential alerts.",
     resources: ["credential-batches", "credential-inventory", "physical-credentials", "credential-entitlements", "credential-taps", "tapband-feature-configs", "tapband-kill-switches", "tapband-telemetry-events", "tapband-alerts", "devices", "scans", "audit-log"],
     operatingQuestions: [
@@ -127,7 +116,7 @@ export const ADMIN_WORKSPACES: AdminWorkspace[] = [
     key: "promotions-controls",
     title: "Promotions & Controls",
     href: "/super-admin/workspaces/promotions-controls",
-    icon: Flag,
+    icon: "flag",
     description: "Configure feature flags, promo rules, redemptions and campaign controls.",
     resources: ["feature-flags", "price-rules", "price-rule-redemptions"],
     operatingQuestions: [
@@ -141,7 +130,7 @@ export const ADMIN_WORKSPACES: AdminWorkspace[] = [
     key: "reliability-audit",
     title: "Reliability & Audit",
     href: "/super-admin/workspaces/reliability-audit",
-    icon: RadioTower,
+    icon: "nfc",
     description: "Monitor webhooks, background jobs, audit trails and system reliability signals.",
     resources: ["webhooks", "jobs", "audit-log", "app-audit-log"],
     operatingQuestions: [
@@ -155,7 +144,7 @@ export const ADMIN_WORKSPACES: AdminWorkspace[] = [
     key: "platform-settings",
     title: "Platform Settings",
     href: "/super-admin/workspaces/platform-settings",
-    icon: Settings2,
+    icon: "settings",
     description: "Govern pricing plans, feature access and platform-level commercial rules.",
     resources: ["pricing-plans", "feature-flags", "admin-users"],
     operatingQuestions: [

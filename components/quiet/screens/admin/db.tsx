@@ -30,7 +30,7 @@ export function DBScreen({ overview }: { overview: DBOverview }) {
           <div className="font-mono text-[10px] uppercase tracking-wider text-ink-3">PLATFORM / DB</div>
           <h1 className="text-h1 mt-1">DB · Supabase</h1>
           <div className="font-mono text-[11px] text-ink-3">
-            slow queries from <code className="rounded bg-[#f3f1ee] px-1">pg_stat_statements</code> · table stats from <code className="rounded bg-[#f3f1ee] px-1">pg_stat_user_tables</code>
+            slow queries from <code className="rounded bg-surface-2 px-1">pg_stat_statements</code> · table stats from <code className="rounded bg-surface-2 px-1">pg_stat_user_tables</code>
           </div>
         </div>
         {health.dashboard_url && (
@@ -124,8 +124,8 @@ export function DBScreen({ overview }: { overview: DBOverview }) {
                     : t.bloat_pct < 10
                       ? "text-accent"
                       : t.bloat_pct < 30
-                        ? "text-[#c1841c]"
-                        : "text-[#c1422b]"
+                        ? "text-warning"
+                        : "text-danger"
                 }`}
               >
                 {t.bloat_pct === null ? "—" : `${t.bloat_pct}%`}

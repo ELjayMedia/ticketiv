@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Plus, Save, Trash2 } from "lucide-react"
 
 import {
   DEFAULT_TICKET_CURRENCY,
@@ -10,6 +9,7 @@ import {
 import { purchaseLimitInputValue } from "@/lib/tickets/purchase-limits"
 import { Button } from "@/components/quiet/ui/button";
 import { Input } from "@/components/quiet/ui/form";
+import { Icon } from "@/components/quiet/ui/icon"
 
 const SALES_STATUSES = [
   { value: "on_sale", label: "On sale" },
@@ -197,8 +197,8 @@ export function TicketsStep({ eventId, onSaving }: { eventId: string; onSaving: 
                         {ticket.currency || DEFAULT_TICKET_CURRENCY} {(ticket.price_cents / 100).toFixed(2)} • {ticket.quota} total • {purchaseLimitInputValue(ticket.per_user_limit) ? `Limit ${purchaseLimitInputValue(ticket.per_user_limit)}/buyer` : "No buyer limit"} • {ticket.sales_status ?? "on_sale"}
                       </p>
                     </div>
-                    <button disabled={saving} onClick={() => deleteTicket(ticket.id)} className="text-red-600 hover:text-red-700 disabled:opacity-50" aria-label="Delete ticket type">
-                      <Trash2 className="h-4 w-4" />
+                    <button disabled={saving} onClick={() => deleteTicket(ticket.id)} className="text-danger hover:text-danger disabled:opacity-50" aria-label="Delete ticket type">
+                      <Icon name="trash" className="h-4 w-4" />
                     </button>
                   </div>
 
@@ -223,7 +223,7 @@ export function TicketsStep({ eventId, onSaving }: { eventId: string; onSaving: 
                   </label>
 
                   <Button onClick={() => updateTicket(ticket.id)} disabled={saving || !draft.name.trim()} variant="outline" className="mt-3 w-full gap-2">
-                    <Save className="h-4 w-4" /> Save ticket controls
+                    <Icon name="check" className="h-4 w-4" /> Save ticket controls
                   </Button>
                 </div>
               )
@@ -253,9 +253,9 @@ export function TicketsStep({ eventId, onSaving }: { eventId: string; onSaving: 
             <input type="checkbox" checked={newTicket.is_reserved_seating} onChange={(e) => setNewTicket({ ...newTicket, is_reserved_seating: e.target.checked })} disabled={saving} />
             Reserved seating placeholder
           </label>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-danger">{error}</p>}
           <Button variant="accent" onClick={addTicket} disabled={saving || !hasRequiredNewTicketFields} className="w-full gap-2">
-            <Plus className="h-4 w-4" />
+            <Icon name="plus" className="h-4 w-4" />
             {saving ? "Saving ticket..." : "Add ticket type"}
           </Button>
         </div>

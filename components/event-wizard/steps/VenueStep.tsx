@@ -1,9 +1,9 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Building2, CheckCircle2, MapPin, Plus, RotateCcw, Search } from "lucide-react"
 import { Button } from "@/components/quiet/ui/button";
 import { Input } from "@/components/quiet/ui/form";
+import { Icon } from "@/components/quiet/ui/icon"
 
 
 export function VenueStep({ eventId, onSaving }: { eventId: string; onSaving: () => void }) {
@@ -123,7 +123,7 @@ export function VenueStep({ eventId, onSaving }: { eventId: string; onSaving: ()
     <div className="space-y-5">
       <div className="rounded-lg border bg-surface-2/30 p-4">
         <div className="flex gap-3">
-          <Building2 className="mt-0.5 h-5 w-5 text-ink-3" />
+          <Icon name="building" className="mt-0.5 h-5 w-5 text-ink-3" />
           <div>
             <h3 className="font-medium">Reusable venue setup</h3>
             <p className="mt-1 text-sm text-ink-3">Type a venue name to search existing venues. Select a match to reuse it, or keep typing and add city, address and capacity to create a reusable venue safely.</p>
@@ -134,7 +134,7 @@ export function VenueStep({ eventId, onSaving }: { eventId: string; onSaving: ()
       {selectedVenue && (
         <div className="rounded-lg border border-accent/30 bg-accent/5 p-3 text-sm">
           <div className="flex items-start gap-2">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 text-accent" />
+            <Icon name="checkCircle" className="mt-0.5 h-4 w-4 text-accent" />
             <div>
               <p className="font-medium">Selected existing venue</p>
               <p className="text-ink-3">{selectedVenue.name} {[selectedVenue.city, selectedVenue.address].filter(Boolean).join(" • ")}</p>
@@ -146,7 +146,7 @@ export function VenueStep({ eventId, onSaving }: { eventId: string; onSaving: ()
       <div className="space-y-2">
         <label className="text-sm font-medium">Venue name *</label>
         <div className="relative">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-ink-3" />
+          <Icon name="search" className="absolute left-3 top-3 h-4 w-4 text-ink-3" />
           <Input
             value={venueName}
             onChange={(e) => {
@@ -167,7 +167,7 @@ export function VenueStep({ eventId, onSaving }: { eventId: string; onSaving: ()
           <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border bg-surface p-2">
             {venues.map((venue) => (
               <button key={venue.id} type="button" onClick={() => selectVenue(venue)} className="w-full rounded-md p-3 text-left text-sm transition hover:bg-surface-2">
-                <span className="flex items-center gap-2 font-medium"><MapPin className="h-4 w-4 text-ink-3" />{venue.name}</span>
+                <span className="flex items-center gap-2 font-medium"><Icon name="pin" className="h-4 w-4 text-ink-3" />{venue.name}</span>
                 <span className="mt-1 block pl-6 text-xs text-ink-3">{[venue.city, venue.address, venue.capacity ? `${venue.capacity} capacity` : null].filter(Boolean).join(" • ") || "No location details yet"}</span>
               </button>
             ))}
@@ -177,7 +177,7 @@ export function VenueStep({ eventId, onSaving }: { eventId: string; onSaving: ()
 
       {!venueId && venueName.trim() && (
         <div className="rounded-lg border border-dashed p-3 text-sm text-ink-3">
-          <div className="flex gap-2"><Plus className="mt-0.5 h-4 w-4" /><span>“{venueName.trim()}” will be created or safely reused if the same venue and city already exist.</span></div>
+          <div className="flex gap-2"><Icon name="plus" className="mt-0.5 h-4 w-4" /><span>“{venueName.trim()}” will be created or safely reused if the same venue and city already exist.</span></div>
         </div>
       )}
 
@@ -199,11 +199,11 @@ export function VenueStep({ eventId, onSaving }: { eventId: string; onSaving: ()
 
       {venueId && (
         <Button variant="outline" onClick={resetVenue} className="w-full gap-2" disabled={saving}>
-          <RotateCcw className="h-4 w-4" /> Use a different venue
+          <Icon name="refresh" className="h-4 w-4" /> Use a different venue
         </Button>
       )}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
       <Button variant="accent" onClick={saveVenue} disabled={saving || (!venueId && !venueName.trim())} className="w-full">
         {saving ? "Saving venue…" : venueId ? "Use selected venue" : "Create / reuse venue"}

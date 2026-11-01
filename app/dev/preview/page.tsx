@@ -35,7 +35,7 @@ export default function PreviewIndexPage() {
   if (process.env.NODE_ENV !== "development") notFound();
 
   return (
-    <div className="min-h-dvh bg-[#f0eee9] py-12">
+    <div className="min-h-dvh bg-surface-2 py-12">
       <div className="mx-auto max-w-[1600px] px-8">
         <header className="mb-10 max-w-2xl">
           <div className="text-label">/dev/preview</div>

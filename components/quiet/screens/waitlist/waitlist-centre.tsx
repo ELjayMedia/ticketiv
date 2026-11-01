@@ -20,9 +20,9 @@ function statusTone(status: string): { label: string; className: string } {
     return { label: "Fulfilled", className: "bg-accent-soft text-accent" };
   }
   if (["expired", "cancelled", "canceled"].includes(normalized)) {
-    return { label: normalized.replaceAll("_", " "), className: "bg-[#fdf0ec] text-[#c1422b]" };
+    return { label: normalized.replaceAll("_", " "), className: "bg-danger-soft text-danger" };
   }
-  return { label: normalized.replaceAll("_", " ") || "Active", className: "bg-[#fdf6ed] text-[#c1841c]" };
+  return { label: normalized.replaceAll("_", " ") || "Active", className: "bg-warning-soft text-warning" };
 }
 
 function formatDate(iso: string | null): string {

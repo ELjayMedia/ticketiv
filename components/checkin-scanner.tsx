@@ -3,12 +3,12 @@
 import { useState, useRef } from "react"
 import { useParams } from "next/navigation"
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats"
-import { CheckCircle2, AlertCircle, Zap, QrCode } from "lucide-react"
 import { cn } from "@/lib/cn"
 import { Button } from "@/components/quiet/ui/button";
 import { Card, CardBody } from "@/components/quiet/ui/card";
 import { Chip } from "@/components/quiet/ui/chip";
 import { Input } from "@/components/quiet/ui/form";
+import { Icon } from "@/components/quiet/ui/icon"
 
 interface CheckinResult {
   success: boolean
@@ -106,23 +106,23 @@ export function CheckinScanner() {
   const statusColor = !lastCheckin
     ? "bg-surface"
     : lastCheckin.status === "success"
-      ? "bg-green-50 border-green-200"
+      ? "bg-success-soft border-success/30"
       : lastCheckin.status === "duplicate"
-        ? "bg-yellow-50 border-yellow-200"
-        : "bg-red-50 border-red-200"
+        ? "bg-warning-soft border-warning/30"
+        : "bg-danger-soft border-danger/30"
 
   const statusIcon = !lastCheckin
     ? null
     : lastCheckin.status === "success"
       ? (
-        <CheckCircle2 className="h-16 w-16 text-green-500 mb-4" />
+        <Icon name="checkCircle" className="h-16 w-16 text-success mb-4" />
       )
       : lastCheckin.status === "duplicate"
         ? (
-          <AlertCircle className="h-16 w-16 text-yellow-500 mb-4" />
+          <Icon name="alertCircle" className="h-16 w-16 text-warning mb-4" />
         )
         : (
-          <AlertCircle className="h-16 w-16 text-red-500 mb-4" />
+          <Icon name="alertCircle" className="h-16 w-16 text-danger mb-4" />
         )
 
   return (
@@ -133,7 +133,7 @@ export function CheckinScanner() {
           <Card className="border-2">
             <div className="flex flex-col gap-1 px-4 pt-4">
               <h3 className="text-h3 flex items-center gap-2">
-                <QrCode className="h-5 w-5" />
+                <Icon name="qr" className="h-5 w-5" />
                 Scan QR Code
               </h3>
               <p className="text-[13px] text-ink-3">
@@ -217,10 +217,10 @@ export function CheckinScanner() {
                       className={cn(
                         "text-xs p-2 rounded border",
                         entry.status === "success"
-                          ? "bg-green-50 border-green-200 text-green-900"
+                          ? "bg-success-soft border-success/30 text-success"
                           : entry.status === "duplicate"
-                            ? "bg-yellow-50 border-yellow-200 text-yellow-900"
-                            : "bg-red-50 border-red-200 text-red-900"
+                            ? "bg-warning-soft border-warning/30 text-warning"
+                            : "bg-danger-soft border-danger/30 text-danger"
                       )}
                     >
                       <div className="flex items-start justify-between gap-2">
