@@ -4,9 +4,9 @@
   "imagePolicy": "preserve-existing",
   "listings": {
     "en-US": {
-      "title": "Ticketiv Access",
-      "shortDescription": "Ticket scanning and check-in for authorized Ticketiv event staff.",
-      "fullDescription": "Ticketiv Access helps authorized event staff check in guests at Ticketiv events. This is the staff app; attendees should use Ticketiv to discover events and access their tickets.\n\nSign in as event staff, pair your device and select your assigned event. Use the camera to scan ticket QR codes and see the validation result, duplicate-entry warnings and check-in totals for your device.\n\nPrepare your event manifest while connected before working offline. Offline scans are stored on the device and synchronized when connectivity returns. Keep devices synchronized during an event so staff can work with current check-in information.\n\nAn authorized staff account and an event assignment are required. Camera permission is used for QR scanning. Contact your event organizer for access or support@ticketiv.app for assistance."
+      "title": "Ticketiv Organizer",
+      "shortDescription": "Ticket scanning and check-in for Ticketiv event teams.",
+      "fullDescription": "Ticketiv Organizer is the app for teams running events on Ticketiv. It replaces Ticketiv Access: if you used Access, you already have it. Attendees should use the Ticketiv app to discover events and access their tickets.\n\nPair your device with a setup code from your event organizer and select your assigned event. Use the camera to scan ticket QR codes and see the validation result, duplicate-entry warnings and check-in totals for your device.\n\nPrepare your event manifest while connected before working offline. Offline scans are stored on the device and synchronized when connectivity returns. Keep devices synchronized during an event so your team works with current check-in information.\n\nAn event assignment from an organizer is required. Camera permission is used for QR scanning. Contact your event organizer for access or support@ticketiv.app for assistance."
     }
   },
   "images": {}

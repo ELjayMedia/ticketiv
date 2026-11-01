@@ -226,7 +226,7 @@ jobs:
 
           echo "certificate_sha256=$bundle_fingerprint" >> "$GITHUB_OUTPUT"
           {
-            echo '### Ticketiv Access Play upload bundle'
+            echo '### Ticketiv Organizer (com.ticketiv.access) Play upload bundle'
             echo
             echo "- Version code: $TICKETIV_ACCESS_ANDROID_VERSION_CODE"
             echo "- Version name: $TICKETIV_ACCESS_ANDROID_VERSION_NAME"

@@ -2,7 +2,7 @@
   "name": "@ticketiv/app-access",
   "version": "0.0.0",
   "private": true,
-  "description": "Ticketiv Access staff app (com.ticketiv.access) — React Native app core for scanner workflows.",
+  "description": "Ticketiv Organizer app (com.ticketiv.access, formerly Ticketiv Access) — React Native app for event teams, starting with scanner workflows.",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "sideEffects": false,
