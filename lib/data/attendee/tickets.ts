@@ -47,6 +47,32 @@ export async function getTicketById(orderItemId: string): Promise<MyTicketsView 
   return validateSchema(MyTicketsViewSchema, data, "v_my_tickets")
 }
 
+/**
+ * Name printed on the signed-in holder's ticket: profile display name, then
+ * the auth metadata name, then the email. Empty for anonymous guests with no
+ * contact details — the ticket UI hides the row rather than show a blank.
+ */
+export async function getTicketHolderName(): Promise<string> {
+  const supabase = await createServerSupabaseClient()
+  if (!supabase) return ""
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return ""
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name")
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  const meta = (user.user_metadata ?? {}) as Record<string, unknown>
+  const metaName = [meta.full_name, meta.name].find(
+    (value): value is string => typeof value === "string" && value.trim().length > 0,
+  )
+  return (profile?.display_name || metaName || user.email || "").trim()
+}
+
 export async function getTicketsByOrderId(orderId: string): Promise<MyTicketsView[]> {
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []

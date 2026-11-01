@@ -138,6 +138,8 @@ export interface RefundCtaData {
   policyLabel: string;
   refundBps: number | null;
   deadlineLabel: string | null;
+  /** "Fri 30 Oct" — the last day a refund could be requested; null without policy bands. */
+  deadlineDate: string | null;
 }
 
 export interface TicketViewProp {
@@ -150,13 +152,11 @@ export interface TicketViewProp {
   eventPhoto: string;
   dateLabel: string;
   timeLabel: string;
-  doorsLabel: string;
+  /** Empty when unknown (e.g. anonymous guest without a profile) — the UI hides the row. */
   holderName: string;
-  seatLabel: string;
   typeLabel: string;
   venueName: string;
   venueAddress: string;
-  venueDistanceKm: number;
   /** The QR encoder reads this. Empty string when the ticket isn't valid. */
   qrCode: string;
   /** True only when the ticket is issued and not yet used / transferred / refunded / revoked. */
@@ -195,10 +195,12 @@ export function mapTicketView(
     const available = valid && band !== null && band.refundBps > 0;
 
     let deadlineLabel: string | null = null;
+    let deadlineDate: string | null = null;
     if (policy.bands.length > 0 && start) {
       const lastBand = policy.bands[policy.bands.length - 1];
       const deadline = new Date(start.getTime() - lastBand.hoursBefore * 60 * 60 * 1000);
-      deadlineLabel = `Refund by ${DEADLINE_FMT.format(deadline)}`;
+      deadlineDate = DEADLINE_FMT.format(deadline);
+      deadlineLabel = `Refund by ${deadlineDate}`;
     }
 
     refundCta = {
@@ -207,6 +209,7 @@ export function mapTicketView(
       policyLabel: `${policy.label} · ${formatRefundWindow(policy)}`,
       refundBps: band?.refundBps ?? null,
       deadlineLabel,
+      deadlineDate,
     };
   }
 
@@ -220,13 +223,10 @@ export function mapTicketView(
     eventPhoto: row.cover_image_url ?? PHOTOS.dj_set,
     dateLabel: start ? formatEventDate(start) : "Date TBA",
     timeLabel: start ? formatTimeRange(start) : "",
-    doorsLabel: "",
-    holderName: opts.holderName ?? "",
-    seatLabel: row.ticket_type_name ?? "General",
+    holderName: opts.holderName?.trim() ?? "",
     typeLabel: row.ticket_type_name ?? "General",
     venueName: row.venue_name ?? "Venue TBA",
     venueAddress: row.venue_address ?? "",
-    venueDistanceKm: 0,
     qrCode: valid ? row.ticket_code : "",
     isValid: valid,
     status: status === "pending" ? "issued" : status,

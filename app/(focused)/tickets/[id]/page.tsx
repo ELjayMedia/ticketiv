@@ -3,6 +3,7 @@ import { TicketView } from "@/components/quiet/screens/tickets/ticket-view";
 import {
   getTicketById,
   getTicketEventPolicy,
+  getTicketHolderName,
   getTicketOfflineExpiry,
   getTicketsByOrderId,
 } from "@/lib/data/attendee/tickets";
@@ -27,12 +28,13 @@ export default async function TicketPage({
   const row = await getTicketById(id);
   if (!row) notFound();
 
-  const [refundPolicy, offlineExpiresAt, siblingRows] = await Promise.all([
+  const [refundPolicy, offlineExpiresAt, siblingRows, holderName] = await Promise.all([
     row.event_id ? getTicketEventPolicy(row.event_id) : undefined,
     row.event_id
       ? getTicketOfflineExpiry(row.event_id, row.event_starts_at)
       : undefined,
     getTicketsByOrderId(row.order_id),
+    getTicketHolderName(),
   ]);
   const siblingIds = siblingRows.map((ticket) => ticket.order_item_id);
   const position = Math.max(0, siblingIds.indexOf(row.order_item_id)) + 1;
@@ -42,6 +44,7 @@ export default async function TicketPage({
       ticket={mapTicketView(row, {
         refundPolicy,
         offlineExpiresAt,
+        holderName,
         position,
         totalInOrder: Math.max(1, siblingIds.length),
       })}
