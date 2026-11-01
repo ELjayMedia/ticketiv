@@ -82,8 +82,8 @@ describe("ticket view data", () => {
 describe("ticket print contract", () => {
   const view = readFileSync(join(__dirname, "../components/quiet/screens/tickets/ticket-view.tsx"), "utf8")
 
-  it("prints only the A5 ticket card", () => {
-    expect(view).toContain("@page { size: A5 portrait")
+  it("prints only the ticket strip", () => {
+    expect(view).toContain("@page { size: A4 portrait")
     expect(view).toContain("TicketPrintCard")
     expect(view).toMatch(/print:hidden/)
   })
