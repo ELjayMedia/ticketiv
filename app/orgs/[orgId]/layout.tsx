@@ -17,7 +17,7 @@ const ROLE_LABELS: Record<string, string> = {
   organizer_admin: "Admin",
   admin: "Admin",
   organizer: "Organizer",
-  organizer_staff: "Staff",
+  organizer_staff: "Door staff",
   staff: "Staff",
   scanner: "Scanner",
   member: "Member",

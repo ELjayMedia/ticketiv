@@ -13,7 +13,7 @@ type OrgRole = "organizer_admin" | "organizer_staff" | "finance"
 
 const ROLES: { value: OrgRole; label: string; description: string }[] = [
   { value: "organizer_admin", label: "Admin", description: "Full access except billing" },
-  { value: "organizer_staff", label: "Staff", description: "Manage events, view orders" },
+  { value: "organizer_staff", label: "Door staff", description: "Scan tickets, check in the guestlist and sell at the box office" },
   { value: "finance", label: "Finance", description: "Payouts and financial reports" },
 ]
 
