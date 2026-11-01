@@ -3,11 +3,17 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Icon } from "@/components/quiet/ui/icon";
+import { Icon, type IconName } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
-import { Photo, Divider } from "@/components/quiet/ui/primitives";
-import { Button } from "@/components/quiet/ui/button";
+import { Modal, ModalContent } from "@/components/quiet/ui/modal";
 import { TicketQrCode } from "@/components/tickets/ticket-qr-code";
+import {
+  TICKET_PRINT_ID,
+  TicketPrintCard,
+  shortTicketCode,
+} from "@/components/tickets/ticket-print-card";
+import { renderTicketImage } from "@/lib/tickets/ticket-image";
+import type { TicketViewProp } from "@/lib/mappers/tickets";
 import { CheckInCelebration } from "@/components/tickets/check-in-celebration";
 import { useTicketCheckIns, type TicketCheckIn } from "@/lib/hooks/use-ticket-check-ins";
 import {
@@ -17,19 +23,19 @@ import {
 } from "@/lib/tickets/offline-ticket";
 
 /* ──────────────────────────────────────────────────────────────
- * `/tickets/[id]` — QR ticket view
+ * `/tickets/[id]` — QR ticket view ("Immersive")
  *
- * Dark background (HFQ_INK = #0a0a0c) for high contrast with the
- * white ticket card. The "perforation" is faked with two negative-
- * space circles cut into the card by giving them the same color
- * as the background.
+ * The event cover is the hero: blurred across the whole screen, with a
+ * sharp framed copy in the middle and a white QR stub below. Everything
+ * the gate needs (image, title, date, venue, holder, type, QR) fits one
+ * phone screen; secondary actions live in the "More" sheet.
  *
- * The QR is generated first-party from the issued ticket_code.
- * The scanner submits that exact UUID through the existing gate
- * validation path. Signed/rotating payloads remain future hardening (TICK-12).
+ * Print renders `TicketPrintCard` (A5, white) instead of this screen,
+ * and "Send" shares that same layout as a PNG for WhatsApp / email.
  *
- * Quick actions at bottom: Transfer (→ /tickets/[id]/transfer)
- * and Resell (→ /tickets/[id]/resale).
+ * The QR is generated first-party from the issued ticket_code. The
+ * scanner submits that exact UUID through the existing gate validation
+ * path. Signed/rotating payloads remain future hardening (TICK-12).
  * ────────────────────────────────────────────────────────────── */
 
 type TicketDisplayStatus =
@@ -45,39 +51,7 @@ interface TicketViewProps {
   siblingIds?: string[];
 }
 
-interface RefundCtaData {
-  orderId: string;
-  available: boolean;
-  policyLabel: string;
-  refundBps: number | null;
-  deadlineLabel: string | null;
-}
-
-interface TicketData {
-  id: string;
-  orderId?: string;
-  orderNumber: string;
-  positionLabel: string; // "1 of 2"
-  totalInOrder: number;
-  eventTitle: string;
-  eventPhoto: string;
-  dateLabel: string;
-  timeLabel: string;
-  doorsLabel: string;
-  holderName: string;
-  seatLabel: string;
-  typeLabel: string;
-  venueName: string;
-  venueAddress: string;
-  venueDistanceKm: number;
-  qrCode: string;
-  isValid: boolean;
-  status?: TicketDisplayStatus;
-  offlineOwnerId: string;
-  offlineExpiresAt: string;
-  refundCta?: RefundCtaData | null;
-}
-
+type TicketData = TicketViewProp;
 
 const STATUS_BADGE: Record<
   TicketDisplayStatus,
@@ -123,10 +97,14 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
   const router = useRouter();
   const touchStartX = React.useRef<number | null>(null);
   const [walletBusy, setWalletBusy] = React.useState(false);
-  const [walletMsg, setWalletMsg] = React.useState<string | null>(null);
+  const [notice, setNotice] = React.useState<string | null>(null);
   const [celebration, setCelebration] = React.useState<TicketCheckIn | null>(null);
   const [online, setOnline] = React.useState(true);
   const [offlineState, setOfflineState] = React.useState<OfflineUiState>({ phase: "checking" });
+  const [moreOpen, setMoreOpen] = React.useState(false);
+  const [sending, setSending] = React.useState(false);
+  const printRef = React.useRef<HTMLDivElement>(null);
+  const shareFile = React.useRef<Promise<File> | null>(null);
   const resolvedStatus: TicketDisplayStatus | null = ticket
     ? ticket.status ?? (ticket.isValid ? "issued" : "checked_in")
     : null;
@@ -183,6 +161,41 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
     };
   }, [ticket?.id, ticket?.isValid, ticket?.offlineOwnerId]);
 
+  const buildShareFile = React.useCallback(async (): Promise<File> => {
+    const svg = printRef.current?.querySelector("svg");
+    if (!ticket || !svg) throw new Error("Ticket QR is not ready");
+    const blob = await renderTicketImage({
+      eventTitle: ticket.eventTitle,
+      dateLabel: ticket.dateLabel,
+      timeLabel: ticket.timeLabel,
+      venueName: ticket.venueName,
+      venueAddress: ticket.venueAddress,
+      holderName: ticket.holderName,
+      typeLabel: ticket.typeLabel,
+      orderNumber: ticket.orderNumber,
+      shortCode: shortTicketCode(ticket.qrCode),
+      coverUrl: ticket.eventPhoto || null,
+      qrSvg: new XMLSerializer().serializeToString(svg),
+    });
+    const slug = ticket.eventTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "event";
+    return new File([blob], `${slug}-ticket-${ticket.orderNumber}.png`, { type: "image/png" });
+  }, [ticket]);
+
+  // Render the share image ahead of time: navigator.share needs the tap's
+  // user activation, which a slow render on click could outlive (Safari).
+  React.useEffect(() => {
+    shareFile.current = null;
+    if (!ticket?.isValid) return;
+    const timer = window.setTimeout(() => {
+      const pending = buildShareFile();
+      pending.catch(() => {
+        if (shareFile.current === pending) shareFile.current = null;
+      });
+      shareFile.current = pending;
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [buildShareFile, ticket?.isValid]);
+
   if (!ticket) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-bg p-6">
@@ -225,16 +238,51 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
     }
   }
 
-  function handleShare() {
-    if (navigator.share) {
-      navigator.share({
-        title: `Ticket: ${t.eventTitle}`,
-        text: `My ticket for ${t.eventTitle} on ${t.dateLabel}`,
-        url: window.location.href,
-      }).catch(() => {});
-    } else {
-      navigator.clipboard?.writeText(window.location.href).catch(() => {});
+  async function handleSend() {
+    if (sending) return;
+    setSending(true);
+    setNotice(null);
+    try {
+      let file: File;
+      try {
+        file = await (shareFile.current ??= buildShareFile());
+      } catch {
+        shareFile.current = null;
+        setNotice("Couldn't create the ticket image. Use Print in More instead.");
+        return;
+      }
+      const shareData: ShareData = {
+        files: [file],
+        title: `Ticket · ${t.eventTitle}`,
+        text: `My ticket for ${t.eventTitle} · ${t.dateLabel}`,
+      };
+      if (navigator.canShare?.(shareData)) {
+        try {
+          await navigator.share(shareData);
+          return;
+        } catch (error) {
+          if ((error as DOMException)?.name === "AbortError") return;
+          // Fall through to a download when the share sheet refuses.
+        }
+      }
+      const url = URL.createObjectURL(file);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setNotice("Ticket image saved — attach it to WhatsApp or email.");
+    } finally {
+      setSending(false);
     }
+  }
+
+  function handlePrint() {
+    setMoreOpen(false);
+    // Let the sheet close before the print dialog snapshots the page.
+    window.setTimeout(() => window.print(), 150);
   }
 
   async function handleOfflineSave() {
@@ -279,7 +327,7 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
 
   async function handleWallet() {
     setWalletBusy(true);
-    setWalletMsg(null);
+    setNotice(null);
     try {
       const platform = detectPlatform();
       const res = await fetch(
@@ -310,23 +358,48 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
 
       // Not available — fall back to print so the user still gets a saved copy.
       const body = await res.json().catch(() => ({}));
-      setWalletMsg(
+      setNotice(
         body?.message ??
-          "Wallet export isn't available right now. Opening Save instead.",
+          "Wallet export isn't available right now. Opening Print instead.",
       );
       setTimeout(() => {
-        setWalletMsg(null);
+        setNotice(null);
         window.print();
       }, 1500);
     } catch {
-      setWalletMsg("Couldn't reach wallet service. Use Save to keep a copy.");
-      setTimeout(() => setWalletMsg(null), 2500);
+      setNotice("Couldn't reach wallet service. Use Send or Print to keep a copy.");
+      setTimeout(() => setNotice(null), 2500);
     } finally {
       setWalletBusy(false);
     }
   }
+  const isSaved = offlineState.phase === "saved";
+  const offlineBusy =
+    offlineState.phase === "checking"
+    || offlineState.phase === "saving"
+    || offlineState.phase === "removing";
+  const offlineLabel =
+    offlineState.phase === "checking" ? "Checking offline copy…"
+    : offlineState.phase === "saving" ? "Saving offline…"
+    : offlineState.phase === "removing" ? "Removing…"
+    : isSaved
+      ? `Remove ${t.totalInOrder > 1 ? "these tickets" : "this ticket"} from this device`
+      : t.totalInOrder > 1 ? `Save ${t.totalInOrder} tickets offline` : "Save offline";
+  const when = [ticket.dateLabel.toUpperCase(), ticket.timeLabel].filter(Boolean).join(" · ");
+  const refund = canTransferOrResell ? ticket.refundCta : null;
+
   return (
     <>
+      {/* Print shows only the A5 ticket card. */}
+      <style>{`@media print {
+        @page { size: A5 portrait; margin: 0; }
+        html, body { background: #fff !important; }
+        body * { visibility: hidden !important; }
+        #${TICKET_PRINT_ID}, #${TICKET_PRINT_ID} * { visibility: visible !important; }
+        #${TICKET_PRINT_ID} { position: absolute; left: 0; top: 0; }
+      }`}</style>
+      <TicketPrintCard ref={printRef} ticket={ticket} />
+
       {celebration && (
         <CheckInCelebration
           eventTitle={t.eventTitle}
@@ -337,288 +410,322 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
           }}
         />
       )}
+
       <div
-      className="min-h-dvh bg-ink text-white"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
-      <div className="h-14" />
+        className="relative isolate min-h-dvh overflow-hidden bg-ink text-white print:hidden"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Blurred cover fills the screen behind everything. */}
+        <img
+          src={ticket.eventPhoto}
+          alt=""
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-20 h-full w-full scale-125 object-cover blur-[36px] saturate-150"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(10,10,12,0.35),rgba(10,10,12,0.55)_55%,rgba(10,10,12,0.88))]"
+        />
 
-      {/* Top bar */}
-      <header className="flex items-center gap-2.5 px-5 pb-3 pt-2">
-        <Link
-          href="/tickets"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
-          aria-label="Back"
-        >
-          <Icon name="chevL" size={18} />
-        </Link>
-        <div className="flex flex-1 flex-col text-center leading-tight">
-          <span className="text-[14px] font-semibold">Your ticket</span>
-          <span className="font-mono text-[11px] opacity-70">
-            {ticket.positionLabel} · #{ticket.orderNumber}
-          </span>
-        </div>
-        <button
-          onClick={handleShare}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
-          aria-label="Share"
-        >
-          <Icon name="share" size={18} />
-        </button>
-      </header>
-
-      {/* Ticket card */}
-      <div className="px-5 py-4">
-        <div className="overflow-hidden rounded-2xl bg-surface text-ink shadow-[0_24px_40px_-10px_rgba(0,0,0,0.4)]">
-          {/* Top half */}
-          <div className="p-4">
-            <div className="mb-3.5 flex items-center gap-2.5">
-              <div className="h-10 w-10 overflow-hidden rounded-[var(--radius)]">
-                <Photo src={ticket.eventPhoto} height={40} />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-label">Event</span>
-                <span className="text-[14px] font-semibold">
-                  {ticket.eventTitle}
-                </span>
-              </div>
-              <span className="flex-1" />
-              <Chip variant={badge.chip.variant} size="sm" className={badge.chip.className}>
-                {badge.chip.label}
-              </Chip>
+        <div className="mx-auto flex min-h-dvh max-w-[440px] flex-col pb-[max(env(safe-area-inset-bottom),16px)] pt-[max(env(safe-area-inset-top),12px)]">
+          {/* Top bar */}
+          <header className="flex items-center gap-2.5 px-4 pb-2.5 pt-1">
+            <Link
+              href="/tickets"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur hover:bg-white/25"
+              aria-label="Back to my tickets"
+            >
+              <Icon name="chevL" size={18} />
+            </Link>
+            <div className="flex flex-1 flex-col text-center leading-tight">
+              <span className="text-[14px] font-semibold">Your ticket</span>
+              <span className="font-mono text-[11px] opacity-75">
+                {ticket.positionLabel} · #{ticket.orderNumber}
+              </span>
             </div>
+            {ticket.isValid ? (
+              <button
+                type="button"
+                onClick={handleSend}
+                disabled={sending}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur hover:bg-white/25 disabled:opacity-60"
+                aria-label="Send ticket"
+              >
+                <Icon name="share" size={18} />
+              </button>
+            ) : (
+              <span className="h-9 w-9" aria-hidden />
+            )}
+          </header>
 
-            <Divider />
+          {/* Sharp framed cover */}
+          <div className="px-7 pt-1">
+            <img
+              src={ticket.eventPhoto}
+              alt={`${ticket.eventTitle} cover`}
+              className="h-[clamp(96px,calc(100dvh-470px),260px)] w-full rounded-[18px] object-cover shadow-[0_30px_50px_-12px_rgba(0,0,0,0.6)] ring-1 ring-white/15"
+            />
+          </div>
 
-            <div className="grid grid-cols-3 gap-4 py-3.5">
-              <FactCell label="Date" value={ticket.dateLabel} mono />
-              <FactCell label="Time" value={ticket.timeLabel} mono />
-              <FactCell label="Doors" value={ticket.doorsLabel} mono />
-              <FactCell label="Name" value={ticket.holderName} />
-              <FactCell label="Seat" value={ticket.seatLabel} mono />
-              <FactCell label="Type" value={ticket.typeLabel} />
-            </div>
-
-            <Divider />
-
-            <div className="flex items-center gap-2 pt-3.5">
-              <Icon name="pin" size={14} className="text-ink-3 shrink-0" />
-              <div className="flex flex-1 flex-col">
-                <span className="text-[13px] font-semibold">
-                  {ticket.venueName}
-                </span>
-                <span className="font-mono text-[11px] text-ink-3">
-                  {ticket.venueAddress} · {ticket.venueDistanceKm} km
-                </span>
-              </div>
+          {/* Title + when/where */}
+          <div className="px-5 pb-3 pt-3.5 text-center">
+            <h1 className="line-clamp-2 text-[28px] font-extrabold leading-[1.05] tracking-[-0.02em]">
+              {ticket.eventTitle}
+            </h1>
+            <p className="mt-1.5 font-mono text-[12px] font-semibold opacity-90">
+              {when}
+              {" · "}
               <a
                 href={mapsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-surface px-2.5 py-1 text-xs font-semibold text-ink transition-colors hover:bg-bg"
+                className="underline decoration-white/40 underline-offset-[3px] hover:decoration-white"
               >
-                Maps
+                {ticket.venueName.toUpperCase()}
               </a>
-            </div>
+            </p>
           </div>
 
-          {/* Perforation — negative-space circles cut against the ink bg */}
-          <div className="relative h-[22px] bg-ink">
-            <span className="absolute -left-[11px] top-0 h-[22px] w-[22px] rounded-full bg-ink" />
-            <span className="absolute -right-[11px] top-0 h-[22px] w-[22px] rounded-full bg-ink" />
-            <span className="absolute inset-x-6 top-[10px] border-t-2 border-dashed border-line-2" />
-          </div>
-
-          {/* QR half — only valid tickets render the scannable QR. */}
-          {ticket.isValid ? (
-            <div className="p-4 text-center">
-              <div className="text-label mb-3.5">Scan at gate</div>
-              <TicketQrCode
-                value={ticket.qrCode}
-                label={`Ticket QR code for ${ticket.eventTitle}`}
-                size={200}
-                className="inline-block rounded-xl border border-line p-7"
-              />
-              <div className="mt-3 font-mono text-[11px] tracking-[0.04em] text-ink-3">
-                {ticket.qrCode}
+          {/* White stub */}
+          <div className="mx-4 rounded-[20px] bg-surface p-3.5 text-ink shadow-[0_20px_40px_-12px_rgba(0,0,0,0.5)]">
+            {ticket.isValid ? (
+              <div className="flex items-center gap-3.5">
+                <TicketQrCode
+                  value={ticket.qrCode}
+                  label={`Ticket QR code for ${ticket.eventTitle}`}
+                  size={136}
+                  className="shrink-0 rounded-[10px] p-1.5"
+                />
+                <div className="flex min-w-0 flex-col gap-2">
+                  <Chip variant={badge.chip.variant} size="sm" className={`self-start ${badge.chip.className ?? ""}`}>
+                    {badge.headline}
+                  </Chip>
+                  {ticket.holderName && <StubField label="Holder" value={ticket.holderName} />}
+                  <StubField label="Ticket" value={ticket.typeLabel} />
+                  <span className="font-mono text-[11px] tracking-[0.04em] text-ink-3">
+                    #{ticket.orderNumber} · {shortTicketCode(ticket.qrCode)}
+                  </span>
+                </div>
               </div>
-              <div className="mt-3 flex items-center justify-center gap-3.5">
-                <Button variant="default" size="xs" onClick={handleWallet} disabled={walletBusy}>
-                  <Icon name="wallet" size={14} /> {walletBusy ? "Working…" : "Wallet"}
-                </Button>
-                <Button
-                  variant="default"
-                  size="xs"
-                  onClick={handleOfflineSave}
-                  disabled={
-                    offlineState.phase === "checking"
-                    || offlineState.phase === "saving"
-                    || offlineState.phase === "removing"
-                  }
-                >
-                  <Icon
-                    name={offlineState.phase === "saved" ? "check" : "download"}
-                    size={14}
-                  />
-                  {offlineState.phase === "checking" && "Checking…"}
-                  {offlineState.phase === "saving" && "Saving…"}
-                  {offlineState.phase === "removing" && "Removing…"}
-                  {offlineState.phase === "saved" && (
-                    t.totalInOrder > 1 ? `${t.totalInOrder} saved offline` : "Saved offline"
-                  )}
-                  {(offlineState.phase === "idle" || offlineState.phase === "error") && (
-                    t.totalInOrder > 1 ? `Save ${t.totalInOrder} offline` : "Save offline"
-                  )}
-                </Button>
-              </div>
-              {offlineState.phase === "saved" && (
-                <div
-                  role="status"
-                  className="mx-auto mt-3 max-w-[290px] rounded-[var(--radius)] bg-accent-soft px-3 py-2 text-left"
-                >
-                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-accent">
-                    <Icon name="check" size={12} />
-                    {online ? "Available offline" : "Showing saved offline copy"}
-                  </div>
-                  <p className="mt-1 text-[10px] leading-relaxed text-ink-3">
-                    {offlineState.savedAt
-                      ? `Last refreshed ${new Date(offlineState.savedAt).toLocaleString()}. `
-                      : ""}
-                    Gate validation remains final if this ticket was used, transferred,
-                    refunded or revoked.
-                  </p>
-                  <button
-                    type="button"
-                    className="mt-1.5 text-[10px] font-semibold text-ink-3 underline underline-offset-2"
-                    onClick={handleOfflineSave}
-                  >
-                    Remove {t.totalInOrder > 1 ? "these tickets" : "this ticket"} from this device
-                  </button>
-                </div>
-              )}
-              {offlineState.phase === "error" && offlineState.message && (
-                <div role="alert" className="mt-2 text-[11px] text-danger">
-                  {offlineState.message}
-                </div>
-              )}
-              {walletMsg && (
-                <div
-                  role="status"
-                  className="mt-2 text-[11px] text-ink-3"
-                >
-                  {walletMsg}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="p-4 text-center" role="status">
-              <div className="text-label mb-2">No QR</div>
-              <p className="mx-auto max-w-[280px] text-[14px] font-semibold text-ink">
-                {badge.headline}
-              </p>
-              <p className="mx-auto mt-1.5 max-w-[280px] text-[12px] text-ink-3">
-                {badge.copy}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Quick actions — only available while the ticket is valid. */}
-      {canTransferOrResell && (
-        <div className="grid grid-cols-2 gap-2 px-5 pb-6 pt-3">
-          <Link
-            href={`/tickets/${ticket.id}/transfer`}
-            className="inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] border border-white/15 bg-white/[0.08] px-3 py-3 text-[13px] font-medium text-white hover:bg-white/15"
-          >
-            <Icon name="arrowUR" size={16} /> Transfer
-          </Link>
-          <Link
-            href={`/tickets/${ticket.id}/resale`}
-            className="inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] border border-white/15 bg-white/[0.08] px-3 py-3 text-[13px] font-medium text-white hover:bg-white/15"
-          >
-            <Icon name="copy" size={16} /> Resell
-          </Link>
-        </div>
-      )}
-
-      {/* Refund policy — shown for issued tickets that have policy data */}
-      {ticket.refundCta && canTransferOrResell && (
-        <div className="mx-5 mb-4 rounded-[var(--radius-md)] border border-white/10 bg-white/[0.06] px-4 py-3.5">
-          <div className="mb-2 flex items-center gap-1.5">
-            <Icon name="fileText" size={12} className="opacity-50" />
-            <span className="font-mono text-[10px] uppercase tracking-wider opacity-50">Refund policy</span>
-          </div>
-          <p className="text-[12px] text-white/70">{ticket.refundCta.policyLabel}</p>
-          {ticket.refundCta.deadlineLabel && (
-            <p className="mt-0.5 text-[11px] text-white/40">{ticket.refundCta.deadlineLabel}</p>
-          )}
-          <div className="mt-3">
-            {ticket.refundCta.available ? (
-              <Link
-                href={`/orders/${ticket.refundCta.orderId}/refund`}
-                className="inline-flex items-center gap-1.5 rounded-[var(--radius)] bg-white/10 px-3 py-2 text-[12px] font-medium text-white hover:bg-white/20"
-              >
-                <Icon name="arrowR" size={13} /> Request refund
-              </Link>
             ) : (
-              <p className="text-[11px] text-white/35">Refunds not available for this ticket</p>
+              <div className="py-2 text-center" role="status">
+                <Chip variant={badge.chip.variant} size="sm" className={badge.chip.className}>
+                  {badge.chip.label}
+                </Chip>
+                <p className="mx-auto mt-2 max-w-[280px] text-[15px] font-semibold">{badge.headline}</p>
+                <p className="mx-auto mt-1 max-w-[280px] text-[12px] text-ink-3">{badge.copy}</p>
+              </div>
             )}
           </div>
-        </div>
-      )}
 
-      {/* Pagination dots */}
-      {ticket.totalInOrder > 1 && (
-        <div className="flex items-center justify-center gap-1.5 pb-6">
-          {siblingIds.length > 1 ? (
-            siblingIds.map((id, i) => (
-              <a
-                key={id}
-                href={`/tickets/${id}`}
-                aria-label={`Ticket ${i + 1} of ${siblingIds.length}`}
-                className={
-                  id === ticket.id
-                    ? "h-1.5 w-6 rounded-full bg-white transition-all"
-                    : "h-1.5 w-1.5 rounded-full bg-white/30 transition-all hover:bg-white/60"
-                }
-              />
-            ))
-          ) : (
-            <>
-              <span className="h-1.5 w-6 rounded-full bg-white" />
-              {Array.from({ length: ticket.totalInOrder - 1 }).map((_, i) => (
-                <span key={i} className="h-1.5 w-1.5 rounded-full bg-white/30" />
-              ))}
-            </>
+          {/* One status line: offline copy, wallet, send */}
+          <div className="min-h-[18px] px-5 pt-2 text-center text-[11px] text-white/75" role="status">
+            {notice
+              ?? (offlineState.phase === "error" && offlineState.message
+                ? <span className="text-[#ffb4a8]">{offlineState.message}</span>
+                : isSaved
+                  ? (
+                    <span className="inline-flex items-center gap-1">
+                      <Icon name="check" size={12} />
+                      {online ? "Available offline" : "Showing saved offline copy"}
+                      {offlineState.savedAt
+                        ? ` · refreshed ${new Date(offlineState.savedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                        : ""}
+                    </span>
+                  )
+                  : null)}
+          </div>
+
+          {/* Actions */}
+          <div className={`grid gap-2 px-4 pt-2 ${ticket.isValid ? "grid-cols-3" : "grid-cols-1"}`}>
+            {ticket.isValid && (
+              <>
+                <ActionButton onClick={handleWallet} disabled={walletBusy} icon="wallet">
+                  {walletBusy ? "Working…" : "Wallet"}
+                </ActionButton>
+                <ActionButton onClick={handleSend} disabled={sending} icon="share" primary>
+                  {sending ? "Preparing…" : "Send"}
+                </ActionButton>
+              </>
+            )}
+            <ActionButton onClick={() => setMoreOpen(true)} icon="chevU">
+              More
+            </ActionButton>
+          </div>
+
+          {/* Pagination dots */}
+          {ticket.totalInOrder > 1 && (
+            <div className="flex items-center justify-center gap-1.5 pt-4">
+              {siblingIds.length > 1 ? (
+                siblingIds.map((id, i) => (
+                  <a
+                    key={id}
+                    href={`/tickets/${id}`}
+                    aria-label={`Ticket ${i + 1} of ${siblingIds.length}`}
+                    className={
+                      id === ticket.id
+                        ? "h-1.5 w-6 rounded-full bg-white transition-all"
+                        : "h-1.5 w-1.5 rounded-full bg-white/35 transition-all hover:bg-white/60"
+                    }
+                  />
+                ))
+              ) : (
+                <>
+                  <span className="h-1.5 w-6 rounded-full bg-white" />
+                  {Array.from({ length: ticket.totalInOrder - 1 }).map((_, i) => (
+                    <span key={i} className="h-1.5 w-1.5 rounded-full bg-white/35" />
+                  ))}
+                </>
+              )}
+            </div>
           )}
         </div>
-      )}
       </div>
+
+      {/* More sheet */}
+      <Modal open={moreOpen} onOpenChange={setMoreOpen}>
+        <ModalContent title="Ticket options" size="sm">
+          <div className="flex flex-col py-1">
+            {ticket.isValid && (
+              <SheetRow
+                icon={isSaved ? "check" : "download"}
+                onClick={handleOfflineSave}
+                disabled={offlineBusy}
+                hint={isSaved ? "QR works with no signal at the gate" : "Keeps the QR working with no signal"}
+              >
+                {offlineLabel}
+              </SheetRow>
+            )}
+            {canTransferOrResell && (
+              <>
+                <SheetRow icon="arrowUR" href={`/tickets/${ticket.id}/transfer`} hint="Send it to a friend's Ticketiv account">
+                  Transfer
+                </SheetRow>
+                <SheetRow icon="copy" href={`/tickets/${ticket.id}/resale`} hint="List it for another fan to buy">
+                  Resell
+                </SheetRow>
+              </>
+            )}
+            <SheetRow icon="map" href={mapsUrl} external hint={[ticket.venueName, ticket.venueAddress].filter(Boolean).join(", ")}>
+              Directions
+            </SheetRow>
+            <SheetRow icon="fileText" onClick={handlePrint} hint="A5 page with the QR">
+              Print ticket
+            </SheetRow>
+          </div>
+
+          {refund && (
+            <div className="mx-5 mb-5 mt-1 rounded-[var(--radius-md)] bg-surface-2 px-4 py-3">
+              <div className="font-mono text-[10px] uppercase tracking-wider text-ink-3">Refund policy</div>
+              <p className="mt-1 text-[13px] text-ink">{refund.policyLabel}</p>
+              {refund.available ? (
+                <>
+                  {refund.deadlineLabel && (
+                    <p className="mt-0.5 text-[12px] text-ink-3">{refund.deadlineLabel}</p>
+                  )}
+                  <Link
+                    href={`/orders/${refund.orderId}/refund`}
+                    className="mt-2.5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-accent"
+                  >
+                    Request refund <Icon name="arrowR" size={13} />
+                  </Link>
+                </>
+              ) : (
+                <p className="mt-0.5 text-[12px] text-ink-3">
+                  {refund.deadlineDate
+                    ? `The refund window closed on ${refund.deadlineDate}.`
+                    : "Refunds aren't available for this ticket."}
+                </p>
+              )}
+            </div>
+          )}
+        </ModalContent>
+      </Modal>
     </>
   );
 }
 
-function FactCell({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
+function StubField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col">
+    <div className="min-w-0">
       <span className="text-label">{label}</span>
-      <span
-        className={
-          "mt-0.5 text-[13px] font-semibold " + (mono ? "font-mono" : "")
-        }
-      >
-        {value}
-      </span>
+      <span className="mt-0.5 block truncate text-[14px] font-semibold">{value}</span>
     </div>
+  );
+}
+
+function ActionButton({
+  icon,
+  primary,
+  children,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { icon: IconName; primary?: boolean }) {
+  return (
+    <button
+      type="button"
+      {...props}
+      className={
+        "inline-flex h-12 items-center justify-center gap-2 rounded-[var(--radius-lg)] text-[13px] font-semibold transition-colors disabled:opacity-60 "
+        + (primary
+          ? "bg-white text-ink hover:bg-white/90"
+          : "border border-white/15 bg-white/10 text-white backdrop-blur hover:bg-white/20")
+      }
+    >
+      <Icon name={icon} size={16} />
+      {children}
+    </button>
+  );
+}
+
+function SheetRow({
+  icon,
+  hint,
+  href,
+  external,
+  onClick,
+  disabled,
+  children,
+}: {
+  icon: IconName;
+  hint?: string;
+  href?: string;
+  external?: boolean;
+  onClick?: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  const body = (
+    <>
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-2 text-ink-2">
+        <Icon name={icon} size={16} />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col text-left">
+        <span className="text-[14px] font-semibold text-ink">{children}</span>
+        {hint && <span className="truncate text-[12px] text-ink-3">{hint}</span>}
+      </span>
+      <Icon name="chevR" size={16} className="text-ink-4" />
+    </>
+  );
+  const className =
+    "flex items-center gap-3 px-5 py-2.5 transition-colors hover:bg-surface-2 disabled:opacity-60";
+  if (href && external) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
+        {body}
+      </a>
+    );
+  }
+  if (href) {
+    return (
+      <Link href={href} className={className}>
+        {body}
+      </Link>
+    );
+  }
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} className={className}>
+      {body}
+    </button>
   );
 }
