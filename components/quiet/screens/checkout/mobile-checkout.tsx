@@ -15,7 +15,7 @@ import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/action
 import { describePromoFailure } from "@/lib/checkout/promo-copy";
 import { PromoCodeInput, type PromoResult } from "@/components/quiet/screens/checkout/promo-code-input";
 import { trackBuyerFunnel } from "@/components/analytics/buyer-funnel";
-import { cartSubtotalMinor, type CheckoutCartLine } from "@/lib/checkout/pricing";
+import { cartSubtotalMinor, checkoutTotalMinor, type CheckoutCartLine } from "@/lib/checkout/pricing";
 
 /* ──────────────────────────────────────────────────────────────
  * Mobile checkout · `/events/[id]/checkout` on phones.
@@ -50,9 +50,6 @@ export interface MobileCheckoutProps {
   }>;
   /** Promo banner pre-applied (e.g. WELCOME10). */
   appliedPromo?: { code: string; description: string; savedMinor: number };
-  /** Fixed booking fee in minor units */
-  bookingFeeMinor?: number;
-  vatRate?: number;
   /** Buyer's email; prefilled for signed-in users, empty for guests. */
   defaultBuyerEmail?: string;
   /** Signed-in buyer profile defaults. */
@@ -73,8 +70,6 @@ export function MobileCheckout({
   editTicketsHref,
   paymentMethods = [],
   appliedPromo,
-  bookingFeeMinor = 10000,
-  vatRate = 0.15,
   defaultBuyerEmail = "",
   defaultBuyerName = "",
   defaultBuyerPhone = "",
@@ -211,15 +206,13 @@ export function MobileCheckout({
 
   const currency = lines[0]?.currency ?? "SZL";
   const subtotal = cartSubtotalMinor(lines);
-  const fee = bookingFeeMinor;
-  const vat = Math.round(subtotal * vatRate);
   const discount = activePromo?.savedMinor ?? 0;
   const promoDiscount = validatedPromo
     ? validatedPromo.discountType === "percent"
       ? Math.round(subtotal * validatedPromo.discountValue / 100)
       : validatedPromo.discountValue
     : 0;
-  const total = subtotal + fee + vat - discount - promoDiscount;
+  const total = checkoutTotalMinor(subtotal, discount + promoDiscount);
 
   return (
     <div className="flex h-full flex-col bg-bg">
@@ -455,8 +448,6 @@ export function MobileCheckout({
                 value={formatPrice(l.priceMinor * l.quantity, l.currency)}
               />
             ))}
-            <SummaryRow label="Booking fee" value={formatPrice(fee, currency)} />
-            <SummaryRow label={`VAT ${Math.round(vatRate * 100)}%`} value={formatPrice(vat, currency)} />
             {activePromo && (
               <SummaryRow
                 label={activePromo.code}

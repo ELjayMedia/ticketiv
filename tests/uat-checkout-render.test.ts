@@ -71,8 +71,6 @@ describe("UAT B4 checkout render repro", () => {
         holdSeconds: 518,
         lines,
         editTicketsHref,
-        bookingFeeMinor: 0,
-        vatRate: 0.15,
         defaultBuyerEmail: "",
       }),
     )
@@ -89,8 +87,6 @@ describe("UAT B4 checkout render repro", () => {
         eventWhenLabel: "Sat 7 Feb · 16:00",
         lines,
         editTicketsHref,
-        bookingFeeMinor: 0,
-        vatRate: 0.15,
         holdSeconds: 518,
         defaultBuyerEmail: "",
       }),

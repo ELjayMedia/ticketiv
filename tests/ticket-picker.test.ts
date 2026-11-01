@@ -84,7 +84,6 @@ beforeEach(() => {
   nav.search = ""
   nav.replace.mockReset()
   actions.loadTicketPickerAction.mockResolvedValue({
-    plan: { platform_fixed_cents: 1000, platform_percent_bps: null },
     ticketTypes: [
       { id: GA, name: "General", priceMinor: 10000, currency: "SZL", remaining: 100, perUserLimit: null, perOrderLimit: 2, salesStatus: "on_sale" },
       { id: VIP, name: "VIP", priceMinor: 30000, currency: "SZL", remaining: 1, perUserLimit: null, perOrderLimit: null, salesStatus: "on_sale" },
@@ -117,9 +116,12 @@ describe("TicketPicker", () => {
     // Paused type is shown but cannot be added.
     expect(document.body.querySelector('[aria-label="Early bird quantity"]')).toBeNull()
     expect(dialog()?.textContent).toContain("Sales paused")
-    // 2×100 + 1×300 = 500, + 10 booking fee + 15% VAT (75) = 585
+    // Buyers pay the ticket subtotal: 2×100 + 1×300 = 500. No fee or VAT is
+    // added, because the order RPC charges total_cents = subtotal_cents.
     expect(dialog()?.textContent).toContain("Check out")
-    expect(dialog()?.textContent).toMatch(/585/)
+    expect(dialog()?.textContent).toContain("Total · 3 tickets")
+    expect(dialog()?.textContent).toMatch(/500/)
+    expect(dialog()?.textContent).not.toMatch(/Booking fee|VAT/)
   })
 
   it("preselects the ticket type the buyer tapped", async () => {

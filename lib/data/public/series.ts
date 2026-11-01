@@ -151,3 +151,83 @@ export async function getSeriesFollowState(seriesId: string): Promise<SeriesFoll
 
   return { signedIn: true, following: follow != null, followerCount: count ?? 0 }
 }
+
+export type SeriesSummary = {
+  id: string
+  slug: string
+  title: string
+  description: string | null
+  series_type: "tour" | "recurring" | "season"
+  cover_image_url: string | null
+  organizationName: string | null
+  upcomingCount: number
+  nextStartsAt: string | null
+}
+
+/**
+ * Public series directory: series with at least one published event, the
+ * ones with something coming up first (soonest next date), then the rest.
+ */
+export async function listPublicSeries(limit = 60): Promise<SeriesSummary[]> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from("event_series")
+    .select(`
+      id, slug, title, description, series_type, cover_image_url,
+      organization:organizations(name),
+      events(id, status, starts_at)
+    `)
+    .order("created_at", { ascending: false })
+    .limit(limit)
+
+  if (error || !data) {
+    if (error) console.error("[series] list:", error)
+    return []
+  }
+
+  type Row = {
+    id: string
+    slug: string
+    title: string
+    description: string | null
+    series_type: "tour" | "recurring" | "season"
+    cover_image_url: string | null
+    organization: { name: string } | { name: string }[] | null
+    events: Array<{ id: string; status: string; starts_at: string | null }> | null
+  }
+
+  const now = Date.now()
+  const summaries = (data as unknown as Row[])
+    .map((row) => {
+      const published = (row.events ?? []).filter((e) => e.status === "published")
+      const upcoming = published
+        .map((e) => e.starts_at)
+        .filter((s): s is string => !!s && new Date(s).getTime() >= now)
+        .sort()
+      const org = Array.isArray(row.organization) ? row.organization[0] : row.organization
+      return {
+        summary: {
+          id: row.id,
+          slug: row.slug,
+          title: row.title,
+          description: row.description,
+          series_type: row.series_type,
+          cover_image_url: row.cover_image_url,
+          organizationName: org?.name ?? null,
+          upcomingCount: upcoming.length,
+          nextStartsAt: upcoming[0] ?? null,
+        } satisfies SeriesSummary,
+        publishedCount: published.length,
+      }
+    })
+    .filter((s) => s.publishedCount > 0)
+    .map((s) => s.summary)
+
+  return summaries.sort((a, b) => {
+    if (a.nextStartsAt && b.nextStartsAt) return a.nextStartsAt.localeCompare(b.nextStartsAt)
+    if (a.nextStartsAt) return -1
+    if (b.nextStartsAt) return 1
+    return 0
+  })
+}
