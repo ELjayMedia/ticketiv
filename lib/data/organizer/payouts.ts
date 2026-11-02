@@ -35,6 +35,8 @@ export interface OrgPayoutAccount {
   provider: string
   details_encrypted: string | null
   created_at: string | null
+  /** The account payouts are sent to (one per org). */
+  is_primary: boolean
 }
 
 export interface PaymentProviderStatus {
@@ -124,7 +126,7 @@ export async function getOrgPayoutsOverview(orgId: string): Promise<OrgPayoutsOv
       .limit(100),
     supabase
       .from("payout_accounts")
-      .select("id, provider, details_encrypted, created_at")
+      .select("id, provider, details_encrypted, created_at, is_primary")
       .eq("org_id", orgId)
       .order("created_at", { ascending: true }),
   ])
