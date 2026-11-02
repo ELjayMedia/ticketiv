@@ -1,6 +1,7 @@
 import { createBrowserClient } from "@supabase/ssr"
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./env-public"
 import type { Database } from "@/types/database"
+import { authCookieOptions } from "@/lib/organizer/host"
 
 export function createClient() {
   const url = SUPABASE_URL
@@ -12,5 +13,5 @@ export function createClient() {
     return null
   }
 
-  return createBrowserClient<Database>(url, key)
+  return createBrowserClient<Database>(url, key, { cookieOptions: authCookieOptions() })
 }
