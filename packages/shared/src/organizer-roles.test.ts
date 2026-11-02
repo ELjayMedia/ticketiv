@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   canChangeSettings,
   canManageTeam,
+  canViewFinance,
   canOpenSection,
   organizerHomeSection,
   organizerRoleFrom,
@@ -58,6 +59,13 @@ describe("organizer roles (ADR 0002)", () => {
     expect(canManageTeam("organizer_staff")).toBe(false)
     expect(canChangeSettings("organizer_owner")).toBe(true)
     expect(canChangeSettings("organizer_admin")).toBe(false)
+  })
+
+  it("limits finance and payouts to owners and finance", () => {
+    expect(canViewFinance("organizer_owner")).toBe(true)
+    expect(canViewFinance("finance")).toBe(true)
+    expect(canViewFinance("organizer_admin")).toBe(false)
+    expect(canViewFinance("organizer_staff")).toBe(false)
   })
 
   it("labels roles for people", () => {

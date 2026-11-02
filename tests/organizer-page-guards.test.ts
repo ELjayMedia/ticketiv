@@ -46,4 +46,14 @@ describe("organizer workspace pages check the role", () => {
     expect(checkin).not.toContain("CheckinScanner")
     expect(checkin).toContain("/scanner")
   })
+
+  it("pages finance can open only link to event pages for managers", () => {
+    for (const page of ["dashboard/page.tsx", "finance/page.tsx"]) {
+      const source = readFileSync(join(ROOT, page), "utf8")
+      const eventLinks = source.match(/href=\{`\/orgs\/\$\{orgId\}\/events\/\$\{/g) ?? []
+      expect(eventLinks.length, page).toBeGreaterThan(0)
+      expect(source, page).toContain('canOpenEvents = ')
+      expect(source.split("canOpenEvents ?").length - 1, page).toBeGreaterThanOrEqual(eventLinks.length)
+    }
+  })
 })

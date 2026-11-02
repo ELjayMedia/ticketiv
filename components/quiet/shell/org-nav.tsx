@@ -9,6 +9,7 @@ import {
   canChangeSettings,
   canManageTeam,
   canOpenSection,
+  canViewFinance,
   type OrganizerRole,
   type OrganizerSection,
 } from "@ticketiv/shared";
@@ -66,6 +67,7 @@ export function visibleOrgNavItems({ role, storedRole, isPlatformAdmin }: OrgNav
     if (!canOpenSection(role, item.section)) return false;
     if (item.section === "team") return isPlatformAdmin || canManageTeam(storedRole);
     if (item.section === "settings") return isPlatformAdmin || canChangeSettings(storedRole);
+    if (item.section === "finance" || item.section === "payouts") return isPlatformAdmin || canViewFinance(storedRole);
     // Managers reach the scanner from each event; the tab is for door roles.
     if (item.section === "scan") return role !== "manager" && role !== "finance";
     return true;

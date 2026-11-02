@@ -16,7 +16,9 @@ export const dynamic = "force-dynamic"
 
 export default async function OrgDashboardPage({ params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params
-  await requireOrganizerSection(orgId, "dashboard")
+  const access = await requireOrganizerSection(orgId, "dashboard")
+  // Event pages are for managers; finance sees the same list without links (ADR 0002).
+  const canOpenEvents = access.role === "manager"
   const returnPath = `/orgs/${orgId}/dashboard`
   const supabase = createServerSupabaseClient()
 
@@ -226,9 +228,9 @@ export default async function OrgDashboardPage({ params }: { params: Promise<{ o
               {caps.manage && <Link href={`/orgs/${orgId}/events`} className="text-[13px] font-semibold text-accent hover:underline">View all events</Link>}
             </div>
             <div className="flex flex-col gap-3">
-              {recentEvents.map((event) => (
-                <Link key={event.id} href={`/orgs/${orgId}/events/${event.id}`} className="block">
-                  <Card className="transition-colors hover:border-line-2">
+              {recentEvents.map((event) => {
+                const card = (
+                  <Card className={canOpenEvents ? "transition-colors hover:border-line-2" : undefined}>
                     <CardBody className="flex items-center justify-between gap-4 p-4">
                       <div className="flex min-w-0 flex-1 flex-col gap-1">
                         <h3 className="truncate text-[14px] font-semibold text-ink">{event.title}</h3>
@@ -237,8 +239,15 @@ export default async function OrgDashboardPage({ params }: { params: Promise<{ o
                       <Chip size="sm" variant={event.status === "published" ? "active" : "muted"} className="capitalize">{event.status}</Chip>
                     </CardBody>
                   </Card>
-                </Link>
-              ))}
+                )
+                return canOpenEvents ? (
+                  <Link key={event.id} href={`/orgs/${orgId}/events/${event.id}`} className="block">
+                    {card}
+                  </Link>
+                ) : (
+                  <div key={event.id}>{card}</div>
+                )
+              })}
             </div>
           </section>
         ) : (

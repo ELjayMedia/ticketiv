@@ -32,7 +32,7 @@ workspace and the mobile app:
 
 | Organizer role | Stored roles | Sees |
 | --- | --- | --- |
-| Manager | `organizer_owner`, `organizer_admin` (legacy `admin`, `organizer`) | Everything. Team: owner and admin. Settings: owner. |
+| Manager | `organizer_owner`, `organizer_admin` (legacy `admin`, `organizer`) | Everything. Team: owner and admin. Settings: owner. Finance and payouts: owner (with the finance role, as in the TICK-277 payouts permission). |
 | Finance | `finance` | Dashboard, Finance, Payouts |
 | Door staff | `organizer_staff`, `staff`, `pos` | Their events, Scan, Guestlist, Box office |
 | Scanner | `scanner`, `organizer_scanner`, `device` | Scan |

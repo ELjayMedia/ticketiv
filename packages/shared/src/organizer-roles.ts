@@ -80,6 +80,19 @@ export function organizerHomeSection(role: OrganizerRole): OrganizerSection {
 export function canManageTeam(storedRole: string | null | undefined): boolean {
   return storedRole === "organizer_owner" || storedRole === "organizer_admin" || storedRole === "admin" || storedRole === "organizer"
 }
+/**
+ * Finance and payouts within managers: owners (and legacy owner-equivalent
+ * roles) plus the finance role, matching the payouts permission in lib/rbac.ts
+ * (TICK-277). Org admins manage events but don't see money pages.
+ */
+export function canViewFinance(storedRole: string | null | undefined): boolean {
+  return (
+    storedRole === "organizer_owner" ||
+    storedRole === "admin" ||
+    storedRole === "organizer" ||
+    storedRole === "finance"
+  )
+}
 export function canChangeSettings(storedRole: string | null | undefined): boolean {
   return storedRole === "organizer_owner" || storedRole === "admin" || storedRole === "organizer"
 }

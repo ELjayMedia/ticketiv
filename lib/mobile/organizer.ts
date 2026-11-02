@@ -5,6 +5,7 @@ import {
   canChangeSettings,
   canManageTeam,
   canOpenSection,
+  canViewFinance,
   organizerRoleLabel,
   organizerSections,
   type ClaimedDeviceSetup,
@@ -128,7 +129,8 @@ export async function listMobileWorkspaces(userId: string): Promise<MobileWorksp
       sections: organizerSections(access.role).filter(
         (section) =>
           (section !== "team" || access.isPlatformAdmin || canManageTeam(access.storedRole)) &&
-          (section !== "settings" || access.isPlatformAdmin || canChangeSettings(access.storedRole)),
+          (section !== "settings" || access.isPlatformAdmin || canChangeSettings(access.storedRole)) &&
+          ((section !== "finance" && section !== "payouts") || access.isPlatformAdmin || canViewFinance(access.storedRole)),
       ),
       eventIds: access.eventIds,
     })
