@@ -20,7 +20,13 @@ const PROVIDERS = [
 const selectClass =
   "rounded-md border border-line-2 bg-surface px-3 py-2.5 text-[14px] font-medium text-ink outline-none transition-shadow duration-100 focus:border-accent focus:ring-[3px] focus:ring-accent-soft"
 
-export function PayoutAccountForm({ orgId }: { orgId: string }) {
+/** Short display name for a stored provider value ("standard_bank" → "Standard Bank"). */
+export function providerLabel(provider: string): string {
+  const known: Record<string, string> = { fnb: "FNB", nedbank: "Nedbank", standard_bank: "Standard Bank", absa: "ABSA", other: "Other bank" }
+  return known[provider] ?? provider.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+export function PayoutAccountForm({ orgId, hasAccounts }: { orgId: string; hasAccounts: boolean }) {
   const router = useRouter()
   const [provider, setProvider] = useState("fnb")
   const [accountNumber, setAccountNumber] = useState("")
@@ -29,6 +35,7 @@ export function PayoutAccountForm({ orgId }: { orgId: string }) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
+  const [makePrimary, setMakePrimary] = useState(false)
 
   async function handleSubmit() {
     if (!accountNumber.trim() || !accountName.trim()) {
@@ -42,8 +49,9 @@ export function PayoutAccountForm({ orgId }: { orgId: string }) {
     setSubmitting(true)
     setError("")
     try {
-      await addPayoutAccountAction(orgId, provider, accountNumber.trim(), branchCode.trim(), accountName.trim())
+      await addPayoutAccountAction(orgId, provider, accountNumber.trim(), branchCode.trim(), accountName.trim(), makePrimary)
       setSuccess(true)
+      setMakePrimary(false)
       setAccountNumber("")
       setBranchCode("")
       setAccountName("")
@@ -60,7 +68,7 @@ export function PayoutAccountForm({ orgId }: { orgId: string }) {
       <div className="flex flex-col items-center gap-3 py-4 text-center">
         <p className="text-[14px] font-semibold text-ink">Payout account added.</p>
         <p className="text-[13px] text-ink-3">
-          Your banking details are stored securely. You can now request payouts from the payouts page.
+          Your banking details are stored securely. Payouts are sent to the account marked Primary.
         </p>
         <Button variant="outline" size="sm" onClick={() => setSuccess(false)}>
           Add another
@@ -111,6 +119,20 @@ export function PayoutAccountForm({ orgId }: { orgId: string }) {
         autoComplete="off"
         inputMode="numeric"
       />
+
+      {hasAccounts ? (
+        <label className="flex items-start gap-2 text-[13px] text-ink-2">
+          <input
+            type="checkbox"
+            checked={makePrimary}
+            onChange={(e) => setMakePrimary(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-[var(--color-accent)]"
+          />
+          <span>Make this the primary account. Payouts are sent to the primary account.</span>
+        </label>
+      ) : (
+        <p className="text-[12px] text-ink-3">This will be your primary account: payouts are sent here.</p>
+      )}
 
       <p className="rounded-[var(--radius-md)] bg-surface-2 px-3 py-2 text-[12px] text-ink-3">
         Your account details are stored encrypted and never displayed in full after saving.

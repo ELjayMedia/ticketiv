@@ -3794,6 +3794,7 @@ export type Database = {
           created_at: string | null
           details_encrypted: string
           id: string
+          is_primary: boolean
           org_id: string
           provider: string
         }
@@ -3801,6 +3802,7 @@ export type Database = {
           created_at?: string | null
           details_encrypted: string
           id?: string
+          is_primary?: boolean
           org_id: string
           provider: string
         }
@@ -3808,6 +3810,7 @@ export type Database = {
           created_at?: string | null
           details_encrypted?: string
           id?: string
+          is_primary?: boolean
           org_id?: string
           provider?: string
         }

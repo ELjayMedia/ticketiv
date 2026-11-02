@@ -19,10 +19,8 @@ function destinationLabel(provider: string | null, details: string | null): stri
   return last4 ? `${provider} ••${last4}` : provider
 }
 
-function accountLabel(provider: string, idx: number): string {
-  if (idx === 0) return "Primary"
-  if (idx === 1) return "Backup"
-  return `Account ${idx + 1}`
+function accountLabel(isPrimary: boolean, idx: number): string {
+  return isPrimary ? "Primary" : `Account ${idx + 1}`
 }
 
 function accountName(provider: string, details: string | null): string {
@@ -35,7 +33,8 @@ function paymentStatusLabel(hasRouting: boolean, hasProvider: boolean, hasPayout
 }
 
 export function mapPayouts(o: OrgPayoutsOverview): PayoutsLedgerProps {
-  const primary = o.accounts[0]
+  // Payouts go to the primary account (fn_request_payout_unchecked).
+  const primary = o.accounts.find((a) => a.is_primary) ?? o.accounts[0]
   const primaryAccountLabel = primary
     ? accountName(primary.provider, primary.details_encrypted)
     : null
@@ -126,7 +125,7 @@ export function mapPayouts(o: OrgPayoutsOverview): PayoutsLedgerProps {
     ledger,
     accounts: o.accounts.map((a, i) => ({
       id: a.id,
-      label: accountLabel(a.provider, i),
+      label: accountLabel(Boolean(a.is_primary), i),
       name: accountName(a.provider, a.details_encrypted),
       sub: null,
       status: "verified" as const,

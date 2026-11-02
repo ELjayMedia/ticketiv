@@ -7,7 +7,8 @@ import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
 import { maskedAccountFromStored } from "@/lib/payout-crypto"
-import { PayoutAccountForm } from "./payout-account-form"
+import { PayoutAccountActions } from "./payout-account-actions"
+import { PayoutAccountForm, providerLabel } from "./payout-account-form"
 
 export const dynamic = "force-dynamic"
 export const metadata = { title: "Payout accounts" }
@@ -42,8 +43,9 @@ export default async function PayoutAccountsPage({
 
   const { data: accounts = [] } = await supabase
     .from("payout_accounts")
-    .select("id, provider, details_encrypted, created_at")
+    .select("id, provider, details_encrypted, created_at, is_primary")
     .eq("org_id", orgId)
+    .order("is_primary", { ascending: false })
     .order("created_at", { ascending: true })
 
   // Mask account numbers — decrypt server-side and never render more than the
@@ -53,6 +55,7 @@ export default async function PayoutAccountsPage({
     provider: a.provider,
     maskedRef: maskedAccountFromStored(a.details_encrypted),
     addedAt: a.created_at,
+    isPrimary: Boolean(a.is_primary),
   }))
 
   return (
@@ -84,17 +87,30 @@ export default async function PayoutAccountsPage({
                 <CardBody key={account.id} className="flex items-center justify-between gap-4 px-5 py-4">
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
-                      <p className="text-[14px] font-semibold capitalize text-ink">
-                        {account.provider}
+                      <p className="text-[14px] font-semibold text-ink">
+                        {providerLabel(account.provider)}
                       </p>
-                      <Chip size="sm" variant="active">Primary</Chip>
+                      {account.isPrimary && <Chip size="sm" variant="active">Primary</Chip>}
                     </div>
                     <p className="font-mono text-[12px] text-ink-3">
                       {account.maskedRef} · Added{" "}
                       {new Date(account.addedAt ?? "").toLocaleDateString("en-SZ")}
                     </p>
+                    {account.isPrimary && (
+                      <p className="text-[12px] text-ink-3">Payouts are sent to this account.</p>
+                    )}
                   </div>
-                  <Icon name="check" size={16} className="text-success" />
+                  {canManage ? (
+                    <PayoutAccountActions
+                      orgId={orgId}
+                      accountId={account.id}
+                      label={`${providerLabel(account.provider)} ${account.maskedRef}`}
+                      isPrimary={account.isPrimary}
+                      isOnlyAccount={maskedAccounts.length === 1}
+                    />
+                  ) : (
+                    account.isPrimary && <Icon name="check" size={16} className="text-success" />
+                  )}
                 </CardBody>
               ))}
             </div>
@@ -115,7 +131,7 @@ export default async function PayoutAccountsPage({
             </CardBody>
             <CardDivider />
             <CardBody className="p-5">
-              <PayoutAccountForm orgId={orgId} />
+              <PayoutAccountForm orgId={orgId} hasAccounts={maskedAccounts.length > 0} />
             </CardBody>
           </Card>
         )}
