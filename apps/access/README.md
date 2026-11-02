@@ -5,9 +5,21 @@ for event teams: managers, finance, door staff and scanners. It was published
 as Ticketiv Access; only the display name and store listing changed. The
 package ID, deep-link scheme (`ticketiv-access://`), React Native component
 name and native module names stay, so existing installs, paired devices and
-their secure storage keep working. Today it ships the scanner; role-based
-sections follow the shared role model in `@ticketiv/shared`
-(`organizer-roles.ts`).
+their secure storage keep working.
+
+### Two ways in
+
+- **Sign in** with the email and password of a Ticketiv account
+  (`src/account-session.ts`, Supabase Auth with the public key; the session is
+  kept in encrypted native storage and refreshed before it expires). The home
+  screen shows what that person's role allows in each organisation
+  (`src/organizer-home.ts`, from the shared role model in
+  `@ticketiv/shared/organizer-roles.ts`): scanning runs natively, and the other
+  sections open the organizer workspace on the web for now. Choosing an event
+  to scan pairs the phone through `/api/mobile/organizer/scanner-setup`, the
+  same setup the organizer's codes use, so the scanner, offline manifest and
+  sync are unchanged.
+- **Pair with a setup code** for shared gate devices, as before.
 
 ## Original scope (ADR 0001)
 

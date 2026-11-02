@@ -57,7 +57,7 @@ function recoverSignedOutSession(request: NextRequest, path: string, error: unkn
  *   /forgot-password, /reset-password, /verify-email, /auth/*, /403, /maintenance
  *
  * Public APIs with their own verification:
- *   /api/discover/*, /api/search/suggest, /api/mobile/tickets/*,
+ *   /api/discover/*, /api/search/suggest, /api/mobile/tickets/*, /api/mobile/organizer/*,
  *   selected /api/scanner/* device endpoints,
  *   /api/payouts, /api/payments/paystack/webhook, /api/payments/momo/callback
  *
@@ -96,6 +96,8 @@ export async function updateSession(request: NextRequest) {
     path.startsWith("/api/discover/") ||
     path === "/api/search/suggest" ||
     path.startsWith("/api/mobile/tickets/") ||
+    // Ticketiv Organizer app: bearer-token auth, verified in the route handlers.
+    path.startsWith("/api/mobile/organizer/") ||
     path === "/api/payouts" ||
     path === "/api/payments/paystack/webhook" ||
     path === "/api/payments/momo/callback" ||

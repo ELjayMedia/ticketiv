@@ -13,6 +13,7 @@ import {
   type OrganizerSection,
 } from "@ticketiv/shared"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { canWorkEventWith, resolveOrganizerAccess } from "@/lib/organizer/resolve"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 /**
@@ -61,41 +62,13 @@ export const getOrganizerAccess = cache(async (orgId: string): Promise<Organizer
     supabase.from("admin_users").select("user_id").eq("user_id", user.id).eq("active", true).maybeSingle(),
   ])
 
-  const storedRole = membershipRes.data?.role ? String(membershipRes.data.role) : null
-  const assignments = (assignmentsRes.data ?? []) as Array<{ event_id: string; role: string | null }>
-  const isPlatformAdmin = Boolean(adminRes.data)
-
-  if (isPlatformAdmin) {
-    return { userId: user.id, storedRole, role: "manager", isPlatformAdmin, eventIds: null, managedEventIds: [] }
-  }
-
-  const orgRole = strongestOrganizerRole([storedRole])
-  const assignmentRole = strongestOrganizerRole(assignments.map((a) => a.role))
-  // An event assignment never opens org-wide pages (dashboard, finance, team…):
-  // on its own it gives at most door access, plus managing that one event.
-  const cappedAssignmentRole = assignmentRole === "manager" || assignmentRole === "finance" ? "staff" : assignmentRole
-  const role = broader(orgRole, cappedAssignmentRole)
-  if (!role) return null
-
-  return {
-    userId: user.id,
-    storedRole,
-    role,
-    isPlatformAdmin,
-    // An org-level membership covers every event; event-only access is scoped.
-    eventIds: orgRole ? null : [...new Set(assignments.map((a) => a.event_id))],
-    managedEventIds: orgRole
-      ? []
-      : assignments.filter((a) => strongestOrganizerRole([a.role]) === "manager").map((a) => a.event_id),
-  }
+  const resolved = resolveOrganizerAccess({
+    storedRole: membershipRes.data?.role ? String(membershipRes.data.role) : null,
+    assignments: (assignmentsRes.data ?? []) as Array<{ event_id: string; role: string | null }>,
+    isPlatformAdmin: Boolean(adminRes.data),
+  })
+  return resolved ? { userId: user.id, ...resolved } : null
 })
-
-const RANK: Record<OrganizerRole, number> = { manager: 4, finance: 3, staff: 2, scanner: 1 }
-function broader(a: OrganizerRole | null, b: OrganizerRole | null): OrganizerRole | null {
-  if (!a) return b
-  if (!b) return a
-  return RANK[a] >= RANK[b] ? a : b
-}
 
 /** Path where a role starts in an organisation's workspace. */
 export function organizerHomePath(orgId: string, role: OrganizerRole): string {
@@ -110,7 +83,7 @@ export function organizerHomePath(orgId: string, role: OrganizerRole): string {
 }
 
 export function canWorkEvent(access: OrganizerAccess, eventId: string): boolean {
-  return access.eventIds === null || access.eventIds.includes(eventId)
+  return canWorkEventWith(access, eventId)
 }
 
 interface RequireOptions {

@@ -40,6 +40,17 @@ export type AccessIosBuildTarget = {
 // the package ID, scheme, slug and native module names stay, because the app
 // is already published and paired devices keep their secure storage.
 export const ACCESS_APP_NAME = "Ticketiv Organizer";
+
+/** Ticketiv web origin: scanner APIs, the organizer mobile API and web workspace links. */
+export const ACCESS_API_BASE_URL = "https://ticketiv.app";
+
+/**
+ * Supabase Auth for email + password sign-in. Public values: the publishable
+ * key is the same one the website ships to every browser (lib/env-public.ts);
+ * data stays protected by RLS and the organizer API's role checks.
+ */
+export const ACCESS_SUPABASE_URL = "https://radsfmlsjznqvcpogluo.supabase.co";
+export const ACCESS_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_FzIaYAJ3S2rjdgV-GCqeBQ_s1jOxtGb";
 export const ACCESS_APP_ID = "com.ticketiv.access";
 export const ACCESS_SCHEME = "ticketiv-access";
 export const ACCESS_SLUG = "ticketiv-access";

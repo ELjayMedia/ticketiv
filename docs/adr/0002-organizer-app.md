@@ -60,7 +60,11 @@ events); it is now door staff. The database enforces the same split
   login cookie must be shared across `.ticketiv.app`.
 - The Access app is renamed in place (display name and store listings) and
   grows from scan-only to the role-based organizer shell. Its package ID does
-  not change because it is already published.
+  not change because it is already published. People sign in with the email
+  and password of their Ticketiv account (shared gate devices can still pair
+  with a setup code); the app calls `/api/mobile/organizer/*` with the access
+  token, and the server applies the same role rule as the web
+  (`lib/organizer/resolve.ts`).
 - Existing `organizer_staff` members lose event editing. Promote anyone who
   should keep it to `organizer_admin`.
 

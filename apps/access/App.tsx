@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -16,9 +16,33 @@ import {
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { Camera, CameraType } from "react-native-camera-kit";
 import { colors } from "@ticketiv/tokens";
-import type { ClaimedDeviceSetup } from "@ticketiv/shared";
 
 import {
+  ACCESS_API_BASE_URL,
+  ACCESS_SUPABASE_PUBLISHABLE_KEY,
+  ACCESS_SUPABASE_URL,
+  AccountAuthError,
+  OrganizerApiError,
+  clearAccountSession,
+  fetchOrganizerWorkspaces,
+  fetchScanEvents,
+  isClaimedDeviceSetup,
+  loadAccountSession,
+  orderScanEvents,
+  organizerHomeTiles,
+  pickWorkspace,
+  readApiError,
+  refreshAccountSession,
+  requestScannerSetup,
+  saveAccountSession,
+  sessionNeedsRefresh,
+  signInWithPassword,
+  signOutAccount,
+  type AccountAuthConfig,
+  type OrganizerAccountSession,
+  type OrganizerApiConfig,
+  type OrganizerScanEvent,
+  type OrganizerWorkspace,
   applyAccessSetupDeepLink,
   bootAccessNativeAppShell,
   completeAccessAppPairing,
@@ -35,7 +59,12 @@ import {
 } from "./src";
 import { getAccessAndroidSecureStorage } from "./src/android-secure-storage";
 
-const API_BASE_URL = "https://ticketiv.app";
+const API_BASE_URL = ACCESS_API_BASE_URL;
+const AUTH_CONFIG: AccountAuthConfig = {
+  supabaseUrl: ACCESS_SUPABASE_URL,
+  publishableKey: ACCESS_SUPABASE_PUBLISHABLE_KEY,
+  fetch,
+};
 const secureStorage = getAccessAndroidSecureStorage();
 
 type SyncStatus = "idle" | "syncing" | "ready" | "error";
@@ -56,6 +85,9 @@ export default function App() {
         }
   );
   const [storageRetry, setStorageRetry] = useState(0);
+  const [account, setAccount] = useState<OrganizerAccountSession | null>(null);
+  const [authMode, setAuthMode] = useState<"sign-in" | "pair">("sign-in");
+  const accountRef = useRef<OrganizerAccountSession | null>(null);
   const hydratedRef = useRef(false);
   const persistedScannerRef = useRef(false);
   const persistenceQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -72,9 +104,16 @@ export default function App() {
     if (!secureStorage) return;
 
     void Linking.getInitialURL()
-      .then((initialUrl) => bootAccessNativeAppShell(secureStorage, initialUrl))
-      .then((restored) => {
+      .then((initialUrl) =>
+        Promise.all([
+          bootAccessNativeAppShell(secureStorage, initialUrl),
+          loadAccountSession(secureStorage).catch(() => null),
+        ])
+      )
+      .then(([restored, savedAccount]) => {
         if (!active) return;
+        accountRef.current = savedAccount;
+        setAccount(savedAccount);
         setShell(restored);
         persistedScannerRef.current = Boolean(restored.scanner);
         hydratedRef.current = true;
@@ -172,6 +211,44 @@ export default function App() {
     );
   }, [storageError]);
 
+  const updateAccount = useCallback((next: OrganizerAccountSession | null) => {
+    accountRef.current = next;
+    setAccount(next);
+    if (!secureStorage) return;
+    void (next ? saveAccountSession(secureStorage, next) : clearAccountSession(secureStorage)).catch(() => {
+      // Signed in for this run either way; the next launch asks to sign in again.
+    });
+  }, []);
+
+  const getAccessToken = useCallback(async () => {
+    const current = accountRef.current;
+    if (!current) throw new OrganizerApiError("Sign in again to continue.", 401);
+    if (!sessionNeedsRefresh(current, Date.now())) return current.accessToken;
+    try {
+      const next = await refreshAccountSession(AUTH_CONFIG, current);
+      updateAccount(next);
+      return next.accessToken;
+    } catch (error) {
+      if (error instanceof AccountAuthError && error.kind === "session_expired") {
+        updateAccount(null);
+        throw new OrganizerApiError(error.message, 401);
+      }
+      throw new OrganizerApiError(error instanceof Error ? error.message : "Can't reach Ticketiv.", 0);
+    }
+  }, [updateAccount]);
+
+  const organizerApi = useMemo<OrganizerApiConfig>(
+    () => ({ baseUrl: API_BASE_URL, fetch, getAccessToken }),
+    [getAccessToken]
+  );
+
+  const signOut = useCallback(() => {
+    const current = accountRef.current;
+    updateAccount(null);
+    setAuthMode("sign-in");
+    if (current) void signOutAccount(AUTH_CONFIG, current);
+  }, [updateAccount]);
+
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
@@ -181,7 +258,7 @@ export default function App() {
             <Text style={styles.brand}>Ticketiv Organizer</Text>
             <Text style={styles.environment}>ticketiv.app</Text>
           </View>
-          <StatusMark paired={Boolean(shell.scanner)} />
+          <StatusMark paired={Boolean(shell.scanner)} signedIn={Boolean(account)} />
         </View>
 
         {booting ? (
@@ -194,8 +271,26 @@ export default function App() {
           />
         ) : shell.scanner ? (
           <ScannerScreen shell={shell} onShellChange={setShell} />
+        ) : account ? (
+          <OrganizerHomeScreen
+            account={account}
+            api={organizerApi}
+            shell={shell}
+            onShellChange={setShell}
+            onSignOut={signOut}
+            onSessionEnded={() => updateAccount(null)}
+          />
+        ) : authMode === "pair" || shell.pairing.formattedCode ? (
+          <PairingScreen
+            shell={shell}
+            onShellChange={setShell}
+            onUseAccount={() => {
+              setAuthMode("sign-in");
+              setShell((current) => ({ ...current, pairing: updateAccessPairingCode(current.pairing, "") }));
+            }}
+          />
         ) : (
-          <PairingScreen shell={shell} onShellChange={setShell} />
+          <SignInScreen onSignedIn={updateAccount} onUsePairing={() => setAuthMode("pair")} />
         )}
       </SafeAreaView>
     </SafeAreaProvider>
@@ -237,9 +332,11 @@ function StorageErrorScreen({
 function PairingScreen({
   shell,
   onShellChange,
+  onUseAccount,
 }: {
   shell: AccessAppShellState;
   onShellChange: React.Dispatch<React.SetStateAction<AccessAppShellState>>;
+  onUseAccount: () => void;
 }) {
   const pairing = shell.pairing;
   const claiming = pairing.status === "claiming";
@@ -352,7 +449,305 @@ function PairingScreen({
           Event access is granted only after the one-time code is accepted by ticketiv.app.
         </Text>
       </View>
+
+      <TextLink label="Sign in with your Ticketiv account instead" onPress={onUseAccount} />
     </ScrollView>
+  );
+}
+
+function SignInScreen({
+  onSignedIn,
+  onUsePairing,
+}: {
+  onSignedIn: (session: OrganizerAccountSession) => void;
+  onUsePairing: () => void;
+}) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit() {
+    setSubmitting(true);
+    setError(null);
+    try {
+      onSignedIn(await signInWithPassword(AUTH_CONFIG, email, password));
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Sign-in failed. Try again.");
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.screen} keyboardShouldPersistTaps="handled">
+      <View style={styles.headingBlock}>
+        <Text style={styles.eyebrow}>TICKETIV ORGANIZER</Text>
+        <Text style={styles.title}>Sign in</Text>
+        <Text style={styles.subtitle}>
+          Use the email and password of your Ticketiv account. You'll see what your role in each organisation lets you do.
+        </Text>
+      </View>
+
+      <View style={styles.formSection}>
+        <FieldLabel>Email</FieldLabel>
+        <TextInput
+          accessibilityLabel="Email"
+          autoCapitalize="none"
+          autoComplete="email"
+          autoCorrect={false}
+          editable={!submitting}
+          inputMode="email"
+          keyboardType="email-address"
+          onChangeText={setEmail}
+          placeholder="you@example.com"
+          placeholderTextColor={colors.ink4}
+          style={styles.textInput}
+          textContentType="username"
+          value={email}
+        />
+
+        <FieldLabel>Password</FieldLabel>
+        <TextInput
+          accessibilityLabel="Password"
+          autoCapitalize="none"
+          autoComplete="password"
+          autoCorrect={false}
+          editable={!submitting}
+          onChangeText={setPassword}
+          onSubmitEditing={() => void submit()}
+          placeholder="Password"
+          placeholderTextColor={colors.ink4}
+          returnKeyType="go"
+          secureTextEntry
+          style={styles.textInput}
+          textContentType="password"
+          value={password}
+        />
+
+        {error ? (
+          <View accessibilityLiveRegion="polite" style={styles.errorBand}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : null}
+
+        <ActionButton
+          disabled={submitting || !email.trim() || !password}
+          label={submitting ? "Signing in" : "Sign in"}
+          loading={submitting}
+          onPress={() => void submit()}
+        />
+        <TextLink label="Forgot password?" onPress={() => void Linking.openURL(`${API_BASE_URL}/forgot-password`)} />
+      </View>
+
+      <View style={styles.infoBand}>
+        <Text style={styles.infoTitle}>Shared gate device?</Text>
+        <Text style={styles.infoText}>Pair it with a setup code from your organizer instead of signing in.</Text>
+      </View>
+      <TextLink label="Pair with a setup code" onPress={onUsePairing} />
+    </ScrollView>
+  );
+}
+
+function OrganizerHomeScreen({
+  account,
+  api,
+  shell,
+  onShellChange,
+  onSignOut,
+  onSessionEnded,
+}: {
+  account: OrganizerAccountSession;
+  api: OrganizerApiConfig;
+  shell: AccessAppShellState;
+  onShellChange: React.Dispatch<React.SetStateAction<AccessAppShellState>>;
+  onSignOut: () => void;
+  onSessionEnded: () => void;
+}) {
+  const [workspaces, setWorkspaces] = useState<OrganizerWorkspace[] | null>(null);
+  const [orgId, setOrgId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<"home" | "scan-events">("home");
+  const [events, setEvents] = useState<OrganizerScanEvent[] | null>(null);
+  const [pairingEventId, setPairingEventId] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
+
+  const handleFailure = useCallback(
+    (failure: unknown, fallback: string) => {
+      if (failure instanceof OrganizerApiError && failure.unauthorized) {
+        onSessionEnded();
+        return;
+      }
+      setError(failure instanceof Error ? failure.message : fallback);
+    },
+    [onSessionEnded]
+  );
+
+  useEffect(() => {
+    let active = true;
+    setError(null);
+    fetchOrganizerWorkspaces(api)
+      .then((list) => {
+        if (!active) return;
+        setWorkspaces(list);
+        setOrgId((current) => pickWorkspace(list, current)?.orgId ?? null);
+      })
+      .catch((failure) => active && handleFailure(failure, "Unable to load your organisations."));
+    return () => {
+      active = false;
+    };
+  }, [api, handleFailure, reload]);
+
+  const workspace = workspaces?.find((w) => w.orgId === orgId) ?? null;
+
+  function openScanEvents() {
+    if (!workspace) return;
+    setView("scan-events");
+    setEvents(null);
+    setError(null);
+    fetchScanEvents(api, workspace.orgId)
+      .then((list) => setEvents(orderScanEvents(list, Date.now())))
+      .catch((failure) => handleFailure(failure, "Unable to load events."));
+  }
+
+  async function startScanning(event: OrganizerScanEvent) {
+    if (!workspace) return;
+    setPairingEventId(event.id);
+    setError(null);
+    try {
+      const setup = await requestScannerSetup(api, {
+        orgId: workspace.orgId,
+        eventId: event.id,
+        deviceId: shell.pairing.deviceId,
+        label: shell.pairing.deviceLabel || `${account.email ?? "Organizer"} phone`,
+      });
+      onShellChange((current) => completeAccessAppPairing(current, setup));
+    } catch (failure) {
+      handleFailure(failure, "Unable to start the scanner for this event.");
+      setPairingEventId(null);
+    }
+  }
+
+  if (!workspaces && !error) return <CenteredStatus label="Loading your organisations" />;
+
+  return (
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.screen}>
+      <View style={styles.headingBlock}>
+        <Text style={styles.eyebrow}>{workspace ? workspace.roleLabel.toUpperCase() : "SIGNED IN"}</Text>
+        <Text style={styles.title}>{view === "scan-events" ? "Choose an event" : workspace?.orgName ?? "Ticketiv Organizer"}</Text>
+        <Text style={styles.subtitle}>
+          {view === "scan-events"
+            ? "Pick the event you're scanning. This phone stays paired to it until you end the session."
+            : account.email ?? ""}
+        </Text>
+      </View>
+
+      {error ? (
+        <View accessibilityLiveRegion="polite" style={styles.errorBand}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : null}
+
+      {view === "scan-events" ? (
+        <>
+          {events === null && !error ? <CenteredStatus label="Loading events" /> : null}
+          {events?.length === 0 ? (
+            <View style={styles.infoBand}>
+              <Text style={styles.infoTitle}>No events to scan</Text>
+              <Text style={styles.infoText}>When an organizer adds you to an event, it shows up here.</Text>
+            </View>
+          ) : null}
+          {events?.map((event) => (
+            <Pressable
+              accessibilityRole="button"
+              disabled={Boolean(pairingEventId)}
+              key={event.id}
+              onPress={() => void startScanning(event)}
+              style={({ pressed }) => [styles.tile, pressed && styles.buttonPressed]}
+            >
+              <View style={styles.tileBody}>
+                <Text style={styles.tileTitle}>{event.title}</Text>
+                <Text style={styles.tileText}>{formatEventTime(event.startsAt)}</Text>
+              </View>
+              {pairingEventId === event.id ? <ActivityIndicator color={colors.accent} /> : <Text style={styles.tileChevron}>›</Text>}
+            </Pressable>
+          ))}
+          <SecondaryButton label="Back" onPress={() => setView("home")} />
+        </>
+      ) : workspaces && workspaces.length === 0 ? (
+        <View style={styles.infoBand}>
+          <Text style={styles.infoTitle}>No organisation yet</Text>
+          <Text style={styles.infoText}>
+            This account isn't part of an organisation on Ticketiv. Ask an organizer to invite you, or create one on ticketiv.app.
+          </Text>
+        </View>
+      ) : (
+        <>
+          {workspaces && workspaces.length > 1 ? (
+            <View style={styles.chipRow}>
+              {workspaces.map((w) => (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: w.orgId === orgId }}
+                  key={w.orgId}
+                  onPress={() => setOrgId(w.orgId)}
+                  style={[styles.chip, w.orgId === orgId && styles.chipActive]}
+                >
+                  <Text style={[styles.chipText, w.orgId === orgId && styles.chipTextActive]}>{w.orgName}</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+
+          {workspace
+            ? organizerHomeTiles(workspace, API_BASE_URL).map((tile) => (
+                <Pressable
+                  accessibilityRole="button"
+                  key={tile.key}
+                  onPress={() =>
+                    tile.action.kind === "scan" ? openScanEvents() : void Linking.openURL(tile.action.url)
+                  }
+                  style={({ pressed }) => [styles.tile, pressed && styles.buttonPressed]}
+                >
+                  <View style={styles.tileBody}>
+                    <Text style={styles.tileTitle}>{tile.label}</Text>
+                    <Text style={styles.tileText}>{tile.description}</Text>
+                  </View>
+                  <Text style={styles.tileChevron}>{tile.action.kind === "web" ? "↗" : "›"}</Text>
+                </Pressable>
+              ))
+            : null}
+        </>
+      )}
+
+      <View style={styles.actionRow}>
+        {error && view === "home" ? <SecondaryButton label="Try again" onPress={() => setReload((n) => n + 1)} /> : null}
+        <SecondaryButton
+          label="Sign out"
+          onPress={() =>
+            Alert.alert("Sign out?", "You'll need your email and password to sign in again.", [
+              { text: "Cancel", style: "cancel" },
+              { text: "Sign out", style: "destructive", onPress: onSignOut },
+            ])
+          }
+        />
+      </View>
+    </ScrollView>
+  );
+}
+
+function formatEventTime(iso: string | null): string {
+  if (!iso) return "Date to be announced";
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime())
+    ? "Date to be announced"
+    : date.toLocaleString("en-SZ", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+function TextLink({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable accessibilityRole="link" onPress={onPress} style={({ pressed }) => [styles.textLink, pressed && styles.buttonPressed]}>
+      <Text style={styles.textLinkText}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -603,11 +998,11 @@ function ScannerScreen({
   );
 }
 
-function StatusMark({ paired }: { paired: boolean }) {
+function StatusMark({ paired, signedIn }: { paired: boolean; signedIn: boolean }) {
   return (
     <View style={styles.statusMark}>
-      <View style={[styles.statusDot, paired && styles.statusDotReady]} />
-      <Text style={styles.statusText}>{paired ? "PAIRED" : "UNPAIRED"}</Text>
+      <View style={[styles.statusDot, (paired || signedIn) && styles.statusDotReady]} />
+      <Text style={styles.statusText}>{paired ? "PAIRED" : signedIn ? "SIGNED IN" : "UNPAIRED"}</Text>
     </View>
   );
 }
@@ -678,28 +1073,6 @@ function SecondaryButton({
     >
       <Text style={styles.secondaryButtonText}>{label}</Text>
     </Pressable>
-  );
-}
-
-function readApiError(value: unknown, fallback: string): string {
-  if (value && typeof value === "object" && "error" in value) {
-    const error = (value as { error?: unknown }).error;
-    if (typeof error === "string" && error.trim()) return error.trim();
-  }
-  return fallback;
-}
-
-function isClaimedDeviceSetup(value: unknown): value is ClaimedDeviceSetup {
-  if (!value || typeof value !== "object") return false;
-  const setup = value as Partial<ClaimedDeviceSetup>;
-  return Boolean(
-    setup.device &&
-      typeof setup.device.id === "string" &&
-      setup.session &&
-      typeof setup.session.id === "string" &&
-      setup.event &&
-      typeof setup.event.id === "string" &&
-      typeof setup.event.title === "string"
   );
 }
 
@@ -904,6 +1277,72 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.45,
+  },
+  textLink: {
+    alignSelf: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+  },
+  textLinkText: {
+    color: colors.accent,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  tile: {
+    minHeight: 64,
+    borderWidth: 1,
+    borderColor: colors.line2,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  tileBody: {
+    flex: 1,
+    gap: 3,
+  },
+  tileTitle: {
+    color: colors.ink,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  tileText: {
+    color: colors.ink3,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  tileChevron: {
+    color: colors.ink3,
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  chipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  chip: {
+    borderWidth: 1,
+    borderColor: colors.line2,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: colors.surface,
+  },
+  chipActive: {
+    borderColor: colors.ink,
+    backgroundColor: colors.ink,
+  },
+  chipText: {
+    color: colors.ink2,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  chipTextActive: {
+    color: colors.surface,
   },
   infoBand: {
     borderLeftWidth: 3,
