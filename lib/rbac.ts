@@ -104,9 +104,10 @@ function orgRoleCanManage(role: OrgRole | null): boolean {
   return inAny(role, OWNER_ROLES, MANAGER_ROLES)
 }
 
-// Owner + Finance only: payouts and financial reports.
+// Owner + Admin + Finance: payouts and financial reports. Admins were added
+// on 2026-11-02 (migration 20261102100000_admin_finance_access).
 function orgRoleCanViewPayouts(role: OrgRole | null): boolean {
-  return inAny(role, OWNER_ROLES, FINANCE_ROLES)
+  return inAny(role, OWNER_ROLES, MANAGER_ROLES, FINANCE_ROLES)
 }
 
 // Owner + Admin: team management (matches the is_org_admin server boundary).

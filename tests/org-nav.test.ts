@@ -11,9 +11,9 @@ describe("organizer workspace navigation", () => {
     ])
   })
 
-  it("hides owner-only Settings and money pages from admins, and shows platform admins everything", () => {
+  it("hides owner-only Settings from admins (who do see money pages), and shows platform admins everything", () => {
     expect(labels(visibleOrgNavItems({ role: "manager", storedRole: "organizer_admin", isPlatformAdmin: false }))).toEqual([
-      "Dashboard", "Events", "Series", "Team",
+      "Dashboard", "Events", "Series", "Finance", "Payouts", "Team",
     ])
     expect(labels(visibleOrgNavItems({ role: "manager", storedRole: null, isPlatformAdmin: true }))).toContain("Settings")
   })

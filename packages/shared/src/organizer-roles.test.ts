@@ -61,10 +61,10 @@ describe("organizer roles (ADR 0002)", () => {
     expect(canChangeSettings("organizer_admin")).toBe(false)
   })
 
-  it("limits finance and payouts to owners and finance", () => {
+  it("opens finance and payouts to owners, admins and finance", () => {
     expect(canViewFinance("organizer_owner")).toBe(true)
     expect(canViewFinance("finance")).toBe(true)
-    expect(canViewFinance("organizer_admin")).toBe(false)
+    expect(canViewFinance("organizer_admin")).toBe(true)
     expect(canViewFinance("organizer_staff")).toBe(false)
   })
 
