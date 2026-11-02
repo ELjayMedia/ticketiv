@@ -29,7 +29,7 @@ Release only when all items are evidenced against the deployment commit:
 - Cross-organization reads and writes are denied.
 - Public privacy, terms, support, refund and data-deletion routes return 200 while logged out.
 
-## Ticketiv Access
+## Ticketiv Organizer (formerly Ticketiv Access)
 
 The web scanner remains the fallback until the native release meets every gate below:
 

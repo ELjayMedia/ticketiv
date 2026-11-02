@@ -36,7 +36,10 @@ export type AccessIosBuildTarget = {
   capabilities: AccessNativeCapability[];
 };
 
-export const ACCESS_APP_NAME = "Ticketiv Access";
+// Renamed from "Ticketiv Access" (ADR 0002). Only the name people see changed:
+// the package ID, scheme, slug and native module names stay, because the app
+// is already published and paired devices keep their secure storage.
+export const ACCESS_APP_NAME = "Ticketiv Organizer";
 export const ACCESS_APP_ID = "com.ticketiv.access";
 export const ACCESS_SCHEME = "ticketiv-access";
 export const ACCESS_SLUG = "ticketiv-access";
@@ -148,7 +151,7 @@ export function resolveAccessAndroidTarget(value: string | null | undefined): Ac
     return ACCESS_ANDROID_TARGETS.huawei;
   }
 
-  throw new Error(`Unsupported Ticketiv Access Android target: ${value}`);
+  throw new Error(`Unsupported Ticketiv Organizer Android target: ${value}`);
 }
 
 export function resolveAccessIosTarget(value: string | null | undefined): AccessIosBuildTarget {
@@ -166,7 +169,7 @@ export function resolveAccessIosTarget(value: string | null | undefined): Access
     return ACCESS_IOS_TARGET;
   }
 
-  throw new Error(`Unsupported Ticketiv Access iOS target: ${value}`);
+  throw new Error(`Unsupported Ticketiv Organizer iOS target: ${value}`);
 }
 
 export function buildAccessDeepLink(path = "/scan/setup"): string {

@@ -1,4 +1,15 @@
-# Ticketiv Access — staff app (`com.ticketiv.access`)
+# Ticketiv Organizer (`com.ticketiv.access`, formerly Ticketiv Access)
+
+Per [ADR 0002](../../docs/adr/0002-organizer-app.md) this is the organizer app
+for event teams: managers, finance, door staff and scanners. It was published
+as Ticketiv Access; only the display name and store listing changed. The
+package ID, deep-link scheme (`ticketiv-access://`), React Native component
+name and native module names stay, so existing installs, paired devices and
+their secure storage keep working. Today it ships the scanner; role-based
+sections follow the shared role model in `@ticketiv/shared`
+(`organizer-roles.ts`).
+
+## Original scope (ADR 0001)
 
 React Native operations app per [ADR 0001](../../docs/adr/0001-mobile-packaging.md).
 Scanning deliberately does **not** live in the consumer app: Access gets

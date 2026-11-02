@@ -83,7 +83,7 @@ export default function App() {
         if (active) {
           setStorageError({
             phase: "boot",
-            message: "Ticketiv Access could not unlock scanner data on this device.",
+            message: "Ticketiv Organizer could not unlock scanner data on this device.",
           });
         }
       })
@@ -109,7 +109,7 @@ export default function App() {
       .catch(() => {
         setStorageError({
           phase: "write",
-          message: "Ticketiv Access could not protect scanner data on this device.",
+          message: "Ticketiv Organizer could not protect scanner data on this device.",
         });
       });
   }, [shell]);
@@ -132,7 +132,7 @@ export default function App() {
       .catch(() => {
         setStorageError({
           phase: "write",
-          message: "Ticketiv Access still cannot protect scanner data on this device.",
+          message: "Ticketiv Organizer still cannot protect scanner data on this device.",
         });
       })
       .finally(() => setBooting(false));
@@ -162,7 +162,7 @@ export default function App() {
               .catch(() => {
                 setStorageError({
                   phase: "boot",
-                  message: "Ticketiv Access could not reset secure scanner data.",
+                  message: "Ticketiv Organizer could not reset secure scanner data.",
                 });
                 setBooting(false);
               });
@@ -178,7 +178,7 @@ export default function App() {
       <SafeAreaView style={styles.safeArea} edges={["top", "right", "bottom", "left"]}>
         <View style={styles.appBar}>
           <View>
-            <Text style={styles.brand}>Ticketiv Access</Text>
+            <Text style={styles.brand}>Ticketiv Organizer</Text>
             <Text style={styles.environment}>ticketiv.app</Text>
           </View>
           <StatusMark paired={Boolean(shell.scanner)} />
@@ -395,7 +395,7 @@ function ScannerScreen({
       }
 
       const result = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA, {
-        title: "Allow Ticketiv Access to scan tickets",
+        title: "Allow Ticketiv Organizer to scan tickets",
         message: "Camera access is required to read attendee QR codes at the gate.",
         buttonPositive: "Allow camera",
         buttonNegative: "Not now",

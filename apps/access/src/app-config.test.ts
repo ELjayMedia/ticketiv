@@ -12,10 +12,10 @@ import {
   resolveAccessIosTarget,
 } from "./app-config";
 
-describe("Ticketiv Access app config", () => {
+describe("Ticketiv Organizer app config", () => {
   it("pins the dedicated Access app identity", () => {
     expect(ACCESS_APP_CONFIG).toMatchObject({
-      name: "Ticketiv Access",
+      name: "Ticketiv Organizer",
       slug: "ticketiv-access",
       scheme: "ticketiv-access",
       androidPackage: "com.ticketiv.access",
@@ -75,7 +75,7 @@ describe("Ticketiv Access app config", () => {
     ]);
   });
 
-  it("builds Ticketiv Access deep links", () => {
+  it("builds Ticketiv Organizer deep links", () => {
     expect(buildAccessDeepLink()).toBe("ticketiv-access://scan/setup");
     expect(buildAccessDeepLink("scan/setup?code=123456")).toBe(
       "ticketiv-access://scan/setup?code=123456"
