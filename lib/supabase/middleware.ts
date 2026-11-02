@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 import { resolveSupabasePublicKey } from "@/lib/env-public"
+import { authCookieOptions } from "@/lib/organizer/host"
 import {
   isExpectedSignedOutAuthError,
   isStaleSupabaseRefreshTokenError,
@@ -30,7 +31,10 @@ function redirectToLogin(request: NextRequest, from: string) {
 function clearSupabaseAuthTokenCookies(request: NextRequest, response: NextResponse) {
   for (const { name } of request.cookies.getAll()) {
     if (isSupabaseAuthTokenCookie(name)) {
-      response.cookies.delete(name)
+      const shared = authCookieOptions()
+      // A cookie set on the shared domain (.ticketiv.app) only clears with that domain.
+      if (shared) response.cookies.set(name, "", { ...shared, path: "/", maxAge: 0 })
+      else response.cookies.delete(name)
     }
   }
 }
@@ -162,6 +166,7 @@ export async function updateSession(request: NextRequest) {
 
   try {
     const supabase = createServerClient(supabaseUrl, supabaseKey, {
+      cookieOptions: authCookieOptions(),
       cookies: {
         getAll() {
           return request.cookies.getAll()

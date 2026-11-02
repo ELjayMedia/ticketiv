@@ -63,3 +63,24 @@ events); it is now door staff. The database enforces the same split
   not change because it is already published.
 - Existing `organizer_staff` members lose event editing. Promote anyone who
   should keep it to `organizer_admin`.
+
+## Turning on the subdomain
+
+`organizer.ticketiv.app` is built in but off until configured
+(`lib/organizer/host.ts`). With it on, `/orgs/…` on ticketiv.app redirects to
+the organizer host, the organizer host's home is the workspace picker, and
+attendee pages opened there go back to ticketiv.app. Login, account, invite and
+API paths work on both. `/scan` is never redirected: paired gate devices keep
+their offline data per origin.
+
+1. **DNS**: add `organizer` as a CNAME to `cname.vercel-dns.com`.
+2. **Vercel**: add `organizer.ticketiv.app` to the project's domains (same
+   project, no redirect).
+3. **Supabase Auth → URL configuration**: add
+   `https://organizer.ticketiv.app/**` to the redirect URLs.
+4. **Vercel env (Production)**: set `NEXT_PUBLIC_ORGANIZER_HOST=organizer.ticketiv.app`
+   and `NEXT_PUBLIC_AUTH_COOKIE_DOMAIN=.ticketiv.app`, then redeploy.
+
+Everyone signs in once more after step 4: existing login cookies belong to
+`ticketiv.app` only, and the new ones are shared across both hosts. To turn it
+off, unset both variables and redeploy; the redirects are temporary (307).
