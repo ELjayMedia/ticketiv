@@ -57,3 +57,6 @@ yarn-error.log*
 *.swp
 *.swo
 .claude/worktrees/
+
+# Google Play listing exports (CI artifact; review before copying into store-listing/)
+/play-listing-export/
