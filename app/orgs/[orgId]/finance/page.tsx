@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { requireOrgCapability } from "@/lib/data/organizer/access"
+import { getOrganizerAccess } from "@/lib/organizer/access"
 
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
@@ -104,6 +105,8 @@ export default async function OrgFinancePage({
 }) {
   const { orgId } = await params
   await requireOrgCapability(orgId, "payouts")
+  // Event pages are for managers; finance sees the breakdown without links (ADR 0002).
+  const canOpenEvents = (await getOrganizerAccess(orgId))?.role === "manager"
   const { from: rawFrom, to: rawTo } = await searchParams
 
   const supabase = createServerSupabaseClient()
@@ -429,17 +432,18 @@ export default async function OrgFinancePage({
                         ].join(" ")}
                       >
                         <td className="px-5 py-3">
-                          <Link
-                            href={`/orgs/${orgId}/events/${event.id}`}
-                            className="flex flex-col gap-0.5 hover:underline"
-                          >
-                            <span className="text-[13px] font-semibold text-ink">{event.title}</span>
-                            {event.starts_at && (
-                              <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                                {new Date(event.starts_at).toLocaleDateString("en-SZ")}
-                              </span>
-                            )}
-                          </Link>
+                          {canOpenEvents ? (
+                            <Link
+                              href={`/orgs/${orgId}/events/${event.id}`}
+                              className="flex flex-col gap-0.5 hover:underline"
+                            >
+                              <EventCell title={event.title} startsAt={event.starts_at} />
+                            </Link>
+                          ) : (
+                            <div className="flex flex-col gap-0.5">
+                              <EventCell title={event.title} startsAt={event.starts_at} />
+                            </div>
+                          )}
                         </td>
                         <td className="px-5 py-3">
                           <Chip
@@ -495,5 +499,18 @@ export default async function OrgFinancePage({
         )}
       </div>
     </main>
+  )
+}
+
+function EventCell({ title, startsAt }: { title: string; startsAt: string | null }) {
+  return (
+    <>
+      <span className="text-[13px] font-semibold text-ink">{title}</span>
+      {startsAt && (
+        <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+          {new Date(startsAt).toLocaleDateString("en-SZ")}
+        </span>
+      )}
+    </>
   )
 }

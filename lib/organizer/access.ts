@@ -7,6 +7,7 @@ import {
   canChangeSettings,
   canManageTeam,
   canOpenSection,
+  canViewFinance,
   organizerHomeSection,
   strongestOrganizerRole,
   type OrganizerRole,
@@ -111,7 +112,9 @@ export async function requireOrganizerSection(
     canOpenSection(access.role, section) &&
     (!options.eventId || canWorkEvent(access, options.eventId)) &&
     (!options.team || access.isPlatformAdmin || canManageTeam(access.storedRole)) &&
-    (!options.settings || access.isPlatformAdmin || canChangeSettings(access.storedRole))
+    (!options.settings || access.isPlatformAdmin || canChangeSettings(access.storedRole)) &&
+    // Money pages: owners and finance only, as in the payouts permission (TICK-277).
+    ((section !== "finance" && section !== "payouts") || access.isPlatformAdmin || canViewFinance(access.storedRole))
 
   if (!allowed) redirect(organizerHomePath(orgId, access.role))
   return access
