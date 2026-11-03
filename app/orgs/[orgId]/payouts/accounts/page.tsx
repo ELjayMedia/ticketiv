@@ -8,7 +8,8 @@ import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
 import { maskedAccountFromStored } from "@/lib/payout-crypto"
 import { PayoutAccountActions } from "@/components/quiet/screens/payouts/payout-account-actions"
-import { PayoutAccountForm, providerLabel } from "./payout-account-form"
+import { providerLabel } from "@/lib/payouts/provider-label"
+import { PayoutAccountForm } from "./payout-account-form"
 
 export const dynamic = "force-dynamic"
 export const metadata = { title: "Payout accounts" }

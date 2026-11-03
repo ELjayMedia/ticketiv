@@ -20,12 +20,6 @@ const PROVIDERS = [
 const selectClass =
   "rounded-md border border-line-2 bg-surface px-3 py-2.5 text-[14px] font-medium text-ink outline-none transition-shadow duration-100 focus:border-accent focus:ring-[3px] focus:ring-accent-soft"
 
-/** Short display name for a stored provider value ("standard_bank" → "Standard Bank"). */
-export function providerLabel(provider: string): string {
-  const known: Record<string, string> = { fnb: "FNB", nedbank: "Nedbank", standard_bank: "Standard Bank", absa: "ABSA", other: "Other bank" }
-  return known[provider] ?? provider.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
 export function PayoutAccountForm({ orgId, hasAccounts }: { orgId: string; hasAccounts: boolean }) {
   const router = useRouter()
   const [provider, setProvider] = useState("fnb")
