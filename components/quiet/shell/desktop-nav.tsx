@@ -3,18 +3,20 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "@/components/quiet/ui/icon";
-import { Avatar } from "@/components/quiet/ui/primitives";
 import { SearchTrigger } from "@/components/quiet/search/search-overlay";
 import { ContextSwitcher } from "@/components/quiet/shell/context-switcher";
+import { AccountMenu } from "@/components/quiet/shell/account-menu";
+import { isAccountPath } from "@/components/quiet/shell/account-nav";
 import type { UserContext } from "@/lib/data/identity/contexts";
 import { cn } from "@/lib/cn";
 
 const NAV_ITEMS = [
   { href: "/", label: "Discover" },
   { href: "/series", label: "Series" },
-  // Calendar is the signed-in user's own calendar; hidden when signed out.
-  { href: "/calendar", label: "Calendar", signedInOnly: true },
   { href: "/organisers", label: "Organisers" },
+  // The signed-in attendee's own area (tickets, orders, profile…). On mobile
+  // this is the tab bar; on desktop it's this link plus the avatar menu.
+  { href: "/tickets", label: "My tickets", signedInOnly: true },
 ];
 
 interface DesktopNavProps {
@@ -81,7 +83,11 @@ export function DesktopNav({
           <nav className="hidden shrink-0 items-center gap-1 text-[14px] font-medium lg:flex">
             {NAV_ITEMS.filter((item) => signedIn || !item.signedInOnly).map((item) => {
               const active =
-                item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+                item.href === "/"
+                  ? pathname === "/" || pathname.startsWith("/events")
+                  : item.href === "/tickets"
+                    ? isAccountPath(pathname)
+                    : pathname.startsWith(item.href);
               return (
                 <Link
                   key={item.href}
@@ -89,7 +95,7 @@ export function DesktopNav({
                   aria-current={active ? "page" : undefined}
                   className={cn(
                     "rounded-[var(--radius)] px-3 py-2 transition-colors",
-                    active ? "text-ink" : "text-ink-2 hover:bg-bg hover:text-ink"
+                    active ? "bg-bg font-semibold text-ink" : "text-ink-2 hover:bg-bg hover:text-ink"
                   )}
                 >
                   {item.label}
@@ -109,11 +115,6 @@ export function DesktopNav({
 
         {signedIn ? (
           <>
-            {displayName && (
-              <span className="hidden max-w-[180px] truncate text-[12px] text-ink-3 lg:inline">
-                Hi, {displayName}
-              </span>
-            )}
             <Link
               href="/notifications"
               aria-label="Notifications"
@@ -121,7 +122,7 @@ export function DesktopNav({
             >
               <Icon name="bell" size={20} />
             </Link>
-            <Avatar src={avatarUrl} size={28} />
+            <AccountMenu avatarUrl={avatarUrl} displayName={displayName} />
           </>
         ) : (
           <>

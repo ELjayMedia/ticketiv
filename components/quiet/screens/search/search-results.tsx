@@ -80,11 +80,11 @@ export function SearchResults({
       <div className="h-[max(env(safe-area-inset-top),0.25rem)]" />
 
       {/* Search bar */}
-      <div className="flex items-center gap-2.5 px-5 pb-3 pt-2">
+      <div className="flex items-center gap-2.5 px-5 pb-3 pt-2 md:pt-8">
         <button
           aria-label="Back"
           onClick={() => router.back()}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/60"
+          className="inline-flex h-9 w-9 md:hidden items-center justify-center rounded-full hover:bg-line/60"
         >
           <Icon name="chevL" size={22} />
         </button>

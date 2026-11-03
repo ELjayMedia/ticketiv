@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { PublicSessionDesktopNav } from "@/components/quiet/shell/public-session-desktop-nav";
 import { LiveEventShell } from "@/components/quiet/screens/event-detail/live-event-shell";
 import { HoldExpiredBanner } from "@/components/quiet/screens/event-detail/hold-expired-banner";
 import { RecordRecentlyViewed } from "@/components/quiet/screens/event-detail/record-recently-viewed";
@@ -164,6 +165,11 @@ export default async function EventDetailPage({
 
   return (
     <>
+      {/* The event page is discovery, not checkout: desktop keeps the site nav.
+          Mobile keeps its full-screen event layout. */}
+      <div className="sticky top-0 z-40 hidden md:block">
+        <PublicSessionDesktopNav />
+      </div>
       {hold_expired === "1" && <HoldExpiredBanner />}
       <RecordRecentlyViewed {...recentSnapshot} />
       <EventViewTracker

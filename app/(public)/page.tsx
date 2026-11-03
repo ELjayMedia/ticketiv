@@ -1,7 +1,5 @@
 import { MobileDiscover } from "@/components/quiet/screens/discover/mobile-discover";
 import { DesktopDiscover } from "@/components/quiet/screens/discover/desktop-discover";
-import { ConsumerFrame } from "@/components/quiet/shell/consumer-frame";
-import { PublicSessionDesktopNav } from "@/components/quiet/shell/public-session-desktop-nav";
 import { getDiscoverFeed } from "@/lib/data/public/discover-feed";
 
 export const metadata = {
@@ -27,7 +25,7 @@ export default async function DiscoverPage() {
   const { thisWeek, upcoming, editorPick, featured } = await getDiscoverFeed();
 
   return (
-    <ConsumerFrame desktopNav={<PublicSessionDesktopNav />}>
+    <>
       <div className="md:hidden">
         <MobileDiscover thisWeek={thisWeek} upcoming={upcoming} editorPick={editorPick} />
       </div>
@@ -40,6 +38,6 @@ export default async function DiscoverPage() {
           featured={featured}
         />
       </div>
-    </ConsumerFrame>
+    </>
   );
 }

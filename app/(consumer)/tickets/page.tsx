@@ -88,7 +88,7 @@ export default async function TicketsPage({
   const claimable = user && !isAnonymous ? await findClaimableGuestOrders() : [];
 
   return (
-    <div className="mx-auto flex max-w-[480px] flex-col gap-4">
+    <div className="mx-auto flex max-w-[480px] md:max-w-none flex-col gap-4">
       {isAnonymous && (
         <div className="px-4 pt-4">
           <SaveMyTicketsCard />

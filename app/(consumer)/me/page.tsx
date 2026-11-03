@@ -29,7 +29,7 @@ export default async function MePage() {
   const admin = contexts.find((context) => context.kind === "admin");
 
   return (
-    <div className="mx-auto max-w-[480px]">
+    <div className="mx-auto max-w-[480px] md:max-w-none">
       <ProfileScreen
         user={mapProfile(profile)}
         tapBand={tapBand}

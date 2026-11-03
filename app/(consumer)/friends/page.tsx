@@ -15,7 +15,7 @@ export default async function FriendsPage() {
   const props = mapFriends(overview);
 
   return (
-    <div className="mx-auto max-w-[480px]">
+    <div className="mx-auto max-w-[480px] md:max-w-none">
       <FriendsScreen {...props} />
     </div>
   );

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { DesktopNav } from "@/components/quiet/shell/desktop-nav";
 import { MobileTabBar } from "@/components/quiet/shell/mobile-shell";
+import { AccountDesktopLayout } from "@/components/quiet/shell/account-nav";
 import type { UserContext } from "@/lib/data/identity/contexts";
 
 const FOOTER_LINKS = [
@@ -34,8 +35,9 @@ export function ConsumerFrame({
   desktopNav,
 }: ConsumerFrameProps) {
   return (
-    <div className="min-h-dvh">
-      <div className="hidden md:block">
+    <div className="flex min-h-dvh flex-col">
+      {/* Sticky so desktop pages always keep their way around. */}
+      <div className="sticky top-0 z-40 hidden md:block">
         {desktopNav ?? (
           <DesktopNav
             signedIn={signedIn}
@@ -47,7 +49,9 @@ export function ConsumerFrame({
         )}
       </div>
 
-      <main className="pb-20 md:pb-12">{children}</main>
+      <main className="flex-1 pb-20 md:pb-12">
+        <AccountDesktopLayout>{children}</AccountDesktopLayout>
+      </main>
 
       <footer className="border-t border-line bg-surface">
         <div className="mx-auto flex max-w-[1280px] flex-col gap-4 px-5 py-6 pb-28 md:flex-row md:items-center md:justify-between md:px-10 md:pb-6">
