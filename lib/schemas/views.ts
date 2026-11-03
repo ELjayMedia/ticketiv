@@ -28,11 +28,8 @@ export const EventsPublicViewSchema = z.object({
   organizer_name: z.string().nullable(),
   organizer_logo_url: z.string().url().nullable(),
   featured_priority: z.number().int().nullable().optional(),
-  tickets_sold: z.number().int().nonnegative().optional(),
+  // No ticket sales in public data (migration 20261103100000_hide_public_sales_data).
   tickets_available: z.number().int().nonnegative().optional(),
-  checked_in_count: z.number().int().nonnegative().optional(),
-  last_order_at: z.string().datetime({ offset: true }).nullable().optional(),
-  last_scan_at: z.string().datetime({ offset: true }).nullable().optional(),
   live_stats_updated_at: z.string().datetime({ offset: true }).nullable().optional(),
 })
 

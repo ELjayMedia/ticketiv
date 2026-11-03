@@ -34,7 +34,6 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
     organizer_name: organizer.name,
     organizer_logo_url: (organizer as any).logo ?? null,
     tickets_remaining: event.tickets_remaining,
-    tickets_sold: event.tickets_sold ?? null,
   })
 
   const organizerEvents: EventCardData[] = currentEvents.map(mapEvent)

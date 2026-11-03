@@ -54,13 +54,9 @@ async function fetchEventExtras(eventId: string, organizerId: string | null) {
       .eq("id", eventId)
       .maybeSingle(),
     supabase.from("events").select("refund_policy").eq("id", eventId).maybeSingle(),
-    supabase
-      .from("event_live_stats")
-      .select(
-        "event_id,tickets_sold,tickets_available,gross_sales_cents,successful_payments,failed_payments,checked_in_count,last_order_at,last_scan_at,updated_at",
-      )
-      .eq("event_id", eventId)
-      .maybeSingle(),
+    // Attendee-safe live stats (availability + check-ins only). Ticket sales and
+    // revenue live in event_live_stats, which only organizers can read.
+    (supabase.rpc as any)("fn_event_public_live_stats", { p_event_id: eventId }).maybeSingle(),
     organizerId
       ? supabase
           .from("events")

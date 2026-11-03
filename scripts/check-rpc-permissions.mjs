@@ -44,6 +44,10 @@ const ANON_ALLOWLIST = new Map([
   ["fn_preview_promo_code", "Guest checkout previews a promo code before signing in. STABLE, writes nothing, scoped to published events."],
   ["fn_ticket_type_remaining", "Public event pages show remaining counts to signed-out visitors. STABLE, writes nothing."],
   [
+    "fn_event_public_live_stats",
+    "Attendee event pages, public event cards and paired gate devices need live availability and check-ins without reading the organizer-only event_live_stats table. STABLE, writes nothing, search_path pinned. Returns only event_id, tickets_available, checked_in_count and updated_at, never ticket sales or revenue, and only for published public events. See 20261103100000.",
+  ],
+  [
     "get_public_profile",
     "Signed-out public profile pages (/@username, app/(consumer)/[username]) resolve a handle. STABLE, writes nothing, search_path pinned to ''. Returns only handle, display name, avatar and join date — the fields the page already shows publicly — for an exact handle match behind a ^[A-Za-z0-9_]{3,30}$ guard, so it cannot be used to enumerate users or reach any other profile column.",
   ],

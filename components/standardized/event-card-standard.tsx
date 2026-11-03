@@ -20,7 +20,7 @@ import { Icon } from "@/components/quiet/ui/icon"
  * Standardized EventCard data contract (from v_events_public).
  *
  * All nullable display fields run through the shared `lib/format` helpers
- * so a missing venue / price / sold count never renders as a blank label.
+ * so a missing venue or price never renders as a blank label.
  */
 export interface EventCardData {
   id: string
@@ -39,10 +39,6 @@ export interface EventCardData {
    *  rule used by the event-detail mapper so cards and detail agree. */
   organizer_logo_url?: string | null
   tickets_remaining?: number
-  /** Aggregated sold count, surfaced as "1.2k sold" when above the safe
-   *  display threshold (5). Below threshold we hide rather than fake
-   *  momentum. */
-  tickets_sold?: number | null
   /** When set, this card represents a collapsed series and links to /series/[slug] */
   series_slug?: string | null
   /** Number of additional upcoming events under the series (rendered as "+N more dates" badge) */

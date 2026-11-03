@@ -29,7 +29,6 @@ export interface DiscoverEvent {
   fromPriceCents: number | null;
   category: string | null;
   featuredPriority: number | null;
-  ticketsSold: number | null;
   ticketsAvailable: number | null;
   /** "Only X left" / "Sold out" when near or at zero; null otherwise. */
   stockLabel: string | null;
@@ -45,7 +44,6 @@ export function mapDiscoverEvent(row: EventsPublicView & { featured_priority?: n
   const start = row.starts_at ? new Date(row.starts_at) : null;
   const minPrice = row.min_price_cents ?? null;
   const currency = asCurrency(row.currency);
-  const ticketsSold = typeof row.tickets_sold === "number" ? row.tickets_sold : null;
   const ticketsAvailable = typeof row.tickets_available === "number" ? row.tickets_available : null;
   const stockType: DiscoverEvent["stockType"] =
     ticketsAvailable === null ? null :
@@ -73,7 +71,6 @@ export function mapDiscoverEvent(row: EventsPublicView & { featured_priority?: n
     fromPriceCents: minPrice,
     category: row.category,
     featuredPriority: row.featured_priority ?? null,
-    ticketsSold,
     ticketsAvailable,
     stockLabel,
     stockType,

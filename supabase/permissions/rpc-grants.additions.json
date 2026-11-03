@@ -59,6 +59,19 @@
         "postgres",
         "service_role"
       ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_event_public_live_stats",
+      "arguments": "p_event_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
     }
   ]
 }
