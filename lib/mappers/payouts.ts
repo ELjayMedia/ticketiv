@@ -1,6 +1,7 @@
 // Shape OrgPayoutsOverview → PayoutsLedger props.
 
 import type { OrgPayoutsOverview } from "@/lib/data/organizer/payouts"
+import { providerLabel } from "@/lib/payouts/provider-label"
 import type { PayoutsLedgerProps } from "@/components/quiet/screens/payouts/payouts-ledger"
 
 const DATE_FMT = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short" })
@@ -16,7 +17,8 @@ function normalizeStatus(s: string): "paid" | "pending" | "failed" | "processing
 function destinationLabel(provider: string | null, details: string | null): string {
   if (!provider) return details ?? "—"
   const last4 = details ? (details.match(/(\d{4})$/)?.[1] ?? null) : null
-  return last4 ? `${provider} ••${last4}` : provider
+  const name = providerLabel(provider)
+  return last4 ? `${name} ••${last4}` : name
 }
 
 function accountLabel(isPrimary: boolean, idx: number): string {
