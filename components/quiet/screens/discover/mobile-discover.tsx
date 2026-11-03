@@ -31,7 +31,6 @@ interface WeekRow {
   date: string;
   venue: string;
   price: string;
-  trustLabel: string | null;
   stockLabel: string | null;
   stockType: "sold-out" | "low" | null;
   verified: boolean;
@@ -46,7 +45,6 @@ interface EditorPickRow {
   priceLabel: string;
   topChip: string;
   bottomChip: string;
-  trustLabel: string | null;
   verified: boolean;
 }
 
@@ -59,7 +57,6 @@ function toWeek(ev: DiscoverEvent): WeekRow {
     date: ev.dateShort,
     venue: ev.venue,
     price: ev.priceLabel,
-    trustLabel: ev.soldLabel,
     stockLabel: ev.stockLabel,
     stockType: ev.stockType,
     verified: ev.organizerVerified,
@@ -76,7 +73,6 @@ function toEditorPick(ev: DiscoverEvent): EditorPickRow {
     priceLabel: ev.priceLabel.replace(/^From\s+/, ""),
     topChip: ev.category ?? "Featured",
     bottomChip: ev.city ?? "Live event",
-    trustLabel: ev.soldLabel,
     verified: ev.organizerVerified,
   };
 }
@@ -138,7 +134,6 @@ export function MobileDiscover({
                 <span className="inline-flex items-center gap-1"><Icon name="cal" size={14} /> {HERO.dateLabel}</span>
                 <span>·</span>
                 <span className="inline-flex items-center gap-1"><Icon name="pin" size={14} /> {HERO.venue}</span>
-                {HERO.trustLabel && <><span>·</span><span className="font-mono text-[11px]">{HERO.trustLabel}</span></>}
               </div>
               <Divider className="my-3.5" />
               <div className="flex items-center">
@@ -210,7 +205,7 @@ function EventListSection({
                         <div className="h-[92px] w-[92px] shrink-0 overflow-hidden rounded-[var(--radius)]"><Photo src={e.photo} height={92} /></div>
                         <div className="flex min-w-0 flex-1 flex-col justify-between py-0.5">
                           <div><div className="text-h3 flex items-center gap-1 truncate"><span className="truncate">{e.title}</span>{e.verified && <VerifiedMark size={12} title="Verified organizer" />}</div><div className="mt-0.5 truncate text-[12px] text-ink-3">{e.sub}</div></div>
-                          <div className="flex items-center gap-2 text-[12px] text-ink-3"><Icon name="cal" size={12} /> {e.date}<span>·</span><span className="truncate">{e.venue}</span>{e.trustLabel && <><span>·</span><span className="truncate font-mono text-[11px]">{e.trustLabel}</span></>}</div>
+                          <div className="flex items-center gap-2 text-[12px] text-ink-3"><Icon name="cal" size={12} /> {e.date}<span>·</span><span className="truncate">{e.venue}</span></div>
                         </div>
                         <div className="flex flex-col items-end justify-between">
                           {e.stockLabel ? (

@@ -23,8 +23,8 @@ export function LiveEventShell({ eventId, mobile, desktop, initialStats = null }
 
     return {
       ...mobile,
-      soldCount: stats.tickets_sold ?? mobile.soldCount ?? null,
-      attendeeCount: stats.checked_in_count ?? stats.tickets_sold ?? mobile.attendeeCount ?? null,
+      // Never expose ticket sales to attendees (no sold count, no "going" from sales).
+      attendeeCount: stats.checked_in_count || mobile.attendeeCount || null,
       recentSoldCount: mobile.recentSoldCount ?? null,
     }
   }, [mobile, stats])
@@ -32,9 +32,7 @@ export function LiveEventShell({ eventId, mobile, desktop, initialStats = null }
   const mergedDesktop = useMemo<DesktopEventData>(() => {
     const baseDesktop: DesktopEventData = {
       ...desktop,
-      soldCount: stats?.tickets_sold ?? desktop.soldCount ?? null,
-      attendeeCount:
-        stats?.checked_in_count ?? stats?.tickets_sold ?? desktop.attendeeCount ?? null,
+      attendeeCount: stats?.checked_in_count || desktop.attendeeCount || null,
       recentSoldCount: desktop.recentSoldCount ?? null,
     }
 

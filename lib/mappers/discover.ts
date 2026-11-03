@@ -9,7 +9,6 @@ import {
   formatTimeRange,
   formatPriceLabel,
   formatVenueLabel,
-  formatSoldCount,
 } from "@/lib/format";
 import { asCurrency } from "@/lib/currency";
 import type { EventsPublicView } from "@/lib/schemas/views";
@@ -31,8 +30,6 @@ export interface DiscoverEvent {
   category: string | null;
   featuredPriority: number | null;
   ticketsSold: number | null;
-  /** "1.2k sold" or null when below the safe-display threshold. */
-  soldLabel: string | null;
   ticketsAvailable: number | null;
   /** "Only X left" / "Sold out" when near or at zero; null otherwise. */
   stockLabel: string | null;
@@ -77,7 +74,6 @@ export function mapDiscoverEvent(row: EventsPublicView & { featured_priority?: n
     category: row.category,
     featuredPriority: row.featured_priority ?? null,
     ticketsSold,
-    soldLabel: formatSoldCount(ticketsSold),
     ticketsAvailable,
     stockLabel,
     stockType,

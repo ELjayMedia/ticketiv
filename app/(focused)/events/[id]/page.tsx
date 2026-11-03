@@ -101,8 +101,11 @@ async function fetchEventExtras(eventId: string, organizerId: string | null) {
     organizerEventsHosted: orgEventsRes && "error" in orgEventsRes && orgEventsRes.error
       ? null
       : orgEventsRes?.count ?? null,
-    soldCount: liveStatsRes.data?.tickets_sold ?? null,
-    attendeeCount: liveStatsRes.data?.tickets_sold ?? null,
+    // Ticket sales are organizer-only: never surface the sold count to
+    // attendees, not even as "N going". The going chip uses check-ins or
+    // friends going instead.
+    soldCount: null as number | null,
+    attendeeCount: liveStatsRes.data?.checked_in_count || null,
     recentSoldCount: null as number | null,
     liveStats: liveStatsRes.data ?? null,
   };

@@ -27,9 +27,6 @@ export interface SearchResultProp {
   organizerName?: string | null
   /** Derived from organizer logo presence — same rule as event-card-standard. */
   organizerVerified?: boolean
-  /** "1.2k sold" / null. Hidden by the formatter below the safe-display
-   *  threshold so we never manufacture momentum. */
-  soldLabel?: string | null
 }
 
 export interface ActiveFilter {
@@ -232,9 +229,6 @@ export function SearchResults({
                 <span className="font-mono text-sm font-semibold">
                   {r.isFree ? "Free" : r.priceLabel}
                 </span>
-                {r.soldLabel && (
-                  <span className="font-mono text-[11px] text-ink-3">{r.soldLabel}</span>
-                )}
                 <span className="inline-flex items-center rounded-md border border-ink bg-ink px-2.5 py-1 text-[12px] font-semibold text-white">
                   {selected.past ? "View" : "Book"}
                 </span>
