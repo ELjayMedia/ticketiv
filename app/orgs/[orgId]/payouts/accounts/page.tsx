@@ -7,7 +7,7 @@ import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
 import { maskedAccountFromStored } from "@/lib/payout-crypto"
-import { PayoutAccountActions } from "./payout-account-actions"
+import { PayoutAccountActions } from "@/components/quiet/screens/payouts/payout-account-actions"
 import { PayoutAccountForm, providerLabel } from "./payout-account-form"
 
 export const dynamic = "force-dynamic"

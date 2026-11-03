@@ -9,6 +9,7 @@ import { Card } from "@/components/quiet/ui/card"
 import { Button } from "@/components/quiet/ui/button"
 import { Icon } from "@/components/quiet/ui/icon"
 import { RequestPayoutButton } from "@/components/quiet/screens/payouts/request-payout-button"
+import { PayoutAccountActions } from "@/components/quiet/screens/payouts/payout-account-actions"
 
 export interface PayoutsLedgerProps {
   orgId: string
@@ -83,7 +84,10 @@ export interface PayoutsLedgerProps {
     name: string
     sub: string | null
     status: "verified" | "pending" | "failed"
+    isPrimary: boolean
   }>
+  /** Org owners/admins (and platform admins) can change the primary or remove accounts. */
+  canManageAccounts?: boolean
 }
 
 function formatMoney(minor: number, currency: string): string {
@@ -286,7 +290,8 @@ export function PayoutsLedger(p: PayoutsLedgerProps) {
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <span className="text-h2">Payout accounts</span>
           <Button variant="default" size="xs" onClick={() => router.push(`/orgs/${p.orgId}/payouts/accounts`)}>
-            <Icon name="plus" size={12} /> Add account
+            <Icon name={p.canManageAccounts ? "settings" : "plus"} size={12} />{" "}
+            {p.canManageAccounts ? "Manage accounts" : "Add account"}
           </Button>
         </div>
         {p.accounts.length === 0 ? (
@@ -307,6 +312,18 @@ export function PayoutsLedger(p: PayoutsLedgerProps) {
                 >
                   ● {a.status}
                 </div>
+                {a.isPrimary && <div className="mt-1 text-[11px] text-ink-3">Payouts are sent here.</div>}
+                {p.canManageAccounts && (
+                  <div className="mt-3 border-t border-line pt-3">
+                    <PayoutAccountActions
+                      orgId={p.orgId}
+                      accountId={a.id}
+                      label={a.name}
+                      isPrimary={a.isPrimary}
+                      isOnlyAccount={p.accounts.length === 1}
+                    />
+                  </div>
+                )}
               </Card>
             ))}
           </div>
