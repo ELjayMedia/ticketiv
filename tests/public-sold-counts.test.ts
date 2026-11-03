@@ -35,4 +35,27 @@ describe("attendees never see ticket sales counts", () => {
       expect(source, file).not.toMatch(/soldCount:\s*[^\n]*tickets_sold/)
     }
   })
+
+  it("public event data carries no sales (migration 20261103100000)", () => {
+    const migration = read("supabase/migrations/20261103100000_hide_public_sales_data.sql")
+    // event_live_stats becomes organizer-only, including the public read policy.
+    expect(migration).toContain("drop policy if exists event_live_stats_public_read on public.event_live_stats")
+    const orgRead = migration.slice(migration.indexOf("alter policy event_live_stats_org_read"), migration.indexOf("-- 3."))
+    expect(orgRead).not.toContain("visibility")
+    // The attendee-safe function and the rebuilt card view never select sales.
+    const fn = migration.slice(migration.indexOf("create or replace function public.fn_event_public_live_stats"), migration.indexOf("comment on function"))
+    const view = migration.slice(migration.indexOf("create view public.v_public_event_cards"), migration.indexOf("comment on view"))
+    for (const part of [fn, view]) {
+      expect(part).not.toMatch(/tickets_sold|gross_sales|successful_payments|failed_payments|last_order_at/)
+    }
+    expect(migration).toContain("null::integer as tickets_sold")
+    expect(migration).toContain("revoke all on public.v_event_sales_public from public, anon, authenticated")
+  })
+
+  it("attendee pages read the safe function, not the organizer-only table", () => {
+    const page = read("app/(focused)/events/[id]/page.tsx")
+    expect(page).toContain("fn_event_public_live_stats")
+    expect(page).not.toContain('.from("event_live_stats")')
+    expect(read("lib/hooks/use-event-live-stats.ts")).toContain("fn_event_public_live_stats")
+  })
 })

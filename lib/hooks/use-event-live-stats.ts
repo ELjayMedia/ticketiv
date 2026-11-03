@@ -16,6 +16,9 @@ export interface EventLiveStats {
   updated_at: string
 }
 
+/** How often attendee pages refresh public availability (no realtime for them). */
+const PUBLIC_POLL_MS = 30_000
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 export function useEventLiveStats(
@@ -40,6 +43,7 @@ export function useEventLiveStats(
     const requestedEventId: string = eventId
     let cancelled = false
     let channel: ReturnType<typeof supabase.channel> | null = null
+    let pollTimer: ReturnType<typeof setInterval> | null = null
     setStatus("loading")
 
     async function startSubscription() {
@@ -81,7 +85,24 @@ export function useEventLiveStats(
         return
       }
 
-      if (data) setStats(data as EventLiveStats)
+      if (!data) {
+        // Not an organizer for this event (attendees, paired gate devices):
+        // event_live_stats is organizer-only, so read the attendee-safe
+        // availability/check-in figures instead and refresh them every 30s.
+        const loadPublic = async () => {
+          const { data: publicStats } = await (supabase.rpc as any)("fn_event_public_live_stats", {
+            p_event_id: resolvedEventId,
+          }).maybeSingle()
+          if (!cancelled && publicStats) setStats(publicStats as Partial<EventLiveStats>)
+        }
+        await loadPublic()
+        if (cancelled) return
+        pollTimer = setInterval(() => void loadPublic(), PUBLIC_POLL_MS)
+        setStatus("subscribed")
+        return
+      }
+
+      setStats(data as EventLiveStats)
 
       // Mobile and desktop checkout artboards are both mounted and only hidden
       // with CSS. Give each hook instance its own topic so one subscriber cannot
@@ -122,6 +143,7 @@ export function useEventLiveStats(
     return () => {
       cancelled = true
       if (channel) void supabase.removeChannel(channel)
+      if (pollTimer) clearInterval(pollTimer)
     }
   }, [eventId, subscriptionId, supabase])
 

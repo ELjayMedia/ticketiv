@@ -31,9 +31,6 @@ export interface SearchResultRow {
   organizer_name?: string | null
   /** Joined from `organizations.logo` — used as the verified-organizer signal. */
   organizer_logo_url?: string | null
-  /** From `event_live_stats.tickets_sold`. Hidden client-side below the
-   *  safe-display threshold so we don't fake momentum. */
-  tickets_sold?: number | null
   rank: number
 }
 
