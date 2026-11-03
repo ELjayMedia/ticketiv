@@ -129,6 +129,7 @@ export function mapPayouts(o: OrgPayoutsOverview): PayoutsLedgerProps {
       name: accountName(a.provider, a.details_encrypted),
       sub: null,
       status: "verified" as const,
+      isPrimary: Boolean(a.is_primary),
     })),
   }
 }

@@ -3,9 +3,15 @@
 import { useState, useTransition } from "react"
 
 import { Button } from "@/components/quiet/ui/button"
-import { deletePayoutAccountAction, setPrimaryPayoutAccountAction } from "./actions"
+import {
+  deletePayoutAccountAction,
+  setPrimaryPayoutAccountAction,
+} from "@/app/orgs/[orgId]/payouts/accounts/actions"
 
-/** Make primary / Remove for one payout account (org owners and admins). */
+/**
+ * Make primary / Remove for one payout account (org owners and admins).
+ * Used on the payouts overview and the payout accounts page.
+ */
 export function PayoutAccountActions({
   orgId,
   accountId,
