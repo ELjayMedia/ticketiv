@@ -8,7 +8,6 @@ import { toggleFavourite } from "@/app/(consumer)/favourites/actions"
 import {
   formatPriceLabel,
   formatVenueLabel,
-  formatSoldCount,
   type Currency,
 } from "@/lib/format"
 import { cn } from "@/lib/cn"
@@ -106,7 +105,6 @@ export function EventCardStandard({ event, onSave }: EventCardProps) {
           ? event.city
           : formatVenueLabel(null)
 
-  const soldLabel = formatSoldCount(event.tickets_sold)
   const verified = Boolean(event.organizer_logo_url)
 
   const showSellingFast = event.tickets_remaining != null && event.tickets_remaining < 20 && event.tickets_remaining > 0
@@ -161,11 +159,6 @@ export function EventCardStandard({ event, onSave }: EventCardProps) {
           </p>
           <div className="flex items-center gap-2 text-xs">
             <span className="font-medium">{priceLabel}</span>
-            {soldLabel && (
-              <span className="font-mono text-[10px] text-ink-3">
-                · {soldLabel}
-              </span>
-            )}
           </div>
           {badgeText && (
             <Chip size="sm"
@@ -258,11 +251,6 @@ export function EventCardStandard({ event, onSave }: EventCardProps) {
 
             <div className="flex items-center justify-between pt-1 text-sm">
               <span className="font-medium text-ink">{priceLabel}</span>
-              {soldLabel && (
-                <span className="font-mono text-[11px] text-ink-3">
-                  {soldLabel}
-                </span>
-              )}
             </div>
           </div>
         </Card>

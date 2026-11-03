@@ -37,7 +37,6 @@ interface GridRow {
   venue: string;
   price: string;
   chip?: string;
-  trustLabel: string | null;
   stockLabel: string | null;
   stockType: "sold-out" | "low" | null;
   verified: boolean;
@@ -52,7 +51,6 @@ function toGrid(ev: DiscoverEvent): GridRow {
     venue: ev.venue,
     price: ev.priceLabel,
     chip: ev.city ?? undefined,
-    trustLabel: ev.soldLabel,
     stockLabel: ev.stockLabel,
     stockType: ev.stockType,
     verified: ev.organizerVerified,
@@ -185,10 +183,6 @@ function DesktopEventGridSection({
                           </span>
                           {e.stockLabel ? (
                             <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase ${e.stockType === "sold-out" ? "bg-danger-soft text-danger" : "bg-warning/10 text-warning"}`}>{e.stockLabel}</span>
-                          ) : e.trustLabel ? (
-                            <span className="font-mono text-[11px] text-ink-3">
-                              {e.trustLabel}
-                            </span>
                           ) : (
                             <span className="text-[12px] text-accent group-hover:underline">
                               Details →

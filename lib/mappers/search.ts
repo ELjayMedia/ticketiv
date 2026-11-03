@@ -1,7 +1,7 @@
 // Shape fn_search_events rows → SearchResults screen props.
 
 import { PHOTOS } from "@/lib/photos"
-import { formatPriceLabel, formatVenueLabel, formatSoldCount } from "@/lib/format"
+import { formatPriceLabel, formatVenueLabel } from "@/lib/format"
 import { asCurrency } from "@/lib/currency"
 import type { SearchResults, SearchFilters, SearchFacets } from "@/lib/data/public/search"
 import type {
@@ -78,7 +78,6 @@ export function mapSearch(
       category: r.category,
       organizerName: r.organizer_name ?? null,
       organizerVerified: Boolean(r.organizer_logo_url),
-      soldLabel: formatSoldCount(r.tickets_sold),
     }
   })
 
