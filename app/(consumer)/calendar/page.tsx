@@ -15,7 +15,7 @@ export default async function CalendarPage() {
   const props = mapCalendar(month!);
 
   return (
-    <div className="mx-auto max-w-[480px]">
+    <div className="mx-auto max-w-[480px] md:max-w-none">
       <CalendarScreen {...props} />
     </div>
   );

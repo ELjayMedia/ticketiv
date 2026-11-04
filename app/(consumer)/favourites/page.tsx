@@ -58,7 +58,7 @@ export default async function FavouritesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[480px] pb-24">
+    <div className="mx-auto max-w-[480px] md:max-w-none pb-24">
       <div className="h-[max(env(safe-area-inset-top),0.25rem)]" />
 
       <header className="flex items-end gap-2.5 px-5 pb-3 pt-2">

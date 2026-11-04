@@ -247,7 +247,7 @@ export function DesktopEvent({ event }: DesktopEventProps) {
           </Card>
         </div>
 
-        <aside className="sticky top-6 self-start">
+        <aside className="sticky top-[88px] self-start">
           {event.lifecycle === "ended" || event.lifecycle === "cancelled" ? (
             <Card className="p-5">
               <div className="font-mono text-[10px] font-semibold uppercase tracking-wide text-ink-3">
