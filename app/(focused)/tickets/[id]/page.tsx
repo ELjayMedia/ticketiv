@@ -13,7 +13,7 @@ export const metadata = { title: "Your ticket" };
 export const dynamic = "force-dynamic";
 
 /**
- * `/tickets/[id]` — single ticket QR view.
+ * `/tickets/[id]` — QR view of a ticket and the rest of its order.
  *
  * `[id]` is the `order_item_id`. The query goes through `v_my_tickets`,
  * which is RLS-scoped to the authenticated buyer (buyer_id = auth.uid()),
@@ -36,19 +36,11 @@ export default async function TicketPage({
     getTicketsByOrderId(row.order_id),
     getTicketHolderName(),
   ]);
-  const siblingIds = siblingRows.map((ticket) => ticket.order_item_id);
-  const position = Math.max(0, siblingIds.indexOf(row.order_item_id)) + 1;
+  // Every ticket in the order is rendered on this page (a vertical stack you
+  // swipe up through); `[id]` only decides which one opens first.
+  const rows = siblingRows.some((ticket) => ticket.order_item_id === row.order_item_id) ? siblingRows : [row];
+  const opts = { refundPolicy, offlineExpiresAt, holderName, totalInOrder: rows.length };
+  const tickets = rows.map((ticket, index) => mapTicketView(ticket, { ...opts, position: index + 1 }));
 
-  return (
-    <TicketView
-      ticket={mapTicketView(row, {
-        refundPolicy,
-        offlineExpiresAt,
-        holderName,
-        position,
-        totalInOrder: Math.max(1, siblingIds.length),
-      })}
-      siblingIds={siblingIds}
-    />
-  );
+  return <TicketView tickets={tickets} initialTicketId={row.order_item_id} />;
 }
