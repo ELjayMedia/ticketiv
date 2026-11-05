@@ -1,8 +1,6 @@
 import Link from "next/link"
-import { Suspense } from "react"
-
+import { LoginForm } from "@/components/auth/login-form"
 import { Logo } from "@/components/Logo"
-import { SignInForm } from "@/components/SignInForm"
 
 export const metadata = { title: "Super Admin Login" }
 
@@ -34,12 +32,11 @@ export default function SuperAdminLoginPage() {
             Access the control room.
           </h1>
           <p className="mt-3 text-[14px] leading-6 text-ink-3">
-            Use the approved admin email. Ticketiv will send a secure verification code.
+            Use the approved admin email and password. You go straight to the command centre.
           </p>
           <div className="mt-8">
-            <Suspense fallback={null}>
-              <SignInForm mode="login" />
-            </Suspense>
+            {/* Admins land on the command centre, not their last-used context. */}
+            <LoginForm next="/super-admin" internal />
           </div>
         </div>
       </section>

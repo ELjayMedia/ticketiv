@@ -26,7 +26,7 @@ describe("Supabase middleware session recovery", () => {
   it("clears stale auth cookies and redirects protected navigation to login", async () => {
     mocks.createServerClient.mockReturnValue({
       auth: {
-        getUser: vi.fn().mockRejectedValue({
+        getClaims: vi.fn().mockRejectedValue({
           name: "AuthApiError",
           code: "refresh_token_not_found",
           message: "Invalid Refresh Token: Refresh Token Not Found",
@@ -49,11 +49,11 @@ describe("Supabase middleware session recovery", () => {
     expect(response.cookies.get("theme")).toBeUndefined()
   })
 
-  it("clears stale auth cookies when getUser returns an error result", async () => {
+  it("clears stale auth cookies when getClaims returns an error result", async () => {
     mocks.createServerClient.mockReturnValue({
       auth: {
-        getUser: vi.fn().mockResolvedValue({
-          data: { user: null },
+        getClaims: vi.fn().mockResolvedValue({
+          data: null,
           error: {
             name: "AuthApiError",
             code: "refresh_token_not_found",
@@ -80,7 +80,7 @@ describe("Supabase middleware session recovery", () => {
   it("redirects signed-out super-admin navigation to the dedicated admin login", async () => {
     mocks.createServerClient.mockReturnValue({
       auth: {
-        getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
+        getClaims: vi.fn().mockResolvedValue({ data: null, error: null }),
       },
     })
 
@@ -104,7 +104,7 @@ describe("Supabase middleware session recovery", () => {
   it("does not treat similarly named attendee routes as super-admin routes", async () => {
     mocks.createServerClient.mockReturnValue({
       auth: {
-        getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
+        getClaims: vi.fn().mockResolvedValue({ data: null, error: null }),
       },
     })
 
@@ -124,8 +124,8 @@ describe("Supabase middleware session recovery", () => {
     query.eq.mockReturnValue(query)
     mocks.createServerClient.mockReturnValue({
       auth: {
-        getUser: vi.fn().mockResolvedValue({
-          data: { user: { id: "guest-1", is_anonymous: true } },
+        getClaims: vi.fn().mockResolvedValue({
+          data: { claims: { sub: "guest-1", is_anonymous: true } },
           error: null,
         }),
       },
@@ -162,7 +162,7 @@ describe("Supabase middleware session recovery", () => {
     const error = new Error("Auth service unavailable")
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined)
     mocks.createServerClient.mockReturnValue({
-      auth: { getUser: vi.fn().mockRejectedValue(error) },
+      auth: { getClaims: vi.fn().mockRejectedValue(error) },
     })
 
     const response = await updateSession(new NextRequest("https://ticketiv.app/profile"))

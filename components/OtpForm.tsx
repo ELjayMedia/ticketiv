@@ -5,40 +5,17 @@ import { useRouter, useSearchParams } from "next/navigation"
 
 import { Button } from "@/components/quiet/ui/button"
 import { Icon } from "@/components/quiet/ui/icon"
+import { explainCodeRequestError, explainOtpError } from "@/lib/auth/messages"
+import { safeNext } from "@/lib/auth/redirect"
 import {
-  ORGANIZER_SIGNUP_STORAGE_KEY,
-  ORGANIZER_WAS_AUTHENTICATED_STORAGE_KEY,
-  normalizeOrganizerSignup,
-  validateOrganizerSignup,
-  type OrganizerSignupPayload,
-} from "@/lib/auth/organizer-signup"
+  completeOrganizerSignup,
+  organizerWasAuthenticated,
+  readOrganizerSignup,
+  requestOrganizerCode,
+} from "@/lib/auth/organizer-signup-client"
 import { createClient } from "@/lib/supabase/client"
 
 const RESEND_COOLDOWN_SECONDS = 60
-
-interface OrganizerSignupRpcClient {
-  rpc(name: string, args: Record<string, string | null>): Promise<{ error: { message: string } | null }>
-}
-
-function explainOtpError(message: string) {
-  const lower = message.toLowerCase()
-  if (lower.includes("rate limit") || lower.includes("too many")) return "Too many code requests were made. Wait a few minutes before requesting another code."
-  if (lower.includes("expired") || lower.includes("invalid")) return "That code is invalid or has expired. Request a new code and use the latest one from your inbox."
-  return message
-}
-
-function readOrganizerSignup(): OrganizerSignupPayload | null {
-  const raw = window.sessionStorage.getItem(ORGANIZER_SIGNUP_STORAGE_KEY)
-  if (!raw) return null
-  try {
-    const parsed = JSON.parse(raw) as Partial<OrganizerSignupPayload>
-    if (typeof parsed.firstName !== "string" || typeof parsed.surname !== "string" || typeof parsed.phone !== "string" || typeof parsed.email !== "string" || typeof parsed.idNumber !== "string") return null
-    const normalized = normalizeOrganizerSignup(parsed as OrganizerSignupPayload)
-    return validateOrganizerSignup(normalized) ? null : normalized
-  } catch {
-    return null
-  }
-}
 
 export function OtpForm() {
   const router = useRouter()
@@ -83,27 +60,6 @@ export function OtpForm() {
     if (event.key === "Backspace" && !digits[i] && i > 0) refs.current[i - 1]?.focus()
   }
 
-  async function completeOrganizerSignup() {
-    const signup = readOrganizerSignup()
-    if (!signup) throw new Error("Your organizer registration details are no longer available. Return to organizer registration and enter them again.")
-    if (signup.email !== to.trim().toLowerCase()) throw new Error("The verified email does not match the organizer registration.")
-
-    const supabase = createClient()
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user) throw new Error(userError?.message || "Unable to load the verified organizer")
-
-    const rpcClient = supabase as unknown as OrganizerSignupRpcClient
-    const { error: completionError } = await rpcClient.rpc("fn_complete_organizer_signup", {
-      p_first_name: signup.firstName,
-      p_surname: signup.surname,
-      p_phone: signup.phone,
-      p_id_number: signup.idNumber || null,
-    })
-    if (completionError) throw new Error(completionError.message)
-    window.sessionStorage.removeItem(ORGANIZER_SIGNUP_STORAGE_KEY)
-    window.sessionStorage.removeItem(ORGANIZER_WAS_AUTHENTICATED_STORAGE_KEY)
-  }
-
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
@@ -121,27 +77,25 @@ export function OtpForm() {
       return
     }
 
-    const wasAuthenticated = window.sessionStorage.getItem(ORGANIZER_WAS_AUTHENTICATED_STORAGE_KEY) === "1"
-    if (!wasAuthenticated) {
-      setBusy(false)
+    // New organizers choose a password next; signed-in users keep theirs.
+    if (!organizerWasAuthenticated()) {
       router.push("/organizer/set-password")
-      router.refresh()
       return
     }
 
     try {
-      await completeOrganizerSignup()
+      // verifyOtp just established the session for `to`: no extra getUser round trip.
+      const signup = readOrganizerSignup()
+      if (!signup) throw new Error("Your organizer registration details are no longer available. Return to organizer registration and enter them again.")
+      if (signup.email !== to.trim().toLowerCase()) throw new Error("The verified email does not match the organizer registration.")
+      await completeOrganizerSignup(supabase, signup)
     } catch (profileError) {
       setBusy(false)
       setError(profileError instanceof Error ? profileError.message : "Unable to set up the organizer profile")
       return
     }
 
-    setBusy(false)
-    const requestedRedirect = search?.get("redirectTo") || search?.get("from")
-    const redirectTo = requestedRedirect && requestedRedirect.startsWith("/") && !requestedRedirect.startsWith("//") ? requestedRedirect : "/onboarding/organizer"
-    router.push(redirectTo as "/onboarding/organizer")
-    router.refresh()
+    router.push((safeNext(search?.get("redirectTo")) ?? safeNext(search?.get("from")) ?? "/onboarding/organizer") as "/onboarding/organizer")
   }
 
   async function resend() {
@@ -152,15 +106,9 @@ export function OtpForm() {
 
     setResending(true)
     const supabase = createClient()
-    const { error: resendError } = await supabase.auth.signInWithOtp({
-      email: to,
-      options: {
-        shouldCreateUser: true,
-        data: { first_name: signup.firstName, surname: signup.surname, phone: signup.phone, signup_intent: "organizer" },
-      },
-    })
+    const resendError = await requestOrganizerCode(supabase, signup)
     setResending(false)
-    if (resendError) return setError(explainOtpError(resendError.message))
+    if (resendError) return setError(explainCodeRequestError(resendError.message))
 
     setDigits(Array(6).fill(""))
     refs.current[0]?.focus()

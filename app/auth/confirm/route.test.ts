@@ -58,13 +58,19 @@ describe("password recovery email links", () => {
     expect(location(response)).toBe("/forgot-password?error=recovery_link_invalid")
   })
 
-  it("does not block a password reset when profile bootstrap fails", async () => {
+  it("no longer runs the per-login profile bootstrap (the sign-up trigger owns it)", async () => {
     mocks.verifyOtp.mockResolvedValue({ error: null })
-    mocks.rpc.mockResolvedValue({ error: { message: "bootstrap failed" } })
-    const response = await confirm(
-      new NextRequest("https://ticketiv.app/auth/confirm?token_hash=abc&type=recovery&next=/reset-password"),
-    )
-    expect(location(response)).toBe("/reset-password")
+    await confirm(new NextRequest("https://ticketiv.app/auth/confirm?token_hash=abc&type=signup&next=/"))
+    mocks.exchangeCodeForSession.mockResolvedValue({ error: null })
+    await callback(new NextRequest("https://ticketiv.app/auth/callback?code=xyz&next=/"))
+    expect(mocks.rpc).not.toHaveBeenCalled()
+    expect(mocks.getUser).not.toHaveBeenCalled()
+  })
+
+  it("ignores off-site next values", async () => {
+    mocks.exchangeCodeForSession.mockResolvedValue({ error: null })
+    const response = await callback(new NextRequest("https://ticketiv.app/auth/callback?code=xyz&next=//evil.example/x"))
+    expect(response.headers.get("location")).toBe("https://ticketiv.app/")
   })
 
   it("keeps the login error for non-recovery confirmation failures", async () => {

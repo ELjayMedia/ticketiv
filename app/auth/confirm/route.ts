@@ -1,54 +1,20 @@
 import { type EmailOtpType } from "@supabase/supabase-js"
 import { NextResponse, type NextRequest } from "next/server"
 
-import { failedAuthLinkDestination, isRecoveryDestination } from "@/lib/auth/auth-link-errors"
+import { failedAuthLinkDestination } from "@/lib/auth/auth-link-errors"
+import { linkNext, redirectWithError } from "@/lib/auth/email-link"
 import { createClient } from "@/lib/supabase/server"
 
-function getSafeNext(request: NextRequest) {
-  const next = request.nextUrl.searchParams.get("next") || request.nextUrl.searchParams.get("redirectTo") || "/"
-  return next.startsWith("/") && !next.startsWith("//") ? next : "/"
-}
-
-async function bootstrapTicketivProfile() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser()
-
-  if (userError || !user) {
-    throw new Error(userError?.message || "Unable to load verified user")
-  }
-
-  const { error } = await supabase.rpc("fn_bootstrap_ticketiv_user", {
-    p_user_id: user.id,
-    p_email: user.email ?? undefined,
-    p_phone: undefined,
-    p_display_name: user.user_metadata?.display_name ?? undefined,
-  })
-
-  if (error) {
-    throw new Error(error.message)
-  }
-}
-
+/**
+ * Email confirmation and password-recovery links. The account's profile rows
+ * come from the sign-up trigger, so this only verifies the link and redirects.
+ */
 export async function GET(request: NextRequest) {
-  const tokenHash = request.nextUrl.searchParams.get("token_hash")
-  const type = request.nextUrl.searchParams.get("type") as EmailOtpType | null
-  const code = request.nextUrl.searchParams.get("code")
-  const next = getSafeNext(request)
-  const redirectTo = request.nextUrl.clone()
-
-  redirectTo.pathname = next
-  redirectTo.search = ""
-
-  const fail = () => {
-    const destination = failedAuthLinkDestination(next, "email_confirmation_failed")
-    redirectTo.pathname = destination.pathname
-    redirectTo.search = ""
-    redirectTo.searchParams.set("error", destination.error)
-    return NextResponse.redirect(redirectTo)
-  }
+  const params = request.nextUrl.searchParams
+  const tokenHash = params.get("token_hash")
+  const type = params.get("type") as EmailOtpType | null
+  const code = params.get("code")
+  const next = linkNext(request)
 
   const supabase = await createClient()
   let verified = false
@@ -63,20 +29,7 @@ export async function GET(request: NextRequest) {
     verified = !error
   }
 
-  if (!verified) {
-    return fail()
-  }
+  if (!verified) return redirectWithError(request, failedAuthLinkDestination(next, "email_confirmation_failed"))
 
-  try {
-    await bootstrapTicketivProfile()
-  } catch {
-    // A password reset must not be blocked by profile bootstrap; the reset page only needs the session.
-    if (!isRecoveryDestination(next)) {
-      redirectTo.pathname = "/login"
-      redirectTo.searchParams.set("error", "profile_bootstrap_failed")
-      return NextResponse.redirect(redirectTo)
-    }
-  }
-
-  return NextResponse.redirect(redirectTo)
+  return NextResponse.redirect(new URL(next, request.url))
 }
