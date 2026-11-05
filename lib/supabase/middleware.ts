@@ -59,7 +59,8 @@ function recoverSignedOutSession(request: NextRequest, path: string, error: unkn
  * Public APIs with their own verification:
  *   /api/discover/*, /api/search/suggest, /api/mobile/tickets/*, /api/mobile/organizer/*,
  *   selected /api/scanner/* device endpoints,
- *   /api/payouts, /api/payments/paystack/webhook, /api/payments/momo/callback
+ *   /api/payouts, /api/payments/paystack/webhook, /api/payments/momo/callback,
+ *   /api/payments/deltapay/* (checkout return/callback, signed wallet callback)
  *
  * Onboarding gate:
  *   /onboarding — requires session, allowed without a handle
@@ -101,6 +102,10 @@ export async function updateSession(request: NextRequest) {
     path === "/api/payouts" ||
     path === "/api/payments/paystack/webhook" ||
     path === "/api/payments/momo/callback" ||
+    // DeltaPay: hosted-checkout return/callback and the signed wallet callback.
+    // Each route verifies with DeltaPay server-side (or by signature); a guest
+    // returning from checkout and DeltaPay's servers carry no Ticketiv session.
+    path.startsWith("/api/payments/deltapay/") ||
     path.includes(".")
   ) {
     return response

@@ -8,11 +8,14 @@ import { buildPayoutReconciliationBlock, type PayoutReconciliationBlock } from "
 import { buildSettlementSummary, type SettlementSummary } from "@/lib/settlement"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { requireAdminRole } from "@/lib/super-admin/auth"
+import { deltaPayPayoutsAvailable } from "@/lib/payouts/deltapay-payouts"
 import {
   cancelPayoutAction,
+  checkDeltaPayPayoutAction,
   markPayoutFailedAction,
   markPayoutPaidAction,
   markPayoutProcessingAction,
+  sendPayoutViaDeltaPayAction,
 } from "../finance-actions"
 
 export const dynamic = "force-dynamic"
@@ -31,6 +34,9 @@ interface PayoutRow {
   created_at: string
   paid_at: string | null
   org_name: string | null
+  provider_rail: string | null
+  provider_status: string | null
+  failure_reason: string | null
 }
 
 interface AdminLedgerRow {
@@ -94,11 +100,44 @@ function blockCopy(block: PayoutReconciliationBlock | undefined) {
   return `${firstEvent.title}${more}`
 }
 
-function actionsFor(status: PayoutStatus, payoutId: string, reconciliationBlocked: boolean) {
+const DELTAPAY_NOTICE: Record<string, string> = {
+  sent: "Payout sent through DeltaPay. It's marked paid when DeltaPay confirms the transfer.",
+  paid: "DeltaPay confirmed the transfer. Payout marked paid.",
+  failed: "DeltaPay reported the transfer failed. Payout marked failed.",
+  processing: "DeltaPay is still processing the transfer.",
+  unchanged: "No change from DeltaPay.",
+  not_found: "DeltaPay has no transfer for this payout yet.",
+  amount_mismatch: "DeltaPay's amount doesn't match the payout. Not marked paid: investigate.",
+  ignored: "DeltaPay returned a transfer for a different reference. Not applied.",
+}
+
+function actionsFor(status: PayoutStatus, payoutId: string, reconciliationBlocked: boolean, row: PayoutRow, deltaPay: boolean) {
+  const viaDeltaPay = row.provider_rail === "deltapay"
+  const sendViaDeltaPay = deltaPay && (status === "requested" || status === "failed") ? (
+    <TransitionForm
+      action={sendPayoutViaDeltaPayAction}
+      payoutId={payoutId}
+      label={reconciliationBlocked ? "Blocked" : status === "failed" && viaDeltaPay ? "Resend via DeltaPay" : "Send via DeltaPay"}
+      variant="accent"
+      disabled={reconciliationBlocked}
+    />
+  ) : null
+  if (status === "processing" && viaDeltaPay) {
+    // Money is in flight on DeltaPay: only DeltaPay's confirmation settles it.
+    return (
+      <>
+        <form action={checkDeltaPayPayoutAction.bind(null, payoutId)}>
+          <Button type="submit" size="xs" variant="accent">Check DeltaPay status</Button>
+        </form>
+        <TransitionForm action={markPayoutFailedAction} payoutId={payoutId} label="Mark failed" variant="default" />
+      </>
+    )
+  }
   switch (status) {
     case "requested":
       return (
         <>
+          {sendViaDeltaPay}
           <TransitionForm
             action={markPayoutProcessingAction}
             payoutId={payoutId}
@@ -125,6 +164,7 @@ function actionsFor(status: PayoutStatus, payoutId: string, reconciliationBlocke
     case "failed":
       return (
         <>
+          {sendViaDeltaPay}
           <TransitionForm
             action={markPayoutProcessingAction}
             payoutId={payoutId}
@@ -140,7 +180,13 @@ function actionsFor(status: PayoutStatus, payoutId: string, reconciliationBlocke
   }
 }
 
-export default async function SuperAdminPayoutsPage() {
+export default async function SuperAdminPayoutsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ deltapay?: string; deltapay_error?: string }>
+}) {
+  const { deltapay, deltapay_error } = await searchParams
+  const deltaPayEnabled = deltaPayPayoutsAvailable()
   // Transitions themselves are super_admin-gated inside finance-actions; this
   // view is readable by finance + read-only tiers too.
   const { roleTier } = await requireAdminRole(["super_admin", "finance_admin", "read_only_admin"])
@@ -150,7 +196,7 @@ export default async function SuperAdminPayoutsPage() {
 
   const { data, error } = await admin
     .from("payouts")
-    .select("id, org_id, amount_cents, currency, provider, destination_ref, status, created_at, paid_at, organizations(name)")
+    .select("id, org_id, amount_cents, currency, provider, destination_ref, status, created_at, paid_at, provider_rail, provider_status, failure_reason, organizations(name)")
     .order("created_at", { ascending: false })
     .limit(500)
 
@@ -174,6 +220,9 @@ export default async function SuperAdminPayoutsPage() {
     created_at: row.created_at,
     paid_at: row.paid_at,
     org_name: row.organizations?.name ?? null,
+    provider_rail: row.provider_rail ?? null,
+    provider_status: row.provider_status ?? null,
+    failure_reason: row.failure_reason ?? null,
   }))
   const orgIds = Array.from(new Set(rows.map((row) => row.org_id)))
   const settlementByOrg = new Map<string, SettlementSummary>()
@@ -251,7 +300,21 @@ export default async function SuperAdminPayoutsPage() {
         <p className="mt-1 text-[13px] text-ink-3">
           Review organizer payout requests and move them through settlement. Every status change is written to the audit log.
         </p>
+        <p className="mt-1 font-mono text-[11px] text-ink-3">
+          {deltaPayEnabled
+            ? "DeltaPay payouts on: Send via DeltaPay pays the primary account over the Eswatini Payment Switch."
+            : "DeltaPay payouts off: pay by bank transfer, then Mark paid."}
+        </p>
       </div>
+
+      {(deltapay || deltapay_error) && (
+        <div
+          role={deltapay_error ? "alert" : "status"}
+          className={`rounded-[var(--radius-md)] border px-3 py-2.5 text-[12px] ${deltapay_error ? "border-danger/30 bg-danger-soft text-danger" : "border-line bg-surface text-ink-2"}`}
+        >
+          {deltapay_error ?? DELTAPAY_NOTICE[deltapay ?? ""] ?? "DeltaPay updated."}
+        </div>
+      )}
 
       <Card className={reconciliation.totals.blocked > 0 ? "border-danger/40" : "border-accent/30"}>
         <CardBody className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
@@ -354,6 +417,14 @@ export default async function SuperAdminPayoutsPage() {
                       {row.destination_ref ? ` · ${row.destination_ref}` : ""} · requested {formatDate(row.created_at)}
                       {row.paid_at ? ` · paid ${formatDate(row.paid_at)}` : ""}
                     </span>
+                    {row.provider_rail === "deltapay" && (
+                      <span className="font-mono text-[11px] text-ink-3">
+                        via DeltaPay{row.provider_status ? ` · ${row.provider_status}` : ""}
+                      </span>
+                    )}
+                    {row.failure_reason && (
+                      <span className="text-[11px] font-semibold text-danger">{row.failure_reason}</span>
+                    )}
                     {settlement && (
                       <span className="font-mono text-[11px] text-ink-3">
                         payable {money(settlement.settledAvailableCents, row.currency)} · pending settlement{" "}
@@ -368,7 +439,7 @@ export default async function SuperAdminPayoutsPage() {
                     )}
                   </div>
                   <span className="font-mono text-[14px] font-semibold">{money(row.amount_cents, row.currency)}</span>
-                  {canTransition && <div className="flex items-center gap-2">{actionsFor(row.status, row.id, isReconciliationBlocked)}</div>}
+                  {canTransition && <div className="flex items-center gap-2">{actionsFor(row.status, row.id, isReconciliationBlocked, row, deltaPayEnabled)}</div>}
                 </div>
                 )
               })}

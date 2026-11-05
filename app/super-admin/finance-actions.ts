@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache"
 import { getOrgPayoutReconciliationBlock } from "@/lib/data/admin/reconciliation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { requireAdminRole } from "@/lib/super-admin/auth"
+import { PayoutSendError, sendPayoutViaDeltaPay, syncDeltaPayPayout } from "@/lib/payouts/deltapay-payouts"
 
 type PayoutStatus = "requested" | "processing" | "paid" | "failed" | "cancelled"
 
@@ -51,7 +52,7 @@ async function setPayoutStatus(payoutId: string, nextStatus: PayoutStatus, formD
 
   const { data: payout, error: payoutError } = await admin
     .from("payouts")
-    .select("id, org_id, status, amount_cents, currency")
+    .select("id, org_id, status, amount_cents, currency, provider_rail")
     .eq("id", payoutId)
     .maybeSingle()
 
@@ -60,6 +61,10 @@ async function setPayoutStatus(payoutId: string, nextStatus: PayoutStatus, formD
 
   const currentStatus = String(payout.status) as PayoutStatus
   assertValidPayoutTransition(currentStatus, nextStatus)
+
+  if (nextStatus === "paid" && (payout as { provider_rail?: string | null }).provider_rail === "deltapay") {
+    throw new Error("This payout was sent through DeltaPay. It's marked paid when DeltaPay confirms the transfer: use “Check DeltaPay status”.")
+  }
 
   if (currentStatus === nextStatus) {
     revalidatePath("/super-admin")
@@ -158,4 +163,34 @@ export async function markPayoutFailedAction(payoutId: string, formData?: FormDa
 
 export async function cancelPayoutAction(payoutId: string, formData?: FormData) {
   await setPayoutStatus(payoutId, "cancelled", formData)
+}
+
+/* ── DeltaPay payouts (EljayMedia wallet → Eswatini Payment Switch) ───────── */
+
+function payoutQueueRedirect(params: Record<string, string>): never {
+  revalidatePath("/super-admin")
+  revalidatePath("/super-admin/payouts")
+  redirect(`/super-admin/payouts?${new URLSearchParams(params)}`)
+}
+
+export async function sendPayoutViaDeltaPayAction(payoutId: string, formData?: FormData) {
+  const { user } = await requireAdminRole(["super_admin", "finance_admin"])
+  const note = formData?.get("note")?.toString().trim() || null
+  try {
+    await sendPayoutViaDeltaPay({ payoutId, actorId: user.id, note })
+  } catch (error) {
+    payoutQueueRedirect({ deltapay_error: error instanceof PayoutSendError ? error.message : "DeltaPay payout failed." })
+  }
+  payoutQueueRedirect({ deltapay: "sent" })
+}
+
+export async function checkDeltaPayPayoutAction(payoutId: string) {
+  const { user } = await requireAdminRole(["super_admin", "finance_admin"])
+  let result: string
+  try {
+    result = await syncDeltaPayPayout(payoutId, user.id)
+  } catch (error) {
+    payoutQueueRedirect({ deltapay_error: error instanceof Error ? error.message : "Couldn't reach DeltaPay." })
+  }
+  payoutQueueRedirect({ deltapay: result })
 }
