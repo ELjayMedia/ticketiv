@@ -46,9 +46,15 @@ type TicketDisplayStatus =
   | "revoked";
 
 interface TicketViewProps {
+  /** A single ticket (shared ticket links, previews). */
   ticket?: TicketData;
-  /** All ticket IDs in the same order, including this one. When provided, dots become navigable links. */
-  siblingIds?: string[];
+  /**
+   * Every ticket in the order, in order. With more than one they stack
+   * vertically, one full screen each: swipe up for the next ticket.
+   */
+  tickets?: TicketData[];
+  /** Which ticket of `tickets` opens first. */
+  initialTicketId?: string;
 }
 
 type TicketData = TicketViewProp;
@@ -87,15 +93,30 @@ const STATUS_BADGE: Record<
   },
 };
 
+function displayStatus(item: TicketData): TicketDisplayStatus {
+  return item.status ?? (item.isValid ? "issued" : "checked_in");
+}
+
 type OfflineUiState = {
   phase: "checking" | "idle" | "saving" | "saved" | "removing" | "error";
   savedAt?: string;
   message?: string;
 };
 
-export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
+export function TicketView({ ticket: singleTicket, tickets, initialTicketId }: TicketViewProps) {
   const router = useRouter();
-  const touchStartX = React.useRef<number | null>(null);
+  const list = React.useMemo(
+    () => (tickets?.length ? tickets : singleTicket ? [singleTicket] : []),
+    [tickets, singleTicket],
+  );
+  const stacked = list.length > 1;
+  const [activeIndex, setActiveIndex] = React.useState(() =>
+    Math.max(0, list.findIndex((item) => item.id === initialTicketId)),
+  );
+  // Sheet, print, send, wallet and offline actions act on the ticket in view.
+  const ticket: TicketData | undefined = list[activeIndex] ?? list[0];
+  const scrollerRef = React.useRef<HTMLDivElement>(null);
+  const sectionRefs = React.useRef<Array<HTMLElement | null>>([]);
   const [walletBusy, setWalletBusy] = React.useState(false);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [celebration, setCelebration] = React.useState<TicketCheckIn | null>(null);
@@ -105,21 +126,50 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
   const [sending, setSending] = React.useState(false);
   const printRef = React.useRef<HTMLDivElement>(null);
   const shareFile = React.useRef<Promise<File> | null>(null);
-  const resolvedStatus: TicketDisplayStatus | null = ticket
-    ? ticket.status ?? (ticket.isValid ? "issued" : "checked_in")
-    : null;
-  const watchedTicketId = ticket?.id ?? null;
-  const watchedEventTitle = ticket?.eventTitle ?? "";
+  const resolvedStatus: TicketDisplayStatus | null = ticket ? displayStatus(ticket) : null;
+  // Watch every valid ticket in the stack: any of them can be scanned.
   const watchedTicketIds = React.useMemo(
-    () => (watchedTicketId && resolvedStatus === "issued" ? [watchedTicketId] : []),
-    [resolvedStatus, watchedTicketId],
+    () => list.filter((item) => displayStatus(item) === "issued").map((item) => item.id),
+    [list],
   );
 
   const handleCheckIn = React.useCallback((checkIn: TicketCheckIn) => {
-    if (!watchedTicketId || !watchedEventTitle || checkIn.ticketId !== watchedTicketId) return;
+    if (!watchedTicketIds.includes(checkIn.ticketId)) return;
     setCelebration(checkIn);
     router.refresh();
-  }, [router, watchedEventTitle, watchedTicketId]);
+  }, [router, watchedTicketIds]);
+
+  // Stack: open on the requested ticket, then follow the one in view.
+  React.useLayoutEffect(() => {
+    if (!stacked) return;
+    sectionRefs.current[activeIndex]?.scrollIntoView({ block: "start" });
+    // Only on mount: later changes come from scrolling.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stacked]);
+
+  React.useEffect(() => {
+    const root = scrollerRef.current;
+    if (!stacked || !root) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const index = sectionRefs.current.indexOf(entry.target as HTMLElement);
+          if (index < 0) continue;
+          setActiveIndex(index);
+          // Keep the URL on the ticket in view (share, reload, back) without a navigation.
+          window.history.replaceState(window.history.state, "", `/tickets/${list[index].id}`);
+        }
+      },
+      { root, threshold: 0.6 },
+    );
+    for (const section of sectionRefs.current) if (section) observer.observe(section);
+    return () => observer.disconnect();
+  }, [stacked, list]);
+
+  function scrollToTicket(index: number) {
+    sectionRefs.current[index]?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   useTicketCheckIns({ ticketIds: watchedTicketIds, onCheckIn: handleCheckIn });
 
@@ -220,24 +270,6 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
     `${ticket.venueName} ${ticket.venueAddress}`
   )}`;
 
-  function handleTouchStart(e: React.TouchEvent) {
-    touchStartX.current = e.touches[0].clientX;
-  }
-
-  function handleTouchEnd(e: React.TouchEvent) {
-    if (touchStartX.current === null) return;
-    const delta = e.changedTouches[0].clientX - touchStartX.current;
-    touchStartX.current = null;
-    if (Math.abs(delta) < 50) return;
-    const currentIndex = siblingIds.indexOf(t.id);
-    if (currentIndex === -1) return;
-    if (delta < 0 && currentIndex < siblingIds.length - 1) {
-      window.location.assign(`/tickets/${siblingIds[currentIndex + 1]}`);
-    } else if (delta > 0 && currentIndex > 0) {
-      window.location.assign(`/tickets/${siblingIds[currentIndex - 1]}`);
-    }
-  }
-
   async function handleSend() {
     if (sending) return;
     setSending(true);
@@ -293,7 +325,7 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
       const result = await removeOfflineTicket({
         ticketId: t.id,
         ownerId: t.offlineOwnerId,
-        siblingIds,
+        siblingIds: list.map((item) => item.id),
       });
       setOfflineState(
         result.ok
@@ -308,7 +340,7 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
       ticketId: t.id,
       ownerId: t.offlineOwnerId,
       expiresAt: t.offlineExpiresAt,
-      siblingIds,
+      siblingIds: list.map((item) => item.id),
     });
     setOfflineState(
       result.ok && result.available
@@ -388,6 +420,164 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
   const when = [ticket.dateLabel.toUpperCase(), ticket.timeLabel].filter(Boolean).join(" · ");
   const refund = canTransferOrResell ? ticket.refundCta : null;
 
+  function renderPanel(item: TicketData, index: number) {
+    const isActive = index === activeIndex;
+    const itemBadge = STATUS_BADGE[displayStatus(item)];
+    const itemCanAct = displayStatus(item) === "issued";
+    const itemWhen = [item.dateLabel.toUpperCase(), item.timeLabel].filter(Boolean).join(" · ");
+    const itemMapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(`${item.venueName} ${item.venueAddress}`)}`;
+    const next = stacked && index < list.length - 1 ? index + 1 : null;
+
+    return (
+        <div className={`mx-auto flex max-w-[440px] flex-col pb-[max(env(safe-area-inset-bottom),16px)] pt-[max(env(safe-area-inset-top),12px)] ${stacked ? "h-dvh" : "min-h-dvh"}`}>
+          {/* Top bar */}
+          <header className="flex items-center gap-2.5 px-4 pb-2.5 pt-1">
+            <Link
+              href="/tickets"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur hover:bg-white/25"
+              aria-label="Back to my tickets"
+            >
+              <Icon name="chevL" size={18} />
+            </Link>
+            <div className="flex flex-1 flex-col text-center leading-tight">
+              <span className="text-[14px] font-semibold">Your ticket</span>
+              <span className="font-mono text-[11px] opacity-75">
+                {item.positionLabel} · #{item.orderNumber}
+              </span>
+            </div>
+            {item.isValid ? (
+              <button
+                type="button"
+                onClick={handleSend}
+                disabled={sending}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur hover:bg-white/25 disabled:opacity-60"
+                aria-label="Send ticket"
+              >
+                <Icon name="share" size={18} />
+              </button>
+            ) : (
+              <span className="h-9 w-9" aria-hidden />
+            )}
+          </header>
+
+          {/* Sharp framed cover */}
+          <div className="px-7 pt-1">
+            <img
+              src={item.eventPhoto}
+              alt={`${item.eventTitle} cover`}
+              className="h-[clamp(96px,calc(100dvh-470px),260px)] w-full rounded-[18px] object-cover shadow-[0_30px_50px_-12px_rgba(0,0,0,0.6)] ring-1 ring-white/15"
+            />
+          </div>
+
+          {/* Title + when/where */}
+          <div className="px-5 pb-3 pt-3.5 text-center">
+            <h1 className="line-clamp-2 text-[28px] font-extrabold leading-[1.05] tracking-[-0.02em]">
+              {item.eventTitle}
+            </h1>
+            <p className="mt-1.5 font-mono text-[12px] font-semibold opacity-90">
+              {itemWhen}
+              {" · "}
+              <a
+                href={itemMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline decoration-white/40 underline-offset-[3px] hover:decoration-white"
+              >
+                {item.venueName.toUpperCase()}
+              </a>
+            </p>
+          </div>
+
+          {/* White stub */}
+          <div className="mx-4 rounded-[20px] bg-surface p-3.5 text-ink shadow-[0_20px_40px_-12px_rgba(0,0,0,0.5)]">
+            {item.isValid ? (
+              <div className="flex items-center gap-3.5">
+                <TicketQrCode
+                  value={item.qrCode}
+                  label={`Ticket QR code for ${item.eventTitle}`}
+                  size={136}
+                  className="shrink-0 rounded-[10px] p-1.5"
+                />
+                <div className="flex min-w-0 flex-col gap-2">
+                  <Chip variant={itemBadge.chip.variant} size="sm" className={`self-start ${itemBadge.chip.className ?? ""}`}>
+                    {itemBadge.headline}
+                  </Chip>
+                  {item.holderName && <StubField label="Holder" value={item.holderName} />}
+                  <StubField label="Ticket" value={item.typeLabel} />
+                  <span className="font-mono text-[11px] tracking-[0.04em] text-ink-3">
+                    #{item.orderNumber} · {shortTicketCode(item.qrCode)}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="py-2 text-center" role="status">
+                <Chip variant={itemBadge.chip.variant} size="sm" className={itemBadge.chip.className}>
+                  {itemBadge.chip.label}
+                </Chip>
+                <p className="mx-auto mt-2 max-w-[280px] text-[15px] font-semibold">{itemBadge.headline}</p>
+                <p className="mx-auto mt-1 max-w-[280px] text-[12px] text-ink-3">{itemBadge.copy}</p>
+              </div>
+            )}
+          </div>
+
+          {/* One status line: offline copy, wallet, send (the ticket in view) */}
+          <div className="min-h-[18px] px-5 pt-2 text-center text-[11px] text-white/75" role="status">
+            {!isActive ? null : notice
+              ?? (offlineState.phase === "error" && offlineState.message
+                ? <span className="text-danger-soft">{offlineState.message}</span>
+                : isSaved
+                  ? (
+                    <span className="inline-flex items-center gap-1">
+                      <Icon name="check" size={12} />
+                      {online ? "Available offline" : "Showing saved offline copy"}
+                      {offlineState.savedAt
+                        ? ` · refreshed ${new Date(offlineState.savedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                        : ""}
+                    </span>
+                  )
+                  : null)}
+          </div>
+
+          {/* Actions — transfer and resell stay one tap away; the rest is in More. */}
+          <div className={`grid gap-2 px-4 pt-2 ${itemCanAct ? "grid-cols-3" : "grid-cols-1"}`}>
+            {itemCanAct && (
+              <>
+                <ActionButton href={`/tickets/${item.id}/transfer`} icon="arrowUR">
+                  Transfer
+                </ActionButton>
+                <ActionButton href={`/tickets/${item.id}/resale`} icon="copy">
+                  Resell
+                </ActionButton>
+              </>
+            )}
+            <ActionButton onClick={() => setMoreOpen(true)} icon="chevU" primary>
+              More
+            </ActionButton>
+          </div>
+
+          {/* Next ticket: swipe up, or tap */}
+          {next !== null ? (
+            <button
+              type="button"
+              onClick={() => scrollToTicket(next)}
+              className="mx-auto mt-auto flex flex-col items-center gap-0.5 pt-3 text-[11px] font-medium text-white/70 hover:text-white"
+            >
+              <Icon name="chevU" size={16} className="animate-bounce" />
+              Swipe up · ticket {next + 1} of {list.length}
+            </button>
+          ) : stacked ? (
+            <button
+              type="button"
+              onClick={() => scrollToTicket(0)}
+              className="mx-auto mt-auto pt-3 text-[11px] font-medium text-white/60 hover:text-white"
+            >
+              Last ticket · back to the first
+            </button>
+          ) : null}
+        </div>
+    );
+  }
+
   return (
     <>
       {/* Print shows only the ticket strip. */}
@@ -406,181 +596,70 @@ export function TicketView({ ticket, siblingIds = [] }: TicketViewProps) {
           checkedInAt={celebration.checkedInAt}
           onComplete={() => {
             setCelebration(null);
-            router.replace(`/tickets?tab=past&checkedIn=${encodeURIComponent(t.id)}`);
+            router.replace(`/tickets?tab=past&checkedIn=${encodeURIComponent(celebration.ticketId)}`);
           }}
         />
       )}
 
-      <div
-        className="relative isolate min-h-dvh overflow-hidden bg-ink text-white print:hidden"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
-        {/* Blurred cover fills the screen behind everything. */}
+      <div className="relative isolate min-h-dvh overflow-hidden bg-ink text-white print:hidden">
+        {/* Blurred cover fills the screen behind everything (one event per order). */}
         <img
           src={ticket.eventPhoto}
           alt=""
           aria-hidden
-          className="pointer-events-none absolute inset-0 -z-20 h-full w-full scale-125 object-cover blur-[36px] saturate-150"
+          className="pointer-events-none fixed inset-0 -z-20 h-full w-full scale-125 object-cover blur-[36px] saturate-150"
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(10,10,12,0.35),rgba(10,10,12,0.55)_55%,rgba(10,10,12,0.88))]"
+          className="pointer-events-none fixed inset-0 -z-10 bg-[linear-gradient(180deg,rgba(10,10,12,0.35),rgba(10,10,12,0.55)_55%,rgba(10,10,12,0.88))]"
         />
 
-        <div className="mx-auto flex min-h-dvh max-w-[440px] flex-col pb-[max(env(safe-area-inset-bottom),16px)] pt-[max(env(safe-area-inset-top),12px)]">
-          {/* Top bar */}
-          <header className="flex items-center gap-2.5 px-4 pb-2.5 pt-1">
-            <Link
-              href="/tickets"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur hover:bg-white/25"
-              aria-label="Back to my tickets"
+        {stacked ? (
+          <>
+            {/* One ticket per screen; swipe up for the next (scroll snaps). */}
+            <div
+              ref={scrollerRef}
+              className="h-dvh snap-y snap-mandatory overflow-y-auto overscroll-y-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              aria-label={`${list.length} tickets in this order`}
             >
-              <Icon name="chevL" size={18} />
-            </Link>
-            <div className="flex flex-1 flex-col text-center leading-tight">
-              <span className="text-[14px] font-semibold">Your ticket</span>
-              <span className="font-mono text-[11px] opacity-75">
-                {ticket.positionLabel} · #{ticket.orderNumber}
-              </span>
+              {list.map((item, index) => (
+                <section
+                  key={item.id}
+                  ref={(el) => {
+                    sectionRefs.current[index] = el;
+                  }}
+                  className="h-dvh snap-start snap-always"
+                  aria-label={`Ticket ${index + 1} of ${list.length}`}
+                >
+                  {renderPanel(item, index)}
+                </section>
+              ))}
             </div>
-            {ticket.isValid ? (
-              <button
-                type="button"
-                onClick={handleSend}
-                disabled={sending}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur hover:bg-white/25 disabled:opacity-60"
-                aria-label="Send ticket"
-              >
-                <Icon name="share" size={18} />
-              </button>
-            ) : (
-              <span className="h-9 w-9" aria-hidden />
-            )}
-          </header>
 
-          {/* Sharp framed cover */}
-          <div className="px-7 pt-1">
-            <img
-              src={ticket.eventPhoto}
-              alt={`${ticket.eventTitle} cover`}
-              className="h-[clamp(96px,calc(100dvh-470px),260px)] w-full rounded-[18px] object-cover shadow-[0_30px_50px_-12px_rgba(0,0,0,0.6)] ring-1 ring-white/15"
-            />
-          </div>
-
-          {/* Title + when/where */}
-          <div className="px-5 pb-3 pt-3.5 text-center">
-            <h1 className="line-clamp-2 text-[28px] font-extrabold leading-[1.05] tracking-[-0.02em]">
-              {ticket.eventTitle}
-            </h1>
-            <p className="mt-1.5 font-mono text-[12px] font-semibold opacity-90">
-              {when}
-              {" · "}
-              <a
-                href={mapsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline decoration-white/40 underline-offset-[3px] hover:decoration-white"
-              >
-                {ticket.venueName.toUpperCase()}
-              </a>
-            </p>
-          </div>
-
-          {/* White stub */}
-          <div className="mx-4 rounded-[20px] bg-surface p-3.5 text-ink shadow-[0_20px_40px_-12px_rgba(0,0,0,0.5)]">
-            {ticket.isValid ? (
-              <div className="flex items-center gap-3.5">
-                <TicketQrCode
-                  value={ticket.qrCode}
-                  label={`Ticket QR code for ${ticket.eventTitle}`}
-                  size={136}
-                  className="shrink-0 rounded-[10px] p-1.5"
+            {/* Position rail */}
+            <nav
+              aria-label="Tickets in this order"
+              className="fixed right-1.5 top-[28%] z-10 flex -translate-y-1/2 flex-col items-center gap-1.5 rounded-full bg-black/25 px-1 py-2 backdrop-blur"
+            >
+              {list.map((item, index) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => scrollToTicket(index)}
+                  aria-label={`Ticket ${index + 1} of ${list.length}`}
+                  aria-current={index === activeIndex ? "true" : undefined}
+                  className={
+                    index === activeIndex
+                      ? "h-6 w-1.5 rounded-full bg-white transition-all"
+                      : "h-1.5 w-1.5 rounded-full bg-white/40 transition-all hover:bg-white/70"
+                  }
                 />
-                <div className="flex min-w-0 flex-col gap-2">
-                  <Chip variant={badge.chip.variant} size="sm" className={`self-start ${badge.chip.className ?? ""}`}>
-                    {badge.headline}
-                  </Chip>
-                  {ticket.holderName && <StubField label="Holder" value={ticket.holderName} />}
-                  <StubField label="Ticket" value={ticket.typeLabel} />
-                  <span className="font-mono text-[11px] tracking-[0.04em] text-ink-3">
-                    #{ticket.orderNumber} · {shortTicketCode(ticket.qrCode)}
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div className="py-2 text-center" role="status">
-                <Chip variant={badge.chip.variant} size="sm" className={badge.chip.className}>
-                  {badge.chip.label}
-                </Chip>
-                <p className="mx-auto mt-2 max-w-[280px] text-[15px] font-semibold">{badge.headline}</p>
-                <p className="mx-auto mt-1 max-w-[280px] text-[12px] text-ink-3">{badge.copy}</p>
-              </div>
-            )}
-          </div>
-
-          {/* One status line: offline copy, wallet, send */}
-          <div className="min-h-[18px] px-5 pt-2 text-center text-[11px] text-white/75" role="status">
-            {notice
-              ?? (offlineState.phase === "error" && offlineState.message
-                ? <span className="text-danger-soft">{offlineState.message}</span>
-                : isSaved
-                  ? (
-                    <span className="inline-flex items-center gap-1">
-                      <Icon name="check" size={12} />
-                      {online ? "Available offline" : "Showing saved offline copy"}
-                      {offlineState.savedAt
-                        ? ` · refreshed ${new Date(offlineState.savedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-                        : ""}
-                    </span>
-                  )
-                  : null)}
-          </div>
-
-          {/* Actions — transfer and resell stay one tap away; the rest is in More. */}
-          <div className={`grid gap-2 px-4 pt-2 ${canTransferOrResell ? "grid-cols-3" : "grid-cols-1"}`}>
-            {canTransferOrResell && (
-              <>
-                <ActionButton href={`/tickets/${ticket.id}/transfer`} icon="arrowUR">
-                  Transfer
-                </ActionButton>
-                <ActionButton href={`/tickets/${ticket.id}/resale`} icon="copy">
-                  Resell
-                </ActionButton>
-              </>
-            )}
-            <ActionButton onClick={() => setMoreOpen(true)} icon="chevU" primary>
-              More
-            </ActionButton>
-          </div>
-
-          {/* Pagination dots */}
-          {ticket.totalInOrder > 1 && (
-            <div className="flex items-center justify-center gap-1.5 pt-4">
-              {siblingIds.length > 1 ? (
-                siblingIds.map((id, i) => (
-                  <a
-                    key={id}
-                    href={`/tickets/${id}`}
-                    aria-label={`Ticket ${i + 1} of ${siblingIds.length}`}
-                    className={
-                      id === ticket.id
-                        ? "h-1.5 w-6 rounded-full bg-white transition-all"
-                        : "h-1.5 w-1.5 rounded-full bg-white/35 transition-all hover:bg-white/60"
-                    }
-                  />
-                ))
-              ) : (
-                <>
-                  <span className="h-1.5 w-6 rounded-full bg-white" />
-                  {Array.from({ length: ticket.totalInOrder - 1 }).map((_, i) => (
-                    <span key={i} className="h-1.5 w-1.5 rounded-full bg-white/35" />
-                  ))}
-                </>
-              )}
-            </div>
-          )}
-        </div>
+              ))}
+            </nav>
+          </>
+        ) : (
+          renderPanel(ticket, 0)
+        )}
       </div>
 
       {/* More sheet */}
