@@ -71,6 +71,9 @@ test.describe("seeded guest checkout → hosted payment handoff", () => {
   )
 
   test("creates checkout state and initializes the payment provider", async ({ page }) => {
+    // Event page → picker → seat hold → checkout → provider initialization is
+    // several server round trips against the seeded UAT project.
+    test.setTimeout(90_000)
     expect(missing, "Seeded checkout environment must be complete.").toEqual([])
 
     const eventSlug = process.env.E2E_TEST_EVENT_SLUG!
@@ -138,9 +141,22 @@ test.describe("seeded guest checkout → hosted payment handoff", () => {
     await expect(paymentCta).toBeEnabled({ timeout: 10_000 })
     await paymentCta.click()
 
-    await expect(page).toHaveURL(
-      /checkout\.paystack\.com|\/orders\/[^/]+\/confirmation/,
-      { timeout: 30_000 },
-    )
+    // startCheckoutAction either redirects (provider checkout or free-order
+    // confirmation) or shows its error in an alert. Report that error instead
+    // of a bare URL timeout, so a CI failure names the server-side cause.
+    const handoff = /checkout\.paystack\.com|\/orders\/[^/]+\/confirmation/
+    let outcome = "waiting"
+    await expect
+      .poll(
+        async () => {
+          if (handoff.test(page.url())) return (outcome = "redirected")
+          const alert = page.locator('[role="alert"]:visible').first()
+          if (await alert.count()) return (outcome = `checkout error: ${(await alert.innerText()).trim()}`)
+          return (outcome = "waiting")
+        },
+        { timeout: 25_000, message: "payment handoff should redirect or show a checkout error" },
+      )
+      .not.toBe("waiting")
+    expect(outcome, "payment handoff must reach the provider without a checkout error").toBe("redirected")
   })
 })
