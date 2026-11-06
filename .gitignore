@@ -60,3 +60,6 @@ yarn-error.log*
 
 # Google Play listing exports (CI artifact; review before copying into store-listing/)
 /play-listing-export/
+
+# Playwright run output
+test-results/
