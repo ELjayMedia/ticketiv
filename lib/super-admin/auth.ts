@@ -2,16 +2,14 @@ import "server-only"
 
 import { redirect } from "next/navigation"
 
+import { getAuthUser } from "@/lib/auth/session"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
 
 type AdminRoleTier = "super_admin" | "finance_admin" | "support_admin" | "event_ops_admin" | "read_only_admin"
 
 export async function requireSuperAdmin() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Verified once per request (layouts and pages both call this).
+  const user = await getAuthUser()
 
   if (!user) {
     redirect("/super-admin/login")
