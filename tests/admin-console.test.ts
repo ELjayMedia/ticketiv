@@ -9,9 +9,12 @@ const mocks = vi.hoisted(() => ({
   updates: [] as Array<{ table: string; row: any }>,
   rows: {} as Record<string, any>,
   rpc: vi.fn(),
+  initiateRefund: vi.fn(),
 }))
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
+vi.mock("next/navigation", () => ({ redirect: vi.fn(() => { throw new Error("NEXT_REDIRECT") }) }))
+vi.mock("@/lib/payments/refunds", () => ({ initiateRefund: mocks.initiateRefund }))
 vi.mock("@/lib/notifications/ticket-delivery", () => ({ deliverTicketsForOrder: mocks.deliver }))
 vi.mock("@/lib/notifications/channels/email", () => ({ sendEmail: vi.fn(async () => ({ status: "sent", ref: "x", provider: "resend" })) }))
 vi.mock("@/lib/super-admin/auth", async () => {
@@ -47,12 +50,26 @@ vi.mock("@/lib/supabase/admin", () => {
 })
 
 import {
+  approveRefundAction,
   changeBuyerEmailAction,
+  pauseSalesAction,
   reissueTicketAction,
   resendTicketsAction,
+  startViewAsAction,
 } from "@/app/super-admin/console-actions"
+import { attendeeTicketState } from "@/lib/data/admin/console-ops"
 import { supportReferenceRow, createPaymentChannelUnavailableError } from "@/lib/payments/errors"
-import { canDo, classifySearch, IDLE_RESULT, normalizeEmail, reasonProblem } from "@/lib/super-admin/console"
+import {
+  canDo,
+  classifySearch,
+  IDLE_RESULT,
+  normalizeEmail,
+  parseQueueItemKey,
+  queueItemKey,
+  reasonProblem,
+  scannerIsOffline,
+  undeliveredOrders,
+} from "@/lib/super-admin/console"
 
 const ORDER = "22222222-2222-4222-8222-222222222222"
 const ITEM = "33333333-3333-4333-8333-333333333333"
@@ -184,7 +201,7 @@ describe("console guards", () => {
     expect(actions.length).toBeGreaterThanOrEqual(11)
     for (const name of actions) {
       const body = source.slice(source.indexOf(`export async function ${name}(`)).split("\nexport async function ")[0]
-      expect(body, name).toMatch(/await gate\("\w+", formData/)
+      expect(body, name).toMatch(/await gate\("\w+", formData|return setSales\(formData/)
     }
   })
 
@@ -193,5 +210,102 @@ describe("console guards", () => {
     expect(shell).toContain('action="/super-admin/search"')
     expect(shell).toContain('ownerOnly: true')
     expect(read("app/super-admin/team/page.tsx")).toContain('requireAdminRole(["super_admin"])')
+  })
+})
+
+describe("phase 2: queues", () => {
+  it("keys queue items and rejects anything else", () => {
+    expect(queueItemKey("refunds", ORDER)).toBe(`refunds:${ORDER}`)
+    expect(parseQueueItemKey(`refunds:${ORDER}`)).toEqual({ queue: "refunds", recordId: ORDER })
+    expect(parseQueueItemKey("payments:PAY-1A2B3C4D")).toEqual({ queue: "payments", recordId: "PAY-1A2B3C4D" })
+    expect(parseQueueItemKey("users:1")).toBeNull()
+    expect(parseQueueItemKey("refunds:")).toBeNull()
+    expect(parseQueueItemKey(42)).toBeNull()
+  })
+
+  it("calls a scanner offline after 15 quiet minutes", () => {
+    const now = new Date("2026-11-07T18:00:00Z")
+    expect(scannerIsOffline("2026-11-07T17:50:00Z", now)).toBe(false)
+    expect(scannerIsOffline("2026-11-07T17:40:00Z", now)).toBe(true)
+    expect(scannerIsOffline(null, now)).toBe(true)
+  })
+
+  it("only lists orders whose tickets never went out", () => {
+    const rows = [
+      { order_id: "a", status: "failed", created_at: "2026-11-07T10:00:00Z" },
+      { order_id: "a", status: "sent", created_at: "2026-11-07T10:05:00Z" },
+      { order_id: "b", status: "failed", created_at: "2026-11-07T09:00:00Z" },
+      { order_id: "b", status: "failed", created_at: "2026-11-07T11:00:00Z" },
+      { order_id: "c", status: "skipped", created_at: "2026-11-07T11:00:00Z" },
+      { order_id: null, status: "failed", created_at: "2026-11-07T11:00:00Z" },
+    ]
+    expect(undeliveredOrders(rows)).toEqual([{ orderId: "b", lastFailureAt: "2026-11-07T11:00:00Z" }])
+  })
+
+  it("shows tickets in the words the attendee sees", () => {
+    expect(attendeeTicketState({ status: "issued" })).toBe("valid")
+    expect(attendeeTicketState({ status: "issued", checked_in_at: "x" })).toBe("used")
+    expect(attendeeTicketState({ status: "issued", refunded_at: "x" })).toBe("refunded")
+    expect(attendeeTicketState({ status: "revoked" })).toBe("cancelled")
+    expect(attendeeTicketState({ status: "pending" })).toBe("pending")
+  })
+})
+
+describe("phase 2: money and access", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.inserts.length = 0
+    mocks.updates.length = 0
+    mocks.rows = {}
+  })
+
+  it("lets only the owner approve a refund, and only once", async () => {
+    const REFUND = "44444444-4444-4444-8444-444444444444"
+    mocks.context.role = "support_admin"
+    expect((await approveRefundAction(IDLE_RESULT, form({ refundId: REFUND, reason: "Event moved, buyer can't come" }))).status).toBe("error")
+    mocks.context.role = "finance_admin"
+    expect((await approveRefundAction(IDLE_RESULT, form({ refundId: REFUND, reason: "Event moved, buyer can't come" }))).status).toBe("error")
+    expect(mocks.initiateRefund).not.toHaveBeenCalled()
+
+    mocks.context.role = "super_admin"
+    mocks.rows.refunds = { id: REFUND, status: "processing", amount_cents: 35000, currency: "SZL", payments: { order_id: ORDER, orders: { org_id: null } } }
+    expect(await approveRefundAction(IDLE_RESULT, form({ refundId: REFUND, reason: "Event moved, buyer can't come" }))).toEqual({
+      status: "error",
+      message: "This refund is already processing.",
+    })
+
+    mocks.rows.refunds = { ...mocks.rows.refunds, status: "requested" }
+    mocks.initiateRefund.mockResolvedValue({ ok: true, refundId: REFUND, provider: "paystack", mode: "automatic", status: "processing" })
+    const ok = await approveRefundAction(IDLE_RESULT, form({ refundId: REFUND, reason: "Event moved, buyer can't come" }))
+    expect(ok).toMatchObject({ status: "done", message: expect.stringContaining("sent to paystack") })
+    expect(mocks.initiateRefund).toHaveBeenCalledWith(REFUND)
+    expect(mocks.inserts.find((i) => i.table === "audit_log")!.row.changes).toMatchObject({ action: "approve_refund", order_id: ORDER })
+  })
+
+  it("keeps pausing sales to event ops and the owner, with a reason", async () => {
+    mocks.context.role = "support_admin"
+    expect((await pauseSalesAction(IDLE_RESULT, form({ ticketTypeId: ITEM, reason: "Venue capacity was reduced" }))).status).toBe("error")
+    mocks.context.role = "event_ops_admin"
+    expect((await pauseSalesAction(IDLE_RESULT, form({ ticketTypeId: ITEM, reason: "short" }))).status).toBe("error")
+    mocks.rows.ticket_types = { id: ITEM, name: "General", event_id: ORDER, sales_status: "on_sale", events: { org_id: null } }
+    expect((await pauseSalesAction(IDLE_RESULT, form({ ticketTypeId: ITEM, reason: "Venue capacity was reduced" }))).status).toBe("done")
+    expect(mocks.updates[0]).toMatchObject({ table: "ticket_types", row: { sales_status: "paused", sales_pause_reason: "Venue capacity was reduced" } })
+  })
+
+  it("starts View as only with a reason, and logs it before showing anything", async () => {
+    mocks.context.role = "support_admin"
+    expect((await startViewAsAction(IDLE_RESULT, form({ userId: ORDER, reason: "" }))).status).toBe("error")
+    mocks.rows.audit_log = { id: "55555555-5555-4555-8555-555555555555" }
+    await expect(startViewAsAction(IDLE_RESULT, form({ userId: ORDER, reason: "Buyer can't find their ticket" }))).rejects.toThrow("NEXT_REDIRECT")
+    const logged = mocks.inserts.find((i) => i.table === "audit_log")!.row
+    expect(logged).toMatchObject({ record_id: ORDER, changes: { action: "view_as", reason: "Buyer can't find their ticket" } })
+    mocks.context.role = "finance_admin"
+    expect((await startViewAsAction(IDLE_RESULT, form({ userId: ORDER, reason: "Buyer can't find their ticket" }))).status).toBe("error")
+  })
+
+  it("keeps queue claims away from browsers", () => {
+    const sql = read("supabase/migrations/20261107100000_admin_console_phase2.sql")
+    expect(sql).toContain("alter table public.admin_queue_claims enable row level security;")
+    expect(sql).toContain("revoke all on public.admin_queue_claims from anon, authenticated;")
   })
 })

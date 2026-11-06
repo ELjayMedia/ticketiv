@@ -55,7 +55,7 @@ interface OrderSearchRow {
   matched_ticket_code: string | null
 }
 
-function untyped(admin: Admin) {
+export function untyped(admin: Admin) {
   return admin as unknown as {
     from: (table: string) => any
     rpc: (fn: string, args: Record<string, unknown>) => any
@@ -169,7 +169,7 @@ export async function searchConsole(rawQuery: string): Promise<ConsoleSearchResu
       detail: event.starts_at ? new Date(event.starts_at).toLocaleString("en-SZ", { dateStyle: "medium", timeStyle: "short" }) : "No date",
       status: event.status,
       tone: "muted",
-      href: `/super-admin/events/${event.id}`,
+      href: `/super-admin/event/${event.id}`,
     })
   }
 
@@ -180,7 +180,7 @@ export async function searchConsole(rawQuery: string): Promise<ConsoleSearchResu
       detail: org.slug ? `/${org.slug}` : "Organizer",
       status: null,
       tone: "muted",
-      href: `/super-admin/organizations/${org.id}`,
+      href: `/super-admin/organizer/${org.id}`,
     })
   }
 
@@ -558,7 +558,7 @@ export async function listAdminTeam(): Promise<AdminTeamMember[]> {
 
 // ---------------------------------------------------------------------------
 
-async function loadNotes(admin: Admin, subjectType: AdminNote["subject_type"], subjectId: string): Promise<AdminNote[]> {
+export async function loadNotes(admin: Admin, subjectType: AdminNote["subject_type"], subjectId: string): Promise<AdminNote[]> {
   const { data } = await untyped(admin)
     .from("admin_notes")
     .select("id, subject_type, subject_id, author_id, body, created_at")
@@ -569,7 +569,7 @@ async function loadNotes(admin: Admin, subjectType: AdminNote["subject_type"], s
   return (data ?? []) as AdminNote[]
 }
 
-async function emailsFor(admin: Admin, ids: Array<string | null | undefined>): Promise<Map<string, string>> {
+export async function emailsFor(admin: Admin, ids: Array<string | null | undefined>): Promise<Map<string, string>> {
   const unique = Array.from(new Set(ids.filter((id): id is string => Boolean(id)))).slice(0, 20)
   const results = await Promise.all(unique.map((id) => admin.auth.admin.getUserById(id)))
   const map = new Map<string, string>()

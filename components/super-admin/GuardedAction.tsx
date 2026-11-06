@@ -179,7 +179,7 @@ export function GuardedAction({
 }
 
 /** Internal notes on an order or person. */
-export function NoteForm({ action, subjectType, subjectId }: { action: ServerAction; subjectType: "order" | "person"; subjectId: string }) {
+export function NoteForm({ action, subjectType, subjectId }: { action: ServerAction; subjectType: "order" | "person" | "event" | "organization"; subjectId: string }) {
   const [body, setBody] = useState("")
   const [state, formAction, pending] = useActionState(async (prev: ConsoleActionResult, formData: FormData) => {
     const result = await action(prev, formData)

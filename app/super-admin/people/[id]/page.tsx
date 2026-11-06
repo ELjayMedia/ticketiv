@@ -27,13 +27,25 @@ export default async function AdminPersonPage({ params }: { params: Promise<{ id
       <Crumbs items={[{ label: "Search", href: "/super-admin/search" }, { label: person.name }]} />
 
       <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">{person.name}</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">{person.name}</h1>
+          {canDo("view_as", role) && !isSelf ? (
+            <Link
+              href={`/super-admin/people/${person.id}/view-as`}
+              className="inline-flex min-h-[40px] items-center rounded-[var(--radius)] border border-line-2 bg-surface px-4 text-sm font-semibold text-ink hover:bg-bg"
+            >
+              View as this person
+            </Link>
+          ) : null}
+        </div>
         <div className="flex flex-wrap gap-2">
           {person.orders.length ? <Pill>Attendee</Pill> : null}
           {person.memberships.map((m) => (
-            <Pill key={m.orgId}>
-              {m.role.replace(/_/g, " ")} at {m.orgName}
-            </Pill>
+            <Link key={m.orgId} href={`/super-admin/organizer/${m.orgId}`} className="hover:opacity-80">
+              <Pill>
+                {m.role.replace(/_/g, " ")} at {m.orgName}
+              </Pill>
+            </Link>
           ))}
           {person.adminRole ? <Pill tone="accent">Admin: {ADMIN_ROLE_LABELS[person.adminRole as AdminRoleTier] ?? person.adminRole}</Pill> : null}
           {!person.emailConfirmed ? <Pill tone="warning">Email not confirmed</Pill> : null}

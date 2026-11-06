@@ -33,6 +33,10 @@ export type ConsoleAction =
   | "sign_out_everywhere"
   | "add_note"
   | "manage_team"
+  | "approve_refund"
+  | "pause_sales"
+  | "take_queue_item"
+  | "view_as"
 
 export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   resend_tickets: ["super_admin", "support_admin", "event_ops_admin"],
@@ -43,6 +47,11 @@ export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   sign_out_everywhere: ["super_admin", "support_admin"],
   add_note: ["super_admin", "support_admin", "finance_admin", "event_ops_admin"],
   manage_team: ["super_admin"],
+  // Money leaves the wallet: only the owner approves, whoever asked.
+  approve_refund: ["super_admin"],
+  pause_sales: ["super_admin", "event_ops_admin"],
+  take_queue_item: ["super_admin", "support_admin", "finance_admin", "event_ops_admin"],
+  view_as: ["super_admin", "support_admin"],
 }
 
 /** Actions that change something and so must carry a reason in the audit log. */
@@ -53,6 +62,8 @@ export const REASON_REQUIRED: ReadonlySet<ConsoleAction> = new Set([
   "request_refund",
   "send_password_reset",
   "sign_out_everywhere",
+  "approve_refund",
+  "pause_sales",
 ])
 
 export const MIN_REASON_LENGTH = 10
@@ -111,3 +122,57 @@ export function formatMoney(cents: number | null | undefined, currency: string |
 export type ConsoleActionResult = { status: "idle" } | { status: "done"; message: string } | { status: "error"; message: string }
 
 export const IDLE_RESULT: ConsoleActionResult = { status: "idle" }
+
+// ---------------------------------------------------------------------------
+// Work queues (phase 2)
+
+export type QueueKey = "payments" | "delivery" | "refunds" | "payouts" | "reconciliation" | "scanners"
+
+export const QUEUES: Array<{ key: QueueKey; label: string; team: "Support" | "Money" | "Events" }> = [
+  { key: "payments", label: "Payment errors", team: "Support" },
+  { key: "delivery", label: "Tickets not delivered", team: "Support" },
+  { key: "refunds", label: "Refunds to approve", team: "Money" },
+  { key: "payouts", label: "Payouts to send", team: "Money" },
+  { key: "reconciliation", label: "Reconciliation issues", team: "Money" },
+  { key: "scanners", label: "Scanners offline", team: "Events" },
+]
+
+/** Stable key for a queue item, also the primary key of admin_queue_claims. */
+export function queueItemKey(queue: QueueKey, recordId: string): string {
+  return `${queue}:${recordId}`
+}
+
+export function parseQueueItemKey(value: unknown): { queue: QueueKey; recordId: string } | null {
+  if (typeof value !== "string") return null
+  const [queue, ...rest] = value.split(":")
+  const recordId = rest.join(":")
+  if (!QUEUES.some((q) => q.key === queue) || !recordId || recordId.length > 180) return null
+  return { queue: queue as QueueKey, recordId }
+}
+
+/** A scanner is offline when it hasn't checked in for this long while its event is close or running. */
+export const SCANNER_OFFLINE_MINUTES = 15
+
+export function scannerIsOffline(lastSeenAt: string | null, now: Date, minutes = SCANNER_OFFLINE_MINUTES): boolean {
+  if (!lastSeenAt) return true
+  return now.getTime() - new Date(lastSeenAt).getTime() > minutes * 60 * 1000
+}
+
+/**
+ * Ticket emails that failed and were never delivered later on any channel.
+ * Input rows are notifications for ticket_issued; returns order ids still undelivered.
+ */
+export function undeliveredOrders(rows: Array<{ order_id: string | null; status: string; created_at: string }>): Array<{ orderId: string; lastFailureAt: string }> {
+  const byOrder = new Map<string, { sent: boolean; lastFailureAt: string | null }>()
+  for (const row of rows) {
+    if (!row.order_id) continue
+    const entry = byOrder.get(row.order_id) ?? { sent: false, lastFailureAt: null }
+    if (row.status === "sent") entry.sent = true
+    if (row.status === "failed" && (!entry.lastFailureAt || row.created_at > entry.lastFailureAt)) entry.lastFailureAt = row.created_at
+    byOrder.set(row.order_id, entry)
+  }
+  return [...byOrder.entries()]
+    .filter(([, entry]) => !entry.sent && entry.lastFailureAt)
+    .map(([orderId, entry]) => ({ orderId, lastFailureAt: entry.lastFailureAt! }))
+    .sort((a, b) => b.lastFailureAt.localeCompare(a.lastFailureAt))
+}

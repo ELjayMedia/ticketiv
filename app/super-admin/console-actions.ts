@@ -1,8 +1,11 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
 
 import { deliverTicketsForOrder } from "@/lib/notifications/ticket-delivery"
+import { initiateRefund } from "@/lib/payments/refunds"
+import { recordViewAs } from "@/lib/data/admin/console-ops"
 import { sendEmail } from "@/lib/notifications/channels/email"
 import { buildTicketivPublicUrl } from "@/lib/public-url"
 import { adminForAction } from "@/lib/super-admin/auth"
@@ -11,6 +14,7 @@ import {
   formatMoney,
   isUuid,
   normalizeEmail,
+  parseQueueItemKey,
   reasonProblem,
   type AdminRoleTier,
   type ConsoleAction,
@@ -340,13 +344,20 @@ export async function signOutEverywhereAction(_prev: ConsoleActionResult, formDa
 // --------------------------------------------------------------------------
 // Notes
 
+const NOTE_PATHS: Record<string, string> = {
+  order: "/super-admin/order",
+  person: "/super-admin/people",
+  event: "/super-admin/event",
+  organization: "/super-admin/organizer",
+}
+
 export async function addNoteAction(_prev: ConsoleActionResult, formData: FormData): Promise<ConsoleActionResult> {
   const g = await gate("add_note", formData, false)
   if (!g.ok) return g.error
   const subjectType = field(formData, "subjectType")
   const subjectId = field(formData, "subjectId")
   const body = field(formData, "body")
-  if (!["order", "person"].includes(subjectType) || !isUuid(subjectId)) return fail("Nothing to attach the note to.")
+  if (!["order", "person", "event", "organization"].includes(subjectType) || !isUuid(subjectId)) return fail("Nothing to attach the note to.")
   if (!body) return fail("Write the note first.")
   if (body.length > 4000) return fail("Keep notes under 4,000 characters.")
 
@@ -359,7 +370,7 @@ export async function addNoteAction(_prev: ConsoleActionResult, formData: FormDa
   })
   if (error) return fail(`Couldn't save the note: ${error.message}`)
 
-  revalidatePath(subjectType === "order" ? `/super-admin/order/${subjectId}` : `/super-admin/people/${subjectId}`)
+  revalidatePath(`${NOTE_PATHS[subjectType]}/${subjectId}`)
   return done("Note added.")
 }
 
@@ -516,4 +527,174 @@ export async function removeAdminAccessAction(_prev: ConsoleActionResult, formDa
   })
   revalidatePath("/super-admin/team")
   return done("Access removed. Their account still works on the public site.")
+}
+
+// --------------------------------------------------------------------------
+// Phase 2: work queues
+
+export async function takeQueueItemAction(_prev: ConsoleActionResult, formData: FormData): Promise<ConsoleActionResult> {
+  const g = await gate("take_queue_item", formData, false)
+  if (!g.ok) return g.error
+  const itemKey = field(formData, "itemKey")
+  if (!parseQueueItemKey(itemKey)) return fail("That item is no longer in a queue.")
+  const db = g.admin as unknown as { from: (table: string) => any }
+
+  const { data: existing } = await db.from("admin_queue_claims").select("admin_id").eq("item_key", itemKey).maybeSingle()
+  if (field(formData, "release") === "1") {
+    if (existing?.admin_id !== g.context.user.id) return fail("Only the person who took it can let it go.")
+    await db.from("admin_queue_claims").delete().eq("item_key", itemKey)
+    revalidatePath("/super-admin")
+    return done("Released.")
+  }
+  if (existing) return fail(existing.admin_id === g.context.user.id ? "It's already yours." : "Someone else has taken this one.")
+
+  const { error } = await db.from("admin_queue_claims").insert({ item_key: itemKey, admin_id: g.context.user.id })
+  if (error) return fail(error.code === "23505" ? "Someone else has just taken this one." : `Couldn't take it: ${error.message}`)
+  revalidatePath("/super-admin")
+  return done("It's yours.")
+}
+
+// --------------------------------------------------------------------------
+// Phase 2: money approvals (owner only)
+
+async function loadRequestedRefund(admin: Admin, refundId: string) {
+  if (!isUuid(refundId)) return null
+  const { data } = await admin
+    .from("refunds")
+    .select("id, status, amount_cents, currency, payments(order_id, orders(org_id))")
+    .eq("id", refundId)
+    .maybeSingle()
+  if (!data) return null
+  const payment = (data as any).payments
+  return {
+    id: data.id,
+    status: data.status,
+    amountCents: data.amount_cents,
+    currency: data.currency,
+    orderId: (payment?.order_id as string | undefined) ?? null,
+    orgId: (payment?.orders?.org_id as string | undefined) ?? null,
+  }
+}
+
+export async function approveRefundAction(_prev: ConsoleActionResult, formData: FormData): Promise<ConsoleActionResult> {
+  const g = await gate("approve_refund", formData)
+  if (!g.ok) return g.error
+  const refund = await loadRequestedRefund(g.admin, field(formData, "refundId"))
+  if (!refund) return fail("Refund not found.")
+  if (refund.status !== "requested") return fail(`This refund is already ${refund.status}.`)
+
+  let message: string
+  try {
+    const result = await initiateRefund(refund.id)
+    message =
+      result.mode === "automatic"
+        ? `Approved. ${formatMoney(refund.amountCents, refund.currency)} was sent to ${result.provider} for refund; the status updates when the provider confirms.`
+        : `Approved. ${result.provider} refunds are done by hand: refund ${formatMoney(refund.amountCents, refund.currency)} with the provider, then record its reference on the refund.`
+  } catch (error) {
+    const text = error instanceof Error ? error.message : "unknown error"
+    await audit(g.admin, g.context.user.id, {
+      action: "approve_refund",
+      table: "refunds",
+      recordId: refund.orderId ?? refund.id,
+      orgId: refund.orgId,
+      summary: "Refund approval failed",
+      reason: g.reason,
+      details: { order_id: refund.orderId, refund_id: refund.id, error: text },
+    })
+    return fail(`The provider refused the refund: ${text}`)
+  }
+
+  await audit(g.admin, g.context.user.id, {
+    action: "approve_refund",
+    table: "refunds",
+    recordId: refund.orderId ?? refund.id,
+    orgId: refund.orgId,
+    summary: `Refund of ${formatMoney(refund.amountCents, refund.currency)} approved`,
+    reason: g.reason,
+    details: { order_id: refund.orderId, refund_id: refund.id },
+  })
+  if (refund.orderId) revalidateOrder(refund.orderId)
+  revalidatePath("/super-admin")
+  return done(message)
+}
+
+export async function declineRefundAction(_prev: ConsoleActionResult, formData: FormData): Promise<ConsoleActionResult> {
+  const g = await gate("approve_refund", formData)
+  if (!g.ok) return g.error
+  const refund = await loadRequestedRefund(g.admin, field(formData, "refundId"))
+  if (!refund) return fail("Refund not found.")
+  if (refund.status !== "requested") return fail(`This refund is already ${refund.status}.`)
+
+  const { error } = await g.admin.rpc("fn_transition_refund", { p_refund_id: refund.id, p_new_status: "cancelled" })
+  if (error) return fail(`Couldn't decline it: ${error.message}`)
+
+  await audit(g.admin, g.context.user.id, {
+    action: "approve_refund",
+    table: "refunds",
+    recordId: refund.orderId ?? refund.id,
+    orgId: refund.orgId,
+    summary: `Refund of ${formatMoney(refund.amountCents, refund.currency)} declined`,
+    reason: g.reason,
+    details: { order_id: refund.orderId, refund_id: refund.id },
+  })
+  if (refund.orderId) revalidateOrder(refund.orderId)
+  revalidatePath("/super-admin")
+  return done("Declined. No money moved. Let the buyer know why.")
+}
+
+// --------------------------------------------------------------------------
+// Phase 2: ticket sales
+
+async function setSales(formData: FormData, next: "paused" | "on_sale"): Promise<ConsoleActionResult> {
+  const g = await gate("pause_sales", formData)
+  if (!g.ok) return g.error
+  const ticketTypeId = field(formData, "ticketTypeId")
+  if (!isUuid(ticketTypeId)) return fail("Ticket type not found.")
+
+  const { data: type } = await g.admin.from("ticket_types").select("id, name, event_id, sales_status, events(org_id)").eq("id", ticketTypeId).maybeSingle()
+  if (!type) return fail("Ticket type not found.")
+  if (type.sales_status === next) return fail(next === "paused" ? "Sales are already paused." : "Sales are already on.")
+
+  const { error } = await g.admin
+    .from("ticket_types")
+    .update({
+      sales_status: next,
+      sales_paused_at: next === "paused" ? new Date().toISOString() : null,
+      sales_pause_reason: next === "paused" ? g.reason : null,
+    })
+    .eq("id", ticketTypeId)
+  if (error) return fail(`Couldn't change sales: ${error.message}`)
+
+  await audit(g.admin, g.context.user.id, {
+    action: "pause_sales",
+    table: "events",
+    recordId: type.event_id,
+    orgId: (type as any).events?.org_id ?? null,
+    summary: `${next === "paused" ? "Paused" : "Resumed"} sales of ${type.name}`,
+    reason: g.reason,
+    details: { ticket_type_id: ticketTypeId, previous_status: type.sales_status, new_status: next },
+  })
+  revalidatePath(`/super-admin/event/${type.event_id}`)
+  return done(next === "paused" ? `${type.name}: sales paused. Buyers see it as unavailable.` : `${type.name}: back on sale.`)
+}
+
+export async function pauseSalesAction(_prev: ConsoleActionResult, formData: FormData): Promise<ConsoleActionResult> {
+  return setSales(formData, "paused")
+}
+
+export async function resumeSalesAction(_prev: ConsoleActionResult, formData: FormData): Promise<ConsoleActionResult> {
+  return setSales(formData, "on_sale")
+}
+
+// --------------------------------------------------------------------------
+// Phase 2: View as (read only, logged)
+
+export async function startViewAsAction(_prev: ConsoleActionResult, formData: FormData): Promise<ConsoleActionResult> {
+  const g = await gate("view_as", formData)
+  if (!g.ok) return g.error
+  const userId = field(formData, "userId")
+  if (!isUuid(userId)) return fail("Account not found.")
+  if (userId === g.context.user.id) return fail("That's your own account.")
+  const sessionId = await recordViewAs(g.context.user.id, userId, g.reason)
+  redirect(`/super-admin/people/${userId}/view-as?session=${sessionId}`)
 }

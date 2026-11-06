@@ -1,7 +1,15 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 
-import { changeBuyerEmailAction, addNoteAction, reissueTicketAction, requestRefundAction, resendTicketsAction } from "@/app/super-admin/console-actions"
+import {
+  addNoteAction,
+  approveRefundAction,
+  changeBuyerEmailAction,
+  declineRefundAction,
+  reissueTicketAction,
+  requestRefundAction,
+  resendTicketsAction,
+} from "@/app/super-admin/console-actions"
 import { Crumbs, Dot, Facts, NotesList, Panel, Pill, when, type Tone } from "@/components/super-admin/console-ui"
 import { GuardedAction, NoteForm } from "@/components/super-admin/GuardedAction"
 import { getOrder360, humanFailureReason } from "@/lib/data/admin/console"
@@ -60,7 +68,13 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
           },
           {
             label: "Event",
-            value: order.event?.title ?? "Unknown event",
+            value: order.event ? (
+              <Link href={`/super-admin/event/${order.event.id}`} className="text-accent hover:underline">
+                {order.event.title}
+              </Link>
+            ) : (
+              "Unknown event"
+            ),
             sub: [order.event?.orgName, order.event?.startsAt ? when(order.event.startsAt) : null].filter(Boolean).join(" · ") || undefined,
           },
           { label: "Total", value: formatMoney(order.totalCents, order.currency), sub: `${order.items.length} ticket${order.items.length === 1 ? "" : "s"}` },
@@ -192,14 +206,40 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
           </Panel>
 
           {order.refunds.length ? (
-            <Panel title="Refunds">
-              <ul className="flex flex-col gap-2 text-[13px]">
+            <Panel title="Refunds" className="scroll-mt-24">
+              <ul id="refunds" className="flex flex-col gap-3 text-[13px]">
                 {order.refunds.map((refund) => (
-                  <li key={refund.id} className="flex flex-wrap items-center justify-between gap-2">
-                    <span>
-                      {formatMoney(refund.amountCents, order.currency)} · {when(refund.createdAt)}
-                    </span>
-                    <Pill tone={refund.status === "processed" ? "success" : refund.status === "failed" ? "danger" : "warning"}>{refund.status}</Pill>
+                  <li key={refund.id} className="flex flex-col gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span>
+                        {formatMoney(refund.amountCents, order.currency)} · {when(refund.createdAt)}
+                        {refund.reason ? <span className="block text-ink-3">{refund.reason}</span> : null}
+                      </span>
+                      <Pill tone={refund.status === "processed" ? "success" : refund.status === "failed" ? "danger" : "warning"}>
+                        {refund.status === "requested" ? "waiting for approval" : refund.status}
+                      </Pill>
+                    </div>
+                    {refund.status === "requested" ? (
+                      <>
+                        <GuardedAction
+                          label="Approve and refund"
+                          hint="Sends the money back to the buyer"
+                          tag="Money"
+                          action={approveRefundAction}
+                          hidden={{ refundId: refund.id }}
+                          lockedReason={canDo("approve_refund", role) ? undefined : "Only the owner approves refunds"}
+                          explain="Paystack and MoMo refunds go to the provider straight away. Other providers are marked for you to refund by hand."
+                        />
+                        <GuardedAction
+                          label="Decline"
+                          hint="No money moves"
+                          action={declineRefundAction}
+                          hidden={{ refundId: refund.id }}
+                          lockedReason={canDo("approve_refund", role) ? undefined : "Only the owner approves refunds"}
+                          explain="Cancels the request. The tickets stay valid."
+                        />
+                      </>
+                    ) : null}
                   </li>
                 ))}
               </ul>
