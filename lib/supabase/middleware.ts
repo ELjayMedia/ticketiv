@@ -185,27 +185,31 @@ export async function updateSession(request: NextRequest) {
       },
     })
 
-    // IMPORTANT: do not run code between createServerClient() and getUser().
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
+    // IMPORTANT: do not run code between createServerClient() and getClaims().
+    // getClaims() refreshes an expired session (writing the new cookies) and
+    // verifies the access token's signature locally against the project's
+    // published signing keys, so a navigation no longer waits on a Supabase
+    // Auth round trip (getUser). Pages that need the full, revocation-checked
+    // user still call getUser() (once per request: lib/auth/session.ts).
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims()
 
-    if (userError) {
-      if (isExpectedSignedOutAuthError(userError)) {
-        return recoverSignedOutSession(request, path, userError)
+    if (claimsError) {
+      if (isExpectedSignedOutAuthError(claimsError)) {
+        return recoverSignedOutSession(request, path, claimsError)
       }
-      throw userError
+      throw claimsError
     }
+
+    const userId = typeof claimsData?.claims?.sub === "string" ? claimsData.claims.sub : null
 
     // Authed user landing on onboarding should be moved forward only after auth.
     async function hasHandle(): Promise<boolean> {
-      if (!user) return false
+      if (!userId) return false
       try {
         const { data } = await supabase
           .from("user_handles")
           .select("handle")
-          .eq("user_id", user.id)
+          .eq("user_id", userId)
           .maybeSingle()
         return !!data
       } catch {
@@ -215,7 +219,7 @@ export async function updateSession(request: NextRequest) {
 
     // /onboarding — requires session, allowed without handle
     if (path.startsWith("/onboarding")) {
-      if (!user) {
+      if (!userId) {
         return redirectToLogin(request, path)
       }
       if (await hasHandle()) {
@@ -225,7 +229,7 @@ export async function updateSession(request: NextRequest) {
     }
 
     // All other routes require auth
-    if (!user) {
+    if (!userId) {
       return redirectToLogin(request, path)
     }
 
@@ -250,7 +254,7 @@ export async function updateSession(request: NextRequest) {
         const { data: adminRow } = await supabase
           .from("admin_users")
           .select("user_id")
-          .eq("user_id", user.id)
+          .eq("user_id", userId)
           .maybeSingle()
         if (!adminRow) {
           return NextResponse.redirect(new URL("/403", request.url))

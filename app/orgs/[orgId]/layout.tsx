@@ -4,6 +4,7 @@ import { organizerRoleLabel } from "@ticketiv/shared"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { OrgSidebar, OrgTopTabs } from "@/components/quiet/shell/org-nav"
 import { getOrganizerAccess } from "@/lib/organizer/access"
+import { getAuthUser } from "@/lib/auth/session"
 
 /**
  * Org-scoped layout for /orgs/[orgId]/…
@@ -25,10 +26,8 @@ export default async function OrgLayout({
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return redirect("/login")
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return redirect("/login")
+  // Verified once per request, shared with getOrganizerAccess and the page.
+  if (!(await getAuthUser())) return redirect("/login")
 
   const access = await getOrganizerAccess(orgId)
   if (!access) return redirect("/403")

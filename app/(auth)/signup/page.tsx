@@ -1,11 +1,18 @@
 import Link from "next/link"
-import { Suspense } from "react"
+import { SignupForm } from "@/components/auth/signup-form"
 import { Logo } from "@/components/Logo"
-import { SignInForm } from "@/components/SignInForm"
+import { requestedNext } from "@/lib/auth/redirect"
 
 export const metadata = { title: "Create a Ticketiv account" }
 
-export default function SignupPage() {
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const params = await searchParams
+  const next = requestedNext({ get: (name) => { const v = params[name]; return typeof v === "string" ? v : null } })
+
   return (
     <main className="mx-auto grid min-h-dvh max-w-[1100px] gap-8 px-6 py-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:py-12">
       <section className="hidden rounded-[var(--radius-xl)] border border-line bg-surface p-10 shadow-[var(--shadow-card)] lg:block">
@@ -37,7 +44,7 @@ export default function SignupPage() {
           <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Account sign-up</p>
           <h1 className="mt-3 text-[32px] font-semibold leading-[1.05] tracking-tight text-ink">Create your account.</h1>
           <p className="mt-3 text-[14px] leading-6 text-ink-3">Use email and password. No six-digit code is required for normal sign-up.</p>
-          <div className="mt-8"><Suspense fallback={null}><SignInForm mode="signup" /></Suspense></div>
+          <div className="mt-8"><SignupForm next={next} /></div>
           <p className="mt-8 font-mono text-[11px] text-ink-3">Organizer registration has its own verified-email journey and remains separate from this account sign-up.</p>
         </div>
       </section>

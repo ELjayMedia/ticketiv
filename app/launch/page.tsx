@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 
-import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { getAuthUser } from "@/lib/auth/session"
 import { getMyContexts } from "@/lib/data/identity/contexts"
 import { getActiveContextKey, pickLanding } from "@/lib/identity/context"
 
@@ -13,12 +13,8 @@ export const dynamic = "force-dynamic"
  * context".
  */
 export default async function LaunchPage() {
-  const supabase = createServerSupabaseClient()
-  if (!supabase) redirect("/login")
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Login now lands users directly; /launch remains for links and bookmarks.
+  const user = await getAuthUser()
   if (!user) redirect("/login")
 
   const [contexts, lastKey] = await Promise.all([getMyContexts(), getActiveContextKey()])

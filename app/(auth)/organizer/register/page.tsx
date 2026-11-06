@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { Logo } from "@/components/Logo"
-import { OrganizerRegisterForm } from "@/components/OrganizerRegisterForm"
+import { OrganizerDetailsForm } from "@/components/auth/organizer-details-form"
 
 export const metadata = { title: "Register as an organizer" }
 
@@ -40,7 +40,7 @@ export default function OrganizerRegisterPage() {
           <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Organizer registration</p>
           <h1 className="mt-3 text-[32px] font-semibold leading-[1.05] tracking-tight text-ink">Start hosting on Ticketiv.</h1>
           <p className="mt-3 text-[14px] leading-6 text-ink-3">We verify organizer email ownership before creating the organizer profile.</p>
-          <div className="mt-8"><OrganizerRegisterForm /></div>
+          <div className="mt-8"><OrganizerDetailsForm /></div>
           <p className="mt-8 font-mono text-[11px] text-ink-3">Avoid requesting several codes in a row to prevent email rate limits.</p>
         </div>
       </section>

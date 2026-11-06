@@ -3,6 +3,7 @@ import "server-only"
 import { cache } from "react"
 import { redirect } from "next/navigation"
 
+import { getAuthUser } from "@/lib/auth/session"
 import {
   canChangeSettings,
   canManageTeam,
@@ -44,9 +45,7 @@ export interface OrganizerAccess {
 export const getOrganizerAccess = cache(async (orgId: string): Promise<OrganizerAccess | null> => {
   const supabase = createServerSupabaseClient()
   if (!supabase) return null
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await getAuthUser()
   if (!user) return null
 
   const [membershipRes, assignmentsRes, adminRes] = await Promise.all([

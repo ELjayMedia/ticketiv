@@ -1,5 +1,6 @@
 import { unstable_noStore as noStore } from "next/cache"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { getAuthUser } from "@/lib/auth/session"
 import { isUserAdmin } from "@/lib/data/admin"
 import { isExpectedSignedOutAuthError } from "@/lib/supabase/auth-errors"
 
@@ -71,18 +72,8 @@ export async function getCurrentUserProfile(): Promise<UserSession | null> {
   }
 
   try {
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
-
-    if (userError) {
-      if (!isExpectedSignedOutAuthError(userError)) {
-        console.error("[auth] getUser error:", userError)
-      }
-      return null
-    }
-
+    // Verified once per request and shared with getMyContexts() and pages.
+    const user = await getAuthUser()
     if (!user) return null
 
     const { data: profile, error: profileError } = await supabase

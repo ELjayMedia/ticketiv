@@ -7,39 +7,8 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/quiet/ui/button"
 import { FormField } from "@/components/quiet/ui/form"
 import { Icon } from "@/components/quiet/ui/icon"
-import {
-  ORGANIZER_SIGNUP_STORAGE_KEY,
-  ORGANIZER_WAS_AUTHENTICATED_STORAGE_KEY,
-  normalizeOrganizerSignup,
-  validateOrganizerSignup,
-  type OrganizerSignupPayload,
-} from "@/lib/auth/organizer-signup"
+import { completeOrganizerSignup, readOrganizerSignup } from "@/lib/auth/organizer-signup-client"
 import { createClient } from "@/lib/supabase/client"
-
-interface OrganizerSignupRpcClient {
-  rpc(name: string, args: Record<string, string | null>): Promise<{ error: { message: string } | null }>
-}
-
-function readOrganizerSignup(): OrganizerSignupPayload | null {
-  const raw = window.sessionStorage.getItem(ORGANIZER_SIGNUP_STORAGE_KEY)
-  if (!raw) return null
-
-  try {
-    const parsed = JSON.parse(raw) as Partial<OrganizerSignupPayload>
-    if (
-      typeof parsed.firstName !== "string" ||
-      typeof parsed.surname !== "string" ||
-      typeof parsed.phone !== "string" ||
-      typeof parsed.email !== "string" ||
-      typeof parsed.idNumber !== "string"
-    ) return null
-
-    const normalized = normalizeOrganizerSignup(parsed as OrganizerSignupPayload)
-    return validateOrganizerSignup(normalized) ? null : normalized
-  } catch {
-    return null
-  }
-}
 
 export function OrganizerPasswordForm() {
   const router = useRouter()
@@ -69,12 +38,14 @@ export function OrganizerPasswordForm() {
 
     setBusy(true)
     const supabase = createClient()
+    // The session from the email code is in this browser; read it locally. The
+    // password update and profile RPC are verified server-side by Supabase.
     const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
+      data: { session },
+    } = await supabase.auth.getSession()
+    const user = session?.user
 
-    if (userError || !user) {
+    if (!user) {
       setBusy(false)
       setError("Your verified organizer session has expired. Return and register again.")
       return
@@ -93,25 +64,15 @@ export function OrganizerPasswordForm() {
       return
     }
 
-    const rpcClient = supabase as unknown as OrganizerSignupRpcClient
-    const { error: completionError } = await rpcClient.rpc("fn_complete_organizer_signup", {
-      p_first_name: signup.firstName,
-      p_surname: signup.surname,
-      p_phone: signup.phone,
-      p_id_number: signup.idNumber || null,
-    })
-
-    if (completionError) {
+    try {
+      await completeOrganizerSignup(supabase, signup)
+    } catch (completionError) {
       setBusy(false)
-      setError(completionError.message)
+      setError(completionError instanceof Error ? completionError.message : "Unable to set up the organizer profile")
       return
     }
 
-    window.sessionStorage.removeItem(ORGANIZER_SIGNUP_STORAGE_KEY)
-    window.sessionStorage.removeItem(ORGANIZER_WAS_AUTHENTICATED_STORAGE_KEY)
-    setBusy(false)
     router.push("/onboarding/organizer")
-    router.refresh()
   }
 
   return (
