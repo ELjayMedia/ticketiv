@@ -3,7 +3,10 @@
 // Single source of truth — see TICK-266.
 
 import "server-only"
+import type { SupabaseClient } from "@supabase/supabase-js"
+import { getAuthUser } from "@/lib/auth/session"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import type { Database } from "@/types/database"
 
 export type ContextKind = "personal" | "org" | "talent" | "scan" | "admin"
 
@@ -33,16 +36,24 @@ const ORG_ROLE_RANK: Record<string, number> = {
 }
 
 export async function getMyContexts(): Promise<UserContext[]> {
+  const user = await getAuthUser()
+  if (!user) return []
   const supabase = createServerSupabaseClient()
   if (!supabase) return []
+  return loadContexts(supabase, user.id)
+}
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return []
-
+/**
+ * Contexts for a user, read through a client authenticated as that user (the
+ * roles RPC and the org/artist names are RLS-scoped). Used directly by login,
+ * which already holds the fresh session and must not re-verify it.
+ */
+export async function loadContexts(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+): Promise<UserContext[]> {
   const { data: rolesData } = await supabase.rpc("fn_get_ticketiv_effective_roles", {
-    p_user_id: user.id,
+    p_user_id: userId,
   })
   const rows = (rolesData ?? []) as RoleRow[]
   if (rows.length === 0) return []
