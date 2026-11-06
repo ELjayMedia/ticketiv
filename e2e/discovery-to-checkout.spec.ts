@@ -150,7 +150,9 @@ test.describe("seeded guest checkout → hosted payment handoff", () => {
       .poll(
         async () => {
           if (handoff.test(page.url())) return (outcome = "redirected")
-          const alert = page.locator('[role="alert"]:visible').first()
+          // Ignore Next.js's route announcer: it is also role="alert" and
+          // reads the page title ("Checkout · Ticketiv").
+          const alert = page.locator('[role="alert"]:visible:not(#__next-route-announcer__)').first()
           if (await alert.count()) return (outcome = `checkout error: ${(await alert.innerText()).trim()}`)
           return (outcome = "waiting")
         },
