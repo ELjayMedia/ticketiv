@@ -3,6 +3,20 @@ import Link from "next/link"
 import { signOutSuperAdminAction } from "@/app/super-admin/actions"
 import { Button } from "@/components/quiet/ui/button";
 import { Icon, type IconName } from "@/components/quiet/ui/icon"
+import { ADMIN_ROLE_LABELS, type AdminRoleTier } from "@/lib/super-admin/console"
+
+// Support work comes first: find the customer, see what happened, fix it.
+// The table-by-table groups below are the data explorer.
+const SUPPORT_GROUP: {
+  label: string
+  items: Array<{ label: string; href: string; icon: IconName; active?: boolean; ownerOnly?: boolean }>
+} = {
+  label: "Support",
+  items: [
+    { label: "Search", href: "/super-admin/search", icon: "search" },
+    { label: "Team & access", href: "/super-admin/team", icon: "key", ownerOnly: true },
+  ],
+}
 
 const NAV_GROUPS: Array<{
   label: string
@@ -69,7 +83,17 @@ const NAV_GROUPS: Array<{
   },
 ]
 
-export function SuperAdminShell({ children, userEmail }: { children: React.ReactNode; userEmail?: string | null }) {
+export function SuperAdminShell({
+  children,
+  userEmail,
+  role,
+}: {
+  children: React.ReactNode
+  userEmail?: string | null
+  role?: AdminRoleTier | null
+}) {
+  const supportItems = SUPPORT_GROUP.items.filter((item) => !item.ownerOnly || role === "super_admin")
+  const groups: typeof NAV_GROUPS = [{ label: SUPPORT_GROUP.label, items: supportItems }, ...NAV_GROUPS]
   return (
     <div className="min-h-screen bg-surface-2/30 lg:grid lg:grid-cols-[18rem_1fr]">
       <aside className="hidden border-r bg-surface lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
@@ -84,7 +108,7 @@ export function SuperAdminShell({ children, userEmail }: { children: React.React
         </div>
 
         <nav className="flex-1 space-y-5 overflow-y-auto p-3">
-          {NAV_GROUPS.map((group) => (
+          {groups.map((group) => (
             <div key={group.label}>
               <p className="px-2 pb-2 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-ink-3">{group.label}</p>
               <div className="space-y-1">
@@ -99,7 +123,7 @@ export function SuperAdminShell({ children, userEmail }: { children: React.React
             <div className="flex items-center gap-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2"><Icon name="user" className="h-5 w-5" /></span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">Super Admin</p>
+                <p className="truncate text-sm font-medium">{role ? ADMIN_ROLE_LABELS[role] : "Admin"}</p>
                 <p className="truncate text-xs text-ink-3">{userEmail ?? "Ticketiv control room"}</p>
               </div>
             </div>
@@ -122,7 +146,7 @@ export function SuperAdminShell({ children, userEmail }: { children: React.React
               </summary>
               <div className="fixed inset-x-0 top-16 z-50 max-h-[calc(100dvh-4rem)] overflow-y-auto border-b bg-surface p-4 shadow-lg">
                 <div className="grid gap-4">
-                  {NAV_GROUPS.map((group) => (
+                  {groups.map((group) => (
                     <div key={`mobile-${group.label}`} className="space-y-2">
                       <p className="px-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-ink-3">{group.label}</p>
                       <div className="grid gap-2">
@@ -150,15 +174,25 @@ export function SuperAdminShell({ children, userEmail }: { children: React.React
               <Icon name="chevR" className="h-4 w-4" />
               <span>Command Centre</span>
             </div>
-            <div className="ml-auto hidden max-w-sm items-center gap-2 rounded-full border bg-surface-2/40 px-3 py-2 text-sm text-ink-3 md:flex">
-              <Icon name="search" className="h-4 w-4" />
-              <span>Search events, orders, payouts...</span>
-            </div>
+            <form action="/super-admin/search" method="get" role="search" className="ml-auto hidden w-full max-w-sm items-center gap-2 rounded-full border bg-surface-2/40 px-3 text-sm text-ink-3 focus-within:border-accent md:flex">
+              <Icon name="search" className="h-4 w-4 shrink-0" />
+              <label htmlFor="shell-search" className="sr-only">
+                Search people, orders and PAY- references
+              </label>
+              <input
+                id="shell-search"
+                name="q"
+                type="search"
+                autoComplete="off"
+                placeholder="Search people, orders, PAY- references"
+                className="h-9 w-full bg-transparent text-ink outline-none placeholder:text-ink-3"
+              />
+            </form>
             <Button asChild variant="outline" className="ml-auto rounded-full md:ml-0"><Link href="/super-admin/readiness">Readiness</Link></Button>
             <Button variant="accent" asChild className="rounded-full"><Link href="/orgs">Organizer workspace</Link></Button>
           </div>
           <div className="flex gap-2 overflow-x-auto px-4 pb-3 sm:px-6 lg:hidden">
-            {NAV_GROUPS.flatMap((group) => group.items).map((item) => {
+            {groups.flatMap((group) => group.items).map((item) => {
               return <Link key={item.label} href={item.href} className={item.active ? "inline-flex shrink-0 items-center gap-2 rounded-full bg-accent px-3 py-1.5 text-xs font-medium text-white" : "inline-flex shrink-0 items-center gap-2 rounded-full border bg-surface px-3 py-1.5 text-xs font-medium"}><Icon name={item.icon} className="h-3.5 w-3.5" />{item.label}</Link>
             })}
           </div>

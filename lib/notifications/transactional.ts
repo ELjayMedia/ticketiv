@@ -44,7 +44,14 @@ export interface TransactionalInput {
   channels?: NotificationChannel[]
   payload: TicketIssuedPayload
   recipient: TransactionalRecipient
+  /**
+   * Admin-console resend: send even if this order was already delivered on a
+   * channel. Each forced send gets its own dedupe key so it is still logged.
+   */
+  force?: boolean
 }
+
+export type DeliveryOutcome = { channel: NotificationChannel; status: ChannelStatus }
 
 /**
  * Channel selection priority: WhatsApp → SMS → Email → in-app.
@@ -96,6 +103,7 @@ async function logAttempt(
   channel: NotificationChannel,
   result: ChannelResult,
 ) {
+  const baseKey = `${input.template}:${input.orderId}:${channel}`
   const now = new Date().toISOString()
   // notifications has no dedicated provider/metadata columns — store the
   // support-relevant detail in the jsonb payload so "did the customer get
@@ -115,7 +123,7 @@ async function logAttempt(
     } as Json,
     last_error: result.status === "failed" ? result.error : null,
     sent_at: result.status === "sent" ? now : null,
-    dedupe_key: `${input.template}:${input.orderId}:${channel}`,
+    dedupe_key: input.force ? `${baseKey}:resend:${Date.now()}` : baseKey,
   })
 }
 
@@ -123,7 +131,8 @@ async function logAttempt(
  * Send a transactional notification across the resolved channels.
  * Best-effort: logs every attempt and never throws into the caller.
  */
-export async function sendTransactionalNotification(input: TransactionalInput): Promise<void> {
+export async function sendTransactionalNotification(input: TransactionalInput): Promise<DeliveryOutcome[]> {
+  const outcomes: DeliveryOutcome[] = []
   try {
     const admin = createAdminClient()
     const channels = input.channels ?? resolveChannels(input.recipient)
@@ -133,14 +142,16 @@ export async function sendTransactionalNotification(input: TransactionalInput): 
       // don't send again. Makes the layer safe to call from multiple
       // completion paths and across provider webhook redeliveries. A prior
       // skipped/failed attempt is NOT a block — we retry those.
-      const { data: alreadySent } = await admin
-        .from("notifications")
-        .select("id")
-        .eq("dedupe_key", `${input.template}:${input.orderId}:${channel}`)
-        .eq("status", "sent")
-        .limit(1)
-        .maybeSingle()
-      if (alreadySent) continue
+      if (!input.force) {
+        const { data: alreadySent } = await admin
+          .from("notifications")
+          .select("id")
+          .eq("dedupe_key", `${input.template}:${input.orderId}:${channel}`)
+          .eq("status", "sent")
+          .limit(1)
+          .maybeSingle()
+        if (alreadySent) continue
+      }
 
       let result: ChannelResult
       try {
@@ -149,8 +160,10 @@ export async function sendTransactionalNotification(input: TransactionalInput): 
         result = { status: "failed", error: error?.message ?? "dispatch failed", provider: channel }
       }
       await logAttempt(admin, input, channel, result)
+      outcomes.push({ channel, status: result.status })
     }
   } catch (error) {
     console.error("[transactional] notification failed for order", input.orderId, error)
   }
+  return outcomes
 }

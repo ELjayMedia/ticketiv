@@ -3,7 +3,7 @@ import "server-only"
 import { APP_URL } from "@/lib/env"
 import { getTicketivPublicOrigin } from "@/lib/public-url"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { sendTransactionalNotification } from "@/lib/notifications/transactional"
+import { sendTransactionalNotification, type DeliveryOutcome } from "@/lib/notifications/transactional"
 import { issueOrderToken, issueTicketToken } from "@/lib/ticket-tokens"
 
 // TICK-65 / TICK-72 / TICK-77 / TICK-78 — transactional ticket delivery entry point.
@@ -29,7 +29,18 @@ function moneySzl(cents: number, currency: string) {
   return `${currency} ${(cents / 100).toLocaleString("en-SZ", { minimumFractionDigits: 2 })}`
 }
 
-export async function deliverTicketsForOrder(orderId: string): Promise<void> {
+export interface DeliverTicketsOptions {
+  /** Admin-console resend: deliver again even if already sent. */
+  force?: boolean
+  /** Send the email to this address instead of the order's buyer email. */
+  toEmail?: string | null
+}
+
+/** Returns what each channel did, or null when there was nothing to deliver. */
+export async function deliverTicketsForOrder(
+  orderId: string,
+  options: DeliverTicketsOptions = {},
+): Promise<DeliveryOutcome[] | null> {
   try {
     const admin = createAdminClient()
 
@@ -39,7 +50,7 @@ export async function deliverTicketsForOrder(orderId: string): Promise<void> {
       .eq("id", orderId)
       .maybeSingle()
 
-    if (!order) return
+    if (!order) return null
 
     const { data: items } = await admin
       .from("order_items")
@@ -48,7 +59,7 @@ export async function deliverTicketsForOrder(orderId: string): Promise<void> {
       .in("status", ["issued", "checked_in", "transferred"])
 
     const issued = items ?? []
-    if (issued.length === 0) return
+    if (issued.length === 0) return null
 
     const first: any = issued[0]
     const ticketType = first.ticket_types
@@ -89,7 +100,7 @@ export async function deliverTicketsForOrder(orderId: string): Promise<void> {
 
     // Resolve recipient + opt-in. WhatsApp/SMS need a phone; email opt-in is
     // honoured (defaults to on when no preference row exists).
-    const recipientEmail = order.buyer_email ?? order.email ?? null
+    const recipientEmail = options.toEmail ?? order.buyer_email ?? order.email ?? null
     let emailOptIn = true
     let phone: string | null = null
     if (order.buyer_id) {
@@ -108,7 +119,9 @@ export async function deliverTicketsForOrder(orderId: string): Promise<void> {
       phone = (profile?.phone as string | null) ?? null
     }
 
-    await sendTransactionalNotification({
+    return await sendTransactionalNotification({
+      force: options.force,
+      channels: options.toEmail ? ["email"] : undefined,
       userId: order.buyer_id,
       orderId: order.id,
       eventId,
@@ -127,5 +140,6 @@ export async function deliverTicketsForOrder(orderId: string): Promise<void> {
     })
   } catch (error) {
     console.error("[ticket-delivery] failed for order", orderId, error)
+    return null
   }
 }
