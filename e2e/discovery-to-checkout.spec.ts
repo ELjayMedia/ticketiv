@@ -82,6 +82,18 @@ test.describe("seeded guest checkout → hosted payment handoff", () => {
     const checkoutCta = page.getByRole("button", { name: /continue|get tickets/i }).last()
     await expect(checkoutCta).toBeEnabled()
     await checkoutCta.click()
+
+    // Since the multi-type ticket picker (cacbb36), the event CTA opens a
+    // "Tickets" dialog: choose one ticket of the first type on sale, then
+    // "Check out", which creates the seat hold and opens checkout.
+    const picker = page.getByRole("dialog", { name: "Tickets" })
+    await expect(picker).toBeVisible()
+    const addTicket = picker.getByRole("button", { name: "Increase" }).and(page.locator(":enabled")).first()
+    await expect(addTicket).toBeVisible()
+    await addTicket.click()
+    const pickerCheckout = picker.getByRole("button", { name: /check out/i })
+    await expect(pickerCheckout).toBeEnabled()
+    await pickerCheckout.click()
     await page.waitForURL(/\/events\/[^/]+\/checkout/)
 
     const checkoutUrl = new URL(page.url())
