@@ -120,6 +120,34 @@ describe("buildEventReconciliation", () => {
     expect(result.checks.find((check) => check.key === "payout_review")?.status).toBe("danger")
   })
 
+  it("clears an event with no sales and no live-stats row (nothing to reconcile)", () => {
+    const result = buildEventReconciliation(
+      baseInput({ stats: null, orders: [], orderItems: [], ledgerEntries: [], payments: [], paymentAttempts: [] }),
+    )
+    const tickets = result.checks.find((check) => check.key === "tickets")
+    const review = result.checks.find((check) => check.key === "payout_review")
+
+    expect(tickets?.status).toBe("ok")
+    expect(tickets?.detail).toBe("No tickets sold, so there are no live stats to compare.")
+    expect(review?.status).toBe("ok")
+    expect(result.status).toBe("ok")
+
+    const block = buildPayoutReconciliationBlock({
+      events: [{ ...result, title: "Empty draft", orgId: "org_1", orgName: "Ticketiv", currency: "SZL", startsAt: null, endsAt: null, openPayoutCount: 1, openPayoutCents: 50000 }],
+      orgId: "org_1",
+    })
+    expect(block.blocked).toBe(false)
+  })
+
+  it("still blocks an event that sold tickets but has no live-stats row", () => {
+    const result = buildEventReconciliation(baseInput({ stats: null }))
+    const tickets = result.checks.find((check) => check.key === "tickets")
+
+    expect(tickets?.status).toBe("danger")
+    expect(tickets?.detail).toBe("event_live_stats is missing for this event.")
+    expect(result.checks.find((check) => check.key === "payout_review")?.status).toBe("danger")
+  })
+
   it("flags stuck and orphaned payment attempts", () => {
     const result = buildEventReconciliation(baseInput({
       paymentAttempts: [

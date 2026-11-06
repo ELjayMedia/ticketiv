@@ -250,11 +250,14 @@ export function buildEventReconciliation(input: EventReconciliationInput): Event
     ledgerNetCents === expectedNetCents
 
   const ticketsMatch = input.stats ? input.stats.ticketsSold === paidTicketCount : paidTicketCount === 0
+  // event_live_stats rows only exist once something sells. An event with no
+  // paid tickets and no stats row has nothing to reconcile: it must not block
+  // the org's payouts (it used to, as a "warning" that failed payout review).
   const ticketStatus: ReconciliationStatus = input.stats
     ? checkStatus(ticketsMatch)
     : paidTicketCount > 0
       ? "danger"
-      : "warning"
+      : "ok"
   const paymentsMatch =
     succeededPaymentCents === sum(paidOrders, (order) => order.totalCents) &&
     stuckPaymentAttemptCount === 0 &&
@@ -280,8 +283,12 @@ export function buildEventReconciliation(input: EventReconciliationInput): Event
       label: "Tickets sold",
       status: ticketStatus,
       detail: input.stats
-        ? "event_live_stats tickets_sold matches paid issued tickets."
-        : "event_live_stats is missing for this event.",
+        ? ticketsMatch
+          ? "event_live_stats tickets_sold matches paid issued tickets."
+          : "event_live_stats tickets_sold does not match paid issued tickets."
+        : paidTicketCount > 0
+          ? "event_live_stats is missing for this event."
+          : "No tickets sold, so there are no live stats to compare.",
     },
     {
       key: "payments",
