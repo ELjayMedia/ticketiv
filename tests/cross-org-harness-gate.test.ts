@@ -24,6 +24,23 @@ describe("cross-org authorization harness", () => {
     expect(result.stderr).toContain("Cross-org authorization check BLOCKED")
   })
 
+  it("refuses remote database connections without a separate opt-in", () => {
+    const result = spawnSync(
+      process.execPath,
+      [resolve(root, "scripts/check-cross-org-authorization.mjs")],
+      {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          TICKETIV_CROSS_ORG_TEST_DB_URL: "postgresql://tester:dummy@db.example.test:5432/postgres",
+          TICKETIV_CROSS_ORG_ALLOW_REMOTE: "",
+        },
+      },
+    )
+    expect(result.status).toBe(2)
+    expect(result.stderr).toContain("remote DB requires explicit")
+  })
+
   it("runs as an independent, blocking CI job against disposable local Postgres", () => {
     const workflow = readFileSync(resolve(root, ".github/workflows/ci.yml"), "utf8")
     expect(workflow).toContain("cross-org-authorization:")

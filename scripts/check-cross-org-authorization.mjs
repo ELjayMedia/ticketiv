@@ -41,10 +41,38 @@ if (!testDatabaseUrl || !existsSync(SQL_PATH)) {
 // The harness deliberately raises an exception containing its results so the
 // transaction is rolled back. ON_ERROR_STOP makes psql nonzero as expected;
 // parse the report, not the process exit code, to determine authorization.
-// A libpq connection string in PGDATABASE stays out of process arguments.
+// Parse the URL into libpq's individual environment variables. Supplying an
+// entire URI via PGDATABASE does not reliably select its host/port in psql.
+// The password stays out of process arguments and workflow log commands.
+let connection
+try {
+  connection = new URL(testDatabaseUrl)
+  if (!['postgres:', 'postgresql:'].includes(connection.protocol)) throw new Error('unsupported protocol')
+  if (!connection.hostname || !connection.username || !connection.pathname) throw new Error('incomplete database URL')
+} catch {
+  console.error("Cross-org authorization check BLOCKED: invalid isolated Postgres connection URL.")
+  process.exit(2)
+}
+
+// A leaked production URL must not let a fixture-seeding harness contact a
+// remote database without a separate, deliberate opt-in.
+if (!['localhost', '127.0.0.1', '[::1]'].includes(connection.hostname) && process.env.TICKETIV_CROSS_ORG_ALLOW_REMOTE !== '1') {
+  console.error("Cross-org authorization check BLOCKED: remote DB requires explicit TICKETIV_CROSS_ORG_ALLOW_REMOTE=1.")
+  process.exit(2)
+}
+
 const execution = spawnSync("psql", ["-X", "-v", "ON_ERROR_STOP=1", "-f", SQL_PATH], {
   encoding: "utf8",
-  env: { ...process.env, PGDATABASE: testDatabaseUrl },
+  env: {
+    ...process.env,
+    PGHOST: connection.hostname,
+    PGPORT: connection.port || '5432',
+    PGUSER: decodeURIComponent(connection.username),
+    PGPASSWORD: decodeURIComponent(connection.password),
+    PGDATABASE: decodeURIComponent(connection.pathname.slice(1)),
+    PGSSLMODE: connection.searchParams.get('sslmode') || 'prefer',
+    PGCONNECT_TIMEOUT: '15',
+  },
   timeout: 120_000,
   maxBuffer: 10 * 1024 * 1024,
 })
