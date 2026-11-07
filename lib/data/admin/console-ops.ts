@@ -223,6 +223,8 @@ export interface Event360 {
   pendingRefunds: number
   notes: Array<AdminNote & { authorEmail: string | null }>
   guide: { filled: number; total: number; missing: string[]; updatedAt: string | null }
+  /** Private attendee ratings (release 3): count and average only. */
+  ratings: { count: number; average: number | null }
   updates: Array<{ id: string; title: string; body: string | null; notified: boolean; createdAt: string; hiddenAt: string | null; hiddenReason: string | null }>
 }
 
@@ -238,7 +240,7 @@ export async function getEvent360(eventId: string, now = new Date()): Promise<Ev
     .maybeSingle()
   if (!event) return null
 
-  const [typesRes, devicesRes, staffRes, refsRes, refundsRes, notes, guideRes, updatesRes] = await Promise.all([
+  const [typesRes, devicesRes, staffRes, refsRes, refundsRes, notes, guideRes, updatesRes, ratingsRes] = await Promise.all([
     admin
       .from("ticket_types")
       .select("id, name, price_cents, currency, quota, sales_status, sales_pause_reason")
@@ -251,6 +253,7 @@ export async function getEvent360(eventId: string, now = new Date()): Promise<Ev
     loadNotes(admin, "event", eventId),
     db.from("event_guides").select("*").eq("event_id", eventId).maybeSingle(),
     db.from("event_updates").select("id, title, body, notified, created_at, hidden_at, hidden_reason").eq("event_id", eventId).order("created_at", { ascending: false }).limit(20),
+    db.from("event_feedback").select("rating").eq("event_id", eventId).limit(5000),
   ])
 
   const types = typesRes.data ?? []
@@ -300,6 +303,10 @@ export async function getEvent360(eventId: string, now = new Date()): Promise<Ev
     pendingRefunds: refundsRes.count ?? 0,
     notes: notes.map((n) => ({ ...n, authorEmail: n.author_id ? authorEmails.get(n.author_id) ?? null : null })),
     guide: { ...guideCompleteness(mapGuide(guideRes.data)), updatedAt: guideRes.data?.updated_at ?? null },
+    ratings: (() => {
+      const values = ((ratingsRes.data ?? []) as Array<{ rating: number }>).map((r) => r.rating)
+      return { count: values.length, average: values.length ? Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10 : null }
+    })(),
     updates: ((updatesRes.data ?? []) as any[]).map((u) => ({
       id: u.id,
       title: u.title,

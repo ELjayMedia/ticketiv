@@ -65,6 +65,8 @@ export interface EventCompanionProps {
   friendsGoing: Array<{ id: string; name: string }>;
   /** Whether this person lets friends see the events they're going to. */
   visibleToFriends: boolean;
+  /** After the event: rating, highlights, follow, suggestions (release 3). */
+  memory?: React.ReactNode;
 }
 
 function SectionTitle({ children, aside }: { children: React.ReactNode; aside?: React.ReactNode }) {
@@ -566,6 +568,7 @@ export function EventCompanion(props: EventCompanionProps) {
 
         {stage === "after" ? (
           <>
+            {props.memory}
             {updatesSection}
             <div className="flex gap-2">
               <Link

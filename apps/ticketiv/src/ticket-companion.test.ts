@@ -69,6 +69,7 @@ describe("describeTicketivCompanion", () => {
     expect(inView.stage).toBe("in");
     expect(inView.headline).toBe("You're in · 17:45");
     expect(inView.gettingThere).toEqual([]);
+    expect(inView.notesTitle).toBe("Good to know");
     expect(describeTicketivCompanion(ticket(), Date.parse("2026-11-17T06:00:00Z"))!.stage).toBe("after");
   });
 

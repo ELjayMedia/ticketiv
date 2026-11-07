@@ -95,3 +95,28 @@ export async function hideUpdateAction(_prev: GuideActionState, form: FormData):
   revalidatePath(`/tickets/event/${eventId}`)
   return { ok: true, message: "Hidden from ticket holders." }
 }
+
+/** Add a highlight photo already uploaded through /api/uploads. */
+export async function addHighlightAction(orgId: string, eventId: string, imageUrl: string, caption: string): Promise<GuideActionState> {
+  const db = await context(orgId, eventId)
+  const { error } = await db.rpc("fn_add_event_highlight", { p_event_id: eventId, p_image_url: imageUrl, p_caption: caption.trim() || null })
+  if (error) {
+    console.error("[guide] add highlight:", error)
+    return { ok: false, message: friendly(error) }
+  }
+  revalidatePath(`/orgs/${orgId}/events/${eventId}/guide`)
+  revalidatePath(`/tickets/event/${eventId}`)
+  return { ok: true, message: "Added. Attendees see it in their event memory." }
+}
+
+export async function removeHighlightAction(orgId: string, eventId: string, highlightId: string): Promise<GuideActionState> {
+  const db = await context(orgId, eventId)
+  const { error } = await db.rpc("fn_remove_event_highlight", { p_highlight_id: highlightId })
+  if (error) {
+    console.error("[guide] remove highlight:", error)
+    return { ok: false, message: friendly(error) }
+  }
+  revalidatePath(`/orgs/${orgId}/events/${eventId}/guide`)
+  revalidatePath(`/tickets/event/${eventId}`)
+  return { ok: true, message: "Removed." }
+}

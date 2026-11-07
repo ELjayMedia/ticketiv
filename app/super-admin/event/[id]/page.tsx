@@ -121,6 +121,12 @@ export default async function AdminEventPage({ params }: { params: Promise<{ id:
                   : "Complete. Ticket holders have entry, directions, the running order and a help contact."}
                 {event.guide.updatedAt ? <span className="text-ink-3"> Last edited {when(event.guide.updatedAt)}.</span> : null}
               </p>
+              {event.ratings.count ? (
+                <p className="text-ink-2">
+                  Attendee rating <strong className="text-ink">{event.ratings.average?.toFixed(1)}★</strong>{" "}
+                  <span className="text-ink-3">from {event.ratings.count} private {event.ratings.count === 1 ? "rating" : "ratings"}</span>
+                </p>
+              ) : null}
               {event.updates.length ? (
                 <ul className="flex flex-col">
                   {event.updates.map((update) => (

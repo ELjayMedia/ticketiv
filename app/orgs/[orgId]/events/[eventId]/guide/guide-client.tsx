@@ -8,7 +8,7 @@ import { Chip } from "@/components/quiet/ui/chip"
 import { Input, Label, Textarea } from "@/components/quiet/ui/form"
 import { Icon } from "@/components/quiet/ui/icon"
 
-import { hideUpdateAction, postUpdateAction, saveGuideAction, type GuideActionState } from "./actions"
+import { addHighlightAction, hideUpdateAction, postUpdateAction, removeHighlightAction, saveGuideAction, type GuideActionState } from "./actions"
 
 export interface GuideFormValues {
   doors: string
@@ -415,6 +415,166 @@ export function UpdatesPanel({ orgId, eventId, updates }: { orgId: string; event
           </ul>
         </>
       ) : null}
+    </Card>
+  )
+}
+
+export interface FeedbackSummaryView {
+  count: number
+  average: number | null
+  distribution: Record<"1" | "2" | "3" | "4" | "5", number>
+  comments: Array<{ rating: number; comment: string; whenLabel: string }>
+}
+
+/**
+ * After the event: the anonymous rating summary and the highlights attendees
+ * see in their event memory.
+ */
+export function AfterEventPanel({
+  orgId,
+  eventId,
+  feedback,
+  highlights,
+}: {
+  orgId: string
+  eventId: string
+  feedback: FeedbackSummaryView | null
+  highlights: Array<{ id: string; imageUrl: string; caption: string | null }>
+}) {
+  const [message, setMessage] = React.useState<{ ok: boolean; text: string } | null>(null)
+  const [busy, setBusy] = React.useState(false)
+  const [caption, setCaption] = React.useState("")
+  const fileRef = React.useRef<HTMLInputElement>(null)
+  const max = Math.max(1, ...Object.values(feedback?.distribution ?? { "1": 0 }))
+
+  async function upload(file: File) {
+    setBusy(true)
+    setMessage(null)
+    try {
+      const body = new FormData()
+      body.append("file", file)
+      body.append("eventId", eventId)
+      const response = await fetch("/api/uploads", { method: "POST", body })
+      const json = (await response.json().catch(() => ({}))) as { url?: string; error?: string }
+      if (!response.ok || !json.url) {
+        setMessage({ ok: false, text: json.error ?? "Couldn't upload that photo." })
+        return
+      }
+      const result = await addHighlightAction(orgId, eventId, json.url, caption)
+      setMessage({ ok: result.ok, text: result.message ?? "" })
+      if (result.ok) setCaption("")
+    } finally {
+      setBusy(false)
+      if (fileRef.current) fileRef.current.value = ""
+    }
+  }
+
+  async function remove(id: string) {
+    setBusy(true)
+    const result = await removeHighlightAction(orgId, eventId, id)
+    setMessage({ ok: result.ok, text: result.message ?? "" })
+    setBusy(false)
+  }
+
+  return (
+    <Card>
+      <CardBody className="flex flex-col gap-1 p-5">
+        <h2 className="text-h3">After the event</h2>
+        <p className="text-[13px] text-ink-3">
+          Private ratings from people who were there, and the highlights they see in their event memory.
+        </p>
+      </CardBody>
+      <CardDivider />
+      <CardBody className="grid gap-6 p-5 lg:grid-cols-2">
+        <div className="flex flex-col gap-3">
+          <span className="text-label">Ratings · anonymous</span>
+          {feedback && feedback.count > 0 ? (
+            <>
+              <div className="flex items-baseline gap-2">
+                <span className="font-mono text-[28px] font-semibold tabular-nums">{feedback.average?.toFixed(1) ?? "–"}</span>
+                <span className="text-[13px] text-ink-3">
+                  from {feedback.count} {feedback.count === 1 ? "rating" : "ratings"}
+                </span>
+              </div>
+              <ul className="flex flex-col gap-1">
+                {(["5", "4", "3", "2", "1"] as const).map((star) => (
+                  <li key={star} className="flex items-center gap-2 text-[12px]">
+                    <span className="w-6 font-mono text-ink-3">{star}★</span>
+                    <span className="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
+                      <span className="block h-full rounded-full bg-accent" style={{ width: `${(feedback.distribution[star] / max) * 100}%` }} />
+                    </span>
+                    <span className="w-6 text-right font-mono tabular-nums text-ink-3">{feedback.distribution[star]}</span>
+                  </li>
+                ))}
+              </ul>
+              {feedback.comments.length ? (
+                <ul className="flex max-h-72 flex-col divide-y divide-line overflow-auto rounded-[var(--radius)] border border-line">
+                  {feedback.comments.map((c, i) => (
+                    <li key={i} className="px-3 py-2.5">
+                      <p className="text-[13px] text-ink-2">{c.comment}</p>
+                      <p className="mt-0.5 font-mono text-[10px] text-ink-3">
+                        {c.rating}★ · {c.whenLabel}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </>
+          ) : (
+            <p className="rounded-[var(--radius)] border border-dashed border-line-2 px-3 py-4 text-center font-mono text-[11px] text-ink-3">
+              No ratings yet. People who were scanned in are asked the morning after.
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <span className="text-label">Highlights · {highlights.length} of 12</span>
+          {highlights.length ? (
+            <ul className="grid grid-cols-3 gap-2">
+              {highlights.map((h) => (
+                <li key={h.id} className="relative overflow-hidden rounded-[var(--radius-md)] border border-line">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={h.imageUrl} alt={h.caption ?? ""} className="aspect-square w-full object-cover" />
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void remove(h.id)}
+                    aria-label="Remove highlight"
+                    className="absolute right-1 top-1 inline-flex h-7 w-7 items-center justify-center rounded-full bg-surface/90 text-ink hover:bg-surface"
+                  >
+                    <Icon name="close" size={12} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {highlights.length < 12 ? (
+            <div className="flex flex-col gap-2">
+              <Input value={caption} onChange={(e) => setCaption(e.target.value)} maxLength={140} placeholder="Caption (optional)" aria-label="Caption for the next photo" />
+              <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-[var(--radius)] border border-line-2 px-3 py-2 text-[13px] font-semibold hover:bg-bg">
+                <Icon name="plus" size={14} /> {busy ? "Uploading…" : "Add a photo"}
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="sr-only"
+                  disabled={busy}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) void upload(file)
+                  }}
+                />
+              </label>
+              <span className="font-mono text-[11px] text-ink-3">JPG, PNG or WebP, under 8 MB.</span>
+            </div>
+          ) : null}
+          {message ? (
+            <p role="status" className={"text-[13px] font-semibold " + (message.ok ? "text-success" : "text-danger")}>
+              {message.text}
+            </p>
+          ) : null}
+        </div>
+      </CardBody>
     </Card>
   )
 }

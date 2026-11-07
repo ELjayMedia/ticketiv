@@ -241,6 +241,98 @@
         "postgres",
         "service_role"
       ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_reminder_emails_tick",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_submit_event_feedback",
+      "arguments": "p_event_id uuid, p_rating integer, p_comment text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_event_feedback_summary",
+      "arguments": "p_event_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_add_event_highlight",
+      "arguments": "p_event_id uuid, p_image_url text, p_caption text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_remove_event_highlight",
+      "arguments": "p_highlight_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_set_org_follow",
+      "arguments": "p_org_id uuid, p_follow boolean",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_feedback_requests_tick",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "notify_org_followers_of_new_event",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres"
+      ]
     }
   ]
 }
