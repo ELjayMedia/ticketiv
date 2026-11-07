@@ -2,7 +2,9 @@
 
 import { cookies } from "next/headers"
 
+import { parseCheckoutItems } from "@/lib/checkout/parse-items"
 import { createOrder } from "@/lib/orders"
+import { rateLimit } from "@/lib/rate-limit"
 import { createPaymentAttempt, type PaymentProvider } from "@/lib/payments"
 import {
   assertPaymentProviderAvailableForEvent,
@@ -57,8 +59,16 @@ export async function startCheckoutAction(input: StartCheckoutInput): Promise<St
   const buyerEmail = (input.buyerEmail || identity.email || "").trim()
   if (!buyerEmail) return { ok: false, error: "Add an email address to receive your tickets." }
 
-  const items = (input.items ?? []).filter((i) => i.ticketTypeId && i.quantity > 0)
-  if (items.length === 0) return { ok: false, error: "Select at least one ticket." }
+  // Server actions are public POST endpoints: validate the selection as
+  // strictly as the checkout APIs do rather than trusting the client cart.
+  const parsed = parseCheckoutItems((input.items ?? []).filter((i) => i && i.quantity !== 0), "ticketTypeId")
+  if (!parsed.ok) return { ok: false, error: `${parsed.error}.` }
+  const items = parsed.items
+
+  // Each pending order holds inventory until it expires; cap how fast one
+  // buyer can create them.
+  const rl = await rateLimit("orders:create", `u:${identity.userId}`, 10, 60)
+  if (!rl.allowed) return { ok: false, error: "Too many checkout attempts. Please wait a minute and try again." }
 
   const promoCode = input.promoCode?.trim() || null
 

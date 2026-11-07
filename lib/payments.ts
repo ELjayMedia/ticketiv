@@ -16,6 +16,7 @@ import { getPaystackSettings, resolvePaystackKeyMode } from "@/lib/payments/pays
 import { assertProviderProductionReady } from "@/lib/payments/provider-readiness"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { resolvePaymentProvider } from "@/lib/payments/routing"
+import { sameOriginReturnUrl } from "@/lib/payments/return-url"
 
 export type PaymentProvider = "paystack" | "manual" | "momo" | "deltapay"
 
@@ -260,6 +261,8 @@ async function getOrderAllowedProviders(orderId: string): Promise<string[]> {
 
 export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
   const { supabase, order } = await getPendingOrder(input.orderId, input.userId)
+  // Client-supplied; the provider redirects the buyer here after paying.
+  const returnUrl = sameOriginReturnUrl(input.returnUrl, APP_URL)
   const allowedProviders = await getOrderAllowedProviders(order.id)
   const provider = await resolvePaymentProvider({
     currency: order.currency,
@@ -279,10 +282,10 @@ export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
   const extRef = buildProviderPaymentReference(provider, order.id, randomUUID())
   const attemptNo = (count ?? 0) + 1
   const paystackPayload = provider === "paystack"
-    ? await initializePaystackTransaction(order, extRef, input.returnUrl)
+    ? await initializePaystackTransaction(order, extRef, returnUrl)
     : null
   const deltaPayPayload = provider === "deltapay"
-    ? await initializeDeltaPayTransaction(order, extRef, input.returnUrl)
+    ? await initializeDeltaPayTransaction(order, extRef, returnUrl)
     : null
   const providerPayload = paystackPayload ?? deltaPayPayload
   const providerReference = paystackPayload?.reference ?? deltaPayPayload?.checkout_session_id ?? extRef
@@ -298,7 +301,7 @@ export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
       status: "pending",
       ext_ref: providerReference,
       payload: {
-        return_url: input.returnUrl ?? null,
+        return_url: returnUrl,
         amount_cents: order.total_cents,
         currency: order.currency,
         provider: providerPayload,

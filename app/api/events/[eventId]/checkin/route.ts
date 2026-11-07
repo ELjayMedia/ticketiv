@@ -1,156 +1,39 @@
-import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { loadUserPermissions } from "@/lib/permissions-loader"
-import { PERMISSION_ACTIONS, hasPermission } from "@/lib/rbac"
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
+import { POST as scanTicket } from "../scan/route"
+
 /**
- * POST /api/events/[eventId]/checkin
- * 
- * Check in an attendee (mark ticket as scanned)
- * Requires: EVENT_SCAN permission for the event
- * 
- * Body: { qr_token: string } → finds the order_item via ticket_code
- * Validates staff permissions, then updates checked_in_at timestamp
- * Returns updated order_item or error
+ * POST /api/events/[eventId]/checkin  (legacy)
+ *
+ * Body: { qr_token: string }
+ *
+ * Kept for older clients. It used to read the ticket and then update
+ * order_items.checked_in_at directly, which let two simultaneous scans both
+ * admit the same ticket, admitted refunded or voided tickets, and left no scan
+ * record. It now forwards to POST /api/events/[eventId]/scan, so admission goes
+ * through the one atomic scan RPC: verified staff identity, event-staff check,
+ * ticket status, single-use lock and the scan audit row.
  */
 
 const CheckinRequestSchema = z.object({
-  qr_token: z.string().min(1, "QR token required"),
+  qr_token: z.string().trim().min(1, "QR token required").max(512),
 })
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ eventId: string }> }
-) {
-  try {
-    const { eventId } = await params
-    const body = await request.json()
-    const { qr_token } = CheckinRequestSchema.parse(body)
-
-    const supabase = createServerSupabaseClient()
-    if (!supabase) {
-      return NextResponse.json(
-        { error: "Database not configured" },
-        { status: 503 }
-      )
-    }
-
-    // Get current user
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-
-    if (!session) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
-
-    // Load user permissions
-    const userAuthz = await loadUserPermissions(session.user.id)
-    if (!userAuthz) {
-      return NextResponse.json(
-        { error: "Permission denied" },
-        { status: 403 }
-      )
-    }
-
-    // Check EVENT_SCAN permission
-    if (!hasPermission(userAuthz.permissions, PERMISSION_ACTIONS.EVENT_SCAN, { eventId })) {
-      console.warn(
-        `[v0] User ${session.user.id} attempted to scan event ${eventId} without permission`
-      )
-      return NextResponse.json(
-        { error: "You don't have permission to check in attendees for this event" },
-        { status: 403 }
-      )
-    }
-
-    // Find the order_item by qr_token (ticket_code)
-    const { data: orderItem, error: findError } = await supabase
-      .from("order_items")
-      .select("id, order_id, ticket_code, checked_in_at, ticket_types(event_id)")
-      .eq("ticket_code", qr_token)
-      .maybeSingle()
-
-    if (findError) {
-      console.error("[v0] Error finding ticket:", findError)
-      return NextResponse.json(
-        { error: "Failed to find ticket" },
-        { status: 500 }
-      )
-    }
-
-    if (!orderItem) {
-      return NextResponse.json(
-        { error: "Ticket not found" },
-        { status: 404 }
-      )
-    }
-
-    // Verify the ticket belongs to this event
-    const ticketEventId = Array.isArray(orderItem.ticket_types)
-      ? orderItem.ticket_types[0]?.event_id
-      : orderItem.ticket_types?.event_id
-    if (ticketEventId !== eventId) {
-      return NextResponse.json(
-        { error: "Ticket does not belong to this event" },
-        { status: 400 }
-      )
-    }
-
-    // Check if already checked in
-    if (orderItem.checked_in_at) {
-      return NextResponse.json(
-        {
-          error: "Already checked in",
-          data: orderItem,
-          already_checked_in: true,
-        },
-        { status: 400 }
-      )
-    }
-
-    // Update checked_in_at timestamp
-    const { data: updated, error: updateError } = await supabase
-      .from("order_items")
-      .update({
-        checked_in_at: new Date().toISOString(),
-      })
-      .eq("id", orderItem.id)
-      .select()
-      .single()
-
-    if (updateError) {
-      console.error("[v0] Error checking in ticket:", updateError)
-      return NextResponse.json(
-        { error: "Failed to check in ticket" },
-        { status: 500 }
-      )
-    }
-
-    console.log(
-      `[v0] Ticket checked in: ${orderItem.id} by user ${session.user.id}`
-    )
-
-    return NextResponse.json({
-      success: true,
-      data: updated,
-    })
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: "Invalid request", details: error.errors },
-        { status: 400 }
-      )
-    }
-
-    console.error("[v0] Checkin API error:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+export async function POST(request: NextRequest, context: { params: Promise<{ eventId: string }> }) {
+  const parsed = CheckinRequestSchema.safeParse(await request.json().catch(() => null))
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid request", details: parsed.error.issues }, { status: 400 })
   }
+
+  // Same cookies and auth headers, new body (so its old length no longer applies).
+  const headers = new Headers(request.headers)
+  headers.delete("content-length")
+  headers.set("content-type", "application/json")
+  const forwarded = new NextRequest(request.url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ ticket_code: parsed.data.qr_token }),
+  })
+  return scanTicket(forwarded, context)
 }
