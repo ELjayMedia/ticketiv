@@ -71,13 +71,27 @@ export function SuperAdminShell({
               </summary>
               <div className="fixed inset-x-0 top-16 z-50 max-h-[calc(100dvh-4rem)] overflow-y-auto border-b border-line bg-surface p-4 shadow-lg">
                 <AdminNav groups={groups} />
-                <form action={signOutSuperAdminAction} className="mt-4 border-t border-line pt-4">
+                <Link
+                  href="/orgs"
+                  className="mt-4 flex items-center gap-3 rounded-lg border-t border-line px-3 pb-2 pt-4 text-sm font-medium text-ink-2 hover:text-ink"
+                >
+                  <Icon name="building" className="h-4 w-4" /> Organizer workspace
+                </Link>
+                <form action={signOutSuperAdminAction} className="mt-2 border-t border-line pt-4">
                   <Button type="submit" variant="outline" size="sm" block>
                     <Icon name="logout" className="h-3.5 w-3.5" /> Sign out
                   </Button>
                 </form>
               </div>
             </details>
+
+            <Link href="/super-admin" className="flex items-center gap-2.5 lg:hidden" aria-label="Ticketiv admin console home">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-ink text-sm font-bold text-surface">T</span>
+              <span className="flex flex-col">
+                <span className="text-sm font-semibold leading-tight text-ink">Ticketiv</span>
+                <span className="text-xs text-ink-3">Admin console</span>
+              </span>
+            </Link>
 
             <form
               action="/super-admin/search"
@@ -99,23 +113,26 @@ export function SuperAdminShell({
               />
             </form>
 
-            <div className="ml-auto flex flex-wrap items-center gap-2">
+            <div className="ml-auto flex items-center gap-2">
               {paymentsTestMode ? (
-                <span className="inline-flex items-center rounded-full bg-warning-soft px-3 py-1.5 text-xs font-semibold text-warning">
-                  Payments in test mode
+                <span className="inline-flex items-center whitespace-nowrap rounded-full bg-warning-soft px-3 py-1.5 text-xs font-semibold text-warning">
+                  <span className="sm:hidden">Test mode</span>
+                  <span className="hidden sm:inline">Payments in test mode</span>
                 </span>
               ) : null}
               {canWorkCases ? (
                 <Link
                   href="/super-admin/cases"
-                  className="inline-flex min-h-10 items-center gap-2 rounded-[var(--radius)] border border-line-2 bg-surface px-3 text-sm font-semibold text-ink hover:bg-bg"
+                  aria-label="Cases"
+                  className="inline-flex size-10 items-center justify-center gap-2 rounded-[var(--radius)] border border-line-2 bg-surface text-sm font-semibold text-ink hover:bg-bg sm:size-auto sm:min-h-10 sm:px-3"
                 >
-                  <Icon name="bell" className="h-4 w-4" /> Cases
+                  <Icon name="bell" className="h-4 w-4" />
+                  <span className="hidden sm:inline">Cases</span>
                 </Link>
               ) : null}
               <Link
                 href="/orgs"
-                className="inline-flex min-h-10 items-center rounded-[var(--radius)] px-3 text-sm font-medium text-ink-2 hover:bg-surface-2 hover:text-ink"
+                className="hidden min-h-10 items-center rounded-[var(--radius)] px-3 text-sm font-medium text-ink-2 hover:bg-surface-2 hover:text-ink sm:inline-flex"
               >
                 Organizer workspace
               </Link>
