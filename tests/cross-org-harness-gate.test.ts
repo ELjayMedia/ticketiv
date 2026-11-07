@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process"
+import { readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { describe, expect, it } from "vitest"
@@ -21,5 +22,15 @@ describe("cross-org authorization harness", () => {
 
     expect(result.status).toBe(2)
     expect(result.stderr).toContain("Cross-org authorization check BLOCKED")
+  })
+
+  it("runs as an independent, blocking CI job against disposable local Postgres", () => {
+    const workflow = readFileSync(resolve(root, ".github/workflows/ci.yml"), "utf8")
+    expect(workflow).toContain("cross-org-authorization:")
+    expect(workflow).toContain("supabase db start")
+    expect(workflow).toContain("supabase db reset --local --no-seed")
+    expect(workflow).toContain("TICKETIV_CROSS_ORG_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres")
+    expect(workflow).toContain("needs: [release-gate, cross-org-authorization, change-scope]")
+    expect(workflow).not.toContain("continue-on-error: true")
   })
 })

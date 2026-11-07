@@ -38,8 +38,9 @@ retired endpoints' source/response contract.
 - `git diff --check` — passed.
 - Cross-org harness now uses `psql` against an isolated database via
   `TICKETIV_CROSS_ORG_TEST_DB_URL` and exits `2` if the database or executable
-  is unavailable. Unavailable is never reported as a pass. The release gate
-  remains red until CI provisions this isolated verification environment.
+  is unavailable. Unavailable is never reported as a pass. CI now provisions a
+  disposable local Supabase Postgres instance and runs this harness as a
+  separate blocking job. This job must pass before browser E2E is allowed.
 
 ## Follow-up before security sign-off
 
@@ -55,8 +56,8 @@ retired endpoints' source/response contract.
    semantics, avatar MIME/size limits, and claimed-account guards on contact
    matching. Review current callers and product requirements before changing
    public interfaces.
-6. Provision `TICKETIV_CROSS_ORG_TEST_DB_URL` on an isolated Ticketiv-schema
-   database in CI so the fail-closed harness can run. Complete the pending human
+6. Verify the new isolated Supabase CI job applies the migration chain and
+   proves all cross-tenant negatives plus positive controls. Complete the pending human
    threat-model/secret sign-off.
 
 These follow-ups are **not** represented as fixed by this PR.
