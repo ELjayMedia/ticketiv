@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { clientKey, rateLimit, tooManyRequests } from "@/lib/rate-limit"
 
 // Buyer-facing copy for preview rejections. The RPC reasons mirror
@@ -13,24 +13,27 @@ const REASON_COPY: Record<string, string> = {
 }
 
 export async function POST(req: NextRequest) {
-  const rl = await rateLimit("promo:validate", clientKey(req), 20, 60)
+  // This endpoint is the only public path to the privileged preview RPC. If
+  // both limiter backends fail, refuse guesses until enforcement is restored.
+  const rl = await rateLimit("promo:validate", clientKey(req), 20, 60, { failClosed: true })
   if (!rl.allowed) return tooManyRequests(rl)
 
-  const { code, eventId } = await req.json()
-  if (!code || !eventId) {
-    return NextResponse.json({ valid: false, error: "Missing fields" }, { status: 400 })
+  const input = await req.json().catch(() => null)
+  const code = typeof input?.code === "string" ? input.code.trim() : ""
+  const eventId = typeof input?.eventId === "string" ? input.eventId : ""
+  if (code.length < 3 || code.length > 128 || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId)) {
+    return NextResponse.json({ valid: false, error: "Invalid promo code or event" }, { status: 400 })
   }
 
-  const supabase = createServerSupabaseClient()
-  if (!supabase) return NextResponse.json({ valid: false, error: "Server error" }, { status: 500 })
+  const supabase = createAdminClient()
 
   // Promo codes live in price_rules (org-manager-only under RLS), so the
-  // preview goes through the read-only SECURITY DEFINER RPC rather than a
-  // direct table read — a direct read in the buyer's session always came
-  // back empty and made every code look invalid.
+  // preview goes through the read-only SECURITY DEFINER RPC. Direct anon and
+  // authenticated EXECUTE have been revoked so this rate-limited server path
+  // is the only public promo validation entry point.
   const { data, error } = await supabase.rpc("fn_preview_promo_code", {
     p_event_id: eventId,
-    p_code: String(code),
+    p_code: code,
   })
 
   if (error) {

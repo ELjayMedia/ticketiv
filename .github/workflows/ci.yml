@@ -49,6 +49,9 @@ jobs:
           psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -X -tAc \
             "select count(*) from information_schema.tables where table_schema = 'public'"
 
+      - name: Verify public security controls on isolated database
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -X -v ON_ERROR_STOP=1 -f supabase/tests/security_public_surface.sql
+
       # check:release includes check:permissions. The invariants over the
       # committed matrix always run; the live drift diff additionally runs when
       # these secrets are configured, which is what catches a grant applied
