@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 
+import { getAuthUser } from "@/lib/auth/session"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 type RouteContext = { params: Promise<{ eventId: string }> }
 
@@ -44,11 +44,12 @@ function outcomeToStatus(rpcOutcome: string): number {
 export async function POST(request: NextRequest, context: RouteContext) {
   const { eventId } = await context.params
 
-  const supabase = createServerSupabaseClient()
-  if (!supabase) return NextResponse.json({ error: "Supabase is not configured" }, { status: 500 })
-
-  const { data: { session } } = await supabase.auth.getSession()
-  const userId = session?.user?.id
+  // The scan worker below runs on the service role and trusts p_scanned_by,
+  // so the scanner's identity must come from a verified token (getUser).
+  // Reading the session straight from the cookie skips that verification and
+  // would let a forged cookie admit tickets as any staff member.
+  const user = await getAuthUser()
+  const userId = user?.id
   if (!userId) return NextResponse.json({ error: "Authentication required" }, { status: 401 })
 
   const body = await request.json().catch(() => ({}))

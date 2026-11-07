@@ -1,15 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server"
 
+import { getAuthUser } from "@/lib/auth/session"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 type RouteContext = { params: Promise<{ orderId: string }> }
 
+// This route reads with the service role and authorizes in code, so the
+// caller's id must come from a verified token (getUser), not the raw cookie.
 async function getUserId() {
-  const supabase = createServerSupabaseClient()
-  if (!supabase) return null
-  const { data } = await supabase.auth.getSession()
-  return data.session?.user?.id ?? null
+  const user = await getAuthUser()
+  return user?.id ?? null
 }
 
 async function canViewOrder(admin: ReturnType<typeof createAdminClient>, order: any, userId: string) {
@@ -68,7 +68,10 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     .eq("id", orderId)
     .maybeSingle()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) {
+    console.error("Failed to load order", error)
+    return NextResponse.json({ error: "Unable to load order" }, { status: 500 })
+  }
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 })
 
   const allowed = await canViewOrder(admin, order, userId)

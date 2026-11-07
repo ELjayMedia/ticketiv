@@ -1,30 +1,17 @@
 import { NextResponse } from "next/server"
 
+import { getAuthUser } from "@/lib/auth/session"
 import { createPaymentAttempt } from "@/lib/payments"
 import { clientKey, rateLimit, tooManyRequests } from "@/lib/rate-limit"
-import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export async function POST(request: Request) {
   try {
-    const supabase = createServerSupabaseClient()
-    if (!supabase) {
-      return NextResponse.json({ error: "Supabase is not configured" }, { status: 500 })
-    }
+    // Order ownership is checked on the service role against this id, so it
+    // must come from a verified token (getUser), not the raw session cookie.
+    const user = await getAuthUser()
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
-
-    if (sessionError) {
-      return NextResponse.json({ error: "Failed to verify session" }, { status: 500 })
-    }
-
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const rl = await rateLimit("payments:attempt", clientKey(request, session.user.id), 10, 60)
+    const rl = await rateLimit("payments:attempt", clientKey(request, user.id), 10, 60)
     if (!rl.allowed) return tooManyRequests(rl)
 
     const body = await request.json()
@@ -35,7 +22,7 @@ export async function POST(request: Request) {
     const result = await createPaymentAttempt({
       orderId: String(body.orderId ?? ""),
       provider,
-      userId: session.user.id,
+      userId: user.id,
       returnUrl: body.returnUrl ? String(body.returnUrl) : null,
       countryCode: body.countryCode ? String(body.countryCode) : null,
     })
