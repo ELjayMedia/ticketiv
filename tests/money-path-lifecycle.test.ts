@@ -79,6 +79,7 @@ let buyerId: string | null = null
 let createdOrgId: string | null = null
 let createdEventId: string | null = null
 let createdWrongEventId: string | null = null
+let createdVenueId: string | null = null
 
 /** Fail loudly rather than silently continuing on a half-made fixture. */
 async function must<T>(label: string, p: PromiseLike<{ data: T | null; error: { message: string } | null }>) {
@@ -111,15 +112,29 @@ describe.skipIf(!configured)("money path lifecycle (database-asserted)", () => {
         .single(),
     )
     createdOrgId = org.id
+    // fn_create_inventory_protected_order only sells tickets for published
+    // events, and a published event must have a venue. Keep it private so the
+    // synthetic event never appears in public discovery while the test runs.
+    const venue = await must<{ id: string }>(
+      "create venue",
+      admin
+        .from("venues")
+        .insert({ org_id: org.id, name: `${TAG} venue`, slug: TAG } as never)
+        .select("id")
+        .single(),
+    )
+    createdVenueId = venue.id
     const event = await must<{ id: string }>(
       "create event",
       admin
         .from("events")
         .insert({
           org_id: org.id,
+          venue_id: venue.id,
+          visibility: "private",
           title: `${TAG} event`,
           slug: TAG,
-          status: "draft",
+          status: "published",
           starts_at: new Date(Date.now() + 86_400_000).toISOString(),
           ends_at: new Date(Date.now() + 90_000_000).toISOString(),
         } as never)
@@ -183,6 +198,7 @@ describe.skipIf(!configured)("money path lifecycle (database-asserted)", () => {
         await admin.from("ticket_types").delete().in("event_id", eventIds)
         await admin.from("events").delete().in("id", eventIds)
       }
+      if (createdVenueId) await admin.from("venues").delete().eq("id", createdVenueId)
       await admin.from("organizations").delete().eq("id", createdOrgId)
     }
 
