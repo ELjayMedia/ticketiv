@@ -2,6 +2,7 @@
 // initials when there is no avatar URL.
 
 import type { MyProfile } from "@/lib/data/attendee/profile"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 
 export interface ProfileUserProp {
   name: string
@@ -17,7 +18,7 @@ export interface ProfileUserProp {
   unreadNotifications: number
 }
 
-const JOINED_FMT = new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric" })
+const JOINED_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE, month: "short", year: "numeric" })
 
 export function mapProfile(p: MyProfile): ProfileUserProp {
   const joined = p.joinedAt ? new Date(p.joinedAt) : null

@@ -7,7 +7,7 @@
 
 import { PHOTOS } from "@/lib/photos";
 import { asCurrency } from "@/lib/currency";
-import { formatEventDate, formatTimeRange } from "@/lib/format";
+import { eventTimeZone, formatEventDate, formatTimeRange } from "@/lib/format";
 import { formatRefundWindow, resolveRefundPolicy } from "@/lib/refund-policy";
 import type { EventPublicView } from "@/lib/schemas/views";
 import type { MobileEventData } from "@/components/quiet/screens/event-detail/mobile-event";
@@ -89,6 +89,8 @@ function mapFriends(rows: EventFriendRow[] | undefined) {
 
 export function mapEventDetail(row: EventPublicView, input: MapInput = {}): MobileEventData {
   const start = row.starts_at ? new Date(row.starts_at) : null;
+  // Times as the clock reads at the venue.
+  const tz = eventTimeZone(row.venue_tz);
 
   return {
     eventUuid: row.id,
@@ -97,8 +99,8 @@ export function mapEventDetail(row: EventPublicView, input: MapInput = {}): Mobi
     category: row.category ?? "Event",
     posterUrl: row.poster_url ?? PHOTOS.dj_set,
     description: row.description ?? "",
-    dateLabel: start ? formatEventDate(start) : "Date TBA",
-    timeLabel: start ? formatTimeRange(start) : "",
+    dateLabel: start ? formatEventDate(start, null, tz) : "Date TBA",
+    timeLabel: start ? formatTimeRange(start, null, tz) : "",
     venue: {
       name: row.venue_name ?? "Venue TBA",
       distanceKm: 0,

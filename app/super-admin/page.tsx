@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
@@ -214,7 +215,7 @@ export default async function SuperAdminPage({ searchParams }: { searchParams: P
                       {operation.action} · {operation.entity}
                     </p>
                     <p className="mt-1 font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                      {new Date(operation.occurred_at).toLocaleString("en-SZ")}
+                      {new Date(operation.occurred_at).toLocaleString("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE })}
                     </p>
                   </div>
                 ))
@@ -291,7 +292,7 @@ export default async function SuperAdminPage({ searchParams }: { searchParams: P
                     <div className="flex flex-col gap-1">
                       <p className="font-semibold text-ink">{activity.action}</p>
                       <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                        {new Date(activity.created_at).toLocaleString("en-SZ")}
+                        {new Date(activity.created_at).toLocaleString("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE })}
                       </p>
                     </div>
                     <Chip size="sm" variant="default">event_categories</Chip>

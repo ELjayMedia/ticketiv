@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
@@ -60,7 +61,7 @@ export default async function MemberPage({
   const displayName = profile?.display_name || composedName || email?.split("@")[0] || "Member"
 
   const joinedAt = member.created_at
-    ? new Date(member.created_at).toLocaleDateString("en-SZ", {
+    ? new Date(member.created_at).toLocaleDateString("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE,
         year: "numeric",
         month: "long",
         day: "numeric",

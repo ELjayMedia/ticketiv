@@ -1,22 +1,22 @@
 // Turn the organiser's Attendee guide form into the jsonb fn_save_event_guide
 // takes. Pure, so it is unit tested.
 
-const TZ_OFFSET = "+02:00" // Eswatini (Africa/Mbabane): UTC+2, no daylight saving.
+import { DEFAULT_EVENT_TIME_ZONE, formatEventClock, wallTimeToInstant, zonedDayKey } from "@ticketiv/shared"
 
 /** The event's calendar day where it happens, YYYY-MM-DD. */
-export function eventLocalDate(startsAt: string | null | undefined, timeZone = "Africa/Mbabane"): string | null {
+export function eventLocalDate(startsAt: string | null | undefined, timeZone: string = DEFAULT_EVENT_TIME_ZONE): string | null {
   if (!startsAt) return null
   const date = new Date(startsAt)
   if (!Number.isFinite(date.getTime())) return null
-  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(date)
+  return zonedDayKey(date, timeZone)
 }
 
 /** "HH:MM" of an instant where the event happens. */
-export function localTime(iso: string | null | undefined, timeZone = "Africa/Mbabane"): string {
+export function localTime(iso: string | null | undefined, timeZone: string = DEFAULT_EVENT_TIME_ZONE): string {
   if (!iso) return ""
   const date = new Date(iso)
   if (!Number.isFinite(date.getTime())) return ""
-  return new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(date)
+  return formatEventClock(date, timeZone)
 }
 
 const TIME = /^([01]?\d|2[0-3]):([0-5]\d)$/
@@ -30,16 +30,21 @@ export interface GuideFormResult {
   errors: string[]
 }
 
-export function guideFromForm(form: FormData, eventStartsAt: string | null | undefined): GuideFormResult {
+export function guideFromForm(form: FormData, eventStartsAt: string | null | undefined, timeZone: string = DEFAULT_EVENT_TIME_ZONE): GuideFormResult {
   const errors: string[] = []
 
   const doors = text(form, "doors", 5)
   let doorsOpenAt: string | null = null
   if (doors) {
-    const day = eventLocalDate(eventStartsAt)
+    const day = eventLocalDate(eventStartsAt, timeZone)
     if (!TIME.test(doors)) errors.push("Doors time must look like 14:00.")
     else if (!day) errors.push("Set the event date before the doors time.")
-    else doorsOpenAt = `${day}T${doors.padStart(5, "0")}:00${TZ_OFFSET}`
+    else {
+      // Doors on the event's day, as the clock reads where the event happens.
+      const [y, mo, d] = day.split("-").map(Number)
+      const [h, mi] = doors.split(":").map(Number)
+      doorsOpenAt = wallTimeToInstant({ year: y, month: mo, day: d, hour: h, minute: mi }, timeZone).toISOString()
+    }
   }
 
   const times = form.getAll("programme_time").map((v) => String(v).trim())

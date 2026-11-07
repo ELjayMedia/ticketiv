@@ -4,6 +4,7 @@
 // a deep-link to the Supabase project dashboard.
 
 import * as React from "react"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { Card } from "@/components/quiet/ui/card"
 import { Button } from "@/components/quiet/ui/button"
 import { Icon } from "@/components/quiet/ui/icon"
@@ -131,10 +132,10 @@ export function DBScreen({ overview }: { overview: DBOverview }) {
                 {t.bloat_pct === null ? "—" : `${t.bloat_pct}%`}
               </span>
               <span className="font-mono text-[11px] text-ink-3">
-                {t.last_vacuum_iso ? new Date(t.last_vacuum_iso).toLocaleDateString("en-GB") : "—"}
+                {t.last_vacuum_iso ? new Date(t.last_vacuum_iso).toLocaleDateString("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE }) : "—"}
               </span>
               <span className="font-mono text-[11px] text-ink-3">
-                {t.last_autovacuum_iso ? new Date(t.last_autovacuum_iso).toLocaleDateString("en-GB") : "—"}
+                {t.last_autovacuum_iso ? new Date(t.last_autovacuum_iso).toLocaleDateString("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE }) : "—"}
               </span>
             </div>
           ))

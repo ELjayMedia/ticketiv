@@ -1,4 +1,5 @@
 import { PHOTOS } from "@/lib/photos";
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import {
   refundQuoteForHoursBefore,
   resolveRefundPolicy,
@@ -28,7 +29,7 @@ export interface RefundScreenProps {
   };
 }
 
-const WHEN = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short" });
+const WHEN = new Intl.DateTimeFormat("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE, weekday: "short", day: "numeric", month: "short" });
 
 export function mapRefund(order: BuyerOrder): RefundScreenProps {
   const first = order.items[0];

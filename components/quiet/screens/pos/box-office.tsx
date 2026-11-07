@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/quiet/ui/card"
 import { Button } from "@/components/quiet/ui/button"
@@ -133,7 +134,7 @@ export function BoxOffice({ ctx }: BoxOfficeProps) {
 
     {receipt && <div className="px-5 pb-4"><ReceiptCard receipt={receipt} onClose={() => setReceipt(null)} /></div>}
 
-    <div className="px-5 pb-4 no-print"><div className="text-label mb-2">Recent transactions</div><Card className="divide-y divide-line overflow-hidden">{transactions.length === 0 ? <div className="p-4 text-center font-mono text-xs text-ink-3">No completed sales in this shift.</div> : transactions.map((tx) => <button key={tx.order_id} type="button" onClick={() => void loadReceipt(tx.order_id)} className="flex w-full items-center gap-3 p-3 text-left hover:bg-line/30"><div className="flex-1 min-w-0"><div className="truncate text-sm font-semibold">{tx.receipt_reference} · {tx.buyer_name || "Walk-in"}</div><div className="font-mono text-[10px] text-ink-3">{new Date(tx.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · {tx.item_count} ticket{tx.item_count === 1 ? "" : "s"} · {tx.payment_method}</div></div><span className="font-mono text-xs font-semibold">{formatMoney(tx.total_cents, tx.currency)}</span></button>)}</Card></div>
+    <div className="px-5 pb-4 no-print"><div className="text-label mb-2">Recent transactions</div><Card className="divide-y divide-line overflow-hidden">{transactions.length === 0 ? <div className="p-4 text-center font-mono text-xs text-ink-3">No completed sales in this shift.</div> : transactions.map((tx) => <button key={tx.order_id} type="button" onClick={() => void loadReceipt(tx.order_id)} className="flex w-full items-center gap-3 p-3 text-left hover:bg-line/30"><div className="flex-1 min-w-0"><div className="truncate text-sm font-semibold">{tx.receipt_reference} · {tx.buyer_name || "Walk-in"}</div><div className="font-mono text-[10px] text-ink-3">{new Date(tx.created_at).toLocaleTimeString([], { timeZone: DEFAULT_EVENT_TIME_ZONE, hour: "2-digit", minute: "2-digit" })} · {tx.item_count} ticket{tx.item_count === 1 ? "" : "s"} · {tx.payment_method}</div></div><span className="font-mono text-xs font-semibold">{formatMoney(tx.total_cents, tx.currency)}</span></button>)}</Card></div>
 
     <div className="px-5 pb-4 no-print"><div className="text-label mb-2">Tickets</div><div className="flex flex-col gap-1.5">{ctx.ticketTypes.map((ticket) => <TicketRow key={ticket.id} t={ticket} q={qty[ticket.id] ?? 0} currency={ctx.currency} onMinus={() => setQ(ticket.id, -1)} onPlus={() => setQ(ticket.id, 1)} />)}</div></div>
     <div className="px-5 pb-4 no-print"><div className="text-label mb-2">Pay with</div><div className="grid grid-cols-4 gap-1.5">{PAY_METHODS.map((p) => <button key={p.id} type="button" onClick={() => setMethod(p.id)} className={`flex flex-col items-center gap-1 rounded-md border p-2.5 ${p.id === method ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface text-ink"}`}><Icon name={p.icon} size={18} /><span className="text-[11px] font-semibold">{p.label}</span></button>)}</div></div>

@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import type { ReactNode } from "react"
 
 import { cn } from "@/lib/cn"
@@ -78,7 +79,7 @@ export function Crumbs({ items }: { items: Array<{ label: string; href?: string 
 
 export function when(value: string | null | undefined) {
   if (!value) return "Never"
-  return new Date(value).toLocaleString("en-SZ", { dateStyle: "medium", timeStyle: "short" })
+  return new Date(value).toLocaleString("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE, dateStyle: "medium", timeStyle: "short" })
 }
 
 export function NotesList({ notes }: { notes: Array<{ id: string; body: string; created_at: string; authorEmail: string | null }> }) {

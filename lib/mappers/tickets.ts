@@ -12,6 +12,7 @@
  */
 
 import { PHOTOS } from "@/lib/photos";
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { formatEventDate, formatTimeRange } from "@/lib/format";
 import { resolveRefundPolicy, refundQuoteForHoursBefore, formatRefundWindow } from "@/lib/refund-policy";
 import type { MyTicketsView } from "@/lib/schemas/views";
@@ -175,7 +176,7 @@ export interface TicketViewProp {
   refundCta: RefundCtaData | null;
 }
 
-const DEADLINE_FMT = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short" });
+const DEADLINE_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE, weekday: "short", day: "numeric", month: "short" });
 
 export function mapTicketView(
   row: MyTicketsView,

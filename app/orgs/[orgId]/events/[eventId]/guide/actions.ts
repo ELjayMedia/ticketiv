@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache"
 
 import { requireEventManager } from "@/lib/organizer/access"
+import { eventTimeZone } from "@ticketiv/shared"
+
 import { guideFromForm } from "@/lib/organizer/guide-form"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
@@ -36,10 +38,10 @@ export async function saveGuideAction(_prev: GuideActionState, form: FormData): 
   const eventId = String(form.get("eventId") ?? "")
   const db = await context(orgId, eventId)
 
-  const { data: event } = await db.from("events").select("starts_at").eq("id", eventId).eq("org_id", orgId).maybeSingle()
+  const { data: event } = await db.from("events").select("starts_at, tz, venues(tz)").eq("id", eventId).eq("org_id", orgId).maybeSingle()
   if (!event) return { ok: false, message: "Event not found." }
 
-  const { guide, errors } = guideFromForm(form, event.starts_at)
+  const { guide, errors } = guideFromForm(form, event.starts_at, eventTimeZone(event.tz, event.venues?.tz))
   if (errors.length) return { ok: false, message: "Fix these and save again.", errors }
 
   const { error } = await db.rpc("fn_save_event_guide", { p_event_id: eventId, p_guide: guide })

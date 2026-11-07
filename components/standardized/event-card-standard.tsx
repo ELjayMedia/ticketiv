@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -68,13 +69,13 @@ function formatDateShort(date: string) {
   if (Number.isNaN(d.getTime())) return "Date TBA"
 
   return (
-    d.toLocaleDateString(undefined, {
+    d.toLocaleDateString(undefined, { timeZone: DEFAULT_EVENT_TIME_ZONE,
       weekday: "short",
       month: "short",
       day: "numeric",
     }) +
     " · " +
-    d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+    d.toLocaleTimeString(undefined, { timeZone: DEFAULT_EVENT_TIME_ZONE, hour: "2-digit", minute: "2-digit" })
   )
 }
 

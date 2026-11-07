@@ -1,4 +1,5 @@
 import "server-only"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { guideCompleteness, mapGuide } from "@/lib/data/companion"
@@ -176,7 +177,7 @@ export async function getWorkQueues(viewerId: string, now = new Date()): Promise
       key: queueItemKey("scanners", device.id),
       queue: "scanners",
       title: `Scanner "${device.label ?? "unnamed"}" offline`,
-      detail: `${event.title} · ${starts > now.getTime() ? "starts soon" : "running now"} · last seen ${device.last_seen_at ? new Date(device.last_seen_at).toLocaleTimeString("en-SZ", { timeStyle: "short" }) : "never"}`,
+      detail: `${event.title} · ${starts > now.getTime() ? "starts soon" : "running now"} · last seen ${device.last_seen_at ? new Date(device.last_seen_at).toLocaleTimeString("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE, timeStyle: "short" }) : "never"}`,
       at: device.last_seen_at ?? event.starts_at,
       href: `/super-admin/event/${event.id}`,
       tone: "danger",

@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { redirect } from "next/navigation"
 import { requireOrgCapability } from "@/lib/data/organizer/access"
 
@@ -81,7 +82,7 @@ export default async function PricingPlansPage({ params }: { params: Promise<{ o
 
           {setting?.effective_from ? (
             <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
-              In effect since {new Date(setting.effective_from).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+              In effect since {new Date(setting.effective_from).toLocaleDateString("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE, day: "numeric", month: "short", year: "numeric" })}
             </p>
           ) : null}
         </CardBody>

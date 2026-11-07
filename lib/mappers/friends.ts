@@ -1,6 +1,7 @@
 // Shape FriendsOverview → FriendsScreen props.
 
 import { PHOTOS } from "@/lib/photos"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import type { FriendsOverview } from "@/lib/data/attendee/friends"
 import { buildTicketivPublicUrl } from "@/lib/public-url"
 
@@ -21,7 +22,7 @@ function avatarFor(seed: string): string {
   return FACE_POOL[Math.abs(h) % FACE_POOL.length]
 }
 
-const WHEN_FMT = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric" })
+const WHEN_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE, weekday: "short", day: "numeric" })
 
 function timeAgo(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime()

@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 
-import { companionCountdown, companionStage, currentProgrammeIndex } from "@ticketiv/shared";
+import { companionCountdown, companionStage, currentProgrammeIndex, formatEventClock, formatInTimeZone } from "@ticketiv/shared";
 
 import { EventCompanion } from "@/components/quiet/screens/companion/event-companion";
 import { getEventCompanion } from "@/lib/data/companion";
@@ -10,15 +10,9 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Your event" };
 
-const TZ = "Africa/Mbabane";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const time = (iso: string) =>
-  new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso));
-const day = (iso: string) =>
-  new Intl.DateTimeFormat("en-GB", { timeZone: TZ, weekday: "short", day: "numeric", month: "short" }).format(new Date(iso));
-
-function ago(iso: string, nowMs: number): string {
+function ago(iso: string, nowMs: number, day: (iso: string) => string): string {
   const minutes = Math.max(0, Math.round((nowMs - new Date(iso).getTime()) / 60_000));
   if (minutes < 1) return "just now";
   if (minutes < 60) return `${minutes}m ago`;
@@ -44,6 +38,10 @@ export default async function EventCompanionPage({ params }: { params: Promise<{
   if (!data) notFound();
 
   const nowMs = Date.now();
+  // Every time on this screen reads as the clock does where the event happens.
+  const TZ = data.timeZone;
+  const time = (iso: string) => formatEventClock(iso, TZ);
+  const day = (iso: string) => formatInTimeZone(iso, { weekday: "short", day: "numeric", month: "short" }, TZ);
   const checkedIn = data.tickets
     .map((t) => t.checked_in_at)
     .filter((v): v is string => Boolean(v))
@@ -99,7 +97,7 @@ export default async function EventCompanionPage({ params }: { params: Promise<{
         id: u.id,
         title: u.title,
         body: u.body,
-        whenLabel: `${data.orgName ?? "Organiser"} · ${ago(u.createdAt, nowMs)}`,
+        whenLabel: `${data.orgName ?? "Organiser"} · ${ago(u.createdAt, nowMs, day)}`,
         isNew: nowMs - new Date(u.createdAt).getTime() < 24 * 60 * 60 * 1000,
       }))}
       friendsGoing={data.friendsGoing}

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { Button } from "@/components/quiet/ui/button"
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
@@ -29,7 +30,7 @@ function fmtRelative(d: string | null) {
   if (diff < 60_000) return "Just now"
   if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`
   if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`
-  return new Intl.DateTimeFormat("en-SZ", { dateStyle: "short" }).format(new Date(d))
+  return new Intl.DateTimeFormat("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE, dateStyle: "short" }).format(new Date(d))
 }
 
 const selectClass =
@@ -173,7 +174,7 @@ export function DevicesClient({
                   </Button>
                 </div>
                 <span className="font-mono text-[11px] uppercase tracking-wide text-ink-3">
-                  Expires {new Date(setupCode.expiresAt).toLocaleTimeString()}
+                  Expires {new Date(setupCode.expiresAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: DEFAULT_EVENT_TIME_ZONE })}
                 </span>
               </div>
             )}

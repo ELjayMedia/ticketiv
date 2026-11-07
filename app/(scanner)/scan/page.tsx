@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { useRouter } from "next/navigation"
 import jsQR from "jsqr"
 
@@ -1067,7 +1068,7 @@ export default function ScannerPage() {
                   <span className="truncate font-mono text-[11px] text-ink-3">{scan.ticketCode}</span>
                 </div>
                 <span className="font-mono text-[11px] text-ink-3">
-                  {new Date(scan.scannedAt).toLocaleTimeString()}
+                  {new Date(scan.scannedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: DEFAULT_EVENT_TIME_ZONE })}
                 </span>
               </li>
             )
@@ -1269,7 +1270,7 @@ export default function ScannerPage() {
                 {(result.scan?.scanned_at || result.checkedInAt) && (
                   <p className="mt-5 inline-flex items-center gap-2 rounded-full bg-black/15 px-4 py-2 font-mono text-[11px] uppercase tracking-wider text-white/80">
                     <Icon name="clock" size={13} />
-                    {new Date(result.scan?.scanned_at ?? result.checkedInAt ?? "").toLocaleTimeString()}
+                    {new Date(result.scan?.scanned_at ?? result.checkedInAt ?? "").toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: DEFAULT_EVENT_TIME_ZONE })}
                   </p>
                 )}
               </div>

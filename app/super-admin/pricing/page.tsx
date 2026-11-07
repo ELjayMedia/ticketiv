@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -21,7 +22,7 @@ type FeeSettingRow = {
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "—"
-  return new Intl.DateTimeFormat("en-SZ", {
+  return new Intl.DateTimeFormat("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE,
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value))

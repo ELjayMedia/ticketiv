@@ -1,6 +1,8 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
 
+import { eventTimeZone } from "@ticketiv/shared"
+
 import { Icon } from "@/components/quiet/ui/icon"
 import { getOrganizerCompanion, guideCompleteness } from "@/lib/data/companion"
 import { requireEventManager } from "@/lib/organizer/access"
@@ -12,7 +14,6 @@ import { GuideEditor, UpdatesPanel } from "./guide-client"
 export const dynamic = "force-dynamic"
 export const metadata = { title: "Attendee guide" }
 
-const TZ = "Africa/Mbabane"
 
 /**
  * Organiser: the Attendee guide and official updates for one event. Ticket
@@ -27,13 +28,15 @@ export default async function EventGuidePage({ params }: { params: Promise<{ org
   if (!supabase) redirect("/login")
   const { data: event } = await supabase
     .from("events")
-    .select("id, title, starts_at")
+    .select("id, title, starts_at, tz, venues(tz)")
     .eq("id", eventId)
     .eq("org_id", orgId)
     .maybeSingle()
   if (!event) redirect("/403")
 
   const { guide, updates } = await getOrganizerCompanion(eventId)
+  // The guide is typed and shown in the event's own zone.
+  const TZ = eventTimeZone(event.tz, (event as { venues?: { tz?: string | null } | null }).venues?.tz)
   const dayLabel = event.starts_at
     ? new Intl.DateTimeFormat("en-GB", { timeZone: TZ, weekday: "short", day: "numeric", month: "short" }).format(new Date(event.starts_at))
     : null
@@ -64,7 +67,7 @@ export default async function EventGuidePage({ params }: { params: Promise<{ org
           eventDayLabel={dayLabel}
           completeness={guideCompleteness(guide)}
           initial={{
-            doors: localTime(guide?.doorsOpenAt),
+            doors: localTime(guide?.doorsOpenAt, TZ),
             entrance: guide?.entrance ?? "",
             gettingThere: guide?.gettingThere ?? "",
             parking: guide?.parking ?? "",

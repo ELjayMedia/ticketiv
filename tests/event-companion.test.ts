@@ -19,7 +19,7 @@ describe("guideFromForm", () => {
   it("turns doors into a time on the event day in Eswatini", () => {
     const { guide, errors } = guideFromForm(form([["doors", "13:30"]]), START)
     expect(errors).toEqual([])
-    expect(guide.doors_open_at).toBe("2026-11-16T13:30:00+02:00")
+    expect(guide.doors_open_at).toBe("2026-11-16T11:30:00.000Z") // 13:30 in Eswatini
     expect(localTime(guide.doors_open_at as string)).toBe("13:30")
   })
 
@@ -117,5 +117,13 @@ describe("event companion migration", () => {
 
   it("shows ticket holders only updates that are not hidden", () => {
     expect(sql).toMatch(/\(hidden_at is null and app\.holds_ticket_for_event\(event_id\)\)/)
+  })
+})
+
+describe("guide in another zone", () => {
+  it("reads doors in the event's own zone", () => {
+    // 19:00 on 16 Nov in Lagos (UTC+1) is 18:00Z
+    const { guide } = guideFromForm(form([["doors", "19:00"]]), "2026-11-16T17:00:00Z", "Africa/Lagos")
+    expect(guide.doors_open_at).toBe("2026-11-16T18:00:00.000Z")
   })
 })

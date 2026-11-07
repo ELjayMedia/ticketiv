@@ -1,3 +1,4 @@
+import { eventTimeZone, parseEventLocalDateTime } from "@ticketiv/shared"
 import { NextResponse, type NextRequest } from "next/server"
 
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -26,14 +27,18 @@ async function loadManageContext(admin: ReturnType<typeof createAdminClient>, ev
   return { allowed: Boolean(member?.role && MANAGER_ROLES.has(String(member.role))), event }
 }
 
-function normalizeDateRows(body: any) {
+/**
+ * Dates arrive as typed in the wizard ("2026-11-16T19:00"): wall-clock time
+ * where the event happens. Read them in the event's zone, never the server's.
+ */
+function normalizeDateRows(body: any, tz: string) {
   const sourceRows = Array.isArray(body.dates) && body.dates.length > 0 ? (body.dates as ScheduleDateInput[]) : [{ starts_at: body.starts_at, ends_at: body.ends_at }]
 
   const rows = sourceRows.map((item, index) => {
     const startsAt = typeof item.starts_at === "string" ? item.starts_at : ""
     const endsAt = typeof item.ends_at === "string" ? item.ends_at : ""
-    const startDate = new Date(startsAt)
-    const endDate = new Date(endsAt)
+    const startDate = parseEventLocalDateTime(startsAt, tz) ?? new Date(Number.NaN)
+    const endDate = parseEventLocalDateTime(endsAt, tz) ?? new Date(Number.NaN)
 
     if (!startsAt || Number.isNaN(startDate.getTime())) throw new Error(`Valid start date and time is required for date ${index + 1}`)
     if (!endsAt || Number.isNaN(endDate.getTime())) throw new Error(`Valid end date and time is required for date ${index + 1}`)
@@ -73,11 +78,11 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   if (!allowed) return NextResponse.json({ error: "Permission denied" }, { status: 403 })
 
   const body = await request.json().catch(() => ({}))
-  const tz = typeof body.tz === "string" && body.tz.trim() ? body.tz.trim() : "Africa/Mbabane"
+  const tz = eventTimeZone(typeof body.tz === "string" ? body.tz : null)
 
   let rows: Array<{ starts_at: string; ends_at: string }>
   try {
-    rows = normalizeDateRows(body)
+    rows = normalizeDateRows(body, tz)
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || "Invalid schedule" }, { status: 400 })
   }

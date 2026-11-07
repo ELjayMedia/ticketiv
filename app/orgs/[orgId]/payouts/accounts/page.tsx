@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import Link from "next/link"
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
@@ -95,7 +96,7 @@ export default async function PayoutAccountsPage({
                     </div>
                     <p className="font-mono text-[12px] text-ink-3">
                       {account.maskedRef} · Added{" "}
-                      {new Date(account.addedAt ?? "").toLocaleDateString("en-SZ")}
+                      {new Date(account.addedAt ?? "").toLocaleDateString("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE })}
                     </p>
                     {account.isPrimary && (
                       <p className="text-[12px] text-ink-3">Payouts are sent to this account.</p>

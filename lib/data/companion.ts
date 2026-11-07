@@ -6,7 +6,15 @@
 // SECURITY DEFINER RPCs (fn_save_event_guide, fn_post_event_update,
 // fn_hide_event_update); nothing here inserts or updates directly.
 
-import { cleanFacilities, cleanProgramme, type GuideFacility, type GuideProgrammeItem } from "@ticketiv/shared"
+import {
+  DEFAULT_EVENT_TIME_ZONE,
+  cleanFacilities,
+  cleanProgramme,
+  eventTimeZone,
+  formatEventClock,
+  type GuideFacility,
+  type GuideProgrammeItem,
+} from "@ticketiv/shared"
 
 import { getMyTickets } from "@/lib/data/attendee/tickets"
 import type { MyTicketsView } from "@/lib/schemas/views"
@@ -116,6 +124,8 @@ export interface CompanionData {
   startsAt: string | null
   endsAt: string | null
   orgName: string | null
+  /** Where the event happens: events.tz, else the venue's, else Eswatini. */
+  timeZone: string
   tickets: MyTicketsView[]
   guide: EventGuide | null
   updates: EventUpdate[]
@@ -145,7 +155,7 @@ export async function getEventCompanion(eventId: string): Promise<CompanionData 
       .is("hidden_at", null)
       .order("created_at", { ascending: false })
       .limit(10),
-    db.from("events").select("organizations(name)").eq("id", eventId).maybeSingle(),
+    db.from("events").select("tz, organizations(name), venues(tz)").eq("id", eventId).maybeSingle(),
     db.rpc("fn_my_friends_going", { p_event_ids: [eventId], p_from: null, p_limit: 20 }),
   ])
   if (guideRes.error) console.error("[companion] guide:", guideRes.error)
@@ -164,6 +174,7 @@ export async function getEventCompanion(eventId: string): Promise<CompanionData 
     startsAt: first.event_starts_at,
     endsAt: first.event_ends_at ?? null,
     orgName: eventRes.data?.organizations?.name ?? null,
+    timeZone: eventTimeZone(eventRes.data?.tz, eventRes.data?.venues?.tz),
     tickets,
     guide: mapGuide(guideRes.data),
     updates: (updatesRes.data ?? []).map(mapUpdate),
@@ -198,11 +209,11 @@ const clip = (value: string, max = 42) => (value.length > max ? `${value.slice(0
  * The guide's planning facts for the public event page ("Doors 14:00",
  * "Ages 18+ with ID"). Short values only; the full guide is in the companion.
  */
-export function guidePlanFacts(guide: EventGuide | null, timeZone = "Africa/Mbabane"): Array<readonly [string, string]> {
+export function guidePlanFacts(guide: EventGuide | null, timeZone: string = DEFAULT_EVENT_TIME_ZONE): Array<readonly [string, string]> {
   if (!guide) return []
   const facts: Array<readonly [string, string]> = []
   if (guide.doorsOpenAt) {
-    const doors = new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(guide.doorsOpenAt))
+    const doors = formatEventClock(guide.doorsOpenAt, timeZone)
     facts.push(["Doors", doors])
   }
   if (guide.ageRule) facts.push(["Ages", clip(guide.ageRule)])

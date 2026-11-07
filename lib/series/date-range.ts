@@ -1,5 +1,10 @@
 import { format } from "date-fns"
 
+import { DEFAULT_EVENT_TIME_ZONE, formatInTimeZone, zonedParts } from "@ticketiv/shared"
+
+const TZ = DEFAULT_EVENT_TIME_ZONE
+const fmt = (d: Date, options: Intl.DateTimeFormatOptions) => formatInTimeZone(d, options, TZ)
+
 /**
  * Compact date pill for multi-day events.
  * Same month: "14–16 Nov"
@@ -11,16 +16,19 @@ export function formatMultiDayPill(startsAt: string, endsAt: string): string {
   const end = new Date(endsAt)
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "Date TBA"
 
-  const sameYear = start.getFullYear() === end.getFullYear()
-  const sameMonth = sameYear && start.getMonth() === end.getMonth()
+  // Event days are counted where the event happens, not on the server's clock.
+  const s = zonedParts(start, TZ)
+  const e = zonedParts(end, TZ)
+  const sameYear = s.year === e.year
+  const sameMonth = sameYear && s.month === e.month
 
   if (sameMonth) {
-    return `${format(start, "d")}–${format(end, "d MMM")}`
+    return `${s.day}–${fmt(end, { day: "numeric", month: "short" })}`
   }
   if (sameYear) {
-    return `${format(start, "d MMM")} – ${format(end, "d MMM")}`
+    return `${fmt(start, { day: "numeric", month: "short" })} – ${fmt(end, { day: "numeric", month: "short" })}`
   }
-  return `${format(start, "d MMM yyyy")} – ${format(end, "d MMM yyyy")}`
+  return `${fmt(start, { day: "numeric", month: "short", year: "numeric" })} – ${fmt(end, { day: "numeric", month: "short", year: "numeric" })}`
 }
 
 /**
@@ -31,7 +39,9 @@ export function formatMultiDayLong(startsAt: string, endsAt: string): string {
   const start = new Date(startsAt)
   const end = new Date(endsAt)
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "Date TBA"
-  return `${format(start, "EEE d MMM HH:mm")} — ${format(end, "EEE d MMM HH:mm")}`
+  const long = (d: Date) =>
+    `${fmt(d, { weekday: "short", day: "numeric", month: "short" })} ${fmt(d, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}`
+  return `${long(start)} — ${long(end)}`
 }
 
 /**

@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { redirect } from "next/navigation"
 
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
@@ -32,7 +33,7 @@ function orderStatusVariant(status: string) {
 
 function fmtDate(value: string | null) {
   if (!value) return "—"
-  return new Intl.DateTimeFormat("en-SZ", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value))
+  return new Intl.DateTimeFormat("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE, dateStyle: "medium", timeStyle: "short" }).format(new Date(value))
 }
 
 function Paginator({ page, totalPages, buildHref }: { page: number; totalPages: number; buildHref: (page: number) => string }) {

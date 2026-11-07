@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import Link from "next/link"
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
@@ -134,7 +135,7 @@ export default async function EventStaffPage({ params }: { params: Promise<{ org
   }
 
   const fmtSession = (value: string | null) =>
-    value ? new Intl.DateTimeFormat("en-SZ", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "—"
+    value ? new Intl.DateTimeFormat("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE, dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "—"
 
   return (
     <main className="flex-1 overflow-auto">

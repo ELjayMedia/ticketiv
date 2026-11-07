@@ -5,6 +5,7 @@
  */
 
 import { PHOTOS } from "@/lib/photos";
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { asCurrency } from "@/lib/currency";
 import type { Currency } from "@/lib/format";
 import type { BuyerOrder } from "@/lib/data/attendee/orders";
@@ -36,8 +37,8 @@ export interface ConfirmationProps {
   firstTicketId: string;
 }
 
-const SHORT_DATE = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" });
-const SHORT_TIME = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+const SHORT_DATE = new Intl.DateTimeFormat("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE, day: "numeric", month: "short" });
+const SHORT_TIME = new Intl.DateTimeFormat("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE, hour: "2-digit", minute: "2-digit", hour12: false });
 
 function deriveState(orderStatus: string): ConfirmationState {
   switch (orderStatus) {

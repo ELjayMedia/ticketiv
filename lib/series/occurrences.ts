@@ -1,6 +1,8 @@
+import { DEFAULT_EVENT_TIME_ZONE, eventTimeZone, wallTimeToInstant, zonedParts } from "@ticketiv/shared"
+
 import type { RecurrencePattern, RecurrenceWeekDay } from "./recurrence"
 
-// JS Date.getDay(): 0 = Sunday … 6 = Saturday
+// Weekday index: 0 = Sunday … 6 = Saturday
 const WEEKDAY_INDEX: Record<RecurrenceWeekDay, number> = {
   SU: 0,
   MO: 1,
@@ -18,16 +20,36 @@ function parseTime(time?: string): { hours: number; minutes: number } {
   return { hours: Math.min(23, parseInt(m[1], 10)), minutes: Math.min(59, parseInt(m[2], 10)) }
 }
 
-function atTime(date: Date, time?: string): Date {
+/**
+ * Occurrences are wall-clock times where the event happens ("every Friday at
+ * 20:00" in Eswatini), so days are counted in the event's zone and each one
+ * is converted to a real instant there — never on the server's clock.
+ */
+type WallDay = { year: number; month: number; day: number }
+
+function wallDayOf(instant: Date, timeZone: string): WallDay {
+  const p = zonedParts(instant, timeZone)
+  return { year: p.year, month: p.month, day: p.day }
+}
+
+/** Shift a wall day by n days (calendar arithmetic, zone independent). */
+function addDays(d: WallDay, n: number): WallDay {
+  const t = new Date(Date.UTC(d.year, d.month - 1, d.day + n))
+  return { year: t.getUTCFullYear(), month: t.getUTCMonth() + 1, day: t.getUTCDate() }
+}
+
+function weekdayOf(d: WallDay): number {
+  return new Date(Date.UTC(d.year, d.month - 1, d.day)).getUTCDay()
+}
+
+function atTime(d: WallDay, time: string | undefined, timeZone: string): Date {
   const { hours, minutes } = parseTime(time)
-  const d = new Date(date)
-  d.setHours(hours, minutes, 0, 0)
-  return d
+  return wallTimeToInstant({ ...d, hour: hours, minute: minutes }, timeZone)
 }
 
 /**
  * Compute the next `count` occurrence dates for a recurrence pattern,
- * starting strictly after `anchor`.
+ * starting strictly after `anchor`, at the pattern's time in `timeZone`.
  *
  * This is a pure date utility — it does NOT create event rows.
  */
@@ -35,17 +57,19 @@ export function computeOccurrences(
   pattern: RecurrencePattern,
   anchor: Date,
   count: number,
+  timeZone: string = DEFAULT_EVENT_TIME_ZONE,
 ): Date[] {
+  const zone = eventTimeZone(timeZone)
   const results: Date[] = []
   const safeCount = Math.max(0, Math.min(count, 52))
   if (safeCount === 0) return results
+  const anchorDay = wallDayOf(anchor, zone)
 
   if (pattern.freq === "daily") {
-    let cursor = atTime(anchor, pattern.time)
+    let cursor = anchorDay
     while (results.length < safeCount) {
-      cursor = new Date(cursor)
-      cursor.setDate(cursor.getDate() + 1)
-      results.push(new Date(cursor))
+      cursor = addDays(cursor, 1)
+      results.push(atTime(cursor, pattern.time, zone))
     }
     return results
   }
@@ -57,14 +81,13 @@ export function computeOccurrences(
       .sort((a, b) => a - b)
     if (days.length === 0) return results
 
-    const cursor = new Date(anchor)
-    cursor.setHours(0, 0, 0, 0)
+    let cursor = anchorDay
     let guard = 0
     while (results.length < safeCount && guard < 366 * 2) {
-      cursor.setDate(cursor.getDate() + 1)
+      cursor = addDays(cursor, 1)
       guard += 1
-      if (days.includes(cursor.getDay())) {
-        const occ = atTime(cursor, pattern.time)
+      if (days.includes(weekdayOf(cursor))) {
+        const occ = atTime(cursor, pattern.time, zone)
         if (occ.getTime() > anchor.getTime()) results.push(occ)
       }
     }
@@ -73,13 +96,13 @@ export function computeOccurrences(
 
   if (pattern.freq === "monthly") {
     const targetDay = pattern.bymonthday && pattern.bymonthday >= 1 ? pattern.bymonthday : 1
-    let year = anchor.getFullYear()
-    let month = anchor.getMonth()
+    let year = anchorDay.year
+    let month = anchorDay.month - 1
     let guard = 0
     while (results.length < safeCount && guard < 60) {
-      const daysInMonth = new Date(year, month + 1, 0).getDate()
+      const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
       const day = Math.min(targetDay, daysInMonth)
-      const occ = atTime(new Date(year, month, day), pattern.time)
+      const occ = atTime({ year, month: month + 1, day }, pattern.time, zone)
       if (occ.getTime() > anchor.getTime()) results.push(occ)
       month += 1
       if (month > 11) {

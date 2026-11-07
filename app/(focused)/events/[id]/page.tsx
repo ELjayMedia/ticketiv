@@ -9,7 +9,7 @@ import { getPublicEventGuide, guidePlanFacts } from "@/lib/data/companion";
 import { mapEventDetail, mapDesktopEventDetail } from "@/lib/mappers/event-detail";
 import type { EventLineupRow, EventFriendRow } from "@/lib/mappers/event-detail";
 import { createPublicSupabaseClient } from "@/lib/supabase-public";
-import { formatEventDate, formatPriceLabel } from "@/lib/format";
+import { eventTimeZone, formatEventDate, formatPriceLabel } from "@/lib/format";
 import { asCurrency } from "@/lib/currency";
 
 export const revalidate = 60;
@@ -133,7 +133,7 @@ export default async function EventDetailPage({
     liveStats,
   } = await fetchEventExtras(row.id, row.organizer_id ?? null);
   // Organiser's attendee guide: doors, ages, parking, payment lead the facts.
-  const planFacts = guidePlanFacts(await getPublicEventGuide(row.id));
+  const planFacts = guidePlanFacts(await getPublicEventGuide(row.id), eventTimeZone(row.venue_tz));
 
   const trust = {
     soldCount,
@@ -161,7 +161,7 @@ export default async function EventDetailPage({
     slug: row.slug,
     title: row.title,
     photo: row.poster_url ?? "",
-    dateShort: startsAt ? formatEventDate(startsAt) : "Date TBA",
+    dateShort: startsAt ? formatEventDate(startsAt, null, eventTimeZone(row.venue_tz)) : "Date TBA",
     priceLabel:
       row.min_price_cents !== null && row.min_price_cents !== undefined
         ? formatPriceLabel(row.min_price_cents, asCurrency(row.currency), { prefix: "From" })

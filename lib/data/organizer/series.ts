@@ -1,9 +1,9 @@
 "use server"
 
-import { format } from "date-fns"
 import { createClient } from "@/lib/supabase/server"
 import { findAvailableSeriesSlug, generateSeriesSlug } from "@/lib/series/slug"
 import { computeOccurrences } from "@/lib/series/occurrences"
+import { DEFAULT_EVENT_TIME_ZONE, formatInTimeZone, zonedDayKey } from "@ticketiv/shared"
 import type { RecurrencePattern } from "@/lib/series/recurrence"
 import type { Json } from "@/types/database"
 
@@ -302,11 +302,12 @@ export async function generateSeriesEvents(
   const rows = occurrences.map((date) => ({
     org_id: orgId,
     series_id: seriesId,
-    title: `${series.title} — ${format(date, "EEE d MMM yyyy")}`,
-    slug: `${series.slug}-${format(date, "yyyy-MM-dd")}-${Math.random().toString(36).slice(2, 7)}`,
+    title: `${series.title} — ${formatInTimeZone(date, { weekday: "short", day: "numeric", month: "short", year: "numeric" }, DEFAULT_EVENT_TIME_ZONE)}`,
+    slug: `${series.slug}-${zonedDayKey(date, DEFAULT_EVENT_TIME_ZONE)}-${Math.random().toString(36).slice(2, 7)}`,
     starts_at: date.toISOString(),
     status: "draft" as const,
     event_format: "single_day" as const,
+    tz: DEFAULT_EVENT_TIME_ZONE,
   }))
 
   const { data: inserted, error: insertError } = await supabase

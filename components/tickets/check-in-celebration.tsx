@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { Icon } from "@/components/quiet/ui/icon"
 
 const AUTO_COMPLETE_MS = 3_200
@@ -32,7 +33,7 @@ export function CheckInCelebration({
     return () => window.clearTimeout(timer)
   }, [finish])
 
-  const timeLabel = new Intl.DateTimeFormat("en-GB", {
+  const timeLabel = new Intl.DateTimeFormat("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE,
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(checkedInAt))

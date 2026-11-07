@@ -4,6 +4,7 @@
 // Pixel-faithful port of QuietDeskPayouts from hifi-quiet-org-desk.jsx.
 
 import * as React from "react"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/quiet/ui/card"
 import { Button } from "@/components/quiet/ui/button"
@@ -99,7 +100,7 @@ function formatMoney(minor: number, currency: string): string {
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—"
-  return new Date(iso).toLocaleDateString("en", { month: "short", day: "numeric" })
+  return new Date(iso).toLocaleDateString("en", { timeZone: DEFAULT_EVENT_TIME_ZONE, month: "short", day: "numeric" })
 }
 
 function StatusBadge({ status }: { status: string }) {

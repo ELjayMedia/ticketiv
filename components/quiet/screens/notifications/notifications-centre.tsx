@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import Link from "next/link";
 import { markAllNotificationsRead, markNotificationRead, toggleNotificationMute } from "@/app/(consumer)/notifications/actions";
 import { Icon, type IconName } from "@/components/quiet/ui/icon";
@@ -32,7 +33,7 @@ function timeAgo(iso: string): string {
   if (h < 24) return `${h}h ago`;
   const d = Math.floor(h / 24);
   if (d < 7) return `${d}d ago`;
-  return new Date(iso).toLocaleDateString("en", { month: "short", day: "numeric" });
+  return new Date(iso).toLocaleDateString("en", { timeZone: DEFAULT_EVENT_TIME_ZONE, month: "short", day: "numeric" });
 }
 
 function notificationTypeLabel(type: string): string {

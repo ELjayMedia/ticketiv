@@ -1,4 +1,5 @@
 import "server-only"
+import { eventTimeZone, formatInTimeZone } from "@ticketiv/shared"
 
 import { APP_URL } from "@/lib/env"
 import { getTicketivPublicOrigin } from "@/lib/public-url"
@@ -19,7 +20,6 @@ import { issueOrderToken, issueTicketToken } from "@/lib/ticket-tokens"
 // Best-effort: never throws into the caller (payment completion must not fail
 // because a notification didn't go out).
 
-const SHORT_DATE = new Intl.DateTimeFormat("en-SZ", { dateStyle: "medium", timeStyle: "short" })
 
 // Public ticket links prefer an explicit base (lets links point at the live
 // domain even from preview/runtime contexts) and fall back to APP_URL.
@@ -54,7 +54,7 @@ export async function deliverTicketsForOrder(
 
     const { data: items } = await admin
       .from("order_items")
-      .select("id, ticket_type_id, status, ticket_types(name, event_id, events(title, starts_at, ends_at))")
+      .select("id, ticket_type_id, status, ticket_types(name, event_id, events(title, starts_at, ends_at, tz, venues(tz)))")
       .eq("order_id", orderId)
       .in("status", ["issued", "checked_in", "transferred"])
 
@@ -128,7 +128,8 @@ export async function deliverTicketsForOrder(
       template: "ticket_issued",
       payload: {
         eventName: event?.title ?? "your event",
-        eventDate: start ? SHORT_DATE.format(start) : "",
+        // The event's time as the clock reads where it happens.
+        eventDate: start ? formatInTimeZone(start, { dateStyle: "medium", timeStyle: "short" }, eventTimeZone(event?.tz, event?.venues?.tz), "en-SZ") : "",
         ticketType: ticketType?.name ?? "General",
         ticketCount: issued.length,
         totalLabel: moneySzl(order.total_cents ?? 0, order.currency ?? "SZL"),

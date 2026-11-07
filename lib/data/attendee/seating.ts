@@ -2,6 +2,7 @@
 // Schema JSON shape is defined here — Ticketiv convention v1.
 
 import "server-only"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 /**
@@ -53,7 +54,7 @@ interface SeatMapRow {
   schema: SeatMapSchema
 }
 
-const DATE_FMT = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" })
+const DATE_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE, day: "numeric", month: "short" })
 
 export async function getEventSeatingChart(eventId: string): Promise<EventSeatingChart | null> {
   const supabase = await createServerSupabaseClient()
