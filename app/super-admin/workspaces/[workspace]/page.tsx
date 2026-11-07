@@ -19,6 +19,11 @@ type CatalogAction = {
   is_enabled: boolean
 }
 
+export async function generateMetadata({ params }: { params: Promise<{ workspace: string }> }) {
+  const { workspace } = await params
+  return { title: `${getAdminWorkspace(workspace)?.title ?? "Workspace"} · Admin` }
+}
+
 export default async function SuperAdminWorkspacePage({ params }: { params: Promise<{ workspace: string }> }) {
   await requireSuperAdmin()
   const { workspace: workspaceKey } = await params

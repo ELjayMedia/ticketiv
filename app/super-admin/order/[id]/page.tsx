@@ -48,7 +48,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
             ))}
           </div>
         </div>
-        <Link href={`/super-admin/orders/${order.id}`} className="text-[13px] text-accent hover:underline">
+        <Link href={`/super-admin/orders/${order.id}?raw=1`} className="text-[13px] text-accent hover:underline">
           Raw record
         </Link>
       </header>

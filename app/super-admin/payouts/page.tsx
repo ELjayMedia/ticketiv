@@ -411,7 +411,7 @@ export default async function SuperAdminPayoutsPage({
                   className={`flex flex-wrap items-center gap-3 px-4 py-3 ${i < list.length - 1 ? "border-b border-line" : ""}`}
                 >
                   <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-[13px] font-semibold">{row.org_name ?? row.org_id.slice(0, 8)}</span>
+                    <Link href={`/super-admin/organizer/${row.org_id}`} className="truncate text-[13px] font-semibold hover:text-accent hover:underline">{row.org_name ?? row.org_id.slice(0, 8)}</Link>
                     <span className="font-mono text-[11px] text-ink-3">
                       {row.provider}
                       {row.destination_ref ? ` · ${row.destination_ref}` : ""} · requested {formatDate(row.created_at)}

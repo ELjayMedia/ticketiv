@@ -212,7 +212,7 @@ export default async function SuperAdminPaymentFailuresPage({
                 {m.currency} {(m.amountCents / 100).toLocaleString("en-SZ", { minimumFractionDigits: 2 })}
               </span>
               <Link
-                href={`/super-admin/orders/${m.orderId}`}
+                href={`/super-admin/order/${m.orderId}`}
                 className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 px-3 py-1.5 text-[12px] font-semibold text-ink transition hover:bg-bg"
               >
                 Investigate <Icon name="arrowR" size={12} />
@@ -277,7 +277,7 @@ export default async function SuperAdminPaymentFailuresPage({
                 </span>
                 {row.order_id && (
                   <Link
-                    href={`/super-admin/orders?q=${row.order_id}`}
+                    href={`/super-admin/order/${row.order_id}`}
                     className="font-mono text-[11px] uppercase tracking-wider text-accent underline-offset-4 hover:underline"
                   >
                     View order →

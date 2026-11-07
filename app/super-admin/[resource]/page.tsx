@@ -19,7 +19,14 @@ import {
 } from "@/lib/super-admin/display"
 import type { AdminResource, AdminResourceField } from "@/lib/super-admin/resources"
 import { buildAdminCreateDefaults, firstSearchParam, type AdminResourceSearchParams } from "@/lib/super-admin/form"
+import { NO_HAND_CREATE, profileHrefFor, profileLabelFor } from "@/lib/super-admin/profile-links"
 import { createResourceAction } from "../actions"
+
+export async function generateMetadata({ params }: { params: Promise<{ resource: string }> }) {
+  const { resource: resourceKey } = await params
+  const resource = getAdminResource(resourceKey)
+  return { title: resource ? `${getResourceFriendlyName(resource)} · Admin` : "Admin" }
+}
 
 const STATUS_MESSAGES: Record<string, string> = {
   created: "Record created successfully.",
@@ -146,7 +153,8 @@ export default async function SuperAdminResourcePage({
   const statusMessage = status ? STATUS_MESSAGES[status] : null
   const friendlyName = getResourceFriendlyName(resource)
   const canMutate = canMutateResource(resource.key, roleTier)
-  const createColumnClass = canMutate ? "xl:grid-cols-[0.9fr_1.4fr]" : "xl:grid-cols-1"
+  const canHandCreate = canMutate && !NO_HAND_CREATE.has(resource.key)
+  const profileLabel = profileLabelFor(resource.key)
   const createDefaults = buildAdminCreateDefaults(activeResource, query)
   const hasCreateDefaults = Object.keys(createDefaults).length > 0
 
@@ -154,7 +162,9 @@ export default async function SuperAdminResourcePage({
     <div className="mx-auto max-w-7xl">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-2">
-          <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Super admin resource</p>
+          <p className="text-[13px] text-ink-3">
+            <Link href="/super-admin" className="text-accent hover:underline">Home</Link> / {profileLabel ? "Records" : "Data explorer"}
+          </p>
           <h1 className="text-h1">{friendlyName}</h1>
           <p className="text-[13px] text-ink-3">{resource.description}</p>
         </div>
@@ -229,46 +239,18 @@ export default async function SuperAdminResourcePage({
         <div className="mb-5 flex items-start gap-3 rounded-[var(--radius-md)] border border-warning/30 bg-warning/10 px-4 py-3 text-[13px] text-ink-2">
           <Icon name="bell" size={14} className="mt-0.5 shrink-0 text-warning" />
           <div className="flex flex-col gap-1">
-            <p className="font-semibold text-ink">Read-only access for this resource.</p>
+            <p className="font-semibold text-ink">You can look, not change.</p>
             <p>
-              Raw create/edit controls are hidden for your admin tier. Use the appropriate audited workflow actions where available.
+              Editing these records by hand isn&apos;t part of your role. Use the fixes on the order, person or event pages instead, where every change asks why and is logged.
             </p>
           </div>
         </div>
       ) : null}
 
-      <section className={`grid gap-6 ${createColumnClass}`}>
-        {canMutate ? (
-          <Card>
-            <CardBody className="px-5 py-4">
-              <div className="flex flex-col gap-1">
-                <p className="inline-flex items-center gap-2 text-h3">
-                  <Icon name="plus" size={16} className="text-ink-3" />
-                  Create {friendlyName}
-                </p>
-                {hasCreateDefaults ? (
-                  <p className="text-[12px] text-ink-3">
-                    Prefilled from readiness context. Review all values before creating the record.
-                  </p>
-                ) : null}
-              </div>
-            </CardBody>
-            <CardDivider />
-            <CardBody className="p-5">
-              <ResourceForm
-                resource={resource}
-                defaults={createDefaults}
-                action={createRecord}
-                submitLabel={`Create ${friendlyName}`}
-                lookups={lookups}
-              />
-            </CardBody>
-          </Card>
-        ) : null}
-
+      <section>
         <Card>
           <CardBody className="px-5 py-4">
-            <p className="text-h3">Latest {friendlyName}</p>
+            <p className="text-h3">Latest {friendlyName.toLowerCase()}</p>
           </CardBody>
           <CardDivider />
           <CardBody className="overflow-x-auto p-0">
@@ -284,6 +266,7 @@ export default async function SuperAdminResourcePage({
               <tbody>
                 {((data ?? []) as unknown as Record<string, unknown>[]).length ? ((data ?? []) as unknown as Record<string, unknown>[]).map((row) => {
                   const recordId = String(row[resource.primaryKey])
+                  const profileHref = profileHrefFor(resource.key, row)
                   return (
                     <tr key={recordId} className="border-b border-line last:border-0">
                       {resource.listColumns.map((column) => {
@@ -299,12 +282,26 @@ export default async function SuperAdminResourcePage({
                         )
                       })}
                       <td className="px-3 py-3">
-                        <Link
-                          href={`/super-admin/${resource.key}/${recordId}`}
-                          className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-transparent px-3 py-1.5 text-[13px] font-semibold text-ink transition-colors hover:bg-bg"
-                        >
-                          Open
-                        </Link>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {profileHref ? (
+                            <Link
+                              href={profileHref}
+                              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-[var(--radius)] border border-line-2 bg-transparent px-3 py-1.5 text-[13px] font-semibold text-ink transition-colors hover:bg-bg"
+                            >
+                              {profileLabel}
+                            </Link>
+                          ) : null}
+                          <Link
+                            href={`/super-admin/${resource.key}/${recordId}?raw=1`}
+                            className={
+                              profileHref
+                                ? "whitespace-nowrap text-[12px] text-ink-3 hover:text-ink hover:underline"
+                                : "inline-flex items-center gap-1.5 whitespace-nowrap rounded-[var(--radius)] border border-line-2 bg-transparent px-3 py-1.5 text-[13px] font-semibold text-ink transition-colors hover:bg-bg"
+                            }
+                          >
+                            {canMutate ? "Edit record" : "View record"}
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -320,6 +317,35 @@ export default async function SuperAdminResourcePage({
           </CardBody>
         </Card>
       </section>
+
+      {canHandCreate ? (
+        <details className="group mt-6 rounded-[var(--radius-lg)] border border-line bg-surface" open={hasCreateDefaults}>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 [&::-webkit-details-marker]:hidden">
+            <span className="flex flex-col gap-0.5">
+              <span className="inline-flex items-center gap-2 text-h3">
+                <Icon name="plus" size={16} className="text-ink-3" />
+                Add a record by hand
+              </span>
+              <span className="text-[12px] text-ink-3">
+                {hasCreateDefaults
+                  ? "Prefilled from readiness context. Review all values before creating the record."
+                  : "For setup and fixes the normal screens don't cover. Most records are created by the app itself."}
+              </span>
+            </span>
+            <Icon name="chevD" size={16} className="text-ink-3 transition-transform group-open:rotate-180" />
+          </summary>
+          <CardDivider />
+          <div className="p-5">
+            <ResourceForm
+              resource={resource}
+              defaults={createDefaults}
+              action={createRecord}
+              submitLabel="Create record"
+              lookups={lookups}
+            />
+          </div>
+        </details>
+      ) : null}
     </div>
   )
 }

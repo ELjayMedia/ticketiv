@@ -43,7 +43,7 @@ export default async function AdminEventPage({ params }: { params: Promise<{ id:
               Public page
             </Link>
           ) : null}
-          <Link href={`/super-admin/events/${event.id}`} className="text-accent hover:underline">
+          <Link href={`/super-admin/events/${event.id}?raw=1`} className="text-accent hover:underline">
             Raw record
           </Link>
         </div>
@@ -146,6 +146,26 @@ export default async function AdminEventPage({ params }: { params: Promise<{ id:
               </ul>
             ) : (
               <p className="text-[13px] text-ink-3">No scanners assigned. Staff can still scan with the organizer app.</p>
+            )}
+          </Panel>
+
+          <Panel title="Door team" aside={`${event.staffCount} active`}>
+            {event.staff.length ? (
+              <ul className="flex flex-col gap-2 text-[13px]">
+                {event.staff.map((member) => (
+                  <li key={member.userId} className="flex items-center justify-between gap-2">
+                    <Link href={`/super-admin/people/${member.userId}`} className="min-w-0 truncate text-ink hover:text-accent hover:underline">
+                      {member.email ?? "Staff member"}
+                    </Link>
+                    <Pill tone={member.active ? "muted" : "warning"}>
+                      {member.role.replace(/_/g, " ")}
+                      {member.active ? "" : " · removed"}
+                    </Pill>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-[13px] text-ink-3">No one is on the door team yet. The organizer adds staff from their event page.</p>
             )}
           </Panel>
 

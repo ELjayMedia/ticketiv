@@ -47,6 +47,7 @@ export default async function AdminPersonPage({ params }: { params: Promise<{ id
               </Pill>
             </Link>
           ))}
+          {person.eventRoles.some((r) => r.active) ? <Pill>Event staff</Pill> : null}
           {person.adminRole ? <Pill tone="accent">Admin: {ADMIN_ROLE_LABELS[person.adminRole as AdminRoleTier] ?? person.adminRole}</Pill> : null}
           {!person.emailConfirmed ? <Pill tone="warning">Email not confirmed</Pill> : null}
           {person.deliveryProblems.length ? <Pill tone="danger">Ticket delivery failed</Pill> : null}
@@ -99,6 +100,35 @@ export default async function AdminPersonPage({ params }: { params: Promise<{ id
                         Open the order
                       </Link>
                     ) : null}
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          ) : null}
+
+          {person.memberships.length || person.eventRoles.length ? (
+            <Panel title="Organizer and event work" aside="Where they help run events">
+              <ul className="flex flex-col text-[13px]">
+                {person.memberships.map((m) => (
+                  <li key={`org-${m.orgId}`} className="flex flex-wrap items-center justify-between gap-2 border-t border-line py-2.5 first:border-t-0">
+                    <Link href={`/super-admin/organizer/${m.orgId}`} className="font-semibold text-ink hover:text-accent hover:underline">
+                      {m.orgName}
+                    </Link>
+                    <Pill>Organizer team · {m.role.replace(/_/g, " ")}</Pill>
+                  </li>
+                ))}
+                {person.eventRoles.map((r) => (
+                  <li key={`event-${r.eventId}`} className="flex flex-wrap items-center justify-between gap-2 border-t border-line py-2.5 first:border-t-0">
+                    <span className="flex min-w-0 flex-col">
+                      <Link href={`/super-admin/event/${r.eventId}`} className="font-semibold text-ink hover:text-accent hover:underline">
+                        {r.eventTitle}
+                      </Link>
+                      {r.startsAt ? <span className="text-xs text-ink-3">{when(r.startsAt)}</span> : null}
+                    </span>
+                    <Pill tone={r.active ? "muted" : "warning"}>
+                      Door staff · {r.role.replace(/_/g, " ")}
+                      {r.active ? "" : " · removed"}
+                    </Pill>
                   </li>
                 ))}
               </ul>

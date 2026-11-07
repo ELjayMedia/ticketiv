@@ -5,9 +5,13 @@ import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { FormField } from "@/components/quiet/ui/form"
 import { Icon } from "@/components/quiet/ui/icon"
+import { emailsFor } from "@/lib/data/admin/console"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { requireAdminRole } from "@/lib/super-admin/auth"
 import { ADMIN_ROLE_TIERS } from "@/lib/super-admin/permissions"
+import { auditRecordHref } from "@/lib/super-admin/profile-links"
+
+export const metadata = { title: "Audit log · Admin" }
 
 type AuditSearchParams = {
   table?: string
@@ -72,6 +76,45 @@ function getBusinessAction(changes: unknown) {
   return typeof value === "string" ? value : null
 }
 
+function changesObject(changes: unknown): Record<string, unknown> | null {
+  return changes && typeof changes === "object" && !Array.isArray(changes) ? (changes as Record<string, unknown>) : null
+}
+
+const TABLE_NOUN: Record<string, string> = {
+  orders: "an order",
+  order_items: "a ticket",
+  payments: "a payment",
+  refunds: "a refund",
+  events: "an event",
+  ticket_types: "a ticket type",
+  event_staff: "event staff",
+  organizations: "an organizer",
+  org_members: "an organizer team",
+  payouts: "a payout",
+  admin_users: "an admin",
+  "auth.users": "an account",
+}
+
+const ACTION_VERB: Record<string, string> = {
+  insert: "Created",
+  update: "Changed",
+  delete: "Removed",
+  login: "Signed in",
+  logout: "Signed out",
+  other: "Worked on",
+}
+
+/** One plain sentence for the entry: the summary we wrote, or verb + what. */
+function describe(entry: AuditEntry): string {
+  const changes = changesObject(entry.changes)
+  if (typeof changes?.summary === "string" && changes.summary) return changes.summary
+  const verb = ACTION_VERB[entry.action ?? "other"] ?? "Worked on"
+  if (entry.action === "login" || entry.action === "logout") return verb
+  const business = getBusinessAction(entry.changes)
+  const noun = TABLE_NOUN[entry.table_name ?? ""] ?? (entry.table_name ? entry.table_name.replaceAll("_", " ") : "a record")
+  return business ? `${verb} ${noun} (${business.replaceAll("_", " ")})` : `${verb} ${noun}`
+}
+
 function buildFilterHref(nextFilters: AuditSearchParams) {
   const params = new URLSearchParams()
   Object.entries(nextFilters).forEach(([key, value]) => {
@@ -128,6 +171,11 @@ export default async function SuperAdminAuditPage({
     return haystack.includes(needle)
   })
 
+  const emails = await emailsFor(admin, filteredData.map((entry) => entry.actor_id))
+  const orgIds = Array.from(new Set(filteredData.map((entry) => entry.org_id).filter((v): v is string => Boolean(v))))
+  const { data: orgRows } = orgIds.length ? await admin.from("organizations").select("id, name").in("id", orgIds) : { data: [] }
+  const orgNames = new Map((orgRows ?? []).map((org) => [org.id as string, org.name as string]))
+
   const activeFiltersCount = Object.values(filters).filter(Boolean).length
   const topTables = Array.from(new Set(entries.map((entry) => entry.table_name).filter(Boolean))).slice(0, 8)
   const topActions = Array.from(new Set(entries.map((entry) => entry.action).filter(Boolean))).slice(0, 8)
@@ -141,7 +189,7 @@ export default async function SuperAdminAuditPage({
             className="inline-flex w-fit items-center gap-1.5 text-[13px] text-ink-3 underline-offset-4 hover:underline"
           >
             <Icon name="chevL" size={14} />
-            Back to Command Centre
+            Home
           </Link>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-h1">Audit log</h1>
@@ -155,7 +203,7 @@ export default async function SuperAdminAuditPage({
             ) : null}
           </div>
           <p className="text-[13px] text-ink-3">
-            Search and review admin, finance, organizer and system-level changes across Ticketiv.
+            Who changed what, when and why. Open an entry's record to see it as it is now.
           </p>
         </div>
         <Link
@@ -174,18 +222,18 @@ export default async function SuperAdminAuditPage({
             Filters
           </p>
           <p className="text-[12px] text-ink-3">
-            Use exact identifiers for actor, org or record when investigating a specific issue.
+            Click a name or organizer on any entry to see everything they did. The ID boxes take an exact ID from a profile page.
           </p>
         </CardBody>
         <CardDivider />
         <CardBody className="p-5">
           <form className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-            <FormField label="Search" name="q" defaultValue={filters.q ?? ""} placeholder="business action, JSON, ID" />
-            <FormField label="Table/entity" name="table" defaultValue={filters.table ?? ""} placeholder="events" />
-            <FormField label="Action" name="action" defaultValue={filters.action ?? ""} placeholder="update" />
-            <FormField label="Record ID" name="record" defaultValue={filters.record ?? ""} placeholder="uuid or text id" />
-            <FormField label="Actor ID" name="actor" defaultValue={filters.actor ?? ""} placeholder="user uuid" />
-            <FormField label="Org ID" name="org" defaultValue={filters.org ?? ""} placeholder="org uuid" />
+            <FormField label="Search" name="q" defaultValue={filters.q ?? ""} placeholder="refund, an email, an order number" />
+            <FormField label="Kind of record" name="table" defaultValue={filters.table ?? ""} placeholder="orders, events, refunds" />
+            <FormField label="What happened" name="action" defaultValue={filters.action ?? ""} placeholder="insert, update, delete" />
+            <FormField label="Record (exact ID)" name="record" defaultValue={filters.record ?? ""} placeholder="from a profile page" />
+            <FormField label="Done by (person ID)" name="actor" defaultValue={filters.actor ?? ""} placeholder="from their profile" />
+            <FormField label="Organizer (ID)" name="org" defaultValue={filters.org ?? ""} placeholder="from their profile" />
             <FormField label="From date" name="from" type="date" defaultValue={filters.from ?? ""} />
             <FormField label="To date" name="to" type="date" defaultValue={filters.to ?? ""} />
             <div className="flex gap-2 md:col-span-3 xl:col-span-6">
@@ -208,7 +256,7 @@ export default async function SuperAdminAuditPage({
                 href={buildFilterHref({ ...filters, table: table ?? undefined })}
                 className="inline-flex items-center rounded-full border border-line-2 bg-surface px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-ink transition hover:bg-bg"
               >
-                {table}
+                {TABLE_NOUN[table ?? ""]?.replace(/^(an?|the) /, "") ?? table?.replaceAll("_", " ")}
               </Link>
             ))}
             {topActions.map((action) => (
@@ -217,7 +265,7 @@ export default async function SuperAdminAuditPage({
                 href={buildFilterHref({ ...filters, action: action ?? undefined })}
                 className="inline-flex items-center rounded-full bg-surface-2 px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-ink-3 transition hover:bg-bg hover:text-ink"
               >
-                {action}
+                {ACTION_VERB[action ?? ""] ?? action}
               </Link>
             ))}
           </div>
@@ -226,43 +274,63 @@ export default async function SuperAdminAuditPage({
 
       <div className="flex flex-col gap-4">
         {filteredData.map((entry) => {
-          const businessAction = getBusinessAction(entry.changes)
+          const changes = changesObject(entry.changes)
+          const reason = typeof changes?.reason === "string" && changes.reason ? changes.reason : null
+          const recordHref = auditRecordHref(entry.table_name, entry.record_id, changes)
+          const actorEmail = entry.actor_id ? emails.get(entry.actor_id) ?? null : null
+          const orgName = entry.org_id ? orgNames.get(entry.org_id) ?? null : null
           return (
             <Card key={entry.id}>
-              <CardBody className="flex flex-col gap-3 px-5 py-4">
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-h3">{entry.table_name} · {entry.action}</p>
-                      {businessAction ? (
-                        <Chip size="sm" variant="active">{businessAction.replaceAll("_", " ")}</Chip>
+              <CardBody className="flex flex-col gap-2 px-5 py-4">
+                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                  <div className="flex min-w-0 flex-col gap-1">
+                    <p className="text-[15px] text-ink">
+                      {entry.actor_id ? (
+                        <Link href={`/super-admin/people/${entry.actor_id}`} className="font-semibold hover:text-accent hover:underline">
+                          {actorEmail ?? "An admin"}
+                        </Link>
+                      ) : (
+                        <span className="font-semibold">The platform</span>
+                      )}
+                      <span className="text-ink-2"> · {describe(entry)}</span>
+                    </p>
+                    {reason ? <p className="text-[13px] text-ink-2">Reason: {reason}</p> : null}
+                    <p className="text-[12px] text-ink-3">
+                      {formatDate(entry.created_at)}
+                      {entry.org_id ? (
+                        <>
+                          {" · "}
+                          <Link href={`/super-admin/organizer/${entry.org_id}`} className="hover:text-ink hover:underline">
+                            {orgName ?? "Organizer"}
+                          </Link>
+                        </>
                       ) : null}
-                    </div>
-                    <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                      {formatDate(entry.created_at)} · Record {entry.record_id ?? "—"}
                     </p>
                   </div>
-                  <div className="flex flex-col gap-1 font-mono text-[11px] uppercase tracking-wider text-ink-3 md:text-right">
-                    <Link
-                      href={buildFilterHref({ ...filters, actor: entry.actor_id ?? undefined })}
-                      className="hover:text-ink"
-                    >
-                      Actor · {entry.actor_id ?? "system"}
-                    </Link>
-                    <Link
-                      href={buildFilterHref({ ...filters, org: entry.org_id ?? undefined })}
-                      className="hover:text-ink"
-                    >
-                      Org · {entry.org_id ?? "platform"}
-                    </Link>
+                  <div className="flex shrink-0 flex-wrap gap-3 text-[12px]">
+                    {recordHref ? (
+                      <Link href={recordHref} className="font-semibold text-accent hover:underline">
+                        Open record →
+                      </Link>
+                    ) : null}
+                    {entry.actor_id ? (
+                      <Link href={buildFilterHref({ actor: entry.actor_id })} className="text-ink-3 hover:text-ink hover:underline">
+                        More by them
+                      </Link>
+                    ) : null}
                   </div>
                 </div>
-              </CardBody>
-              <CardDivider />
-              <CardBody className="p-5">
-                <pre className="max-h-72 overflow-auto rounded-[var(--radius-md)] bg-bg p-4 font-mono text-[11px] leading-relaxed text-ink-2">
-                  {formatChanges(entry.changes)}
-                </pre>
+                {entry.changes ? (
+                  <details>
+                    <summary className="cursor-pointer text-[12px] text-ink-3 hover:text-ink">Technical details</summary>
+                    <p className="mt-2 font-mono text-[11px] text-ink-3">
+                      {entry.table_name ?? "—"} · {entry.action ?? "—"} · record {entry.record_id ?? "—"}
+                    </p>
+                    <pre className="mt-2 max-h-72 overflow-auto rounded-[var(--radius-md)] bg-bg p-4 font-mono text-[11px] leading-relaxed text-ink-2">
+                      {formatChanges(entry.changes)}
+                    </pre>
+                  </details>
+                ) : null}
               </CardBody>
             </Card>
           )

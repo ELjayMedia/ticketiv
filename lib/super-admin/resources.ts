@@ -104,7 +104,7 @@ export const ADMIN_RESOURCES: AdminResource[] = [
     primaryKey: "id",
     description: "Control ticket tiers, quotas and prices.",
     orderBy: "created_at",
-    listColumns: ["name", "price_cents", "currency", "quota"],
+    listColumns: ["name", "event_id", "price_cents", "currency", "quota"],
     fields: [idField, { name: "event_id", label: "Event ID", type: "uuid", required: true }, { name: "name", label: "Name", type: "text", required: true }, { name: "price_cents", label: "Price (cents)", type: "number", required: true }, { name: "currency", label: "Currency", type: "text", required: true, placeholder: "SZL" }, { name: "quota", label: "Quota", type: "number", required: true }, { name: "per_user_limit", label: "Per User Limit", type: "number" }, { name: "is_reserved_seating", label: "Reserved Seating", type: "boolean" }],
   },
   {
@@ -164,7 +164,7 @@ export const ADMIN_RESOURCES: AdminResource[] = [
     primaryKey: "id",
     description: "Review and update checkout/order state.",
     orderBy: "created_at",
-    listColumns: ["status", "total_cents", "currency", "created_at"],
+    listColumns: ["buyer_email", "status", "total_cents", "currency", "created_at"],
     fields: [idField, { name: "org_id", label: "Organization ID", type: "uuid", required: true }, { name: "buyer_id", label: "Buyer ID", type: "uuid", required: true }, { name: "status", label: "Status", type: "select", options: ["pending", "paid", "failed", "refunded"], required: true }, { name: "total_cents", label: "Total (cents)", type: "number", required: true }, { name: "currency", label: "Currency", type: "text", required: true }, { name: "channel", label: "Channel", type: "select", options: ["online", "pos", "reseller", "import"] }, { name: "buyer_email", label: "Buyer Email", type: "text" }, { name: "buyer_phone", label: "Buyer Phone", type: "text" }],
   },
   {
@@ -184,7 +184,7 @@ export const ADMIN_RESOURCES: AdminResource[] = [
     primaryKey: "id",
     description: "Review provider payment records and payment state.",
     orderBy: "created_at",
-    listColumns: ["provider", "status", "amount_cents", "currency"],
+    listColumns: ["provider", "status", "amount_cents", "currency", "created_at"],
     fields: [idField, { name: "order_id", label: "Order ID", type: "uuid", required: true }, { name: "provider", label: "Provider", type: "text", required: true }, { name: "amount_cents", label: "Amount (cents)", type: "number", required: true }, { name: "currency", label: "Currency", type: "text", required: true }, { name: "ext_payment_id", label: "External Payment ID", type: "text" }, { name: "status", label: "Status", type: "select", options: ["succeeded", "failed", "pending", "refunded"] }, { name: "channel", label: "Channel", type: "select", options: ["online", "pos", "reseller", "import"] }, { name: "payload", label: "Payload JSON", type: "json" }],
   },
   {
@@ -502,7 +502,7 @@ export const ADMIN_RESOURCES: AdminResource[] = [
     primaryKey: "user_id",
     description: "Manage elevated platform admin allowlist records.",
     orderBy: "created_at",
-    listColumns: ["user_id", "created_at"],
+    listColumns: ["user_id", "role_tier", "active", "created_at"],
     fields: [{ name: "user_id", label: "User ID", type: "uuid", required: true }, createdAtField],
   },
 ]

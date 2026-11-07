@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 
 import { Button } from "@/components/quiet/ui/button"
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
@@ -9,6 +9,7 @@ import { ResourceForm } from "@/components/super-admin/ResourceForm"
 import { getOrgPayoutReconciliationBlock } from "@/lib/data/admin/reconciliation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getAdminResource } from "@/lib/super-admin/resources"
+import { DETAIL_REDIRECTS, profileHrefFor, profileLabelFor } from "@/lib/super-admin/profile-links"
 import { requireAdminRole } from "@/lib/super-admin/auth"
 import { ADMIN_ROLE_TIERS, canMutateResource } from "@/lib/super-admin/permissions"
 import { formatAdminCell, getFieldHelp, getFieldLabel } from "@/lib/super-admin/display"
@@ -76,16 +77,29 @@ function ReadOnlyResourceDetails({
   )
 }
 
+export async function generateMetadata({ params }: { params: Promise<{ resource: string }> }) {
+  const { resource: resourceKey } = await params
+  const resource = getAdminResource(resourceKey)
+  return { title: resource ? `${resource.label} record · Admin` : "Admin" }
+}
+
 export default async function SuperAdminEditResourcePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ resource: string; id: string }>
+  searchParams?: Promise<{ raw?: string }>
 }) {
   const { roleTier } = await requireAdminRole([...ADMIN_ROLE_TIERS])
   const { resource: resourceKey, id } = await params
+  const { raw } = searchParams ? await searchParams : {}
   const resource = getAdminResource(resourceKey)
 
   if (!resource) notFound()
+  // Orders, events and organizers open on their profile, where support works.
+  // "Edit record" links add ?raw=1 to reach this editor.
+  const profileRedirect = DETAIL_REDIRECTS[resource.key]
+  if (profileRedirect && raw !== "1") redirect(profileRedirect(id))
   const activeResource = resource
 
   const admin = createAdminClient()
@@ -148,6 +162,8 @@ export default async function SuperAdminEditResourcePage({
     : null
   const isPayoutReconciliationBlocked = Boolean(payoutReconciliationBlock?.blocked)
   const payoutBlockTitle = payoutReconciliationBlock?.blockedEvents[0]?.title ?? null
+  const profileHref = profileHrefFor(resource.key, data as unknown as Record<string, unknown>)
+  const profileLabel = profileLabelFor(resource.key)
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
@@ -159,13 +175,24 @@ export default async function SuperAdminEditResourcePage({
         Back to {resource.label}
       </Link>
 
+      {profileHref ? (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-accent/30 bg-accent-soft px-4 py-3 text-[13px] text-ink-2">
+          <span>
+            This is the raw record. To help a customer, use the profile: it shows what happened and offers fixes that ask why and are logged.
+          </span>
+          <Link href={profileHref} className="whitespace-nowrap font-semibold text-accent hover:underline">
+            {profileLabel}
+          </Link>
+        </div>
+      ) : null}
+
       {!canMutate ? (
         <div className="mb-5 flex items-start gap-3 rounded-[var(--radius-md)] border border-warning/30 bg-warning/10 px-4 py-3 text-[13px] text-ink-2">
           <Icon name="bell" size={14} className="mt-0.5 shrink-0 text-warning" />
           <div className="flex flex-col gap-1">
-            <p className="font-semibold text-ink">Raw edit access is disabled for this resource.</p>
+            <p className="font-semibold text-ink">You can look, not change.</p>
             <p>
-              This record can be reviewed, but direct table edits are disabled or reserved for audited workflow actions where available.
+              Editing this record by hand isn&apos;t part of your role. Use the fixes on the order, person or event pages instead.
             </p>
           </div>
         </div>
@@ -361,7 +388,7 @@ export default async function SuperAdminEditResourcePage({
       {canMutate ? (
         <Card>
           <CardBody className="px-5 py-4">
-            <p className="text-h3">Edit {resource.label}</p>
+            <p className="text-h3">Edit {resource.label.toLowerCase()} record</p>
           </CardBody>
           <CardDivider />
           <CardBody className="p-5">

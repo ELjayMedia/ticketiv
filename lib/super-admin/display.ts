@@ -31,7 +31,8 @@ export const FIELD_LABELS: Record<string, string> = {
   current_credential_id: "Current Credential",
   replacement_of_id: "Replacement Of",
   replaced_by_id: "Replaced By",
-  user_id: "User",
+  user_id: "Person",
+  role_tier: "Admin role",
   holder_user_id: "Holder",
   buyer_id: "Buyer",
   from_user_id: "From User",
@@ -184,6 +185,8 @@ export function formatAdminCell(column: string, value: unknown, lookups?: Lookup
   if (typeof value === "boolean") return value ? "Yes" : "No"
   if (typeof value === "object") return "View details"
   if (typeof value === "string" && looksLikeUuid(value)) return shortId(value)
+  // Enum values (support_admin, checked_in) read better as words.
+  if (typeof value === "string" && /^[a-z]+(_[a-z]+)+$/.test(value)) return value.replace(/_/g, " ")
   return String(value)
 }
 
