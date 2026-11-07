@@ -7,6 +7,7 @@ import {
   PayoutEncryptionConfigurationError,
   encryptPayoutDetails,
 } from "@/lib/payout-crypto"
+import { checkEpsAccount, epsDestinationFor } from "@/lib/payouts/eps-directory"
 
 // TICK-54 / TICK-376 — Payout account management (organizer side)
 // Bank details are encrypted at rest (AES-256-GCM) and never returned to the browser.
@@ -49,13 +50,26 @@ export async function addPayoutAccountAction(
 ) {
   const supabase = await signedInClient()
 
+  // Banks and wallets on the Eswatini Payment Switch are validated against the
+  // switch's published account format and stored with their EPS routing, so
+  // automatic DeltaPay payouts can't fail later on a typo.
+  let number = accountNumber.trim()
+  let eps: { eps_agent_id: string; eps_scheme: string } | null = null
+  if (epsDestinationFor(provider)) {
+    const check = checkEpsAccount(provider, accountNumber)
+    if (!check.ok) throw new Error(check.message)
+    number = check.accountNumber
+    eps = { eps_agent_id: check.destination.agentId, eps_scheme: check.destination.scheme }
+  }
+
   let details: string
   try {
     details = encryptPayoutDetails({
       account_name: accountName,
-      account_number: accountNumber,
-      branch_code: branchCode || null,
+      account_number: number,
+      branch_code: eps?.eps_scheme === "EWLT" ? null : branchCode || null,
       provider,
+      ...(eps ?? {}),
     })
   } catch (error) {
     if (error instanceof PayoutEncryptionConfigurationError) {

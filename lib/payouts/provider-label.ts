@@ -6,6 +6,13 @@ const KNOWN: Record<string, string> = {
   fnb: "FNB",
   nedbank: "Nedbank",
   standard_bank: "Standard Bank",
+  eswatini_bank: "Eswatini Bank",
+  sbs: "Swaziland Building Society",
+  unayo: "Standard Bank Unayo",
+  mtn_momo: "MTN MoMo",
+  eswatini_mobile: "Eswatini Mobile e-Mali",
+  instacash: "Instacash",
+  deltapay: "DeltaPay",
   absa: "ABSA",
   other: "Other bank",
 }
