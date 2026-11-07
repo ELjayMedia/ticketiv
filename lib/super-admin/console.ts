@@ -40,6 +40,7 @@ export type ConsoleAction =
   | "work_cases"
   | "manage_replies"
   | "restore_setting"
+  | "manage_integrations"
 
 export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   resend_tickets: ["super_admin", "support_admin", "event_ops_admin"],
@@ -59,6 +60,7 @@ export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   work_cases: ["super_admin", "support_admin"],
   manage_replies: ["super_admin", "support_admin"],
   restore_setting: ["super_admin"],
+  manage_integrations: ["super_admin"],
 }
 
 /** Actions that change something and so must carry a reason in the audit log. */
@@ -195,6 +197,7 @@ export const SETTINGS_TABLES: Record<string, string> = {
   pricing_plans: "Pricing plans",
   tapband_feature_configs: "TapBand config",
   payment_provider_settings: "Payment providers",
+  admin_integration_settings: "Integrations",
 }
 
 /** Fields that change on every save and say nothing about what was changed. */

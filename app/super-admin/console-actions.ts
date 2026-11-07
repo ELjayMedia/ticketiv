@@ -6,7 +6,9 @@ import { redirect } from "next/navigation"
 import { deliverTicketsForOrder } from "@/lib/notifications/ticket-delivery"
 import { initiateRefund } from "@/lib/payments/refunds"
 import { recordViewAs } from "@/lib/data/admin/console-ops"
-import { resolveCase, sendCaseMessage } from "@/lib/support/chatwoot"
+import { encryptPayoutDetails, isPayoutEncryptionConfigured } from "@/lib/payout-crypto-core"
+import { decryptChatwootToken, loadStoredChatwootSettings, resolveCase, sendCaseMessage, testChatwootConnection } from "@/lib/support/chatwoot"
+import { chatwootConfig } from "@/lib/support/chatwoot-core"
 import { sendEmail } from "@/lib/notifications/channels/email"
 import { buildTicketivPublicUrl } from "@/lib/public-url"
 import { adminForAction } from "@/lib/super-admin/auth"
@@ -824,4 +826,84 @@ export async function restoreSettingAction(_prev: ConsoleActionResult, formData:
   })
   revalidatePath("/super-admin/settings-history")
   return done(outcome === "recreated" ? "Recreated as it was before it was deleted." : "Put back as it was before that change. The restore is in the history too.")
+}
+
+// --------------------------------------------------------------------------
+// Phase 3: integrations (owner only)
+
+/** Last 4 characters only, to recognise which token is saved. */
+function tokenHint(token: string) {
+  return token.length > 8 ? token.slice(-4) : null
+}
+
+export async function saveChatwootSettingsAction(_prev: ConsoleActionResult, formData: FormData): Promise<ConsoleActionResult> {
+  const g = await gate("manage_integrations", formData, false)
+  if (!g.ok) return g.error
+  const baseUrl = field(formData, "baseUrl")
+  const accountId = field(formData, "accountId")
+  const newToken = field(formData, "token")
+
+  const stored = await loadStoredChatwootSettings()
+  // An empty token field keeps the saved token.
+  const token = newToken || decryptChatwootToken(stored?.tokenEncrypted ?? null) || ""
+  if (!token) return fail("Paste the access token from Chatwoot (Profile settings › Access token).")
+
+  const cfg = chatwootConfig({ CHATWOOT_BASE_URL: baseUrl, CHATWOOT_ACCOUNT_ID: accountId, CHATWOOT_API_TOKEN: token })
+  if (!cfg.ok) return fail(cfg.problem ?? `Fill in ${cfg.missing.join(", ").toLowerCase().replaceAll("_", " ")}.`)
+
+  const test = await testChatwootConnection(cfg.config)
+  if (!test.ok) return fail(`Not saved: ${test.error}`)
+
+  let tokenEncrypted = stored?.tokenEncrypted ?? null
+  let hint = stored?.tokenHint ?? null
+  if (newToken) {
+    if (!isPayoutEncryptionConfigured()) {
+      return fail("Not saved: the server's encryption key (PAYOUT_ENCRYPTION_KEY) isn't set, so the token can't be stored safely.")
+    }
+    tokenEncrypted = encryptPayoutDetails({ token: newToken })
+    hint = tokenHint(newToken)
+  }
+
+  const db = g.admin as unknown as { from: (table: string) => any }
+  const { error } = await db.from("admin_integration_settings").upsert(
+    {
+      provider: "chatwoot",
+      base_url: cfg.config.baseUrl,
+      account_id: cfg.config.accountId,
+      token_encrypted: tokenEncrypted,
+      token_hint: hint,
+      updated_by: g.context.user.id,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "provider" },
+  )
+  if (error) return fail(`Not saved: ${error.message}`)
+
+  await audit(g.admin, g.context.user.id, {
+    action: "manage_integrations",
+    table: "admin_integration_settings",
+    recordId: "chatwoot",
+    summary: newToken ? "Chatwoot connected (new token)" : "Chatwoot connection updated",
+    details: { base_url: cfg.config.baseUrl, account_id: cfg.config.accountId, inboxes: test.data.inboxes },
+  })
+  revalidatePath("/super-admin/integrations")
+  revalidatePath("/super-admin/cases")
+  return done(`Connected. Chatwoot answered and shows ${test.data.inboxes} inbox${test.data.inboxes === 1 ? "" : "es"}. Cases is live.`)
+}
+
+export async function disconnectChatwootAction(_prev: ConsoleActionResult, formData: FormData): Promise<ConsoleActionResult> {
+  const g = await gate("manage_integrations", formData, false)
+  if (!g.ok) return g.error
+  const db = g.admin as unknown as { from: (table: string) => any }
+  const { error } = await db.from("admin_integration_settings").delete().eq("provider", "chatwoot")
+  if (error) return fail(`Couldn't disconnect: ${error.message}`)
+  await audit(g.admin, g.context.user.id, {
+    action: "manage_integrations",
+    table: "admin_integration_settings",
+    recordId: "chatwoot",
+    summary: "Chatwoot disconnected in the console",
+  })
+  revalidatePath("/super-admin/integrations")
+  revalidatePath("/super-admin/cases")
+  return done("Disconnected. The saved token is deleted. If CHATWOOT_* environment variables exist, Cases uses those instead.")
 }

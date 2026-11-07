@@ -1,5 +1,9 @@
 import "server-only"
 
+import { cache } from "react"
+
+import { decryptPayoutDetails } from "@/lib/payout-crypto-core"
+import { createAdminClient } from "@/lib/supabase/admin"
 import {
   chatwootApiUrl,
   chatwootConfig,
@@ -9,12 +13,87 @@ import {
   type CaseMessage,
   type CaseSummary,
   type ChatwootConfig,
+  type ChatwootConfigResult,
 } from "@/lib/support/chatwoot-core"
 
 export type ChatwootResult<T> = { ok: true; data: T } | { ok: false; error: string }
 
-export function getChatwootConfig() {
-  return chatwootConfig(process.env)
+export interface StoredChatwootSettings {
+  baseUrl: string | null
+  accountId: string | null
+  tokenEncrypted: string | null
+  tokenHint: string | null
+  updatedBy: string | null
+  updatedAt: string | null
+}
+
+/** The connection saved from Integrations, if any. Never leaves the server with its token. */
+export async function loadStoredChatwootSettings(): Promise<StoredChatwootSettings | null> {
+  const db = createAdminClient() as unknown as { from: (table: string) => any }
+  const { data, error } = await db
+    .from("admin_integration_settings")
+    .select("base_url, account_id, token_encrypted, token_hint, updated_by, updated_at")
+    .eq("provider", "chatwoot")
+    .maybeSingle()
+  // Before the migration runs the table doesn't exist: fall back to environment variables.
+  if (error || !data) return null
+  return {
+    baseUrl: data.base_url,
+    accountId: data.account_id,
+    tokenEncrypted: data.token_encrypted,
+    tokenHint: data.token_hint,
+    updatedBy: data.updated_by,
+    updatedAt: data.updated_at,
+  }
+}
+
+/** Decrypts a stored token. Null when there is none or it can no longer be read. */
+export function decryptChatwootToken(stored: string | null): string | null {
+  if (!stored) return null
+  try {
+    const token = decryptPayoutDetails(stored)?.token
+    return typeof token === "string" && token ? token : null
+  } catch {
+    return null
+  }
+}
+
+export type ChatwootConfigSource = "console" | "environment"
+
+/**
+ * Settings saved in the console win over CHATWOOT_* environment variables, so
+ * the owner can connect or change Chatwoot without a redeploy.
+ */
+export const getChatwootConfig = cache(async (): Promise<ChatwootConfigResult & { source: ChatwootConfigSource }> => {
+  const stored = await loadStoredChatwootSettings()
+  if (stored && (stored.baseUrl || stored.accountId || stored.tokenEncrypted)) {
+    const token = decryptChatwootToken(stored.tokenEncrypted)
+    if (stored.tokenEncrypted && !token) {
+      return { ok: false, missing: [], problem: "The saved Chatwoot token can't be read (the encryption key changed). Save it again in Integrations.", source: "console" }
+    }
+    return {
+      ...chatwootConfig({
+        CHATWOOT_BASE_URL: stored.baseUrl ?? undefined,
+        CHATWOOT_ACCOUNT_ID: stored.accountId ?? undefined,
+        CHATWOOT_API_TOKEN: token ?? undefined,
+      }),
+      source: "console",
+    }
+  }
+  return { ...chatwootConfig(process.env), source: "environment" }
+})
+
+/** Checks the address, account and token with one light read (the account's inboxes). */
+export async function testChatwootConnection(config: ChatwootConfig): Promise<ChatwootResult<{ inboxes: number }>> {
+  try {
+    const res = await call(config, "/inboxes")
+    if (!res.ok) return res
+    const payload = (res.body as any)?.payload
+    return { ok: true, data: { inboxes: Array.isArray(payload) ? payload.length : 0 } }
+  } catch (error) {
+    const timedOut = error instanceof Error && error.name === "TimeoutError"
+    return { ok: false, error: timedOut ? "Chatwoot didn't answer within 10 seconds. Check the address." : "Couldn't reach Chatwoot at that address." }
+  }
 }
 
 async function call(config: ChatwootConfig, path: string, init: { method?: "GET" | "POST"; query?: Record<string, string>; body?: unknown } = {}) {
@@ -30,7 +109,7 @@ async function call(config: ChatwootConfig, path: string, init: { method?: "GET"
 }
 
 async function guarded<T>(run: (config: ChatwootConfig) => Promise<ChatwootResult<T>>): Promise<ChatwootResult<T>> {
-  const cfg = getChatwootConfig()
+  const cfg = await getChatwootConfig()
   if (!cfg.ok) return { ok: false, error: cfg.problem ?? `Chatwoot isn't connected yet (missing ${cfg.missing.join(", ")}).` }
   try {
     return await run(cfg.config)

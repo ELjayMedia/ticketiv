@@ -18,9 +18,9 @@ const STATUSES = [
 ] as const
 
 export default async function CasesPage({ searchParams }: { searchParams: Promise<{ c?: string; status?: string; resolved?: string }> }) {
-  await requireAdminRole(["super_admin", "support_admin"])
+  const { roleTier } = await requireAdminRole(["super_admin", "support_admin"])
   const params = await searchParams
-  const config = getChatwootConfig()
+  const config = await getChatwootConfig()
 
   if (!config.ok) {
     return (
@@ -33,12 +33,13 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
               event it&apos;s about, and you can reply without switching tabs.
             </p>
             {config.problem ? <p className="rounded-md bg-danger-soft px-3 py-2 text-danger">{config.problem}</p> : null}
-            <p>Add these in Vercel (Project › Settings › Environment Variables, Production), then redeploy:</p>
-            <ul className="flex flex-col gap-1 font-mono text-[13px]">
-              <li>CHATWOOT_BASE_URL: your Chatwoot address, e.g. https://chat.example.com</li>
-              <li>CHATWOOT_ACCOUNT_ID: the number after /accounts/ in Chatwoot&apos;s address bar</li>
-              <li>CHATWOOT_API_TOKEN: Chatwoot › Profile settings › Access token</li>
-            </ul>
+            {roleTier === "super_admin" ? (
+              <Link href="/super-admin/integrations" className="w-fit rounded-[var(--radius)] bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90">
+                Connect Chatwoot in Integrations
+              </Link>
+            ) : (
+              <p>Ask the owner to connect Chatwoot in Integrations.</p>
+            )}
             <p className="text-ink-3">The token stays on the server. Use an agent account that can see every inbox.</p>
           </div>
         </Panel>

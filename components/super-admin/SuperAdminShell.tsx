@@ -17,6 +17,7 @@ const SUPPORT_GROUP: {
     { label: "Cases", href: "/super-admin/cases", icon: "bell", supportOnly: true },
     { label: "Saved replies", href: "/super-admin/replies", icon: "copy", supportOnly: true },
     { label: "Settings history", href: "/super-admin/settings-history", icon: "clock" },
+    { label: "Integrations", href: "/super-admin/integrations", icon: "settings", ownerOnly: true },
     { label: "Team & access", href: "/super-admin/team", icon: "key", ownerOnly: true },
   ],
 }

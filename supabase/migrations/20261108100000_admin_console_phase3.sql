@@ -15,6 +15,13 @@
 -- Saved replies
 --   admin_saved_replies: answers support reuses in Chatwoot.
 --
+-- Integrations
+--   admin_integration_settings: the Chatwoot connection, set by the owner from
+--   the console so it works without a redeploy. The access token is stored
+--   encrypted by the app (same at-rest encryption as payout details) and is
+--   never sent back to the browser; token_hint keeps its last 4 characters.
+--   Changes show in settings history with the encrypted token hidden.
+--
 -- RLS on, no policies, revoked from anon and authenticated: only the admin
 -- console's server code (service role) reaches these.
 
@@ -54,6 +61,19 @@ as $function$
   )
   from jsonb_each(coalesce(p_row, '{}'::jsonb));
 $function$;
+
+create table if not exists public.admin_integration_settings (
+  provider text primary key check (provider in ('chatwoot')),
+  base_url text,
+  account_id text,
+  token_encrypted text,
+  token_hint text,
+  updated_by uuid references auth.users (id) on delete set null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.admin_integration_settings enable row level security;
+revoke all on public.admin_integration_settings from anon, authenticated;
 
 create or replace function app.record_settings_history()
 returns trigger
@@ -111,7 +131,8 @@ begin
       ('platform_fee_settings', 'id'),
       ('pricing_plans', 'id'),
       ('tapband_feature_configs', 'id'),
-      ('payment_provider_settings', 'provider')
+      ('payment_provider_settings', 'provider'),
+      ('admin_integration_settings', 'provider')
     ) as v(table_name, pk)
   loop
     if to_regclass('public.' || t.table_name) is not null then
@@ -149,6 +170,7 @@ begin
     when 'pricing_plans' then 'id'
     when 'tapband_feature_configs' then 'id'
     when 'payment_provider_settings' then 'provider'
+    when 'admin_integration_settings' then 'provider'
   end;
   if v_pk is null then
     raise exception 'table_not_restorable' using errcode = '22023';
