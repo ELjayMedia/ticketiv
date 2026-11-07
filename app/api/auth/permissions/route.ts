@@ -22,17 +22,17 @@ export async function GET(request: Request) {
     }
 
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+    } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (!user) {
       return NextResponse.json(
         { error: "Not authenticated" },
         { status: 401 }
       )
     }
 
-    const authz = await loadUserPermissions(session.user.id)
+    const authz = await loadUserPermissions(user.id)
 
     if (!authz) {
       return NextResponse.json(

@@ -20,11 +20,11 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
   if (!supabase) return NextResponse.json({ error: "Supabase is not configured" }, { status: 500 })
 
   const {
-    data: { session },
+    data: { user },
     error: sessionError,
-  } = await supabase.auth.getSession()
+  } = await supabase.auth.getUser()
   if (sessionError) return NextResponse.json({ error: "Failed to verify session" }, { status: 500 })
-  if (!session) return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+  if (!user) return NextResponse.json({ error: "Authentication required" }, { status: 401 })
 
   const { data: event, error: eventError } = await supabase
     .from("events")
@@ -38,7 +38,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     .from("org_members")
     .select("role")
     .eq("org_id", event.org_id)
-    .eq("user_id", session.user.id)
+    .eq("user_id", user.id)
     .maybeSingle()
   if (memberError) return NextResponse.json({ error: "Unable to verify organizer access" }, { status: 500 })
 
@@ -50,7 +50,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     const { data: adminRow } = await supabase
       .from("admin_users")
       .select("role_tier")
-      .eq("user_id", session.user.id)
+      .eq("user_id", user.id)
       .eq("active", true)
       .maybeSingle()
     isPlatformManager = Boolean(adminRow?.role_tier && adminRow.role_tier !== "read_only_admin")

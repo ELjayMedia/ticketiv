@@ -24,9 +24,9 @@ export default async function EventStaffPage({ params }: { params: Promise<{ org
   if (!supabase) redirect("/login")
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  if (!session) redirect("/login")
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect("/login")
 
   const { data: event } = await supabase
     .from("events")
@@ -40,7 +40,7 @@ export default async function EventStaffPage({ params }: { params: Promise<{ org
     .from("org_members")
     .select("role")
     .eq("org_id", orgId)
-    .eq("user_id", session.user.id)
+    .eq("user_id", user.id)
     .maybeSingle()
 
   // Platform admins manage every org workspace (the DB RLS already treats them
@@ -49,7 +49,7 @@ export default async function EventStaffPage({ params }: { params: Promise<{ org
   const { data: adminRow } = await supabase
     .from("admin_users")
     .select("role_tier")
-    .eq("user_id", session.user.id)
+    .eq("user_id", user.id)
     .eq("active", true)
     .maybeSingle()
   const isPlatformManager = Boolean(adminRow?.role_tier && adminRow.role_tier !== "read_only_admin")

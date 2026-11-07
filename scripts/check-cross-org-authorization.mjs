@@ -12,14 +12,13 @@
 // Requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY. The env name
 // is retained for compatibility, but the value may be either the legacy JWT
 // service_role key or a modern sb_secret_... backend key. Without them the
-// check SKIPS rather than fails, matching check-rpc-permissions.mjs: CI does not
-// always hold database credentials, and a check that cannot run must not be
-// mistaken for a check that passed.
+// check fails closed. Do not treat an unavailable security harness as a pass;
+// CI must provision a privileged, non-production verification environment.
 //
 // Exit codes:
-//   0  every case refused (or skipped for missing credentials)
-//   1  a cross-tenant action succeeded, a positive control failed, or a
-//      refusal did not reach a recognizable authorization decision
+//   0  every case refused
+//   1  cross-tenant authorization assertion failed
+//   2  harness could not run (credentials or SQL execution capability missing)
 
 import { readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
@@ -32,10 +31,10 @@ const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 if (!url || !serviceKey) {
-  console.log(
-    "Cross-org authorization check skipped: NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are not set.",
+  console.error(
+    "Cross-org authorization check BLOCKED: NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are not set.",
   )
-  process.exit(0)
+  process.exit(2)
 }
 
 const sql = readFileSync(SQL_PATH, "utf8")
@@ -64,13 +63,13 @@ const response = await fetch(`${url}/rest/v1/rpc/exec_sql`, {
 const raw = await response.text()
 
 // exec_sql RPC doesn't exist in this project (deliberately excluded from
-// migrations — too broad an attack surface). Skip rather than fail.
+// migrations — too broad an attack surface). Fail the check as unavailable.
 if (raw.includes("PGRST202") && raw.includes("exec_sql")) {
-  console.log(
-    "Cross-org authorization check skipped: exec_sql RPC is not exposed in this project. " +
+  console.error(
+    "Cross-org authorization check BLOCKED: exec_sql RPC is not exposed in this project. " +
       "Run supabase/tests/cross_org_authorization.sql through the SQL editor or psql instead.",
   )
-  process.exit(0)
+  process.exit(2)
 }
 
 const report = extractReport(raw)

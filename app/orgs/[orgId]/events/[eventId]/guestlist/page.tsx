@@ -20,9 +20,9 @@ export default async function GuestlistPage({
   if (!supabase) return redirect("/login")
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  if (!session) return redirect("/login")
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return redirect("/login")
 
   const { data: event } = await supabase
     .from("events")

@@ -17,9 +17,9 @@ export default async function EditTicketTypePage({
   if (!supabase) return redirect("/login")
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  if (!session) return redirect("/login")
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return redirect("/login")
 
   const { data: ticketType } = await supabase
     .from("ticket_types")

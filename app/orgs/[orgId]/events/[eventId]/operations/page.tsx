@@ -17,10 +17,10 @@ export default async function EventOperationsPage({ params }: OperationsPageProp
   if (!supabase) redirect("/login")
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (!session) redirect(`/login?redirectTo=${encodeURIComponent(`/orgs/${orgId}/events/${eventId}/operations`)}`)
+  if (!user) redirect(`/login?redirectTo=${encodeURIComponent(`/orgs/${orgId}/events/${eventId}/operations`)}`)
 
   const admin = createAdminClient()
   const [{ data: member }, { data: globalAdmin }] = await Promise.all([
@@ -28,12 +28,12 @@ export default async function EventOperationsPage({ params }: OperationsPageProp
       .from("org_members")
       .select("role")
       .eq("org_id", orgId)
-      .eq("user_id", session.user.id)
+      .eq("user_id", user.id)
       .maybeSingle(),
     admin
       .from("admin_users")
       .select("user_id")
-      .eq("user_id", session.user.id)
+      .eq("user_id", user.id)
       .eq("active", true)
       .maybeSingle(),
   ])

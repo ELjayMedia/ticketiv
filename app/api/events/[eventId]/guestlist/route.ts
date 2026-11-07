@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { getAuthUser } from "@/lib/auth/session"
 
 type RouteContext = { params: Promise<{ eventId: string }> }
 
@@ -22,10 +22,7 @@ type GuestlistEntryRow = {
 }
 
 async function getUserId() {
-  const supabase = createServerSupabaseClient()
-  if (!supabase) return null
-  const { data } = await supabase.auth.getSession()
-  return data.session?.user?.id ?? null
+  return (await getAuthUser())?.id ?? null
 }
 
 async function loadManageContext(admin: ReturnType<typeof createAdminClient>, eventId: string, userId: string) {

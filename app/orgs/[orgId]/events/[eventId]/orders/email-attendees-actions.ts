@@ -38,15 +38,15 @@ async function requireOwnerOrAdmin(orgId: string, eventId: string): Promise<Auth
   if (!supabase) throw new Error("Not authenticated")
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  if (!session) throw new Error("Not authenticated")
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error("Not authenticated")
 
   const { data: member } = await supabase
     .from("org_members")
     .select("role")
     .eq("org_id", orgId)
-    .eq("user_id", session.user.id)
+    .eq("user_id", user.id)
     .maybeSingle()
 
   if (!member || !OWNER_ADMIN_ROLES.has(String(member.role))) {
@@ -61,7 +61,7 @@ async function requireOwnerOrAdmin(orgId: string, eventId: string): Promise<Auth
     .maybeSingle()
   if (!event) throw new Error("Event not found")
 
-  return { supabase, userId: session.user.id }
+  return { supabase, userId: user.id }
 }
 
 /**

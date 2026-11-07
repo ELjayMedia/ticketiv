@@ -55,9 +55,9 @@ export default async function ScansPage({ params }: { params: Promise<{ orgId: s
   if (!supabase) return redirect("/login")
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  if (!session) return redirect("/login")
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return redirect("/login")
 
   const { data: eventData } = await supabase
     .from("events")
