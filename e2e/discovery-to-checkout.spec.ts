@@ -71,6 +71,9 @@ test.describe("seeded guest checkout → hosted payment handoff", () => {
   )
 
   test("creates checkout state and initializes the payment provider", async ({ page }) => {
+    // Event page → picker → seat hold → checkout → provider initialization is
+    // several server round trips against the seeded UAT project.
+    test.setTimeout(90_000)
     expect(missing, "Seeded checkout environment must be complete.").toEqual([])
 
     const eventSlug = process.env.E2E_TEST_EVENT_SLUG!
@@ -82,6 +85,18 @@ test.describe("seeded guest checkout → hosted payment handoff", () => {
     const checkoutCta = page.getByRole("button", { name: /continue|get tickets/i }).last()
     await expect(checkoutCta).toBeEnabled()
     await checkoutCta.click()
+
+    // Since the multi-type ticket picker (cacbb36), the event CTA opens a
+    // "Tickets" dialog: choose one ticket of the first type on sale, then
+    // "Check out", which creates the seat hold and opens checkout.
+    const picker = page.getByRole("dialog", { name: "Tickets" })
+    await expect(picker).toBeVisible()
+    const addTicket = picker.getByRole("button", { name: "Increase" }).and(page.locator(":enabled")).first()
+    await expect(addTicket).toBeVisible()
+    await addTicket.click()
+    const pickerCheckout = picker.getByRole("button", { name: /check out/i })
+    await expect(pickerCheckout).toBeEnabled()
+    await pickerCheckout.click()
     await page.waitForURL(/\/events\/[^/]+\/checkout/)
 
     const checkoutUrl = new URL(page.url())
@@ -126,9 +141,24 @@ test.describe("seeded guest checkout → hosted payment handoff", () => {
     await expect(paymentCta).toBeEnabled({ timeout: 10_000 })
     await paymentCta.click()
 
-    await expect(page).toHaveURL(
-      /checkout\.paystack\.com|\/orders\/[^/]+\/confirmation/,
-      { timeout: 30_000 },
-    )
+    // startCheckoutAction either redirects (provider checkout or free-order
+    // confirmation) or shows its error in an alert. Report that error instead
+    // of a bare URL timeout, so a CI failure names the server-side cause.
+    const handoff = /checkout\.paystack\.com|\/orders\/[^/]+\/confirmation/
+    let outcome = "waiting"
+    await expect
+      .poll(
+        async () => {
+          if (handoff.test(page.url())) return (outcome = "redirected")
+          // Ignore Next.js's route announcer: it is also role="alert" and
+          // reads the page title ("Checkout · Ticketiv").
+          const alert = page.locator('[role="alert"]:visible:not(#__next-route-announcer__)').first()
+          if (await alert.count()) return (outcome = `checkout error: ${(await alert.innerText()).trim()}`)
+          return (outcome = "waiting")
+        },
+        { timeout: 25_000, message: "payment handoff should redirect or show a checkout error" },
+      )
+      .not.toBe("waiting")
+    expect(outcome, "payment handoff must reach the provider without a checkout error").toBe("redirected")
   })
 })
