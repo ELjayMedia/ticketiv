@@ -167,6 +167,19 @@ describe.skipIf(!configured)("money path lifecycle (database-asserted)", () => {
         .single(),
     )
 
+    // fn_scan_ticket_unchecked only accepts scans from an authorized person
+    // (admin, org member with a scanning role, event staff or a paired
+    // device). Make the synthetic buyer a scanner for the run-owned org so both
+    // run-owned events can be scanned. The row goes with the org (ON DELETE CASCADE).
+    await must(
+      "make synthetic buyer a scanner",
+      admin
+        .from("org_members")
+        .insert({ org_id: org.id, user_id: buyerId, role: "scanner" } as never)
+        .select("org_id")
+        .single(),
+    )
+
     fx = { orgId: org.id, eventId: event.id, wrongEventId: wrongEvent.id, ticketTypeId: tt.id, buyerId }
   })
 
@@ -316,7 +329,7 @@ describe.skipIf(!configured)("money path lifecycle (database-asserted)", () => {
       (client.rpc as any)("fn_scan_ticket_unchecked", {
         p_ticket_code: code,
         p_event_id: eventId,
-        p_scanned_by: null,
+        p_scanned_by: fx!.buyerId,
         p_device_id: null,
         p_session_id: null,
         p_gate: "e2e",
@@ -331,14 +344,16 @@ describe.skipIf(!configured)("money path lifecycle (database-asserted)", () => {
     expect(wrong.error, wrong.error?.message).toBeNull()
     expect(wrong.data?.outcome).toBe("wrong_event")
 
+    // A good scan answers { outcome: "validated", valid: true }.
     const first = await scan()
     expect(first.error, first.error?.message).toBeNull()
-    expect(first.data?.outcome).toBe("valid")
+    expect(first.data?.valid, JSON.stringify(first.data)).toBe(true)
 
     // Same ticket again: admitted once, never twice.
     const second = await scan()
     expect(second.error, second.error?.message).toBeNull()
-    expect(second.data?.outcome).not.toBe("valid")
+    expect(second.data?.valid).toBe(false)
+    expect(second.data?.outcome).toBe("duplicate")
 
   })
 })
