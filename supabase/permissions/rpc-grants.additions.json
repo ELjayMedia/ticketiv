@@ -116,6 +116,37 @@
         "postgres",
         "service_role"
       ]
+    },
+    {
+      "schema": "app",
+      "name": "mask_secret_fields",
+      "arguments": "p_row jsonb",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "record_settings_history",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "admin_restore_setting",
+      "arguments": "p_history_id bigint",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
     }
   ]
 }
