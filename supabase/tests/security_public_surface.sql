@@ -13,6 +13,12 @@ begin
     raise exception 'avatar Storage restrictions are not enforced';
   end if;
 
+  if (select count(*) from pg_policies where schemaname = 'storage' and tablename = 'objects'
+      and policyname in ('Avatar images are publicly readable', 'Users can upload their own avatar',
+        'Users can update their own avatar', 'Users can delete their own avatar')) <> 4 then
+    raise exception 'avatar owner-scoped Storage policies are not present';
+  end if;
+
   if has_function_privilege('anon', 'public.fn_preview_promo_code(uuid,text,public.sales_channel)', 'EXECUTE')
     or has_function_privilege('authenticated', 'public.fn_preview_promo_code(uuid,text,public.sales_channel)', 'EXECUTE')
     or not has_function_privilege('service_role', 'public.fn_preview_promo_code(uuid,text,public.sales_channel)', 'EXECUTE') then

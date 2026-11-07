@@ -4,20 +4,36 @@
 
 begin;
 
--- Server avatar action already limits uploads to 5 MiB and these four types;
--- mirror that rule at Storage so direct bucket uploads cannot bypass the UI.
+-- The original avatar bucket/policies were deployed in an archived migration
+-- that is not part of the compacted baseline. Reconstruct them in a fresh
+-- database, without overwriting existing production policies.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('avatars', 'avatars', true, 5242880, array['image/jpeg', 'image/png', 'image/webp', 'image/gif']::text[])
+on conflict (id) do update
+  set file_size_limit = excluded.file_size_limit,
+      allowed_mime_types = excluded.allowed_mime_types;
+
 do $$
 begin
-  if not exists (select 1 from storage.buckets where id = 'avatars') then
-    raise exception 'avatars bucket missing; refusing partial security rollout';
+  if not exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'Avatar images are publicly readable') then
+    create policy "Avatar images are publicly readable" on storage.objects for select
+      using (bucket_id = 'avatars');
+  end if;
+  if not exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'Users can upload their own avatar') then
+    create policy "Users can upload their own avatar" on storage.objects for insert to authenticated
+      with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.uid())::text);
+  end if;
+  if not exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'Users can update their own avatar') then
+    create policy "Users can update their own avatar" on storage.objects for update to authenticated
+      using (bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.uid())::text)
+      with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.uid())::text);
+  end if;
+  if not exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'Users can delete their own avatar') then
+    create policy "Users can delete their own avatar" on storage.objects for delete to authenticated
+      using (bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.uid())::text);
   end if;
 end;
 $$;
-
-update storage.buckets
-set file_size_limit = 5242880,
-    allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp', 'image/gif']::text[]
-where id = 'avatars';
 
 -- Promo previews remain available to guests through the Next.js endpoint,
 -- where the caller is rate-limited. Do not permit an anonymous user to call
