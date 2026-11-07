@@ -466,3 +466,144 @@ export async function validViewAsSession(sessionId: string, actorId: string, use
   if (now.getTime() - new Date(data.created_at).getTime() > VIEW_AS_MINUTES * 60 * 1000) return null
   return typeof changes.reason === "string" ? changes.reason : ""
 }
+
+// ---------------------------------------------------------------------------
+// Phase 3: Chatwoot cases matched to Ticketiv records
+
+export interface CaseMatch {
+  people: Array<{ id: string; name: string; email: string | null }>
+  orders: Array<{ id: string; ref: string; status: string; eventTitle: string | null; createdAt: string }>
+  suggestions: Array<{ text: string; href: string; cta: string }>
+  matchedBy: string | null
+}
+
+export async function matchCaseRecords(email: string | null, phone: string | null): Promise<CaseMatch> {
+  const admin = createAdminClient()
+  const db = untyped(admin)
+  const probes = [email, phone && phone.replace(/[^0-9+]/g, "").length >= 6 ? phone : null].filter((v): v is string => Boolean(v))
+  if (!probes.length) return { people: [], orders: [], suggestions: [], matchedBy: null }
+
+  const results = await Promise.all(
+    probes.flatMap((probe) => [db.rpc("admin_search_people", { p_query: probe, p_limit: 3 }), db.rpc("admin_search_orders", { p_query: probe, p_limit: 5 })]),
+  )
+  const people = new Map<string, CaseMatch["people"][number]>()
+  const orders = new Map<string, CaseMatch["orders"][number]>()
+  results.forEach((res: any, index: number) => {
+    for (const row of res?.data ?? []) {
+      if (index % 2 === 0) {
+        // Email must match exactly; a phone search is already digits-exact.
+        if (email && probes[Math.floor(index / 2)] === email && row.email?.toLowerCase() !== email) continue
+        people.set(row.user_id, { id: row.user_id, name: personName(row), email: row.email })
+      } else {
+        orders.set(row.order_id, { id: row.order_id, ref: orderRef(row.order_id), status: row.status, eventTitle: row.event_title, createdAt: row.created_at })
+      }
+    }
+  })
+
+  const orderList = [...orders.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 5)
+  const suggestions: CaseMatch["suggestions"] = []
+  if (orderList.length) {
+    const ids = orderList.map((o) => o.id)
+    const [deliveries, refs, refunds] = await Promise.all([
+      admin.from("notifications").select("status, payload").eq("type", "ticket_issued").in("payload->>order_id", ids),
+      db.from("payment_support_references").select("order_id").in("order_id", ids),
+      admin.from("refunds").select("status, provider_payload").eq("status", "requested").in("provider_payload->>order_id", ids),
+    ])
+    const undelivered = undeliveredOrders(
+      ((deliveries.data ?? []) as any[]).map((d) => ({ order_id: d.payload?.order_id ?? null, status: d.status, created_at: "" })),
+    ).map((u) => u.orderId)
+    for (const id of undelivered) {
+      suggestions.push({ text: `The tickets for order ${orderRef(id)} never arrived. Check the email address on the order, then resend.`, href: `/super-admin/order/${id}`, cta: "Open the order to resend" })
+    }
+    const failedPayments = new Set(((refs.data ?? []) as any[]).map((r) => r.order_id))
+    for (const order of orderList.filter((o) => failedPayments.has(o.id) && o.status !== "paid")) {
+      suggestions.push({ text: `Order ${order.ref} couldn't be paid: the payment didn't start, so nothing was charged.`, href: `/super-admin/order/${order.id}`, cta: "See what the provider said" })
+    }
+    for (const refund of (refunds.data ?? []) as any[]) {
+      const id = refund.provider_payload?.order_id
+      if (id) suggestions.push({ text: `A refund for order ${orderRef(id)} is waiting for approval.`, href: `/super-admin/order/${id}#refunds`, cta: "Open the refund" })
+    }
+  }
+
+  return {
+    people: [...people.values()],
+    orders: orderList,
+    suggestions: suggestions.slice(0, 3),
+    matchedBy: people.size || orders.size ? [email && "email", phone && "phone"].filter(Boolean).join(" and ") : null,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3: saved replies and settings history
+
+export interface SavedReply {
+  id: string
+  title: string
+  body: string
+  updatedAt: string
+}
+
+export async function listSavedReplies(): Promise<SavedReply[]> {
+  const { data } = await untyped(createAdminClient()).from("admin_saved_replies").select("id, title, body, updated_at").order("title")
+  return ((data ?? []) as any[]).map((r) => ({ id: r.id, title: r.title, body: r.body, updatedAt: r.updated_at }))
+}
+
+export interface SettingsHistoryEntry {
+  id: number
+  table: string
+  recordId: string
+  operation: "insert" | "update" | "delete"
+  oldRow: Record<string, unknown> | null
+  newRow: Record<string, unknown> | null
+  changedFields: string[]
+  actor: string | null
+  reason: string | null
+  at: string
+}
+
+export async function listSettingsHistory(table?: string | null, limit = 100): Promise<SettingsHistoryEntry[]> {
+  const admin = createAdminClient()
+  const db = untyped(admin)
+  let query = db
+    .from("admin_settings_history")
+    .select("id, table_name, record_id, operation, old_row, new_row, changed_fields, actor_id, changed_at")
+    .order("changed_at", { ascending: false })
+    .limit(limit)
+  if (table) query = query.eq("table_name", table)
+  const { data } = await query
+  const rows = (data ?? []) as any[]
+  if (!rows.length) return []
+
+  // Who and why: the console writes an audit row for each change; match it by
+  // record and time (within 30 seconds) when the trigger couldn't see the actor.
+  const oldest = rows[rows.length - 1].changed_at
+  const { data: audits } = await admin
+    .from("audit_log")
+    .select("actor_id, table_name, record_id, changes, created_at")
+    .in("table_name", [...new Set(rows.map((r) => r.table_name))])
+    .gte("created_at", new Date(new Date(oldest).getTime() - 30_000).toISOString())
+    .limit(500)
+  const near = (row: any) =>
+    ((audits ?? []) as any[]).find(
+      (a) => a.table_name === row.table_name && a.record_id === row.record_id && Math.abs(new Date(a.created_at).getTime() - new Date(row.changed_at).getTime()) <= 30_000,
+    )
+  const matched = rows.map((row) => near(row))
+  const emails = await emailsFor(admin, rows.map((row, i) => row.actor_id ?? matched[i]?.actor_id))
+
+  return rows.map((row, i) => {
+    const actorId = row.actor_id ?? matched[i]?.actor_id ?? null
+    const reason = matched[i]?.changes?.reason
+    return {
+      id: Number(row.id),
+      table: row.table_name,
+      recordId: row.record_id,
+      operation: row.operation,
+      oldRow: row.old_row,
+      newRow: row.new_row,
+      changedFields: row.changed_fields ?? [],
+      actor: actorId ? emails.get(actorId) ?? "an admin" : null,
+      reason: typeof reason === "string" ? reason : null,
+      at: row.changed_at,
+    }
+  })
+}
