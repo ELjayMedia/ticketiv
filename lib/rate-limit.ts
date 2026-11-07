@@ -23,6 +23,7 @@ export interface RateLimitResult {
 }
 
 const ALLOW = (limit: number): RateLimitResult => ({ allowed: true, limit, remaining: limit, retryAfter: 0 })
+const BLOCK = (limit: number, seconds: number): RateLimitResult => ({ allowed: false, limit, remaining: 0, retryAfter: seconds })
 
 /** Best-effort client identity: authenticated key wins, else forwarded IP. */
 export function clientKey(request: Request, userId?: string | null): string {
@@ -51,8 +52,9 @@ export async function rateLimit(
   key: string,
   limit: number,
   windowSeconds: number,
+  options: { failClosed?: boolean } = {},
 ): Promise<RateLimitResult> {
-  if (!REST_URL || !REST_TOKEN) return dbRateLimit(bucket, key, limit, windowSeconds)
+  if (!REST_URL || !REST_TOKEN) return dbRateLimit(bucket, key, limit, windowSeconds, options.failClosed === true)
 
   const redisKey = `rl:${bucket}:${key}`
   try {
@@ -67,8 +69,8 @@ export async function rateLimit(
       retryAfter: ttl > 0 ? ttl : windowSeconds,
     }
   } catch (error) {
-    console.error("[rate-limit] backend error, allowing request", error)
-    return ALLOW(limit)
+    console.error("[rate-limit] redis backend error", error)
+    return options.failClosed ? dbRateLimit(bucket, key, limit, windowSeconds, true) : ALLOW(limit)
   }
 }
 
@@ -84,10 +86,11 @@ async function dbRateLimit(
   key: string,
   limit: number,
   windowSeconds: number,
+  failClosed = false,
 ): Promise<RateLimitResult> {
   // Read env at call time (not import) so the no-backend path is deterministic.
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY || !process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    return ALLOW(limit)
+    return failClosed ? BLOCK(limit, windowSeconds) : ALLOW(limit)
   }
   try {
     const { createAdminClient } = await import("@/lib/supabase/admin")
@@ -100,7 +103,7 @@ async function dbRateLimit(
       p_max: limit,
       p_window_seconds: windowSeconds,
     })
-    if (error || !data) return ALLOW(limit)
+    if (error || !data) return failClosed ? BLOCK(limit, windowSeconds) : ALLOW(limit)
     const r = data as { allowed?: boolean; remaining?: number; retry_after?: number }
     return {
       allowed: r.allowed !== false,
@@ -109,8 +112,8 @@ async function dbRateLimit(
       retryAfter: r.retry_after && r.retry_after > 0 ? r.retry_after : windowSeconds,
     }
   } catch (error) {
-    console.error("[rate-limit] db fallback error, allowing request", error)
-    return ALLOW(limit)
+    console.error("[rate-limit] db fallback error", error)
+    return failClosed ? BLOCK(limit, windowSeconds) : ALLOW(limit)
   }
 }
 
