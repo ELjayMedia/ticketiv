@@ -9,11 +9,15 @@ import { ADMIN_ROLE_LABELS, type AdminRoleTier } from "@/lib/super-admin/console
 // The table-by-table groups below are the data explorer.
 const SUPPORT_GROUP: {
   label: string
-  items: Array<{ label: string; href: string; icon: IconName; active?: boolean; ownerOnly?: boolean }>
+  items: Array<{ label: string; href: string; icon: IconName; active?: boolean; ownerOnly?: boolean; supportOnly?: boolean }>
 } = {
   label: "Support",
   items: [
     { label: "Search", href: "/super-admin/search", icon: "search" },
+    { label: "Cases", href: "/super-admin/cases", icon: "bell", supportOnly: true },
+    { label: "Saved replies", href: "/super-admin/replies", icon: "copy", supportOnly: true },
+    { label: "Settings history", href: "/super-admin/settings-history", icon: "clock" },
+    { label: "Integrations", href: "/super-admin/integrations", icon: "settings", ownerOnly: true },
     { label: "Team & access", href: "/super-admin/team", icon: "key", ownerOnly: true },
   ],
 }
@@ -92,7 +96,9 @@ export function SuperAdminShell({
   userEmail?: string | null
   role?: AdminRoleTier | null
 }) {
-  const supportItems = SUPPORT_GROUP.items.filter((item) => !item.ownerOnly || role === "super_admin")
+  const supportItems = SUPPORT_GROUP.items.filter(
+    (item) => (!item.ownerOnly || role === "super_admin") && (!item.supportOnly || role === "super_admin" || role === "support_admin"),
+  )
   const groups: typeof NAV_GROUPS = [{ label: SUPPORT_GROUP.label, items: supportItems }, ...NAV_GROUPS]
   return (
     <div className="min-h-screen bg-surface-2/30 lg:grid lg:grid-cols-[18rem_1fr]">

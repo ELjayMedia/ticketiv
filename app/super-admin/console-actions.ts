@@ -6,6 +6,9 @@ import { redirect } from "next/navigation"
 import { deliverTicketsForOrder } from "@/lib/notifications/ticket-delivery"
 import { initiateRefund } from "@/lib/payments/refunds"
 import { recordViewAs } from "@/lib/data/admin/console-ops"
+import { encryptPayoutDetails, isPayoutEncryptionConfigured } from "@/lib/payout-crypto-core"
+import { decryptChatwootToken, loadStoredChatwootSettings, resolveCase, sendCaseMessage, testChatwootConnection } from "@/lib/support/chatwoot"
+import { chatwootConfig } from "@/lib/support/chatwoot-core"
 import { sendEmail } from "@/lib/notifications/channels/email"
 import { buildTicketivPublicUrl } from "@/lib/public-url"
 import { adminForAction } from "@/lib/super-admin/auth"
@@ -19,6 +22,7 @@ import {
   type AdminRoleTier,
   type ConsoleAction,
   type ConsoleActionResult,
+  SETTINGS_TABLES,
 } from "@/lib/super-admin/console"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Json } from "@/types/database"
@@ -697,4 +701,209 @@ export async function startViewAsAction(_prev: ConsoleActionResult, formData: Fo
   if (userId === g.context.user.id) return fail("That's your own account.")
   const sessionId = await recordViewAs(g.context.user.id, userId, g.reason)
   redirect(`/super-admin/people/${userId}/view-as?session=${sessionId}`)
+}
+
+// --------------------------------------------------------------------------
+// Phase 3: Chatwoot cases
+
+function conversationId(formData: FormData) {
+  const id = Number(field(formData, "conversationId"))
+  return Number.isInteger(id) && id > 0 ? id : null
+}
+
+export async function replyToCaseAction(_prev: ConsoleActionResult, formData: FormData): Promise<ConsoleActionResult> {
+  const g = await gate("work_cases", formData, false)
+  if (!g.ok) return g.error
+  const id = conversationId(formData)
+  const content = field(formData, "content")
+  const isNote = field(formData, "private") === "1"
+  if (!id) return fail("Conversation not found.")
+  if (!content) return fail("Write the reply first.")
+  if (content.length > 4000) return fail("Keep replies under 4,000 characters.")
+
+  const sent = await sendCaseMessage(id, content, isNote)
+  if (!sent.ok) return fail(sent.error)
+  await audit(g.admin, g.context.user.id, {
+    action: "work_cases",
+    table: "chatwoot_conversations",
+    recordId: String(id),
+    summary: isNote ? "Internal note added in Chatwoot" : "Replied on Chatwoot",
+    details: { conversation_id: id, length: content.length },
+  })
+  revalidatePath(`/super-admin/cases`)
+  return done(isNote ? "Note added in Chatwoot. The customer doesn't see it." : "Sent. The customer sees it on the channel they used.")
+}
+
+export async function resolveCaseAction(_prev: ConsoleActionResult, formData: FormData): Promise<ConsoleActionResult> {
+  const g = await gate("work_cases", formData, false)
+  if (!g.ok) return g.error
+  const id = conversationId(formData)
+  if (!id) return fail("Conversation not found.")
+  const resolved = await resolveCase(id)
+  if (!resolved.ok) return fail(resolved.error)
+  await audit(g.admin, g.context.user.id, {
+    action: "work_cases",
+    table: "chatwoot_conversations",
+    recordId: String(id),
+    summary: "Resolved in Chatwoot",
+    details: { conversation_id: id },
+  })
+  revalidatePath(`/super-admin/cases`)
+  redirect("/super-admin/cases?resolved=" + id)
+}
+
+// --------------------------------------------------------------------------
+// Phase 3: saved replies
+
+export async function saveReplyAction(_prev: ConsoleActionResult, formData: FormData): Promise<ConsoleActionResult> {
+  const g = await gate("manage_replies", formData, false)
+  if (!g.ok) return g.error
+  const id = field(formData, "id")
+  const title = field(formData, "title")
+  const body = field(formData, "body")
+  if (!title || title.length > 80) return fail("Give it a short title (up to 80 characters).")
+  if (!body || body.length > 2000) return fail("Write the reply (up to 2,000 characters).")
+  if (id && !isUuid(id)) return fail("Reply not found.")
+
+  const db = g.admin as unknown as { from: (table: string) => any }
+  const now = new Date().toISOString()
+  const { error } = id
+    ? await db.from("admin_saved_replies").update({ title, body, updated_by: g.context.user.id, updated_at: now }).eq("id", id)
+    : await db.from("admin_saved_replies").insert({ title, body, created_by: g.context.user.id, updated_by: g.context.user.id })
+  if (error) return fail(`Couldn't save it: ${error.message}`)
+  revalidatePath("/super-admin/replies")
+  revalidatePath("/super-admin/cases")
+  return done(id ? "Saved." : "Reply added.")
+}
+
+export async function deleteReplyAction(_prev: ConsoleActionResult, formData: FormData): Promise<ConsoleActionResult> {
+  const g = await gate("manage_replies", formData, false)
+  if (!g.ok) return g.error
+  const id = field(formData, "id")
+  if (!isUuid(id)) return fail("Reply not found.")
+  const db = g.admin as unknown as { from: (table: string) => any }
+  const { error } = await db.from("admin_saved_replies").delete().eq("id", id)
+  if (error) return fail(`Couldn't delete it: ${error.message}`)
+  revalidatePath("/super-admin/replies")
+  revalidatePath("/super-admin/cases")
+  return done("Deleted.")
+}
+
+// --------------------------------------------------------------------------
+// Phase 3: settings history (owner only)
+
+const RESTORE_ERRORS: Record<string, string> = {
+  cannot_undo_insert: "This change created the setting. To undo it, switch the setting off instead.",
+  cannot_recreate_hidden_values: "This setting was deleted and held secret values, which history doesn't keep. Add it again by hand.",
+  table_not_restorable: "That setting can't be restored from history.",
+  history_not_found: "That change is no longer in the history.",
+  nothing_to_restore: "There's nothing to put back for this change.",
+}
+
+export async function restoreSettingAction(_prev: ConsoleActionResult, formData: FormData): Promise<ConsoleActionResult> {
+  const g = await gate("restore_setting", formData)
+  if (!g.ok) return g.error
+  const historyId = Number(field(formData, "historyId"))
+  if (!Number.isInteger(historyId) || historyId <= 0) return fail("That change is no longer in the history.")
+
+  const db = g.admin as unknown as { from: (table: string) => any; rpc: (fn: string, args: Record<string, unknown>) => any }
+  const { data: entry } = await db.from("admin_settings_history").select("table_name, record_id").eq("id", historyId).maybeSingle()
+  if (!entry || !SETTINGS_TABLES[entry.table_name]) return fail("That change is no longer in the history.")
+
+  const { data: outcome, error } = await db.rpc("admin_restore_setting", { p_history_id: historyId })
+  if (error) {
+    const known = Object.keys(RESTORE_ERRORS).find((code) => error.message?.includes(code))
+    return fail(known ? RESTORE_ERRORS[known] : `Couldn't restore it: ${error.message}`)
+  }
+
+  await audit(g.admin, g.context.user.id, {
+    action: "restore_setting",
+    table: entry.table_name,
+    recordId: entry.record_id,
+    summary: `${SETTINGS_TABLES[entry.table_name]} restored to before change #${historyId}`,
+    reason: g.reason,
+    details: { history_id: historyId, outcome },
+  })
+  revalidatePath("/super-admin/settings-history")
+  return done(outcome === "recreated" ? "Recreated as it was before it was deleted." : "Put back as it was before that change. The restore is in the history too.")
+}
+
+// --------------------------------------------------------------------------
+// Phase 3: integrations (owner only)
+
+/** Last 4 characters only, to recognise which token is saved. */
+function tokenHint(token: string) {
+  return token.length > 8 ? token.slice(-4) : null
+}
+
+export async function saveChatwootSettingsAction(_prev: ConsoleActionResult, formData: FormData): Promise<ConsoleActionResult> {
+  const g = await gate("manage_integrations", formData, false)
+  if (!g.ok) return g.error
+  const baseUrl = field(formData, "baseUrl")
+  const accountId = field(formData, "accountId")
+  const newToken = field(formData, "token")
+
+  const stored = await loadStoredChatwootSettings()
+  // An empty token field keeps the saved token.
+  const token = newToken || decryptChatwootToken(stored?.tokenEncrypted ?? null) || ""
+  if (!token) return fail("Paste the access token from Chatwoot (Profile settings › Access token).")
+
+  const cfg = chatwootConfig({ CHATWOOT_BASE_URL: baseUrl, CHATWOOT_ACCOUNT_ID: accountId, CHATWOOT_API_TOKEN: token })
+  if (!cfg.ok) return fail(cfg.problem ?? `Fill in ${cfg.missing.join(", ").toLowerCase().replaceAll("_", " ")}.`)
+
+  const test = await testChatwootConnection(cfg.config)
+  if (!test.ok) return fail(`Not saved: ${test.error}`)
+
+  let tokenEncrypted = stored?.tokenEncrypted ?? null
+  let hint = stored?.tokenHint ?? null
+  if (newToken) {
+    if (!isPayoutEncryptionConfigured()) {
+      return fail("Not saved: the server's encryption key (PAYOUT_ENCRYPTION_KEY) isn't set, so the token can't be stored safely.")
+    }
+    tokenEncrypted = encryptPayoutDetails({ token: newToken })
+    hint = tokenHint(newToken)
+  }
+
+  const db = g.admin as unknown as { from: (table: string) => any }
+  const { error } = await db.from("admin_integration_settings").upsert(
+    {
+      provider: "chatwoot",
+      base_url: cfg.config.baseUrl,
+      account_id: cfg.config.accountId,
+      token_encrypted: tokenEncrypted,
+      token_hint: hint,
+      updated_by: g.context.user.id,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "provider" },
+  )
+  if (error) return fail(`Not saved: ${error.message}`)
+
+  await audit(g.admin, g.context.user.id, {
+    action: "manage_integrations",
+    table: "admin_integration_settings",
+    recordId: "chatwoot",
+    summary: newToken ? "Chatwoot connected (new token)" : "Chatwoot connection updated",
+    details: { base_url: cfg.config.baseUrl, account_id: cfg.config.accountId, inboxes: test.data.inboxes },
+  })
+  revalidatePath("/super-admin/integrations")
+  revalidatePath("/super-admin/cases")
+  return done(`Connected. Chatwoot answered and shows ${test.data.inboxes} inbox${test.data.inboxes === 1 ? "" : "es"}. Cases is live.`)
+}
+
+export async function disconnectChatwootAction(_prev: ConsoleActionResult, formData: FormData): Promise<ConsoleActionResult> {
+  const g = await gate("manage_integrations", formData, false)
+  if (!g.ok) return g.error
+  const db = g.admin as unknown as { from: (table: string) => any }
+  const { error } = await db.from("admin_integration_settings").delete().eq("provider", "chatwoot")
+  if (error) return fail(`Couldn't disconnect: ${error.message}`)
+  await audit(g.admin, g.context.user.id, {
+    action: "manage_integrations",
+    table: "admin_integration_settings",
+    recordId: "chatwoot",
+    summary: "Chatwoot disconnected in the console",
+  })
+  revalidatePath("/super-admin/integrations")
+  revalidatePath("/super-admin/cases")
+  return done("Disconnected. The saved token is deleted. If CHATWOOT_* environment variables exist, Cases uses those instead.")
 }

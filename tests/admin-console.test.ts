@@ -10,11 +10,24 @@ const mocks = vi.hoisted(() => ({
   rows: {} as Record<string, any>,
   rpc: vi.fn(),
   initiateRefund: vi.fn(),
+  sendCaseMessage: vi.fn(),
+  testChatwootConnection: vi.fn(),
 }))
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("next/navigation", () => ({ redirect: vi.fn(() => { throw new Error("NEXT_REDIRECT") }) }))
 vi.mock("@/lib/payments/refunds", () => ({ initiateRefund: mocks.initiateRefund }))
+vi.mock("@/lib/support/chatwoot", () => ({
+  sendCaseMessage: mocks.sendCaseMessage,
+  resolveCase: vi.fn(),
+  loadStoredChatwootSettings: vi.fn(async () => null),
+  decryptChatwootToken: vi.fn(() => null),
+  testChatwootConnection: mocks.testChatwootConnection,
+}))
+vi.mock("@/lib/payout-crypto-core", () => ({
+  isPayoutEncryptionConfigured: () => true,
+  encryptPayoutDetails: (details: Record<string, unknown>) => `enc:v2:test:${Object.keys(details).join(",")}`,
+}))
 vi.mock("@/lib/notifications/ticket-delivery", () => ({ deliverTicketsForOrder: mocks.deliver }))
 vi.mock("@/lib/notifications/channels/email", () => ({ sendEmail: vi.fn(async () => ({ status: "sent", ref: "x", provider: "resend" })) }))
 vi.mock("@/lib/super-admin/auth", async () => {
@@ -54,14 +67,20 @@ import {
   changeBuyerEmailAction,
   pauseSalesAction,
   reissueTicketAction,
+  replyToCaseAction,
   resendTicketsAction,
+  restoreSettingAction,
+  saveChatwootSettingsAction,
   startViewAsAction,
 } from "@/app/super-admin/console-actions"
+import { chatwootApiUrl, chatwootConfig, chatwootConversationLink, parseConversations, parseMessages } from "@/lib/support/chatwoot-core"
 import { attendeeTicketState } from "@/lib/data/admin/console-ops"
 import { supportReferenceRow, createPaymentChannelUnavailableError } from "@/lib/payments/errors"
 import {
   canDo,
   classifySearch,
+  describeChange,
+  settingLabel,
   IDLE_RESULT,
   normalizeEmail,
   parseQueueItemKey,
@@ -307,5 +326,159 @@ describe("phase 2: money and access", () => {
     const sql = read("supabase/migrations/20261107100000_admin_console_phase2.sql")
     expect(sql).toContain("alter table public.admin_queue_claims enable row level security;")
     expect(sql).toContain("revoke all on public.admin_queue_claims from anon, authenticated;")
+  })
+})
+
+describe("phase 3: Chatwoot", () => {
+  it("needs all three settings, https and a numeric account", () => {
+    expect(chatwootConfig({})).toEqual({ ok: false, missing: ["CHATWOOT_BASE_URL", "CHATWOOT_ACCOUNT_ID", "CHATWOOT_API_TOKEN"] })
+    expect(chatwootConfig({ CHATWOOT_BASE_URL: "http://chat.example.com", CHATWOOT_ACCOUNT_ID: "1", CHATWOOT_API_TOKEN: "t" })).toMatchObject({ ok: false, problem: expect.stringMatching(/https/) })
+    expect(chatwootConfig({ CHATWOOT_BASE_URL: "https://chat.example.com", CHATWOOT_ACCOUNT_ID: "abc", CHATWOOT_API_TOKEN: "t" })).toMatchObject({ ok: false })
+    const ok = chatwootConfig({ CHATWOOT_BASE_URL: "https://chat.example.com/app/", CHATWOOT_ACCOUNT_ID: "3", CHATWOOT_API_TOKEN: "t" })
+    expect(ok).toEqual({ ok: true, config: { baseUrl: "https://chat.example.com", accountId: "3", token: "t" } })
+    if (!ok.ok) throw new Error("config")
+    expect(chatwootApiUrl(ok.config, "/conversations", { status: "open" })).toBe("https://chat.example.com/api/v1/accounts/3/conversations?status=open")
+    expect(chatwootConversationLink(ok.config, 118)).toBe("https://chat.example.com/app/accounts/3/conversations/118")
+  })
+
+  it("reads conversations and messages as support sees them", () => {
+    const [c] = parseConversations({
+      data: {
+        payload: [
+          {
+            id: 118,
+            status: "open",
+            unread_count: 2,
+            last_activity_at: 1762520400,
+            meta: { sender: { name: "Sample Buyer", email: "Buyer@Example.com", phone_number: "+26876000000" }, channel: "Channel::Whatsapp", assignee: { name: "Support" } },
+            messages: [{ content: "My tickets never came" }],
+          },
+        ],
+      },
+    })
+    expect(c).toMatchObject({ id: 118, contactName: "Sample Buyer", email: "buyer@example.com", channel: "WhatsApp", assignee: "Support", unread: 2, lastMessage: "My tickets never came" })
+    const messages = parseMessages({
+      payload: [
+        { id: 3, content: "Resent", message_type: 1, created_at: 30, sender: { name: "Support" } },
+        { id: 1, content: "Help", message_type: 0, created_at: 10 },
+        { id: 2, content: "typo in email", message_type: 1, private: true, created_at: 20 },
+        { id: 4, content: "", message_type: 2, created_at: 40 },
+      ],
+    })
+    expect(messages.map((m) => [m.id, m.from])).toEqual([[1, "customer"], [2, "note"], [3, "agent"]])
+  })
+
+  it("lets only support and the owner reply, and logs it", async () => {
+    mocks.inserts.length = 0
+    mocks.context.role = "finance_admin"
+    expect((await replyToCaseAction(IDLE_RESULT, form({ conversationId: "118", content: "Hi" }))).status).toBe("error")
+    expect(mocks.sendCaseMessage).not.toHaveBeenCalled()
+    mocks.context.role = "support_admin"
+    mocks.sendCaseMessage.mockResolvedValue({ ok: true, data: true })
+    expect(await replyToCaseAction(IDLE_RESULT, form({ conversationId: "118", content: "Your tickets were resent.", private: "1" }))).toMatchObject({ status: "done" })
+    expect(mocks.sendCaseMessage).toHaveBeenCalledWith(118, "Your tickets were resent.", true)
+    expect(mocks.inserts.find((i) => i.table === "audit_log")!.row.changes).toMatchObject({ action: "work_cases", conversation_id: 118 })
+    mocks.sendCaseMessage.mockResolvedValue({ ok: false, error: "Chatwoot refused the access token. Check CHATWOOT_API_TOKEN." })
+    expect(await replyToCaseAction(IDLE_RESULT, form({ conversationId: "118", content: "Hi" }))).toEqual({ status: "error", message: expect.stringMatching(/access token/) })
+  })
+})
+
+describe("phase 3: settings history", () => {
+  it("shows what changed in plain before/after, without save noise", () => {
+    expect(
+      describeChange("update", { key: "resale", enabled: false, updated_at: "a" }, { key: "resale", enabled: true, updated_at: "b" }),
+    ).toEqual([{ field: "enabled", before: "false", after: "true" }])
+    expect(describeChange("delete", { key: "resale", enabled: true }, null)).toEqual([
+      { field: "enabled", before: "true", after: "" },
+      { field: "key", before: "resale", after: "" },
+    ])
+    expect(settingLabel({ key: "resale" })).toBe("resale")
+    expect(settingLabel({ provider: "paystack" })).toBe("paystack")
+    expect(settingLabel({ currency: "SZL", country_code: "SZ" })).toBe("SZL · SZ")
+  })
+
+  it("lets only the owner restore, with a reason, and explains refusals", async () => {
+    mocks.inserts.length = 0
+    mocks.context.role = "support_admin"
+    expect((await restoreSettingAction(IDLE_RESULT, form({ historyId: "7", reason: "Flag was switched on by mistake" }))).status).toBe("error")
+    mocks.context.role = "super_admin"
+    expect((await restoreSettingAction(IDLE_RESULT, form({ historyId: "7", reason: "short" }))).status).toBe("error")
+    mocks.rows.admin_settings_history = { table_name: "feature_flags", record_id: ORDER }
+    mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: "cannot_undo_insert" } })
+    expect(await restoreSettingAction(IDLE_RESULT, form({ historyId: "7", reason: "Flag was switched on by mistake" }))).toEqual({
+      status: "error",
+      message: expect.stringMatching(/switch the setting off/),
+    })
+    mocks.rpc.mockResolvedValueOnce({ data: "restored", error: null })
+    expect((await restoreSettingAction(IDLE_RESULT, form({ historyId: "7", reason: "Flag was switched on by mistake" }))).status).toBe("done")
+    expect(mocks.rpc).toHaveBeenLastCalledWith("admin_restore_setting", { p_history_id: 7 })
+    expect(mocks.inserts.find((i) => i.table === "audit_log")!.row).toMatchObject({ table_name: "feature_flags", record_id: ORDER, changes: { action: "restore_setting" } })
+  })
+
+  it("never stores secrets and keeps both tables away from browsers", () => {
+    const sql = read("supabase/migrations/20261108100000_admin_console_phase3.sql")
+    for (const table of ["admin_settings_history", "admin_saved_replies"]) {
+      expect(sql).toContain(`alter table public.${table} enable row level security;`)
+      expect(sql).toContain(`revoke all on public.${table} from anon, authenticated;`)
+    }
+    expect(sql).toMatch(/secret\|token\|password/)
+    expect(sql).toContain("revoke all on function public.admin_restore_setting(bigint) from public, anon, authenticated;")
+    expect(sql).toContain("grant execute on function public.admin_restore_setting(bigint) to service_role;")
+    for (const table of ["feature_flags", "payment_routing_rules", "platform_fee_settings", "pricing_plans", "tapband_feature_configs", "payment_provider_settings"]) {
+      expect(sql).toContain(`('${table}',`)
+    }
+  })
+})
+
+describe("phase 3: Chatwoot from the console", () => {
+  const valid = { baseUrl: "https://chat.example.com", accountId: "3", token: "cw-secret-token-1234" }
+
+  beforeEach(() => {
+    mocks.inserts.length = 0
+    mocks.testChatwootConnection.mockReset()
+  })
+
+  it("is owner only", async () => {
+    mocks.context.role = "support_admin"
+    expect((await saveChatwootSettingsAction(IDLE_RESULT, form(valid))).status).toBe("error")
+    expect(mocks.testChatwootConnection).not.toHaveBeenCalled()
+  })
+
+  it("tests the connection first and saves nothing when Chatwoot refuses", async () => {
+    mocks.context.role = "super_admin"
+    expect((await saveChatwootSettingsAction(IDLE_RESULT, form({ ...valid, baseUrl: "http://chat.example.com" }))).status).toBe("error")
+    mocks.testChatwootConnection.mockResolvedValue({ ok: false, error: "Chatwoot refused the access token." })
+    expect(await saveChatwootSettingsAction(IDLE_RESULT, form(valid))).toEqual({ status: "error", message: "Not saved: Chatwoot refused the access token." })
+    expect(mocks.inserts.find((i) => i.table === "audit_log")).toBeUndefined()
+  })
+
+  it("stores the token encrypted and never in the audit log", async () => {
+    mocks.context.role = "super_admin"
+    mocks.testChatwootConnection.mockResolvedValue({ ok: true, data: { inboxes: 2 } })
+    const upserts: any[] = []
+    const { createAdminClient } = await import("@/lib/supabase/admin")
+    const client = createAdminClient() as any
+    const original = client.from
+    vi.spyOn(await import("@/lib/supabase/admin"), "createAdminClient").mockReturnValue({
+      ...client,
+      from: (table: string) => (table === "admin_integration_settings" ? { upsert: async (row: any) => (upserts.push(row), { error: null }) } : original(table)),
+    } as any)
+
+    const result = await saveChatwootSettingsAction(IDLE_RESULT, form(valid))
+    expect(result).toMatchObject({ status: "done", message: expect.stringContaining("2 inboxes") })
+    expect(mocks.testChatwootConnection).toHaveBeenCalledWith({ baseUrl: "https://chat.example.com", accountId: "3", token: valid.token })
+    expect(upserts[0]).toMatchObject({ provider: "chatwoot", base_url: "https://chat.example.com", account_id: "3", token_encrypted: "enc:v2:test:token", token_hint: "1234" })
+    expect(JSON.stringify(upserts[0])).not.toContain(valid.token)
+    const auditRow = mocks.inserts.find((i) => i.table === "audit_log")!.row
+    expect(JSON.stringify(auditRow)).not.toContain(valid.token)
+  })
+
+  it("keeps the integrations table away from browsers and in settings history", () => {
+    const sql = read("supabase/migrations/20261108100000_admin_console_phase3.sql")
+    expect(sql).toContain("alter table public.admin_integration_settings enable row level security;")
+    expect(sql).toContain("revoke all on public.admin_integration_settings from anon, authenticated;")
+    expect(sql).toContain("('admin_integration_settings', 'provider')")
+    // token_encrypted matches the history mask, so the ciphertext isn't copied either.
+    expect("token_encrypted").toMatch(/(secret|token|password|private|api_?key|encrypted)/i)
   })
 })

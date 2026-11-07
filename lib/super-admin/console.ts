@@ -37,6 +37,10 @@ export type ConsoleAction =
   | "pause_sales"
   | "take_queue_item"
   | "view_as"
+  | "work_cases"
+  | "manage_replies"
+  | "restore_setting"
+  | "manage_integrations"
 
 export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   resend_tickets: ["super_admin", "support_admin", "event_ops_admin"],
@@ -52,6 +56,11 @@ export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   pause_sales: ["super_admin", "event_ops_admin"],
   take_queue_item: ["super_admin", "support_admin", "finance_admin", "event_ops_admin"],
   view_as: ["super_admin", "support_admin"],
+  // Phase 3
+  work_cases: ["super_admin", "support_admin"],
+  manage_replies: ["super_admin", "support_admin"],
+  restore_setting: ["super_admin"],
+  manage_integrations: ["super_admin"],
 }
 
 /** Actions that change something and so must carry a reason in the audit log. */
@@ -64,6 +73,7 @@ export const REASON_REQUIRED: ReadonlySet<ConsoleAction> = new Set([
   "sign_out_everywhere",
   "approve_refund",
   "pause_sales",
+  "restore_setting",
 ])
 
 export const MIN_REASON_LENGTH = 10
@@ -175,4 +185,57 @@ export function undeliveredOrders(rows: Array<{ order_id: string | null; status:
     .filter(([, entry]) => !entry.sent && entry.lastFailureAt)
     .map(([orderId, entry]) => ({ orderId, lastFailureAt: entry.lastFailureAt! }))
     .sort((a, b) => b.lastFailureAt.localeCompare(a.lastFailureAt))
+}
+
+// ---------------------------------------------------------------------------
+// Settings history (phase 3)
+
+export const SETTINGS_TABLES: Record<string, string> = {
+  feature_flags: "Feature flags",
+  payment_routing_rules: "Payment routing",
+  platform_fee_settings: "Platform fee",
+  pricing_plans: "Pricing plans",
+  tapband_feature_configs: "TapBand config",
+  payment_provider_settings: "Payment providers",
+  admin_integration_settings: "Integrations",
+}
+
+/** Fields that change on every save and say nothing about what was changed. */
+const NOISE_FIELDS = new Set(["updated_at", "last_changed_at", "last_changed_by", "updated_by"])
+
+export type FieldChange = { field: string; before: string; after: string }
+
+function show(value: unknown): string {
+  if (value === undefined || value === null) return "empty"
+  if (typeof value === "string") return value
+  return JSON.stringify(value)
+}
+
+/** The readable before/after list for one history row. */
+export function describeChange(
+  operation: "insert" | "update" | "delete",
+  oldRow: Record<string, unknown> | null,
+  newRow: Record<string, unknown> | null,
+): FieldChange[] {
+  const keys = new Set([...Object.keys(oldRow ?? {}), ...Object.keys(newRow ?? {})])
+  const changes: FieldChange[] = []
+  for (const key of [...keys].sort()) {
+    if (NOISE_FIELDS.has(key)) continue
+    const before = oldRow?.[key]
+    const after = newRow?.[key]
+    if (operation === "update" && JSON.stringify(before) === JSON.stringify(after)) continue
+    if (operation !== "update" && (before ?? after) === null) continue
+    changes.push({ field: key, before: operation === "insert" ? "" : show(before), after: operation === "delete" ? "" : show(after) })
+  }
+  return changes
+}
+
+/** A short name for the setting a history row is about. */
+export function settingLabel(row: Record<string, unknown> | null): string {
+  if (!row) return "Setting"
+  for (const key of ["key", "provider", "name", "code"]) {
+    if (typeof row[key] === "string" && row[key]) return String(row[key])
+  }
+  if (typeof row.currency === "string") return `${row.currency}${row.country_code ? ` · ${row.country_code}` : ""}`
+  return "Setting"
 }
