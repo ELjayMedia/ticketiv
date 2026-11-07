@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
@@ -87,7 +88,7 @@ export default async function OrderTokenPage({
           <h1 className="text-h1">{eventTitle}</h1>
           {start && (
             <p className="text-[13px] text-ink-3">
-              {start.toLocaleString("en-SZ", { dateStyle: "medium", timeStyle: "short" })}
+              {start.toLocaleString("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE, dateStyle: "medium", timeStyle: "short" })}
             </p>
           )}
         </div>

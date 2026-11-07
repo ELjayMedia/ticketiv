@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { format } from "date-fns"
+import { DEFAULT_EVENT_TIME_ZONE, formatEventClock, formatInTimeZone } from "@ticketiv/shared"
 
 import { Card, CardBody } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
@@ -118,7 +119,7 @@ export default async function EditSeriesPage({
                       <p className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-wider text-ink-3">
                         <Icon name="cal" size={12} />
                         {event.starts_at
-                          ? format(new Date(event.starts_at), "EEE d MMM yyyy")
+                          ? formatInTimeZone(event.starts_at, { weekday: "short", day: "numeric", month: "short", year: "numeric" }, DEFAULT_EVENT_TIME_ZONE)
                           : "Date TBA"}
                       </p>
                     </div>

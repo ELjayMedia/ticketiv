@@ -1,4 +1,5 @@
 import "server-only"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { classifySearch, isUuid, orderRef, type SearchKind } from "@/lib/super-admin/console"
@@ -127,7 +128,7 @@ export async function searchConsole(rawQuery: string): Promise<ConsoleSearchResu
     hits.push({
       kind: "payment",
       title: `${ref.ref} · payment could not start`,
-      detail: [ref.provider, humanFailureReason(ref.reason), new Date(ref.created_at).toLocaleString("en-SZ")].filter(Boolean).join(" · "),
+      detail: [ref.provider, humanFailureReason(ref.reason), new Date(ref.created_at).toLocaleString("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE })].filter(Boolean).join(" · "),
       status: "Failed",
       tone: "danger",
       href: ref.order_id ? `/super-admin/order/${ref.order_id}?ref=${ref.ref}` : `/super-admin/search?q=${ref.ref}`,
@@ -166,7 +167,7 @@ export async function searchConsole(rawQuery: string): Promise<ConsoleSearchResu
     hits.push({
       kind: "event",
       title: event.title,
-      detail: event.starts_at ? new Date(event.starts_at).toLocaleString("en-SZ", { dateStyle: "medium", timeStyle: "short" }) : "No date",
+      detail: event.starts_at ? new Date(event.starts_at).toLocaleString("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE, dateStyle: "medium", timeStyle: "short" }) : "No date",
       status: event.status,
       tone: "muted",
       href: `/super-admin/event/${event.id}`,

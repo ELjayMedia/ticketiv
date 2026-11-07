@@ -1,11 +1,12 @@
 import Link from "next/link"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 
 import { FriendActions } from "@/components/quiet/screens/profile/friend-actions"
 import { ShareButton } from "@/components/quiet/screens/profile/profile-actions"
 import { Avatar } from "@/components/quiet/ui/primitives"
 import type { PublicProfile } from "@/lib/data/attendee/public-profile"
 
-const JOINED_FMT = new Intl.DateTimeFormat("en-GB", {
+const JOINED_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE,
   month: "short",
   year: "numeric",
 })

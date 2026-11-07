@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon } from "@/components/quiet/ui/icon"
@@ -32,7 +33,7 @@ type FailedAttemptRow = {
 
 function fmtDate(d: string | null) {
   if (!d) return "—"
-  return new Intl.DateTimeFormat("en-SZ", { dateStyle: "medium", timeStyle: "short" }).format(new Date(d))
+  return new Intl.DateTimeFormat("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE, dateStyle: "medium", timeStyle: "short" }).format(new Date(d))
 }
 
 export default async function SuperAdminPaymentFailuresPage({

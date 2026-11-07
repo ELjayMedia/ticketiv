@@ -1,5 +1,6 @@
 // Public ranked event search via fn_search_events RPC (Postgres FTS).
 
+import { DEFAULT_EVENT_TIME_ZONE, wallTimeToInstant, zonedParts } from "@ticketiv/shared"
 import "server-only"
 import { createPublicSupabaseClient } from "@/lib/supabase-public"
 
@@ -130,25 +131,25 @@ export function resolveWhenPreset(
 
   switch (preset as WhenPreset) {
     case "tonight":
-      end.setHours(end.getHours() + 6)
+      end.setTime(end.getTime() + 6 * 60 * 60 * 1000)
       break
     case "weekend": {
-      // Next Saturday 00:00 → Sunday 23:59 (today if today is Sat/Sun).
-      const day = start.getDay() // 0=Sun, 6=Sat
-      const daysUntilSat = (6 - day + 7) % 7
-      if (day !== 0 && day !== 6) start.setDate(start.getDate() + daysUntilSat)
-      start.setHours(0, 0, 0, 0)
-      end.setTime(start.getTime())
+      // Next Saturday 00:00 → Sunday 23:59 (today if today is Sat/Sun), in
+      // the event zone (Eswatini), not the server's clock.
+      const p = zonedParts(now, DEFAULT_EVENT_TIME_ZONE)
+      const day = p.weekday // 0=Sun, 6=Sat
+      const startDay = p.day + (day === 0 || day === 6 ? 0 : 6 - day)
+      start.setTime(wallTimeToInstant({ year: p.year, month: p.month, day: startDay }, DEFAULT_EVENT_TIME_ZONE).getTime())
       // If we landed on Saturday, end on Sunday; if Sunday, end same day.
-      end.setDate(end.getDate() + (start.getDay() === 6 ? 1 : 0))
-      end.setHours(23, 59, 59, 999)
+      const endDay = startDay + (day === 0 ? 0 : 1)
+      end.setTime(wallTimeToInstant({ year: p.year, month: p.month, day: endDay, hour: 23, minute: 59, second: 59 }, DEFAULT_EVENT_TIME_ZONE).getTime() + 999)
       break
     }
     case "week":
-      end.setDate(end.getDate() + 7)
+      end.setTime(end.getTime() + 7 * 24 * 60 * 60 * 1000)
       break
     case "month":
-      end.setMonth(end.getMonth() + 1)
+      end.setUTCMonth(end.getUTCMonth() + 1)
       break
     default:
       return { startsAfter: null, startsBefore: null }

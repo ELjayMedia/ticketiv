@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { Icon } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
 import type {
@@ -32,7 +33,7 @@ function formatMoney(cents: number, currency: string): string {
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" });
+  return new Date(iso).toLocaleDateString("en", { timeZone: DEFAULT_EVENT_TIME_ZONE, month: "short", day: "numeric", year: "numeric" });
 }
 
 function sellerTrustLabel(count: number): { label: string; className: string } {

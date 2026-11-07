@@ -12,6 +12,7 @@
  */
 
 import { PHOTOS } from "@/lib/photos";
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { formatEventDate, formatTimeRange } from "@/lib/format";
 import { resolveRefundPolicy, refundQuoteForHoursBefore, formatRefundWindow } from "@/lib/refund-policy";
 import type { MyTicketsView } from "@/lib/schemas/views";
@@ -22,6 +23,8 @@ export { ticketDisplayStatus, type TicketDisplayStatus } from "@/lib/ticket-stat
 
 export interface FeaturedTicketProp {
   ticketId: string;
+  /** Event the ticket is for — opens the Event Companion. */
+  eventId: string;
   orderId: string;
   orderStatus: string;
   orderNumber: string;
@@ -42,6 +45,7 @@ export interface FeaturedTicketProp {
 
 export interface TicketListItemProp {
   ticketId: string;
+  eventId: string;
   orderId: string;
   orderStatus: string;
   title: string;
@@ -95,6 +99,7 @@ function toListItem(row: MyTicketsView): TicketListItemProp {
   const status = ticketDisplayStatus(row);
   return {
     ticketId: row.order_item_id,
+    eventId: row.event_id,
     orderId: row.order_id,
     orderStatus: row.order_status,
     title: row.event_title,
@@ -116,6 +121,7 @@ function toFeatured(row: MyTicketsView): FeaturedTicketProp {
   const urgency = urgencyFor(daysUntil, msUntil);
   return {
     ticketId: row.order_item_id,
+    eventId: row.event_id,
     orderId: row.order_id,
     orderStatus: row.order_status,
     orderNumber: shortOrderNumber(row.order_id),
@@ -170,7 +176,7 @@ export interface TicketViewProp {
   refundCta: RefundCtaData | null;
 }
 
-const DEADLINE_FMT = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short" });
+const DEADLINE_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE, weekday: "short", day: "numeric", month: "short" });
 
 export function mapTicketView(
   row: MyTicketsView,

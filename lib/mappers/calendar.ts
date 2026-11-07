@@ -1,6 +1,7 @@
 // Shape MyCalendarMonth → CalendarScreen props.
 
 import { PHOTOS } from "@/lib/photos"
+import { DEFAULT_EVENT_TIME_ZONE, zonedParts } from "@ticketiv/shared"
 import type { MyCalendarMonth } from "@/lib/data/attendee/calendar"
 
 export interface CalendarEventProp {
@@ -31,10 +32,10 @@ export interface CalendarProps {
   comingUp: ComingUpEventProp[]
 }
 
-const MONTH_FMT = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" })
-const DAY_FMT = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" })
-const WEEKDAY_FMT = new Intl.DateTimeFormat("en-GB", { weekday: "short" })
-const TIME_FMT = new Intl.DateTimeFormat("en-GB", {
+const MONTH_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE, month: "long", year: "numeric" })
+const DAY_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE, day: "numeric", month: "short" })
+const WEEKDAY_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE, weekday: "short" })
+const TIME_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE,
   hour: "2-digit",
   minute: "2-digit",
   hour12: false,
@@ -50,9 +51,10 @@ export function mapCalendar(month: MyCalendarMonth): CalendarProps {
   const monthDate = new Date(Date.UTC(month.year, month.month - 1, 1))
   const daysInMonth = new Date(month.year, month.month, 0).getDate()
   const today = new Date()
-  const isCurrentMonth =
-    today.getUTCFullYear() === month.year && today.getUTCMonth() + 1 === month.month
-  const todayDay = isCurrentMonth ? today.getUTCDate() : 1
+  // Calendar days are the event's (Eswatini) days, not UTC or the server's.
+  const todayParts = zonedParts(today, DEFAULT_EVENT_TIME_ZONE)
+  const isCurrentMonth = todayParts.year === month.year && todayParts.month === month.month
+  const todayDay = isCurrentMonth ? todayParts.day : 1
 
   // Mon=0 ... Sun=6 (design uses ISO-ish week starting Monday)
   const firstOfMonth = new Date(Date.UTC(month.year, month.month - 1, 1))
@@ -65,7 +67,7 @@ export function mapCalendar(month: MyCalendarMonth): CalendarProps {
 
   for (const ev of month.events) {
     const d = new Date(ev.starts_at)
-    const day = d.getUTCDate()
+    const day = zonedParts(d, DEFAULT_EVENT_TIME_ZONE).day
     eventDays[day] = (eventDays[day] ?? 0) + 1
 
     if (isCurrentMonth && day === todayDay) {

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import Link from "next/link"
 
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
@@ -242,7 +243,7 @@ export function EventsGrid({ events, orgId, canDelete }: EventsGridProps) {
                       <Icon name="cal" size={12} />
                       <span className="truncate">
                         {event.starts_at
-                          ? new Date(event.starts_at).toLocaleDateString("en-SZ", {
+                          ? new Date(event.starts_at).toLocaleDateString("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE,
                               dateStyle: "medium",
                             })
                           : "Date TBA"}

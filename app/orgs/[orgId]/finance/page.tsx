@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { requireOrgCapability } from "@/lib/data/organizer/access"
@@ -508,7 +509,7 @@ function EventCell({ title, startsAt }: { title: string; startsAt: string | null
       <span className="text-[13px] font-semibold text-ink">{title}</span>
       {startsAt && (
         <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
-          {new Date(startsAt).toLocaleDateString("en-SZ")}
+          {new Date(startsAt).toLocaleDateString("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE })}
         </span>
       )}
     </>

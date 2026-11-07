@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { redirect } from "next/navigation"
 
 import { Card, CardBody } from "@/components/quiet/ui/card"
@@ -73,7 +74,7 @@ export default async function EventDoorPage({ params }: { params: Promise<{ orgI
           <h1 className="text-h1">{String(event.title ?? "Event")}</h1>
           {event.starts_at && (
             <p className="text-[13px] text-ink-3">
-              {new Date(String(event.starts_at)).toLocaleString("en-SZ", { dateStyle: "full", timeStyle: "short" })}
+              {new Date(String(event.starts_at)).toLocaleString("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE, dateStyle: "full", timeStyle: "short" })}
             </p>
           )}
         </div>

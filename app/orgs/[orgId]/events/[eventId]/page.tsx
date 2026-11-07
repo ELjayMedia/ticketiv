@@ -49,6 +49,13 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
       visible: caps.manage,
     },
     {
+      label: "Attendee guide",
+      description: "Entry, directions, running order and updates for ticket holders.",
+      href: `/orgs/${orgId}/events/${eventId}/guide`,
+      icon: "info",
+      visible: caps.manage,
+    },
+    {
       label: "Check-in",
       description: "Open the event scanner and gate tools.",
       href: `/orgs/${orgId}/events/${eventId}/scanner`,

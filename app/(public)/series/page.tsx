@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 
 import { Card, CardBody } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
@@ -14,7 +15,7 @@ const SERIES_TYPE_LABELS: Record<SeriesSummary["series_type"], string> = {
   season: "Season",
 }
 
-const NEXT_DATE = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short" })
+const NEXT_DATE = new Intl.DateTimeFormat("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE, weekday: "short", day: "numeric", month: "short" })
 
 /**
  * `/series` — public directory of event series (tours, recurring nights,

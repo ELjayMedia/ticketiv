@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { redirect } from "next/navigation"
 
 import { Card, CardBody } from "@/components/quiet/ui/card"
@@ -234,7 +235,7 @@ export default async function OrgDashboardPage({ params }: { params: Promise<{ o
                     <CardBody className="flex items-center justify-between gap-4 p-4">
                       <div className="flex min-w-0 flex-1 flex-col gap-1">
                         <h3 className="truncate text-[14px] font-semibold text-ink">{event.title}</h3>
-                        <p className="text-[12px] text-ink-3">{event.starts_at ? new Date(event.starts_at).toLocaleDateString() : "Date pending"}</p>
+                        <p className="text-[12px] text-ink-3">{event.starts_at ? new Date(event.starts_at).toLocaleDateString("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE }) : "Date pending"}</p>
                       </div>
                       <Chip size="sm" variant={event.status === "published" ? "active" : "muted"} className="capitalize">{event.status}</Chip>
                     </CardBody>

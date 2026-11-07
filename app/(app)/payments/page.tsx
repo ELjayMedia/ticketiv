@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { redirect } from "next/navigation"
 
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
@@ -70,7 +71,7 @@ export default async function PaymentsPage() {
                     {payment.order?.event_title || "Unknown order"}
                   </p>
                   <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                    {new Date(payment.created_at).toLocaleDateString()}
+                    {new Date(payment.created_at).toLocaleDateString("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE })}
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-1">

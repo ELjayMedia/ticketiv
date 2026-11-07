@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { eventTimeZone, toEventLocalInputValue } from "@ticketiv/shared"
 import { Button } from "@/components/quiet/ui/button";
 import { Input } from "@/components/quiet/ui/form";
 import { Icon } from "@/components/quiet/ui/icon"
@@ -11,13 +12,10 @@ type DateRow = {
   ends_at: string
 }
 
-function toLocalInputValue(value?: string | null) {
-  if (!value) return ""
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ""
-  const offset = date.getTimezoneOffset()
-  const local = new Date(date.getTime() - offset * 60 * 1000)
-  return local.toISOString().slice(0, 16)
+// Show stored times as the clock reads where the event happens, whatever
+// zone the organiser's device is in. The API reads them back in that zone.
+function toLocalInputValue(value?: string | null, tz?: string | null) {
+  return toEventLocalInputValue(value, eventTimeZone(tz))
 }
 
 export function ScheduleStep({ eventId, onSaving }: { eventId: string; onSaving: () => void }) {
@@ -43,8 +41,8 @@ export function ScheduleStep({ eventId, onSaving }: { eventId: string; onSaving:
       if (!response.ok) throw new Error(payload.error || "Failed to load schedule")
 
       const nextDates = Array.isArray(payload.dates) && payload.dates.length > 0
-        ? payload.dates.map((row: any) => ({ starts_at: toLocalInputValue(row.starts_at), ends_at: toLocalInputValue(row.ends_at) }))
-        : [{ starts_at: toLocalInputValue(payload.event?.starts_at), ends_at: toLocalInputValue(payload.event?.ends_at) }]
+        ? payload.dates.map((row: any) => ({ starts_at: toLocalInputValue(row.starts_at, payload.event?.tz), ends_at: toLocalInputValue(row.ends_at, payload.event?.tz) }))
+        : [{ starts_at: toLocalInputValue(payload.event?.starts_at, payload.event?.tz), ends_at: toLocalInputValue(payload.event?.ends_at, payload.event?.tz) }]
 
       setDates(nextDates)
       setTz(payload.event?.tz || "Africa/Mbabane")
@@ -84,7 +82,7 @@ export function ScheduleStep({ eventId, onSaving }: { eventId: string; onSaving:
       if (!response.ok) throw new Error(payload.error || "Failed to save schedule")
 
       const savedDates = Array.isArray(payload.dates) && payload.dates.length > 0
-        ? payload.dates.map((row: any) => ({ starts_at: toLocalInputValue(row.starts_at), ends_at: toLocalInputValue(row.ends_at) }))
+        ? payload.dates.map((row: any) => ({ starts_at: toLocalInputValue(row.starts_at, payload.event?.tz), ends_at: toLocalInputValue(row.ends_at, payload.event?.tz) }))
         : dates
 
       setDates(savedDates)

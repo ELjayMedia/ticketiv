@@ -10,6 +10,8 @@
  * preferred currency with `getOrgCurrency()` from lib/currency.ts.
  */
 
+import { DEFAULT_EVENT_TIME_ZONE, eventTimeZone, formatEventClock, formatInTimeZone, zonedDayKey } from "./time";
+
 export type Currency = "SZL" | "ZAR" | "USD" | "EUR" | "GBP";
 
 const CURRENCY_SYMBOL: Record<Currency, string> = {
@@ -48,43 +50,37 @@ export function formatPrice(
 }
 
 /**
- * "Fri 25 → Sun 27 Jul" for multi-day, "Wed 30 Aug" for single.
+ * "Fri 25 → Sun 27 Jul" for multi-day, "Wed 30 Aug" for single — in the
+ * event's time zone (default Eswatini), never the server's.
  */
 export function formatEventDate(
   start: Date | string,
-  end?: Date | string | null
+  end?: Date | string | null,
+  timeZone: string = DEFAULT_EVENT_TIME_ZONE
 ): string {
   const s = typeof start === "string" ? new Date(start) : start;
   const e = end ? (typeof end === "string" ? new Date(end) : end) : null;
+  const zone = eventTimeZone(timeZone);
 
-  const sameDay =
-    !e ||
-    (s.getFullYear() === e.getFullYear() &&
-      s.getMonth() === e.getMonth() &&
-      s.getDate() === e.getDate());
+  const sameDay = !e || zonedDayKey(s, zone) === zonedDayKey(e, zone);
 
-  const day = (d: Date) =>
-    d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric" });
-  const month = (d: Date) =>
-    d.toLocaleDateString("en-GB", { month: "short" });
+  const day = (d: Date) => formatInTimeZone(d, { weekday: "short", day: "numeric" }, zone);
+  const month = (d: Date) => formatInTimeZone(d, { month: "short" }, zone);
 
   if (sameDay) return `${day(s)} ${month(s)}`;
   return `${day(s)} → ${day(e!)} ${month(e!)}`;
 }
 
 /**
- * "15:50 → 17:50" (24h, no seconds).
+ * "15:50 → 17:50" (24h, no seconds), in the event's time zone.
  */
 export function formatTimeRange(
   start: Date | string,
-  end?: Date | string | null
+  end?: Date | string | null,
+  timeZone: string = DEFAULT_EVENT_TIME_ZONE
 ): string {
-  const fmt = (d: Date) =>
-    d.toLocaleTimeString("en-GB", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+  const zone = eventTimeZone(timeZone);
+  const fmt = (d: Date) => formatEventClock(d, zone);
 
   const s = typeof start === "string" ? new Date(start) : start;
   const e = end ? (typeof end === "string" ? new Date(end) : end) : null;

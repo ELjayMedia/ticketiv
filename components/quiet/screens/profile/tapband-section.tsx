@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 
 import { TapBandLostAction } from "@/components/quiet/screens/profile/tapband-lost-action"
 import { Card } from "@/components/quiet/ui/card"
@@ -10,13 +11,13 @@ import type {
   TapBandTicketLink,
 } from "@/lib/data/attendee/tapband"
 
-const DATE_FMT = new Intl.DateTimeFormat("en-GB", {
+const DATE_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE,
   day: "numeric",
   month: "short",
   year: "numeric",
 })
 
-const DATE_TIME_FMT = new Intl.DateTimeFormat("en-GB", {
+const DATE_TIME_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE,
   day: "numeric",
   month: "short",
   hour: "2-digit",

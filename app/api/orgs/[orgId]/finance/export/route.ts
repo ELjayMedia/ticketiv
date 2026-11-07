@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 // TICK-233: Finance CSV export for an organizer.
@@ -59,7 +60,7 @@ export async function GET(
   const csvRows = [
     headers.join(","),
     ...rows.map((row) => {
-      const date = new Date(row.occurred_at).toLocaleDateString("en-SZ")
+      const date = new Date(row.occurred_at).toLocaleDateString("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE })
       const type = row.type ?? ""
       const amount = ((row.amount_cents ?? 0) / 100).toFixed(2)
       const currency = row.currency ?? "SZL"

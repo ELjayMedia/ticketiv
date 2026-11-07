@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { Card, CardBody } from "@/components/quiet/ui/card"
@@ -94,7 +95,7 @@ export default async function LedgerPage({ params }: { params: Promise<{ orgId: 
                         className={[i > 0 ? "border-t border-line" : "", "transition-colors hover:bg-bg"].join(" ")}
                       >
                         <td className="px-5 py-2.5 font-mono text-[11px] text-ink-3">
-                          {new Date(row.occurred_at).toLocaleDateString("en-SZ")}
+                          {new Date(row.occurred_at).toLocaleDateString("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE })}
                         </td>
                         <td className="px-5 py-2.5 font-mono text-[12px] text-ink capitalize">
                           {row.type.replaceAll("_", " ")}

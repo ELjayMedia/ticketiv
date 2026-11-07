@@ -1,4 +1,5 @@
 import type { AdminResource } from "@/lib/super-admin/resources"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 
 export type LookupMaps = {
   organizations: Map<string, string>
@@ -207,7 +208,7 @@ export function formatMoney(cents: number, currency = "SZL") {
 export function formatDate(value: unknown) {
   const date = new Date(String(value))
   if (Number.isNaN(date.getTime())) return "—"
-  return new Intl.DateTimeFormat("en-SZ", { dateStyle: "medium", timeStyle: "short" }).format(date)
+  return new Intl.DateTimeFormat("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE, dateStyle: "medium", timeStyle: "short" }).format(date)
 }
 
 function titleCase(value: string) {

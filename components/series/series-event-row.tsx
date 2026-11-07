@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { format } from "date-fns"
+import { DEFAULT_EVENT_TIME_ZONE, formatEventClock, formatInTimeZone } from "@ticketiv/shared"
 
 import { Card } from "@/components/quiet/ui/card"
 import { Icon } from "@/components/quiet/ui/icon"
@@ -19,7 +20,7 @@ function formatDate(event: SeriesDetailEvent): string {
   }
   if (!event.starts_at) return "Date TBA"
   try {
-    return format(new Date(event.starts_at), "EEE d MMM yyyy · HH:mm")
+    return `${formatInTimeZone(event.starts_at, { weekday: "short", day: "numeric", month: "short", year: "numeric" }, DEFAULT_EVENT_TIME_ZONE)} · ${formatEventClock(event.starts_at, DEFAULT_EVENT_TIME_ZONE)}`
   } catch {
     return "Date TBA"
   }

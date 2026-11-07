@@ -6,6 +6,7 @@ import { redirect } from "next/navigation"
 import { deliverTicketsForOrder } from "@/lib/notifications/ticket-delivery"
 import { initiateRefund } from "@/lib/payments/refunds"
 import { recordViewAs } from "@/lib/data/admin/console-ops"
+import { untyped } from "@/lib/data/admin/console"
 import { encryptPayoutDetails, isPayoutEncryptionConfigured } from "@/lib/payout-crypto-core"
 import { decryptChatwootToken, loadStoredChatwootSettings, resolveCase, sendCaseMessage, testChatwootConnection } from "@/lib/support/chatwoot"
 import { chatwootConfig } from "@/lib/support/chatwoot-core"
@@ -688,6 +689,41 @@ export async function pauseSalesAction(_prev: ConsoleActionResult, formData: For
 
 export async function resumeSalesAction(_prev: ConsoleActionResult, formData: FormData): Promise<ConsoleActionResult> {
   return setSales(formData, "on_sale")
+}
+
+// --------------------------------------------------------------------------
+// Event Companion: hide an organiser's update from ticket holders
+
+export async function hideEventUpdateAction(_prev: ConsoleActionResult, formData: FormData): Promise<ConsoleActionResult> {
+  const g = await gate("hide_event_update", formData)
+  if (!g.ok) return g.error
+  const updateId = field(formData, "updateId")
+  if (!isUuid(updateId)) return fail("Update not found.")
+
+  const db = untyped(g.admin)
+  const { data: update } = await db.from("event_updates").select("id, event_id, title, hidden_at, events(org_id)").eq("id", updateId).maybeSingle()
+  if (!update) return fail("Update not found.")
+  if (update.hidden_at) return fail("It's already hidden.")
+
+  const { error } = await db
+    .from("event_updates")
+    .update({ hidden_at: new Date().toISOString(), hidden_by: g.context.user.id, hidden_reason: g.reason })
+    .eq("id", updateId)
+    .is("hidden_at", null)
+  if (error) return fail(`Couldn't hide it: ${error.message}`)
+
+  await audit(g.admin, g.context.user.id, {
+    action: "hide_event_update",
+    table: "events",
+    recordId: update.event_id,
+    orgId: update.events?.org_id ?? null,
+    summary: `Hid the update "${update.title}" from ticket holders`,
+    reason: g.reason,
+    details: { event_update_id: updateId },
+  })
+  revalidatePath(`/super-admin/event/${update.event_id}`)
+  revalidatePath(`/tickets/event/${update.event_id}`)
+  return done("Hidden. Ticket holders no longer see it; the organiser still can, with your reason.")
 }
 
 // --------------------------------------------------------------------------

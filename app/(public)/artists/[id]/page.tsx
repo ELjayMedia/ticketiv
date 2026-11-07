@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { notFound } from "next/navigation"
 
 import { Card } from "@/components/quiet/ui/card"
@@ -114,7 +115,7 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
                     <div className="flex items-center gap-4 p-4 sm:gap-6 sm:p-5">
                       <div className="flex w-20 flex-shrink-0 flex-col items-start">
                         <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-ink-3">
-                          {eventDate.toLocaleDateString("en-US", { month: "short" })}
+                          {eventDate.toLocaleDateString("en-US", { timeZone: DEFAULT_EVENT_TIME_ZONE, month: "short" })}
                         </span>
                         <span className="font-mono text-[28px] font-semibold tabular-nums text-ink">
                           {eventDate.getDate()}

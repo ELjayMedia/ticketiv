@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 
 import { Card, CardBody } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
@@ -32,7 +33,7 @@ export function sortDoorEvents(events: DoorEvent[], now = Date.now()): { current
 
 function formatWhen(iso: string | null) {
   if (!iso) return "Date TBA"
-  return new Date(iso).toLocaleString("en-SZ", { dateStyle: "medium", timeStyle: "short" })
+  return new Date(iso).toLocaleString("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE, dateStyle: "medium", timeStyle: "short" })
 }
 
 /**

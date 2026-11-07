@@ -1,9 +1,10 @@
 // Shape OrgTeam → TeamRoles props.
 
 import type { OrgTeam } from "@/lib/data/organizer/team"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import type { TeamRolesProps } from "@/components/quiet/screens/team/team-roles"
 
-const JOINED_FMT = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short" })
+const JOINED_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE, day: "2-digit", month: "short" })
 
 function timeAgo(iso: string | null): string {
   if (!iso) return "never"

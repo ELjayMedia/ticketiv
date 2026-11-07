@@ -1,4 +1,5 @@
 import { MyTickets } from "@/components/quiet/screens/tickets/my-tickets";
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { SaveMyTicketsCard } from "@/components/quiet/screens/tickets/save-my-tickets-card";
 import { ClaimGuestOrdersCard } from "@/components/quiet/screens/tickets/claim-guest-orders-card";
 import { getMyTickets } from "@/lib/data/attendee/tickets";
@@ -69,7 +70,7 @@ export default async function TicketsPage({
     eventTitle: h.eventTitle,
     counterpartyName: h.counterpartyName,
     counterpartyPhoto: avatarFor(h.counterpartyId),
-    dateLabel: new Date(h.createdAt).toLocaleDateString("en-GB", {
+    dateLabel: new Date(h.createdAt).toLocaleDateString("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE,
       day: "numeric",
       month: "short",
       year: "numeric",

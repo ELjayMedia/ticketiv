@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/quiet/ui/button";
@@ -19,7 +20,7 @@ export const dynamic = "force-dynamic";
 
 function formatWhen(value: string): string {
   const date = new Date(value);
-  return new Intl.DateTimeFormat("en-SZ", {
+  return new Intl.DateTimeFormat("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE,
     day: "numeric",
     month: "short",
     hour: "2-digit",

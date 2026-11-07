@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 
 import { Button } from "@/components/quiet/ui/button"
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
@@ -55,7 +56,7 @@ type AuditEntry = {
 
 function formatDate(value: string | null) {
   if (!value) return "—"
-  return new Intl.DateTimeFormat("en-SZ", {
+  return new Intl.DateTimeFormat("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE,
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value))

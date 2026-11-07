@@ -89,6 +89,23 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
   const explicitHref = asText(payload.href)
   const base = baseFields(row)
 
+  // Official notice from an event's organiser (Event Companion).
+  if (type === "event_update") {
+    return {
+      id: row.id,
+      type,
+      status: row.status,
+      channel: row.channel,
+      title: explicitTitle ?? (eventTitle ? `Update for ${eventTitle}` : "Event update"),
+      message: explicitMessage || (eventTitle ? `${eventTitle} has a new update from the organiser.` : "The organiser posted an update."),
+      createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
+      ...base,
+      actionHref: explicitHref ?? "/tickets",
+      actionLabel: "Open event guide",
+      actionKind: "event",
+    }
+  }
+
   if (type.includes("transfer")) {
     return {
       id: row.id,

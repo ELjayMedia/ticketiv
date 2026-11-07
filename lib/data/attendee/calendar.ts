@@ -3,6 +3,7 @@
 // both its dates if event_dates has multiple rows — we resolve from
 // event_starts_at on the ticket view for simplicity.
 
+import { DEFAULT_EVENT_TIME_ZONE, wallTimeToInstant, zonedParts } from "@ticketiv/shared"
 import "server-only"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
@@ -33,11 +34,13 @@ export async function getMyCalendarMonth(
   } = await supabase.auth.getUser()
   if (!user) return null
 
-  const now = new Date()
-  const y = year ?? now.getUTCFullYear()
-  const m = month ?? now.getUTCMonth() + 1
-  const monthStart = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0))
-  const monthEnd = new Date(Date.UTC(y, m, 1, 0, 0, 0))
+  // Month boundaries are midnight in the event zone (Eswatini), not UTC, so
+  // an event at 01:00 on the 1st belongs to that month.
+  const nowParts = zonedParts(new Date(), DEFAULT_EVENT_TIME_ZONE)
+  const y = year ?? nowParts.year
+  const m = month ?? nowParts.month
+  const monthStart = wallTimeToInstant({ year: y, month: m, day: 1 }, DEFAULT_EVENT_TIME_ZONE)
+  const monthEnd = wallTimeToInstant({ year: m === 12 ? y + 1 : y, month: m === 12 ? 1 : m + 1, day: 1 }, DEFAULT_EVENT_TIME_ZONE)
 
   // Tickets the user holds, with the event window inside this month.
   const ticketsRes = await supabase

@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { redirect } from "next/navigation"
 
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
@@ -14,7 +15,7 @@ export const dynamic = "force-dynamic"
 
 function fmtDate(value: string | null) {
   if (!value) return "—"
-  return new Intl.DateTimeFormat("en-SZ", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value))
+  return new Intl.DateTimeFormat("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE, dateStyle: "medium", timeStyle: "short" }).format(new Date(value))
 }
 
 function Summary({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {

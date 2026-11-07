@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { Card, CardBody } from "@/components/quiet/ui/card"
@@ -93,7 +94,7 @@ export default async function StatementsPage({ params }: { params: Promise<{ org
                       className={[i > 0 ? "border-t border-line" : "", "transition-colors hover:bg-bg"].join(" ")}
                     >
                       <td className="px-5 py-3 font-mono text-[13px] text-ink-3">
-                        {new Date(row.created_at ?? "").toLocaleDateString("en-SZ")}
+                        {new Date(row.created_at ?? "").toLocaleDateString("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE })}
                       </td>
                       <td className="px-5 py-3 font-mono text-[13px] font-semibold text-ink">
                         {fmt(row.amount_cents, row.currency ?? currency)}
@@ -114,7 +115,7 @@ export default async function StatementsPage({ params }: { params: Promise<{ org
                         </Chip>
                       </td>
                       <td className="px-5 py-3 font-mono text-[13px] text-ink-3">
-                        {row.paid_at ? new Date(row.paid_at).toLocaleDateString("en-SZ") : "—"}
+                        {row.paid_at ? new Date(row.paid_at).toLocaleDateString("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE }) : "—"}
                       </td>
                     </tr>
                   ))}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { Icon } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
 import { Chip } from "@/components/quiet/ui/chip";
@@ -73,7 +74,7 @@ function OrderRow({ order }: { order: OrderListItem }) {
   const statusVariant = STATUS_VARIANT[order.status] ?? "default";
   const currency = (order.currency || "SZL") as Currency;
 
-  const orderedDate = new Date(order.created_at).toLocaleDateString("en-GB", {
+  const orderedDate = new Date(order.created_at).toLocaleDateString("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE,
     day: "numeric",
     month: "short",
     year: "numeric",

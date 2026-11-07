@@ -1,6 +1,7 @@
 // Shape fn_search_events rows → SearchResults screen props.
 
 import { PHOTOS } from "@/lib/photos"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { formatPriceLabel, formatVenueLabel } from "@/lib/format"
 import { asCurrency } from "@/lib/currency"
 import type { SearchResults, SearchFilters, SearchFacets } from "@/lib/data/public/search"
@@ -10,7 +11,7 @@ import type {
   SearchResultsProps,
 } from "@/components/quiet/screens/search/search-results"
 
-const WHEN_FMT = new Intl.DateTimeFormat("en-GB", {
+const WHEN_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE,
   weekday: "short",
   day: "numeric",
   hour: "2-digit",
@@ -53,11 +54,11 @@ export function mapSearch(
   if (filters.lifecycle === "past") active.push({ key: "past", label: "Past events" })
   if (filters.startsAfter && !filters.when) {
     const d = new Date(filters.startsAfter)
-    active.push({ key: "startsAfter", label: `From ${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` })
+    active.push({ key: "startsAfter", label: `From ${d.toLocaleDateString("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE, day: "numeric", month: "short" })}` })
   }
   if (filters.startsBefore && !filters.when) {
     const d = new Date(filters.startsBefore)
-    active.push({ key: "startsBefore", label: `Until ${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` })
+    active.push({ key: "startsBefore", label: `Until ${d.toLocaleDateString("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE, day: "numeric", month: "short" })}` })
   }
   if (typeof filters.maxPriceCents === "number") {
     active.push({ key: "maxPriceCents", label: `Under ${(filters.maxPriceCents / 100).toLocaleString()}` })

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { useRouter } from "next/navigation"
 import { createClientSupabaseClient } from "@/lib/supabase-client"
 import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
@@ -40,7 +41,7 @@ interface Props {
 
 function fmtDate(d: string | null) {
   if (!d) return "—"
-  return new Intl.DateTimeFormat("en-SZ", { dateStyle: "medium", timeStyle: "short" }).format(
+  return new Intl.DateTimeFormat("en-SZ", { timeZone: DEFAULT_EVENT_TIME_ZONE, dateStyle: "medium", timeStyle: "short" }).format(
     new Date(d),
   )
 }

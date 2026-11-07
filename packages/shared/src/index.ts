@@ -5,3 +5,5 @@ export * from "./platform-adapters";
 export * from "./scanner";
 export * from "./device-provisioning";
 export * from "./organizer-roles";
+export * from "./companion";
+export * from "./time";

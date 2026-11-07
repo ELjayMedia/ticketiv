@@ -1,10 +1,11 @@
 // Shape OrgPayoutsOverview → PayoutsLedger props.
 
 import type { OrgPayoutsOverview } from "@/lib/data/organizer/payouts"
+import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 import { providerLabel } from "@/lib/payouts/provider-label"
 import type { PayoutsLedgerProps } from "@/components/quiet/screens/payouts/payouts-ledger"
 
-const DATE_FMT = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short" })
+const DATE_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE, day: "2-digit", month: "short" })
 
 function normalizeStatus(s: string): "paid" | "pending" | "failed" | "processing" {
   const n = s.toLowerCase()

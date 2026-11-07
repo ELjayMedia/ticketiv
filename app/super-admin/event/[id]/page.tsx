@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 
-import { addNoteAction, pauseSalesAction, resumeSalesAction } from "@/app/super-admin/console-actions"
+import { addNoteAction, hideEventUpdateAction, pauseSalesAction, resumeSalesAction } from "@/app/super-admin/console-actions"
 import { Crumbs, Facts, NotesList, Panel, Pill, when, type Tone } from "@/components/super-admin/console-ui"
 import { GuardedAction, NoteForm } from "@/components/super-admin/GuardedAction"
 import { humanFailureReason } from "@/lib/data/admin/console"
@@ -108,6 +108,50 @@ export default async function AdminEventPage({ params }: { params: Promise<{ id:
               ))}
               {event.ticketTypes.length === 0 ? <li className="text-[13px] text-ink-3">No ticket types yet.</li> : null}
             </ul>
+          </Panel>
+
+          <Panel
+            title="Attendee guide"
+            aside={`${event.guide.filled} of ${event.guide.total} essentials`}
+          >
+            <div className="flex flex-col gap-3 text-[13px]">
+              <p className="text-ink-2">
+                {event.guide.missing.length
+                  ? `Missing: ${event.guide.missing.join(", ")}. Ticket holders see what is filled in.`
+                  : "Complete. Ticket holders have entry, directions, the running order and a help contact."}
+                {event.guide.updatedAt ? <span className="text-ink-3"> Last edited {when(event.guide.updatedAt)}.</span> : null}
+              </p>
+              {event.updates.length ? (
+                <ul className="flex flex-col">
+                  {event.updates.map((update) => (
+                    <li key={update.id} className="flex flex-col gap-2 border-t border-line py-3">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <span className={"font-semibold " + (update.hiddenAt ? "text-ink-3 line-through" : "text-ink")}>{update.title}</span>
+                        <span className="text-xs text-ink-3">
+                          {when(update.createdAt)}
+                          {update.notified ? " · notified holders" : ""}
+                        </span>
+                      </div>
+                      {update.body ? <p className="text-ink-2">{update.body}</p> : null}
+                      {update.hiddenAt ? (
+                        <p className="text-xs text-ink-3">Hidden {when(update.hiddenAt)}: {update.hiddenReason}</p>
+                      ) : (
+                        <GuardedAction
+                          label="Hide this update"
+                          hint="Ticket holders stop seeing it"
+                          action={hideEventUpdateAction}
+                          hidden={{ updateId: update.id }}
+                          lockedReason={canDo("hide_event_update", role) ? undefined : "Support, event ops or the owner can hide updates."}
+                          explain="The organiser still sees it, marked hidden with your reason."
+                        />
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-ink-3">No updates posted.</p>
+              )}
+            </div>
           </Panel>
 
           {event.paymentErrors.length ? (

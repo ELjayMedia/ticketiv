@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { acceptTransfer, cancelTransfer, declineTransfer } from "@/lib/data/attendee/transfers";
 import { createClientSupabaseClient } from "@/lib/supabase-client";
 import Link from "next/link";
+import { buildEventIcs } from "@ticketiv/shared";
 import { Icon, type IconName } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
 import { Card } from "@/components/quiet/ui/card";
@@ -71,6 +72,8 @@ interface TransferHistoryRow {
 
 interface FeaturedTicket {
   ticketId: string;
+  /** Opens the Event Companion. Optional so older callers keep working. */
+  eventId?: string;
   orderId: string;
   orderStatus: string;
   orderNumber: string;
@@ -295,17 +298,15 @@ export function MyTickets({
 
   function handleAddToCalendar() {
     if (!_featured) return;
-    const ics = [
-      "BEGIN:VCALENDAR",
-      "VERSION:2.0",
-      "PRODID:-//Ticketiv//EN",
-      "BEGIN:VEVENT",
-      `SUMMARY:${_featured.eventTitle}`,
-      `DESCRIPTION:Ticket #${_featured.orderNumber} · ${_featured.seatLabel}`,
-      `LOCATION:${_featured.venueLabel}`,
-      "END:VEVENT",
-      "END:VCALENDAR",
-    ].join("\r\n");
+    // Real start time so the calendar entry lands on the right day and hour.
+    const ics = buildEventIcs({
+      uid: _featured.ticketId,
+      title: _featured.eventTitle,
+      startsAt: _featured.eventStartsAt,
+      location: _featured.venueLabel,
+      description: `Ticket #${_featured.orderNumber} · ${_featured.seatLabel}`,
+    });
+    if (!ics) return;
     const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -503,6 +504,21 @@ export function MyTickets({
                     <Icon name="cal" size={20} />
                   </button>
                 </div>
+                {_featured.eventId ? (
+                <Link
+                  href={`/tickets/event/${_featured.eventId}`}
+                  className="mt-3 flex items-center justify-between rounded-[var(--radius)] border border-line-2 px-3 py-2 text-left hover:bg-bg"
+                >
+                  <span className="flex items-center gap-2">
+                    <Icon name="info" size={15} className="shrink-0 text-ink-3" />
+                    <span className="flex flex-col">
+                      <span className="text-[12px] font-semibold">Event guide &amp; updates</span>
+                      <span className="font-mono text-[10px] text-ink-3">Entry, directions, running order and notices.</span>
+                    </span>
+                  </span>
+                  <Icon name="chevR" size={14} className="text-ink-3" />
+                </Link>
+                ) : null}
                 {_featured.isEventDay && (
                   <div className="mt-3 flex items-start gap-2 rounded-[var(--radius)] bg-accent-soft px-3 py-2.5 text-accent">
                     <Icon name="qr" size={15} className="mt-0.5 shrink-0" />
