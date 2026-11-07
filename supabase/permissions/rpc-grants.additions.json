@@ -208,6 +208,39 @@
         "postgres",
         "service_role"
       ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_update_my_reminder_preferences",
+      "arguments": "p_enabled boolean, p_remind_24h boolean, p_remind_2h boolean",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "safe_time_zone",
+      "arguments": "p_zone text",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_companion_reminders_tick",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
     }
   ]
 }
