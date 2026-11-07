@@ -127,3 +127,26 @@ describe("guide in another zone", () => {
     expect(guide.doors_open_at).toBe("2026-11-16T18:00:00.000Z")
   })
 })
+
+describe("companion release 2 migration", () => {
+  const sql = readFileSync(resolve(__dirname, "../supabase/migrations/20261110100000_companion_release_2.sql"), "utf8")
+
+  it("adds the reminder settings the Reminders screen already saves", () => {
+    for (const column of ["event_reminders_enabled", "remind_24h", "remind_2h"]) {
+      expect(sql).toMatch(new RegExp(`add column if not exists ${column} boolean not null default true`))
+    }
+    expect(sql).toMatch(/create or replace function public\.fn_update_my_reminder_preferences\(p_enabled boolean, p_remind_24h boolean, p_remind_2h boolean\)/)
+  })
+
+  it("keeps the reminder job server-only and scheduled hourly", () => {
+    expect(sql).toMatch(/revoke all on function public\.fn_companion_reminders_tick\(\) from public, anon, authenticated;/)
+    expect(sql).toMatch(/grant execute on function public\.fn_companion_reminders_tick\(\) to service_role;/)
+    expect(sql).toMatch(/'ticketiv-companion-reminders',\s*'7 \* \* \* \*'/)
+  })
+
+  it("respects people who turned reminders or in-app notifications off, and never sends twice", () => {
+    expect(sql.match(/coalesce\(p\.in_app_opt_in, true\)/g)?.length).toBe(2)
+    expect(sql.match(/coalesce\(p\.event_reminders_enabled, true\)/g)?.length).toBe(2)
+    expect(sql.match(/on conflict do nothing/g)?.length).toBe(2)
+  })
+})

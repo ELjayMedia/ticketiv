@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { companionCountdown, companionStage, currentProgrammeIndex, formatEventClock, formatInTimeZone } from "@ticketiv/shared";
 
 import { EventCompanion } from "@/components/quiet/screens/companion/event-companion";
+import { getMySocialPrivacySettings } from "@/lib/data/attendee/social-privacy";
 import { getEventCompanion } from "@/lib/data/companion";
 import { PHOTOS } from "@/lib/photos";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
@@ -34,7 +35,7 @@ export default async function EventCompanionPage({ params }: { params: Promise<{
   const { data: auth } = supabase ? await supabase.auth.getUser() : { data: { user: null } };
   if (!auth.user) redirect(`/login?next=${encodeURIComponent(`/tickets/event/${eventId}`)}`);
 
-  const data = await getEventCompanion(eventId);
+  const [data, privacy] = await Promise.all([getEventCompanion(eventId), getMySocialPrivacySettings()]);
   if (!data) notFound();
 
   const nowMs = Date.now();
@@ -101,6 +102,7 @@ export default async function EventCompanionPage({ params }: { params: Promise<{
         isNew: nowMs - new Date(u.createdAt).getTime() < 24 * 60 * 60 * 1000,
       }))}
       friendsGoing={data.friendsGoing}
+      visibleToFriends={privacy?.showEventsGoingToFriends ?? true}
     />
   );
 }

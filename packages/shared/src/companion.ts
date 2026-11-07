@@ -163,3 +163,63 @@ export function buildEventIcs(input: {
   lines.push("END:VEVENT", "END:VCALENDAR")
   return lines.join("\r\n")
 }
+
+/**
+ * What the mobile app receives with a ticket (GET /api/mobile/tickets/[token])
+ * and keeps on the device so the guide works with no signal.
+ */
+export interface CompanionPayload {
+  timeZone: string
+  endsAt: string | null
+  orgName: string | null
+  guide: {
+    doorsOpenAt: string | null
+    entrance: string | null
+    gettingThere: string | null
+    parking: string | null
+    ageRule: string | null
+    paymentNote: string | null
+    whatToBring: string | null
+    houseRules: string | null
+    helpContact: string | null
+    programme: GuideProgrammeItem[]
+    facilities: GuideFacility[]
+  } | null
+  updates: Array<{ id: string; title: string; body: string | null; createdAt: string }>
+}
+
+const str = (value: unknown, max = 1000): string | null =>
+  typeof value === "string" && value.trim() ? value.trim().slice(0, max) : null
+
+/** Defensive parse of a stored or received payload; null when unusable. */
+export function parseCompanionPayload(raw: unknown): CompanionPayload | null {
+  if (!raw || typeof raw !== "object") return null
+  const record = raw as Record<string, unknown>
+  const guideRaw = record.guide && typeof record.guide === "object" ? (record.guide as Record<string, unknown>) : null
+  const updates = Array.isArray(record.updates) ? record.updates : []
+  return {
+    timeZone: str(record.timeZone, 64) ?? "Africa/Mbabane",
+    endsAt: str(record.endsAt, 40),
+    orgName: str(record.orgName, 120),
+    guide: guideRaw
+      ? {
+          doorsOpenAt: str(guideRaw.doorsOpenAt, 40),
+          entrance: str(guideRaw.entrance, 600),
+          gettingThere: str(guideRaw.gettingThere, 600),
+          parking: str(guideRaw.parking, 600),
+          ageRule: str(guideRaw.ageRule, 600),
+          paymentNote: str(guideRaw.paymentNote, 600),
+          whatToBring: str(guideRaw.whatToBring, 600),
+          houseRules: str(guideRaw.houseRules, 600),
+          helpContact: str(guideRaw.helpContact, 600),
+          programme: cleanProgramme(guideRaw.programme),
+          facilities: cleanFacilities(guideRaw.facilities),
+        }
+      : null,
+    updates: updates
+      .map((u) => (u && typeof u === "object" ? (u as Record<string, unknown>) : {}))
+      .map((u) => ({ id: str(u.id, 64) ?? "", title: str(u.title, 120) ?? "", body: str(u.body, 1000), createdAt: str(u.createdAt, 40) ?? "" }))
+      .filter((u) => u.id && u.title && u.createdAt)
+      .slice(0, 10),
+  }
+}

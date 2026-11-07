@@ -1,5 +1,7 @@
 import type { SecureStorageAdapter } from "@ticketiv/adapters";
 import {
+  parseCompanionPayload,
+  type CompanionPayload,
   type Currency,
   formatEventDate,
   formatPriceLabel,
@@ -40,12 +42,15 @@ export type TicketivWalletTicket = {
   priceCents: number | null;
   currency: Currency;
   updatedAt: string;
+  /** Event guide and organiser updates, kept for offline use. Optional: older saved wallets have none. */
+  companion?: CompanionPayload | null;
 };
 
 export type TicketivWalletTicketInput = Omit<
   TicketivWalletTicket,
-  "currency" | "offlineExpiresAt" | "status" | "updatedAt"
+  "currency" | "offlineExpiresAt" | "status" | "updatedAt" | "companion"
 > & {
+  companion?: unknown;
   currency?: string | null;
   offlineExpiresAt?: string | null;
   status?: TicketivWalletTicketStatus | null;
@@ -124,6 +129,7 @@ export function createTicketivWalletTicket(
     priceCents: typeof input.priceCents === "number" ? Math.max(0, Math.floor(input.priceCents)) : null,
     currency: normalizeCurrency(input.currency),
     updatedAt: normalizeNullable(input.updatedAt) ?? new Date().toISOString(),
+    companion: parseCompanionPayload(input.companion),
   };
 }
 
