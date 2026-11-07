@@ -224,10 +224,18 @@ describe("console guards", () => {
     }
   })
 
-  it("puts search in the shell and limits Team & access to the owner", () => {
+  it("puts search in the shell and limits Team & access to the owner", async () => {
     const shell = read("components/super-admin/SuperAdminShell.tsx")
     expect(shell).toContain('action="/super-admin/search"')
-    expect(shell).toContain('ownerOnly: true')
+    const { navForRole } = await import("@/components/super-admin/admin-nav")
+    const hrefs = (role: any) => navForRole(role).flatMap((g) => g.items.map((i) => i.href))
+    for (const ownerOnly of ["/super-admin/team", "/super-admin/integrations", "/super-admin/env-vars"]) {
+      expect(hrefs("super_admin")).toContain(ownerOnly)
+      expect(hrefs("support_admin")).not.toContain(ownerOnly)
+    }
+    expect(hrefs("support_admin")).toContain("/super-admin/cases")
+    expect(hrefs("finance_admin")).not.toContain("/super-admin/cases")
+    expect(hrefs("read_only_admin")[0]).toBe("/super-admin")
     expect(read("app/super-admin/team/page.tsx")).toContain('requireAdminRole(["super_admin"])')
   })
 })

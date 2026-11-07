@@ -22,10 +22,10 @@ export function WorkQueues({ data, active, canTake }: { data: WorkQueuesData; ac
   return (
     <section aria-labelledby="queues-title" className="overflow-hidden rounded-[var(--radius-xl)] border border-line bg-surface shadow-[var(--shadow-card)]">
       <div className="flex flex-col gap-1 px-5 pt-5">
-        <h2 id="queues-title" className="text-h2">
-          {total === 0 ? "Nothing needs you right now" : `${total} thing${total === 1 ? "" : "s"} need${total === 1 ? "s" : ""} a person`}
+        <h2 id="queues-title" className="text-[15px] font-semibold text-ink">
+          Work queue
         </h2>
-        <p className="text-[13px] text-ink-3">Failed payments, undelivered tickets, money waiting for approval and scanners down before an event.</p>
+        <p className="text-[13px] text-ink-3">Problems come to you here, so nobody has to go looking through tables. Take one so two people don&apos;t work it.</p>
       </div>
       <nav aria-label="Queues" className="flex flex-wrap gap-2 px-5 py-4">
         {tabs.map((tab) => (

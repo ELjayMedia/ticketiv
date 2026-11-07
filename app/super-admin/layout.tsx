@@ -11,7 +11,12 @@ export default async function SuperAdminLayout({ children }: { children: ReactNo
   const user = await requireSuperAdmin()
   const context = await getAdminContext()
   return (
-    <SuperAdminShell userEmail={user.email} role={context?.role ?? null}>
+    <SuperAdminShell
+      userEmail={user.email}
+      role={context?.role ?? null}
+      // Server-only check of the key prefix; the key itself never leaves the server.
+      paymentsTestMode={(process.env.PAYSTACK_SECRET_KEY ?? "").startsWith("sk_test_")}
+    >
       {children}
     </SuperAdminShell>
   )
