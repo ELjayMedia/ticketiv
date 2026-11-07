@@ -41,4 +41,37 @@ export function reportPaymentChannelUnavailable(error: PaymentChannelUnavailable
     tags: { area: "payment-handoff", reason: error.reason },
     extra: { correlationId: error.correlationId, ...error.diagnostic },
   })
+  void saveSupportReference(error)
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Row saved so support can search the PAY- code a buyer reads out. */
+export function supportReferenceRow(error: PaymentChannelUnavailableError) {
+  const diagnostic = error.diagnostic ?? {}
+  const pick = (key: string) => {
+    const value = diagnostic[key]
+    return typeof value === "string" && UUID.test(value) ? value : null
+  }
+  return {
+    ref: error.correlationId,
+    order_id: pick("orderId"),
+    event_id: pick("eventId"),
+    reason: error.reason,
+    provider: typeof diagnostic.provider === "string" ? diagnostic.provider : null,
+    diagnostic,
+  }
+}
+
+// Best-effort: the buyer already sees the reference; failing to save it must
+// never change what happens at checkout.
+async function saveSupportReference(error: PaymentChannelUnavailableError) {
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin")
+    const admin = createAdminClient() as unknown as { from: (table: string) => any }
+    const { error: insertError } = await admin.from("payment_support_references").insert(supportReferenceRow(error))
+    if (insertError) console.error("[payments] could not save support reference", error.correlationId, insertError.message)
+  } catch (cause) {
+    console.error("[payments] could not save support reference", error.correlationId, cause)
+  }
 }
