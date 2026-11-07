@@ -7,3 +7,4 @@ export * from "./native-browser-session-adapter";
 export * from "./navigation";
 export * from "./ticket-delivery";
 export * from "./ticket-wallet";
+export * from "./ticket-companion";

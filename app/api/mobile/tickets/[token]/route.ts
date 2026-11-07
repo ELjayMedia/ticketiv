@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server"
+import { eventTimeZone, parseCompanionPayload, type CompanionPayload } from "@ticketiv/shared"
+import { mapGuide } from "@/lib/data/companion"
 import { MyTicketsViewSchema } from "@/lib/schemas/views"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ticketDisplayStatus } from "@/lib/ticket-status"
@@ -10,6 +12,40 @@ export const runtime = "nodejs"
 const RESPONSE_HEADERS = {
   "Cache-Control": "private, no-store, max-age=0",
   Pragma: "no-cache",
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function loadCompanion(admin: any, eventId: string, endsAt: string | null): Promise<CompanionPayload | null> {
+  try {
+    const [eventRes, guideRes, updatesRes] = await Promise.all([
+      admin.from("events").select("tz, organizations(name), venues(tz)").eq("id", eventId).maybeSingle(),
+      admin.from("event_guides").select("*").eq("event_id", eventId).maybeSingle(),
+      admin
+        .from("event_updates")
+        .select("id, title, body, created_at")
+        .eq("event_id", eventId)
+        .is("hidden_at", null)
+        .order("created_at", { ascending: false })
+        .limit(5),
+    ])
+    const guide = mapGuide(guideRes.data)
+    return parseCompanionPayload({
+      timeZone: eventTimeZone(eventRes.data?.tz, eventRes.data?.venues?.tz),
+      endsAt,
+      orgName: eventRes.data?.organizations?.name ?? null,
+      guide,
+      updates: (updatesRes.data ?? []).map((u: { id: string; title: string; body: string | null; created_at: string }) => ({
+        id: u.id,
+        title: u.title,
+        body: u.body,
+        createdAt: u.created_at,
+      })),
+    })
+  } catch (error) {
+    // The ticket still works without its guide.
+    console.error("[mobile-ticket-delivery] companion", error)
+    return null
+  }
 }
 
 export async function GET(
@@ -56,6 +92,10 @@ export async function GET(
     const row = parsed.data
     const syncedAt = new Date().toISOString()
     const status = ticketDisplayStatus(row)
+    // The event guide and organiser updates travel with a live ticket so the
+    // app can show them offline. Updates are for ticket holders only, so a
+    // transferred, refunded or revoked ticket gets none.
+    const companion = status === "issued" || status === "checked_in" ? await loadCompanion(admin, row.event_id, row.event_ends_at ?? null) : null
     return NextResponse.json(
       {
         expiresAt: verification.expiresAt.toISOString(),
@@ -81,6 +121,7 @@ export async function GET(
           priceCents: row.price_cents,
           currency: row.currency,
           updatedAt: syncedAt,
+          companion,
         },
       },
       { headers: RESPONSE_HEADERS }

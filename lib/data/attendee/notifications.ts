@@ -89,6 +89,24 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
   const explicitHref = asText(payload.href)
   const base = baseFields(row)
 
+  // Event Companion reminders: ticket holders (24h / 2h) and saved events.
+  if (type === "event_reminder" || type === "saved_event_reminder") {
+    const saved = type === "saved_event_reminder"
+    return {
+      id: row.id,
+      type,
+      status: row.status,
+      channel: row.channel,
+      title: explicitTitle ?? (eventTitle ? `${saved ? "Coming up" : "Reminder"}: ${eventTitle}` : "Event reminder"),
+      message: explicitMessage || (saved ? "An event you saved is coming up." : "Your event is coming up."),
+      createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
+      ...base,
+      actionHref: explicitHref ?? (saved && eventSlug ? `/events/${eventSlug}` : "/tickets"),
+      actionLabel: saved ? "View event" : "Open event guide",
+      actionKind: "event",
+    }
+  }
+
   // Official notice from an event's organiser (Event Companion).
   if (type === "event_update") {
     return {

@@ -13,7 +13,8 @@ export interface SocialPrivacySettings {
 const DEFAULTS: SocialPrivacySettings = {
   profileDiscoverability: "everyone",
   allowFriendRequests: true,
-  showEventsGoingToFriends: true,
+  // Opt-in: friends only see events you're going to once you switch this on.
+  showEventsGoingToFriends: false,
   allowFriendSuggestions: true,
   discoverByPhone: false,
 }
@@ -44,7 +45,7 @@ export async function getMySocialPrivacySettings(): Promise<SocialPrivacySetting
   return {
     profileDiscoverability: data.profile_discoverability === "friends" ? "friends" : "everyone",
     allowFriendRequests: data.allow_friend_requests !== false,
-    showEventsGoingToFriends: data.show_events_going_to_friends !== false,
+    showEventsGoingToFriends: data.show_events_going_to_friends === true,
     allowFriendSuggestions: data.allow_friend_suggestions !== false,
     discoverByPhone: data.discover_by_phone === true,
   }

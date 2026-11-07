@@ -17,10 +17,16 @@ export function EventSocialStrip({
   eventId,
   eventSlug,
   eventTitle,
+  variant = "strip",
+  footnote,
 }: {
   eventId: string
   eventSlug: string
   eventTitle: string
+  /** "card" sits inside the Event Companion; "strip" spans the event page. */
+  variant?: "strip" | "card"
+  /** Small line under the card, e.g. whether friends can see you're going. */
+  footnote?: React.ReactNode
 }) {
   const router = useRouter()
   const [signedIn, setSignedIn] = React.useState<boolean | null>(null)
@@ -55,8 +61,14 @@ export function EventSocialStrip({
 
   return (
     <>
-      <div className="border-b border-line bg-surface/95 px-5 py-2.5 md:px-10">
-        <div className="mx-auto flex max-w-[1280px] items-center gap-3">
+      <div
+        className={
+          variant === "card"
+            ? "rounded-[var(--radius-lg)] border border-line bg-surface px-3.5 py-3"
+            : "border-b border-line bg-surface/95 px-5 py-2.5 md:px-10"
+        }
+      >
+        <div className={variant === "card" ? "flex items-center gap-3" : "mx-auto flex max-w-[1280px] items-center gap-3"}>
           {going.length > 0 ? (
             <AvatarStack>
               {going.slice(0, 4).map((friend) => (
@@ -87,9 +99,11 @@ export function EventSocialStrip({
               </>
             ) : (
               <>
-                <div className="text-[12px] font-semibold">Make this one social</div>
+                <div className="text-[12px] font-semibold">{variant === "card" ? "Going with friends?" : "Make this one social"}</div>
                 <div className="font-mono text-[10px] text-ink-3">
-                  Invite friends without sharing ticket or payment details.
+                  {variant === "card"
+                    ? "Invite them here or on WhatsApp. They get their own ticket."
+                    : "Invite friends without sharing ticket or payment details."}
                 </div>
               </>
             )}
@@ -99,6 +113,7 @@ export function EventSocialStrip({
             <Icon name="share" size={12} /> Invite
           </Button>
         </div>
+        {footnote ? <div className="mt-2 border-t border-line pt-2">{footnote}</div> : null}
       </div>
 
       {open ? (
@@ -181,6 +196,13 @@ function EventInviteDialog({
           : "No eligible invitations were sent.",
       )
     })
+  }
+
+  // WhatsApp is how most people plan outings here: open a ready-made message.
+  function shareOnWhatsApp() {
+    const url = `${window.location.origin}/events/${encodeURIComponent(eventSlug)}`
+    const text = `Join me at ${eventTitle} on Ticketiv: ${url}`
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer")
   }
 
   async function shareEvent() {
@@ -288,8 +310,12 @@ function EventInviteDialog({
             </p>
           ) : null}
           <div className="flex gap-2">
-            <Button type="button" variant="default" size="md" onClick={() => void shareEvent()}>
-              <Icon name="share" size={13} /> Share event
+            <Button type="button" variant="default" size="md" onClick={shareOnWhatsApp} aria-label="Share on WhatsApp">
+              WhatsApp
+            </Button>
+            <Button type="button" variant="default" size="md" onClick={() => void shareEvent()} aria-label="Share event link">
+              <Icon name="share" size={13} />
+              <span className="sr-only sm:not-sr-only">Share</span>
             </Button>
             <Button
               type="button"

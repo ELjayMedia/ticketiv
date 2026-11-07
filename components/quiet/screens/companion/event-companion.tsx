@@ -11,6 +11,7 @@ import { Chip } from "@/components/quiet/ui/chip";
 import { Icon, type IconName } from "@/components/quiet/ui/icon";
 import { Divider, LiveDot, Photo } from "@/components/quiet/ui/primitives";
 import { CheckInCelebration } from "@/components/tickets/check-in-celebration";
+import { EventSocialStrip } from "@/components/quiet/screens/event-detail/event-social-strip";
 import { TicketQrCode } from "@/components/tickets/ticket-qr-code";
 import { useTicketCheckIns, type TicketCheckIn } from "@/lib/hooks/use-ticket-check-ins";
 
@@ -62,6 +63,8 @@ export interface EventCompanionProps {
   currentProgrammeIndex: number;
   updates: Array<{ id: string; title: string; body: string | null; whenLabel: string; isNew: boolean }>;
   friendsGoing: Array<{ id: string; name: string }>;
+  /** Whether this person lets friends see the events they're going to. */
+  visibleToFriends: boolean;
 }
 
 function SectionTitle({ children, aside }: { children: React.ReactNode; aside?: React.ReactNode }) {
@@ -514,7 +517,20 @@ export function EventCompanion(props: EventCompanionProps) {
         {/* ── Stage-ordered sections ─────────────────────────────── */}
         {stage !== "after" && latestUpdate && stage !== "booked" ? <UpdateNotice update={latestUpdate} /> : null}
 
-        {stage !== "after" && friendsLabel ? (
+        {stage === "booked" ? (
+          <EventSocialStrip
+            eventId={props.eventId}
+            eventSlug={props.slug}
+            eventTitle={props.title}
+            variant="card"
+            footnote={
+              <Link href="/friends/settings" className="flex items-center justify-between gap-2 font-mono text-[10px] text-ink-3 hover:text-ink">
+                <span>{props.visibleToFriends ? "Your friends can see you’re going." : "Friends can’t see you’re going. Let them?"}</span>
+                <span className="text-accent">{props.visibleToFriends ? "Change" : "Turn on"}</span>
+              </Link>
+            }
+          />
+        ) : stage !== "after" && friendsLabel ? (
           <Card className="overflow-hidden">
             <Row icon="users" title="My people" detail={friendsLabel} href="/friends" />
           </Card>

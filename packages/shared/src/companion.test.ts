@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { buildEventIcs, cleanFacilities, cleanProgramme, companionCountdown, companionStage, currentProgrammeIndex } from "./companion"
+import { buildEventIcs, parseCompanionPayload, cleanFacilities, cleanProgramme, companionCountdown, companionStage, currentProgrammeIndex } from "./companion"
 
 // Sat 16 Nov 2026, 14:00 in Eswatini (UTC+2) = 12:00Z
 const START = "2026-11-16T12:00:00Z"
@@ -83,5 +83,28 @@ describe("buildEventIcs", () => {
   it("books three hours when there is no end, and nothing without a start", () => {
     expect(buildEventIcs({ uid: "e1", title: "x", startsAt: START })).toContain("DTEND:20261116T150000Z")
     expect(buildEventIcs({ uid: "e1", title: "x", startsAt: null })).toBeNull()
+  })
+})
+
+describe("parseCompanionPayload", () => {
+  it("keeps clean data and drops junk", () => {
+    const parsed = parseCompanionPayload({
+      timeZone: "Africa/Lagos",
+      endsAt: null,
+      orgName: "Sunset Collective",
+      guide: { entrance: "  Gate 2 ", programme: [{ time: "18:00", title: "DJ" }, { time: "x", title: "y" }], facilities: "nope" },
+      updates: [{ id: "u1", title: "Hi", createdAt: "2026-11-16T10:00:00Z" }, { id: "", title: "no id" }],
+    })!
+    expect(parsed.timeZone).toBe("Africa/Lagos")
+    expect(parsed.guide?.entrance).toBe("Gate 2")
+    expect(parsed.guide?.programme).toHaveLength(1)
+    expect(parsed.guide?.facilities).toEqual([])
+    expect(parsed.updates.map((u) => u.id)).toEqual(["u1"])
+  })
+
+  it("rejects non-objects and defaults the zone", () => {
+    expect(parseCompanionPayload(null)).toBeNull()
+    expect(parseCompanionPayload("x")).toBeNull()
+    expect(parseCompanionPayload({})!.timeZone).toBe("Africa/Mbabane")
   })
 })
