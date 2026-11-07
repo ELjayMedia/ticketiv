@@ -3841,6 +3841,14 @@ export type Database = {
           org_id: string
           paid_at: string | null
           provider: string
+          failure_reason: string | null
+          provider_fee_cents: number | null
+          provider_rail: string | null
+          provider_reference: string | null
+          provider_status: string | null
+          provider_tracking_id: string | null
+          provider_transaction_id: number | null
+          submitted_at: string | null
           status: Database["public"]["Enums"]["payout_status"]
         }
         Insert: {
@@ -3852,6 +3860,14 @@ export type Database = {
           org_id: string
           paid_at?: string | null
           provider: string
+          failure_reason?: string | null
+          provider_fee_cents?: number | null
+          provider_rail?: string | null
+          provider_reference?: string | null
+          provider_status?: string | null
+          provider_tracking_id?: string | null
+          provider_transaction_id?: number | null
+          submitted_at?: string | null
           status?: Database["public"]["Enums"]["payout_status"]
         }
         Update: {
@@ -3863,6 +3879,14 @@ export type Database = {
           org_id?: string
           paid_at?: string | null
           provider?: string
+          failure_reason?: string | null
+          provider_fee_cents?: number | null
+          provider_rail?: string | null
+          provider_reference?: string | null
+          provider_status?: string | null
+          provider_tracking_id?: string | null
+          provider_transaction_id?: number | null
+          submitted_at?: string | null
           status?: Database["public"]["Enums"]["payout_status"]
         }
         Relationships: [

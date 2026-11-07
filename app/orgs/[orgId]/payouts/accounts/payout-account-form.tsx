@@ -4,15 +4,17 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/quiet/ui/button"
 import { FormField } from "@/components/quiet/ui/form"
+import { EPS_DESTINATIONS, checkEpsAccount, epsDestinationFor } from "@/lib/payouts/eps-directory"
 import { addPayoutAccountAction } from "./actions"
 
 // TICK-54 — Payout account add form (organizer)
 // Details are stored via server action — never plaintext in browser state after submit
 
-const PROVIDERS = [
-  { value: "fnb", label: "FNB (First National Bank)" },
-  { value: "nedbank", label: "Nedbank" },
-  { value: "standard_bank", label: "Standard Bank" },
+// Banks and mobile wallets on the Eswatini Payment Switch can be paid out
+// automatically; the rest are paid manually by finance.
+const BANKS = EPS_DESTINATIONS.filter((d) => d.scheme === "ACCT").map((d) => ({ value: d.provider, label: d.label }))
+const WALLETS = EPS_DESTINATIONS.filter((d) => d.scheme === "EWLT").map((d) => ({ value: d.provider, label: d.label }))
+const MANUAL = [
   { value: "absa", label: "ABSA" },
   { value: "other", label: "Other bank" },
 ]
@@ -30,6 +32,8 @@ export function PayoutAccountForm({ orgId, hasAccounts }: { orgId: string; hasAc
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
   const [makePrimary, setMakePrimary] = useState(false)
+  const destination = epsDestinationFor(provider)
+  const isWallet = destination?.scheme === "EWLT"
 
   async function handleSubmit() {
     if (!accountNumber.trim() || !accountName.trim()) {
@@ -39,6 +43,13 @@ export function PayoutAccountForm({ orgId, hasAccounts }: { orgId: string; hasAc
     if (accountNumber.length < 4) {
       setError("Account number must be at least 4 digits")
       return
+    }
+    if (destination) {
+      const check = checkEpsAccount(provider, accountNumber)
+      if (!check.ok) {
+        setError(check.message)
+        return
+      }
     }
     setSubmitting(true)
     setError("")
@@ -80,11 +91,27 @@ export function PayoutAccountForm({ orgId, hasAccounts }: { orgId: string; hasAc
           onChange={(e) => setProvider(e.target.value)}
           className={selectClass}
         >
-          {PROVIDERS.map((p) => (
-            <option key={p.value} value={p.value}>
-              {p.label}
-            </option>
-          ))}
+          <optgroup label="Banks">
+            {BANKS.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="Mobile money">
+            {WALLETS.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="Paid manually">
+            {MANUAL.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
+          </optgroup>
         </select>
       </label>
 
@@ -92,19 +119,21 @@ export function PayoutAccountForm({ orgId, hasAccounts }: { orgId: string; hasAc
         label="Account holder name *"
         value={accountName}
         onChange={(e) => setAccountName(e.target.value)}
-        placeholder="Full legal name on bank account"
+        placeholder={isWallet ? "Full name registered on the wallet" : "Full legal name on bank account"}
         autoComplete="off"
       />
 
       <FormField
-        label="Account number *"
+        label={isWallet ? "Mobile number *" : "Account number *"}
         value={accountNumber}
         onChange={(e) => setAccountNumber(e.target.value)}
-        placeholder="Bank account number"
+        placeholder={destination ? `e.g. ${destination.example}` : "Bank account number"}
+        hint={destination ? undefined : "Payouts to this bank are made manually by Ticketiv finance."}
         autoComplete="off"
         inputMode="numeric"
       />
 
+      {!isWallet && (
       <FormField
         label="Branch code"
         value={branchCode}
@@ -113,6 +142,7 @@ export function PayoutAccountForm({ orgId, hasAccounts }: { orgId: string; hasAc
         autoComplete="off"
         inputMode="numeric"
       />
+      )}
 
       {hasAccounts ? (
         <label className="flex items-start gap-2 text-[13px] text-ink-2">
