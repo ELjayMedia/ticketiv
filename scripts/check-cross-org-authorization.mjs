@@ -9,68 +9,50 @@
 // Usage:
 //   node scripts/check-cross-org-authorization.mjs
 //
-// Requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY. The env name
-// is retained for compatibility, but the value may be either the legacy JWT
-// service_role key or a modern sb_secret_... backend key. Without them the
-// check fails closed. Do not treat an unavailable security harness as a pass;
-// CI must provision a privileged, non-production verification environment.
+// Requires TICKETIV_CROSS_ORG_TEST_DB_URL: a privileged Postgres connection
+// string for an isolated verification database with Ticketiv's schema. The
+// production PostgREST API intentionally exposes no exec_sql RPC, so a
+// service-role API key cannot execute this harness. Do not point this at the
+// live database, even though the harness rolls back its test data.
+// CI must provision a non-production verification environment.
 //
 // Exit codes:
 //   0  every case refused
 //   1  cross-tenant authorization assertion failed
 //   2  harness could not run (credentials or SQL execution capability missing)
 
-import { readFileSync } from "node:fs"
+import { spawnSync } from "node:child_process"
+import { existsSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const here = dirname(fileURLToPath(import.meta.url))
 const SQL_PATH = resolve(here, "../supabase/tests/cross_org_authorization.sql")
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const testDatabaseUrl = process.env.TICKETIV_CROSS_ORG_TEST_DB_URL
 
-if (!url || !serviceKey) {
+if (!testDatabaseUrl || !existsSync(SQL_PATH)) {
   console.error(
-    "Cross-org authorization check BLOCKED: NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are not set.",
+    "Cross-org authorization check BLOCKED: TICKETIV_CROSS_ORG_TEST_DB_URL or SQL harness is missing. Provide an isolated test database.",
   )
   process.exit(2)
 }
 
-const sql = readFileSync(SQL_PATH, "utf8")
-
-// Modern sb_secret_ keys are opaque API keys, not JWTs, so they belong in the
-// apikey header only. The legacy service_role key is a JWT and still needs the
-// Bearer header for this direct REST call. Normal application admin clients use
-// supabase-js, which handles both key types through the API gateway.
-const headers = {
-  apikey: serviceKey,
-  "Content-Type": "application/json",
-}
-if (!serviceKey.startsWith("sb_secret_")) {
-  headers.Authorization = `Bearer ${serviceKey}`
-}
-
-// The harness signals completion by raising, so a "successful" run arrives as
-// a Postgres error whose message carries the report. That is deliberate: it is
-// what guarantees the transaction rolls back and leaves nothing behind.
-const response = await fetch(`${url}/rest/v1/rpc/exec_sql`, {
-  method: "POST",
-  headers,
-  body: JSON.stringify({ query: sql }),
+// The harness deliberately raises an exception containing its results so the
+// transaction is rolled back. ON_ERROR_STOP makes psql nonzero as expected;
+// parse the report, not the process exit code, to determine authorization.
+// A libpq connection string in PGDATABASE stays out of process arguments.
+const execution = spawnSync("psql", ["-X", "-v", "ON_ERROR_STOP=1", "-f", SQL_PATH], {
+  encoding: "utf8",
+  env: { ...process.env, PGDATABASE: testDatabaseUrl },
+  timeout: 120_000,
+  maxBuffer: 10 * 1024 * 1024,
 })
-
-const raw = await response.text()
-
-// exec_sql RPC doesn't exist in this project (deliberately excluded from
-// migrations — too broad an attack surface). Fail the check as unavailable.
-if (raw.includes("PGRST202") && raw.includes("exec_sql")) {
-  console.error(
-    "Cross-org authorization check BLOCKED: exec_sql RPC is not exposed in this project. " +
-      "Run supabase/tests/cross_org_authorization.sql through the SQL editor or psql instead.",
-  )
+if (execution.error || execution.signal) {
+  console.error("Cross-org authorization check BLOCKED: psql could not complete:", execution.error?.message ?? execution.signal)
   process.exit(2)
 }
+const raw = `${execution.stdout ?? ""}\n${execution.stderr ?? ""}`
 
 const report = extractReport(raw)
 
@@ -78,10 +60,9 @@ if (!report) {
   console.error("Could not read a report from the harness. Raw response:")
   console.error(raw.slice(0, 4000))
   console.error(
-    "\nIf this says exec_sql does not exist, the project has no SQL-execution RPC exposed; " +
-      "run supabase/tests/cross_org_authorization.sql through the SQL editor or psql instead.",
+    "\nThe harness did not complete its transaction: check the isolated database schema and psql permissions.",
   )
-  process.exit(1)
+  process.exit(2)
 }
 
 console.log(report)

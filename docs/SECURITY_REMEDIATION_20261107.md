@@ -36,8 +36,10 @@ retired endpoints' source/response contract.
 - Vitest: 180 test files, 1067 passing, 7 skipped (after rebasing on PR #518).
 - ESLint: no errors, 5 warnings unrelated to the changed security behavior.
 - `git diff --check` — passed.
-- Cross-org harness now exits `2` if credentials or a safe SQL execution
-  capability are unavailable; unavailable is never reported as a pass.
+- Cross-org harness now uses `psql` against an isolated database via
+  `TICKETIV_CROSS_ORG_TEST_DB_URL` and exits `2` if the database or executable
+  is unavailable. Unavailable is never reported as a pass. The release gate
+  remains red until CI provisions this isolated verification environment.
 
 ## Follow-up before security sign-off
 
@@ -53,8 +55,8 @@ retired endpoints' source/response contract.
    semantics, avatar MIME/size limits, and claimed-account guards on contact
    matching. Review current callers and product requirements before changing
    public interfaces.
-6. Provision an isolated cross-organization authorization test environment and
-   invoke the now-fail-closed harness in CI. Complete the pending human
+6. Provision `TICKETIV_CROSS_ORG_TEST_DB_URL` on an isolated Ticketiv-schema
+   database in CI so the fail-closed harness can run. Complete the pending human
    threat-model/secret sign-off.
 
 These follow-ups are **not** represented as fixed by this PR.

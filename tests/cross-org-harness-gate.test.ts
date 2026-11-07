@@ -14,8 +14,7 @@ describe("cross-org authorization harness", () => {
         encoding: "utf8",
         env: {
           ...process.env,
-          NEXT_PUBLIC_SUPABASE_URL: "",
-          SUPABASE_SERVICE_ROLE_KEY: "",
+          TICKETIV_CROSS_ORG_TEST_DB_URL: "",
         },
       },
     )
