@@ -5,11 +5,12 @@ import { eventTimeZone } from "@ticketiv/shared"
 
 import { Icon } from "@/components/quiet/ui/icon"
 import { getOrganizerCompanion, guideCompleteness } from "@/lib/data/companion"
+import { getEventHighlights, getFeedbackSummary } from "@/lib/data/companion-memory"
 import { requireEventManager } from "@/lib/organizer/access"
 import { localTime } from "@/lib/organizer/guide-form"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
-import { GuideEditor, UpdatesPanel } from "./guide-client"
+import { AfterEventPanel, GuideEditor, UpdatesPanel } from "./guide-client"
 
 export const dynamic = "force-dynamic"
 export const metadata = { title: "Attendee guide" }
@@ -34,7 +35,11 @@ export default async function EventGuidePage({ params }: { params: Promise<{ org
     .maybeSingle()
   if (!event) redirect("/403")
 
-  const { guide, updates } = await getOrganizerCompanion(eventId)
+  const [{ guide, updates }, feedback, highlights] = await Promise.all([
+    getOrganizerCompanion(eventId),
+    getFeedbackSummary(eventId),
+    getEventHighlights(eventId),
+  ])
   // The guide is typed and shown in the event's own zone.
   const TZ = eventTimeZone(event.tz, (event as { venues?: { tz?: string | null } | null }).venues?.tz)
   const dayLabel = event.starts_at
@@ -79,6 +84,17 @@ export default async function EventGuidePage({ params }: { params: Promise<{ org
             programme: (guide?.programme ?? []).map((p) => ({ time: p.time, title: p.title, where: p.where ?? "" })),
             facilities: guide?.facilities ?? [],
           }}
+        />
+
+        <AfterEventPanel
+          orgId={orgId}
+          eventId={eventId}
+          highlights={highlights}
+          feedback={
+            feedback
+              ? { ...feedback, comments: feedback.comments.map((c) => ({ rating: c.rating, comment: c.comment, whenLabel: c.at ? when(c.at) : "" })) }
+              : null
+          }
         />
 
         <UpdatesPanel

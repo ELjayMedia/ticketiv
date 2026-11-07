@@ -25,6 +25,7 @@ export type TicketivCompanionView = {
   gettingThere: Array<{ label: string; value: string }>;
   updates: Array<{ id: string; title: string; body: string | null; whenLabel: string }>;
   notes: Array<{ label: string; value: string }>;
+  notesTitle: string;
   help: string | null;
   orgName: string | null;
 };
@@ -93,6 +94,7 @@ export function describeTicketivCompanion(
       whenLabel: formatInTimeZone(update.createdAt, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }, zone).toUpperCase(),
     })),
     notes: stage === "after" ? [] : notes,
+    notesTitle: stage === "in" ? "Good to know" : "Before you go",
     help: guide?.helpContact ?? null,
     orgName: companion.orgName,
   };

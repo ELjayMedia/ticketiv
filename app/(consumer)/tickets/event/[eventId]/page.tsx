@@ -3,6 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { companionCountdown, companionStage, currentProgrammeIndex, formatEventClock, formatInTimeZone } from "@ticketiv/shared";
 
 import { EventCompanion } from "@/components/quiet/screens/companion/event-companion";
+import { EventMemory } from "@/components/quiet/screens/companion/event-memory";
+import { getBecauseYouWent, getEventHighlights, getMyFeedback, isFollowingOrg } from "@/lib/data/companion-memory";
 import { getMySocialPrivacySettings } from "@/lib/data/attendee/social-privacy";
 import { getEventCompanion } from "@/lib/data/companion";
 import { PHOTOS } from "@/lib/photos";
@@ -49,6 +51,16 @@ export default async function EventCompanionPage({ params }: { params: Promise<{
     .sort()[0] ?? null;
   const stage = companionStage({ startsAt: data.startsAt, endsAt: data.endsAt, checkedInAt: checkedIn, nowMs });
   const guide = data.guide;
+  // Event memory only once it's over: own rating, highlights, follow, next events.
+  const memory =
+    stage === "after"
+      ? await Promise.all([
+          getMyFeedback(data.eventId),
+          getEventHighlights(data.eventId),
+          isFollowingOrg(data.orgId),
+          getBecauseYouWent(data.eventId, data.orgId, data.orgName),
+        ])
+      : null;
   const venueLine = [data.venueAddress, data.city].filter(Boolean).join(", ") || null;
   const directionsQuery = [data.venueName, data.venueAddress, data.city].filter(Boolean).join(", ");
 
@@ -103,6 +115,20 @@ export default async function EventCompanionPage({ params }: { params: Promise<{
       }))}
       friendsGoing={data.friendsGoing}
       visibleToFriends={privacy?.showEventsGoingToFriends ?? false}
+      memory={
+        memory ? (
+          <EventMemory
+            eventId={data.eventId}
+            orgId={data.orgId}
+            orgName={data.orgName}
+            attended={Boolean(checkedIn)}
+            myFeedback={memory[0]}
+            highlights={memory[1]}
+            following={memory[2]}
+            suggestions={memory[3]}
+          />
+        ) : null
+      }
     />
   );
 }

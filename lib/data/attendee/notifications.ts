@@ -89,6 +89,24 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
   const explicitHref = asText(payload.href)
   const base = baseFields(row)
 
+  // Event Companion, release 3: "How was it?" and new events from followed organisers.
+  if (type === "feedback_request" || type === "organizer_new_event") {
+    const ask = type === "feedback_request"
+    return {
+      id: row.id,
+      type,
+      status: row.status,
+      channel: row.channel,
+      title: explicitTitle ?? (ask ? (eventTitle ? `How was ${eventTitle}?` : "How was it?") : eventTitle ? `New event: ${eventTitle}` : "New event"),
+      message: explicitMessage || (ask ? "Rate it in a tap. Only the organiser sees your rating." : "An organiser you follow announced a new event."),
+      createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
+      ...base,
+      actionHref: explicitHref ?? (eventSlug ? `/events/${eventSlug}` : "/tickets"),
+      actionLabel: ask ? "Rate the event" : "View event",
+      actionKind: "event",
+    }
+  }
+
   // Event Companion reminders: ticket holders (24h / 2h) and saved events.
   if (type === "event_reminder" || type === "saved_event_reminder") {
     const saved = type === "saved_event_reminder"

@@ -123,6 +123,7 @@ export interface CompanionData {
   city: string | null
   startsAt: string | null
   endsAt: string | null
+  orgId: string | null
   orgName: string | null
   /** Where the event happens: events.tz, else the venue's, else Eswatini. */
   timeZone: string
@@ -155,7 +156,7 @@ export async function getEventCompanion(eventId: string): Promise<CompanionData 
       .is("hidden_at", null)
       .order("created_at", { ascending: false })
       .limit(10),
-    db.from("events").select("tz, organizations(name), venues(tz)").eq("id", eventId).maybeSingle(),
+    db.from("events").select("org_id, tz, organizations(name), venues(tz)").eq("id", eventId).maybeSingle(),
     db.rpc("fn_my_friends_going", { p_event_ids: [eventId], p_from: null, p_limit: 20 }),
   ])
   if (guideRes.error) console.error("[companion] guide:", guideRes.error)
@@ -173,6 +174,7 @@ export async function getEventCompanion(eventId: string): Promise<CompanionData 
     city: first.city,
     startsAt: first.event_starts_at,
     endsAt: first.event_ends_at ?? null,
+    orgId: eventRes.data?.org_id ?? null,
     orgName: eventRes.data?.organizations?.name ?? null,
     timeZone: eventTimeZone(eventRes.data?.tz, eventRes.data?.venues?.tz),
     tickets,
