@@ -72,6 +72,50 @@
         "postgres",
         "service_role"
       ]
+    },
+    {
+      "schema": "public",
+      "name": "admin_reissue_ticket_code",
+      "arguments": "p_order_item_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "admin_revoke_user_sessions",
+      "arguments": "p_user_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "admin_search_orders",
+      "arguments": "p_query text, p_limit integer",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "admin_search_people",
+      "arguments": "p_query text, p_limit integer",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
     }
   ]
 }
