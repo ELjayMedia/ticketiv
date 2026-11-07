@@ -4,7 +4,6 @@ import { Card, CardBody, CardDivider } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Icon, type IconName } from "@/components/quiet/ui/icon"
 import { cn } from "@/lib/cn"
-import { ADMIN_RESOURCES } from "@/lib/super-admin/resources"
 import {
   formatMoneyFromCents,
   formatNumber,
@@ -12,14 +11,16 @@ import {
   percentage,
 } from "@/lib/super-admin/command-centre"
 import { requireAdminRole } from "@/lib/super-admin/auth"
+import { HomeAside, type HealthRow } from "@/components/super-admin/HomeAside"
 import { WorkQueues } from "@/components/super-admin/WorkQueues"
-import { getWorkQueues } from "@/lib/data/admin/console-ops"
+import { getRecentAdminActivity, getWorkQueues } from "@/lib/data/admin/console-ops"
+import { deltaPayPayoutsAvailable } from "@/lib/payouts/deltapay-payouts"
+import { getChatwootConfig } from "@/lib/support/chatwoot"
 import { QUEUES, canDo, type QueueKey } from "@/lib/super-admin/console"
 import { ADMIN_ROLE_TIERS } from "@/lib/super-admin/permissions"
 
 // TICK-50 — Command centre overview with role-tier awareness
 
-const RESOURCE_ICONS: IconName[] = ["users", "pin", "cal", "ticket", "wallet", "wallet", "spark"]
 
 const WORKSPACES: Array<{ title: string; description: string; href: string; icon: IconName }> = [
   { title: "Event Operations", description: "Publish, pause, archive and monitor events across the marketplace.", href: "/super-admin/events", icon: "cal" },
@@ -31,7 +32,7 @@ const WORKSPACES: Array<{ title: string; description: string; href: string; icon
   { title: "Promotions & Controls", description: "Manage feature flags, promo codes, vouchers, fees and discounts.", href: "/super-admin/price-rules", icon: "spark" },
 ]
 
-export const metadata = { title: "Super Admin Command Centre" }
+export const metadata = { title: "Home · Admin" }
 
 export default async function SuperAdminPage({ searchParams }: { searchParams: Promise<{ queue?: string }> }) {
   const { user, roleTier } = await requireAdminRole(ADMIN_ROLE_TIERS)
@@ -39,7 +40,44 @@ export default async function SuperAdminPage({ searchParams }: { searchParams: P
   const { queue } = await searchParams
   const activeQueue: QueueKey | "all" | "mine" =
     queue === "mine" || QUEUES.some((q) => q.key === queue) ? (queue as QueueKey | "mine") : "all"
-  const [{ metrics, attention, operations, categories }, queues] = await Promise.all([getCommandCentreData(), getWorkQueues(user.id)])
+  const [{ metrics, attention, operations, categories }, queues, activity, chatwoot] = await Promise.all([
+    getCommandCentreData(),
+    getWorkQueues(user.id),
+    getRecentAdminActivity(),
+    getChatwootConfig(),
+  ])
+  const queueTotal = queues.items.length
+  const hour = Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hourCycle: "h23", timeZone: "Africa/Mbabane" }).format(new Date()))
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening"
+  const testMode = (process.env.PAYSTACK_SECRET_KEY ?? "").startsWith("sk_test_")
+  const health: HealthRow[] = [
+    {
+      label: testMode ? "Paystack (test mode)" : "Paystack",
+      value: queues.counts.payments ? `${queues.counts.payments} failed to start today` : "No failures today",
+      tone: queues.counts.payments ? "danger" : "success",
+      href: queues.counts.payments ? "/super-admin?queue=payments" : undefined,
+    },
+    {
+      label: "Ticket delivery",
+      value: queues.counts.delivery ? `${queues.counts.delivery} order${queues.counts.delivery === 1 ? "" : "s"} not delivered` : "Delivering",
+      tone: queues.counts.delivery ? "danger" : "success",
+      href: queues.counts.delivery ? "/super-admin?queue=delivery" : undefined,
+    },
+    {
+      label: "Scanners near an event",
+      value: queues.counts.scanners ? `${queues.counts.scanners} offline` : "All online",
+      tone: queues.counts.scanners ? "danger" : "success",
+      href: queues.counts.scanners ? "/super-admin?queue=scanners" : undefined,
+    },
+    {
+      label: "Reconciliation",
+      value: queues.counts.reconciliation ? `${queues.counts.reconciliation} open issue${queues.counts.reconciliation === 1 ? "" : "s"}` : "Balanced",
+      tone: queues.counts.reconciliation ? "warning" : "success",
+      href: queues.counts.reconciliation ? "/super-admin/reconciliation" : undefined,
+    },
+    { label: "Chatwoot", value: chatwoot.ok ? "Connected" : "Not connected", tone: chatwoot.ok ? "success" : "muted", href: chatwoot.ok ? undefined : "/super-admin/integrations" },
+    { label: "DeltaPay payouts", value: deltaPayPayoutsAvailable() ? "On" : "Off", tone: deltaPayPayoutsAvailable() ? "success" : "muted" },
+  ]
 
   const checkInRate = percentage(metrics.tickets_checked_in, metrics.tickets_issued)
   const eventPublishRate = percentage(metrics.published_events, metrics.total_events)
@@ -48,30 +86,26 @@ export default async function SuperAdminPage({ searchParams }: { searchParams: P
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-4">
-      <section className="flex flex-col gap-3 rounded-[var(--radius-xl)] border border-line bg-surface p-5 shadow-[var(--shadow-card)] md:flex-row md:items-end md:justify-between">
-        <div className="flex flex-col gap-2">
-          <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Ticketiv internal</p>
-          <h1 className="text-h1">Command centre</h1>
-          <p className="max-w-2xl text-[13px] text-ink-3">
-            Operate the platform from business signals first: sales, tickets, events, payouts, access control and reliability.
-          </p>
+      <section className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">
+            {greeting}. {queueTotal === 0 ? "Nothing needs you right now." : `${queueTotal} thing${queueTotal === 1 ? "" : "s"} need${queueTotal === 1 ? "s" : ""} you.`}
+          </h1>
+          <p className="text-sm text-ink-3">Work queues pull problems to you. The numbers below are how the platform is doing.</p>
         </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {!canAct && (
-            <Chip size="sm" variant="muted">Read only</Chip>
-          )}
-          <Link href="/super-admin/audit" className={navButtonClass}>Audit</Link>
-          <Link href="/super-admin/exports" className={navButtonClass}>Exports</Link>
-          {canAct && (
-            <Link href="/super-admin/payouts" className={navButtonClass}>Review payouts</Link>
-          )}
-          <Link href="/super-admin/reconciliation" className={navButtonClass}>Reconciliation</Link>
-          <Link href="/super-admin/payments" className={navButtonClass}>Payment failures</Link>
-        </div>
+        {!canAct ? (
+          <Chip size="sm" variant="muted">
+            Read only
+          </Chip>
+        ) : null}
       </section>
 
-      <WorkQueues data={queues} active={activeQueue} canTake={canDo("take_queue_item", roleTier)} />
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <WorkQueues data={queues} active={activeQueue} canTake={canDo("take_queue_item", roleTier)} />
+        <HomeAside health={health} activity={activity} />
+      </div>
+
+      <h2 className="pt-2 text-[15px] font-semibold text-ink">Platform at a glance</h2>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard title="Gross sales" value={formatMoneyFromCents(metrics.gross_revenue_cents)} detail={`${formatNumber(metrics.paid_orders)} paid orders`} icon="wallet" href="/super-admin/orders" />
@@ -278,29 +312,6 @@ export default async function SuperAdminPage({ searchParams }: { searchParams: P
         </Card>
       </section>
 
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {ADMIN_RESOURCES.map((resource, index) => {
-          const icon = RESOURCE_ICONS[index] ?? "trending"
-          return (
-            <Link
-              key={resource.key}
-              href={`/super-admin/${resource.key}`}
-              className="group block rounded-[var(--radius-md)] border border-line bg-surface p-4 shadow-[var(--shadow-card)] transition hover:bg-bg"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <span className="rounded-[var(--radius-md)] border border-line bg-bg p-2 text-ink">
-                  <Icon name={icon} size={16} />
-                </span>
-                <Icon name="arrowR" size={14} className="text-ink-3 transition group-hover:translate-x-1" />
-              </div>
-              <p className="mt-4 text-[14px] font-semibold text-ink">{resource.label}</p>
-              <p className="mt-1 font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                Admin workspace
-              </p>
-            </Link>
-          )
-        })}
-      </section>
     </div>
   )
 }

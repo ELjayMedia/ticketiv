@@ -1,186 +1,90 @@
 import Link from "next/link"
 
 import { signOutSuperAdminAction } from "@/app/super-admin/actions"
-import { Button } from "@/components/quiet/ui/button";
-import { Icon, type IconName } from "@/components/quiet/ui/icon"
+import { Button } from "@/components/quiet/ui/button"
+import { Icon } from "@/components/quiet/ui/icon"
+import { AdminNav } from "@/components/super-admin/AdminNav"
+import { navForRole } from "@/components/super-admin/admin-nav"
 import { ADMIN_ROLE_LABELS, type AdminRoleTier } from "@/lib/super-admin/console"
 
-// Support work comes first: find the customer, see what happened, fix it.
-// The table-by-table groups below are the data explorer.
-const SUPPORT_GROUP: {
-  label: string
-  items: Array<{ label: string; href: string; icon: IconName; active?: boolean; ownerOnly?: boolean; supportOnly?: boolean }>
-} = {
-  label: "Support",
-  items: [
-    { label: "Search", href: "/super-admin/search", icon: "search" },
-    { label: "Cases", href: "/super-admin/cases", icon: "bell", supportOnly: true },
-    { label: "Saved replies", href: "/super-admin/replies", icon: "copy", supportOnly: true },
-    { label: "Settings history", href: "/super-admin/settings-history", icon: "clock" },
-    { label: "Integrations", href: "/super-admin/integrations", icon: "settings", ownerOnly: true },
-    { label: "Team & access", href: "/super-admin/team", icon: "key", ownerOnly: true },
-  ],
-}
-
-const NAV_GROUPS: Array<{
-  label: string
-  items: Array<{ label: string; href: string; icon: IconName; active?: boolean }>
-}> = [
-  {
-    label: "Workspace",
-    items: [
-      { label: "Overview", href: "/super-admin", icon: "activity" },
-      { label: "Events", href: "/super-admin/events", icon: "cal" },
-      { label: "Orders", href: "/super-admin/orders", icon: "receipt" },
-      { label: "Issued Tickets", href: "/super-admin/order-items", icon: "users" },
-      { label: "Ticket Types", href: "/super-admin/ticket-types", icon: "ticket" },
-    ],
-  },
-  {
-    label: "Event Operations",
-    items: [
-      { label: "Event Categories", href: "/super-admin/event-categories", icon: "flag" },
-      { label: "Guestlists", href: "/super-admin/guestlist-entries", icon: "clipboard" },
-      { label: "Coupons & Vouchers", href: "/super-admin/price-rules", icon: "flag" },
-      { label: "Scanning & Devices", href: "/super-admin/devices", icon: "qr" },
-      { label: "Staff", href: "/super-admin/event-staff", icon: "user" },
-      { label: "Readiness Checklist", href: "/super-admin/readiness", icon: "checkCircle" },
-    ],
-  },
-  {
-    label: "TapBand",
-    items: [
-      { label: "Operations", href: "/super-admin/workspaces/tapband-operations", icon: "activity" },
-      { label: "Batches", href: "/super-admin/credential-batches", icon: "clipboard" },
-      { label: "Inventory", href: "/super-admin/credential-inventory", icon: "ticket" },
-      { label: "Credentials", href: "/super-admin/physical-credentials", icon: "shield" },
-      { label: "Entitlements", href: "/super-admin/credential-entitlements", icon: "users" },
-      { label: "Tap Audit", href: "/super-admin/credential-taps", icon: "qr" },
-      { label: "Config", href: "/super-admin/tapband-feature-configs", icon: "settings" },
-      { label: "Kill Switches", href: "/super-admin/tapband-kill-switches", icon: "flag" },
-    ],
-  },
-  {
-    label: "Finance",
-    items: [
-      { label: "Payments", href: "/super-admin/payments", icon: "card" },
-      { label: "Payment Attempts", href: "/super-admin/payment-attempts", icon: "activity" },
-      { label: "Reconciliation", href: "/super-admin/reconciliation", icon: "clipboard" },
-      { label: "Payouts", href: "/super-admin/payouts", icon: "wallet" },
-      { label: "Refunds", href: "/super-admin/refunds", icon: "wallet" },
-      { label: "Ledger", href: "/super-admin/ledger-entries", icon: "receipt" },
-      { label: "CSV Exports", href: "/super-admin/exports/orders", icon: "download" },
-    ],
-  },
-  {
-    label: "Admin / Controls",
-    items: [
-      { label: "Organizations", href: "/super-admin/organizations", icon: "building" },
-      { label: "Org Members", href: "/super-admin/org-members", icon: "users" },
-      { label: "Feature Flags", href: "/super-admin/feature-flags", icon: "spark" },
-      { label: "Audit Logs", href: "/super-admin/audit", icon: "shield" },
-      { label: "Webhooks", href: "/super-admin/webhooks", icon: "share" },
-      { label: "Env Vars", href: "/super-admin/env-vars", icon: "key" },
-      { label: "Jobs", href: "/super-admin/jobs", icon: "settings" },
-      { label: "Realtime Health", href: "/super-admin/realtime-health", icon: "activity" },
-    ],
-  },
-]
-
+/**
+ * Admin console frame: navigation grouped by job, one search box, and a
+ * reminder when payments run on test keys. Pages bring their own breadcrumbs.
+ */
 export function SuperAdminShell({
   children,
   userEmail,
   role,
+  paymentsTestMode = false,
 }: {
   children: React.ReactNode
   userEmail?: string | null
   role?: AdminRoleTier | null
+  paymentsTestMode?: boolean
 }) {
-  const supportItems = SUPPORT_GROUP.items.filter(
-    (item) => (!item.ownerOnly || role === "super_admin") && (!item.supportOnly || role === "super_admin" || role === "support_admin"),
-  )
-  const groups: typeof NAV_GROUPS = [{ label: SUPPORT_GROUP.label, items: supportItems }, ...NAV_GROUPS]
-  return (
-    <div className="min-h-screen bg-surface-2/30 lg:grid lg:grid-cols-[18rem_1fr]">
-      <aside className="hidden border-r bg-surface lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
-        <div className="border-b p-3">
-          <Link href="/super-admin" className="flex items-center gap-3 rounded-2xl border bg-surface p-3 shadow-sm">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent text-sm font-bold text-white">T</span>
-            <span className="min-w-0">
-              <span className="block text-sm font-semibold leading-none">Ticketiv</span>
-              <span className="mt-1 block truncate text-xs text-ink-3">Super Admin Workspace</span>
-            </span>
-          </Link>
-        </div>
+  const groups = navForRole(role)
+  const roleLabel = role ? `${ADMIN_ROLE_LABELS[role]} · ${role}` : "Admin"
+  const canWorkCases = role === "super_admin" || role === "support_admin"
 
-        <nav className="flex-1 space-y-5 overflow-y-auto p-3">
-          {groups.map((group) => (
-            <div key={group.label}>
-              <p className="px-2 pb-2 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-ink-3">{group.label}</p>
-              <div className="space-y-1">
-                {group.items.map((item) => <ShellNavLink key={`${group.label}-${item.label}`} {...item} />)}
-              </div>
-            </div>
-          ))}
+  return (
+    <div className="min-h-screen bg-bg lg:grid lg:grid-cols-[15.5rem_minmax(0,1fr)]">
+      <aside className="hidden border-r border-line bg-surface lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
+        <Link href="/super-admin" className="flex items-center gap-3 px-5 pb-4 pt-5">
+          <span className="flex size-8 items-center justify-center rounded-lg bg-ink text-sm font-bold text-surface">T</span>
+          <span className="flex flex-col">
+            <span className="text-sm font-semibold leading-tight text-ink">Ticketiv</span>
+            <span className="text-xs text-ink-3">Admin console</span>
+          </span>
+        </Link>
+
+        <nav aria-label="Admin" className="flex-1 overflow-y-auto px-3 pb-4">
+          <AdminNav groups={groups} />
         </nav>
 
-        <div className="border-t p-3">
-          <div className="rounded-2xl border bg-surface p-3">
-            <div className="flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2"><Icon name="user" className="h-5 w-5" /></span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{role ? ADMIN_ROLE_LABELS[role] : "Admin"}</p>
-                <p className="truncate text-xs text-ink-3">{userEmail ?? "Ticketiv control room"}</p>
-              </div>
-            </div>
-            <form action={signOutSuperAdminAction} className="mt-3">
-              <Button type="submit" variant="outline" className="h-9 w-full rounded-full text-xs"><Icon name="logout" className="mr-2 h-3.5 w-3.5" /> Sign out</Button>
-            </form>
+        <div className="border-t border-line p-3">
+          <div className="flex items-center gap-3 px-2 py-1.5">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
+              <Icon name="user" className="h-4 w-4" />
+            </span>
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate text-sm font-semibold text-ink">{userEmail ?? "Admin"}</span>
+              <span className="truncate text-xs text-ink-3">{roleLabel}</span>
+            </span>
           </div>
+          <form action={signOutSuperAdminAction} className="mt-2">
+            <Button type="submit" variant="ghost" size="sm" block className="justify-start">
+              <Icon name="logout" className="h-3.5 w-3.5" /> Sign out
+            </Button>
+          </form>
         </div>
       </aside>
 
       <div className="min-w-0">
-        <header className="sticky top-0 z-20 border-b bg-surface/90 backdrop-blur supports-[backdrop-filter]:bg-surface/75">
-          <div className="flex h-16 items-center gap-3 px-4 sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-20 border-b border-line bg-surface/90 backdrop-blur supports-[backdrop-filter]:bg-surface/75">
+          <div className="flex min-h-16 flex-wrap items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
             <details className="group relative lg:hidden">
               <summary
-                className="inline-flex size-9 cursor-pointer list-none items-center justify-center rounded-full border bg-surface shadow-xs transition hover:bg-surface-2 hover:text-ink [&::-webkit-details-marker]:hidden"
-                aria-label="Open dashboard navigation"
+                className="inline-flex size-10 cursor-pointer list-none items-center justify-center rounded-full border border-line-2 bg-surface hover:bg-surface-2 [&::-webkit-details-marker]:hidden"
+                aria-label="Open admin navigation"
               >
                 <Icon name="menu" className="h-4 w-4" />
               </summary>
-              <div className="fixed inset-x-0 top-16 z-50 max-h-[calc(100dvh-4rem)] overflow-y-auto border-b bg-surface p-4 shadow-lg">
-                <div className="grid gap-4">
-                  {groups.map((group) => (
-                    <div key={`mobile-${group.label}`} className="space-y-2">
-                      <p className="px-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-ink-3">{group.label}</p>
-                      <div className="grid gap-2">
-                        {group.items.map((item) => {
-                          return (
-                            <Link
-                              key={`mobile-menu-${group.label}-${item.label}`}
-                              href={item.href}
-                              className="flex items-center gap-3 rounded-xl border bg-surface px-3 py-2.5 text-sm font-medium text-ink shadow-xs transition hover:bg-surface-2"
-                            >
-                              <Icon name={item.icon} className="h-4 w-4 shrink-0 text-ink-3" />
-                              <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                              <Icon name="chevR" className="h-4 w-4 shrink-0 text-ink-3" />
-                            </Link>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              <div className="fixed inset-x-0 top-16 z-50 max-h-[calc(100dvh-4rem)] overflow-y-auto border-b border-line bg-surface p-4 shadow-lg">
+                <AdminNav groups={groups} />
+                <form action={signOutSuperAdminAction} className="mt-4 border-t border-line pt-4">
+                  <Button type="submit" variant="outline" size="sm" block>
+                    <Icon name="logout" className="h-3.5 w-3.5" /> Sign out
+                  </Button>
+                </form>
               </div>
             </details>
-            <div className="hidden items-center gap-1 text-sm text-ink-3 md:flex">
-              <Link href="/super-admin" className="font-medium text-ink">Super Admin</Link>
-              <Icon name="chevR" className="h-4 w-4" />
-              <span>Command Centre</span>
-            </div>
-            <form action="/super-admin/search" method="get" role="search" className="ml-auto hidden w-full max-w-sm items-center gap-2 rounded-full border bg-surface-2/40 px-3 text-sm text-ink-3 focus-within:border-accent md:flex">
+
+            <form
+              action="/super-admin/search"
+              method="get"
+              role="search"
+              className="order-last flex min-w-0 basis-full items-center gap-2 rounded-full border border-line-2 bg-surface px-3 text-sm text-ink-3 focus-within:border-accent focus-within:ring-[3px] focus-within:ring-accent-soft sm:order-none sm:max-w-md sm:flex-1 sm:basis-auto"
+            >
               <Icon name="search" className="h-4 w-4 shrink-0" />
               <label htmlFor="shell-search" className="sr-only">
                 Search people, orders and PAY- references
@@ -190,30 +94,36 @@ export function SuperAdminShell({
                 name="q"
                 type="search"
                 autoComplete="off"
-                placeholder="Search people, orders, PAY- references"
-                className="h-9 w-full bg-transparent text-ink outline-none placeholder:text-ink-3"
+                placeholder="Search people, orders or a PAY- reference"
+                className="h-10 w-full min-w-0 bg-transparent text-ink outline-none placeholder:text-ink-3"
               />
             </form>
-            <Button asChild variant="outline" className="ml-auto rounded-full md:ml-0"><Link href="/super-admin/readiness">Readiness</Link></Button>
-            <Button variant="accent" asChild className="rounded-full"><Link href="/orgs">Organizer workspace</Link></Button>
-          </div>
-          <div className="flex gap-2 overflow-x-auto px-4 pb-3 sm:px-6 lg:hidden">
-            {groups.flatMap((group) => group.items).map((item) => {
-              return <Link key={item.label} href={item.href} className={item.active ? "inline-flex shrink-0 items-center gap-2 rounded-full bg-accent px-3 py-1.5 text-xs font-medium text-white" : "inline-flex shrink-0 items-center gap-2 rounded-full border bg-surface px-3 py-1.5 text-xs font-medium"}><Icon name={item.icon} className="h-3.5 w-3.5" />{item.label}</Link>
-            })}
+
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              {paymentsTestMode ? (
+                <span className="inline-flex items-center rounded-full bg-warning-soft px-3 py-1.5 text-xs font-semibold text-warning">
+                  Payments in test mode
+                </span>
+              ) : null}
+              {canWorkCases ? (
+                <Link
+                  href="/super-admin/cases"
+                  className="inline-flex min-h-10 items-center gap-2 rounded-[var(--radius)] border border-line-2 bg-surface px-3 text-sm font-semibold text-ink hover:bg-bg"
+                >
+                  <Icon name="bell" className="h-4 w-4" /> Cases
+                </Link>
+              ) : null}
+              <Link
+                href="/orgs"
+                className="inline-flex min-h-10 items-center rounded-[var(--radius)] px-3 text-sm font-medium text-ink-2 hover:bg-surface-2 hover:text-ink"
+              >
+                Organizer workspace
+              </Link>
+            </div>
           </div>
         </header>
-        <main className="px-4 py-5 sm:px-6 lg:px-8">{children}</main>
+        <main className="px-4 py-6 sm:px-6 lg:px-8">{children}</main>
       </div>
     </div>
-  )
-}
-
-function ShellNavLink({ label, href, icon, active }: { label: string; href: string; icon: IconName; active?: boolean }) {
-  return (
-    <Link href={href} className={active ? "flex items-center gap-3 rounded-xl bg-accent px-3 py-2 text-sm font-medium text-white shadow-sm" : "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-ink-3 transition hover:bg-surface-2 hover:text-ink"}>
-      <Icon name={icon} className="h-4 w-4 shrink-0" />
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-    </Link>
   )
 }

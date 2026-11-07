@@ -510,7 +510,9 @@ export async function getPerson360(userId: string): Promise<Person360 | null> {
     signInMethods: Array.from(new Set((user.identities ?? []).map((identity) => identity.provider))),
     adminRole: adminRes.data?.active ? adminRes.data.role_tier : null,
     memberships: ((membersRes.data ?? []) as any[]).map((m) => ({ orgId: m.org_id, orgName: m.organizations?.name ?? "Organization", role: m.role })),
-    orders: [...(ordersRes.data ?? []).map(toOrder(false)), ...((guestOrdersRes.data ?? []) as any[]).map(toOrder(true))],
+    orders: [...(ordersRes.data ?? []).map(toOrder(false)), ...((guestOrdersRes.data ?? []) as any[]).map(toOrder(true))].filter(
+      (order, index, all) => all.findIndex((other) => other.id === order.id) === index,
+    ),
     deliveryProblems: ((deliveriesRes.data ?? []) as any[]).map((d) => ({
       orderId: (d.payload?.order_id as string | undefined) ?? null,
       channel: d.channel,

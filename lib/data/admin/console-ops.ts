@@ -505,12 +505,12 @@ export async function matchCaseRecords(email: string | null, phone: string | nul
   if (orderList.length) {
     const ids = orderList.map((o) => o.id)
     const [deliveries, refs, refunds] = await Promise.all([
-      admin.from("notifications").select("status, payload").eq("type", "ticket_issued").in("payload->>order_id", ids),
+      admin.from("notifications").select("status, payload, created_at").eq("type", "ticket_issued").in("payload->>order_id", ids),
       db.from("payment_support_references").select("order_id").in("order_id", ids),
       admin.from("refunds").select("status, provider_payload").eq("status", "requested").in("provider_payload->>order_id", ids),
     ])
     const undelivered = undeliveredOrders(
-      ((deliveries.data ?? []) as any[]).map((d) => ({ order_id: d.payload?.order_id ?? null, status: d.status, created_at: "" })),
+      ((deliveries.data ?? []) as any[]).map((d) => ({ order_id: d.payload?.order_id ?? null, status: d.status, created_at: d.created_at })),
     ).map((u) => u.orderId)
     for (const id of undelivered) {
       suggestions.push({ text: `The tickets for order ${orderRef(id)} never arrived. Check the email address on the order, then resend.`, href: `/super-admin/order/${id}`, cta: "Open the order to resend" })
@@ -604,6 +604,43 @@ export async function listSettingsHistory(table?: string | null, limit = 100): P
       actor: actorId ? emails.get(actorId) ?? "an admin" : null,
       reason: typeof reason === "string" ? reason : null,
       at: row.changed_at,
+    }
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Home: recent admin activity
+
+export interface AdminActivity {
+  id: string
+  who: string
+  summary: string
+  reason: string | null
+  at: string
+  href: string | null
+}
+
+/** The last console actions (business_action "admin_console"), newest first. */
+export async function getRecentAdminActivity(limit = 6): Promise<AdminActivity[]> {
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from("audit_log")
+    .select("id, actor_id, table_name, record_id, changes, created_at")
+    .eq("changes->>business_action", "admin_console")
+    .order("created_at", { ascending: false })
+    .limit(limit)
+  const rows = (data ?? []) as any[]
+  const emails = await emailsFor(admin, rows.map((row) => row.actor_id))
+  return rows.map((row) => {
+    const changes = (row.changes ?? {}) as Record<string, unknown>
+    const orderId = typeof changes.order_id === "string" ? changes.order_id : row.table_name === "orders" ? row.record_id : null
+    return {
+      id: row.id,
+      who: emails.get(row.actor_id) ?? "An admin",
+      summary: String(changes.summary ?? "Admin action"),
+      reason: typeof changes.reason === "string" ? changes.reason : null,
+      at: row.created_at,
+      href: orderId && isUuid(orderId) ? `/super-admin/order/${orderId}` : row.table_name === "auth.users" && isUuid(row.record_id) ? `/super-admin/people/${row.record_id}` : null,
     }
   })
 }
