@@ -93,6 +93,13 @@ jobs:
     runs-on: ubuntu-latest
     needs: [release-gate, change-scope]
     timeout-minutes: 25
+    # The money-path suite seeds and tears down shared UAT fixtures in the one
+    # Supabase project, so runs from different PRs must not overlap: one run's
+    # teardown deletes the event another run is checking out. Same group as
+    # shared-uat.yml; queue rather than cancel.
+    concurrency:
+      group: ticketiv-shared-supabase-uat
+      cancel-in-progress: false
     # TICK-407: blocking launch gate. The browser must reach the payment-provider
     # boundary and the database lifecycle must prove paid-order/ticket invariants.
     steps:
