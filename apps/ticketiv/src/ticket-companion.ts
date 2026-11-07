@@ -4,6 +4,7 @@ import {
   currentProgrammeIndex,
   formatEventClock,
   formatInTimeZone,
+  type CompanionMemory,
   type CompanionStage,
 } from "@ticketiv/shared";
 
@@ -28,6 +29,8 @@ export type TicketivCompanionView = {
   notesTitle: string;
   help: string | null;
   orgName: string | null;
+  /** After the event: highlights, own rating, follow, suggestions (when synced). */
+  memory: CompanionMemory | null;
 };
 
 export function describeTicketivCompanion(
@@ -53,7 +56,9 @@ export function describeTicketivCompanion(
     stage === "in"
       ? `You're in${ticket.checkedInAt ? ` · ${formatEventClock(ticket.checkedInAt, zone)}` : ""}`
       : stage === "after"
-        ? "Event ended"
+        ? ticket.checkedInAt
+          ? "You were there"
+          : "Event ended"
         : stage === "today"
           ? "Today: show this QR at the gate"
           : "You're going";
@@ -78,8 +83,9 @@ export function describeTicketivCompanion(
     stage,
     countdown: stage === "booked" || stage === "today" ? companionCountdown(ticket.eventStartsAt, now, zone) : null,
     headline,
-    facts,
-    programme: (guide?.programme ?? []).map((item, index) => ({
+    // After the event, entry details and the running order no longer matter.
+    facts: stage === "after" ? [] : facts,
+    programme: (stage === "after" ? [] : guide?.programme ?? []).map((item, index) => ({
       time: item.time,
       title: item.title,
       where: item.where ?? null,
@@ -97,5 +103,6 @@ export function describeTicketivCompanion(
     notesTitle: stage === "in" ? "Good to know" : "Before you go",
     help: guide?.helpContact ?? null,
     orgName: companion.orgName,
+    memory: stage === "after" ? companion.memory ?? null : null,
   };
 }

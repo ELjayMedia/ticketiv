@@ -73,6 +73,17 @@ describe("describeTicketivCompanion", () => {
     expect(describeTicketivCompanion(ticket(), Date.parse("2026-11-17T06:00:00Z"))!.stage).toBe("after");
   });
 
+  it("shows the event memory only after the event", () => {
+    const memory = { orgId: "o1", following: false, myRating: null, highlights: [], suggestions: [{ slug: "next", title: "Next one", whenLabel: "SAT 14 DEC", reason: "More from Sunset Collective" }] };
+    const withMemory = ticket({ companion: { ...ticket().companion, memory } });
+    expect(describeTicketivCompanion(withMemory, Date.parse("2026-11-16T16:10:00Z"))!.memory).toBeNull();
+    const after = describeTicketivCompanion(withMemory, Date.parse("2026-11-17T06:00:00Z"))!;
+    expect(after.memory?.suggestions[0].slug).toBe("next");
+    expect(after.facts).toEqual([]);
+    expect(after.programme).toEqual([]);
+    expect(after.headline).toBe("Event ended");
+  });
+
   it("returns nothing for tickets saved before the companion existed", () => {
     expect(describeTicketivCompanion(ticket({ companion: undefined }))).toBeNull();
   });

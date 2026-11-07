@@ -12,6 +12,7 @@ import { Icon, type IconName } from "@/components/quiet/ui/icon";
 import { Divider, LiveDot, Photo } from "@/components/quiet/ui/primitives";
 import { CheckInCelebration } from "@/components/tickets/check-in-celebration";
 import { EventSocialStrip } from "@/components/quiet/screens/event-detail/event-social-strip";
+import { CompanionPushOptIn } from "@/components/quiet/screens/companion/companion-push-optin";
 import { TicketQrCode } from "@/components/tickets/ticket-qr-code";
 import { useTicketCheckIns, type TicketCheckIn } from "@/lib/hooks/use-ticket-check-ins";
 
@@ -518,6 +519,8 @@ export function EventCompanion(props: EventCompanionProps) {
 
         {/* ── Stage-ordered sections ─────────────────────────────── */}
         {stage !== "after" && latestUpdate && stage !== "booked" ? <UpdateNotice update={latestUpdate} /> : null}
+
+        {stage === "booked" || stage === "today" ? <CompanionPushOptIn /> : null}
 
         {stage === "booked" ? (
           <EventSocialStrip

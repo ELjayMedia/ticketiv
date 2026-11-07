@@ -49,3 +49,26 @@ export function buildReminderEmail(reminder: ReminderRow, appUrl: string): { sub
     text: `${subject}\n\n${body}\n\n${cta}: ${url}\n\nTurn reminders off in Me › Reminders.`,
   }
 }
+
+/** Companion notifications that also go out as Web Push. */
+export const PUSH_TYPES = ["event_reminder", "saved_event_reminder", "event_update", "feedback_request", "organizer_new_event"]
+
+/** Reminder types honour the "event reminders" switch; the rest don't. */
+export const REMINDER_SWITCH_TYPES = new Set(["event_reminder", "saved_event_reminder", "feedback_request"])
+
+export function pushDedupeKey(inAppKey: string): string {
+  return `push:${inAppKey}`
+}
+
+/** Title, body and link for a push. Links stay on our own site. */
+export function buildCompanionPush(reminder: ReminderRow): { title: string; body: string; url: string; tag: string } {
+  const payload = reminder.payload ?? {}
+  const eventTitle = text(payload.eventTitle)
+  const title = text(payload.title) || (eventTitle ? `Ticketiv · ${eventTitle}` : "Ticketiv")
+  const body = text(payload.body) || "Open Ticketiv for details."
+  const href = text(payload.href)
+  const url = href.startsWith("/") && !href.startsWith("//") ? href : "/notifications"
+  const eventId = text(payload.eventId)
+  // One notification per event and kind on the device: a newer one replaces the older.
+  return { title: title.slice(0, 120), body: body.slice(0, 240), url, tag: `${reminder.type}:${eventId || reminder.id}` }
+}

@@ -69,3 +69,35 @@ adapter already reads `RESEND_FROM`.
 - ⏳ Resend `ticketiv.app` verification is a dashboard/DNS action (code ready).
 - ⏳ Real test sends per provider need credentials (BSP account, Twilio/AT/
   Clickatell keys) — do this in staging before launch.
+
+## Web Push (Event Companion reminders and updates)
+
+Event reminders, official organiser updates, "How was it?" and new-event
+alerts from followed organisers go out as Web Push to devices that opted in
+(the **Get reminders on this device** card in the event guide, or the waitlist
+opt-in). Delivery runs hourly from `/api/cron/reminder-emails` (pg_cron
+`ticketiv-reminder-emails`), and immediately for updates posted with
+**Notify ticket holders**. Each notification is pushed at most once
+(`notifications` row, channel `push`, dedupe `push:<in-app key>`), and the
+**Push** switch in Me › Reminders turns it off.
+
+Push is off until two Vercel environment variables are set (Production and
+Preview):
+
+| Variable | Value |
+|---|---|
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | VAPID public key |
+| `VAPID_PRIVATE_KEY` | VAPID private key (sensitive) |
+
+Generate a pair once, locally, and keep the private key out of chat and Git:
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Redeploy after setting them: the public key is built into the web app.
+Rotating the keys invalidates existing subscriptions; people re-enable on
+their device.
+
+Native app push (Android/iOS) is not wired yet: it needs a Firebase project
+(`google-services.json`, FCM credentials) before the app can register devices.

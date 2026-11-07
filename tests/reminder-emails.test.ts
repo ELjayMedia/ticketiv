@@ -36,3 +36,13 @@ describe("reminder emails", () => {
     expect(emailDedupeKey(base.dedupe_key)).toBe("email:event_reminder:24h:e1:u1")
   })
 })
+
+describe("companion pushes", () => {
+  it("uses the notification's words, stays on our site and groups by event", async () => {
+    const { buildCompanionPush, pushDedupeKey } = await import("@/lib/notifications/reminder-email-template")
+    const push = buildCompanionPush({ ...base, type: "event_update", payload: { title: "Gates open earlier", body: "Doors 17:30.", href: "/tickets/event/e1", eventId: "e1" } })
+    expect(push).toEqual({ title: "Gates open earlier", body: "Doors 17:30.", url: "/tickets/event/e1", tag: "event_update:e1" })
+    expect(buildCompanionPush({ ...base, payload: { href: "https://evil.example" } }).url).toBe("/notifications")
+    expect(pushDedupeKey("k")).toBe("push:k")
+  })
+})

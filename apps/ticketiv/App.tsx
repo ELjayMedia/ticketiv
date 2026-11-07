@@ -504,7 +504,7 @@ function TicketScreen({
         </View>
       </View>
 
-      <TicketCompanion ticket={ticket} />
+      <TicketCompanion ticket={ticket} onOpenPath={(path) => void openWebPath(path)} />
     </ScrollView>
   );
 }

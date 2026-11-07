@@ -1,10 +1,12 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { after } from "next/server"
 
 import { requireEventManager } from "@/lib/organizer/access"
 import { eventTimeZone } from "@ticketiv/shared"
 
+import { sendPendingCompanionPushes } from "@/lib/notifications/companion-push"
 import { guideFromForm } from "@/lib/organizer/guide-form"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
@@ -73,6 +75,14 @@ export async function postUpdateAction(_prev: GuideActionState, form: FormData):
 
   revalidatePath(`/orgs/${orgId}/events/${eventId}/guide`)
   revalidatePath(`/tickets/event/${eventId}`)
+  // Urgent notices go to opted-in devices now, not at the next hourly run.
+  if (notify) {
+    after(() =>
+      sendPendingCompanionPushes({ sinceMs: 10 * 60 * 1000, types: ["event_update"] }).catch((err) =>
+        console.error("[guide] update push:", err),
+      ),
+    )
+  }
   return { ok: true, message: notify ? "Posted, and ticket holders were notified." : "Posted to the event guide." }
 }
 

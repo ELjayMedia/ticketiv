@@ -19,26 +19,33 @@ export interface PushPayload {
   icon?: string
 }
 
+/** True when the server can send Web Push (both VAPID keys are set). */
+export function isPushSendingConfigured(): boolean {
+  return Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY)
+}
+
 /**
  * Sends a Web Push notification to every stored subscription for a user.
  * Stale subscriptions (404/410) are removed automatically.
  * Silently no-ops when VAPID keys are not configured.
+ * Returns how many devices accepted it.
  */
-export async function sendPushToUser(userId: string, payload: PushPayload): Promise<void> {
-  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return
+export async function sendPushToUser(userId: string, payload: PushPayload): Promise<number> {
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return 0
 
   const admin = createAdminClient()
-  if (!admin) return
+  if (!admin) return 0
 
   const { data: subs, error } = await admin
     .from("push_subscriptions")
     .select("id, endpoint, p256dh, auth")
     .eq("user_id", userId)
 
-  if (error || !subs?.length) return
+  if (error || !subs?.length) return 0
 
   const message = JSON.stringify(payload)
   const staleIds: string[] = []
+  let delivered = 0
 
   await Promise.allSettled(
     subs.map(async (sub) => {
@@ -47,6 +54,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
           message,
         )
+        delivered += 1
       } catch (err: unknown) {
         const status = err && typeof err === "object" && "statusCode" in err
           ? (err as { statusCode: number }).statusCode
@@ -63,6 +71,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
   if (staleIds.length) {
     await admin.from("push_subscriptions").delete().in("id", staleIds)
   }
+  return delivered
 }
 
 /** Sends the waitlist offer push to a buyer. Fire-and-forget — never throws. */
