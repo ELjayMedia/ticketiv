@@ -188,3 +188,89 @@ begin
   );
 end;
 $do$;
+
+-- 3. "Show events I'm going to" becomes opt-in
+--    Friends only see that you're going once you switch it on (Friends ›
+--    Settings). New rows default to off, people with no settings row count
+--    as off, and existing "on" values are reset: they were the old default
+--    and can't be told apart from a real choice. fn_my_friends_going (which
+--    every friends-going surface uses) is otherwise the live definition,
+--    unchanged.
+
+alter table public.user_privacy_settings alter column show_events_going_to_friends set default false;
+update public.user_privacy_settings set show_events_going_to_friends = false where show_events_going_to_friends;
+
+CREATE OR REPLACE FUNCTION public.fn_my_friends_going(p_event_ids uuid[] DEFAULT NULL::uuid[], p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_limit integer DEFAULT 200)
+ RETURNS TABLE(event_id uuid, friend_id uuid, friend_name text, friend_handle text)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_me uuid := (select auth.uid());
+  v_limit integer := greatest(1, least(coalesce(p_limit, 200), 500));
+begin
+  perform app.require_claimed_account();
+
+  if p_event_ids is not null and cardinality(p_event_ids) > 50 then
+    raise exception 'select at most 50 events' using errcode='22023';
+  end if;
+
+  return query
+  with my_friends as (
+    select case
+      when uc.requester_id = v_me then uc.recipient_id
+      else uc.requester_id
+    end as friend_user_id
+    from public.user_connections uc
+    where uc.status = 'accepted'::public.connection_status
+      and (uc.requester_id = v_me or uc.recipient_id = v_me)
+  ),
+  ticket_attendance as (
+    select distinct
+      tt.event_id,
+      coalesce(oi.current_owner_id, oi.holder_user_id, o.buyer_id) as attendee_id
+    from public.orders o
+    join public.order_items oi on oi.order_id = o.id
+    join public.ticket_types tt on tt.id = oi.ticket_type_id
+    join public.events e on e.id = tt.event_id
+    where o.status = 'paid'::public.order_status
+      and oi.revoked_at is null
+      and oi.refunded_at is null
+      and oi.status in (
+        'issued'::public.order_item_status,
+        'transferred'::public.order_item_status,
+        'checked_in'::public.order_item_status
+      )
+      and coalesce(oi.current_owner_id, oi.holder_user_id, o.buyer_id) is not null
+      and (p_event_ids is null or tt.event_id = any(p_event_ids))
+      and (p_from is null or e.starts_at >= p_from)
+      and public.fn_event_is_public_now(tt.event_id)
+  )
+  select distinct
+    ta.event_id,
+    p.user_id as friend_id,
+    coalesce(
+      nullif(btrim(concat_ws(' ', p.name, p.surname)), ''),
+      nullif(btrim(p.display_name), ''),
+      uh.handle,
+      'Friend'
+    ) as friend_name,
+    uh.handle as friend_handle
+  from ticket_attendance ta
+  join my_friends mf on mf.friend_user_id = ta.attendee_id
+  join public.profiles p on p.user_id = ta.attendee_id
+  left join public.user_handles uh on uh.user_id = p.user_id
+  left join public.user_privacy_settings ps on ps.user_id = p.user_id
+  -- Opt-in: only people who switched "Show events I'm going to" on.
+  where coalesce(ps.show_events_going_to_friends, false)
+    and not exists (
+      select 1
+      from public.user_blocks b
+      where (b.blocker_id = v_me and b.blocked_id = p.user_id)
+         or (b.blocker_id = p.user_id and b.blocked_id = v_me)
+    )
+  order by friend_name, event_id
+  limit v_limit;
+end;
+$function$;

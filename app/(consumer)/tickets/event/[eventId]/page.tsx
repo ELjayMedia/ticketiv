@@ -102,7 +102,7 @@ export default async function EventCompanionPage({ params }: { params: Promise<{
         isNew: nowMs - new Date(u.createdAt).getTime() < 24 * 60 * 60 * 1000,
       }))}
       friendsGoing={data.friendsGoing}
-      visibleToFriends={privacy?.showEventsGoingToFriends ?? true}
+      visibleToFriends={privacy?.showEventsGoingToFriends ?? false}
     />
   );
 }

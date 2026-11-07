@@ -525,8 +525,8 @@ export function EventCompanion(props: EventCompanionProps) {
             variant="card"
             footnote={
               <Link href="/friends/settings" className="flex items-center justify-between gap-2 font-mono text-[10px] text-ink-3 hover:text-ink">
-                <span>{props.visibleToFriends ? "Your friends can see you’re going." : "You’re hidden from friends’ “going” lists."}</span>
-                <span className="text-accent">Change</span>
+                <span>{props.visibleToFriends ? "Your friends can see you’re going." : "Friends can’t see you’re going. Let them?"}</span>
+                <span className="text-accent">{props.visibleToFriends ? "Change" : "Turn on"}</span>
               </Link>
             }
           />

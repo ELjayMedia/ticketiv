@@ -150,3 +150,14 @@ describe("companion release 2 migration", () => {
     expect(sql.match(/on conflict do nothing/g)?.length).toBe(2)
   })
 })
+
+describe("friends going is opt-in", () => {
+  const sql = readFileSync(resolve(__dirname, "../supabase/migrations/20261110100000_companion_release_2.sql"), "utf8")
+
+  it("defaults sharing off and only shows friends who switched it on", () => {
+    expect(sql).toMatch(/alter column show_events_going_to_friends set default false;/)
+    expect(sql).toMatch(/update public\.user_privacy_settings set show_events_going_to_friends = false where show_events_going_to_friends;/)
+    expect(sql).toMatch(/where coalesce\(ps\.show_events_going_to_friends, false\)/)
+    expect(sql).not.toMatch(/coalesce\(ps\.show_events_going_to_friends, true\)/)
+  })
+})
