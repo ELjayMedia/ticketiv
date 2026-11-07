@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { eventTimeZone, parseCompanionPayload, type CompanionPayload } from "@ticketiv/shared"
 import { mapGuide } from "@/lib/data/companion"
+import { loadTicketMemory, resolveTicketHolder } from "@/lib/mobile/ticket-memory"
 import { MyTicketsViewSchema } from "@/lib/schemas/views"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ticketDisplayStatus } from "@/lib/ticket-status"
@@ -96,6 +97,19 @@ export async function GET(
     // app can show them offline. Updates are for ticket holders only, so a
     // transferred, refunded or revoked ticket gets none.
     const companion = status === "issued" || status === "checked_in" ? await loadCompanion(admin, row.event_id, row.event_ends_at ?? null) : null
+    // After the event, the memory travels with the ticket too (highlights,
+    // the holder's own rating, follow state, what's next).
+    if (companion) {
+      const end = Date.parse(row.event_ends_at ?? row.event_starts_at ?? "")
+      if (Number.isFinite(end) && Date.now() > end + 3 * 60 * 60 * 1000) {
+        try {
+          const { admin: memoryAdmin, holder } = await resolveTicketHolder(token)
+          companion.memory = await loadTicketMemory(memoryAdmin, holder)
+        } catch (error) {
+          console.error("[mobile-ticket-delivery] memory", error)
+        }
+      }
+    }
     return NextResponse.json(
       {
         expiresAt: verification.expiresAt.toISOString(),

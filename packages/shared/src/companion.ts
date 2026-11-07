@@ -186,6 +186,36 @@ export interface CompanionPayload {
     facilities: GuideFacility[]
   } | null
   updates: Array<{ id: string; title: string; body: string | null; createdAt: string }>
+  /** After the event: highlights, the holder's own rating, follow, suggestions. */
+  memory?: CompanionMemory | null
+}
+
+export interface CompanionMemory {
+  orgId: string | null
+  following: boolean
+  myRating: number | null
+  highlights: Array<{ id: string; imageUrl: string; caption: string | null }>
+  suggestions: Array<{ slug: string; title: string; whenLabel: string; reason: string }>
+}
+
+function parseMemory(raw: unknown): CompanionMemory | null {
+  if (!raw || typeof raw !== "object") return null
+  const r = raw as Record<string, unknown>
+  const rating = typeof r.myRating === "number" && r.myRating >= 1 && r.myRating <= 5 ? Math.round(r.myRating) : null
+  const list = (v: unknown) => (Array.isArray(v) ? v : []).map((x) => (x && typeof x === "object" ? (x as Record<string, unknown>) : {}))
+  return {
+    orgId: str(r.orgId, 64),
+    following: r.following === true,
+    myRating: rating,
+    highlights: list(r.highlights)
+      .map((h) => ({ id: str(h.id, 64) ?? "", imageUrl: str(h.imageUrl, 1000) ?? "", caption: str(h.caption, 140) }))
+      .filter((h) => h.id && /^https:\/\//.test(h.imageUrl))
+      .slice(0, 12),
+    suggestions: list(r.suggestions)
+      .map((x) => ({ slug: str(x.slug, 200) ?? "", title: str(x.title, 200) ?? "", whenLabel: str(x.whenLabel, 80) ?? "", reason: str(x.reason, 120) ?? "" }))
+      .filter((x) => x.slug && x.title)
+      .slice(0, 3),
+  }
 }
 
 const str = (value: unknown, max = 1000): string | null =>
@@ -221,5 +251,6 @@ export function parseCompanionPayload(raw: unknown): CompanionPayload | null {
       .map((u) => ({ id: str(u.id, 64) ?? "", title: str(u.title, 120) ?? "", body: str(u.body, 1000), createdAt: str(u.createdAt, 40) ?? "" }))
       .filter((u) => u.id && u.title && u.createdAt)
       .slice(0, 10),
+    memory: parseMemory(record.memory),
   }
 }

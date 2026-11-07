@@ -4,12 +4,13 @@ import { colors } from "@ticketiv/tokens";
 
 import { describeTicketivCompanion } from "./src/ticket-companion";
 import type { TicketivWalletTicket } from "./src/ticket-wallet";
+import { TicketMemory } from "./TicketMemory";
 
 /**
  * Event Companion on the native ticket: the organiser's guide and updates,
  * saved with the ticket so it works with no signal at the gate.
  */
-export function TicketCompanion({ ticket }: { ticket: TicketivWalletTicket }) {
+export function TicketCompanion({ ticket, onOpenPath = () => {} }: { ticket: TicketivWalletTicket; onOpenPath?: (path: string) => void }) {
   const view = describeTicketivCompanion(ticket);
   if (!view) return null;
   const inside = view.stage === "in";
@@ -22,6 +23,16 @@ export function TicketCompanion({ ticket }: { ticket: TicketivWalletTicket }) {
         </Text>
         <Text style={styles.companionHeadline}>{view.headline}</Text>
       </View>
+
+      {view.memory ? (
+        <TicketMemory
+          token={ticket.deliveryToken}
+          memory={view.memory}
+          orgName={view.orgName}
+          attended={Boolean(ticket.checkedInAt)}
+          onOpenPath={onOpenPath}
+        />
+      ) : null}
 
       {view.facts.length ? (
         <View style={styles.companionGrid}>

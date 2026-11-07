@@ -8,3 +8,4 @@ export * from "./navigation";
 export * from "./ticket-delivery";
 export * from "./ticket-wallet";
 export * from "./ticket-companion";
+export * from "./ticket-memory";
