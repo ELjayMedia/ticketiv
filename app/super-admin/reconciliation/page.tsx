@@ -187,7 +187,7 @@ function EventCard({ event, canLogReview }: { event: PostEventReconciliationRow;
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
-              href={`/super-admin/events/${event.eventId}`}
+              href={`/super-admin/event/${event.eventId}`}
               className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 px-3 py-2 text-[12px] font-semibold text-ink transition hover:bg-bg"
             >
               Event <Icon name="arrowR" size={12} />
@@ -292,7 +292,7 @@ function DiscrepancyCard({ issue, canAct }: { issue: FinanceReconciliationIssueR
             <p className="mt-1 break-all font-mono text-[10px] uppercase text-ink-3">{issue.detectorKey}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {issue.orderId && <EvidenceLink href={`/super-admin/orders/${issue.orderId}`} label="Order" value={issue.orderId} />}
+            {issue.orderId && <EvidenceLink href={`/super-admin/order/${issue.orderId}`} label="Order" value={issue.orderId} />}
             {issue.paymentId && <EvidenceLink href={`/super-admin/payments/${issue.paymentId}`} label="Payment" value={issue.paymentId} />}
             {issue.refundId && <EvidenceLink href={`/super-admin/refunds/${issue.refundId}`} label="Refund" value={issue.refundId} />}
           </div>

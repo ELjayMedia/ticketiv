@@ -44,17 +44,17 @@ function orgDefaults(event: ReadinessRow, extra: Record<string, string | null | 
 const CHECKS: CheckDefinition[] = [
   { key: "has_organization", label: "Organization assigned", actionLabel: "Open orgs", href: () => "/super-admin/organizations" },
   { key: "has_venue", label: "Venue assigned", actionLabel: "Open venues", href: (event) => adminResourceHref("venues", orgDefaults(event)) },
-  { key: "has_title", label: "Title added", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
-  { key: "has_slug", label: "Slug added", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
-  { key: "has_start_date", label: "Start date added", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
-  { key: "has_valid_date_range", label: "Date range valid", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
-  { key: "has_cover_image", label: "Cover image added", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
-  { key: "has_description", label: "Description added", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
+  { key: "has_title", label: "Title added", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}?raw=1` },
+  { key: "has_slug", label: "Slug added", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}?raw=1` },
+  { key: "has_start_date", label: "Start date added", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}?raw=1` },
+  { key: "has_valid_date_range", label: "Date range valid", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}?raw=1` },
+  { key: "has_cover_image", label: "Cover image added", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}?raw=1` },
+  { key: "has_description", label: "Description added", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}?raw=1` },
   { key: "has_on_sale_ticket_type", label: "On-sale ticket tier available", actionLabel: "Ticket tiers", href: (event) => adminResourceHref("ticket-types", { event_id: event.event_id, currency: "SZL" }) },
   { key: "has_online_sales_channel", label: "Online sales channel enabled", actionLabel: "Ticket tiers", href: (event) => adminResourceHref("ticket-types", { event_id: event.event_id, currency: "SZL" }) },
-  { key: "has_refund_or_support", label: "Refund or support policy set", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
+  { key: "has_refund_or_support", label: "Refund or support policy set", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}?raw=1` },
   { key: "has_active_staff", label: "Check-in staff assigned", actionLabel: "Event staff", href: (event) => adminResourceHref("event-staff", { event_id: event.event_id, role: "scanner", active: "true" }) },
-  { key: "has_live_stats_row", label: "Live stats initialized", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}` },
+  { key: "has_live_stats_row", label: "Live stats initialized", actionLabel: "Open event", href: (event) => `/super-admin/events/${event.event_id}?raw=1` },
   { key: "has_payout_account", label: "Payout account present", actionLabel: "Payout accounts", href: (event) => adminResourceHref("payout-accounts", orgDefaults(event)) },
 ]
 
@@ -72,7 +72,7 @@ function missingCount(rows: ReadinessRow[], key: string) {
 }
 
 function primaryMissingActions(event: ReadinessRow, missing: CheckDefinition[]) {
-  const eventHref = `/super-admin/events/${event.event_id}`
+  const eventHref = `/super-admin/events/${event.event_id}?raw=1`
   const seen = new Set<string>()
 
   return missing.filter((check) => {
@@ -83,6 +83,8 @@ function primaryMissingActions(event: ReadinessRow, missing: CheckDefinition[]) 
     return true
   }).slice(0, 2)
 }
+
+export const metadata = { title: "Event readiness · Admin" }
 
 export default async function SuperAdminReadinessPage() {
   await requireSuperAdmin()
@@ -191,7 +193,7 @@ export default async function SuperAdminReadinessPage() {
 
                 <div className="flex flex-wrap gap-2 pt-1">
                   <Link
-                    href={`/super-admin/events/${event.event_id}`}
+                    href={`/super-admin/events/${event.event_id}?raw=1`}
                     className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-ink bg-ink px-3 py-1.5 text-[13px] font-semibold text-surface transition-colors hover:bg-ink-2"
                   >
                     Open event

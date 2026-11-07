@@ -420,6 +420,7 @@ export interface Person360 {
   signInMethods: string[]
   adminRole: string | null
   memberships: Array<{ orgId: string; orgName: string; role: string }>
+  eventRoles: Array<{ eventId: string; eventTitle: string; startsAt: string | null; role: string; active: boolean }>
   orders: Array<{ id: string; ref: string; status: string; totalCents: number; currency: string; createdAt: string; guest: boolean }>
   deliveryProblems: Array<{ orderId: string | null; channel: string; error: string | null; createdAt: string }>
   notes: Array<AdminNote & { authorEmail: string | null }>
@@ -435,11 +436,12 @@ export async function getPerson360(userId: string): Promise<Person360 | null> {
   if (error || !user) return null
 
   const email = user.email ?? null
-  const [profileRes, privateRes, adminRes, membersRes, ordersRes, guestOrdersRes, deliveriesRes, auditRes, notes] = await Promise.all([
+  const [profileRes, privateRes, adminRes, membersRes, staffRes, ordersRes, guestOrdersRes, deliveriesRes, auditRes, notes] = await Promise.all([
     admin.from("profiles").select("display_name, name, surname").eq("user_id", userId).maybeSingle(),
     untyped(admin).from("user_private_profiles").select("name, surname, phone").eq("user_id", userId).maybeSingle(),
     admin.from("admin_users").select("role_tier, active").eq("user_id", userId).maybeSingle(),
     admin.from("org_members").select("org_id, role, organizations(name)").eq("user_id", userId),
+    admin.from("event_staff").select("event_id, role, active, events(title, starts_at)").eq("user_id", userId).limit(25),
     admin
       .from("orders")
       .select("id, status, total_cents, currency, created_at")
@@ -510,6 +512,9 @@ export async function getPerson360(userId: string): Promise<Person360 | null> {
     signInMethods: Array.from(new Set((user.identities ?? []).map((identity) => identity.provider))),
     adminRole: adminRes.data?.active ? adminRes.data.role_tier : null,
     memberships: ((membersRes.data ?? []) as any[]).map((m) => ({ orgId: m.org_id, orgName: m.organizations?.name ?? "Organization", role: m.role })),
+    eventRoles: ((staffRes.data ?? []) as any[])
+      .map((s) => ({ eventId: s.event_id as string, eventTitle: (s.events?.title as string | undefined) ?? "Event", startsAt: (s.events?.starts_at as string | null | undefined) ?? null, role: String(s.role), active: s.active !== false }))
+      .sort((a, b) => (b.startsAt ?? "").localeCompare(a.startsAt ?? "")),
     orders: [...(ordersRes.data ?? []).map(toOrder(false)), ...((guestOrdersRes.data ?? []) as any[]).map(toOrder(true))].filter(
       (order, index, all) => all.findIndex((other) => other.id === order.id) === index,
     ),

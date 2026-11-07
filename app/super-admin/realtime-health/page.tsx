@@ -39,6 +39,8 @@ function supabaseProjectRef(): string {
   return match?.[1] ?? "unknown"
 }
 
+export const metadata = { title: "Platform health · Admin" }
+
 export default async function SuperAdminRealtimeHealthPage() {
   await requireSuperAdmin()
   const admin = createAdminClient()

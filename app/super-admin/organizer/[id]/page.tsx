@@ -38,7 +38,7 @@ export default async function AdminOrganizerPage({ params }: { params: Promise<{
           <Link href={`/organisers/${org.id}`} className="text-accent hover:underline">
             Public page
           </Link>
-          <Link href={`/super-admin/organizations/${org.id}`} className="text-accent hover:underline">
+          <Link href={`/super-admin/organizations/${org.id}?raw=1`} className="text-accent hover:underline">
             Raw record
           </Link>
         </div>

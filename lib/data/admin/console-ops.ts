@@ -214,6 +214,7 @@ export interface Event360 {
   ticketTypes: Array<{ id: string; name: string; priceCents: number; currency: string; quota: number | null; sold: number; salesStatus: string; pauseReason: string | null }>
   devices: Array<{ id: string; label: string | null; lastSeenAt: string | null; offline: boolean }>
   staffCount: number
+  staff: Array<{ userId: string; email: string | null; role: string; active: boolean }>
   checkedIn: number
   issued: number
   paymentErrors: Array<{ ref: string; orderId: string | null; reason: string; createdAt: string }>
@@ -240,7 +241,7 @@ export async function getEvent360(eventId: string, now = new Date()): Promise<Ev
       .eq("event_id", eventId)
       .order("created_at"),
     admin.from("devices").select("id, label, last_seen_at").eq("event_id", eventId),
-    admin.from("event_staff").select("user_id", { count: "exact", head: true }).eq("event_id", eventId).eq("active", true),
+    admin.from("event_staff").select("user_id, role, active").eq("event_id", eventId).order("created_at").limit(50),
     db.from("payment_support_references").select("ref, order_id, reason, created_at").eq("event_id", eventId).order("created_at", { ascending: false }).limit(10),
     admin.from("refunds").select("id", { count: "exact", head: true }).eq("status", "requested").eq("provider_payload->>event_id", eventId),
     loadNotes(admin, "event", eventId),
@@ -256,7 +257,8 @@ export async function getEvent360(eventId: string, now = new Date()): Promise<Ev
       return { sold: sold.count ?? 0, checked: checked.count ?? 0 }
     }),
   )
-  const authorEmails = await emailsFor(admin, notes.map((n) => n.author_id))
+  const staffRows = staffRes.data ?? []
+  const authorEmails = await emailsFor(admin, [...staffRows.map((s) => s.user_id), ...notes.map((n) => n.author_id)])
   const org = (event as any).organizations
 
   return {
@@ -284,7 +286,8 @@ export async function getEvent360(eventId: string, now = new Date()): Promise<Ev
       lastSeenAt: device.last_seen_at,
       offline: scannerIsOffline(device.last_seen_at, now),
     })),
-    staffCount: staffRes.count ?? 0,
+    staffCount: staffRows.filter((s) => s.active !== false).length,
+    staff: staffRows.map((s) => ({ userId: s.user_id, email: authorEmails.get(s.user_id) ?? null, role: String(s.role), active: s.active !== false })),
     issued: counts.reduce((sum, c) => sum + c.sold, 0),
     checkedIn: counts.reduce((sum, c) => sum + c.checked, 0),
     paymentErrors: ((refsRes.data ?? []) as any[]).map((r) => ({ ref: r.ref, orderId: r.order_id, reason: r.reason, createdAt: r.created_at })),
