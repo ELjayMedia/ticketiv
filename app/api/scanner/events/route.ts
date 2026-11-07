@@ -10,9 +10,9 @@ export async function GET() {
   }
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  if (!session) {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
     return NextResponse.json({ error: "Scanner login required" }, { status: 401 })
   }
 

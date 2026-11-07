@@ -27,9 +27,9 @@ export default async function FeatureFlagsPage({ params }: { params: Promise<{ o
   if (!supabase) return redirect("/login")
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  if (!session) return redirect("/login")
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return redirect("/login")
 
   const { data: orgData } = await supabase
     .from("organizations")

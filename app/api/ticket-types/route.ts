@@ -14,10 +14,10 @@ export async function POST(request: NextRequest) {
     }
 
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+    } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     const { data: orgMember } = await supabase
       .from("org_members")
       .select("org_id")
-      .eq("user_id", session.user.id)
+      .eq("user_id", user.id)
       .eq("org_id", event.org_id)
       .single()
 

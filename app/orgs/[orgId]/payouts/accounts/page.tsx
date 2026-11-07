@@ -29,16 +29,16 @@ export default async function PayoutAccountsPage({
   if (!supabase) return redirect("/login")
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  if (!session) return redirect("/login")
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return redirect("/login")
 
   const adminRoles = new Set(["admin", "organizer", "organizer_owner", "organizer_admin"])
   const { data: member } = await supabase
     .from("org_members")
     .select("role")
     .eq("org_id", orgId)
-    .eq("user_id", session.user.id)
+    .eq("user_id", user.id)
     .maybeSingle()
   if (!member) return redirect("/403")
   const canManage = adminRoles.has(String(member.role))

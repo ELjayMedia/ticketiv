@@ -15,14 +15,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (!session) {
+  if (!user) {
     return redirect("/login")
   }
 
-  const userId = session.user.id
+  const userId = user.id
 
   // Check if user exists in admin_users table
   const { data: adminUser, error: queryError } = await supabase

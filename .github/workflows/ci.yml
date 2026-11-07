@@ -34,6 +34,21 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # TICK-466: check:crossorg needs an isolated database with Ticketiv's
+      # schema. A throwaway local Supabase Postgres, built from
+      # supabase/migrations, lives only for this job. It is never the shared
+      # project; the harness also rolls back everything it seeds.
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 3.0.0
+
+      - name: Start isolated verification database
+        run: |
+          supabase db start
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -X -tAc \
+            "select count(*) from information_schema.tables where table_schema = 'public'"
+
       # check:release includes check:permissions. The invariants over the
       # committed matrix always run; the live drift diff additionally runs when
       # these secrets are configured, which is what catches a grant applied
@@ -43,7 +58,12 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=4096
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TICKETIV_CROSS_ORG_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: pnpm check:release
+
+      - name: Stop isolated verification database
+        if: always()
+        run: supabase stop --no-backup || true
 
   change-scope:
     name: CI change scope

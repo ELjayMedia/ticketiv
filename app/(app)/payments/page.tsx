@@ -15,10 +15,10 @@ export default async function PaymentsPage() {
   }
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (!session) {
+  if (!user) {
     redirect("/login")
   }
 
@@ -32,7 +32,7 @@ export default async function PaymentsPage() {
       created_at,
       orders!inner(id, buyer_id)
     `)
-    .eq("orders.buyer_id", session!.user.id)
+    .eq("orders.buyer_id", user.id)
     .order("created_at", { ascending: false })
 
   const payments = (paymentsData ?? []).map((payment: any) => ({

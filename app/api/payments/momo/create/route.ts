@@ -16,14 +16,14 @@ export async function POST(request: Request) {
     }
 
     const {
-      data: { session },
+      data: { user },
       error: sessionError,
-    } = await supabase.auth.getSession()
+    } = await supabase.auth.getUser()
 
     if (sessionError) {
       return NextResponse.json({ error: "Failed to verify session" }, { status: 500 })
     }
-    if (!session) {
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 })
     }
-    if (order.buyer_id !== session.user.id) {
+    if (order.buyer_id !== user.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
     if (order.status !== "pending") {

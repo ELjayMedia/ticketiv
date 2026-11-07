@@ -24,14 +24,14 @@ export default async function OrgPickerPage() {
   if (!supabase) redirect("/login")
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  if (!session) redirect("/login")
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect("/login")
 
   const { data: memberships } = await supabase
     .from("org_members")
     .select("role, organizations(id, name, slug, logo)")
-    .eq("user_id", session.user.id)
+    .eq("user_id", user.id)
 
   const orgs = (memberships ?? [])
     .map((m: any) => ({ role: m.role as string, org: m.organizations }))
@@ -44,7 +44,7 @@ export default async function OrgPickerPage() {
     const { data: assignment } = await createAdminClient()
       .from("event_staff")
       .select("events!inner(org_id)")
-      .eq("user_id", session.user.id)
+      .eq("user_id", user.id)
       .eq("active", true)
       .limit(1)
       .maybeSingle()

@@ -14,10 +14,10 @@ async function getAuthenticatedUserId() {
   if (!supabase) return null
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  return session?.user?.id ?? null
+  return user?.id ?? null
 }
 
 async function canManageEvent(admin: ReturnType<typeof createAdminClient>, eventId: string, userId: string) {

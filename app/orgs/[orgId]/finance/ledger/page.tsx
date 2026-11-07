@@ -19,8 +19,8 @@ export default async function LedgerPage({ params }: { params: Promise<{ orgId: 
   const supabase = createServerSupabaseClient()
   if (!supabase) return redirect("/login")
 
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return redirect("/login")
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return redirect("/login")
 
   const { data: org } = await supabase
     .from("organizations")

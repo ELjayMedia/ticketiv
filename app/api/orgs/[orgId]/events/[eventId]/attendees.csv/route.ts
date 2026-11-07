@@ -19,16 +19,16 @@ export async function GET(
   if (!supabase) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   // Verify org membership
   const { data: member } = await supabase
     .from("org_members")
     .select("role")
     .eq("org_id", orgId)
-    .eq("user_id", session.user.id)
+    .eq("user_id", user.id)
     .maybeSingle()
   if (!member) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 

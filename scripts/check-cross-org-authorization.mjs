@@ -9,69 +9,58 @@
 // Usage:
 //   node scripts/check-cross-org-authorization.mjs
 //
-// Requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY. The env name
-// is retained for compatibility, but the value may be either the legacy JWT
-// service_role key or a modern sb_secret_... backend key. Without them the
-// check SKIPS rather than fails, matching check-rpc-permissions.mjs: CI does not
-// always hold database credentials, and a check that cannot run must not be
-// mistaken for a check that passed.
+// Requires TICKETIV_CROSS_ORG_TEST_DB_URL: a privileged Postgres connection
+// string for an isolated verification database with Ticketiv's schema. The
+// production PostgREST API intentionally exposes no exec_sql RPC, so a
+// service-role API key cannot execute this harness. Do not point this at the
+// live database, even though the harness rolls back its test data.
+// CI must provision a non-production verification environment.
 //
 // Exit codes:
-//   0  every case refused (or skipped for missing credentials)
-//   1  a cross-tenant action succeeded, a positive control failed, or a
-//      refusal did not reach a recognizable authorization decision
+//   0  every case refused
+//   1  cross-tenant authorization assertion failed
+//   2  harness could not run (credentials or SQL execution capability missing)
 
-import { readFileSync } from "node:fs"
+import { spawnSync } from "node:child_process"
+import { existsSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const here = dirname(fileURLToPath(import.meta.url))
 const SQL_PATH = resolve(here, "../supabase/tests/cross_org_authorization.sql")
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const testDatabaseUrl = process.env.TICKETIV_CROSS_ORG_TEST_DB_URL
 
-if (!url || !serviceKey) {
-  console.log(
-    "Cross-org authorization check skipped: NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are not set.",
+if (!testDatabaseUrl || !existsSync(SQL_PATH)) {
+  console.error(
+    "Cross-org authorization check BLOCKED: TICKETIV_CROSS_ORG_TEST_DB_URL or SQL harness is missing. Provide an isolated test database.",
   )
-  process.exit(0)
+  process.exit(2)
 }
 
-const sql = readFileSync(SQL_PATH, "utf8")
-
-// Modern sb_secret_ keys are opaque API keys, not JWTs, so they belong in the
-// apikey header only. The legacy service_role key is a JWT and still needs the
-// Bearer header for this direct REST call. Normal application admin clients use
-// supabase-js, which handles both key types through the API gateway.
-const headers = {
-  apikey: serviceKey,
-  "Content-Type": "application/json",
+// The harness deliberately raises an exception containing its results so the
+// transaction is rolled back. ON_ERROR_STOP makes psql nonzero as expected;
+// parse the report, not the process exit code, to determine authorization.
+// libpq does not expand a connection URI held in PGDATABASE, so split it into
+// the standard PG* variables; that also keeps the password out of argv.
+let connectionEnv
+try {
+  connectionEnv = libpqEnvFromUrl(testDatabaseUrl)
+} catch (error) {
+  console.error("Cross-org authorization check BLOCKED: TICKETIV_CROSS_ORG_TEST_DB_URL is not a valid postgres URL:", error.message)
+  process.exit(2)
 }
-if (!serviceKey.startsWith("sb_secret_")) {
-  headers.Authorization = `Bearer ${serviceKey}`
-}
-
-// The harness signals completion by raising, so a "successful" run arrives as
-// a Postgres error whose message carries the report. That is deliberate: it is
-// what guarantees the transaction rolls back and leaves nothing behind.
-const response = await fetch(`${url}/rest/v1/rpc/exec_sql`, {
-  method: "POST",
-  headers,
-  body: JSON.stringify({ query: sql }),
+const execution = spawnSync("psql", ["-X", "-v", "ON_ERROR_STOP=1", "-f", SQL_PATH], {
+  encoding: "utf8",
+  env: { ...process.env, ...connectionEnv },
+  timeout: 120_000,
+  maxBuffer: 10 * 1024 * 1024,
 })
-
-const raw = await response.text()
-
-// exec_sql RPC doesn't exist in this project (deliberately excluded from
-// migrations — too broad an attack surface). Skip rather than fail.
-if (raw.includes("PGRST202") && raw.includes("exec_sql")) {
-  console.log(
-    "Cross-org authorization check skipped: exec_sql RPC is not exposed in this project. " +
-      "Run supabase/tests/cross_org_authorization.sql through the SQL editor or psql instead.",
-  )
-  process.exit(0)
+if (execution.error || execution.signal) {
+  console.error("Cross-org authorization check BLOCKED: psql could not complete:", execution.error?.message ?? execution.signal)
+  process.exit(2)
 }
+const raw = `${execution.stdout ?? ""}\n${execution.stderr ?? ""}`
 
 const report = extractReport(raw)
 
@@ -79,10 +68,9 @@ if (!report) {
   console.error("Could not read a report from the harness. Raw response:")
   console.error(raw.slice(0, 4000))
   console.error(
-    "\nIf this says exec_sql does not exist, the project has no SQL-execution RPC exposed; " +
-      "run supabase/tests/cross_org_authorization.sql through the SQL editor or psql instead.",
+    "\nThe harness did not complete its transaction: check the isolated database schema and psql permissions.",
   )
-  process.exit(1)
+  process.exit(2)
 }
 
 console.log(report)
@@ -116,4 +104,21 @@ function extractReport(body) {
     // Not JSON; fall through to the raw scan below.
   }
   return body.includes(marker) ? body : null
+}
+
+function libpqEnvFromUrl(value) {
+  const url = new URL(value)
+  if (url.protocol !== "postgres:" && url.protocol !== "postgresql:") {
+    throw new Error(`unsupported protocol ${url.protocol}`)
+  }
+  const env = {}
+  if (url.hostname) env.PGHOST = decodeURIComponent(url.hostname)
+  if (url.port) env.PGPORT = url.port
+  if (url.username) env.PGUSER = decodeURIComponent(url.username)
+  if (url.password) env.PGPASSWORD = decodeURIComponent(url.password)
+  const database = decodeURIComponent(url.pathname.replace(/^\//, ""))
+  if (database) env.PGDATABASE = database
+  const sslmode = url.searchParams.get("sslmode")
+  if (sslmode) env.PGSSLMODE = sslmode
+  return env
 }

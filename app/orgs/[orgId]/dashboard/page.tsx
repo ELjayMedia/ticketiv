@@ -26,10 +26,10 @@ export default async function OrgDashboardPage({ params }: { params: Promise<{ o
   if (!supabase) return redirect(`/login?next=${encodeURIComponent(returnPath)}`)
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (!session) return redirect(`/login?next=${encodeURIComponent(returnPath)}`)
+  if (!user) return redirect(`/login?next=${encodeURIComponent(returnPath)}`)
 
   const caps = await getMyOrgCapabilities(orgId)
   if (!caps.role) return redirect("/403")
