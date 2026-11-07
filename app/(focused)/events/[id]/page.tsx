@@ -5,6 +5,7 @@ import { HoldExpiredBanner } from "@/components/quiet/screens/event-detail/hold-
 import { RecordRecentlyViewed } from "@/components/quiet/screens/event-detail/record-recently-viewed";
 import { EventViewTracker } from "@/components/analytics/buyer-funnel";
 import { getPublicEventBySlug } from "@/lib/adapters/events";
+import { getPublicEventGuide, guidePlanFacts } from "@/lib/data/companion";
 import { mapEventDetail, mapDesktopEventDetail } from "@/lib/mappers/event-detail";
 import type { EventLineupRow, EventFriendRow } from "@/lib/mappers/event-detail";
 import { createPublicSupabaseClient } from "@/lib/supabase-public";
@@ -131,6 +132,8 @@ export default async function EventDetailPage({
     organizerEventsHosted,
     liveStats,
   } = await fetchEventExtras(row.id, row.organizer_id ?? null);
+  // Organiser's attendee guide: doors, ages, parking, payment lead the facts.
+  const planFacts = guidePlanFacts(await getPublicEventGuide(row.id));
 
   const trust = {
     soldCount,
@@ -148,6 +151,10 @@ export default async function EventDetailPage({
     refundPolicy,
     ...trust,
   });
+  if (planFacts.length) {
+    mobile.facts = [...planFacts, ...mobile.facts];
+    desktop.facts = [...planFacts, ...desktop.facts];
+  }
 
   const startsAt = row.starts_at ? new Date(row.starts_at) : null;
   const recentSnapshot = {

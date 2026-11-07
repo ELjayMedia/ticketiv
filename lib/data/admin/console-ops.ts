@@ -1,6 +1,7 @@
 import "server-only"
 
 import { createAdminClient } from "@/lib/supabase/admin"
+import { guideCompleteness, mapGuide } from "@/lib/data/companion"
 import { emailsFor, humanFailureReason, loadNotes, personName, untyped, type AdminNote } from "@/lib/data/admin/console"
 import {
   formatMoney,
@@ -220,6 +221,8 @@ export interface Event360 {
   paymentErrors: Array<{ ref: string; orderId: string | null; reason: string; createdAt: string }>
   pendingRefunds: number
   notes: Array<AdminNote & { authorEmail: string | null }>
+  guide: { filled: number; total: number; missing: string[]; updatedAt: string | null }
+  updates: Array<{ id: string; title: string; body: string | null; notified: boolean; createdAt: string; hiddenAt: string | null; hiddenReason: string | null }>
 }
 
 export async function getEvent360(eventId: string, now = new Date()): Promise<Event360 | null> {
@@ -234,7 +237,7 @@ export async function getEvent360(eventId: string, now = new Date()): Promise<Ev
     .maybeSingle()
   if (!event) return null
 
-  const [typesRes, devicesRes, staffRes, refsRes, refundsRes, notes] = await Promise.all([
+  const [typesRes, devicesRes, staffRes, refsRes, refundsRes, notes, guideRes, updatesRes] = await Promise.all([
     admin
       .from("ticket_types")
       .select("id, name, price_cents, currency, quota, sales_status, sales_pause_reason")
@@ -245,6 +248,8 @@ export async function getEvent360(eventId: string, now = new Date()): Promise<Ev
     db.from("payment_support_references").select("ref, order_id, reason, created_at").eq("event_id", eventId).order("created_at", { ascending: false }).limit(10),
     admin.from("refunds").select("id", { count: "exact", head: true }).eq("status", "requested").eq("provider_payload->>event_id", eventId),
     loadNotes(admin, "event", eventId),
+    db.from("event_guides").select("*").eq("event_id", eventId).maybeSingle(),
+    db.from("event_updates").select("id, title, body, notified, created_at, hidden_at, hidden_reason").eq("event_id", eventId).order("created_at", { ascending: false }).limit(20),
   ])
 
   const types = typesRes.data ?? []
@@ -293,6 +298,16 @@ export async function getEvent360(eventId: string, now = new Date()): Promise<Ev
     paymentErrors: ((refsRes.data ?? []) as any[]).map((r) => ({ ref: r.ref, orderId: r.order_id, reason: r.reason, createdAt: r.created_at })),
     pendingRefunds: refundsRes.count ?? 0,
     notes: notes.map((n) => ({ ...n, authorEmail: n.author_id ? authorEmails.get(n.author_id) ?? null : null })),
+    guide: { ...guideCompleteness(mapGuide(guideRes.data)), updatedAt: guideRes.data?.updated_at ?? null },
+    updates: ((updatesRes.data ?? []) as any[]).map((u) => ({
+      id: u.id,
+      title: u.title,
+      body: u.body ?? null,
+      notified: Boolean(u.notified),
+      createdAt: u.created_at,
+      hiddenAt: u.hidden_at ?? null,
+      hiddenReason: u.hidden_reason ?? null,
+    })),
   }
 }
 

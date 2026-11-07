@@ -41,6 +41,7 @@ export type ConsoleAction =
   | "manage_replies"
   | "restore_setting"
   | "manage_integrations"
+  | "hide_event_update"
 
 export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   resend_tickets: ["super_admin", "support_admin", "event_ops_admin"],
@@ -61,6 +62,8 @@ export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   manage_replies: ["super_admin", "support_admin"],
   restore_setting: ["super_admin"],
   manage_integrations: ["super_admin"],
+  // Event Companion: take down an organiser's update (wrong, harmful, spam).
+  hide_event_update: ["super_admin", "support_admin", "event_ops_admin"],
 }
 
 /** Actions that change something and so must carry a reason in the audit log. */
@@ -74,6 +77,7 @@ export const REASON_REQUIRED: ReadonlySet<ConsoleAction> = new Set([
   "approve_refund",
   "pause_sales",
   "restore_setting",
+  "hide_event_update",
 ])
 
 export const MIN_REASON_LENGTH = 10

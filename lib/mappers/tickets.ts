@@ -22,6 +22,8 @@ export { ticketDisplayStatus, type TicketDisplayStatus } from "@/lib/ticket-stat
 
 export interface FeaturedTicketProp {
   ticketId: string;
+  /** Event the ticket is for — opens the Event Companion. */
+  eventId: string;
   orderId: string;
   orderStatus: string;
   orderNumber: string;
@@ -42,6 +44,7 @@ export interface FeaturedTicketProp {
 
 export interface TicketListItemProp {
   ticketId: string;
+  eventId: string;
   orderId: string;
   orderStatus: string;
   title: string;
@@ -95,6 +98,7 @@ function toListItem(row: MyTicketsView): TicketListItemProp {
   const status = ticketDisplayStatus(row);
   return {
     ticketId: row.order_item_id,
+    eventId: row.event_id,
     orderId: row.order_id,
     orderStatus: row.order_status,
     title: row.event_title,
@@ -116,6 +120,7 @@ function toFeatured(row: MyTicketsView): FeaturedTicketProp {
   const urgency = urgencyFor(daysUntil, msUntil);
   return {
     ticketId: row.order_item_id,
+    eventId: row.event_id,
     orderId: row.order_id,
     orderStatus: row.order_status,
     orderNumber: shortOrderNumber(row.order_id),

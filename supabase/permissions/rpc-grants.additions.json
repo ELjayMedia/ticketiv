@@ -147,6 +147,67 @@
         "postgres",
         "service_role"
       ]
+    },
+    {
+      "schema": "app",
+      "name": "event_org_id",
+      "arguments": "p_event uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "anon",
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "holds_ticket_for_event",
+      "arguments": "p_event uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_save_event_guide",
+      "arguments": "p_event_id uuid, p_guide jsonb",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_post_event_update",
+      "arguments": "p_event_id uuid, p_title text, p_body text, p_notify boolean",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_hide_event_update",
+      "arguments": "p_update_id uuid, p_reason text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
     }
   ]
 }
