@@ -41,10 +41,18 @@ if (!testDatabaseUrl || !existsSync(SQL_PATH)) {
 // The harness deliberately raises an exception containing its results so the
 // transaction is rolled back. ON_ERROR_STOP makes psql nonzero as expected;
 // parse the report, not the process exit code, to determine authorization.
-// A libpq connection string in PGDATABASE stays out of process arguments.
+// libpq does not expand a connection URI held in PGDATABASE, so split it into
+// the standard PG* variables; that also keeps the password out of argv.
+let connectionEnv
+try {
+  connectionEnv = libpqEnvFromUrl(testDatabaseUrl)
+} catch (error) {
+  console.error("Cross-org authorization check BLOCKED: TICKETIV_CROSS_ORG_TEST_DB_URL is not a valid postgres URL:", error.message)
+  process.exit(2)
+}
 const execution = spawnSync("psql", ["-X", "-v", "ON_ERROR_STOP=1", "-f", SQL_PATH], {
   encoding: "utf8",
-  env: { ...process.env, PGDATABASE: testDatabaseUrl },
+  env: { ...process.env, ...connectionEnv },
   timeout: 120_000,
   maxBuffer: 10 * 1024 * 1024,
 })
@@ -96,4 +104,21 @@ function extractReport(body) {
     // Not JSON; fall through to the raw scan below.
   }
   return body.includes(marker) ? body : null
+}
+
+function libpqEnvFromUrl(value) {
+  const url = new URL(value)
+  if (url.protocol !== "postgres:" && url.protocol !== "postgresql:") {
+    throw new Error(`unsupported protocol ${url.protocol}`)
+  }
+  const env = {}
+  if (url.hostname) env.PGHOST = decodeURIComponent(url.hostname)
+  if (url.port) env.PGPORT = url.port
+  if (url.username) env.PGUSER = decodeURIComponent(url.username)
+  if (url.password) env.PGPASSWORD = decodeURIComponent(url.password)
+  const database = decodeURIComponent(url.pathname.replace(/^\//, ""))
+  if (database) env.PGDATABASE = database
+  const sslmode = url.searchParams.get("sslmode")
+  if (sslmode) env.PGSSLMODE = sslmode
+  return env
 }

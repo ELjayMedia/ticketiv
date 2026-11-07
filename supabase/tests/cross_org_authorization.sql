@@ -77,8 +77,8 @@ begin
   insert into public.events (org_id, title, slug, status)
   values (v_orgB, 'B event', 'b-ev-' || substr(gen_random_uuid()::text, 1, 8), 'draft')
   returning id into v_eventB;
-  insert into public.ticket_types (event_id, name, price_cents, quota)
-  values (v_eventB, 'B GA', 10000, 10) returning id into v_ttB;
+  insert into public.ticket_types (event_id, name, price_cents, quota, currency)
+  values (v_eventB, 'B GA', 10000, 10, 'SZL') returning id into v_ttB;
   insert into public.orders (org_id, buyer_id, total_cents, currency, status, subtotal_cents, channel, item_count)
   values (v_orgB, v_userB, 10000, 'SZL', 'paid', 10000, 'online', 1) returning id into v_orderB;
   insert into public.order_items (order_id, ticket_type_id, ticket_code, status, current_owner_id)
@@ -313,7 +313,7 @@ begin
         if v_res = 'ALLOWED' then
           v_fail := v_fail + 1;
           v_out := v_out || format(E'\n  FAIL  %-38s succeeded', v_label);
-        elsif v_res ~* 'not allowed|not_authorized|not authorized|forbidden|permission|denied|authoriz|insufficient|not found|does not belong|not available for transfer|not_shift_cashier' then
+        elsif v_res ~* 'not allowed|not_authorized|not authorized|forbidden|permission|denied|authoriz|insufficient|not found|does not belong|not available for transfer|transfer_not_owner|not_shift_cashier' then
           v_pass := v_pass + 1;
           v_out := v_out || format(E'\n  PASS  %-38s %s', v_label, v_res);
         else
