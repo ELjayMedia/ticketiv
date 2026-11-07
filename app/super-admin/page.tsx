@@ -12,6 +12,9 @@ import {
   percentage,
 } from "@/lib/super-admin/command-centre"
 import { requireAdminRole } from "@/lib/super-admin/auth"
+import { WorkQueues } from "@/components/super-admin/WorkQueues"
+import { getWorkQueues } from "@/lib/data/admin/console-ops"
+import { QUEUES, canDo, type QueueKey } from "@/lib/super-admin/console"
 import { ADMIN_ROLE_TIERS } from "@/lib/super-admin/permissions"
 
 // TICK-50 — Command centre overview with role-tier awareness
@@ -30,10 +33,13 @@ const WORKSPACES: Array<{ title: string; description: string; href: string; icon
 
 export const metadata = { title: "Super Admin Command Centre" }
 
-export default async function SuperAdminPage() {
-  const { roleTier } = await requireAdminRole(ADMIN_ROLE_TIERS)
+export default async function SuperAdminPage({ searchParams }: { searchParams: Promise<{ queue?: string }> }) {
+  const { user, roleTier } = await requireAdminRole(ADMIN_ROLE_TIERS)
   const canAct = roleTier !== "read_only_admin"
-  const { metrics, attention, operations, categories } = await getCommandCentreData()
+  const { queue } = await searchParams
+  const activeQueue: QueueKey | "all" | "mine" =
+    queue === "mine" || QUEUES.some((q) => q.key === queue) ? (queue as QueueKey | "mine") : "all"
+  const [{ metrics, attention, operations, categories }, queues] = await Promise.all([getCommandCentreData(), getWorkQueues(user.id)])
 
   const checkInRate = percentage(metrics.tickets_checked_in, metrics.tickets_issued)
   const eventPublishRate = percentage(metrics.published_events, metrics.total_events)
@@ -64,6 +70,8 @@ export default async function SuperAdminPage() {
           <Link href="/super-admin/payments" className={navButtonClass}>Payment failures</Link>
         </div>
       </section>
+
+      <WorkQueues data={queues} active={activeQueue} canTake={canDo("take_queue_item", roleTier)} />
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard title="Gross sales" value={formatMoneyFromCents(metrics.gross_revenue_cents)} detail={`${formatNumber(metrics.paid_orders)} paid orders`} icon="wallet" href="/super-admin/orders" />

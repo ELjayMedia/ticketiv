@@ -79,6 +79,7 @@ let buyerId: string | null = null
 let createdOrgId: string | null = null
 let createdEventId: string | null = null
 let createdWrongEventId: string | null = null
+let createdVenueId: string | null = null
 
 /** Fail loudly rather than silently continuing on a half-made fixture. */
 async function must<T>(label: string, p: PromiseLike<{ data: T | null; error: { message: string } | null }>) {
@@ -111,15 +112,29 @@ describe.skipIf(!configured)("money path lifecycle (database-asserted)", () => {
         .single(),
     )
     createdOrgId = org.id
+    // fn_create_inventory_protected_order only sells tickets for published
+    // events, and a published event must have a venue. Keep it private so the
+    // synthetic event never appears in public discovery while the test runs.
+    const venue = await must<{ id: string }>(
+      "create venue",
+      admin
+        .from("venues")
+        .insert({ org_id: org.id, name: `${TAG} venue`, slug: TAG } as never)
+        .select("id")
+        .single(),
+    )
+    createdVenueId = venue.id
     const event = await must<{ id: string }>(
       "create event",
       admin
         .from("events")
         .insert({
           org_id: org.id,
+          venue_id: venue.id,
+          visibility: "private",
           title: `${TAG} event`,
           slug: TAG,
-          status: "draft",
+          status: "published",
           starts_at: new Date(Date.now() + 86_400_000).toISOString(),
           ends_at: new Date(Date.now() + 90_000_000).toISOString(),
         } as never)
@@ -149,6 +164,19 @@ describe.skipIf(!configured)("money path lifecycle (database-asserted)", () => {
         .from("ticket_types")
         .insert({ event_id: event.id, name: `${TAG} GA`, price_cents: 10_000, currency: PAYSTACK_CURRENCY, quota: 10 } as never)
         .select("id")
+        .single(),
+    )
+
+    // fn_scan_ticket_unchecked only accepts scans from an authorized person
+    // (admin, org member with a scanning role, event staff or a paired
+    // device). Make the synthetic buyer a scanner for the run-owned org so both
+    // run-owned events can be scanned. The row goes with the org (ON DELETE CASCADE).
+    await must(
+      "make synthetic buyer a scanner",
+      admin
+        .from("org_members")
+        .insert({ org_id: org.id, user_id: buyerId, role: "scanner" } as never)
+        .select("org_id")
         .single(),
     )
 
@@ -183,6 +211,7 @@ describe.skipIf(!configured)("money path lifecycle (database-asserted)", () => {
         await admin.from("ticket_types").delete().in("event_id", eventIds)
         await admin.from("events").delete().in("id", eventIds)
       }
+      if (createdVenueId) await admin.from("venues").delete().eq("id", createdVenueId)
       await admin.from("organizations").delete().eq("id", createdOrgId)
     }
 
@@ -300,7 +329,7 @@ describe.skipIf(!configured)("money path lifecycle (database-asserted)", () => {
       (client.rpc as any)("fn_scan_ticket_unchecked", {
         p_ticket_code: code,
         p_event_id: eventId,
-        p_scanned_by: null,
+        p_scanned_by: fx!.buyerId,
         p_device_id: null,
         p_session_id: null,
         p_gate: "e2e",
@@ -315,14 +344,16 @@ describe.skipIf(!configured)("money path lifecycle (database-asserted)", () => {
     expect(wrong.error, wrong.error?.message).toBeNull()
     expect(wrong.data?.outcome).toBe("wrong_event")
 
+    // A good scan answers { outcome: "validated", valid: true }.
     const first = await scan()
     expect(first.error, first.error?.message).toBeNull()
-    expect(first.data?.outcome).toBe("valid")
+    expect(first.data?.valid, JSON.stringify(first.data)).toBe(true)
 
     // Same ticket again: admitted once, never twice.
     const second = await scan()
     expect(second.error, second.error?.message).toBeNull()
-    expect(second.data?.outcome).not.toBe("valid")
+    expect(second.data?.valid).toBe(false)
+    expect(second.data?.outcome).toBe("duplicate")
 
   })
 })
