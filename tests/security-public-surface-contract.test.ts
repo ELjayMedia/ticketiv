@@ -21,6 +21,6 @@ describe("TICK-467 public security boundaries", () => {
     expect(migration).toContain("from public, anon, authenticated")
     expect(migration).toContain("public.get_social_public_profile(p_handle)")
     expect(migration).toContain("perform app.require_claimed_account();")
-    expect(migration).toContain("file_size_limit = 5242880")
+    expect(migration).toContain("true, 5242880, array['image/jpeg'")
   })
 })
