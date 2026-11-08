@@ -8,7 +8,7 @@ import { z } from "zod"
 
 // v_public_event_cards / v_events_public: List of public events with aggregated pricing/venue/live stats info
 export const EventsPublicViewSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   title: z.string(),
   slug: z.string(),
   category: z.string().nullable(),
@@ -17,14 +17,14 @@ export const EventsPublicViewSchema = z.object({
   poster_url: z.string().url().nullable(),
   starts_at: z.string().datetime({ offset: true }),
   event_ends_at: z.string().datetime({ offset: true }).nullable().optional(),
-  venue_id: z.string().uuid().nullable(),
+  venue_id: z.guid().nullable(),
   venue_name: z.string().nullable(),
   venue_address: z.string().nullable(),
   venue_tz: z.string().nullable(),
   min_price_cents: z.number().int().nonnegative().nullable(),
   max_price_cents: z.number().int().nonnegative().nullable(),
   currency: z.string().nullable(),
-  organizer_id: z.string().uuid().nullable(),
+  organizer_id: z.guid().nullable(),
   organizer_name: z.string().nullable(),
   organizer_logo_url: z.string().url().nullable(),
   featured_priority: z.number().int().nullable().optional(),
@@ -47,13 +47,13 @@ export type EventPublicView = z.infer<typeof EventPublicViewSchema>
 
 // v_organizer_public: Organizer profile
 export const OrganizerPublicViewSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   name: z.string(),
   slug: z.string(),
   bio: z.string().nullable(),
   logo_url: z.string().url().nullable(),
   website: z.string().url().nullable(),
-  social_links: z.record(z.string()).nullable(),
+  social_links: z.record(z.string(), z.string()).nullable(),
   event_count: z.number().int().nonnegative().nullable(),
 })
 
@@ -66,13 +66,13 @@ export type OrganizerEventsPublicView = z.infer<typeof OrganizerEventsPublicView
 
 // v_artist_public: Artist profile
 export const ArtistPublicViewSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   name: z.string(),
   slug: z.string(),
   bio: z.string().nullable(),
   photo_url: z.string().url().nullable(),
   genre: z.string().nullable(),
-  social_links: z.record(z.string()).nullable(),
+  social_links: z.record(z.string(), z.string()).nullable(),
 })
 
 export type ArtistPublicView = z.infer<typeof ArtistPublicViewSchema>
@@ -84,19 +84,19 @@ export type ArtistEventsPublicView = z.infer<typeof ArtistEventsPublicViewSchema
 
 // v_my_tickets: Authenticated user tickets (RLS-scoped to current user via buyer_id)
 export const MyTicketsViewSchema = z.object({
-  order_id: z.string().uuid(),
-  buyer_id: z.string().uuid(),
+  order_id: z.guid(),
+  buyer_id: z.guid(),
   order_status: z.string(),
   ordered_at: z.string().datetime({ offset: true }).nullable(),
-  order_item_id: z.string().uuid(),
+  order_item_id: z.guid(),
   ticket_code: z.string(),
   checked_in_at: z.string().datetime({ offset: true }).nullable(),
   revoked_at: z.string().datetime({ offset: true }).nullable(),
-  ticket_type_id: z.string().uuid().nullable(),
+  ticket_type_id: z.guid().nullable(),
   ticket_type_name: z.string().nullable(),
   price_cents: z.number().int().nonnegative().nullable(),
   currency: z.string().nullable(),
-  event_id: z.string().uuid(),
+  event_id: z.guid(),
   event_title: z.string(),
   event_slug: z.string(),
   city: z.string().nullable(),
@@ -106,8 +106,8 @@ export const MyTicketsViewSchema = z.object({
   event_starts_at: z.string().datetime({ offset: true }).nullable(),
   order_item_status: z.enum(["pending", "issued", "transferred", "checked_in", "revoked", "refunded"]),
   refunded_at: z.string().datetime({ offset: true }).nullable(),
-  transferred_from_order_item_id: z.string().uuid().nullable(),
-  current_owner_id: z.string().uuid().nullable().optional(),
+  transferred_from_order_item_id: z.guid().nullable(),
+  current_owner_id: z.guid().nullable().optional(),
   // Canonical final occurrence end used for attendee/event lifecycle.
   // Optional during rolling deploys while the DB view migration lands.
   event_ends_at: z.string().datetime({ offset: true }).nullable().optional(),
@@ -117,8 +117,8 @@ export type MyTicketsView = z.infer<typeof MyTicketsViewSchema>
 
 // v_event_kpis: Per-event KPI aggregates for the organizer dashboard
 export const EventKPIsViewSchema = z.object({
-  org_id: z.string().uuid(),
-  event_id: z.string().uuid(),
+  org_id: z.guid(),
+  event_id: z.guid(),
   title: z.string(),
   slug: z.string(),
   paid_orders: z.number().int().nonnegative(),

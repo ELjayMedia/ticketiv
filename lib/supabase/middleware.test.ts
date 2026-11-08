@@ -216,6 +216,14 @@ describe("Supabase middleware session recovery", () => {
     expect(mocks.createServerClient).not.toHaveBeenCalled()
   })
 
+  it("lets browsers send CSP reports without a session", async () => {
+    const response = await updateSession(new NextRequest("https://ticketiv.app/api/csp-report", { method: "POST" }))
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get("location")).toBeNull()
+    expect(mocks.createServerClient).not.toHaveBeenCalled()
+  })
+
   it.each([
     "/api/integrations/payments/paystack/webhook",
     "/api/integrations/payments/deltapay/webhook",

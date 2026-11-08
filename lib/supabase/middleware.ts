@@ -112,6 +112,8 @@ export async function updateSession(request: NextRequest) {
     path.startsWith("/api/payments/deltapay/") ||
     // Unified payment webhooks: each provider adapter verifies its own request.
     PAYMENT_WEBHOOK_PATH.test(path) ||
+    // Browser CSP violation reports arrive from signed-out visitors too.
+    path === "/api/csp-report" ||
     path.includes(".")
   ) {
     return response
