@@ -52,8 +52,21 @@ def fetch(period):
         with urllib.request.urlopen(request, timeout=30) as response:
             return json.load(response)
     except urllib.error.HTTPError as error:
-        # Do not print response bodies; they may contain sensitive diagnostics.
-        raise SystemExit("Sentry API request failed with HTTP {}".format(error.code))
+        # Classify known API errors without logging raw Sentry response bodies.
+        body = error.read(2048).decode("utf-8", errors="replace").lower()
+        if "statsperiod" in body or "stats period" in body:
+            hint = "Unsupported statsPeriod. Check the Sentry endpoint's allowed values."
+        elif "environment" in body:
+            hint = "Environment filter rejected. Try 'prod' or the exact Sentry environment name."
+        elif "permission" in body or "scope" in body:
+            hint = "Check token scopes and project access."
+        else:
+            hint = "Check project slug, environment label, and query parameters."
+        raise SystemExit(
+            "Sentry API HTTP {} for period={} environment={}. {}".format(
+                error.code, period, safe(ENVIRONMENT, 50), hint
+            )
+        )
     except urllib.error.URLError:
         raise SystemExit("Sentry API network request failed")
 
@@ -81,7 +94,7 @@ report = {
     "query": "is:unresolved",
     "windows": {},
 }
-for period in ("24h", "7d"):
+for period in ("24h", "14d"):
     raw = fetch(period)
     if not isinstance(raw, list):
         raise SystemExit("Unexpected Sentry API response")
