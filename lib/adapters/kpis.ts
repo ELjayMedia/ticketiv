@@ -34,9 +34,9 @@ export async function getEventKPIs(eventId: string): Promise<EventKPIsView | nul
     // Validate against schema
     const validated = EventKPIsViewSchema.safeParse(data)
     if (!validated.success) {
-      console.error("[v0] Event KPIs schema validation failed:", validated.error.errors)
+      console.error("[v0] Event KPIs schema validation failed:", validated.error.issues)
       if (process.env.NODE_ENV === "development") {
-        throw new Error(`KPI validation failed: ${JSON.stringify(validated.error.errors)}`)
+        throw new Error(`KPI validation failed: ${JSON.stringify(validated.error.issues)}`)
       }
       return null
     }
