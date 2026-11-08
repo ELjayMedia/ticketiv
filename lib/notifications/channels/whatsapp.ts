@@ -32,6 +32,17 @@ function digits(to: string): string {
   return to.replace(/[^0-9]/g, "")
 }
 
+/**
+ * One sender per WHATSAPP_PROVIDER value. The keys match the selector values in
+ * the integrations catalog (lib/integrations/catalog.ts); the consistency test
+ * fails if a catalog provider has no sender here.
+ */
+export const WHATSAPP_SENDERS: Record<string, ((message: WhatsAppMessage, apiKey: string) => Promise<ChannelResult>) | undefined> = {
+  meta_cloud: (message, apiKey) => sendViaMetaCloud(message, apiKey),
+  twilio: (message, apiKey) => sendViaTwilio(message, apiKey),
+  "360dialog": (message, apiKey) => sendVia360dialog(message, apiKey),
+}
+
 export async function sendWhatsApp(message: WhatsAppMessage): Promise<ChannelResult> {
   const provider = process.env.WHATSAPP_PROVIDER ?? "whatsapp"
   const apiKey = process.env.WHATSAPP_API_KEY
@@ -41,16 +52,11 @@ export async function sendWhatsApp(message: WhatsAppMessage): Promise<ChannelRes
   }
 
   try {
-    switch (provider) {
-      case "meta_cloud":
-        return await sendViaMetaCloud(message, apiKey)
-      case "twilio":
-        return await sendViaTwilio(message, apiKey)
-      case "360dialog":
-        return await sendVia360dialog(message, apiKey)
-      default:
-        return { status: "skipped", reason: `Unknown WHATSAPP_PROVIDER: ${provider}`, provider }
+    const send = Object.prototype.hasOwnProperty.call(WHATSAPP_SENDERS, provider) ? WHATSAPP_SENDERS[provider] : undefined
+    if (!send) {
+      return { status: "skipped", reason: `Unknown WHATSAPP_PROVIDER: ${provider}`, provider }
     }
+    return await send(message, apiKey)
   } catch (error: any) {
     return { status: "failed", error: error?.message ?? "whatsapp send failed", provider }
   }

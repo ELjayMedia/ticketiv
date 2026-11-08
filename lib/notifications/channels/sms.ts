@@ -27,6 +27,17 @@ function e164(to: string): string {
   return `+${d}`
 }
 
+/**
+ * One sender per SMS_PROVIDER value. The keys match the selector values in
+ * the integrations catalog (lib/integrations/catalog.ts); the consistency test
+ * fails if a catalog provider has no sender here.
+ */
+export const SMS_SENDERS: Record<string, ((message: SmsMessage, apiKey: string) => Promise<ChannelResult>) | undefined> = {
+  twilio: (message, apiKey) => sendViaTwilio(message, apiKey),
+  africastalking: (message, apiKey) => sendViaAfricasTalking(message, apiKey),
+  clickatell: (message, apiKey) => sendViaClickatell(message, apiKey),
+}
+
 export async function sendSms(message: SmsMessage): Promise<ChannelResult> {
   const provider = process.env.SMS_PROVIDER ?? "sms"
   const apiKey = process.env.SMS_API_KEY
@@ -36,16 +47,11 @@ export async function sendSms(message: SmsMessage): Promise<ChannelResult> {
   }
 
   try {
-    switch (provider) {
-      case "twilio":
-        return await sendViaTwilio(message, apiKey)
-      case "africastalking":
-        return await sendViaAfricasTalking(message, apiKey)
-      case "clickatell":
-        return await sendViaClickatell(message, apiKey)
-      default:
-        return { status: "skipped", reason: `Unknown SMS_PROVIDER: ${provider}`, provider }
+    const send = Object.prototype.hasOwnProperty.call(SMS_SENDERS, provider) ? SMS_SENDERS[provider] : undefined
+    if (!send) {
+      return { status: "skipped", reason: `Unknown SMS_PROVIDER: ${provider}`, provider }
     }
+    return await send(message, apiKey)
   } catch (error: any) {
     return { status: "failed", error: error?.message ?? "sms send failed", provider }
   }
