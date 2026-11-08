@@ -230,12 +230,15 @@ export async function updateSession(request: NextRequest) {
       }
     }
 
-    // /onboarding — requires session, allowed without handle
+    // Onboarding routes require a session. Only the base handle picker should
+    // move a user who already has a handle back home; role onboarding pages
+    // (/onboarding/organizer, /onboarding/talent) remain valid for established
+    // attendee accounts that are adding another context.
     if (path.startsWith("/onboarding")) {
       if (!userId) {
         return redirectToLogin(request, path)
       }
-      if (await hasHandle()) {
+      if (path === "/onboarding" && (await hasHandle())) {
         return NextResponse.redirect(new URL("/", request.url))
       }
       return response

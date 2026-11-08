@@ -34,13 +34,37 @@ if (error) {
   process.exit(1)
 }
 
+if (!teardown) {
+  const acknowledged =
+    data && typeof data === "object" &&
+    ((data.ok === true && data.currency === "ZAR") || data.seeded === true)
+  if (!acknowledged) {
+    console.error(`${fn} returned an unexpected acknowledgement.`)
+    process.exit(1)
+  }
+
+  const { data: ticketType, error: ticketTypeError } = await client
+    .from("ticket_types")
+    .select("currency")
+    .eq("id", "da7a0004-0000-4000-8000-000000000001")
+    .single()
+  if (ticketTypeError || ticketType?.currency !== "ZAR") {
+    console.error(`UAT fixture currency verification failed: ${ticketTypeError?.message ?? "expected ZAR"}`)
+    process.exit(1)
+  }
+}
+
 // Seed public discovery event AFTER UAT fixtures so it survives teardown
-// (UAT teardown deletes events by venue_id, and the public event uses its own venue)
-const { error: pubErr } = await client.rpc(
+// (the UAT teardown deletes the shared fixture organization and venue).
+const { data: publicData, error: pubErr } = await client.rpc(
   teardown ? "fn_teardown_public_discovery_event" : "fn_seed_public_discovery_event",
 )
 if (pubErr) {
   console.error(`Public discovery event ${teardown ? "teardown" : "seed"} failed: ${pubErr.message}`)
+  process.exit(1)
+}
+if (!teardown && !(publicData && typeof publicData === "object" && publicData.seeded === true)) {
+  console.error("Public discovery seed returned an unexpected acknowledgement.")
   process.exit(1)
 }
 

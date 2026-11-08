@@ -99,19 +99,55 @@ export function createUatAdmin(config: AuthenticatedUatConfig): SupabaseClient {
   })
 }
 
+export function isUatSeedAcknowledgement(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false
+
+  const result = value as { ok?: unknown; currency?: unknown; seeded?: unknown }
+  return (result.ok === true && result.currency === "ZAR") || result.seeded === true
+}
+
 export async function seedUatFixtures(admin: SupabaseClient) {
   const { data, error } = await admin.rpc("fn_seed_uat_fixtures")
   if (error) throw new Error(`fn_seed_uat_fixtures failed: ${error.message}`)
 
-  const seeded = data as { ok?: boolean; currency?: string } | null
-  if (!seeded?.ok || seeded.currency !== "ZAR") {
+  // Production was compacted from the richer { ok, currency, ... } contract to
+  // { seeded: true }. Accept both migration generations, then prove the money
+  // invariant from the row the browser tests actually consume.
+  if (!isUatSeedAcknowledgement(data)) {
     throw new Error("UAT seed returned an unexpected fixture contract.")
+  }
+
+  const { data: ticketType, error: ticketTypeError } = await admin
+    .from("ticket_types")
+    .select("currency")
+    .eq("id", "da7a0004-0000-4000-8000-000000000001")
+    .single()
+  if (ticketTypeError || ticketType?.currency !== "ZAR") {
+    throw new Error(`UAT seed did not create the ZAR ticket fixture: ${ticketTypeError?.message ?? "wrong currency"}`)
+  }
+
+  // The main seed starts by tearing down ORG_A, which also removes the public
+  // discovery event. Restore it after every per-spec reseed so Playwright file
+  // ordering cannot silently destroy the attendee journey fixture.
+  const { data: discovery, error: discoveryError } = await admin.rpc("fn_seed_public_discovery_event")
+  if (discoveryError) {
+    throw new Error(`fn_seed_public_discovery_event failed: ${discoveryError.message}`)
+  }
+  if (!(discovery && typeof discovery === "object" && (discovery as { seeded?: unknown }).seeded === true)) {
+    throw new Error("Public discovery seed returned an unexpected fixture contract.")
   }
 }
 
 export async function teardownUatFixtures(admin: SupabaseClient) {
   const { error } = await admin.rpc("fn_teardown_uat_fixtures")
   if (error) throw new Error(`fn_teardown_uat_fixtures failed: ${error.message}`)
+
+  // Per-spec cleanup must not remove the workflow-scoped discovery fixture.
+  // The workflow's final seed:uat:teardown call removes both fixture sets.
+  const { error: discoveryError } = await admin.rpc("fn_seed_public_discovery_event")
+  if (discoveryError) {
+    throw new Error(`Unable to preserve the public discovery fixture after UAT teardown: ${discoveryError.message}`)
+  }
 }
 
 export async function provisionUatPassword(admin: SupabaseClient, persona: UatPersona) {
