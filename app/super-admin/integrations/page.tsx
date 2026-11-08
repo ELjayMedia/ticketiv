@@ -3,7 +3,9 @@ import Link from "next/link"
 import { disconnectChatwootAction, saveChatwootSettingsAction } from "@/app/super-admin/console-actions"
 import { Panel, Pill, when } from "@/components/super-admin/console-ui"
 import { ChatwootSettingsForm, DisconnectForm } from "@/components/super-admin/IntegrationForms"
+import { IntegrationOverview } from "@/components/super-admin/IntegrationOverview"
 import { emailsFor } from "@/lib/data/admin/console"
+import { getIntegrationStatuses } from "@/lib/integrations/status"
 import { requireAdminRole } from "@/lib/super-admin/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getChatwootConfig, loadStoredChatwootSettings } from "@/lib/support/chatwoot"
@@ -12,7 +14,7 @@ export const metadata = { title: "Integrations · Admin" }
 
 export default async function IntegrationsPage() {
   await requireAdminRole(["super_admin"])
-  const [stored, active] = await Promise.all([loadStoredChatwootSettings(), getChatwootConfig()])
+  const [stored, active, statuses] = await Promise.all([loadStoredChatwootSettings(), getChatwootConfig(), getIntegrationStatuses()])
   const updatedBy = stored?.updatedBy ? (await emailsFor(createAdminClient(), [stored.updatedBy])).get(stored.updatedBy) ?? "an admin" : null
 
   // Prefill from what's in use. Never the token.
@@ -28,8 +30,15 @@ export default async function IntegrationsPage() {
     <div className="flex max-w-3xl flex-col gap-5">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold tracking-tight text-ink">Integrations</h1>
-        <p className="text-sm text-ink-3">Connect outside tools from here. Changes take effect immediately, with no redeploy.</p>
+        <p className="text-sm text-ink-3">
+          Every outside service Ticketiv uses, and whether it is working. Most are set as environment variables in Vercel (names shown,
+          values never); Chatwoot can be connected right here, with no redeploy.
+        </p>
       </div>
+
+      <IntegrationOverview statuses={statuses} />
+
+      <h2 className="pt-2 text-lg font-semibold tracking-tight text-ink">Connect from the console</h2>
 
       <Panel title="Chatwoot" aside={<Pill tone={status.tone}>{status.label}</Pill>}>
         <div className="flex flex-col gap-4">
