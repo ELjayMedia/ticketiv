@@ -106,6 +106,8 @@ export async function updateSession(request: NextRequest) {
     // Each route verifies with DeltaPay server-side (or by signature); a guest
     // returning from checkout and DeltaPay's servers carry no Ticketiv session.
     path.startsWith("/api/payments/deltapay/") ||
+    // Browser CSP violation reports arrive from signed-out visitors too.
+    path === "/api/csp-report" ||
     path.includes(".")
   ) {
     return response
