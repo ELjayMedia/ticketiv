@@ -17,7 +17,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   // Every pending order holds inventory until it expires; cap how fast one
   // account can create them so nobody can hold an event's stock hostage.
-  const rl = await rateLimit("orders:create", clientKey(request, buyerId), 10, 60)
+  const rl = await rateLimit("orders:create", clientKey(request, buyerId), 10, 60, { failClosed: true })
   if (!rl.allowed) return tooManyRequests(rl)
 
   const body = await request.json().catch(() => ({}))

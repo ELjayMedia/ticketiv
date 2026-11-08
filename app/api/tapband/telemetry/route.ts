@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { hasSharedSecret } from "@/lib/cron-auth"
+
 import { clientKey, rateLimit, tooManyRequests } from "@/lib/rate-limit"
 import { recordTapBandTelemetryEvent } from "@/lib/tapband/telemetry"
 
@@ -7,11 +9,7 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function POST(request: Request) {
-  const expectedSecret = process.env.TAPBAND_TELEMETRY_SECRET
-  const authHeader = request.headers.get("authorization")
-  const keyHeader = request.headers.get("x-tapband-telemetry-secret")
-
-  if (!expectedSecret || (authHeader !== `Bearer ${expectedSecret}` && keyHeader !== expectedSecret)) {
+  if (!hasSharedSecret(request, process.env.TAPBAND_TELEMETRY_SECRET, "x-tapband-telemetry-secret")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

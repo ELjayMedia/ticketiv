@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     const user = await getAuthUser()
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    const rl = await rateLimit("payments:attempt", clientKey(request, user.id), 10, 60)
+    const rl = await rateLimit("payments:attempt", clientKey(request, user.id), 10, 60, { failClosed: true })
     if (!rl.allowed) return tooManyRequests(rl)
 
     const body = await request.json()

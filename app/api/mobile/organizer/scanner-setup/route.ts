@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic"
  * Pairs the signed-in person's phone as a scanner for an event they may scan.
  */
 export async function POST(request: Request) {
-  const rl = await rateLimit("mobile:scanner-setup", clientKey(request), 10, 60)
+  const rl = await rateLimit("mobile:scanner-setup", clientKey(request), 10, 60, { failClosed: true })
   if (!rl.allowed) return tooManyRequests(rl)
 
   return withMobileOrganizerUser(

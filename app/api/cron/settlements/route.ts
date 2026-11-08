@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { ingestPaystackSettlements } from "@/lib/payments/paystack-settlements"
 import { getSupabaseAdminConfig } from "@/lib/env"
+import { isAuthorizedCronRequest } from "@/lib/cron-auth"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -17,10 +18,7 @@ export const dynamic = "force-dynamic"
 // Ingestion is idempotent (see fn_upsert_provider_settlement), so re-running or
 // overlapping windows is safe.
 export async function GET(request: Request) {
-  const expectedSecret = process.env.CRON_SECRET
-  const authHeader = request.headers.get("authorization")
-
-  if (!expectedSecret || authHeader !== `Bearer ${expectedSecret}`) {
+  if (!isAuthorizedCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

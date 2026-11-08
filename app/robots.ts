@@ -19,7 +19,6 @@ export default function robots(): MetadataRoute.Robots {
         "/onboarding",
         "/orgs",
         "/scan",
-        "/sentry-example-page",
         "/signup",
         "/tickets",
       ],

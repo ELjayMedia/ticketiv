@@ -67,7 +67,7 @@ export async function startCheckoutAction(input: StartCheckoutInput): Promise<St
 
   // Each pending order holds inventory until it expires; cap how fast one
   // buyer can create them.
-  const rl = await rateLimit("orders:create", `u:${identity.userId}`, 10, 60)
+  const rl = await rateLimit("orders:create", `u:${identity.userId}`, 10, 60, { failClosed: true })
   if (!rl.allowed) return { ok: false, error: "Too many checkout attempts. Please wait a minute and try again." }
 
   const promoCode = input.promoCode?.trim() || null
