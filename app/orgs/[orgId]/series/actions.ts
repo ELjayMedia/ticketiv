@@ -1,7 +1,6 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { createClient } from "@/lib/supabase/server"
 import {
   createOrgSeries,
   updateOrgSeries,
@@ -10,20 +9,7 @@ import {
   generateSeriesEvents,
 } from "@/lib/data/organizer/series"
 import { seriesFormSchema, type SeriesFormValues } from "@/lib/series/schema"
-
-async function assertOrgMember(orgId: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: "Not signed in." }
-  const { data: membership } = await supabase
-    .from("org_members")
-    .select("role")
-    .eq("user_id", user.id)
-    .eq("org_id", orgId)
-    .maybeSingle()
-  if (!membership) return { ok: false, error: "Not a member of this organization." }
-  return { ok: true }
-}
+import { requireOrgManager } from "@/lib/organizer/access"
 
 export async function createSeriesAction(
   orgId: string,
@@ -34,8 +20,7 @@ export async function createSeriesAction(
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." }
   }
 
-  const auth = await assertOrgMember(orgId)
-  if (!auth.ok) return auth
+  await requireOrgManager(orgId)
 
   const result = await createOrgSeries(orgId, parsed.data)
   if (result.ok) {
@@ -54,8 +39,7 @@ export async function updateSeriesAction(
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." }
   }
 
-  const auth = await assertOrgMember(orgId)
-  if (!auth.ok) return auth
+  await requireOrgManager(orgId)
 
   const result = await updateOrgSeries(orgId, seriesId, parsed.data)
   if (result.ok) {
@@ -77,8 +61,7 @@ export async function deleteSeriesAction(
   orgId: string,
   seriesId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const auth = await assertOrgMember(orgId)
-  if (!auth.ok) return auth
+  await requireOrgManager(orgId)
 
   const result = await deleteOrgSeries(orgId, seriesId)
   if (result.ok) {
@@ -92,8 +75,7 @@ export async function generateSeriesEventsAction(
   seriesId: string,
   count: number,
 ): Promise<{ ok: true; created: number } | { ok: false; error: string }> {
-  const auth = await assertOrgMember(orgId)
-  if (!auth.ok) return auth
+  await requireOrgManager(orgId)
 
   if (!Number.isInteger(count) || count < 1 || count > 52) {
     return { ok: false, error: "Choose between 1 and 52 events." }

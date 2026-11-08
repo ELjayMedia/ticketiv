@@ -3,12 +3,12 @@
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
-import { requireOrgCapability } from "@/lib/data/organizer/access"
 import { normalizeOrgProfileInput } from "@/lib/data/organizer/profile"
+import { requireOrgOwner } from "@/lib/organizer/access"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export async function updateOrgProfileAction(orgId: string, formData: FormData) {
-  await requireOrgCapability(orgId, "manage")
+  await requireOrgOwner(orgId)
 
   const result = normalizeOrgProfileInput({
     name: formData.get("name"),

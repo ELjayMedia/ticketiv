@@ -10,6 +10,7 @@ import {
   canOpenSection,
   canViewFinance,
   organizerHomeSection,
+  organizerRoleFrom,
   strongestOrganizerRole,
   type OrganizerRole,
   type OrganizerSection,
@@ -17,6 +18,7 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin"
 import { canWorkEventWith, resolveOrganizerAccess } from "@/lib/organizer/resolve"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { canPlatformAdminMutate } from "@/lib/super-admin/permissions"
 
 /**
  * Who the signed-in person is inside one organisation's workspace (ADR 0002).
@@ -33,6 +35,8 @@ export interface OrganizerAccess {
   storedRole: string | null
   role: OrganizerRole
   isPlatformAdmin: boolean
+  /** False for read-only platform admins, who may inspect but never mutate. */
+  canPlatformMutate: boolean
   /**
    * Events this person may work. null means every event in the org
    * (an org-level member); otherwise only these assigned event ids.
@@ -59,7 +63,7 @@ export const getOrganizerAccess = cache(async (orgId: string): Promise<Organizer
       .eq("user_id", user.id)
       .eq("active", true)
       .eq("events.org_id", orgId),
-    supabase.from("admin_users").select("user_id").eq("user_id", user.id).eq("active", true).maybeSingle(),
+    supabase.from("admin_users").select("user_id, role_tier").eq("user_id", user.id).eq("active", true).maybeSingle(),
   ])
 
   const resolved = resolveOrganizerAccess({
@@ -67,7 +71,13 @@ export const getOrganizerAccess = cache(async (orgId: string): Promise<Organizer
     assignments: (assignmentsRes.data ?? []) as Array<{ event_id: string; role: string | null }>,
     isPlatformAdmin: Boolean(adminRes.data),
   })
-  return resolved ? { userId: user.id, ...resolved } : null
+  return resolved
+    ? {
+        userId: user.id,
+        ...resolved,
+        canPlatformMutate: canPlatformAdminMutate(adminRes.data?.role_tier),
+      }
+    : null
 })
 
 /** Path where a role starts in an organisation's workspace. */
@@ -120,7 +130,11 @@ export async function requireOrganizerSection(
 }
 
 export function canManageEventIn(access: OrganizerAccess, eventId: string): boolean {
-  return access.role === "manager" || access.managedEventIds.includes(eventId)
+  return (
+    (access.isPlatformAdmin && access.canPlatformMutate) ||
+    organizerRoleFrom(access.storedRole) === "manager" ||
+    access.managedEventIds.includes(eventId)
+  )
 }
 
 /** Event management (overview, edit, tickets, orders, staff, operations) is for managers only. */
@@ -133,6 +147,18 @@ export async function requireEventManager(orgId: string, eventId: string): Promi
 /** Creating events is org-wide management, not something an event assignment grants. */
 export async function requireOrgManager(orgId: string): Promise<OrganizerAccess> {
   const access = await requireOrganizerSection(orgId, "events")
-  if (access.role !== "manager") redirect(organizerHomePath(orgId, access.role))
+  const canManage =
+    (access.isPlatformAdmin && access.canPlatformMutate) ||
+    organizerRoleFrom(access.storedRole) === "manager"
+  if (!canManage) redirect(organizerHomePath(orgId, access.role))
+  return access
+}
+
+/** Workspace settings and deletion: org owners or mutable platform admins only. */
+export async function requireOrgOwner(orgId: string): Promise<OrganizerAccess> {
+  const access = await requireOrganizerSection(orgId, "settings", { settings: true })
+  const canOwn =
+    (access.isPlatformAdmin && access.canPlatformMutate) || canChangeSettings(access.storedRole)
+  if (!canOwn) redirect(organizerHomePath(orgId, access.role))
   return access
 }

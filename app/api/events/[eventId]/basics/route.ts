@@ -19,7 +19,7 @@ function slugify(value: string) {
   return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")
 }
 
-async function loadManageContext(admin: ReturnType<typeof createAdminClient>, eventId: string, userId: string) {
+async function loadManageContext(admin: ReturnType<typeof createAdminClient>, eventId: string, userId: string, readOnly = false) {
   const { data: event, error } = await admin
     .from("events")
     .select("id, org_id, slug, cover_image_url")
@@ -28,8 +28,8 @@ async function loadManageContext(admin: ReturnType<typeof createAdminClient>, ev
   if (error) throw error
   if (!event) return { allowed: false, event: null }
 
-  const { data: globalAdmin } = await admin.from("admin_users").select("user_id").eq("user_id", userId).eq("active", true).maybeSingle()
-  if (globalAdmin) return { allowed: true, event }
+  const { data: globalAdmin } = await admin.from("admin_users").select("role_tier").eq("user_id", userId).eq("active", true).maybeSingle()
+  if (globalAdmin && (readOnly || globalAdmin.role_tier !== "read_only_admin")) return { allowed: true, event }
 
   const { data: member } = await admin.from("org_members").select("role").eq("org_id", event.org_id).eq("user_id", userId).maybeSingle()
   return { allowed: Boolean(member?.role && MANAGER_ROLES.has(String(member.role))), event }
@@ -41,7 +41,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   if (!userId) return NextResponse.json({ error: "Authentication required" }, { status: 401 })
 
   const admin = createAdminClient()
-  const { allowed, event } = await loadManageContext(admin, eventId, userId)
+  const { allowed, event } = await loadManageContext(admin, eventId, userId, true)
   if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 })
   if (!allowed) return NextResponse.json({ error: "Permission denied" }, { status: 403 })
 

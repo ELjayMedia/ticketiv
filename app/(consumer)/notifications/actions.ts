@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
+const NOTIFICATION_TYPE = /^[a-z][a-z0-9_]{0,63}$/
+
 export async function markNotificationRead(formData: FormData) {
   const notificationId = String(formData.get("notificationId") ?? "").trim()
   if (!notificationId) return
@@ -29,14 +31,20 @@ export async function markNotificationRead(formData: FormData) {
 }
 
 export async function toggleNotificationMute(formData: FormData) {
-  const type = formData.get("type") as string
-  if (!type) return { error: "Missing type" }
+  const type = String(formData.get("type") ?? "").trim()
+  if (!NOTIFICATION_TYPE.test(type)) return { error: "Invalid notification type" }
   const supabase = createServerSupabaseClient()
   if (!supabase) return { error: "Not available" }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "Sign in to update notification settings" }
   const { error } = await (supabase.rpc as any)('fn_toggle_notification_mute', { p_type: type })
-  if (error) return { error: error.message }
-  revalidatePath('/notifications')
+  if (error) {
+    console.error("[notifications] toggle mute:", error)
+    return { error: "Could not update notification settings" }
+  }
+  revalidatePath("/notifications")
   return { ok: true }
 }
 

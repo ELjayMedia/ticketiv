@@ -20,13 +20,13 @@ async function getAuthenticatedUserId() {
   return user?.id ?? null
 }
 
-async function canManageEvent(admin: ReturnType<typeof createAdminClient>, eventId: string, userId: string) {
+async function canManageEvent(admin: ReturnType<typeof createAdminClient>, eventId: string, userId: string, readOnly = false) {
   const { data: event, error } = await admin.from("events").select("id, org_id, venue_id").eq("id", eventId).maybeSingle()
   if (error) throw error
   if (!event) return { allowed: false, event: null }
 
-  const { data: adminUser } = await admin.from("admin_users").select("user_id").eq("user_id", userId).eq("active", true).maybeSingle()
-  if (adminUser) return { allowed: true, event }
+  const { data: adminUser } = await admin.from("admin_users").select("role_tier").eq("user_id", userId).eq("active", true).maybeSingle()
+  if (adminUser && (readOnly || adminUser.role_tier !== "read_only_admin")) return { allowed: true, event }
 
   const { data: membership } = await admin.from("org_members").select("role").eq("org_id", event.org_id).eq("user_id", userId).maybeSingle()
   return { allowed: Boolean(membership?.role && MANAGER_ROLES.has(String(membership.role))), event }
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (!userId) return NextResponse.json({ error: "Authentication required" }, { status: 401 })
 
   const admin = createAdminClient()
-  const { allowed, event } = await canManageEvent(admin, eventId, userId)
+  const { allowed, event } = await canManageEvent(admin, eventId, userId, true)
   if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 })
   if (!allowed) return NextResponse.json({ error: "You do not have permission to manage this event" }, { status: 403 })
 

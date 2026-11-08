@@ -1,6 +1,7 @@
 "use server"
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { requireOrgManager } from "@/lib/organizer/access"
 
 export interface CreateInviteResult {
   ok: boolean
@@ -18,6 +19,7 @@ export async function createOrgInviteAction(input: {
   role: "organizer_admin" | "organizer_staff" | "finance"
   email?: string | null
 }): Promise<CreateInviteResult> {
+  await requireOrgManager(input.orgId)
   const supabase = createServerSupabaseClient()
   if (!supabase) return { ok: false, error: "Not available" }
 

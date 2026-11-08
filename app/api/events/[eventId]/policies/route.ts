@@ -12,13 +12,13 @@ async function getUserId() {
 
 const SUPPORTED_EVENT_PROVIDERS = ["paystack", "momo"] as const
 
-async function canEdit(admin: ReturnType<typeof createAdminClient>, eventId: string, userId: string) {
+async function canEdit(admin: ReturnType<typeof createAdminClient>, eventId: string, userId: string, readOnly = false) {
   const { data: event, error } = await admin.from("events").select("id, org_id, refund_policy, attendee_fields, confirmation_message, payment_providers").eq("id", eventId).maybeSingle()
   if (error) throw error
   if (!event) return { ok: false, event: null }
 
-  const { data: adminUser } = await admin.from("admin_users").select("user_id").eq("user_id", userId).eq("active", true).maybeSingle()
-  if (adminUser) return { ok: true, event }
+  const { data: adminUser } = await admin.from("admin_users").select("role_tier").eq("user_id", userId).eq("active", true).maybeSingle()
+  if (adminUser && (readOnly || adminUser.role_tier !== "read_only_admin")) return { ok: true, event }
 
   const { data: member } = await admin.from("org_members").select("role").eq("org_id", event.org_id).eq("user_id", userId).maybeSingle()
   const ok = ["admin", "organizer", "organizer_owner", "organizer_admin"].includes(String(member?.role ?? ""))
@@ -43,7 +43,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   if (!userId) return NextResponse.json({ error: "Authentication required" }, { status: 401 })
 
   const admin = createAdminClient()
-  const { ok, event } = await canEdit(admin, eventId, userId)
+  const { ok, event } = await canEdit(admin, eventId, userId, true)
   if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 })
   if (!ok) return NextResponse.json({ error: "Not allowed" }, { status: 403 })
 

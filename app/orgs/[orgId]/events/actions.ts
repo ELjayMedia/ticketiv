@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { requireEventManager, requireOrgManager } from "@/lib/organizer/access"
 
 export async function bulkTransitionEventStatus(
   orgId: string,
@@ -31,6 +32,7 @@ export async function bulkDeleteEvents(
   orgId: string,
   eventIds: string[],
 ): Promise<{ ok: boolean; error?: string; succeeded: number; failed: number }> {
+  await requireOrgManager(orgId)
   const supabase = createServerSupabaseClient()
   if (!supabase) return { ok: false, error: "Not available", succeeded: 0, failed: 0 }
 
@@ -38,25 +40,6 @@ export async function bulkDeleteEvents(
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: "Not authenticated", succeeded: 0, failed: 0 }
-
-  // Only organizer_owner and organizer_admin can delete
-  const { data: member } = await supabase
-    .from("org_members")
-    .select("role")
-    .eq("org_id", orgId)
-    .eq("user_id", user.id)
-    .maybeSingle()
-
-  const OWNER_ROLES = new Set(["organizer_owner", "organizer_admin", "admin"])
-  if (!member || !OWNER_ROLES.has(member.role)) {
-    // Check admin_users table too
-    const { data: admin } = await supabase
-      .from("admin_users")
-      .select("id")
-      .eq("user_id", user.id)
-      .maybeSingle()
-    if (!admin) return { ok: false, error: "Insufficient permissions", succeeded: 0, failed: 0 }
-  }
 
   let succeeded = 0,
     failed = 0
@@ -78,6 +61,7 @@ export async function duplicateEvent(
   orgId: string,
   eventId: string,
 ): Promise<{ ok: boolean; newEventId?: string; error?: string }> {
+  await requireEventManager(orgId, eventId)
   const supabase = createServerSupabaseClient()
   if (!supabase) return { ok: false, error: "Not authenticated" }
 
@@ -101,6 +85,7 @@ export async function transitionEventStatus(
   eventId: string,
   newStatus: "paused" | "published" | "archived" | "cancelled",
 ): Promise<{ ok: boolean; activeHolders?: number; error?: string }> {
+  await requireEventManager(orgId, eventId)
   const supabase = createServerSupabaseClient()
   if (!supabase) return { ok: false, error: "Not authenticated" }
 
