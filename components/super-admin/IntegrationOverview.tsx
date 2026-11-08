@@ -32,6 +32,12 @@ export function IntegrationOverview({ statuses }: { statuses: IntegrationStatus[
                   <p className="text-[13px] leading-relaxed text-ink-2">
                     {row.summary}
                     {row.readiness ? <span className="text-ink-3"> {row.readiness.detail}</span> : null}
+                    {row.readiness ? (
+                      <a href="#payment-readiness" className="text-accent hover:underline">
+                        {" "}
+                        Go-live checklist
+                      </a>
+                    ) : null}
                   </p>
                   <div className="flex flex-wrap gap-1.5 pt-0.5">
                     {row.settings.map((setting) => {

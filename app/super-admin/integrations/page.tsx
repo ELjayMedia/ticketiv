@@ -4,7 +4,9 @@ import { disconnectChatwootAction, saveChatwootSettingsAction } from "@/app/supe
 import { Panel, Pill, when } from "@/components/super-admin/console-ui"
 import { ChatwootSettingsForm, DisconnectForm } from "@/components/super-admin/IntegrationForms"
 import { IntegrationOverview } from "@/components/super-admin/IntegrationOverview"
+import { ProviderReadinessPanel } from "@/components/super-admin/ProviderReadinessPanel"
 import { emailsFor } from "@/lib/data/admin/console"
+import { loadProviderReadiness } from "@/lib/data/admin/provider-readiness"
 import { getIntegrationStatuses } from "@/lib/integrations/status"
 import { requireAdminRole } from "@/lib/super-admin/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -14,7 +16,12 @@ export const metadata = { title: "Integrations · Admin" }
 
 export default async function IntegrationsPage() {
   await requireAdminRole(["super_admin"])
-  const [stored, active, statuses] = await Promise.all([loadStoredChatwootSettings(), getChatwootConfig(), getIntegrationStatuses()])
+  const [stored, active, statuses, readiness] = await Promise.all([
+    loadStoredChatwootSettings(),
+    getChatwootConfig(),
+    getIntegrationStatuses(),
+    loadProviderReadiness(),
+  ])
   const updatedBy = stored?.updatedBy ? (await emailsFor(createAdminClient(), [stored.updatedBy])).get(stored.updatedBy) ?? "an admin" : null
 
   // Prefill from what's in use. Never the token.
@@ -37,6 +44,17 @@ export default async function IntegrationsPage() {
       </div>
 
       <IntegrationOverview statuses={statuses} />
+
+      <div id="payment-readiness" className="flex scroll-mt-6 flex-col gap-1 pt-2">
+        <h2 className="text-lg font-semibold tracking-tight text-ink">Payment providers: going live</h2>
+        <p className="text-sm text-ink-3">
+          A provider takes real money only once its checklist is complete and it is approved here. Test payments keep working until then.
+          Emergency disable switches a provider off at checkout immediately.
+        </p>
+      </div>
+      {readiness.map((provider) => (
+        <ProviderReadinessPanel key={provider.provider} provider={provider} />
+      ))}
 
       <h2 className="pt-2 text-lg font-semibold tracking-tight text-ink">Connect from the console</h2>
 
