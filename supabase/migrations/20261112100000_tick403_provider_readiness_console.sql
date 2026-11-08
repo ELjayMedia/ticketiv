@@ -61,6 +61,8 @@ as $$
   end
 $$;
 
+revoke all on function app.provider_readiness_required_items(text) from public, anon, authenticated;
+
 create or replace function public.fn_admin_provider_readiness(
   p_provider text,
   p_action text,

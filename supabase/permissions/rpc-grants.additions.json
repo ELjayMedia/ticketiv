@@ -344,6 +344,16 @@
         "postgres",
         "service_role"
       ]
+    },
+    {
+      "schema": "app",
+      "name": "provider_readiness_required_items",
+      "arguments": "p_provider text",
+      "securityDefiner": false,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres"
+      ]
     }
   ]
 }
