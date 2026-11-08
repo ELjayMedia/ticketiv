@@ -39,9 +39,37 @@ jobs:
       # supabase/migrations, lives only for this job. It is never the shared
       # project; the harness also rolls back everything it seeds.
       - name: Setup Supabase CLI
+        id: supabase-cli
+        # A GitHub release-download outage (HTTP 504) once failed every Release
+        # gate for half an hour. The fallback below retries the same pinned
+        # release with back-off instead of blocking every PR.
+        continue-on-error: true
         uses: supabase/setup-cli@v1
         with:
           version: 3.0.0
+
+      - name: Install Supabase CLI (fallback with retries)
+        if: steps.supabase-cli.outcome == 'failure'
+        env:
+          SUPABASE_CLI_VERSION: 3.0.0
+        run: |
+          set -euo pipefail
+          base="https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}"
+          asset="supabase_${SUPABASE_CLI_VERSION}_linux_amd64.tar.gz"
+          dir="$RUNNER_TEMP/supabase-cli"
+          mkdir -p "$dir"
+          cd "$dir"
+          fetch() {
+            curl --fail --silent --show-error --location \
+              --retry 6 --retry-delay 10 --retry-all-errors --max-time 120 \
+              -o "$1" "$base/$1"
+          }
+          fetch "$asset"
+          fetch checksums.txt
+          grep " ${asset}\$" checksums.txt | sha256sum --check --strict -
+          tar -xzf "$asset" supabase
+          echo "$dir" >> "$GITHUB_PATH"
+          ./supabase --version
 
       - name: Start isolated verification database
         run: |
