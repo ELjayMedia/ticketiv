@@ -1,0 +1,35 @@
+name: Sentry production error report
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Sentry environment name (usually production or prod)"
+        required: true
+        default: production
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate sanitized report
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: eljaymedia-5k
+          SENTRY_PROJECT: ticketiv
+          SENTRY_ENVIRONMENT: ${{ inputs.environment }}
+        run: python3 scripts/sentry_report.py
+      - name: Upload report for review
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sentry-ticketiv-production-errors
+          path: sentry-report/
+          retention-days: 7
+          if-no-files-found: error
