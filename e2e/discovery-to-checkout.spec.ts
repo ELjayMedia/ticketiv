@@ -30,22 +30,38 @@ test("discover page renders event cards", async ({ page }) => {
 })
 
 test("an event card leads to an event detail page", async ({ page }) => {
+  test.setTimeout(100_000)
   test.skip(
     LOCAL_WITHOUT_SUPABASE && !STRICT_E2E,
     "Local event detail needs Supabase env; deployed/seeded targets still run this smoke.",
   )
 
-  await page.goto("/")
   const firstEvent = page.locator('a[href^="/events/"]').first()
+  let eventCardCount = 0
 
-  const eventCardCount = await firstEvent.count()
+  if (STRICT_E2E) {
+    // Discover is ISR-cached for 60 seconds. Shared UAT seeds after deployment,
+    // so allow one stale-while-revalidate cycle rather than treating an older
+    // empty page as a missing database fixture.
+    await expect
+      .poll(
+        async () => {
+          await page.goto(`/?uat_refresh=${Date.now()}`)
+          return (eventCardCount = await firstEvent.count())
+        },
+        {
+          timeout: 80_000,
+          intervals: [5_000],
+          message: "Strict E2E requires at least one public seeded event card.",
+        },
+      )
+      .toBeGreaterThan(0)
+  } else {
+    await page.goto("/")
+    eventCardCount = await firstEvent.count()
+  }
+
   if (eventCardCount === 0) {
-    if (STRICT_E2E) {
-      expect(
-        eventCardCount,
-        "Strict E2E requires at least one public seeded event card.",
-      ).toBeGreaterThan(0)
-    }
     test.skip(true, "No public events in this environment — needs seeded data.")
   }
 
@@ -73,16 +89,31 @@ test.describe("seeded guest checkout → hosted payment handoff", () => {
   test("creates checkout state and initializes the payment provider", async ({ page }) => {
     // Event page → picker → seat hold → checkout → provider initialization is
     // several server round trips against the seeded UAT project.
-    test.setTimeout(90_000)
+    test.setTimeout(180_000)
     expect(missing, "Seeded checkout environment must be complete.").toEqual([])
 
     const eventSlug = process.env.E2E_TEST_EVENT_SLUG!
     const buyerEmail = process.env.E2E_TEST_BUYER_EMAIL!
 
-    await page.goto(`/events/${encodeURIComponent(eventSlug)}`)
-    await expect(page.locator("h1").first()).toHaveText(/\S/)
-
     const checkoutCta = page.getByRole("button", { name: /continue|get tickets/i }).last()
+    if (STRICT_E2E) {
+      await expect
+        .poll(
+          async () => {
+            await page.goto(`/events/${encodeURIComponent(eventSlug)}?uat_refresh=${Date.now()}`)
+            return checkoutCta.count()
+          },
+          {
+            timeout: 80_000,
+            intervals: [5_000],
+            message: "Seeded event detail should expose the checkout action after ISR refresh.",
+          },
+        )
+        .toBeGreaterThan(0)
+    } else {
+      await page.goto(`/events/${encodeURIComponent(eventSlug)}`)
+    }
+    await expect(page.locator("h1").first()).toHaveText(/\S/)
     await expect(checkoutCta).toBeEnabled()
     await checkoutCta.click()
 
