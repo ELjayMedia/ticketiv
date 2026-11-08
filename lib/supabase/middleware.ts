@@ -60,7 +60,8 @@ function recoverSignedOutSession(request: NextRequest, path: string, error: unkn
  *   /api/discover/*, /api/search/suggest, /api/mobile/tickets/*, /api/mobile/organizer/*,
  *   selected /api/scanner/* device endpoints,
  *   /api/payouts, /api/payments/paystack/webhook, /api/payments/momo/callback,
- *   /api/payments/deltapay/* (checkout return/callback, signed wallet callback)
+ *   /api/payments/deltapay/* (checkout return/callback, signed wallet callback),
+ *   /api/integrations/payments/<provider>/webhook
  *
  * Onboarding gate:
  *   /onboarding — requires session, allowed without a handle
@@ -78,6 +79,9 @@ function recoverSignedOutSession(request: NextRequest, path: string, error: unkn
  *   through rather than 500 so the rest of the app remains accessible. Auth
  *   errors are logged.
  */
+/** /api/integrations/payments/<provider>/webhook, one path segment for the provider. */
+const PAYMENT_WEBHOOK_PATH = /^\/api\/integrations\/payments\/[a-z0-9_-]+\/webhook$/
+
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request })
   const path = request.nextUrl.pathname
@@ -106,6 +110,10 @@ export async function updateSession(request: NextRequest) {
     // Each route verifies with DeltaPay server-side (or by signature); a guest
     // returning from checkout and DeltaPay's servers carry no Ticketiv session.
     path.startsWith("/api/payments/deltapay/") ||
+    // Unified payment webhooks: each provider adapter verifies its own request.
+    PAYMENT_WEBHOOK_PATH.test(path) ||
+    // Browser CSP violation reports arrive from signed-out visitors too.
+    path === "/api/csp-report" ||
     path.includes(".")
   ) {
     return response

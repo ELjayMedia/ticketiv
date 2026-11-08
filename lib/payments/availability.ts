@@ -3,13 +3,14 @@ import "server-only"
 import {
   evaluateMomoConfig,
   filterProvidersByCurrencies,
-  momoAcceptsAmountCents,
+  providerAcceptsAmountCents,
   providerSupportsCurrencies,
   resolveEffectivePaymentProviders,
   type CheckoutPaymentProvider,
   type MomoConfigState,
 } from "@/lib/payments/availability-core"
 import { getDeltaPayConfig } from "@/lib/payments/deltapay"
+import { isCheckoutProvider, PAYMENT_PROVIDER_CATALOG, paymentProvider } from "@/lib/payments/providers/catalog"
 import { getPaystackSettings } from "@/lib/payments/paystack-config"
 import { createAdminClient } from "@/lib/supabase/admin"
 
@@ -28,32 +29,9 @@ export interface OrganizerPaymentProviderOption extends CheckoutPaymentMethod {
   warning: string | null
 }
 
-const METHOD_COPY: Record<CheckoutPaymentProvider, Omit<CheckoutPaymentMethod, "id">> = {
-  paystack: {
-    label: "Card / bank payment",
-    sub: "Secure hosted checkout powered by Paystack",
-    type: "card",
-  },
-  momo: {
-    label: "MTN MoMo",
-    sub: "Approve the payment on your MTN mobile wallet",
-    type: "mobile_money",
-  },
-  deltapay: {
-    label: "DeltaPay",
-    sub: "Pay securely in Emalangeni with DeltaPay",
-    type: "mobile_money",
-  },
-}
-
-const CHECKOUT_PROVIDERS: CheckoutPaymentProvider[] = ["paystack", "momo", "deltapay"]
-
-function isCheckoutProvider(value: string): value is CheckoutPaymentProvider {
-  return CHECKOUT_PROVIDERS.includes(value as CheckoutPaymentProvider)
-}
-
 function methodFor(id: CheckoutPaymentProvider): CheckoutPaymentMethod {
-  return { id, ...METHOD_COPY[id] }
+  const { label, sub, type } = paymentProvider(id)
+  return { id, label, sub, type }
 }
 
 export function getMomoConfigState(): MomoConfigState {
@@ -277,21 +255,21 @@ export async function assertPaymentProviderAvailableForOrder(
   const operational = await getOperationalPaymentProviders(currencies)
   let effective = resolveEffectivePaymentProviders(operational, [...eventLists.values()])
 
-  // MoMo cannot charge fractional SZL; DeltaPay can, so this restriction is
-  // intentionally rail-specific rather than applied to all SZL providers.
-  if (effective.includes("momo")) {
+  // Some rails (MoMo) cannot charge fractional major units; others (DeltaPay)
+  // can, so the restriction comes from each provider's catalog entry rather
+  // than being applied to every provider for a currency.
+  if (effective.some((provider) => PAYMENT_PROVIDER_CATALOG[provider].wholeMajorUnitsOnly)) {
     const { data: order, error: orderError } = await admin
       .from("orders")
       .select("total_cents")
       .eq("id", orderId)
       .maybeSingle()
     if (orderError || !order) {
-      console.error("[payments] Failed to verify MoMo order amount", orderError)
+      console.error("[payments] Failed to verify order amount for whole-unit providers", orderError)
       throw new Error("Unable to verify this payment method right now.")
     }
-    if (!momoAcceptsAmountCents(Number(order.total_cents))) {
-      effective = effective.filter((provider) => provider !== "momo")
-    }
+    const totalCents = Number(order.total_cents)
+    effective = effective.filter((provider) => providerAcceptsAmountCents(provider, totalCents))
   }
 
   if (!effective.includes(requested)) {

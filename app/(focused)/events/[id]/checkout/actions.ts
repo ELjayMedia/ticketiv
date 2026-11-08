@@ -6,6 +6,7 @@ import { parseCheckoutItems } from "@/lib/checkout/parse-items"
 import { createOrder } from "@/lib/orders"
 import { rateLimit } from "@/lib/rate-limit"
 import { createPaymentAttempt, type PaymentProvider } from "@/lib/payments"
+import { paymentProvider, phoneApprovalPath } from "@/lib/payments/providers/catalog"
 import {
   assertPaymentProviderAvailableForEvent,
   getEffectivePaymentProvidersForEvent,
@@ -117,14 +118,15 @@ export async function startCheckoutAction(input: StartCheckoutInput): Promise<St
       promo = await runApplyPromoCode(order.order.id, promoCode, identity.userId)
     }
 
-    // MoMo needs an Eswatini MSISDN, which is collected on the dedicated
-    // approval screen. Do not create a placeholder/fake provider attempt here;
-    // /api/payments/momo/create creates the real request-to-pay and attempt.
-    if (provider === "momo") {
+    // Phone-approval rails (MoMo) need the buyer's number, which is collected
+    // on that provider's approval screen. Do not create a placeholder/fake
+    // provider attempt here; the approval screen creates the real request and
+    // attempt (/api/payments/momo/create for MoMo).
+    if (paymentProvider(provider).handoff === "phone_approval") {
       return {
         ok: true,
         orderId: order.order.id,
-        checkoutUrl: `/orders/${order.order.id}/momo`,
+        checkoutUrl: phoneApprovalPath(provider, order.order.id),
         provider,
         promo,
       }
