@@ -25,18 +25,18 @@ async function getCaller() {
   return { supabase, userId: data.user?.id ?? null }
 }
 
-async function canManage(admin: ReturnType<typeof createAdminClient>, eventId: string, userId: string) {
+async function canManage(admin: ReturnType<typeof createAdminClient>, eventId: string, userId: string, readOnly = false) {
   const { data: event, error } = await admin.from("events").select("id, org_id").eq("id", eventId).maybeSingle()
   if (error) throw error
   if (!event) return { allowed: false, event: null }
 
   const { data: globalAdmin } = await admin
     .from("admin_users")
-    .select("user_id")
+    .select("role_tier")
     .eq("user_id", userId)
     .eq("active", true)
     .maybeSingle()
-  if (globalAdmin) return { allowed: true, event }
+  if (globalAdmin && (readOnly || globalAdmin.role_tier !== "read_only_admin")) return { allowed: true, event }
 
   const { data: member } = await admin
     .from("org_members")
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (!userId) return NextResponse.json({ error: "Authentication required" }, { status: 401 })
 
   const admin = createAdminClient()
-  const { allowed, event } = await canManage(admin, eventId, userId)
+  const { allowed, event } = await canManage(admin, eventId, userId, true)
   if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 })
   if (!allowed) return NextResponse.json({ error: "Permission denied" }, { status: 403 })
 

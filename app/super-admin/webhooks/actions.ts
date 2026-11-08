@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { requireAdminRole } from "@/lib/super-admin/auth"
-import { ADMIN_ROLE_TIERS } from "@/lib/super-admin/permissions"
+import { ADMIN_MUTATION_ROLE_TIERS } from "@/lib/super-admin/permissions"
 import { getSupabasePublicConfig } from "@/lib/env"
 import { completeTrustedPaystackWebhook } from "@/lib/payments/paystack-webhook"
 
@@ -18,7 +18,7 @@ export interface WebhookEndpointInput {
 }
 
 export async function upsertWebhookEndpoint(input: WebhookEndpointInput): Promise<{ id: string }> {
-  const { user } = await requireAdminRole(ADMIN_ROLE_TIERS)
+  const { user } = await requireAdminRole(ADMIN_MUTATION_ROLE_TIERS)
   if (!input.url.trim()) throw new Error("url required")
   if (!input.url.startsWith("https://") && !input.url.startsWith("http://")) {
     throw new Error("url must start with http:// or https://")
@@ -55,7 +55,7 @@ export async function upsertWebhookEndpoint(input: WebhookEndpointInput): Promis
 }
 
 export async function deleteWebhookEndpoint(id: string): Promise<void> {
-  await requireAdminRole(ADMIN_ROLE_TIERS)
+  await requireAdminRole(ADMIN_MUTATION_ROLE_TIERS)
   const admin = createAdminClient()
   const { error } = await admin.from("webhook_endpoints").delete().eq("id", id)
   if (error) throw new Error(error.message)
@@ -63,7 +63,7 @@ export async function deleteWebhookEndpoint(id: string): Promise<void> {
 }
 
 export async function toggleWebhookEndpoint(id: string, isActive: boolean): Promise<void> {
-  await requireAdminRole(ADMIN_ROLE_TIERS)
+  await requireAdminRole(ADMIN_MUTATION_ROLE_TIERS)
   const admin = createAdminClient()
   const { error } = await admin
     .from("webhook_endpoints")
@@ -97,10 +97,7 @@ export interface ReplayWebhookResult {
  * refusing it keeps the button honest about what it did.
  */
 export async function replayInboundWebhook(webhookId: string): Promise<ReplayWebhookResult> {
-  const { user, roleTier } = await requireAdminRole(ADMIN_ROLE_TIERS)
-  if (roleTier === "read_only_admin") {
-    return { ok: false, message: "Read-only admins cannot reprocess webhooks" }
-  }
+  const { user } = await requireAdminRole(ADMIN_MUTATION_ROLE_TIERS)
   if (!webhookId?.trim()) return { ok: false, message: "webhook id required" }
 
   const admin = createAdminClient()
@@ -180,7 +177,7 @@ export async function scheduleWebhookDispatcher(): Promise<{
   ok: boolean
   message: string
 }> {
-  await requireAdminRole(ADMIN_ROLE_TIERS)
+  await requireAdminRole(ADMIN_MUTATION_ROLE_TIERS)
   const config = getSupabasePublicConfig()
   if (!config) return { ok: false, message: "Supabase config missing" }
   const ref = config.url.match(/^https:\/\/([^.]+)\.supabase\.co/)?.[1]
@@ -210,7 +207,7 @@ export async function triggerWebhookDispatch(): Promise<{
   processed: number
   message: string
 }> {
-  await requireAdminRole(ADMIN_ROLE_TIERS)
+  await requireAdminRole(ADMIN_MUTATION_ROLE_TIERS)
   const config = getSupabasePublicConfig()
   if (!config) return { ok: false, processed: 0, message: "Supabase config missing" }
   const ref = config.url.match(/^https:\/\/([^.]+)\.supabase\.co/)?.[1]

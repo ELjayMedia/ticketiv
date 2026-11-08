@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation"
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { requireOrgOwner } from "@/lib/organizer/access"
 
 export async function deleteWorkspaceAction(formData: FormData) {
   const orgId = String(formData.get("orgId") ?? "")
@@ -11,6 +12,8 @@ export async function deleteWorkspaceAction(formData: FormData) {
   if (!orgId || !confirmation) {
     redirect(`/orgs/${orgId}/settings?deleteError=${encodeURIComponent("Type the workspace name to confirm deletion.")}`)
   }
+
+  await requireOrgOwner(orgId)
 
   const supabase = createServerSupabaseClient()
   if (!supabase) redirect("/login")

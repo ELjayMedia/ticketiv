@@ -54,8 +54,8 @@ export async function joinWaitlist(_prevState: JoinWaitlistResult | null, formDa
     data: { user },
   } = await supabase.auth.getUser()
 
-  const email = user?.email ?? emailFromForm
-  if (!user && !email) {
+  const email = cleanEmail(user?.email ?? null) ?? emailFromForm
+  if (!email) {
     return { ok: false, message: "Add your email address so we can notify you if tickets become available." }
   }
 

@@ -31,7 +31,7 @@ async function canManageEvent(
   if (!event) return { allowed: false, event: null }
 
   const [{ data: globalAdmin, error: adminError }, { data: member, error: memberError }] = await Promise.all([
-    admin.from("admin_users").select("user_id").eq("user_id", userId).eq("active", true).maybeSingle(),
+    admin.from("admin_users").select("role_tier").eq("user_id", userId).eq("active", true).maybeSingle(),
     admin.from("org_members").select("role").eq("org_id", event.org_id).eq("user_id", userId).maybeSingle(),
   ])
 
@@ -39,7 +39,10 @@ async function canManageEvent(
   if (memberError) throw memberError
 
   return {
-    allowed: Boolean(globalAdmin || (member?.role && MANAGER_ROLES.has(String(member.role)))),
+    allowed: Boolean(
+      (globalAdmin && globalAdmin.role_tier !== "read_only_admin") ||
+      (member?.role && MANAGER_ROLES.has(String(member.role))),
+    ),
     event,
   }
 }

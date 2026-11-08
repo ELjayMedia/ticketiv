@@ -8,6 +8,7 @@ import {
   encryptPayoutDetails,
 } from "@/lib/payout-crypto"
 import { checkEpsAccount, epsDestinationFor } from "@/lib/payouts/eps-directory"
+import { requireOrgManager } from "@/lib/organizer/access"
 
 // TICK-54 / TICK-376 — Payout account management (organizer side)
 // Bank details are encrypted at rest (AES-256-GCM) and never returned to the browser.
@@ -48,6 +49,7 @@ export async function addPayoutAccountAction(
   accountName: string,
   makePrimary = false,
 ) {
+  await requireOrgManager(orgId)
   const supabase = await signedInClient()
 
   // Banks and wallets on the Eswatini Payment Switch are validated against the
@@ -94,6 +96,7 @@ export async function addPayoutAccountAction(
 }
 
 export async function setPrimaryPayoutAccountAction(orgId: string, accountId: string) {
+  await requireOrgManager(orgId)
   const supabase = await signedInClient()
   const { error } = await (supabase.rpc as any)("fn_set_primary_payout_account", { p_account_id: accountId })
   if (error) throw rpcError(error)
@@ -101,6 +104,7 @@ export async function setPrimaryPayoutAccountAction(orgId: string, accountId: st
 }
 
 export async function deletePayoutAccountAction(orgId: string, accountId: string) {
+  await requireOrgManager(orgId)
   const supabase = await signedInClient()
   const { error } = await (supabase.rpc as any)("fn_delete_payout_account", { p_account_id: accountId })
   if (error) throw rpcError(error)

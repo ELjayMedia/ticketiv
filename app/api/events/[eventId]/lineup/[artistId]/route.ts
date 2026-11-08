@@ -15,8 +15,8 @@ async function canManage(admin: ReturnType<typeof createAdminClient>, eventId: s
   if (error) throw error
   if (!event) return { allowed: false, event: null }
 
-  const { data: globalAdmin } = await admin.from("admin_users").select("user_id").eq("user_id", userId).eq("active", true).maybeSingle()
-  if (globalAdmin) return { allowed: true, event }
+  const { data: globalAdmin } = await admin.from("admin_users").select("role_tier").eq("user_id", userId).eq("active", true).maybeSingle()
+  if (globalAdmin && globalAdmin.role_tier !== "read_only_admin") return { allowed: true, event }
 
   const { data: member } = await admin.from("org_members").select("role").eq("org_id", event.org_id).eq("user_id", userId).maybeSingle()
   return { allowed: Boolean(member?.role && MANAGER_ROLES.has(String(member.role))), event }

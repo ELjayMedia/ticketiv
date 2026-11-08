@@ -10,6 +10,15 @@ export const ADMIN_ROLE_TIERS: AdminRoleTier[] = [
   "read_only_admin",
 ]
 
+/** Roles that may change platform state. Read-only admins retain visibility only. */
+export const ADMIN_MUTATION_ROLE_TIERS: AdminRoleTier[] = ADMIN_ROLE_TIERS.filter(
+  (role): role is Exclude<AdminRoleTier, "read_only_admin"> => role !== "read_only_admin",
+)
+
+export function canPlatformAdminMutate(roleTier: string | null | undefined): boolean {
+  return ADMIN_MUTATION_ROLE_TIERS.includes(roleTier as AdminRoleTier)
+}
+
 export const FINANCE_RESOURCE_KEYS = new Set([
   "payments",
   "payment-attempts",
