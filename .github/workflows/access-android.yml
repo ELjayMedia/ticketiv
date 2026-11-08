@@ -17,18 +17,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "apps/access/**"
-      - "packages/adapters/**"
-      - "packages/shared/**"
-      - "packages/tokens/**"
-      - ".github/workflows/access-android.yml"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-      - "scripts/*play*.mjs"
-      - "scripts/tests/play-listings.test.mjs"
-      - ".github/workflows/play-*.yml"
   workflow_dispatch:
     inputs:
       build_upload_signed_play:
@@ -184,12 +172,23 @@ jobs:
           test -s "$keystore_path"
           echo "TICKETIV_ACCESS_UPLOAD_STORE_FILE=$keystore_path" >> "$GITHUB_ENV"
 
+      # check:crossorg inside check:release exits non-zero without this database.
+      - name: Start isolated verification database
+        uses: ./.github/actions/start-isolated-supabase
+
       - name: Run exact-commit release verification
         env:
           NODE_OPTIONS: --max-old-space-size=4096
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TICKETIV_CROSS_ORG_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: pnpm check:release
+
+      # Free the database's memory before the Gradle build.
+      - name: Stop isolated verification database
+        if: always()
+        shell: bash
+        run: supabase stop --no-backup || true
 
       - name: Build upload-signed Play AAB
         env:
