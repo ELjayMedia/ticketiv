@@ -136,9 +136,12 @@ node scripts/google-play.mjs sync --app ticketiv
 2. Run `Ticketiv Android` or `Access Android` from `main`, enable
    `build_upload_signed_play`, enter the app's existing confirmation token, and
    enable `publish_to_play_internal`.
-3. The signed job runs `pnpm check:release`, builds and verifies the signed AAB,
-   and uploads it to Play's `internal` track. Record its run ID, full commit SHA
-   and version code. The version code is that workflow's run number.
+3. The signed job runs `pnpm check:release` against a throwaway local Supabase
+   database, builds and verifies the signed AAB, and uploads it to Play's
+   `internal` track. Record its run ID, full commit SHA and version code. The
+   version code is that workflow's run number, so start a new run rather than
+   re-running one whose Play upload already succeeded: Play rejects a reused
+   version code.
 4. After a successful internal upload, the job records a release receipt artifact
    containing the app/package, commit, run ID, run attempt, version code and SHA-256
    of the signed AAB. Keep the source run; production promotion requires its
