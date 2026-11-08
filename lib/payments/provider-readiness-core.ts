@@ -1,6 +1,9 @@
-export const PRODUCTION_READINESS_PROVIDERS = ["paystack", "momo", "deltapay"] as const
+import { CHECKOUT_PROVIDERS, type CheckoutPaymentProvider } from "@/lib/payments/providers/catalog"
 
-export type ProductionReadinessProvider = (typeof PRODUCTION_READINESS_PROVIDERS)[number]
+/** Every checkout provider passes the production-readiness gate before taking real money. */
+export const PRODUCTION_READINESS_PROVIDERS: readonly CheckoutPaymentProvider[] = CHECKOUT_PROVIDERS
+
+export type ProductionReadinessProvider = CheckoutPaymentProvider
 
 export interface ProviderProductionReadiness {
   provider: ProductionReadinessProvider

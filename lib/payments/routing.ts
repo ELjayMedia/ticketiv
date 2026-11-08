@@ -11,6 +11,7 @@
 // provider fallback because that can select a disabled or incompatible rail.
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { PaymentProvider } from "@/lib/payments"
+import { CHECKOUT_PROVIDERS } from "@/lib/payments/providers/catalog"
 import {
   createPaymentChannelUnavailableError,
   PaymentChannelUnavailableError,
@@ -18,9 +19,9 @@ import {
 } from "@/lib/payments/errors"
 
 // `manual` remains a valid stored PaymentProvider for historical/internal
-// payment records, but it is not an attendee checkout rail. Keep this list in
-// sync with CheckoutPaymentProvider so routing can never select `manual`.
-export const KNOWN_PROVIDERS: PaymentProvider[] = ["paystack", "momo", "deltapay"]
+// payment records, but it is not an attendee checkout rail. Routing only ever
+// selects providers from the checkout catalog, so it can never pick `manual`.
+export const KNOWN_PROVIDERS: PaymentProvider[] = [...CHECKOUT_PROVIDERS]
 
 export interface RoutingRule {
   priority: number | null

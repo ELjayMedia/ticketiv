@@ -2,6 +2,7 @@ import "server-only"
 
 import { initiateMomoRefund, reconcileMomoRefund } from "@/lib/payments/momo-refunds"
 import { initiatePaystackRefund, reconcilePaystackRefund } from "@/lib/payments/paystack-refunds"
+import { isCheckoutProvider, type CheckoutPaymentProvider } from "@/lib/payments/providers/catalog"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Json } from "@/types/database"
 
@@ -19,6 +20,13 @@ export type RefundDispatchResult = {
   alreadyFinal?: boolean
   needsReconciliation?: boolean
   result?: unknown
+}
+
+type RefundAdapterResult = { status: string } & Record<string, unknown>
+
+interface RefundAdapter {
+  initiate(refundId: string): Promise<RefundAdapterResult>
+  reconcile(refundId: string): Promise<RefundAdapterResult>
 }
 
 type RefundContext = {
@@ -147,23 +155,28 @@ async function claimManualRefund(context: RefundContext): Promise<RefundDispatch
   }
 }
 
+/**
+ * Refund adapters for providers whose refunds are automatic in the provider
+ * catalog. A provider without one (DeltaPay today) is refunded by staff: the
+ * dispatcher claims the refund and marks it for manual completion. The catalog
+ * consistency test checks this map against `refunds: "automatic"`.
+ */
+export const REFUND_ADAPTERS: Partial<Record<CheckoutPaymentProvider, RefundAdapter>> = {
+  paystack: { initiate: initiatePaystackRefund, reconcile: reconcilePaystackRefund },
+  momo: { initiate: initiateMomoRefund, reconcile: reconcileMomoRefund },
+}
+
+function refundAdapterFor(provider: string): RefundAdapter | null {
+  return isCheckoutProvider(provider) ? REFUND_ADAPTERS[provider] ?? null : null
+}
+
 /** Submit an approved refund through the adapter that owns the payment. */
 export async function initiateRefund(refundId: string): Promise<RefundDispatchResult> {
   const context = await loadRefundContext(refundId)
+  const adapter = refundAdapterFor(context.provider)
 
-  if (context.provider === "paystack") {
-    const result = await initiatePaystackRefund(refundId)
-    return {
-      ...result,
-      ok: true,
-      refundId,
-      provider: context.provider,
-      mode: "automatic",
-    }
-  }
-
-  if (context.provider === "momo") {
-    const result = await initiateMomoRefund(refundId)
+  if (adapter) {
+    const result = await adapter.initiate(refundId)
     return {
       ...result,
       ok: true,
@@ -179,20 +192,10 @@ export async function initiateRefund(refundId: string): Promise<RefundDispatchRe
 /** Reconcile a refund through the adapter that owns its provider state. */
 export async function reconcileRefund(refundId: string): Promise<RefundDispatchResult> {
   const context = await loadRefundContext(refundId)
+  const adapter = refundAdapterFor(context.provider)
 
-  if (context.provider === "paystack") {
-    const result = await reconcilePaystackRefund(refundId)
-    return {
-      ...result,
-      ok: true,
-      refundId,
-      provider: context.provider,
-      mode: "automatic",
-    }
-  }
-
-  if (context.provider === "momo") {
-    const result = await reconcileMomoRefund(refundId)
+  if (adapter) {
+    const result = await adapter.reconcile(refundId)
     return {
       ...result,
       ok: true,

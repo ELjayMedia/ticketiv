@@ -1,18 +1,17 @@
-export type CheckoutPaymentProvider = "paystack" | "momo" | "deltapay"
+import {
+  CHECKOUT_PROVIDERS,
+  isCheckoutProvider,
+  PAYMENT_PROVIDER_CATALOG,
+  type CheckoutPaymentProvider,
+} from "@/lib/payments/providers/catalog"
 
-const CHECKOUT_PROVIDERS: CheckoutPaymentProvider[] = ["paystack", "momo", "deltapay"]
+export type { CheckoutPaymentProvider } from "@/lib/payments/providers/catalog"
 
-// Keep this aligned with the processor contracts used by the application.
-// Paystack's published list does not include SZL; MoMo and DeltaPay are the
-// native Eswatini rails. DeltaPay Hosted Checkout accepts decimal SZL amounts.
-const PROVIDER_CURRENCIES: Record<CheckoutPaymentProvider, ReadonlySet<string>> = {
-  paystack: new Set(["GHS", "KES", "NGN", "USD", "XOF", "ZAR"]),
-  momo: new Set(["SZL"]),
-  deltapay: new Set(["SZL"]),
-}
-
-function isCheckoutProvider(value: string): value is CheckoutPaymentProvider {
-  return CHECKOUT_PROVIDERS.includes(value as CheckoutPaymentProvider)
+// Currency support comes from the provider catalog, which mirrors the
+// processor contracts used by the application.
+const PROVIDER_CURRENCIES = {} as Record<CheckoutPaymentProvider, ReadonlySet<string>>
+for (const id of CHECKOUT_PROVIDERS) {
+  PROVIDER_CURRENCIES[id] = new Set<string>(PAYMENT_PROVIDER_CATALOG[id].currencies)
 }
 
 /**
@@ -29,6 +28,11 @@ function isCheckoutProvider(value: string): value is CheckoutPaymentProvider {
  */
 export function momoAcceptsAmountCents(totalCents: number): boolean {
   return Number.isInteger(totalCents) && totalCents > 0 && totalCents % 100 === 0
+}
+
+/** Same rule for any catalog provider marked `wholeMajorUnitsOnly` (MoMo today). */
+export function providerAcceptsAmountCents(provider: CheckoutPaymentProvider, totalCents: number): boolean {
+  return !PAYMENT_PROVIDER_CATALOG[provider].wholeMajorUnitsOnly || momoAcceptsAmountCents(totalCents)
 }
 
 export interface MomoEnvInput {
