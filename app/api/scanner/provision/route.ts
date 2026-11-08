@@ -7,7 +7,7 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function POST(request: Request) {
-  const rl = await rateLimit("scanner:provision", clientKey(request), 15, 60)
+  const rl = await rateLimit("scanner:provision", clientKey(request), 15, 60, { failClosed: true })
   if (!rl.allowed) return tooManyRequests(rl)
 
   const body = await request.json().catch(() => ({}))

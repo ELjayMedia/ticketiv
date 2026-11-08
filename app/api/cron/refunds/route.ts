@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { getSupabaseAdminConfig } from "@/lib/env"
 import { reconcileRefund } from "@/lib/payments/refunds"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { isAuthorizedCronRequest } from "@/lib/cron-auth"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -17,10 +18,7 @@ const BATCH_SIZE = 25
  * the wrong processor. Finalisation remains behind the provider-specific path.
  */
 export async function GET(request: Request) {
-  const expectedSecret = process.env.CRON_SECRET
-  const authHeader = request.headers.get("authorization")
-
-  if (!expectedSecret || authHeader !== `Bearer ${expectedSecret}`) {
+  if (!isAuthorizedCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

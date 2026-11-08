@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import * as Sentry from "@sentry/nextjs"
+import { isAuthorizedCronRequest } from "@/lib/cron-auth"
 
 // Is error monitoring actually delivering?
 //
@@ -24,10 +25,7 @@ export const dynamic = "force-dynamic"
 const FLUSH_TIMEOUT_MS = 4_000
 
 export async function GET(request: Request) {
-  const expectedSecret = process.env.CRON_SECRET
-  const authHeader = request.headers.get("authorization")
-
-  if (!expectedSecret || authHeader !== `Bearer ${expectedSecret}`) {
+  if (!isAuthorizedCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

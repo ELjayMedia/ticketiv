@@ -81,7 +81,7 @@ describe("Sentry wiring", () => {
   it("flushes the delivery check, because captured is not sent in serverless", () => {
     const route = read("app/api/health/sentry/route.ts")
     expect(route).toContain("Sentry.flush(")
-    expect(route).toContain("Bearer ${expectedSecret}")
+    expect(route).toContain("isAuthorizedCronRequest(request)")
   })
 
   it("has not had an npm lockfile introduced alongside the pnpm workspace", () => {

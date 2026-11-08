@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { hasSharedSecret } from "@/lib/cron-auth"
+
 import {
   fetchTapBandAccessDecision,
   safeTapBandConfigPayload,
@@ -11,11 +13,7 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
-  const expectedSecret = process.env.TAPBAND_CONFIG_SECRET
-  const authHeader = request.headers.get("authorization")
-  const keyHeader = request.headers.get("x-tapband-config-secret")
-
-  if (!expectedSecret || (authHeader !== `Bearer ${expectedSecret}` && keyHeader !== expectedSecret)) {
+  if (!hasSharedSecret(request, process.env.TAPBAND_CONFIG_SECRET, "x-tapband-config-secret")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

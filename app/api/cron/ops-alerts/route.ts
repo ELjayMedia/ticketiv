@@ -18,6 +18,7 @@ import {
 } from "@/lib/ops/health-alerts"
 import { APP_URL, getSupabaseAdminConfig } from "@/lib/env"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { isAuthorizedCronRequest } from "@/lib/cron-auth"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -37,10 +38,7 @@ interface ReconciliationQueueSummary extends Record<string, unknown> {
 }
 
 export async function GET(request: Request) {
-  const expectedSecret = process.env.CRON_SECRET
-  const authHeader = request.headers.get("authorization")
-
-  if (!expectedSecret || authHeader !== `Bearer ${expectedSecret}`) {
+  if (!isAuthorizedCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
