@@ -20,14 +20,14 @@ BASE = "https://sentry.io/api/0/projects/{}/{}/issues/".format(
     urllib.parse.quote(ORG, safe=""), urllib.parse.quote(PROJECT, safe="")
 )
 REDACTIONS = [
-    (re.compile(r"(?i)\\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\b"), "[email]"),
-    (re.compile(r"(?<![\\w.])(?:\\d{1,3}\\.){3}\\d{1,3}(?![\\w.])"), "[ip]"),
-    (re.compile(r"https?://\\S+", re.I), "[url]"),
-    (re.compile(r"(?i)(bearer|token|password|secret|api[_-]?key)\\s*[:=]\\s*\\S+"), "[credential]"),
+    (re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b"), "[email]"),
+    (re.compile(r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])"), "[ip]"),
+    (re.compile(r"https?://\S+", re.I), "[url]"),
+    (re.compile(r"(?i)(bearer|token|password|secret|api[_-]?key)\s*[:=]\s*\S+"), "[credential]"),
 ]
 
 def safe(value, length=180):
-    text = str(value or "").replace("\\n", " ").replace("\\r", " ").replace("|", "/")
+    text = str(value or "").replace("\n", " ").replace("\r", " ").replace("|", "/")
     for pattern, replacement in REDACTIONS:
         text = pattern.sub(replacement, text)
     return text[:length]
@@ -89,7 +89,7 @@ for period in ("24h", "7d"):
 
 output = Path("sentry-report")
 output.mkdir(exist_ok=True)
-(output / "issues.json").write_text(json.dumps(report, indent=2) + "\\n", encoding="utf-8")
+(output / "issues.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 lines = [
     "# Ticketiv Sentry production errors",
     "",
@@ -114,5 +114,5 @@ for period, issues in report["windows"].items():
             issue["short_id"], issue["permalink"], issue["title"],
             issue["count"], issue["user_count"], issue["last_seen"]
         ))
-(output / "summary.md").write_text("\\n".join(lines) + "\\n", encoding="utf-8")
+(output / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 print("Sanitized Sentry report generated for {} windows.".format(len(report["windows"])))
