@@ -224,6 +224,24 @@ describe("Supabase middleware session recovery", () => {
     expect(mocks.createServerClient).not.toHaveBeenCalled()
   })
 
+  it.each([
+    "/api/integrations/payments/paystack/webhook",
+    "/api/integrations/payments/deltapay/webhook",
+    "/api/integrations/payments/momo/webhook",
+    "/api/integrations/payments/unknown/webhook",
+  ])("lets payment providers reach the unified webhook route: %s", async (url) => {
+    const response = await updateSession(new NextRequest(`https://ticketiv.app${url}`, { method: "POST" }))
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get("location")).toBeNull()
+    expect(mocks.createServerClient).not.toHaveBeenCalled()
+  })
+
+  it("keeps other integration paths behind the session check", async () => {
+    await updateSession(new NextRequest("https://ticketiv.app/api/integrations/payments/paystack/webhook/extra", { method: "POST" }))
+    expect(mocks.createServerClient).toHaveBeenCalled()
+  })
+
   it("lets the payout API return its own JSON authentication error", async () => {
     const response = await updateSession(
       new NextRequest("https://ticketiv.app/api/payouts", { method: "POST" }),
