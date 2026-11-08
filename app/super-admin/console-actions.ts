@@ -5,6 +5,8 @@ import { redirect } from "next/navigation"
 
 import { deliverTicketsForOrder } from "@/lib/notifications/ticket-delivery"
 import { initiateRefund } from "@/lib/payments/refunds"
+import { looksLikeSecret } from "@/lib/payments/provider-readiness-checklist"
+import { isCheckoutProvider } from "@/lib/payments/providers/catalog"
 import { recordViewAs } from "@/lib/data/admin/console-ops"
 import { untyped } from "@/lib/data/admin/console"
 import { encryptPayoutDetails, isPayoutEncryptionConfigured } from "@/lib/payout-crypto-core"
@@ -942,4 +944,87 @@ export async function disconnectChatwootAction(_prev: ConsoleActionResult, formD
   revalidatePath("/super-admin/integrations")
   revalidatePath("/super-admin/cases")
   return done("Disconnected. The saved token is deleted. If CHATWOOT_* environment variables exist, Cases uses those instead.")
+}
+
+// TICK-403: payment-provider readiness. Every change goes through
+// fn_admin_provider_readiness, which enforces the checklist and writes the
+// readiness history in the same transaction; the audit_log row mirrors it for
+// the console-wide history.
+
+const READINESS_ACTIONS = {
+  record_evidence: { needsReason: false, done: "Evidence saved." },
+  remove_evidence: { needsReason: false, done: "Evidence removed." },
+  approve: { needsReason: true, done: "Approved for real money. Checkout can now take live payments with this provider." },
+  revoke: { needsReason: true, done: "Approval revoked. Real-money payments with this provider are refused; test mode still works." },
+  block: { needsReason: true, done: "Disabled. The provider is off at checkout and refused for real money until the block is lifted." },
+  unblock: { needsReason: true, done: "Block lifted. Checkout is back to how it was before; approve again before taking real money." },
+} as const
+
+type ReadinessAction = keyof typeof READINESS_ACTIONS
+
+async function providerReadinessAction(
+  action: ReadinessAction,
+  formData: FormData,
+  g: Awaited<ReturnType<typeof gate>>,
+): Promise<ConsoleActionResult> {
+  const config = READINESS_ACTIONS[action]
+  if (!g.ok) return g.error
+  const provider = field(formData, "provider")
+  if (!isCheckoutProvider(provider)) return fail("Unknown payment provider.")
+  const item = field(formData, "item") || null
+  const ref = field(formData, "ref") || null
+  const note = field(formData, "note") || null
+  if (action === "record_evidence") {
+    if (!ref) return fail("Add where the proof lives: a link, a Jira key or a document reference.")
+    if (looksLikeSecret(ref) || (note && looksLikeSecret(note))) {
+      return fail("That looks like a key or token. Record where the proof lives, never the credential itself.")
+    }
+  }
+
+  const db = g.admin as unknown as { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ error: { message: string } | null }> }
+  const { error } = await db.rpc("fn_admin_provider_readiness", {
+    p_provider: provider,
+    p_action: action,
+    p_actor: g.context.user.id,
+    p_reason: g.reason || null,
+    p_item: item,
+    p_ref: ref,
+    p_note: note,
+  })
+  if (error) return fail(error.message)
+
+  await audit(g.admin, g.context.user.id, {
+    action: "manage_provider_readiness",
+    table: "payment_provider_readiness",
+    recordId: provider,
+    summary: `${provider}: ${action.replace("_", " ")}${item ? ` (${item})` : ""}`,
+    reason: g.reason || undefined,
+  })
+  revalidatePath("/super-admin/integrations")
+  return done(config.done)
+}
+
+export async function recordReadinessEvidenceAction(_prev: ConsoleActionResult, formData: FormData) {
+  const g = await gate("manage_provider_readiness", formData, READINESS_ACTIONS.record_evidence.needsReason)
+  return providerReadinessAction("record_evidence", formData, g)
+}
+export async function removeReadinessEvidenceAction(_prev: ConsoleActionResult, formData: FormData) {
+  const g = await gate("manage_provider_readiness", formData, READINESS_ACTIONS.remove_evidence.needsReason)
+  return providerReadinessAction("remove_evidence", formData, g)
+}
+export async function approveProviderAction(_prev: ConsoleActionResult, formData: FormData) {
+  const g = await gate("manage_provider_readiness", formData, READINESS_ACTIONS.approve.needsReason)
+  return providerReadinessAction("approve", formData, g)
+}
+export async function revokeProviderAction(_prev: ConsoleActionResult, formData: FormData) {
+  const g = await gate("manage_provider_readiness", formData, READINESS_ACTIONS.revoke.needsReason)
+  return providerReadinessAction("revoke", formData, g)
+}
+export async function emergencyDisableProviderAction(_prev: ConsoleActionResult, formData: FormData) {
+  const g = await gate("manage_provider_readiness", formData, READINESS_ACTIONS.block.needsReason)
+  return providerReadinessAction("block", formData, g)
+}
+export async function liftProviderBlockAction(_prev: ConsoleActionResult, formData: FormData) {
+  const g = await gate("manage_provider_readiness", formData, READINESS_ACTIONS.unblock.needsReason)
+  return providerReadinessAction("unblock", formData, g)
 }

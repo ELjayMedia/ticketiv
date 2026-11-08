@@ -41,6 +41,7 @@ export type ConsoleAction =
   | "manage_replies"
   | "restore_setting"
   | "manage_integrations"
+  | "manage_provider_readiness"
   | "hide_event_update"
 
 export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
@@ -62,6 +63,8 @@ export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   manage_replies: ["super_admin", "support_admin"],
   restore_setting: ["super_admin"],
   manage_integrations: ["super_admin"],
+  // TICK-403: approving a provider for real money, or switching it off, is the owner's call.
+  manage_provider_readiness: ["super_admin"],
   // Event Companion: take down an organiser's update (wrong, harmful, spam).
   hide_event_update: ["super_admin", "support_admin", "event_ops_admin"],
 }

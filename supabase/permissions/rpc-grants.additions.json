@@ -333,6 +333,17 @@
       "grantees": [
         "postgres"
       ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_admin_provider_readiness",
+      "arguments": "p_provider text, p_action text, p_actor uuid, p_reason text, p_item text, p_ref text, p_note text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
     }
   ]
 }
