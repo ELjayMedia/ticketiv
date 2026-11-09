@@ -37,8 +37,21 @@ describe("shared UAT browser harness", () => {
     expect(helper).toContain('source: "shared-uat"')
     expect(helper).not.toContain("admin.auth.admin.updateUserById(persona.id")
     expect(workflow).toContain("E2E_TEST_EVENT_SLUG: uat-public-discovery-event")
-    expect(workflow).toContain("E2E_TEST_BUYER_EMAIL: e2e-buyer@uat.ticketiv.invalid")
+    expect(workflow).toContain("E2E_TEST_BUYER_EMAIL: uat-checkout@ticketiv.app")
     expect(workflow).not.toContain("E2E_TEST_EVENT_SLUG: ${{ secrets.E2E_TEST_EVENT_SLUG }}")
+    expect(workflow).not.toContain("E2E_TEST_BUYER_EMAIL: ${{ secrets.E2E_TEST_BUYER_EMAIL }}")
+  })
+
+  it("uses attendee-visible refund fixtures and exact organization headings", () => {
+    const refundSpec = source("e2e/refunded-ticket-propagation.spec.ts")
+    const boundarySpec = source("e2e/authenticated-org-boundaries.spec.ts")
+
+    expect(refundSpec).toContain('const PUBLIC_EVENT_ID = "da7a0003-0000-4000-8000-000000000004"')
+    expect(refundSpec).toContain('const PUBLIC_TICKET_TYPE_ID = "da7a0004-0000-4000-8000-000000000004"')
+    expect(refundSpec).toContain("ticket_type_id: PUBLIC_TICKET_TYPE_ID")
+    expect(refundSpec).toContain("p_event_id: PUBLIC_EVENT_ID")
+    expect(boundarySpec).toContain('name: "UAT Alpha Events", exact: true')
+    expect(boundarySpec).toContain('name: "UAT Beta Events", exact: true')
   })
 
   it("does not confuse role onboarding with the one-time handle picker", () => {

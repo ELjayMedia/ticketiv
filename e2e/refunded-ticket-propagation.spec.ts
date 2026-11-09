@@ -26,7 +26,12 @@ const BUYER = {
   email: "uat-buyer1@uat.ticketiv.invalid",
 } as const
 const SCANNER_USER_ID = "da7a0001-0000-4000-8000-000000000004"
-const ALPHA_EVENT_ID = "da7a0003-0000-4000-8000-000000000001"
+// The attendee UI reads through the security-invoker v_my_tickets view. Use
+// the public discovery fixture so its event and ticket type are intentionally
+// visible to an attendee; the unlisted organiser fixture is not public catalog
+// data and is correctly hidden by its underlying RLS policies.
+const PUBLIC_EVENT_ID = "da7a0003-0000-4000-8000-000000000004"
+const PUBLIC_TICKET_TYPE_ID = "da7a0004-0000-4000-8000-000000000004"
 
 type RefundedTicket = {
   id: string
@@ -78,7 +83,7 @@ test.describe("refunded ticket propagation", () => {
       .from("order_items")
       .insert({
         order_id: order.id,
-        ticket_type_id: "da7a0004-0000-4000-8000-000000000001",
+        ticket_type_id: PUBLIC_TICKET_TYPE_ID,
         ticket_code: `UAT-REFUND-${fixtureKey}`,
         status: "issued",
       })
@@ -170,7 +175,7 @@ test.describe("refunded ticket propagation", () => {
 
     const { data, error } = await admin.rpc("fn_scan_ticket_unchecked", {
       p_ticket_code: refundedTicket.ticket_code,
-      p_event_id: ALPHA_EVENT_ID,
+      p_event_id: PUBLIC_EVENT_ID,
       p_scanned_by: SCANNER_USER_ID,
       p_device_id: null,
       p_session_id: null,

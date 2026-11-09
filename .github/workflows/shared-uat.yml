@@ -59,7 +59,9 @@ jobs:
       # These are deterministic fixture identifiers, not secrets. Keeping them
       # inline prevents stale repository secrets from targeting a real event.
       E2E_TEST_EVENT_SLUG: uat-public-discovery-event
-      E2E_TEST_BUYER_EMAIL: e2e-buyer@uat.ticketiv.invalid
+      # Paystack rejects reserved .invalid addresses before hosted checkout.
+      # Use Ticketiv's real domain while keeping this clearly synthetic.
+      E2E_TEST_BUYER_EMAIL: uat-checkout@ticketiv.app
       E2E_PAYSTACK_TEST_KEY: ${{ secrets.E2E_PAYSTACK_TEST_KEY }}
       TARGET_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
