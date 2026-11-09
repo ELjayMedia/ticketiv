@@ -29,6 +29,18 @@ describe("shared UAT browser harness", () => {
     expect(helper).not.toContain('admin.rpc("fn_teardown_public_discovery_event")')
   })
 
+  it("uses run-owned Auth users and deterministic checkout identifiers", () => {
+    const helper = source("e2e/support/uat-auth.ts")
+    const workflow = source(".github/workflows/shared-uat.yml")
+
+    expect(helper).toContain("admin.auth.admin.createUser({")
+    expect(helper).toContain('source: "shared-uat"')
+    expect(helper).not.toContain("admin.auth.admin.updateUserById(persona.id")
+    expect(workflow).toContain("E2E_TEST_EVENT_SLUG: uat-public-discovery-event")
+    expect(workflow).toContain("E2E_TEST_BUYER_EMAIL: e2e-buyer@uat.ticketiv.invalid")
+    expect(workflow).not.toContain("E2E_TEST_EVENT_SLUG: ${{ secrets.E2E_TEST_EVENT_SLUG }}")
+  })
+
   it("does not confuse role onboarding with the one-time handle picker", () => {
     const middleware = source("lib/supabase/middleware.ts")
 

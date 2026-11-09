@@ -37,6 +37,14 @@ export const UAT_PERSONAS = {
 
 export type UatPersona = (typeof UAT_PERSONAS)[keyof typeof UAT_PERSONAS]
 
+export interface ProvisionedUatLogin {
+  id: string
+  email: string
+  password: string
+}
+
+const provisionedUserIds = new Set<string>()
+
 const REQUIRED_ENV = [
   "PLAYWRIGHT_BASE_URL",
   "TEST_SUPABASE_URL",
@@ -142,6 +150,14 @@ export async function teardownUatFixtures(admin: SupabaseClient) {
   const { error } = await admin.rpc("fn_teardown_uat_fixtures")
   if (error) throw new Error(`fn_teardown_uat_fixtures failed: ${error.message}`)
 
+  for (const userId of provisionedUserIds) {
+    await admin.from("notifications").delete().eq("user_id", userId)
+    await admin.from("profiles").delete().eq("user_id", userId)
+    const { error: deleteError } = await admin.auth.admin.deleteUser(userId)
+    if (deleteError) throw new Error(`Unable to remove provisioned UAT user: ${deleteError.message}`)
+    provisionedUserIds.delete(userId)
+  }
+
   // Per-spec cleanup must not remove the workflow-scoped discovery fixture.
   // The workflow's final seed:uat:teardown call removes both fixture sets.
   const { error: discoveryError } = await admin.rpc("fn_seed_public_discovery_event")
@@ -150,22 +166,55 @@ export async function teardownUatFixtures(admin: SupabaseClient) {
   }
 }
 
-export async function provisionUatPassword(admin: SupabaseClient, persona: UatPersona) {
+export async function provisionUatLogin(
+  admin: SupabaseClient,
+  persona: UatPersona,
+): Promise<ProvisionedUatLogin> {
   // A fresh high-entropy password exists only in this worker's memory. The
   // fixture is torn down after the suite, so no reusable credential is stored
   // in source, CI variables or the shared database beyond the test lifetime.
   const password = `Tiv-${randomBytes(24).toString("base64url")}!9a`
-  const { data, error } = await admin.auth.admin.updateUserById(persona.id, {
+  const localPart = persona.email.slice(0, persona.email.indexOf("@"))
+  const email = `${localPart}-${randomBytes(8).toString("hex")}@uat.ticketiv.invalid`
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
     password,
     email_confirm: true,
+    user_metadata: { source: "shared-uat" },
   })
 
-  if (error) throw new Error(`Unable to provision UAT login for ${persona.email}: ${error.message}`)
-  if (data.user?.email?.toLowerCase() !== persona.email) {
-    throw new Error(`Supabase returned the wrong UAT user while provisioning ${persona.email}.`)
+  if (error) throw new Error(`Unable to create a run-owned UAT login for ${persona.email}: ${error.message}`)
+  if (!data.user?.id || data.user.email?.toLowerCase() !== email) {
+    throw new Error(`Supabase returned the wrong run-owned UAT user for ${persona.email}.`)
   }
 
-  return password
+  const { data: memberships, error: membershipReadError } = await admin
+    .from("org_members")
+    .select("org_id,role")
+    .eq("user_id", persona.id)
+  if (membershipReadError) {
+    await admin.auth.admin.deleteUser(data.user.id)
+    throw new Error(`Unable to read the ${persona.email} role fixture: ${membershipReadError.message}`)
+  }
+  if (!memberships?.length) {
+    await admin.auth.admin.deleteUser(data.user.id)
+    throw new Error(`The ${persona.email} role fixture has no organization membership.`)
+  }
+
+  const { error: membershipWriteError } = await admin.from("org_members").insert(
+    memberships.map((membership) => ({
+      org_id: membership.org_id,
+      user_id: data.user!.id,
+      role: membership.role,
+    })),
+  )
+  if (membershipWriteError) {
+    await admin.auth.admin.deleteUser(data.user.id)
+    throw new Error(`Unable to clone the ${persona.email} role fixture: ${membershipWriteError.message}`)
+  }
+
+  provisionedUserIds.add(data.user.id)
+  return { id: data.user.id, email, password }
 }
 
 export async function signInUatPersona({
