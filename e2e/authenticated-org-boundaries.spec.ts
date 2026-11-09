@@ -89,7 +89,7 @@ test.describe("authenticated organization boundaries", () => {
         })
 
         await expect(page).toHaveURL(new URL(alphaDashboard, config.baseUrl!).toString())
-        await expect(page.getByRole("heading", { name: "UAT Alpha Events" })).toBeVisible()
+        await expect(page.getByRole("heading", { name: "UAT Alpha Events", exact: true })).toBeVisible()
       })
 
       await test.step(`${role} negative control: Beta is cross-tenant`, async () => {
@@ -120,7 +120,7 @@ test.describe("authenticated organization boundaries", () => {
     })
 
     await expect(page).toHaveURL(new URL(betaDashboard, config.baseUrl).toString())
-    await expect(page.getByRole("heading", { name: "UAT Beta Events" })).toBeVisible()
+    await expect(page.getByRole("heading", { name: "UAT Beta Events", exact: true })).toBeVisible()
 
     await page.goto(`/orgs/${UAT_ORGS.alpha}/dashboard`)
     await expect(page).toHaveURL(/\/403(?:\?|$)/)
