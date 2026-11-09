@@ -7,7 +7,7 @@ import {
   UAT_ORGS,
   UAT_PERSONAS,
   createUatAdmin,
-  provisionUatPassword,
+  provisionUatLogin,
   readAuthenticatedUatConfig,
   seedUatFixtures,
   signInUatPersona,
@@ -27,7 +27,7 @@ const OWNER = UAT_PERSONAS.owner
 const DRAFT_TITLE = `E2E TICK-334 draft ${randomUUID()}`
 
 let admin: SupabaseClient | null = null
-let password: string | null = null
+let login: Awaited<ReturnType<typeof provisionUatLogin>> | null = null
 let draftEventId: string | null = null
 let seeded = false
 
@@ -59,7 +59,7 @@ test.describe("organizer draft creation and publish guard", () => {
     admin = createUatAdmin(config)
     await seedUatFixtures(admin)
     seeded = true
-    password = await provisionUatPassword(admin, OWNER)
+    login = await provisionUatLogin(admin, OWNER)
   })
 
   test.afterAll(async ({}, workerInfo) => {
@@ -78,15 +78,15 @@ test.describe("organizer draft creation and publish guard", () => {
       "Organizer UAT requires E2E_STRICT=1, E2E_ALLOW_SHARED_UAT=1 and allow-listed TEST_SUPABASE_* env; runs on desktop only.",
     )
 
-    if (!password || !admin || !config.baseUrl) {
+    if (!login || !admin || !config.baseUrl) {
       throw new Error("Organizer UAT setup did not initialize.")
     }
 
     const newEventPath = `/orgs/${UAT_ORGS.alpha}/events/new`
     await signInUatPersona({
       page,
-      email: OWNER.email,
-      password,
+      email: login.email,
+      password: login.password,
       baseUrl: config.baseUrl,
       nextPath: newEventPath,
     })

@@ -1,9 +1,11 @@
+import { randomUUID } from "node:crypto"
+
 import { expect, test } from "@playwright/test"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import {
   createUatAdmin,
-  provisionUatPassword,
+  provisionUatLogin,
   readAuthenticatedUatConfig,
   seedUatFixtures,
   signInUatPersona,
@@ -25,7 +27,6 @@ const BUYER = {
 } as const
 const SCANNER_USER_ID = "da7a0001-0000-4000-8000-000000000004"
 const ALPHA_EVENT_ID = "da7a0003-0000-4000-8000-000000000001"
-const REFUNDED_ORDER_ID = "da7a0005-0000-4000-8000-000000000005"
 
 type RefundedTicket = {
   id: string
@@ -35,7 +36,7 @@ type RefundedTicket = {
 }
 
 let admin: SupabaseClient | null = null
-let password: string | null = null
+let login: Awaited<ReturnType<typeof provisionUatLogin>> | null = null
 let refundedTicket: RefundedTicket | null = null
 let seeded = false
 
@@ -52,12 +53,68 @@ test.describe("refunded ticket propagation", () => {
     admin = createUatAdmin(config)
     await seedUatFixtures(admin)
     seeded = true
-    password = await provisionUatPassword(admin, BUYER)
+    login = await provisionUatLogin(admin, BUYER)
+
+    const fixtureKey = randomUUID()
+    const { data: order, error: orderError } = await admin
+      .from("orders")
+      .insert({
+        org_id: "da7a0000-0000-4000-8000-000000000001",
+        buyer_id: login.id,
+        buyer_email: login.email,
+        email: login.email,
+        total_cents: 15000,
+        subtotal_cents: 15000,
+        item_count: 1,
+        currency: "ZAR",
+        status: "paid",
+        channel: "online",
+      })
+      .select("id")
+      .single()
+    if (orderError || !order) throw new Error(`Unable to create refunded UAT order: ${orderError?.message}`)
+
+    const { data: item, error: itemError } = await admin
+      .from("order_items")
+      .insert({
+        order_id: order.id,
+        ticket_type_id: "da7a0004-0000-4000-8000-000000000001",
+        ticket_code: `UAT-REFUND-${fixtureKey}`,
+        status: "issued",
+      })
+      .select("id,ticket_code,status,checked_in_at")
+      .single()
+    if (itemError || !item) throw new Error(`Unable to create refunded UAT ticket: ${itemError?.message}`)
+
+    const { data: payment, error: paymentError } = await admin
+      .from("payments")
+      .insert({
+        order_id: order.id,
+        provider: "paystack",
+        amount_cents: 15000,
+        currency: "ZAR",
+        ext_payment_id: `uat_refund_${fixtureKey}`,
+        status: "succeeded",
+        channel: "online",
+      })
+      .select("id")
+      .single()
+    if (paymentError || !payment) throw new Error(`Unable to create refunded UAT payment: ${paymentError?.message}`)
+
+    const { data: refund, error: refundError } = await admin
+      .from("refunds")
+      .insert({ payment_id: payment.id, amount_cents: 15000, currency: "ZAR", status: "requested" })
+      .select("id")
+      .single()
+    if (refundError || !refund) throw new Error(`Unable to create refunded UAT refund: ${refundError?.message}`)
+
+    const { error: processError } = await admin.from("refunds").update({ status: "processed" }).eq("id", refund.id)
+    if (processError) throw new Error(`Unable to process refunded UAT refund: ${processError.message}`)
 
     const { data, error } = await admin
       .from("order_items")
       .select("id,ticket_code,status,checked_in_at")
-      .eq("order_id", REFUNDED_ORDER_ID)
+      .eq("id", item.id)
       .single()
 
     if (error) throw new Error(`Unable to load refunded UAT ticket: ${error.message}`)
@@ -79,14 +136,14 @@ test.describe("refunded ticket propagation", () => {
       "Refunded-ticket UAT requires E2E_STRICT=1, E2E_ALLOW_SHARED_UAT=1 and allow-listed TEST_SUPABASE_* env; runs on desktop only.",
     )
 
-    if (!password || !refundedTicket || !config.baseUrl) {
+    if (!login || !refundedTicket || !config.baseUrl) {
       throw new Error("Refunded-ticket UAT setup did not initialize.")
     }
 
     await signInUatPersona({
       page,
-      email: BUYER.email,
-      password,
+      email: login.email,
+      password: login.password,
       baseUrl: config.baseUrl,
       nextPath: "/tickets",
     })

@@ -7,7 +7,7 @@ import {
   UAT_ORGS,
   UAT_PERSONAS,
   createUatAdmin,
-  provisionUatPassword,
+  provisionUatLogin,
   readAuthenticatedUatConfig,
   seedUatFixtures,
   signInUatPersona,
@@ -29,7 +29,7 @@ const EMPTY_ORG_NAME = `E2E Delete Workspace ${suffix}`
 const EMPTY_ORG_SLUG = `e2e-delete-${suffix}`
 
 let admin: SupabaseClient | null = null
-let password: string | null = null
+let login: Awaited<ReturnType<typeof provisionUatLogin>> | null = null
 let emptyOrgId: string | null = null
 let seeded = false
 
@@ -56,7 +56,7 @@ test.describe("workspace deletion safety", () => {
     admin = createUatAdmin(config)
     await seedUatFixtures(admin)
     seeded = true
-    password = await provisionUatPassword(admin, OWNER)
+    login = await provisionUatLogin(admin, OWNER)
 
     const { data: org, error: orgError } = await admin
       .from("organizations")
@@ -70,7 +70,7 @@ test.describe("workspace deletion safety", () => {
 
     const { error: memberError } = await admin.from("org_members").insert({
       org_id: emptyOrgId,
-      user_id: OWNER.id,
+      user_id: login.id,
       role: "organizer_owner",
     })
     if (memberError) throw new Error(`Unable to attach UAT owner to synthetic workspace: ${memberError.message}`)
@@ -92,13 +92,13 @@ test.describe("workspace deletion safety", () => {
       "Workspace deletion UAT requires E2E_STRICT=1, E2E_ALLOW_SHARED_UAT=1 and allow-listed TEST_SUPABASE_* env; runs on desktop only.",
     )
 
-    if (!password || !config.baseUrl) throw new Error("Workspace deletion UAT setup did not initialize.")
+    if (!login || !config.baseUrl) throw new Error("Workspace deletion UAT setup did not initialize.")
 
     const settingsPath = `/orgs/${UAT_ORGS.alpha}/settings`
     await signInUatPersona({
       page,
-      email: OWNER.email,
-      password,
+      email: login.email,
+      password: login.password,
       baseUrl: config.baseUrl,
       nextPath: settingsPath,
     })
@@ -115,15 +115,15 @@ test.describe("workspace deletion safety", () => {
       "Workspace deletion UAT requires the explicit shared-UAT safety gate.",
     )
 
-    if (!password || !admin || !config.baseUrl || !emptyOrgId) {
+    if (!login || !admin || !config.baseUrl || !emptyOrgId) {
       throw new Error("Workspace deletion UAT setup did not initialize.")
     }
 
     const settingsPath = `/orgs/${emptyOrgId}/settings`
     await signInUatPersona({
       page,
-      email: OWNER.email,
-      password,
+      email: login.email,
+      password: login.password,
       baseUrl: config.baseUrl,
       nextPath: settingsPath,
     })
