@@ -67,6 +67,8 @@ test.describe("authenticated organization boundaries", () => {
   })
 
   test("every Alpha staff role can enter Alpha but is refused from Beta", async ({ page }, testInfo) => {
+    // Five independent Auth users are provisioned and exercised serially.
+    test.setTimeout(180_000)
     test.skip(
       !shouldRun(testInfo.project.name),
       "Authenticated UAT requires E2E_STRICT=1, E2E_ALLOW_SHARED_UAT=1 and allow-listed TEST_SUPABASE_* env; runs on desktop only.",
@@ -75,21 +77,25 @@ test.describe("authenticated organization boundaries", () => {
     if (!admin || !config.baseUrl) throw new Error("Authenticated UAT setup did not initialize.")
 
     for (const [role, persona] of alphaPersonas) {
-      await test.step(`${role} positive control: Alpha dashboard`, async () => {
+      await test.step(`${role} positive control: role home`, async () => {
         await clearBrowserSession(page)
         const login = await provisionUatLogin(admin!, persona)
-        const alphaDashboard = `/orgs/${UAT_ORGS.alpha}/dashboard`
+        const roleHome = role === "scanner"
+          ? { path: "/scan/setup", heading: "Scanner setup" }
+          : role === "cashier"
+            ? { path: `/orgs/${UAT_ORGS.alpha}/events`, heading: "My events" }
+            : { path: `/orgs/${UAT_ORGS.alpha}/dashboard`, heading: "UAT Alpha Events" }
 
         await signInUatPersona({
           page,
           email: login.email,
           password: login.password,
           baseUrl: config.baseUrl!,
-          nextPath: alphaDashboard,
+          nextPath: roleHome.path,
         })
 
-        await expect(page).toHaveURL(new URL(alphaDashboard, config.baseUrl!).toString())
-        await expect(page.getByRole("heading", { name: "UAT Alpha Events", exact: true })).toBeVisible()
+        await expect(page).toHaveURL(new URL(roleHome.path, config.baseUrl!).toString())
+        await expect(page.getByRole("heading", { name: roleHome.heading, exact: true })).toBeVisible()
       })
 
       await test.step(`${role} negative control: Beta is cross-tenant`, async () => {

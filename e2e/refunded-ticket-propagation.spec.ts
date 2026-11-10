@@ -157,7 +157,8 @@ test.describe("refunded ticket propagation", () => {
 
     await page.goto(`/tickets/${refundedTicket.id}`)
     await expect(page.getByText("Refunded", { exact: true }).first()).toBeVisible()
-    await expect(page.getByText("No QR", { exact: true })).toBeVisible()
+    await expect(page.getByRole("img", { name: /ticket qr code/i })).toHaveCount(0)
+    await expect(page.getByRole("button", { name: "Send ticket" })).toHaveCount(0)
     await expect(
       page.getByText("This ticket has been refunded and is no longer valid.", { exact: true }),
     ).toBeVisible()
