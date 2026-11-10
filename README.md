@@ -1,5 +1,8 @@
 # Ticketiv
 
+[![Ticketiv Android APK checks](https://github.com/ELjayMedia/ticketiv/actions/workflows/ticketiv-android.yml/badge.svg?branch=main&event=push)](https://github.com/ELjayMedia/ticketiv/actions/workflows/ticketiv-android.yml)
+[![Ticketiv Access Android APK checks](https://github.com/ELjayMedia/ticketiv/actions/workflows/access-android.yml/badge.svg?branch=main&event=push)](https://github.com/ELjayMedia/ticketiv/actions/workflows/access-android.yml)
+
 Ticketiv is an event-ticketing platform for Eswatini and the wider region:
 consumer discovery and checkout, an organizer back office (events, pricing,
 finance, payouts), an offline-first gate scanner, resale and waitlist flows, and
@@ -251,6 +254,27 @@ are kept in lockstep. Do **not** run raw `psql` against production. See
   released migration in place — add a new one.
 - **Release gate:** a PR is mergeable only when the `check:release` CI job is
   green (lint, unit tests, typecheck, demo-pattern check, build).
+
+---
+
+## Android APK builds (internal testing)
+
+The [Ticketiv Android](https://github.com/ELjayMedia/ticketiv/actions/workflows/ticketiv-android.yml) and [Ticketiv Access Android](https://github.com/ELjayMedia/ticketiv/actions/workflows/access-android.yml) workflows compile both Play and Huawei **release APKs** on relevant pull requests and on pushes to `main`, alongside the existing AAB builds. The badges above reflect the `main` push workflows; a green badge means the build checks passed, **not** that an installable signed APK was published.
+
+| Application | CI builds | Download location |
+|---|---|---|
+| Ticketiv Attendee (`com.ticketiv.app`) | Play and Huawei unsigned APKs | [Ticketiv Android workflow runs](https://github.com/ELjayMedia/ticketiv/actions/workflows/ticketiv-android.yml) |
+| Ticketiv Access (`com.ticketiv.access`) | Play and Huawei unsigned APKs | [Access Android workflow runs](https://github.com/ELjayMedia/ticketiv/actions/workflows/access-android.yml) |
+
+**Unsigned APKs are compile-check artifacts, not installable packages.** Their artifacts expire after 3 days. To generate a signed APK for device testing without publishing to any app store:
+
+1. In **Actions**, open the relevant Android workflow above and choose **Run workflow** on `main`.
+2. Select **Build the owner-managed, upload-signed Play bundle**, and enter the confirmation: `UPLOAD_TICKETIV_PLAY` (attendee) or `UPLOAD_TICKETIV_ACCESS_PLAY` (Access).
+3. Leave **Publish to Play Internal testing** unchecked. After the successful run, download `ticketiv-play-internal-signed-apk-...` or `ticketiv-access-play-internal-signed-apk-...` from **Artifacts** and extract the ZIP. The workflow verifies signing and the embedded React Native bundle.
+
+Signed APK artifacts expire after **7 days**. No GitHub Releases are created. Both apps retain their existing AAB/store-upload flows. The APK's upload-key signature may differ from the Google Play app-signing certificate, so it might not install as an update over a Play-installed copy.
+
+> **Access note:** This repository is public. GitHub workflow artifacts are available to signed-in GitHub users with repository read access, so they are **not private distribution**. Do not use these artifacts for confidential builds; use a private repository or restricted distribution service if needed.
 
 ---
 
