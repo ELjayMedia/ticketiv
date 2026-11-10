@@ -50,7 +50,12 @@ describe("shared UAT browser harness", () => {
     expect(refundSpec).toContain('const PUBLIC_TICKET_TYPE_ID = "da7a0004-0000-4000-8000-000000000004"')
     expect(refundSpec).toContain("ticket_type_id: PUBLIC_TICKET_TYPE_ID")
     expect(refundSpec).toContain("p_event_id: PUBLIC_EVENT_ID")
-    expect(boundarySpec).toContain('name: "UAT Alpha Events", exact: true')
+    expect(refundSpec).toContain('getByRole("img", { name: /ticket qr code/i })')
+    expect(refundSpec).not.toContain('getByText("No QR"')
+    expect(boundarySpec).toContain('test.setTimeout(180_000)')
+    expect(boundarySpec).toContain('{ path: "/scan/setup", heading: "Scanner setup" }')
+    expect(boundarySpec).toContain('path: `/orgs/${UAT_ORGS.alpha}/events`, heading: "My events"')
+    expect(boundarySpec).toContain('name: roleHome.heading, exact: true')
     expect(boundarySpec).toContain('name: "UAT Beta Events", exact: true')
   })
 
