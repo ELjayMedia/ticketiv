@@ -13,6 +13,8 @@
     "native:bundle:js": "react-native bundle --platform android --dev false --entry-file index.js --bundle-output .artifacts/index.android.bundle --assets-dest .artifacts/android-assets",
     "native:bundle:play": "./android/gradlew -p android stagePlayReleaseBundle",
     "native:bundle:huawei": "./android/gradlew -p android stageHuaweiReleaseBundle",
+    "native:apk:play": "./android/gradlew -p android assemblePlayRelease",
+    "native:apk:huawei": "./android/gradlew -p android assembleHuaweiRelease",
     "test": "vitest run --dir src",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
