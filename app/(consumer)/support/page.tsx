@@ -1,8 +1,10 @@
 import Link from "next/link"
 
 import { SUPPORT_EMAIL, supportMailto } from "@ticketiv/shared"
+import { SupportChat } from "@/components/quiet/screens/support/support-chat"
 import { Card } from "@/components/quiet/ui/card"
 import { Icon, type IconName } from "@/components/quiet/ui/icon"
+import { chatwootWidgetConfig } from "@/lib/support/chatwoot-widget-core"
 
 export const metadata = { title: "Buyer support" }
 
@@ -44,16 +46,25 @@ const SLA_ITEMS = [
 ]
 
 export default function BuyerSupportPage() {
+  const chatwoot = chatwootWidgetConfig(
+    process.env.NEXT_PUBLIC_CHATWOOT_BASE_URL,
+    process.env.NEXT_PUBLIC_CHATWOOT_WEBSITE_TOKEN,
+  )
+
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 lg:px-6 lg:py-10">
       <header className="flex flex-col gap-2">
         <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Support</span>
         <h1 className="text-h1">Buyer support</h1>
         <p className="max-w-2xl text-[14px] leading-relaxed text-ink-2">
-          Email {SUPPORT_EMAIL} for help with payments, missing ticket delivery, or entry
-          disputes. Include your order number when you have it.
+          Message the Ticketiv team for help with payments, missing ticket delivery, refunds,
+          or entry disputes. Include your order number when you have it.
         </p>
       </header>
+
+      <Card className="p-4">
+        <SupportChat config={chatwoot} />
+      </Card>
 
       <Card className="p-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -63,7 +74,7 @@ export default function BuyerSupportPage() {
           <div className="flex flex-1 flex-col gap-1">
             <span className="text-[15px] font-semibold text-ink">{SUPPORT_EMAIL}</span>
             <span className="font-mono text-[11px] uppercase tracking-wide text-ink-3">
-              One business day SLA
+              Email fallback · one business day SLA
             </span>
           </div>
           <a
@@ -120,13 +131,13 @@ export default function BuyerSupportPage() {
 
       <Card className="p-4" flat>
         <div className="flex items-start gap-3">
-          <Icon name="settings" size={17} className="mt-0.5 text-ink-3" />
+          <Icon name="shield" size={17} className="mt-0.5 text-ink-3" />
           <div className="flex flex-col gap-1">
-            <h2 className="text-[14px] font-semibold text-ink">Automation note</h2>
+            <h2 className="text-[14px] font-semibold text-ink">Protecting your account</h2>
             <p className="text-[13px] leading-relaxed text-ink-2">
-              Kaya or n8n can be added as first-line triage once support volume warrants it.
-              The first automation should collect the required details above, tag the issue
-              type, and escalate urgent event-day access cases to a human.
+              Chatwoot asks for your name and email before the conversation starts. Support may
+              ask for additional verification before discussing payments, changing account
+              details, or taking action on an order. Never send your password or one-time code.
             </p>
           </div>
         </div>
