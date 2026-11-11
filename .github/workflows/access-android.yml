@@ -43,10 +43,10 @@ concurrency:
 
 jobs:
   release-bundle:
-    name: ${{ matrix.target }} release bundle
+    name: ${{ matrix.target }} release bundle + APK
     if: github.event_name != 'workflow_dispatch' || !inputs.build_upload_signed_play
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -91,6 +91,35 @@ jobs:
         with:
           name: ticketiv-access-${{ matrix.target }}-unsigned-${{ github.run_attempt }}
           path: apps/access/.artifacts/ticketiv-access-${{ matrix.target }}-release.aab
+          if-no-files-found: error
+          retention-days: 3
+
+      # AABs are for app stores. Compile an APK as a separate, standalone
+      # Android output on PRs and main, without granting access to signing keys.
+      - name: Build unsigned release APK
+        run: pnpm --filter @ticketiv/app-access native:apk:${{ matrix.target }}
+
+      - name: Verify standalone APK bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk_dir="apps/access/android/app/build/outputs/apk/${{ matrix.target }}/release"
+          shopt -s nullglob
+          apks=("$apk_dir"/*.apk)
+          test "${#apks[@]}" -eq 1
+          unzip -Z -1 "${apks[0]}" | grep -Fx 'assets/index.android.bundle' > /dev/null
+          {
+            echo "### Ticketiv Access ${{ matrix.target }} APK (compile check)"
+            echo
+            echo "- Unsigned; **not installable**. Use the manually approved signed APK run for device testing."
+            echo "- APK SHA-256: \`$(sha256sum "${apks[0]}" | awk '{print $1}')\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload unsigned release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ticketiv-access-${{ matrix.target }}-apk-unsigned-${{ github.run_number }}-${{ github.run_attempt }}
+          path: apps/access/android/app/build/outputs/apk/${{ matrix.target }}/release/*.apk
           if-no-files-found: error
           retention-days: 3
 
@@ -238,6 +267,52 @@ jobs:
         with:
           name: ticketiv-access-play-upload-signed-${{ github.run_number }}-${{ github.run_attempt }}
           path: apps/access/.artifacts/ticketiv-access-play-upload-signed.aab
+          if-no-files-found: error
+          retention-days: 7
+
+      # The upload keystore is only loaded on an explicitly confirmed
+      # workflow_dispatch from main. No signing secrets are available to PR jobs.
+      - name: Build upload-signed Play APK
+        env:
+          TICKETIV_ACCESS_UPLOAD_STORE_PASSWORD: ${{ secrets.TICKETIV_ACCESS_UPLOAD_STORE_PASSWORD }}
+          TICKETIV_ACCESS_UPLOAD_KEY_ALIAS: ${{ secrets.TICKETIV_ACCESS_UPLOAD_KEY_ALIAS }}
+          TICKETIV_ACCESS_UPLOAD_KEY_PASSWORD: ${{ secrets.TICKETIV_ACCESS_UPLOAD_KEY_PASSWORD }}
+        run: pnpm --filter @ticketiv/app-access native:apk:play
+
+      - name: Verify signed APK and embedded JS bundle
+        shell: bash
+        env:
+          EXPECTED_UPLOAD_CERT_SHA256: ${{ steps.signature.outputs.certificate_sha256 }}
+        run: |
+          set -euo pipefail
+          apk="apps/access/android/app/build/outputs/apk/play/release/app-play-release.apk"
+          test -s "$apk"
+          unzip -Z -1 "$apk" | grep -Fx 'assets/index.android.bundle' > /dev/null
+
+          android_sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Android SDK not configured}}"
+          apk_signer="$android_sdk/build-tools/36.0.0/apksigner"
+          test -x "$apk_signer"
+          verification_log="$RUNNER_TEMP/ticketiv-access-apk-signature.txt"
+          "$apk_signer" verify --verbose --print-certs "$apk" > "$verification_log"
+
+          actual_fingerprint="$(awk -F': ' '/Signer #1 certificate SHA-256 digest:/{print $2; exit}' "$verification_log")"
+          expected_fingerprint="$(printf '%s' "$EXPECTED_UPLOAD_CERT_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          test -n "$actual_fingerprint"
+          test "$actual_fingerprint" = "$expected_fingerprint"
+
+          {
+            echo "### Ticketiv Access internal Play APK"
+            echo
+            echo "- Upload-signature verified (not necessarily the Play App Signing certificate)."
+            echo "- APK SHA-256: \`$(sha256sum "$apk" | awk '{print $1}')\`"
+            echo "- Installation: download the signed APK artifact from this run and extract the ZIP."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload signed APK for internal testing
+        uses: actions/upload-artifact@v4
+        with:
+          name: ticketiv-access-play-internal-signed-apk-${{ github.run_number }}-${{ github.run_attempt }}
+          path: apps/access/android/app/build/outputs/apk/play/release/app-play-release.apk
           if-no-files-found: error
           retention-days: 7
 
