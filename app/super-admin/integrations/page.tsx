@@ -30,7 +30,7 @@ export default async function IntegrationsPage() {
   const status = active.ok
     ? active.source === "console"
       ? { label: "Connected", tone: "success" as const, detail: `Saved here${updatedBy ? ` by ${updatedBy}` : ""}${stored?.updatedAt ? ` · ${when(stored.updatedAt)}` : ""}` }
-      : { label: "Connected", tone: "success" as const, detail: "Using the CHATWOOT_* environment variables in Vercel. Saving here takes over from them." }
+      : { label: "Connected", tone: "success" as const, detail: "Using the CHATWOOT_* environment variables in Coolify. Saving here takes over from them." }
     : { label: "Not connected", tone: "warning" as const, detail: active.problem ?? "Fill in the three fields below." }
 
   return (
@@ -38,7 +38,7 @@ export default async function IntegrationsPage() {
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold tracking-tight text-ink">Integrations</h1>
         <p className="text-sm text-ink-3">
-          Every outside service Ticketiv uses, and whether it is working. Most are set as environment variables in Vercel (names shown,
+          Every outside service Ticketiv uses, and whether it is working. Most are set as environment variables in Coolify (names shown,
           values never); Chatwoot can be connected right here, with no redeploy.
         </p>
       </div>
