@@ -12,6 +12,7 @@ concurrency:
 
 jobs:
   backup:
+    if: ${{ vars.TICKETIV_PAYOUT_RESET_MODE == '' }}
     name: Export and encrypt current production state
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -139,3 +140,96 @@ jobs:
         run: |
           find "$RUNNER_TEMP/ticketiv-recovery" -type f -exec shred -u {} + 2>/dev/null || true
           find "$RUNNER_TEMP" -maxdepth 1 -type f -name 'ticketiv-*.tar.gz' -exec shred -u {} + 2>/dev/null || true
+
+  payout-account-reset:
+    if: ${{ vars.TICKETIV_PAYOUT_RESET_MODE == 'dry-run' || vars.TICKETIV_PAYOUT_RESET_MODE == 'apply' }}
+    name: Controlled two-account payout reset
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      RESET_MODE: ${{ vars.TICKETIV_PAYOUT_RESET_MODE }}
+      RESET_INPUT_JSON: ${{ secrets.PAYOUT_ACCOUNT_RESET_INPUT_JSON }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      PAYOUT_ENCRYPTION_KEY: ${{ secrets.PAYOUT_ENCRYPTION_KEY }}
+      PAYOUT_ENCRYPTION_KEY_ID: ${{ vars.PAYOUT_ENCRYPTION_KEY_ID }}
+      PAYOUT_ACCOUNT_RESET_BACKUP_REFERENCE: ${{ vars.TICKETIV_PAYOUT_RESET_BACKUP_REFERENCE }}
+      PAYOUT_ACCOUNT_RESET_REVIEW_REFERENCE: ${{ vars.TICKETIV_PAYOUT_RESET_REVIEW_REFERENCE }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate protected operator configuration
+        run: |
+          set -euo pipefail
+          for name in RESET_MODE RESET_INPUT_JSON SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY PAYOUT_ENCRYPTION_KEY PAYOUT_ENCRYPTION_KEY_ID; do
+            test -n "${!name}" || { echo "::error::Missing required operator configuration: ${name}"; exit 1; }
+          done
+          test "$PAYOUT_ENCRYPTION_KEY_ID" != "2026-09b"
+          case "$RESET_MODE" in dry-run|apply) ;; *) echo "::error::Invalid reset mode"; exit 1 ;; esac
+          if [ "$RESET_MODE" = apply ]; then
+            test -n "$PAYOUT_ACCOUNT_RESET_BACKUP_REFERENCE"
+            test -n "$PAYOUT_ACCOUNT_RESET_REVIEW_REFERENCE"
+          fi
+
+          umask 077
+          printf '%s' "$RESET_INPUT_JSON" > "$RUNNER_TEMP/payout-account-replacements.json"
+          chmod 600 "$RUNNER_TEMP/payout-account-replacements.json"
+          jq -e '
+            (keys | sort) == [
+              "80e92d91-e165-4db6-8738-7464953d3b23",
+              "8851cf54-4a06-4710-a00d-81fb42c6978e"
+            ]
+          ' "$RUNNER_TEMP/payout-account-replacements.json" >/dev/null
+
+      - name: Execute dry-run preflight
+        if: ${{ vars.TICKETIV_PAYOUT_RESET_MODE == 'dry-run' }}
+        env:
+          PAYOUT_ACCOUNT_RESET_INPUT_FILE: ${{ runner.temp }}/payout-account-replacements.json
+        run: |
+          set -euo pipefail
+          pnpm payouts:reset-internal-test-accounts > "$RUNNER_TEMP/reset-summary.json"
+          jq -e '.mode == "dry-run" and .accountCount == 2 and .previousKeyId == "2026-09b"' \
+            "$RUNNER_TEMP/reset-summary.json" >/dev/null
+          jq '{mode, organizationId, accountIds, accountCount, previousKeyId, replacementKeyId}' \
+            "$RUNNER_TEMP/reset-summary.json"
+
+      - name: Execute approved compare-and-swap reset
+        if: ${{ vars.TICKETIV_PAYOUT_RESET_MODE == 'apply' }}
+        env:
+          PAYOUT_ACCOUNT_RESET_CONFIRM: RESET_ELJAYTUNES_INTERNAL_TEST_PAYOUT_ACCOUNTS
+          PAYOUT_ACCOUNT_RESET_INPUT_FILE: ${{ runner.temp }}/payout-account-replacements.json
+        run: |
+          set -euo pipefail
+          node scripts/financial-state-fingerprint.mjs > "$RUNNER_TEMP/financial-before.json"
+          pnpm payouts:reset-internal-test-accounts -- --apply > "$RUNNER_TEMP/reset-summary.json"
+          node scripts/financial-state-fingerprint.mjs > "$RUNNER_TEMP/financial-after.json"
+          cmp --silent "$RUNNER_TEMP/financial-before.json" "$RUNNER_TEMP/financial-after.json" || {
+            echo "::error::Historical financial records changed during the controlled reset."
+            exit 1
+          }
+          jq -e '.mode == "apply-verification" and .accountCount == 2 and .previousKeyId == "2026-09b"' \
+            "$RUNNER_TEMP/reset-summary.json" >/dev/null
+          jq '{mode, organizationId, accountIds, accountCount, previousKeyId, replacementKeyId}' \
+            "$RUNNER_TEMP/reset-summary.json"
+          jq '{financial_state_unchanged: true, tables: (.tables | with_entries(.value = {count: .value.count}))}' \
+            "$RUNNER_TEMP/financial-after.json"
+
+      - name: Remove protected operator material
+        if: always()
+        run: |
+          find "$RUNNER_TEMP" -maxdepth 1 -type f \
+            \( -name 'payout-account-replacements.json' -o -name 'financial-*.json' -o -name 'reset-summary.json' \) \
+            -exec shred -u {} + 2>/dev/null || true
