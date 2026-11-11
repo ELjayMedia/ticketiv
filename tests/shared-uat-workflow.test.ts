@@ -28,7 +28,9 @@ describe("shared Supabase UAT workflow", () => {
     expect(workflow).toContain("TEST_SUPABASE_ALLOW_PROJECT_REF: radsfmlsjznqvcpogluo")
     expect(workflow).toContain('expected_url="https://${TEST_SUPABASE_ALLOW_PROJECT_REF}.supabase.co"')
     expect(workflow).toContain('test "$PLAYWRIGHT_BASE_URL" = "https://ticketiv.app"')
-    expect(workflow).toContain("deployments?sha=${TARGET_SHA}&environment=Production")
+    expect(workflow).toContain('revision="$(jq -r \'.revision // empty\'')
+    expect(workflow).toContain('if [[ "$revision" == "$TARGET_SHA" ]]')
+    expect(workflow).not.toContain("api.vercel.com")
     expect(workflow).toContain("Production remained on $TARGET_SHA for the full UAT run.")
   })
 
