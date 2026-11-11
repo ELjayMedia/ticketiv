@@ -231,7 +231,7 @@ jobs:
           PAYOUT_ACCOUNT_RESET_INPUT_FILE: ${{ runner.temp }}/payout-account-replacements.json
         run: |
           set -euo pipefail
-          pnpm payouts:reset-internal-test-accounts > "$RUNNER_TEMP/reset-summary.json"
+          pnpm --silent payouts:reset-internal-test-accounts > "$RUNNER_TEMP/reset-summary.json"
           jq -e '.mode == "dry-run" and .accountCount == 2 and .previousKeyId == "2026-09b"' \
             "$RUNNER_TEMP/reset-summary.json" >/dev/null
           jq '{mode, organizationId, accountIds, accountCount, previousKeyId, replacementKeyId}' \
@@ -245,7 +245,7 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/financial-state-fingerprint.mjs > "$RUNNER_TEMP/financial-before.json"
-          pnpm payouts:reset-internal-test-accounts -- --apply > "$RUNNER_TEMP/reset-summary.json"
+          pnpm --silent payouts:reset-internal-test-accounts -- --apply > "$RUNNER_TEMP/reset-summary.json"
           node scripts/financial-state-fingerprint.mjs > "$RUNNER_TEMP/financial-after.json"
           cmp --silent "$RUNNER_TEMP/financial-before.json" "$RUNNER_TEMP/financial-after.json" || {
             echo "::error::Historical financial records changed during the controlled reset."
