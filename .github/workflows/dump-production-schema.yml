@@ -52,6 +52,8 @@ jobs:
 
           supabase db dump --remote="$PROJECT_REF" --file "$database_dir/roles.sql" --role-only
           supabase db dump --remote="$PROJECT_REF" --file "$database_dir/schema.sql"
+          supabase db dump --remote="$PROJECT_REF" --file "$database_dir/managed_schema.sql" \
+            --schema auth,storage
           supabase db dump --remote="$PROJECT_REF" --file "$database_dir/data.sql" --data-only --use-copy \
             --exclude "storage.buckets_vectors" --exclude "storage.vector_indexes"
           supabase db dump --remote="$PROJECT_REF" --file "$database_dir/history_schema.sql" \
@@ -61,6 +63,9 @@ jobs:
 
           test -s "$database_dir/roles.sql"
           test -s "$database_dir/schema.sql"
+          test -s "$database_dir/managed_schema.sql"
+          grep -Eq 'CREATE TABLE.*auth.*users' "$database_dir/managed_schema.sql"
+          grep -Eq 'CREATE TABLE.*storage.*objects' "$database_dir/managed_schema.sql"
           test -s "$database_dir/data.sql"
           test -s "$database_dir/history_schema.sql"
           test -s "$database_dir/history_data.sql"
