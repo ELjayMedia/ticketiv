@@ -223,3 +223,25 @@ jobs:
           echo "Browser: event → checkout → Paystack initialization boundary."
           echo "Database: completion → one succeeded payment → paid order → issued ticket → balanced/idempotent settlement."
           echo "Provider-delivered webhook proof remains separate UAT evidence and is not implied by this CI pass."
+
+  deploy-coolify:
+    name: Deploy production to Coolify
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    needs: [release-gate, change-scope, e2e-smoke]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Queue Ticketiv deployment
+        env:
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_DEPLOY_TOKEN }}
+        run: |
+          test -n "$COOLIFY_TOKEN"
+          curl --fail-with-body --silent --show-error \
+            --retry 3 --retry-all-errors \
+            --request POST \
+            --url "https://coolify.eljaymedia.com/api/v1/deploy" \
+            --header "Authorization: Bearer ${COOLIFY_TOKEN}" \
+            --header "Content-Type: application/json" \
+            --data '{"uuid":"zs2jkfesdsmrrftkjgcnoekp","force":false}'

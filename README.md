@@ -4,7 +4,7 @@ Ticketiv is an event-ticketing platform for Eswatini and the wider region:
 consumer discovery and checkout, an organizer back office (events, pricing,
 finance, payouts), an offline-first gate scanner, resale and waitlist flows, and
 a super-admin command centre. It runs as a Next.js App-Router application on
-Vercel, backed by Supabase (Postgres + Auth + Storage) with row-level security
+self-hosted Coolify, backed by Supabase (Postgres + Auth + Storage) with row-level security
 and `SECURITY DEFINER` RPCs for every mutation.
 
 > This README describes the system as it actually is. For agent/contributor
@@ -25,12 +25,12 @@ and `SECURITY DEFINER` RPCs for every mutation.
 | Backend | Supabase (Postgres, Auth, Storage; project `radsfmlsjznqvcpogluo`) |
 | Payments | Paystack (card + provider webhook) and mobile-money (MoMo) callbacks; DeltaPay/Flutterwave adapters are scaffolded but not enabled |
 | Errors | Sentry (`@sentry/nextjs`) |
-| Deployment | Vercel (builds from the repo root) |
+| Deployment | Coolify on `eljay-ops-01` (Dockerfile from the repo root) |
 
 ### Monorepo layout
 
-A pnpm workspace. The Next.js web app lives at the **repo root** (Vercel's root
-directory — do not move it without updating the Vercel setting). Platform-neutral
+A pnpm workspace. The Next.js web app lives at the **repo root** (Coolify's build
+context — do not move it without updating the application setting). Platform-neutral
 logic lives in `packages/shared` (`@ticketiv/shared`, consumed by web via
 `transpilePackages`); `packages/tokens` holds Quiet UI tokens for the React
 Native apps (`apps/ticketiv` consumer, `apps/access` staff). See
@@ -73,7 +73,7 @@ e2e/              Playwright browser tests
 
 ## Environment matrix
 
-Provided via the deployment environment (Vercel) or a local `.env.local`. There
+Provided via the deployment environment (Coolify) or a local `.env.local`. There
 are no hardcoded fallbacks except `NEXT_PUBLIC_APP_URL`.
 
 | Variable | Scope | Required | Purpose |
@@ -241,10 +241,11 @@ are kept in lockstep. Do **not** run raw `psql` against production. See
 
 ## Deployment and rollback
 
-- **Deploy:** Vercel builds from the repo root on merge to `main`. Database
+- **Deploy:** GitHub Actions queues a Coolify build from the repo root after the
+  `main` release gates pass. Database
   changes ship as migrations (above) applied to the Supabase project.
-- **Rollback (app):** redeploy a previous successful Vercel build (Vercel →
-  Deployments → Promote), or revert the offending commit and let CI redeploy.
+- **Rollback (app):** select a previous successful image in Coolify → Deployments,
+  or revert the offending commit and let CI redeploy.
 - **Rollback (schema):** write and apply a forward migration that reverses the
   change (preferred), or restore from a Supabase point-in-time backup for data
   loss. Because migrations are timestamp-preserving and recorded, never edit a
