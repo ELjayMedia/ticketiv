@@ -150,7 +150,9 @@ jobs:
       RESET_MODE: ${{ vars.TICKETIV_PAYOUT_RESET_MODE }}
       RESET_INPUT_JSON: ${{ secrets.PAYOUT_ACCOUNT_RESET_INPUT_JSON }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      COOLIFY_ENV_TOKEN: ${{ secrets.COOLIFY_ENV_TOKEN }}
       PAYOUT_ENCRYPTION_KEY: ${{ secrets.PAYOUT_ENCRYPTION_KEY }}
       PAYOUT_ENCRYPTION_KEY_ID: ${{ vars.PAYOUT_ENCRYPTION_KEY_ID }}
       PAYOUT_ACCOUNT_RESET_BACKUP_REFERENCE: ${{ vars.TICKETIV_PAYOUT_RESET_BACKUP_REFERENCE }}
@@ -174,7 +176,7 @@ jobs:
       - name: Validate protected operator configuration
         run: |
           set -euo pipefail
-          for name in RESET_MODE RESET_INPUT_JSON SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY PAYOUT_ENCRYPTION_KEY PAYOUT_ENCRYPTION_KEY_ID; do
+          for name in RESET_MODE RESET_INPUT_JSON SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SERVICE_ROLE_KEY COOLIFY_ENV_TOKEN PAYOUT_ENCRYPTION_KEY PAYOUT_ENCRYPTION_KEY_ID; do
             test -n "${!name}" || { echo "::error::Missing required operator configuration: ${name}"; exit 1; }
           done
           test "$PAYOUT_ENCRYPTION_KEY_ID" != "2026-09b"
@@ -193,6 +195,35 @@ jobs:
               "8851cf54-4a06-4710-a00d-81fb42c6978e"
             ]
           ' "$RUNNER_TEMP/payout-account-replacements.json" >/dev/null
+
+      - name: Synchronize protected Coolify runtime configuration
+        run: |
+          set -euo pipefail
+          jq -n \
+            --arg url "$SUPABASE_URL" \
+            --arg publishable "$SUPABASE_PUBLISHABLE_KEY" \
+            --arg service_role "$SUPABASE_SERVICE_ROLE_KEY" \
+            --arg payout_key "$PAYOUT_ENCRYPTION_KEY" \
+            --arg payout_key_id "$PAYOUT_ENCRYPTION_KEY_ID" \
+            '{data: [
+              {key:"SUPABASE_URL", value:$url, is_runtime:true, is_buildtime:false, is_shown_once:false},
+              {key:"NEXT_PUBLIC_SUPABASE_URL", value:$url, is_runtime:true, is_buildtime:true, is_shown_once:false},
+              {key:"NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", value:$publishable, is_runtime:true, is_buildtime:true, is_shown_once:false},
+              {key:"NEXT_PUBLIC_SUPABASE_ANON_KEY", value:$publishable, is_runtime:true, is_buildtime:true, is_shown_once:false},
+              {key:"SUPABASE_SERVICE_ROLE_KEY", value:$service_role, is_runtime:true, is_buildtime:false, is_shown_once:true},
+              {key:"PAYOUT_ENCRYPTION_KEY", value:$payout_key, is_runtime:true, is_buildtime:false, is_shown_once:true},
+              {key:"PAYOUT_ENCRYPTION_KEY_ID", value:$payout_key_id, is_runtime:true, is_buildtime:false, is_shown_once:false},
+              {key:"DEPLOYMENT_ENV", value:"production", is_runtime:true, is_buildtime:true, is_shown_once:false}
+            ]}' \
+            | curl --fail-with-body --silent --show-error \
+                --retry 3 --retry-all-errors \
+                --request PATCH \
+                --url "https://coolify.eljaymedia.com/api/v1/applications/zs2jkfesdsmrrftkjgcnoekp/envs/bulk" \
+                --header "Authorization: Bearer ${COOLIFY_ENV_TOKEN}" \
+                --header "Content-Type: application/json" \
+                --data-binary @- \
+            > /dev/null
+          echo "Coolify runtime configuration synchronized without deployment."
 
       - name: Execute dry-run preflight
         if: ${{ vars.TICKETIV_PAYOUT_RESET_MODE == 'dry-run' }}
