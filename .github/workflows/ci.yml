@@ -239,9 +239,10 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          PAYOUT_ENCRYPTION_KEY: ${{ secrets.PAYOUT_ENCRYPTION_KEY }}
         run: |
           set -euo pipefail
-          for name in COOLIFY_ENV_TOKEN SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SERVICE_ROLE_KEY; do
+          for name in COOLIFY_ENV_TOKEN SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SERVICE_ROLE_KEY PAYOUT_ENCRYPTION_KEY; do
             test -n "${!name}" || { echo "::error::Missing required deployment secret: ${name}"; exit 1; }
           done
 
@@ -249,12 +250,15 @@ jobs:
             --arg url "$SUPABASE_URL" \
             --arg publishable "$SUPABASE_PUBLISHABLE_KEY" \
             --arg service_role "$SUPABASE_SERVICE_ROLE_KEY" \
+            --arg payout_key "$PAYOUT_ENCRYPTION_KEY" \
             '{data: [
               {key:"SUPABASE_URL", value:$url, is_runtime:true, is_buildtime:false, is_shown_once:false},
               {key:"NEXT_PUBLIC_SUPABASE_URL", value:$url, is_runtime:true, is_buildtime:true, is_shown_once:false},
               {key:"NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", value:$publishable, is_runtime:true, is_buildtime:true, is_shown_once:false},
               {key:"NEXT_PUBLIC_SUPABASE_ANON_KEY", value:$publishable, is_runtime:true, is_buildtime:true, is_shown_once:false},
-              {key:"SUPABASE_SERVICE_ROLE_KEY", value:$service_role, is_runtime:true, is_buildtime:false, is_shown_once:true}
+              {key:"SUPABASE_SERVICE_ROLE_KEY", value:$service_role, is_runtime:true, is_buildtime:false, is_shown_once:true},
+              {key:"PAYOUT_ENCRYPTION_KEY", value:$payout_key, is_runtime:true, is_buildtime:false, is_shown_once:true},
+              {key:"PAYOUT_ENCRYPTION_KEY_ID", value:"2026-09b", is_runtime:true, is_buildtime:false, is_shown_once:false}
             ]}' \
             | curl --fail-with-body --silent --show-error \
                 --retry 3 --retry-all-errors \
