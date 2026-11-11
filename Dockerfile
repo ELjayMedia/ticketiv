@@ -31,9 +31,11 @@ ARG NEXT_PUBLIC_POSTHOG_HOST
 ARG NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN
 ARG GOOGLE_MAPS_EMBED_KEY
 ARG SOURCE_COMMIT
+ARG DEPLOYMENT_ENV=production
 ARG VERCEL_ENV=production
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 \
-    VERCEL_ENV=${VERCEL_ENV} VERCEL_GIT_COMMIT_SHA=${SOURCE_COMMIT}
+    DEPLOYMENT_ENV=${DEPLOYMENT_ENV} VERCEL_ENV=${VERCEL_ENV} \
+    VERCEL_GIT_COMMIT_SHA=${SOURCE_COMMIT}
 COPY . .
 # Empty optional build arguments must behave like unset environment variables.
 RUN for v in $(env | sed -n "s/^\([A-Z0-9_]*\)=$/\1/p"); do unset "$v"; done \
@@ -41,10 +43,12 @@ RUN for v in $(env | sed -n "s/^\([A-Z0-9_]*\)=$/\1/p"); do unset "$v"; done \
 
 FROM node:22-alpine AS runner
 WORKDIR /app
+ARG DEPLOYMENT_ENV=production
 ARG VERCEL_ENV=production
 ARG SOURCE_COMMIT
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 \
-    VERCEL_ENV=${VERCEL_ENV} VERCEL_GIT_COMMIT_SHA=${SOURCE_COMMIT}
+    DEPLOYMENT_ENV=${DEPLOYMENT_ENV} VERCEL_ENV=${VERCEL_ENV} \
+    VERCEL_GIT_COMMIT_SHA=${SOURCE_COMMIT}
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 COPY --from=builder --chown=nextjs:nodejs /app/package.json /app/next.config.mjs ./
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules

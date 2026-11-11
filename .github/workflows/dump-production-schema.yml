@@ -1,30 +1,151 @@
-name: Dump Production Schema
+name: Verify Production Backup Restore
 
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ticketiv-backup-restore-drill
+  cancel-in-progress: false
+
 jobs:
-  dump-production-schema:
+  restore-drill:
+    name: Restore latest backup in isolated Postgres
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
+    env:
+      PROJECT_REF: radsfmlsjznqvcpogluo
+      RECOVERY_NETWORK: ticketiv-backup-recovery
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: supabase/setup-cli@v1
+      - name: Setup pinned Supabase CLI
+        uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 3.0.0
 
-      - name: Dump production schema
+      - name: Select latest completed hosted backup
+        id: backup
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          supabase db dump \
-            --linked \
-            --schema public,app,private,monitoring,_internal,ops_backup \
-            --file /tmp/ticketiv-production-schema.sql
+          set -euo pipefail
+          test -n "$SUPABASE_ACCESS_TOKEN" || { echo "::error::Missing SUPABASE_ACCESS_TOKEN"; exit 1; }
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            --output "$RUNNER_TEMP/ticketiv-backups.json" \
+            "https://api.supabase.com/v1/projects/${PROJECT_REF}/database/backups"
 
-      - name: Upload schema dump
-        uses: actions/upload-artifact@v4
-        with:
-          name: production-schema-dump
-          path: /tmp/ticketiv-production-schema.sql
-          retention-days: 7
+          backup_id="$(jq -er '[.backups[] | select(.status == "COMPLETED")] | sort_by(.inserted_at) | last | .id' "$RUNNER_TEMP/ticketiv-backups.json")"
+          backup_time="$(jq -er --argjson id "$backup_id" '.backups[] | select(.id == $id) | .inserted_at' "$RUNNER_TEMP/ticketiv-backups.json")"
+          test -n "$backup_id"
+          test -n "$backup_time"
+          echo "id=${backup_id}" >> "$GITHUB_OUTPUT"
+          echo "timestamp=${backup_time}" >> "$GITHUB_OUTPUT"
+          echo "Selected completed backup ${backup_id} from ${backup_time}."
+
+      - name: Download selected backup without publishing an artifact
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          BACKUP_ID: ${{ steps.backup.outputs.id }}
+        run: |
+          set -euo pipefail
+          jq -n --argjson id "$BACKUP_ID" \
+            '{data:{type:"project_backup_file_url",id:$id}}' \
+            > "$RUNNER_TEMP/ticketiv-backup-request.json"
+          curl --fail --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            --header "Content-Type: application/json" \
+            --data-binary "@$RUNNER_TEMP/ticketiv-backup-request.json" \
+            --output "$RUNNER_TEMP/ticketiv-backup-download.json" \
+            "https://api.supabase.com/v2/projects/${PROJECT_REF}/backups/download"
+
+          jq -er '.data.attributes.file_url' \
+            "$RUNNER_TEMP/ticketiv-backup-download.json" \
+            > "$RUNNER_TEMP/ticketiv-backup-url"
+          IFS= read -r backup_url < "$RUNNER_TEMP/ticketiv-backup-url"
+          curl --fail --silent --show-error --location \
+            --output "$RUNNER_TEMP/ticketiv-db-cluster.backup" \
+            "$backup_url"
+          test -s "$RUNNER_TEMP/ticketiv-db-cluster.backup"
+          rm -f "$RUNNER_TEMP/ticketiv-backup-url" "$RUNNER_TEMP/ticketiv-backup-download.json"
+          echo "Backup downloaded into the ephemeral runner; no artifact will be uploaded."
+
+      - name: Start outbound-isolated recovery database
+        run: |
+          set -euo pipefail
+          docker network create --internal "$RECOVERY_NETWORK"
+          test "$(docker network inspect --format '{{.Internal}}' "$RECOVERY_NETWORK")" = "true"
+          supabase --network-id "$RECOVERY_NETWORK" db start \
+            --from-backup "$RUNNER_TEMP/ticketiv-db-cluster.backup"
+
+      - name: Verify restored Ticketiv recovery point
+        run: |
+          set -euo pipefail
+          recovery_container="$(docker ps --filter 'name=supabase_db_' --format '{{.Names}}' | head -n 1)"
+          test -n "$recovery_container"
+          recovery_network_id="$(docker inspect --format "{{with index .NetworkSettings.Networks \"${RECOVERY_NETWORK}\"}}{{.NetworkID}}{{end}}" "$recovery_container")"
+          expected_network_id="$(docker network inspect --format '{{.Id}}' "$RECOVERY_NETWORK")"
+          test "$recovery_network_id" = "$expected_network_id"
+
+          docker exec -i "$recovery_container" psql -U postgres -d postgres -X -v ON_ERROR_STOP=1 <<'SQL'
+          do $verify$
+          declare
+            v_account_count integer;
+            v_payout_count integer;
+            v_order_count integer;
+          begin
+            select count(*) into v_account_count
+            from public.payout_accounts
+            where id in (
+              '80e92d91-e165-4db6-8738-7464953d3b23'::uuid,
+              '8851cf54-4a06-4710-a00d-81fb42c6978e'::uuid
+            )
+              and org_id = '196d016f-1e10-4cea-a6cc-f46c9ee6734a'::uuid
+              and details_encrypted like 'enc:v2:MjAyNi0wOWI:%';
+            if v_account_count <> 2 then
+              raise exception 'Recovery backup does not contain the two reviewed encrypted payout accounts';
+            end if;
+
+            select count(*) into v_payout_count
+            from public.payouts
+            where id in (
+              '531aa7c1-6a07-4e4d-b0a2-efad7173ad4f'::uuid,
+              '80712fff-c451-49db-8906-9e1fd49da63d'::uuid
+            );
+            if v_payout_count <> 2 then
+              raise exception 'Recovery backup does not contain both historical payout records';
+            end if;
+
+            select count(*) into v_order_count
+            from public.orders
+            where org_id = '196d016f-1e10-4cea-a6cc-f46c9ee6734a'::uuid;
+            if v_order_count <> 39 then
+              raise exception 'Recovery backup order population differs from the reviewed 39-order set';
+            end if;
+          end
+          $verify$;
+
+          select jsonb_build_object(
+            'payout_accounts', 2,
+            'historical_payouts', 2,
+            'related_orders', 39,
+            'recovery_network_internal', true
+          ) as restore_evidence;
+          SQL
+
+      - name: Remove ephemeral recovery data
+        if: always()
+        run: |
+          supabase --network-id "$RECOVERY_NETWORK" stop --no-backup || true
+          docker network rm "$RECOVERY_NETWORK" 2>/dev/null || true
+          rm -f \
+            "$RUNNER_TEMP/ticketiv-backups.json" \
+            "$RUNNER_TEMP/ticketiv-backup-request.json" \
+            "$RUNNER_TEMP/ticketiv-backup-download.json" \
+            "$RUNNER_TEMP/ticketiv-backup-url" \
+            "$RUNNER_TEMP/ticketiv-db-cluster.backup"
