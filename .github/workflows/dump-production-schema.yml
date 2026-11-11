@@ -39,8 +39,19 @@ jobs:
             --output "$RUNNER_TEMP/ticketiv-backups.json" \
             "https://api.supabase.com/v1/projects/${PROJECT_REF}/database/backups"
 
-          backup_id="$(jq -er '[.backups[] | select(.status == "COMPLETED")] | sort_by(.inserted_at) | last | .id' "$RUNNER_TEMP/ticketiv-backups.json")"
-          backup_time="$(jq -er --argjson id "$backup_id" '.backups[] | select(.id == $id) | .inserted_at' "$RUNNER_TEMP/ticketiv-backups.json")"
+          jq -c '{
+            region,
+            walg_enabled,
+            pitr_enabled,
+            physical_backup_data,
+            backups: [(.backups // [])[] | {id, status, inserted_at, is_physical_backup}]
+          }' "$RUNNER_TEMP/ticketiv-backups.json"
+
+          backup_id="$(jq -er '[
+            (.backups // [])[]
+            | select((.status | ascii_upcase) == "COMPLETED")
+          ] | sort_by(.inserted_at) | last | .id' "$RUNNER_TEMP/ticketiv-backups.json")"
+          backup_time="$(jq -er --arg id "$backup_id" '(.backups // [])[] | select((.id | tostring) == $id) | .inserted_at' "$RUNNER_TEMP/ticketiv-backups.json")"
           test -n "$backup_id"
           test -n "$backup_time"
           echo "id=${backup_id}" >> "$GITHUB_OUTPUT"
