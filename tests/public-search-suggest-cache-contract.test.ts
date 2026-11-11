@@ -26,9 +26,7 @@ describe("public search suggestion cache boundary", () => {
     expect(rateLimit).toContain("status: 429");
   });
 
-  it("keeps the search function close to the Supabase region", () => {
-    const vercelConfig = JSON.parse(read("vercel.json"));
-
-    expect(vercelConfig.functions["app/api/search/suggest/route.ts"].regions).toEqual(["dub1"]);
+  it("does not depend on a Vercel-only function-region config", () => {
+    expect(fs.existsSync(path.join(root, "vercel.json"))).toBe(false);
   });
 });

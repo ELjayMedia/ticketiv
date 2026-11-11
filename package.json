@@ -45,7 +45,6 @@
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.1",
     "@ticketiv/shared": "workspace:*",
-    "@vercel/analytics": "^2.0.1",
     "autoprefixer": "^10.4.20",
     "clsx": "^2.1.1",
     "date-fns": "^4.2.1",

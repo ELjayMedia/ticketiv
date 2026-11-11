@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { track } from "@vercel/analytics/react";
+import posthog from "posthog-js";
 
 type FunnelValue = string | number | boolean | null | undefined;
 type FunnelProps = Record<string, FunnelValue>;
@@ -19,7 +19,7 @@ type BuyerFunnelEvent =
   | "payment_pending";
 
 export function trackBuyerFunnel(event: BuyerFunnelEvent, properties: FunnelProps = {}) {
-  track(`buyer_funnel_${event}`, properties);
+  posthog.capture(`buyer_funnel_${event}`, properties);
 }
 
 export function EventViewTracker({

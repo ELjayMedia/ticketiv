@@ -70,16 +70,7 @@ describe("ops alert scheduling", () => {
     }
   })
 
-  it("does not ask Vercel for a cron cadence the Hobby plan cannot run", () => {
-    const config = JSON.parse(readFileSync(join(root, "vercel.json"), "utf8")) as {
-      crons?: { path: string; schedule: string }[]
-    }
-
-    for (const cron of config.crons ?? []) {
-      expect(
-        isAtMostDaily(cron.schedule),
-        `vercel.json cron ${cron.path} uses "${cron.schedule}" — sub-daily crons fail the production deployment on Hobby`
-      ).toBe(true)
-    }
+  it("does not retain a Vercel deployment config after the Coolify migration", () => {
+    expect(existsSync(join(root, "vercel.json"))).toBe(false)
   })
 })

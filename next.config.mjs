@@ -2,6 +2,28 @@ import { withSentryConfig } from "@sentry/nextjs"
 
 const optionalEnvVars = ["GOOGLE_MAPS_EMBED_KEY"]
 
+const securityHeaders = [
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-XSS-Protection", value: "0" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Strict-Transport-Security", value: "max-age=31536000" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(self), microphone=(), geolocation=(), payment=(self), usb=(), interest-cohort=()",
+  },
+  {
+    key: "Content-Security-Policy",
+    value: "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; upgrade-insecure-requests",
+  },
+  {
+    key: "Content-Security-Policy-Report-Only",
+    value:
+      "default-src 'self'; script-src 'self' 'unsafe-inline' https://*.posthog.com https://chat.eljaymedia.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.posthog.com https://*.sentry.io https://chat.eljaymedia.com wss://chat.eljaymedia.com; frame-src 'self' https://www.google.com https://chat.eljaymedia.com; worker-src 'self' blob:; manifest-src 'self'; media-src 'self' blob: https:; form-action 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; report-uri /api/csp-report; report-to csp",
+  },
+  { key: "Reporting-Endpoints", value: 'csp="/api/csp-report"' },
+]
+
 // Warn about missing optional env vars but don't block the build
 for (const envVar of optionalEnvVars) {
   if (!process.env[envVar]) {
@@ -116,6 +138,9 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
+  },
+  async headers() {
+    return [{ source: "/:path*", headers: securityHeaders }]
   },
   // The retired Pages Router "safe mode" placeholders used to answer these
   // paths with a static "No events to show" page; send them to the live
