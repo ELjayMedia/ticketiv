@@ -60,6 +60,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/lib/payout-crypto-core.ts ./lib/
 USER nextjs
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(async r=>{if(!r.ok)process.exit(1);const body=await r.json();process.exit(body?.ok===true?0:1)}).catch(()=>process.exit(1))"
 STOPSIGNAL SIGTERM
 CMD ["sh", "-c", "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/verify-production-payout-encryption.mjs && exec node_modules/.bin/next start -H 0.0.0.0 -p 3000"]

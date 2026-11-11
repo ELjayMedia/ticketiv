@@ -241,9 +241,10 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           PAYOUT_ENCRYPTION_KEY: ${{ secrets.PAYOUT_ENCRYPTION_KEY }}
           PAYOUT_ENCRYPTION_KEY_ID: ${{ vars.PAYOUT_ENCRYPTION_KEY_ID }}
+          SOURCE_COMMIT: ${{ github.sha }}
         run: |
           set -euo pipefail
-          for name in COOLIFY_ENV_TOKEN SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SERVICE_ROLE_KEY PAYOUT_ENCRYPTION_KEY PAYOUT_ENCRYPTION_KEY_ID; do
+          for name in COOLIFY_ENV_TOKEN SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SERVICE_ROLE_KEY PAYOUT_ENCRYPTION_KEY PAYOUT_ENCRYPTION_KEY_ID SOURCE_COMMIT; do
             test -n "${!name}" || { echo "::error::Missing required deployment configuration: ${name}"; exit 1; }
           done
 
@@ -253,6 +254,7 @@ jobs:
             --arg service_role "$SUPABASE_SERVICE_ROLE_KEY" \
             --arg payout_key "$PAYOUT_ENCRYPTION_KEY" \
             --arg payout_key_id "$PAYOUT_ENCRYPTION_KEY_ID" \
+            --arg source_commit "$SOURCE_COMMIT" \
             '{data: [
               {key:"SUPABASE_URL", value:$url, is_runtime:true, is_buildtime:false, is_shown_once:false},
               {key:"NEXT_PUBLIC_SUPABASE_URL", value:$url, is_runtime:true, is_buildtime:true, is_shown_once:false},
@@ -261,6 +263,7 @@ jobs:
               {key:"SUPABASE_SERVICE_ROLE_KEY", value:$service_role, is_runtime:true, is_buildtime:false, is_shown_once:true},
               {key:"PAYOUT_ENCRYPTION_KEY", value:$payout_key, is_runtime:true, is_buildtime:false, is_shown_once:true},
               {key:"PAYOUT_ENCRYPTION_KEY_ID", value:$payout_key_id, is_runtime:true, is_buildtime:false, is_shown_once:false},
+              {key:"SOURCE_COMMIT", value:$source_commit, is_runtime:true, is_buildtime:true, is_shown_once:false},
               {key:"DEPLOYMENT_ENV", value:"production", is_runtime:true, is_buildtime:true, is_shown_once:false}
             ]}' \
             | curl --fail-with-body --silent --show-error \
