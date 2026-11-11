@@ -47,10 +47,14 @@ jobs:
             backups: [(.backups // [])[] | {id, status, inserted_at, is_physical_backup}]
           }' "$RUNNER_TEMP/ticketiv-backups.json"
 
-          backup_id="$(jq -er '[
+          backup_id="$(jq -r '[
             (.backups // [])[]
             | select((.status | ascii_upcase) == "COMPLETED")
-          ] | sort_by(.inserted_at) | last | .id' "$RUNNER_TEMP/ticketiv-backups.json")"
+          ] | sort_by(.inserted_at) | last | .id // empty' "$RUNNER_TEMP/ticketiv-backups.json")"
+          if [ -z "$backup_id" ]; then
+            echo "::error::NO_HOSTED_BACKUP_AVAILABLE: Ticketiv has no completed hosted backup or PITR recovery window."
+            exit 1
+          fi
           backup_time="$(jq -er --arg id "$backup_id" '(.backups // [])[] | select((.id | tostring) == $id) | .inserted_at' "$RUNNER_TEMP/ticketiv-backups.json")"
           test -n "$backup_id"
           test -n "$backup_time"
