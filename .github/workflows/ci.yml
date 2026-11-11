@@ -233,6 +233,38 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Synchronize Ticketiv Supabase environment
+        env:
+          COOLIFY_ENV_TOKEN: ${{ secrets.COOLIFY_ENV_TOKEN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -euo pipefail
+          for name in COOLIFY_ENV_TOKEN SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SERVICE_ROLE_KEY; do
+            test -n "${!name}" || { echo "::error::Missing required deployment secret: ${name}"; exit 1; }
+          done
+
+          jq -n \
+            --arg url "$SUPABASE_URL" \
+            --arg publishable "$SUPABASE_PUBLISHABLE_KEY" \
+            --arg service_role "$SUPABASE_SERVICE_ROLE_KEY" \
+            '{data: [
+              {key:"SUPABASE_URL", value:$url, is_runtime:true, is_buildtime:false, is_shown_once:false},
+              {key:"NEXT_PUBLIC_SUPABASE_URL", value:$url, is_runtime:true, is_buildtime:true, is_shown_once:false},
+              {key:"NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", value:$publishable, is_runtime:true, is_buildtime:true, is_shown_once:false},
+              {key:"NEXT_PUBLIC_SUPABASE_ANON_KEY", value:$publishable, is_runtime:true, is_buildtime:true, is_shown_once:false},
+              {key:"SUPABASE_SERVICE_ROLE_KEY", value:$service_role, is_runtime:true, is_buildtime:false, is_shown_once:true}
+            ]}' \
+            | curl --fail-with-body --silent --show-error \
+                --retry 3 --retry-all-errors \
+                --request PATCH \
+                --url "https://coolify.eljaymedia.com/api/v1/applications/zs2jkfesdsmrrftkjgcnoekp/envs/bulk" \
+                --header "Authorization: Bearer ${COOLIFY_ENV_TOKEN}" \
+                --header "Content-Type: application/json" \
+                --data-binary @- \
+            > /dev/null
+
       - name: Queue Ticketiv deployment
         env:
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_DEPLOY_TOKEN }}
