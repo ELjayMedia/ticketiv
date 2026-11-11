@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Analytics } from "@vercel/analytics/next";
 import "@fontsource-variable/inter-tight/wght.css";
 import "@fontsource-variable/jetbrains-mono/wght.css";
 import "./globals.css";
@@ -45,7 +44,6 @@ export default function RootLayout({
         <ToastProvider>
           <SearchOverlayProvider>{children}</SearchOverlayProvider>
         </ToastProvider>
-        <Analytics />
       </body>
     </html>
   );

@@ -70,3 +70,35 @@ The command stops on unreadable data, enforces a default 1,000-row safety limit,
 ## Logging and audit boundaries
 
 Never log decrypted payout details, ciphertext, encryption secrets, account numbers, branch codes or account-holder names. The payout-account audit entry records only the business action and provider; sensitive fields are excluded.
+
+## Lost-key reset for the two reviewed EljayTunes test accounts
+
+The normal rotation command cannot migrate ciphertext when the retired key is unavailable. The narrowly scoped recovery command below is therefore limited to the two reviewed EljayTunes internal-test account IDs. It preserves each account row ID, its primary flag, related payouts, orders, ledger rows and historical audit records. The existing database writer uses a SHA-256 compare-and-swap and atomically appends a metadata-only audit entry; the operator then appends a second metadata-only entry containing the approved backup and review references.
+
+The command is dry-run-only unless all of the following are present:
+
+- a replacement-details JSON file owned by the operator and inaccessible to group/other users;
+- a new active key ID that is not `2026-09b`;
+- no requested or processing payout for the organization;
+- an observable isolated-backup restore reference;
+- a reviewed change reference;
+- the exact apply confirmation phrase.
+
+Dry-run after the replacement key has been loaded into an authorized operator shell:
+
+```bash
+PAYOUT_ACCOUNT_RESET_INPUT_FILE=/secure/path/replacements.json \
+  pnpm payouts:reset-internal-test-accounts
+```
+
+The protected input is an object whose keys are the two reviewed payout-account IDs and whose values are the complete replacement detail objects. Never commit this file or pass its content as command-line arguments.
+
+Only after the isolated restore and reset proposal have both been approved:
+
+```bash
+PAYOUT_ACCOUNT_RESET_BACKUP_REFERENCE=<restore-evidence-id> \
+PAYOUT_ACCOUNT_RESET_REVIEW_REFERENCE=<approved-change-id> \
+PAYOUT_ACCOUNT_RESET_CONFIRM=RESET_ELJAYTUNES_INTERNAL_TEST_PAYOUT_ACCOUNTS \
+PAYOUT_ACCOUNT_RESET_INPUT_FILE=/secure/path/replacements.json \
+  pnpm payouts:reset-internal-test-accounts -- --apply
+```

@@ -20,7 +20,6 @@ on:
 
 permissions:
   contents: read
-  deployments: read
 
 concurrency:
   group: ticketiv-shared-supabase-uat
@@ -86,42 +85,26 @@ jobs:
         with:
           ref: ${{ env.TARGET_SHA }}
 
-      - name: Wait for the exact commit to reach Vercel Production
+      - name: Wait for the exact commit to reach Coolify production
         id: production
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          api="https://api.github.com/repos/${GITHUB_REPOSITORY}"
-          auth=(
-            -H "Accept: application/vnd.github+json"
-            -H "Authorization: Bearer ${GH_TOKEN}"
-            -H "X-GitHub-Api-Version: 2022-11-28"
-          )
-
           for attempt in $(seq 1 80); do
-            deployments="$(curl --fail --silent --show-error "${auth[@]}" \
-              "${api}/deployments?sha=${TARGET_SHA}&environment=Production&per_page=20")"
+            health="$(curl --fail --silent --show-error --location \
+              --retry 2 --retry-all-errors --max-time 30 \
+              "${PLAYWRIGHT_BASE_URL}/api/health" || true)"
+            revision="$(jq -r '.revision // empty' <<< "$health" 2>/dev/null || true)"
+            if [[ "$revision" == "$TARGET_SHA" ]]; then
+              echo "Coolify production is healthy on $TARGET_SHA."
+              exit 0
+            fi
 
-            while IFS= read -r deployment_id; do
-              [[ -n "$deployment_id" ]] || continue
-              state="$(curl --fail --silent --show-error "${auth[@]}" \
-                "${api}/deployments/${deployment_id}/statuses?per_page=20" \
-                | jq -r '.[0].state // empty')"
-
-              if [[ "$state" == "success" ]]; then
-                echo "deployment_id=$deployment_id" >> "$GITHUB_OUTPUT"
-                echo "Vercel Production deployment $deployment_id is successful for $TARGET_SHA."
-                exit 0
-              fi
-            done < <(jq -r '.[] | select(.creator.login == "vercel[bot]") | .id' <<< "$deployments")
-
-            echo "Waiting for Vercel Production to deploy $TARGET_SHA (attempt ${attempt}/80)..."
+            echo "Waiting for Coolify production to deploy $TARGET_SHA (attempt ${attempt}/80; current=${revision:-unavailable})..."
             sleep 15
           done
 
-          echo "No successful Vercel Production deployment found for $TARGET_SHA within the wait window." >&2
+          echo "Coolify production did not reach healthy revision $TARGET_SHA within the wait window." >&2
           exit 1
 
       - name: Prove production alias is reachable
@@ -197,37 +180,14 @@ jobs:
       - name: Confirm production stayed on the tested commit
         if: success()
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          api="https://api.github.com/repos/${GITHUB_REPOSITORY}"
-          auth=(
-            -H "Accept: application/vnd.github+json"
-            -H "Authorization: Bearer ${GH_TOKEN}"
-            -H "X-GitHub-Api-Version: 2022-11-28"
-          )
-          deployments="$(curl --fail --silent --show-error "${auth[@]}" \
-            "${api}/deployments?environment=Production&per_page=20")"
-          latest_success_sha=""
-
-          while read -r deployment_id deployment_sha; do
-            [[ -n "$deployment_id" && -n "$deployment_sha" ]] || continue
-            state="$(curl --fail --silent --show-error "${auth[@]}" \
-              "${api}/deployments/${deployment_id}/statuses?per_page=20" \
-              | jq -r '.[0].state // empty')"
-            if [[ "$state" == "success" ]]; then
-              latest_success_sha="$deployment_sha"
-              break
-            fi
-          done < <(jq -r '.[] | select(.creator.login == "vercel[bot]") | [.id, .sha] | @tsv' <<< "$deployments")
-
-          if [[ -z "$latest_success_sha" ]]; then
-            echo "Unable to resolve the latest successful Vercel Production deployment." >&2
-            exit 1
-          fi
-          if [[ "$latest_success_sha" != "$TARGET_SHA" ]]; then
-            echo "Production changed during UAT: tested $TARGET_SHA but latest successful deployment is $latest_success_sha." >&2
+          health="$(curl --fail --silent --show-error --location \
+            --retry 5 --retry-all-errors --max-time 30 \
+            "${PLAYWRIGHT_BASE_URL}/api/health")"
+          deployed_revision="$(jq -r '.revision // empty' <<< "$health")"
+          if [[ "$deployed_revision" != "$TARGET_SHA" ]]; then
+            echo "Production changed during UAT: tested $TARGET_SHA but deployed revision is ${deployed_revision:-unknown}." >&2
             echo "This run is intentionally invalid; the newer commit must run its own shared UAT." >&2
             exit 1
           fi

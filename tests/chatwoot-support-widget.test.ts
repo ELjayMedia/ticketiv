@@ -28,11 +28,12 @@ describe("Chatwoot support widget", () => {
   })
 
   it("allows only the required Chatwoot origins in the report-only CSP", () => {
-    const vercel = JSON.parse(readFileSync(resolve(process.cwd(), "vercel.json"), "utf8"))
-    const headers = vercel.headers[0].headers as Array<{ key: string; value: string }>
-    const policy = headers.find((header) => header.key === "Content-Security-Policy-Report-Only")?.value ?? ""
-    expect(policy).toContain("script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com https://*.posthog.com https://chat.eljaymedia.com;")
-    expect(policy).toContain("https://chat.eljaymedia.com wss://chat.eljaymedia.com;")
-    expect(policy).toContain("frame-src 'self' https://www.google.com https://chat.eljaymedia.com;")
+    const nextConfig = readFileSync(resolve(process.cwd(), "next.config.mjs"), "utf8")
+    expect(nextConfig).toContain(
+      "script-src 'self' 'unsafe-inline' https://*.posthog.com https://chat.eljaymedia.com;",
+    )
+    expect(nextConfig).not.toContain("vercel-insights.com")
+    expect(nextConfig).toContain("https://chat.eljaymedia.com wss://chat.eljaymedia.com;")
+    expect(nextConfig).toContain("frame-src 'self' https://www.google.com https://chat.eljaymedia.com;")
   })
 })

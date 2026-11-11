@@ -1,8 +1,8 @@
 # Buyer funnel analytics (TICK-264)
 
-Ticketiv uses Vercel Web Analytics for page views and custom buyer-funnel events.
-The root layout mounts `@vercel/analytics/next`, and the funnel helpers live in
-`components/analytics/buyer-funnel.tsx`.
+Ticketiv uses PostHog for product analytics and custom buyer-funnel events.
+The browser client is initialized in `instrumentation-client.ts`, and the funnel
+helpers live in `components/analytics/buyer-funnel.tsx`.
 
 ## Event contract
 
@@ -19,7 +19,7 @@ The root layout mounts `@vercel/analytics/next`, and the funnel helpers live in
 
 ## Dashboard
 
-In Vercel Analytics, build a conversion view in this order:
+In PostHog, build a conversion funnel in this order:
 
 1. `buyer_funnel_event_view`
 2. `buyer_funnel_add_to_checkout`

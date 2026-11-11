@@ -27,6 +27,7 @@
     "seed:uat": "node scripts/seed-uat.mjs",
     "seed:uat:teardown": "node scripts/seed-uat.mjs --teardown",
     "payouts:reencrypt": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/reencrypt-payout-accounts.mjs",
+    "payouts:reset-internal-test-accounts": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/reset-internal-test-payout-accounts.mjs",
     "check:release": "pnpm check:play && pnpm lint && pnpm test && pnpm typecheck && pnpm check:demo && pnpm check:mobile && pnpm check:permissions && pnpm check:service-role && pnpm check:crossorg && pnpm check:routes && pnpm build",
     "check:play": "node scripts/validate-play-listings.mjs && node --test scripts/*play*.test.mjs scripts/tests/play-listings.test.mjs"
   },
@@ -45,7 +46,6 @@
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.1",
     "@ticketiv/shared": "workspace:*",
-    "@vercel/analytics": "^2.0.1",
     "autoprefixer": "^10.4.20",
     "clsx": "^2.1.1",
     "date-fns": "^4.2.1",

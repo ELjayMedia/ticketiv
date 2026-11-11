@@ -15,7 +15,7 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(nav.search),
   usePathname: () => "/events/launch-night",
 }))
-vi.mock("@vercel/analytics/react", () => ({ track: vi.fn() }))
+vi.mock("posthog-js", () => ({ default: { capture: vi.fn() } }))
 
 const GA = "00000000-0000-4000-8000-0000000000a1"
 const VIP = "00000000-0000-4000-8000-0000000000b2"

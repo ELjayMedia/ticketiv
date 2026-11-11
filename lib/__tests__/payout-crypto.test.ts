@@ -83,8 +83,9 @@ describe("payout detail encryption", () => {
 
   it("writes v2 ciphertext and round-trips with the active key", () => {
     clearEncryptionEnv()
-    process.env.PAYOUT_ENCRYPTION_KEY = "active-secret"
-    process.env.PAYOUT_ENCRYPTION_KEY_ID = "2026-08"
+    // Disposable key material exists only in this test process.
+    process.env.PAYOUT_ENCRYPTION_KEY = randomBytes(32).toString("base64url")
+    process.env.PAYOUT_ENCRYPTION_KEY_ID = "test-2026-11"
 
     const details = {
       account_name: "UAT Account",
@@ -96,10 +97,22 @@ describe("payout detail encryption", () => {
     expect(stored).toMatch(/^enc:v2:/)
     expect(stored).not.toContain("12345678")
     expect(payoutDetailsStorageKind(stored)).toBe("encrypted-v2")
-    expect(activePayoutEncryptionKeyId()).toBe("2026-08")
-    expect(payoutDetailsKeyId(stored)).toBe("2026-08")
+    expect(activePayoutEncryptionKeyId()).toBe("test-2026-11")
+    expect(payoutDetailsKeyId(stored)).toBe("test-2026-11")
     expect(decryptPayoutDetails(stored)).toEqual(details)
     expect(maskedAccountFromStored(stored)).toBe("••••5678")
+  })
+
+  it("rejects ciphertext when the active and previous keyring do not contain its key", () => {
+    clearEncryptionEnv()
+    process.env.PAYOUT_ENCRYPTION_KEY = randomBytes(32).toString("base64url")
+    process.env.PAYOUT_ENCRYPTION_KEY_ID = "test-2026-11"
+    const ciphertext = encryptPayoutDetails({ account_name: "Synthetic Test Organizer", account_number: "00001234" })
+
+    process.env.PAYOUT_ENCRYPTION_KEY = randomBytes(32).toString("base64url")
+    process.env.PAYOUT_ENCRYPTION_KEY_ID = "test-2026-11-wrong"
+
+    expect(decryptPayoutDetails(ciphertext)).toBeNull()
   })
 
   it("keeps old v2 ciphertext readable after rotating the active key", () => {

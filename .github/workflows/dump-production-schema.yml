@@ -1,30 +1,141 @@
-name: Dump Production Schema
+name: Create Encrypted Production Recovery Point
 
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ticketiv-production-recovery-point
+  cancel-in-progress: false
+
 jobs:
-  dump-production-schema:
+  backup:
+    name: Export and encrypt current production state
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90
+    env:
+      PROJECT_REF: radsfmlsjznqvcpogluo
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      BACKUP_AGE_RECIPIENT: ${{ vars.TICKETIV_BACKUP_AGE_RECIPIENT }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: supabase/setup-cli@v1
+      - name: Setup pinned Supabase CLI
+        uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 3.0.0
 
-      - name: Dump production schema
+      - name: Validate recovery configuration
         run: |
-          supabase db dump \
-            --linked \
-            --schema public,app,private,monitoring,_internal,ops_backup \
-            --file /tmp/ticketiv-production-schema.sql
+          set -euo pipefail
+          test -n "$SUPABASE_ACCESS_TOKEN" || { echo "::error::Missing SUPABASE_ACCESS_TOKEN"; exit 1; }
+          test -n "$SUPABASE_URL" || { echo "::error::Missing SUPABASE_URL"; exit 1; }
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::Missing SUPABASE_SERVICE_ROLE_KEY"; exit 1; }
+          test -n "$BACKUP_AGE_RECIPIENT" || { echo "::error::Missing TICKETIV_BACKUP_AGE_RECIPIENT"; exit 1; }
+          case "$BACKUP_AGE_RECIPIENT" in age1*) ;; *) echo "::error::Invalid age recipient"; exit 1 ;; esac
+          sudo apt-get update -qq
+          sudo apt-get install -y age
 
-      - name: Upload schema dump
+      - name: Export consistent logical database backup
+        id: database
+        run: |
+          set -euo pipefail
+          umask 077
+          backup_root="$RUNNER_TEMP/ticketiv-recovery"
+          database_dir="$backup_root/database"
+          mkdir -p "$database_dir"
+
+          supabase db dump --remote="$PROJECT_REF" --file "$database_dir/roles.sql" --role-only
+          supabase db dump --remote="$PROJECT_REF" --file "$database_dir/schema.sql"
+          supabase db dump --remote="$PROJECT_REF" --file "$database_dir/managed_schema.sql" \
+            --schema auth,storage
+          supabase db dump --remote="$PROJECT_REF" --file "$database_dir/data.sql" --data-only --use-copy \
+            --exclude "storage.buckets_vectors" --exclude "storage.vector_indexes"
+          supabase db dump --remote="$PROJECT_REF" --file "$database_dir/history_schema.sql" \
+            --schema supabase_migrations
+          supabase db dump --remote="$PROJECT_REF" --file "$database_dir/history_data.sql" \
+            --schema supabase_migrations --data-only --use-copy
+
+          test -s "$database_dir/roles.sql"
+          test -s "$database_dir/schema.sql"
+          test -s "$database_dir/managed_schema.sql"
+          grep -Eq 'CREATE TABLE.*auth.*users' "$database_dir/managed_schema.sql"
+          grep -Eq 'CREATE TABLE.*storage.*objects' "$database_dir/managed_schema.sql"
+          test -s "$database_dir/data.sql"
+          test -s "$database_dir/history_schema.sql"
+          test -s "$database_dir/history_data.sql"
+
+          timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          printf '%s\n' "$timestamp" > "$database_dir/backup-timestamp.txt"
+          printf '%s\n' "$PROJECT_REF" > "$database_dir/project-ref.txt"
+          tar -czf "$RUNNER_TEMP/ticketiv-database-${timestamp}.tar.gz" -C "$backup_root" database
+          age -r "$BACKUP_AGE_RECIPIENT" \
+            -o "$RUNNER_TEMP/ticketiv-database-${timestamp}.tar.gz.age" \
+            "$RUNNER_TEMP/ticketiv-database-${timestamp}.tar.gz"
+          (cd "$RUNNER_TEMP" && \
+            sha256sum "ticketiv-database-${timestamp}.tar.gz.age" \
+              > "ticketiv-database-${timestamp}.tar.gz.age.sha256")
+          echo "timestamp=$timestamp" >> "$GITHUB_OUTPUT"
+          echo "Database export created and encrypted."
+
+      - name: Inventory and export Storage objects
+        run: |
+          set -euo pipefail
+          umask 077
+          timestamp="${{ steps.database.outputs.timestamp }}"
+          storage_dir="$RUNNER_TEMP/ticketiv-recovery/storage"
+          mkdir -p "$storage_dir"
+          node scripts/backup-supabase-storage.mjs "$storage_dir" \
+            > "$RUNNER_TEMP/storage-summary.json"
+          jq -e '.buckets >= 0 and .objects >= 0 and .bytes >= 0' \
+            "$RUNNER_TEMP/storage-summary.json" >/dev/null
+
+          tar -czf "$RUNNER_TEMP/ticketiv-storage-${timestamp}.tar.gz" \
+            -C "$RUNNER_TEMP/ticketiv-recovery" storage
+          age -r "$BACKUP_AGE_RECIPIENT" \
+            -o "$RUNNER_TEMP/ticketiv-storage-${timestamp}.tar.gz.age" \
+            "$RUNNER_TEMP/ticketiv-storage-${timestamp}.tar.gz"
+          (cd "$RUNNER_TEMP" && \
+            sha256sum "ticketiv-storage-${timestamp}.tar.gz.age" \
+              > "ticketiv-storage-${timestamp}.tar.gz.age.sha256")
+          jq -r '"Storage export encrypted: \(.buckets) buckets, \(.objects) objects, \(.bytes) bytes."' \
+            "$RUNNER_TEMP/storage-summary.json"
+
+      - name: Write non-sensitive recovery metadata
+        run: |
+          set -euo pipefail
+          timestamp="${{ steps.database.outputs.timestamp }}"
+          cat > "$RUNNER_TEMP/recovery-metadata.json" <<EOF
+          {
+            "format": 1,
+            "projectRef": "$PROJECT_REF",
+            "timestamp": "$timestamp",
+            "databaseArchive": "ticketiv-database-${timestamp}.tar.gz.age",
+            "storageArchive": "ticketiv-storage-${timestamp}.tar.gz.age",
+            "encryption": "age-x25519"
+          }
+          EOF
+
+      - name: Upload encrypted recovery bundle
         uses: actions/upload-artifact@v4
         with:
-          name: production-schema-dump
-          path: /tmp/ticketiv-production-schema.sql
-          retention-days: 7
+          name: ticketiv-recovery-${{ steps.database.outputs.timestamp }}
+          path: |
+            ${{ runner.temp }}/ticketiv-database-${{ steps.database.outputs.timestamp }}.tar.gz.age
+            ${{ runner.temp }}/ticketiv-database-${{ steps.database.outputs.timestamp }}.tar.gz.age.sha256
+            ${{ runner.temp }}/ticketiv-storage-${{ steps.database.outputs.timestamp }}.tar.gz.age
+            ${{ runner.temp }}/ticketiv-storage-${{ steps.database.outputs.timestamp }}.tar.gz.age.sha256
+            ${{ runner.temp }}/recovery-metadata.json
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Remove plaintext recovery material
+        if: always()
+        run: |
+          find "$RUNNER_TEMP/ticketiv-recovery" -type f -exec shred -u {} + 2>/dev/null || true
+          find "$RUNNER_TEMP" -maxdepth 1 -type f -name 'ticketiv-*.tar.gz' -exec shred -u {} + 2>/dev/null || true

@@ -22,7 +22,7 @@ vi.mock("next/link", () => ({
   default: ({ children, ...props }: any) => React.createElement("a", props, children),
 }))
 
-vi.mock("@vercel/analytics/react", () => ({ track: vi.fn() }))
+vi.mock("posthog-js", () => ({ default: { capture: vi.fn() } }))
 
 const fakeQuery: any = {
   select: () => fakeQuery,
