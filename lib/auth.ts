@@ -78,7 +78,10 @@ export async function getCurrentUserProfile(): Promise<UserSession | null> {
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("*")
+      // `profiles` deliberately exposes only these public columns to the
+      // authenticated role. Selecting `*` also requests the protected phone
+      // column and makes the entire query fail with 42501.
+      .select("user_id, display_name, name, surname, avatar_url, created_at")
       .eq("user_id", user.id)
       .single()
 
@@ -99,7 +102,7 @@ export async function getCurrentUserProfile(): Promise<UserSession | null> {
         email: user.email ?? "",
         full_name: fullName,
         avatar_url: profile.avatar_url ?? null,
-        phone: profile.phone,
+        phone: user.phone ?? null,
         created_at: profile.created_at ?? undefined,
       },
     }
