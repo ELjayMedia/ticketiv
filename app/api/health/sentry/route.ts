@@ -39,14 +39,22 @@ export async function GET(request: Request) {
     org: Boolean(process.env.SENTRY_ORG?.trim()),
     project: Boolean(process.env.SENTRY_PROJECT?.trim()),
     authToken: Boolean(process.env.SENTRY_AUTH_TOKEN?.trim()),
+    buildEnabled: process.env.SENTRY_SOURCE_MAPS_BUILD_ENABLED === "true",
   }
+
+  // The upload token is intentionally build-only in Coolify. Keeping a
+  // project-write token in the running application would expand the impact of
+  // a runtime compromise. The deployment workflow attests that the build was
+  // configured with the token instead.
+  const sourceMapUploadConfigured =
+    sourceMaps.org && sourceMaps.project && (sourceMaps.authToken || sourceMaps.buildEnabled)
 
   const config = {
     serverDsn,
     clientDsn,
     environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? null,
     tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE ?? 0.1),
-    sourceMapUploadConfigured: sourceMaps.org && sourceMaps.project && sourceMaps.authToken,
+    sourceMapUploadConfigured,
     sourceMaps,
   }
 
@@ -55,7 +63,7 @@ export async function GET(request: Request) {
   if (!clientDsn) problems.push("NEXT_PUBLIC_SENTRY_DSN is unset — browser errors are captured into a no-op.")
   if (!config.sourceMapUploadConfigured) {
     const missing = Object.entries(sourceMaps)
-      .filter(([, present]) => !present)
+      .filter(([name, present]) => !present && name !== "buildEnabled")
       .map(([name]) => `SENTRY_${name === "authToken" ? "AUTH_TOKEN" : name.toUpperCase()}`)
     problems.push(`Source maps are not uploaded (missing ${missing.join(", ")}); stack traces stay minified.`)
   }

@@ -23,4 +23,30 @@ describe("Coolify deployment contract", () => {
       '{key:"SOURCE_COMMIT", value:$source_commit, is_runtime:true, is_buildtime:true, is_shown_once:false}',
     )
   })
+
+  it("synchronizes cron and monitoring secrets without logging their values", () => {
+    const workflow = readFileSync(resolve(root, ".github/workflows/ci.yml"), "utf8")
+
+    expect(workflow).toContain("version: 3.0.0")
+    expect(workflow).toContain("from vault.decrypted_secrets")
+    expect(workflow).toContain("--read-only")
+    expect(workflow).toContain("::add-mask::$CRON_SECRET")
+    expect(workflow).toContain("::add-mask::$SENTRY_DSN")
+    expect(workflow).toContain(
+      "https://sentry.io/api/0/projects/eljaymedia-5k/ticketiv/keys/",
+    )
+    expect(workflow).toContain(
+      '{key:"CRON_SECRET", value:$cron_secret, is_runtime:true, is_buildtime:false, is_shown_once:true}',
+    )
+    expect(workflow).toContain(
+      '{key:"NEXT_PUBLIC_SENTRY_DSN", value:$sentry_dsn, is_runtime:true, is_buildtime:true, is_shown_once:true}',
+    )
+    expect(workflow).toContain(
+      '{key:"SENTRY_AUTH_TOKEN", value:$sentry_token, is_runtime:false, is_buildtime:true, is_shown_once:true}',
+    )
+    expect(workflow).toContain(
+      '{key:"SENTRY_SOURCE_MAPS_BUILD_ENABLED", value:"true", is_runtime:true, is_buildtime:true, is_shown_once:false}',
+    )
+    expect(workflow).not.toMatch(/echo\s+["']?\$(?:CRON_SECRET|SENTRY_DSN)["']?\s*$/m)
+  })
 })

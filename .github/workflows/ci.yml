@@ -229,24 +229,62 @@ jobs:
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     needs: [release-gate, change-scope, e2e-smoke]
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
+      - name: Setup pinned Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 3.0.0
+
       - name: Synchronize Ticketiv Supabase environment
         env:
           COOLIFY_ENV_TOKEN: ${{ secrets.COOLIFY_ENV_TOKEN }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           PAYOUT_ENCRYPTION_KEY: ${{ secrets.PAYOUT_ENCRYPTION_KEY }}
           PAYOUT_ENCRYPTION_KEY_ID: ${{ vars.PAYOUT_ENCRYPTION_KEY_ID }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SOURCE_COMMIT: ${{ github.sha }}
+          PROJECT_REF: radsfmlsjznqvcpogluo
         run: |
           set -euo pipefail
-          for name in COOLIFY_ENV_TOKEN SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SERVICE_ROLE_KEY PAYOUT_ENCRYPTION_KEY PAYOUT_ENCRYPTION_KEY_ID SOURCE_COMMIT; do
+          for name in COOLIFY_ENV_TOKEN SUPABASE_ACCESS_TOKEN SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SERVICE_ROLE_KEY PAYOUT_ENCRYPTION_KEY PAYOUT_ENCRYPTION_KEY_ID SENTRY_AUTH_TOKEN SOURCE_COMMIT PROJECT_REF; do
             test -n "${!name}" || { echo "::error::Missing required deployment configuration: ${name}"; exit 1; }
           done
+
+          # Supabase Vault remains the source of truth for the pg_cron bearer
+          # secret. Capture the read-only query output without writing it to
+          # the Actions log, mask it immediately, and pass it directly to
+          # Coolify's encrypted environment store.
+          cron_query_output="$(supabase db query \
+            --remote="$PROJECT_REF" \
+            --read-only \
+            --agent no \
+            --output-format json \
+            "select secret as cron_secret from vault.decrypted_secrets where name = 'ops_alert_cron_secret' limit 1")"
+          CRON_SECRET="$(printf '%s' "$cron_query_output" \
+            | jq -er '.. | objects | select(.cron_secret? != null) | .cron_secret' \
+            | sed -n '1p')"
+          test -n "$CRON_SECRET" || { echo "::error::Supabase Vault did not return the Ticketiv cron secret"; exit 1; }
+          echo "::add-mask::$CRON_SECRET"
+          unset cron_query_output
+
+          # Read the active public DSN from Sentry rather than duplicating it
+          # as another repository secret. The API token is never copied into
+          # the response body or printed.
+          sentry_keys="$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer ${SENTRY_AUTH_TOKEN}" \
+            --header "Accept: application/json" \
+            "https://sentry.io/api/0/projects/eljaymedia-5k/ticketiv/keys/")"
+          SENTRY_DSN="$(printf '%s' "$sentry_keys" \
+            | jq -er '[.[] | select(.isActive == true and (.dsn.public | type == "string")) | .dsn.public][0]')"
+          test -n "$SENTRY_DSN" || { echo "::error::Sentry did not return an active Ticketiv DSN"; exit 1; }
+          echo "::add-mask::$SENTRY_DSN"
+          unset sentry_keys
 
           jq -n \
             --arg url "$SUPABASE_URL" \
@@ -254,6 +292,9 @@ jobs:
             --arg service_role "$SUPABASE_SERVICE_ROLE_KEY" \
             --arg payout_key "$PAYOUT_ENCRYPTION_KEY" \
             --arg payout_key_id "$PAYOUT_ENCRYPTION_KEY_ID" \
+            --arg cron_secret "$CRON_SECRET" \
+            --arg sentry_dsn "$SENTRY_DSN" \
+            --arg sentry_token "$SENTRY_AUTH_TOKEN" \
             --arg source_commit "$SOURCE_COMMIT" \
             '{data: [
               {key:"SUPABASE_URL", value:$url, is_runtime:true, is_buildtime:false, is_shown_once:false},
@@ -263,6 +304,13 @@ jobs:
               {key:"SUPABASE_SERVICE_ROLE_KEY", value:$service_role, is_runtime:true, is_buildtime:false, is_shown_once:true},
               {key:"PAYOUT_ENCRYPTION_KEY", value:$payout_key, is_runtime:true, is_buildtime:false, is_shown_once:true},
               {key:"PAYOUT_ENCRYPTION_KEY_ID", value:$payout_key_id, is_runtime:true, is_buildtime:false, is_shown_once:false},
+              {key:"CRON_SECRET", value:$cron_secret, is_runtime:true, is_buildtime:false, is_shown_once:true},
+              {key:"SENTRY_DSN", value:$sentry_dsn, is_runtime:true, is_buildtime:true, is_shown_once:true},
+              {key:"NEXT_PUBLIC_SENTRY_DSN", value:$sentry_dsn, is_runtime:true, is_buildtime:true, is_shown_once:true},
+              {key:"SENTRY_AUTH_TOKEN", value:$sentry_token, is_runtime:false, is_buildtime:true, is_shown_once:true},
+              {key:"SENTRY_ORG", value:"eljaymedia-5k", is_runtime:true, is_buildtime:true, is_shown_once:false},
+              {key:"SENTRY_PROJECT", value:"ticketiv", is_runtime:true, is_buildtime:true, is_shown_once:false},
+              {key:"SENTRY_SOURCE_MAPS_BUILD_ENABLED", value:"true", is_runtime:true, is_buildtime:true, is_shown_once:false},
               {key:"SOURCE_COMMIT", value:$source_commit, is_runtime:true, is_buildtime:true, is_shown_once:false},
               {key:"DEPLOYMENT_ENV", value:"production", is_runtime:true, is_buildtime:true, is_shown_once:false}
             ]}' \
