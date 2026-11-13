@@ -73,7 +73,7 @@ function recoverSignedOutSession(request: NextRequest, path: string, error: unkn
  * Safety:
  *   Public routes are returned before any Supabase call. This prevents a slow or
  *   unavailable auth service from taking down the public marketplace with a
- *   Vercel function timeout.
+ *   request timeout.
  *
  *   If env vars are missing or any DB call throws on protected routes, we pass
  *   through rather than 500 so the rest of the app remains accessible. Auth

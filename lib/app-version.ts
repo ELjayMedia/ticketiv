@@ -25,8 +25,8 @@ function shortCommitSha(env: EnvBag) {
  *
  * - `NEXT_PUBLIC_APP_VERSION` wins when set, so a release process can stamp a
  *   tag name without a code change.
- * - Vercel production: `v0.1.0 · a1b2c3d`
- * - Vercel preview: `v0.1.0-preview · a1b2c3d`
+ * - Production: `v0.1.0 · a1b2c3d`
+ * - Preview: `v0.1.0-preview · a1b2c3d`
  * - Anywhere without a commit sha (local `next dev`): `v0.1.0 · dev`
  */
 export function resolveAppVersion(env: EnvBag = process.env): string {

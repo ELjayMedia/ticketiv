@@ -20,7 +20,7 @@ export type ReadinessItemId =
 export const READINESS_ITEMS: ReadonlyArray<{ id: ReadinessItemId; label: string; hint: string }> = [
   { id: "merchant_agreement", label: "Merchant agreement", hint: "Signed contract or merchant account approval with the provider." },
   { id: "kyb", label: "Business verification (KYB)", hint: "The provider has verified Ticketiv's business documents." },
-  { id: "credentials", label: "Live credentials", hint: "Production keys issued and stored in Vercel (where they live, never the keys)." },
+  { id: "credentials", label: "Live credentials", hint: "Production keys issued and stored in Coolify (where they live, never the keys)." },
   { id: "callback", label: "Callback / webhook", hint: "Live callback URL registered with the provider and a signed or verified delivery seen." },
   { id: "uat", label: "Money-path test", hint: "A full test purchase and refund passed end to end (link to the UAT record)." },
   { id: "data_protection", label: "Data protection", hint: "Processor terms / DPA signed; data roles agreed (TICK-254)." },

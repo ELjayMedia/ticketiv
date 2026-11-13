@@ -21,7 +21,7 @@ export function isMissingEnvironmentVariableError(error: unknown): error is Miss
 // fallback below is intentionally safe to ship to browsers: publishable keys
 // are public client credentials, not backend secrets. Keeping it here also
 // prevents an old NEXT_PUBLIC_SUPABASE_ANON_KEY value from taking production
-// down while Vercel/GitHub environments are migrated to the new variable name.
+// down while Coolify/GitHub environments are migrated to the new variable name.
 const TICKETIV_SUPABASE_URL = "https://radsfmlsjznqvcpogluo.supabase.co"
 const TICKETIV_SUPABASE_PUBLISHABLE_KEY =
   "sb_publishable_FzIaYAJ3S2rjdgV-GCqeBQ_s1jOxtGb"

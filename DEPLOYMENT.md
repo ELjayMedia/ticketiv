@@ -1,118 +1,84 @@
-# Deployment Guide – Ticketiv
+# Ticketiv Deployment Guide
 
-Deploy Ticketiv to Vercel backed by Supabase with confidence. This playbook assumes you have the schema from [`SUPABASE_SETUP.md`](SUPABASE_SETUP.md) applied and that your payment providers (DeltaPay, Paystack, Flutterwave) are configured with sandbox and production keys.
+Ticketiv's web app runs on a **self-hosted Coolify** server as a Docker image,
+behind a Cloudflare Tunnel. It is no longer hosted on Vercel. The database,
+auth and storage are Supabase (project `radsfmlsjznqvcpogluo`).
 
-## Prerequisites
+- Cutover runbook and routing: [`docs/infra/ticketiv-coolify-cutover-2026-11-12.md`](docs/infra/ticketiv-coolify-cutover-2026-11-12.md)
+- Recovery point: [`docs/infra/ticketiv-production-recovery-point.md`](docs/infra/ticketiv-production-recovery-point.md)
+- Schema setup: [`SUPABASE_SETUP.md`](SUPABASE_SETUP.md)
 
-- GitHub (or GitLab/Bitbucket) repository containing the application code
-- Vercel account with permissions to create projects
-- Supabase project for each environment (development, staging, production)
-- Credentials for at least one supported payment provider
+## How a release reaches production
 
-## Step 1 – Prepare Supabase
+1. A pull request runs **CI** (`.github/workflows/ci.yml`): the release gate
+   (typecheck, lint, tests, route/permission checks) and the browser smoke.
+2. A merge to `main` runs the same jobs, then **Deploy production to Coolify**:
+   - syncs the production environment into Coolify's encrypted store
+     (Supabase keys, payout encryption key, `CRON_SECRET` read from Supabase
+     Vault, Sentry DSN and upload token, `SOURCE_COMMIT`, `DEPLOYMENT_ENV`);
+   - turns on BuildKit build secrets so build-only values never land in the
+     image;
+   - queues a Coolify deployment, which builds the `Dockerfile`. The job does
+     not wait for the build; check Coolify for its result.
+3. `/api/health` reports the deployed commit (`SOURCE_COMMIT`), so you can
+   confirm production runs the merged SHA.
 
-1. Create separate Supabase projects for staging and production, or use the Supabase CLI to manage environments.
-2. Apply the SQL from [`SUPABASE_SETUP.md`](SUPABASE_SETUP.md) to each project.
-3. Seed reference events if desired so QA testers have data to verify.
-4. Configure authentication redirect URLs for each environment domain (see Step 4 below).
+There are no preview deployments. Test UI changes locally (`pnpm dev`) or on
+`uat.ticketiv.app`, which also routes to Coolify through the Tunnel and sits
+behind Cloudflare Access.
 
-## Step 2 – Configure Payment Providers
+## Environment
 
-- **DeltaPay**: Generate public and secret keys, enable webhook delivery, and note the webhook signing secret if provided.
-- **Paystack**: Create API keys, enable test mode, and add your callback URL (e.g., `https://<project>.vercel.app/api/orders/paystack`).
-- **Flutterwave**: Create public and secret keys, whitelist your domains, and configure event/webhook URLs.
+- `NEXT_PUBLIC_*` values are inlined into the browser bundle, so Coolify passes
+  them at build time and at runtime. Server secrets are runtime-only.
+- The `Dockerfile` sets `DEPLOYMENT_ENV=production` and, for code that still
+  reads it, `VERCEL_ENV=production`, plus `VERCEL_GIT_COMMIT_SHA` from
+  `SOURCE_COMMIT`. The deploy-safety check (`lib/deployment-safety.ts`) and the
+  Paystack live-key guard rely on these to tell production apart.
+- See `.env.example` for every variable and where it comes from. Add or rotate
+  secrets in Coolify (or in GitHub Actions secrets for values the deploy job
+  syncs). See `docs/SECRET_ROTATION.md`.
 
-Record all secrets so they can be added to Vercel in the next step.
+## Supabase Auth redirects
 
-## Step 3 – Deploy to Vercel
+In **Authentication → URL Configuration**, keep the production and UAT origins
+(`https://ticketiv.app`, `https://uat.ticketiv.app`) and `http://localhost:3000`
+for local development.
 
-### Option A – Git Integration (Recommended)
+## Webhooks and callbacks
 
-1. Push your repository to GitHub.
-2. Visit [vercel.com/new](https://vercel.com/new) and import the repository.
-3. Choose the **Next.js** preset and confirm the project name.
-4. Before the first deploy, open the **Environment Variables** section and add the following for each environment scope you intend to use:
+Payment callbacks are generated from `NEXT_PUBLIC_APP_URL`
+(e.g. `https://ticketiv.app/api/payments/deltapay/callback`). Check signatures
+and provider readiness in Super admin → Integrations before switching a provider
+to live money.
 
-   | Variable | Scope | Source |
-   | --- | --- | --- |
-   | `NEXT_PUBLIC_SUPABASE_URL` | All | Supabase project URL |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | All | Supabase anon key |
-   | `SUPABASE_SERVICE_ROLE_KEY` | Server (Preview/Production) | Supabase service role key |
-   | `NEXT_PUBLIC_APP_URL` | All | Vercel deployment domain or custom domain |
-   | `DELTAPAY_PUBLIC_KEY` | Relevant envs | DeltaPay dashboard |
-   | `DELTAPAY_SECRET_KEY` | Server | DeltaPay dashboard |
-   | `PAYSTACK_PUBLIC_KEY` | Relevant envs | Paystack dashboard |
-   | `PAYSTACK_SECRET_KEY` | Server | Paystack dashboard |
-   | `FLUTTERWAVE_PUBLIC_KEY` | Relevant envs | Flutterwave dashboard |
-   | `FLUTTERWAVE_SECRET_KEY` | Server | Flutterwave dashboard |
-   | `NODE_ENV` | Optional | Set automatically by Vercel but can be overridden |
+## Smoke test a deployment
 
-5. Trigger the initial deployment. Vercel will build the Next.js project and expose preview URLs per branch.
+```bash
+scripts/smoke-deployment.sh https://ticketiv.app
+```
 
-### Option B – Vercel CLI
+It checks:
 
-If you prefer the CLI:
+- `GET /` returns `200 text/html`
+- `GET /api/health` returns `200 application/json` with the deployed commit
+- `GET /api/health/supabase` returns `200 application/json`
 
-\`\`\`bash
-npm i -g vercel
-vercel login
-vercel link
-vercel env add NEXT_PUBLIC_SUPABASE_URL
-# Repeat for each variable listed above
-vercel --prod
-\`\`\`
+Then run an attendee checkout with test keys, scan the ticket, and confirm the
+organiser dashboard shows the order. Watch the Coolify container logs, Sentry
+and Supabase logs for errors.
 
-## Step 4 – Align Supabase Redirects
+## Rollback
 
-For each Supabase project, navigate to **Authentication → URL Configuration** and add:
-
-- `http://localhost:3000/browse`
-- `http://localhost:3000/dashboard`
-- `https://<preview-domain>.vercel.app/browse`
-- `https://<preview-domain>.vercel.app/dashboard`
-- `https://<production-domain>/browse`
-- `https://<production-domain>/dashboard`
-
-## Step 5 – Map Webhooks and Callbacks
-
-1. Point DeltaPay, Paystack, and Flutterwave webhooks to the respective routes in `app/api/orders` or `app/api/payouts` depending on your integration pattern.
-2. Ensure each provider sends signatures/headers that your handlers expect. Store signing secrets as additional environment variables if required.
-3. Test callbacks using sandbox modes or provider-specific testing tools before going live.
-
-## Step 6 – Smoke Test the Deployment
-
-- Run the automated health smoke check against the deployed URL — it hits the public homepage and the unauthenticated JSON health endpoints so we can distinguish a healthy app from an auth-redirect intercept:
-
-  ```bash
-  scripts/smoke-deployment.sh https://<deployment-domain>
-  ```
-
-  The script verifies:
-
-  - `GET /` returns `200 text/html`
-  - `GET /api/health` returns `200 application/json` (e.g. `{ "ok": true, "service": "ticketiv" }`)
-  - `GET /api/health/supabase` returns `200 application/json` showing Supabase connectivity without exposing keys
-
-- Run through attendee checkout flows using test payment keys.
-- Validate that Supabase receives new `tickets` records and that `/scanner/scan` verifies the generated codes.
-- Confirm organiser dashboards display up-to-date payout and order data.
-- Monitor Vercel build logs and Supabase logs for errors.
-
-## Step 7 – Promote to Production
-
-1. Merge the release branch into `main` (or your production branch).
-2. Confirm the production Vercel project points to the production Supabase and payment credentials.
-3. Flip providers from test to live mode.
-4. Announce availability and continue monitoring analytics and logs.
+Roll back inside Coolify by redeploying a retained known-good image. Vercel is
+not a rollback target.
 
 ## Troubleshooting
 
-- **401/403 responses**: Verify Supabase keys and RLS policies. Ensure service role keys are only used server-side.
-- **Webhook retries**: Check signature validation logic and confirm Vercel routes respond within provider timeouts.
-- **Payment discrepancies**: Reconcile Supabase `tickets` totals with provider dashboards and investigate mismatches promptly.
-
-## Ongoing Operations
-
-- Rotate keys periodically in Supabase and payment provider dashboards, updating Vercel secrets accordingly.
-- Enable Vercel Analytics and Supabase log drains for long-term monitoring.
-- Schedule database backups or use Supabase PITR (Point-In-Time Recovery) for disaster readiness.
+- **401/403 responses**: check Supabase keys and RLS policies. Service role keys
+  are server-only.
+- **Webhook retries**: check signature validation and that the Coolify
+  container responds within the provider's timeout.
+- **Build fails on deployment safety**: read the listed issues; production must
+  use `NEXT_PUBLIC_APP_URL=https://ticketiv.app`, and live Paystack keys are
+  refused outside production.

@@ -107,7 +107,7 @@ export default async function SuperAdminRealtimeHealthPage() {
   const auditEntries = auditRes.data ?? []
 
   const projectRef = supabaseProjectRef()
-  const vercelSha = process.env.VERCEL_GIT_COMMIT_SHA ?? null
+  const vercelSha = process.env.SOURCE_COMMIT?.trim() || process.env.VERCEL_GIT_COMMIT_SHA || null
   const vercelBranch = process.env.VERCEL_GIT_COMMIT_REF ?? null
   const vercelEnv = process.env.VERCEL_ENV ?? null
 
@@ -160,7 +160,7 @@ export default async function SuperAdminRealtimeHealthPage() {
       tone: "muted",
     },
     {
-      label: "Vercel commit",
+      label: "Deployed commit",
       value: vercelSha ? vercelSha.slice(0, 7) : "—",
       tone: vercelSha ? "ok" : "muted",
       hint: vercelBranch && vercelEnv ? `${vercelBranch} · ${vercelEnv}` : vercelBranch ?? vercelEnv ?? undefined,
