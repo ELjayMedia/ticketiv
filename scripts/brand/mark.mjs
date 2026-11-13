@@ -2,17 +2,17 @@
 // ticket with a cut-out "T" between two perforation lines, drawn on a 512
 // grid. Rendered by render-brand-assets.mjs.
 //
-// ticketiv  — the attendee app: the original black icon, whose T ends in a
-//             round cut-out holding the green entry check.
-// organizer — Ticketiv Organizer: violet tile (Quiet UI accent), T with a
+// ticketiv  — the attendee app: violet tile (Quiet UI accent), T with a
 //             rounded stem, light-violet perforations.
+// organizer — Ticketiv Organizer: black tile; the T ends in a round cut-out
+//             holding the green entry check.
 export const PRODUCTS = {
-  ticketiv: { tile: "#030407", ticket: "#ffffff", dash: "#562ada", check: "#09b94c" },
-  organizer: { tile: "#6b3fbd", ticket: "#ffffff", dash: "#b9a5e8" },
+  ticketiv: { tile: "#6b3fbd", ticket: "#ffffff", dash: "#b9a5e8" },
+  organizer: { tile: "#030407", ticket: "#ffffff", dash: "#562ada", check: "#09b94c" },
 }
 
 export function markSvg(product) {
-  if (product === "ticketiv") return checkMarkSvg(PRODUCTS.ticketiv)
+  if (product === "organizer") return checkMarkSvg(PRODUCTS.organizer)
   const c = PRODUCTS[product]
   const dashes = [172, 202, 232, 262, 292, 322]
     .flatMap((y) => [131, 381].map((x) => `<rect x="${x - 4}" y="${y}" width="8" height="14" rx="4"/>`))
