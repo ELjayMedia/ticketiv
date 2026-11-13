@@ -241,6 +241,8 @@ jobs:
       - name: Synchronize Ticketiv Supabase environment
         env:
           COOLIFY_ENV_TOKEN: ${{ secrets.COOLIFY_ENV_TOKEN }}
+          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
@@ -252,9 +254,19 @@ jobs:
           PROJECT_REF: radsfmlsjznqvcpogluo
         run: |
           set -euo pipefail
-          for name in COOLIFY_ENV_TOKEN SUPABASE_ACCESS_TOKEN SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SERVICE_ROLE_KEY PAYOUT_ENCRYPTION_KEY PAYOUT_ENCRYPTION_KEY_ID SENTRY_AUTH_TOKEN SOURCE_COMMIT PROJECT_REF; do
+          for name in COOLIFY_ENV_TOKEN CLOUDFLARE_ACCESS_CLIENT_ID CLOUDFLARE_ACCESS_CLIENT_SECRET SUPABASE_ACCESS_TOKEN SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SERVICE_ROLE_KEY PAYOUT_ENCRYPTION_KEY PAYOUT_ENCRYPTION_KEY_ID SENTRY_AUTH_TOKEN SOURCE_COMMIT PROJECT_REF; do
             test -n "${!name}" || { echo "::error::Missing required deployment configuration: ${name}"; exit 1; }
           done
+
+          # The Coolify control plane is protected by Cloudflare Access. A
+          # Coolify bearer token alone is intentionally insufficient. These
+          # headers authenticate this workflow as the dedicated CI service
+          # identity, and redirect following is disabled so an Access login
+          # page can never be mistaken for a successful API response.
+          coolify_access_headers=(
+            --header "CF-Access-Client-Id: ${CLOUDFLARE_ACCESS_CLIENT_ID}"
+            --header "CF-Access-Client-Secret: ${CLOUDFLARE_ACCESS_CLIENT_SECRET}"
+          )
 
           # Supabase Vault remains the source of truth for the pg_cron bearer
           # secret. Capture the read-only query output without writing it to
@@ -289,10 +301,11 @@ jobs:
           # Build-time values, especially the Sentry upload token, must reach
           # Docker through ephemeral BuildKit secret mounts. Coolify's normal
           # build-argument mode can persist values in image provenance.
-          curl --fail-with-body --silent --show-error \
+          curl --fail-with-body --silent --show-error --location --max-redirs 0 \
             --retry 3 --retry-all-errors \
             --request PATCH \
             --url "https://coolify.eljaymedia.com/api/v1/applications/zs2jkfesdsmrrftkjgcnoekp" \
+            "${coolify_access_headers[@]}" \
             --header "Authorization: Bearer ${COOLIFY_ENV_TOKEN}" \
             --header "Content-Type: application/json" \
             --data-binary '{"use_build_secrets":true}' \
@@ -301,9 +314,10 @@ jobs:
           # The Coolify API has previously accepted this update without
           # persisting it. Read the application back and stop before queuing a
           # deployment unless BuildKit secret mounts are observably enabled.
-          coolify_application="$(curl --fail --silent --show-error \
+          coolify_application="$(curl --fail --silent --show-error --location --max-redirs 0 \
             --retry 3 --retry-all-errors \
             --url "https://coolify.eljaymedia.com/api/v1/applications/zs2jkfesdsmrrftkjgcnoekp" \
+            "${coolify_access_headers[@]}" \
             --header "Authorization: Bearer ${COOLIFY_ENV_TOKEN}" \
             --header "Accept: application/json")"
           printf '%s' "$coolify_application" \
@@ -342,10 +356,11 @@ jobs:
               {key:"SOURCE_COMMIT", value:$source_commit, is_runtime:true, is_buildtime:true, is_shown_once:false},
               {key:"DEPLOYMENT_ENV", value:"production", is_runtime:true, is_buildtime:true, is_shown_once:false}
             ]}' \
-            | curl --fail-with-body --silent --show-error \
+            | curl --fail-with-body --silent --show-error --location --max-redirs 0 \
                 --retry 3 --retry-all-errors \
                 --request PATCH \
                 --url "https://coolify.eljaymedia.com/api/v1/applications/zs2jkfesdsmrrftkjgcnoekp/envs/bulk" \
+                "${coolify_access_headers[@]}" \
                 --header "Authorization: Bearer ${COOLIFY_ENV_TOKEN}" \
                 --header "Content-Type: application/json" \
                 --data-binary @- \
@@ -354,12 +369,19 @@ jobs:
       - name: Queue Ticketiv deployment
         env:
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_DEPLOY_TOKEN }}
+          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
         run: |
-          test -n "$COOLIFY_TOKEN"
-          curl --fail-with-body --silent --show-error \
+          set -euo pipefail
+          for name in COOLIFY_TOKEN CLOUDFLARE_ACCESS_CLIENT_ID CLOUDFLARE_ACCESS_CLIENT_SECRET; do
+            test -n "${!name}" || { echo "::error::Missing required deployment configuration: ${name}"; exit 1; }
+          done
+          curl --fail-with-body --silent --show-error --location --max-redirs 0 \
             --retry 3 --retry-all-errors \
             --request POST \
             --url "https://coolify.eljaymedia.com/api/v1/deploy" \
+            --header "CF-Access-Client-Id: ${CLOUDFLARE_ACCESS_CLIENT_ID}" \
+            --header "CF-Access-Client-Secret: ${CLOUDFLARE_ACCESS_CLIENT_SECRET}" \
             --header "Authorization: Bearer ${COOLIFY_TOKEN}" \
             --header "Content-Type: application/json" \
             --data '{"uuid":"zs2jkfesdsmrrftkjgcnoekp","force":false}'
