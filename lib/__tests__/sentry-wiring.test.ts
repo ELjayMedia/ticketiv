@@ -82,6 +82,8 @@ describe("Sentry wiring", () => {
     const route = read("app/api/health/sentry/route.ts")
     expect(route).toContain("Sentry.flush(")
     expect(route).toContain("isAuthorizedCronRequest(request)")
+    expect(route).toContain('process.env.SENTRY_SOURCE_MAPS_BUILD_ENABLED === "true"')
+    expect(route).toContain("sourceMaps.authToken || sourceMaps.buildEnabled")
   })
 
   it("has not had an npm lockfile introduced alongside the pnpm workspace", () => {
