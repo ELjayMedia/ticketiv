@@ -1,14 +1,15 @@
 import Link from "next/link"
 import { Logo } from "@/components/Logo"
 import { OrganizerDetailsForm } from "@/components/auth/organizer-details-form"
+import { ORGANIZER_ICONS } from "@/lib/brand/icons"
 
-export const metadata = { title: "Register as an organizer" }
+export const metadata = { title: "Register as an organizer", icons: ORGANIZER_ICONS }
 
 export default function OrganizerRegisterPage() {
   return (
     <main className="mx-auto grid min-h-dvh max-w-[1100px] gap-8 px-6 py-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:py-12">
       <section className="hidden rounded-[var(--radius-xl)] border border-line bg-surface p-10 shadow-[var(--shadow-card)] lg:block">
-        <Link href="/" aria-label="Back to home" className="inline-flex"><Logo /></Link>
+        <Link href="/" aria-label="Back to home" className="inline-flex"><Logo product="organizer" /></Link>
         <div className="mt-16">
           <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Ticketiv for organizers</p>
           <h1 className="mt-3 text-[40px] font-semibold leading-[1.05] tracking-tight text-ink">Verify once, then start building your event.</h1>
@@ -34,7 +35,7 @@ export default function OrganizerRegisterPage() {
 
       <section className="mx-auto flex w-full max-w-md flex-col justify-center">
         <header className="mb-10 flex items-center justify-between lg:hidden">
-          <Link href="/" aria-label="Back to home"><Logo /></Link>
+          <Link href="/" aria-label="Back to home"><Logo product="organizer" /></Link>
         </header>
         <div>
           <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Organizer registration</p>

@@ -14,6 +14,7 @@ import { LoadMoreSection } from "@/components/quiet/screens/discover/load-more-s
 import { PHOTOS } from "@/lib/photos";
 import type { DiscoverSection } from "@/lib/data/public/discover-feed";
 import type { DiscoverEvent } from "@/lib/mappers/discover";
+import { BrandLockup } from "@/components/brand/brand-mark";
 
 interface MobileDiscoverProps {
   /** Not ended, starting within 7 days (includes tonight and events already under way). */
@@ -90,8 +91,7 @@ export function MobileDiscover({
 
       <header className="flex items-center gap-2 px-5 pb-4 pt-2">
         <Link href="/" className="flex items-center gap-1.5">
-          <span className="inline-flex h-[22px] w-[22px] items-center justify-center rounded-md bg-accent text-[12px] font-bold text-white">T</span>
-          <span className="text-[17px] font-semibold tracking-tight">ticketiv</span>
+          <BrandLockup textClassName="text-[17px]" />
         </Link>
         <span className="ml-1.5 rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] text-ink-3">BETA</span>
         <span className="flex-1" />

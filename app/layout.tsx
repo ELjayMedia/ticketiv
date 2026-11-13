@@ -17,9 +17,11 @@ export const metadata: Metadata = {
   applicationName: "Ticketiv",
   formatDetection: { telephone: false },
   icons: {
+    // The Ticketiv app mark, same as the Android app (scripts/brand/render-brand-assets.mjs).
     icon: [
-      { url: "/icon.svg", type: "image/svg+xml" },
-      { url: "/favicon.ico", sizes: "32x32" },
+      { url: "/favicon.ico", sizes: "16x16 32x32 48x48" },
+      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
+      { url: "/icon-512.png", type: "image/png", sizes: "512x512" },
     ],
     apple: "/apple-icon.png",
     shortcut: "/favicon.ico",

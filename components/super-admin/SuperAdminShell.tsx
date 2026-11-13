@@ -6,6 +6,7 @@ import { Icon } from "@/components/quiet/ui/icon"
 import { AdminNav } from "@/components/super-admin/AdminNav"
 import { navForRole } from "@/components/super-admin/admin-nav"
 import { ADMIN_ROLE_LABELS, type AdminRoleTier } from "@/lib/super-admin/console"
+import { BrandMark } from "@/components/brand/brand-mark"
 
 /**
  * Admin console frame: navigation grouped by job, one search box, and a
@@ -30,7 +31,7 @@ export function SuperAdminShell({
     <div className="min-h-screen bg-bg lg:grid lg:grid-cols-[15.5rem_minmax(0,1fr)]">
       <aside className="hidden border-r border-line bg-surface lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
         <Link href="/super-admin" className="flex items-center gap-3 px-5 pb-4 pt-5">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-ink text-sm font-bold text-surface">T</span>
+          <BrandMark size={32} />
           <span className="flex flex-col">
             <span className="text-sm font-semibold leading-tight text-ink">Ticketiv</span>
             <span className="text-xs text-ink-3">Admin console</span>
@@ -86,7 +87,7 @@ export function SuperAdminShell({
             </details>
 
             <Link href="/super-admin" className="flex items-center gap-2.5 lg:hidden" aria-label="Ticketiv admin console home">
-              <span className="flex size-8 items-center justify-center rounded-lg bg-ink text-sm font-bold text-surface">T</span>
+              <BrandMark size={32} />
               <span className="flex flex-col">
                 <span className="text-sm font-semibold leading-tight text-ink">Ticketiv</span>
                 <span className="text-xs text-ink-3">Admin console</span>

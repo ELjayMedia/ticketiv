@@ -7,9 +7,10 @@ import { Logo } from "@/components/Logo"
 import { organizerRoleLabel } from "@ticketiv/shared"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { ORGANIZER_ICONS } from "@/lib/brand/icons"
 
 export const dynamic = "force-dynamic"
-export const metadata = { title: "Choose organisation" }
+export const metadata = { title: "Choose organisation", icons: ORGANIZER_ICONS }
 
 /**
  * Organisation picker. The single entry point for users who belong to more
@@ -57,7 +58,7 @@ export default async function OrgPickerPage() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-xl flex-col px-6 py-10">
       <header>
-        <Logo />
+        <Logo product="organizer" />
       </header>
 
       <section className="mt-12 flex flex-col gap-6">

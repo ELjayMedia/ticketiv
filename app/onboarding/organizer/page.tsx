@@ -53,7 +53,7 @@ export default function OrganizerOnboardingPage() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-2xl flex-col px-6 py-10">
       <header className="flex items-center justify-between">
-        <Logo />
+        <Logo product="organizer" />
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 text-[13px] text-ink-3 underline-offset-4 hover:underline"

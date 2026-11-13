@@ -347,7 +347,7 @@ self.addEventListener("push", (event) => {
 
   const options = {
     body: data.body || "A ticket is available.",
-    icon: data.icon || "/icon-light-32x32.png",
+    icon: data.icon || "/icon-192.png",
     badge: data.badge || "/icon-light-32x32.png",
     tag: data.tag || "ticketiv",
     renotify: true,
