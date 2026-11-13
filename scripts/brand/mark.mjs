@@ -2,16 +2,17 @@
 // ticket with a cut-out "T" between two perforation lines, drawn on a 512
 // grid. Rendered by render-brand-assets.mjs.
 //
-// ticketiv  — the attendee app: violet tile (Quiet UI accent).
-// organizer — Ticketiv Organizer: the original black icon, whose T ends in a
+// ticketiv  — the attendee app: the original black icon, whose T ends in a
 //             round cut-out holding the green entry check.
+// organizer — Ticketiv Organizer: violet tile (Quiet UI accent), T with a
+//             rounded stem, light-violet perforations.
 export const PRODUCTS = {
-  ticketiv: { tile: "#6b3fbd", ticket: "#ffffff", dash: "#b9a5e8" },
-  organizer: { tile: "#030407", ticket: "#ffffff", dash: "#562ada", check: "#09b94c" },
+  ticketiv: { tile: "#030407", ticket: "#ffffff", dash: "#562ada", check: "#09b94c" },
+  organizer: { tile: "#6b3fbd", ticket: "#ffffff", dash: "#b9a5e8" },
 }
 
 export function markSvg(product) {
-  if (product === "organizer") return organizerSvg(PRODUCTS.organizer)
+  if (product === "ticketiv") return checkMarkSvg(PRODUCTS.ticketiv)
   const c = PRODUCTS[product]
   const dashes = [172, 202, 232, 262, 292, 322]
     .flatMap((y) => [131, 381].map((x) => `<rect x="${x - 4}" y="${y}" width="8" height="14" rx="4"/>`))
@@ -30,7 +31,7 @@ export function markSvg(product) {
   ].join("")
 }
 
-function organizerSvg(c) {
+function checkMarkSvg(c) {
   const dashes = [168, 200, 232, 264, 296, 328]
     .flatMap((y) => [160, 352].map((x) => `<rect x="${x - 3}" y="${y}" width="6" height="14" rx="3"/>`))
     .join("")
