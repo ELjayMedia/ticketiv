@@ -296,6 +296,7 @@ jobs:
             --arg sentry_dsn "$SENTRY_DSN" \
             --arg sentry_token "$SENTRY_AUTH_TOKEN" \
             --arg source_commit "$SOURCE_COMMIT" \
+            --arg node_options "--max-old-space-size=4096" \
             '{data: [
               {key:"SUPABASE_URL", value:$url, is_runtime:true, is_buildtime:false, is_shown_once:false},
               {key:"NEXT_PUBLIC_SUPABASE_URL", value:$url, is_runtime:true, is_buildtime:true, is_shown_once:false},
@@ -311,6 +312,7 @@ jobs:
               {key:"SENTRY_ORG", value:"eljaymedia-5k", is_runtime:true, is_buildtime:true, is_shown_once:false},
               {key:"SENTRY_PROJECT", value:"ticketiv", is_runtime:true, is_buildtime:true, is_shown_once:false},
               {key:"SENTRY_SOURCE_MAPS_BUILD_ENABLED", value:"true", is_runtime:true, is_buildtime:true, is_shown_once:false},
+              {key:"NODE_OPTIONS", value:$node_options, is_runtime:false, is_buildtime:true, is_shown_once:false},
               {key:"SOURCE_COMMIT", value:$source_commit, is_runtime:true, is_buildtime:true, is_shown_once:false},
               {key:"DEPLOYMENT_ENV", value:"production", is_runtime:true, is_buildtime:true, is_shown_once:false}
             ]}' \
