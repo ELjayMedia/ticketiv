@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.10
 # Ticketiv production image for Coolify (linux/arm64).
 # NEXT_PUBLIC_* values are inlined into the client bundle, so Coolify supplies
 # them to both the build and runtime environments. Server secrets remain
