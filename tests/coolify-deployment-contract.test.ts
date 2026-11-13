@@ -6,6 +6,12 @@ import { describe, expect, it } from "vitest"
 const root = resolve(import.meta.dirname, "..")
 
 describe("Coolify deployment contract", () => {
+  it("uses a Dockerfile frontend that supports secret environment mounts", () => {
+    const dockerfile = readFileSync(resolve(root, "Dockerfile"), "utf8")
+
+    expect(dockerfile.startsWith("# syntax=docker/dockerfile:1.10\n")).toBe(true)
+  })
+
   it("requires a successful health response with an explicit ready body", () => {
     const dockerfile = readFileSync(resolve(root, "Dockerfile"), "utf8")
 
