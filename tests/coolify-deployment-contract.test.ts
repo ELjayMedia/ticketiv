@@ -50,6 +50,8 @@ describe("Coolify deployment contract", () => {
       '{key:"SENTRY_SOURCE_MAPS_BUILD_ENABLED", value:"true", is_runtime:true, is_buildtime:true, is_shown_once:false}',
     )
     expect(workflow).toContain('--data-binary \'{"use_build_secrets":true}\'')
+    expect(workflow).toContain(".settings.use_build_secrets == true")
+    expect(workflow).toContain("refusing to deploy")
     expect(dockerfile).toContain('${SENTRY_SOURCE_MAPS_BUILD_ENABLED:-false}')
     expect(dockerfile).toContain('test -n "${SENTRY_AUTH_TOKEN:-}"')
     expect(dockerfile).toContain('test "${NODE_OPTIONS:-}" = "--max-old-space-size=4096"')

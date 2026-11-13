@@ -298,6 +298,20 @@ jobs:
             --data-binary '{"use_build_secrets":true}' \
             > /dev/null
 
+          # The Coolify API has previously accepted this update without
+          # persisting it. Read the application back and stop before queuing a
+          # deployment unless BuildKit secret mounts are observably enabled.
+          coolify_application="$(curl --fail --silent --show-error \
+            --retry 3 --retry-all-errors \
+            --url "https://coolify.eljaymedia.com/api/v1/applications/zs2jkfesdsmrrftkjgcnoekp" \
+            --header "Authorization: Bearer ${COOLIFY_ENV_TOKEN}" \
+            --header "Accept: application/json")"
+          printf '%s' "$coolify_application" \
+            | jq -e '.settings.use_build_secrets == true' \
+            > /dev/null \
+            || { echo "::error::Coolify BuildKit secrets are not enabled; refusing to deploy"; exit 1; }
+          unset coolify_application
+
           jq -n \
             --arg url "$SUPABASE_URL" \
             --arg publishable "$SUPABASE_PUBLISHABLE_KEY" \
