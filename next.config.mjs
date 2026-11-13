@@ -57,15 +57,15 @@ function assertManagedDeploymentSafety() {
   }
 
   if (vercelEnv === "production" && appHost && appHost !== "ticketiv.app") {
-    issues.push("Vercel production must use NEXT_PUBLIC_APP_URL=https://ticketiv.app.")
+    issues.push("Production must use NEXT_PUBLIC_APP_URL=https://ticketiv.app.")
   }
 
   if (nonProductionDeployment && env.PAYSTACK_ALLOW_LIVE_MODE === "true") {
-    issues.push("PAYSTACK_ALLOW_LIVE_MODE must not be true outside Vercel production.")
+    issues.push("PAYSTACK_ALLOW_LIVE_MODE must not be true outside production.")
   }
 
   if (nonProductionDeployment && env.PAYSTACK_SECRET_KEY?.trim().startsWith("sk_live_")) {
-    issues.push("PAYSTACK_SECRET_KEY must not be an sk_live_ key outside Vercel production.")
+    issues.push("PAYSTACK_SECRET_KEY must not be an sk_live_ key outside production.")
   }
 
   if (issues.length > 0) {
@@ -75,7 +75,7 @@ function assertManagedDeploymentSafety() {
 
 function requireManagedEnv(env, key, issues) {
   if (!env[key]?.trim()) {
-    issues.push(`${key} must be set for Vercel preview/production deployments.`)
+    issues.push(`${key} must be set for preview/production deployments.`)
   }
 }
 
@@ -184,7 +184,7 @@ const sentryUploadEnabled = Boolean(process.env.SENTRY_AUTH_TOKEN?.trim())
 
 export default withSentryConfig(nextConfig, {
   // TICK-173. Source-map upload runs only when SENTRY_AUTH_TOKEN is present
-  // (set on Vercel); otherwise it is skipped so local/CI builds never fail.
+  // (set in Coolify); otherwise it is skipped so local/CI builds never fail.
   org: SENTRY_ORG,
   project: SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,

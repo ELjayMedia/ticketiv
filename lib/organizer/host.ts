@@ -3,7 +3,7 @@
  *
  * Off until NEXT_PUBLIC_ORGANIZER_HOST is set (e.g. "organizer.ticketiv.app"),
  * so previews, local dev and production keep working unchanged until the DNS
- * record and Vercel domain exist. When it is set:
+ * record and Coolify domain exist. When it is set:
  *
  *   organizer host  "/"            → /orgs (pick a workspace)
  *                   organizer and

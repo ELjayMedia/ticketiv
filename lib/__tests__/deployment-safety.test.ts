@@ -68,7 +68,7 @@ describe("deployment safety", () => {
     })
 
     expect(report.issues).toContain(
-      "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY must be set for Vercel preview/production deployments.",
+      "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY must be set for preview/production deployments.",
     )
   })
 
@@ -93,14 +93,14 @@ describe("deployment safety", () => {
     ).toThrow(DeploymentSafetyError)
   })
 
-  it("fails fast when Vercel production points at a non-canonical app domain", () => {
+  it("fails fast when production points at a non-canonical app domain", () => {
     const report = describeDeploymentSafety({
       ...previewEnv,
       VERCEL_ENV: "production",
       NEXT_PUBLIC_APP_URL: "https://ticketiv.com",
     })
 
-    expect(report.issues).toContain("Vercel production must use NEXT_PUBLIC_APP_URL=https://ticketiv.app.")
+    expect(report.issues).toContain("Production must use NEXT_PUBLIC_APP_URL=https://ticketiv.app.")
   })
 
   it("keeps local no-env builds available for tests and static development", () => {

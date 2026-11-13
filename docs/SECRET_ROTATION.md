@@ -5,7 +5,7 @@
 
 This runbook defines how Ticketiv inventories and rotates production secrets without copying secret values into source control, Jira, screenshots, chat transcripts or application logs.
 
-The shared-environment decision in `docs/adr/0002-shared-supabase-environment.md` makes secret changes production changes: previews and UAT use the same Supabase/Vercel boundary. Rotate deliberately and avoid active sales/event windows.
+The shared-environment decision in `docs/adr/0002-shared-supabase-environment.md` makes secret changes production changes: previews and UAT use the same Supabase/Coolify boundary. Rotate deliberately and avoid active sales/event windows.
 
 ## 1. Non-negotiable rules
 
@@ -23,20 +23,19 @@ The repository's `.env.example` is the naming baseline. An operator must verify 
 
 | Secret / credential | Primary use | Expected storage | Rotation note | Production presence |
 |---|---|---|---|---|
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-side RLS-bypass/admin calls | Vercel server env | High privilege; redeploy and verify server-only import guard | **PENDING operator check** |
-| `PAYOUT_ENCRYPTION_KEY` | Encrypt payout banking details | Vercel server env | **BLOCKED by TICK-376**; do not rotate blindly | **PENDING operator check** |
-| `TICKET_TOKEN_SECRET` | HMAC ticket/order capability links | Vercel server env | Current single-key design invalidates unexpired links on rotation | **PENDING operator check** |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-side RLS-bypass/admin calls | Coolify server env | High privilege; redeploy and verify server-only import guard | **PENDING operator check** |
+| `PAYOUT_ENCRYPTION_KEY` | Encrypt payout banking details | Coolify server env | **BLOCKED by TICK-376**; do not rotate blindly | **PENDING operator check** |
+| `TICKET_TOKEN_SECRET` | HMAC ticket/order capability links | Coolify server env | Current single-key design invalidates unexpired links on rotation | **PENDING operator check** |
 | `PAYSTACK_SECRET_KEY` | Payment initialization/verification/refund | Server/provider config | Keep test/live mode gates intact; rotate outside transaction window | **PENDING operator check** |
-| `CRON_SECRET` | Protect cron/ops endpoints | Vercel + Supabase Vault copy | Both copies must stay synchronized | **PENDING operator check** |
-| `RESEND_API_KEY` | Email delivery | Vercel/server provider config | Validate a non-sensitive test message before revoking old key | **PENDING operator check** |
-| WhatsApp provider credentials | WhatsApp delivery | Vercel/server provider config | Validate provider auth + test delivery | **PENDING operator check** |
-| `SMS_API_KEY` / SMS provider credentials | SMS delivery | Vercel/server provider config | Validate provider auth + test delivery | **PENDING operator check** |
-| MoMo collection credentials | MoMo API access | Vercel/server provider config | Do not activate production rail solely as part of a rotation | **PENDING operator check** |
-| `UPSTASH_REDIS_REST_TOKEN` | Rate-limit/cache backend | Vercel server env | Test rate-limiter/cache before revoking old token | **PENDING operator check** |
-| `VAPID_PRIVATE_KEY` | Web push signing | Vercel server env | Rotation can affect existing subscriptions depending on public-key change | **PENDING operator check** |
-| `SENTRY_AUTH_TOKEN` | Build/release upload | CI/Vercel build secret | Validate release upload; not a browser runtime secret | **PENDING operator check** |
+| `CRON_SECRET` | Protect cron/ops endpoints | Coolify (synced from Supabase Vault by the deploy job) | Both copies must stay synchronized | **PENDING operator check** |
+| `RESEND_API_KEY` | Email delivery | Coolify server env | Validate a non-sensitive test message before revoking old key | **PENDING operator check** |
+| WhatsApp provider credentials | WhatsApp delivery | Coolify server env | Validate provider auth + test delivery | **PENDING operator check** |
+| `SMS_API_KEY` / SMS provider credentials | SMS delivery | Coolify server env | Validate provider auth + test delivery | **PENDING operator check** |
+| MoMo collection credentials | MoMo API access | Coolify server env | Do not activate production rail solely as part of a rotation | **PENDING operator check** |
+| `UPSTASH_REDIS_REST_TOKEN` | Rate-limit/cache backend | Coolify server env | Test rate-limiter/cache before revoking old token | **PENDING operator check** |
+| `VAPID_PRIVATE_KEY` | Web push signing | Coolify server env | Rotation can affect existing subscriptions depending on public-key change | **PENDING operator check** |
+| `SENTRY_AUTH_TOKEN` | Build/release upload | GitHub Actions secret → Coolify build secret | Validate release upload; not a browser runtime secret | **PENDING operator check** |
 | `SUPABASE_ACCESS_TOKEN` | CLI/CI management access | CI/operator secret store | Rotate independently of application runtime keys | **PENDING operator check** |
-| `VERCEL_TOKEN` | Deployment/automation access | CI/operator secret store | Validate scoped deployment access before revocation | **PENDING operator check** |
 | `OPS_ALERT_WEBHOOK_URL` | Operational alerts | Server/Supabase secret store | Treat the full URL as a credential | **PENDING operator check** |
 
 Post-launch/parked features should not force launch-time secret work merely because their placeholders exist in `.env.example`.

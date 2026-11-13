@@ -5,7 +5,7 @@ import type { IntegrationStatus } from "@/lib/integrations/status"
 /**
  * Every outside service in one view: whether it is working, why not, and the
  * setting names it needs. Values are never shown; settings marked secret only
- * ever live in Vercel or, for Chatwoot, encrypted in the console.
+ * ever live in the Coolify environment or, for Chatwoot, encrypted in the console.
  */
 export function IntegrationOverview({ statuses }: { statuses: IntegrationStatus[] }) {
   return (

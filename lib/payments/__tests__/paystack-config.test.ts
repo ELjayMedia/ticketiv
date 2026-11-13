@@ -31,7 +31,7 @@ describe("assertPaystackModeAllowed", () => {
   })
 
   it("blocks a live key in preview even if the live-mode override is present", () => {
-    expect(() => assertPaystackModeAllowed("sk_live_abc123", true, "preview")).toThrow(/outside Vercel production/)
+    expect(() => assertPaystackModeAllowed("sk_live_abc123", true, "preview")).toThrow(/outside production/)
   })
 
   it("never blocks a test key", () => {

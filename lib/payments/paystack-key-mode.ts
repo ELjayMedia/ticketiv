@@ -17,8 +17,8 @@ function resolvePaystackDeploymentEnvironment(vercelEnv: string | null | undefin
 }
 
 /**
- * Live Paystack credentials must only resolve from the Vercel production
- * environment. Preview/UAT share production data, so a live key there is a
+ * Live Paystack credentials must only resolve in the production deployment
+ * (Coolify sets VERCEL_ENV=production in the Docker build; see Dockerfile). Preview/UAT share production data, so a live key there is a
  * live-money mistake, even if PAYSTACK_ALLOW_LIVE_MODE was copied over too.
  */
 export function assertPaystackModeAllowed(
@@ -33,7 +33,7 @@ export function assertPaystackModeAllowed(
 
   if (deploymentEnvironment !== "production") {
     throw new Error(
-      "Refusing to use a live Paystack key outside Vercel production. " +
+      "Refusing to use a live Paystack key outside production. " +
         "Preview and local deployments cannot resolve live payment credentials (TICK-342).",
     )
   }

@@ -195,7 +195,7 @@ if (( failed > 0 )); then
 Deployment smoke failed for ${BASE_URL}.
 Do not promote this deployment. Follow the bad-deployment rollback procedure in
   docs/OPERATIONS.md
-and inspect Vercel runtime/build logs before retrying the smoke.
+and inspect the Coolify deployment and container logs before retrying the smoke.
 EOF_ROLLBACK
   exit 1
 fi
