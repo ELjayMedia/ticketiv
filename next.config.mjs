@@ -1,4 +1,4 @@
-import { withSentryConfig } from "@sentry/nextjs"
+import { withSentryConfig } from "@sentry/nextjs/config"
 
 const optionalEnvVars = ["GOOGLE_MAPS_EMBED_KEY"]
 
@@ -191,6 +191,12 @@ export default withSentryConfig(nextConfig, {
   silent: !process.env.CI,
   widenClientFileUpload: true,
   telemetry: false,
-  sourcemaps: { disable: !sentryUploadEnabled },
+  sourcemaps: {
+    disable: !sentryUploadEnabled,
+    // Uploaded maps are observability artifacts, not runtime assets. Keeping
+    // them in the final image wastes disk and risks serving implementation
+    // details if a future route exposes a build directory.
+    deleteSourcemapsAfterUpload: sentryUploadEnabled,
+  },
   release: { create: sentryUploadEnabled },
 })

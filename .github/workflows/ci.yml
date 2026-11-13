@@ -286,6 +286,18 @@ jobs:
           echo "::add-mask::$SENTRY_DSN"
           unset sentry_keys
 
+          # Build-time values, especially the Sentry upload token, must reach
+          # Docker through ephemeral BuildKit secret mounts. Coolify's normal
+          # build-argument mode can persist values in image provenance.
+          curl --fail-with-body --silent --show-error \
+            --retry 3 --retry-all-errors \
+            --request PATCH \
+            --url "https://coolify.eljaymedia.com/api/v1/applications/zs2jkfesdsmrrftkjgcnoekp" \
+            --header "Authorization: Bearer ${COOLIFY_ENV_TOKEN}" \
+            --header "Content-Type: application/json" \
+            --data-binary '{"use_build_secrets":true}' \
+            > /dev/null
+
           jq -n \
             --arg url "$SUPABASE_URL" \
             --arg publishable "$SUPABASE_PUBLISHABLE_KEY" \

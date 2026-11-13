@@ -26,6 +26,8 @@ describe("Coolify deployment contract", () => {
 
   it("synchronizes cron and monitoring secrets without logging their values", () => {
     const workflow = readFileSync(resolve(root, ".github/workflows/ci.yml"), "utf8")
+    const dockerfile = readFileSync(resolve(root, "Dockerfile"), "utf8")
+    const nextConfig = readFileSync(resolve(root, "next.config.mjs"), "utf8")
 
     expect(workflow).toContain("version: 3.0.0")
     expect(workflow).toContain("from vault.decrypted_secrets")
@@ -47,6 +49,12 @@ describe("Coolify deployment contract", () => {
     expect(workflow).toContain(
       '{key:"SENTRY_SOURCE_MAPS_BUILD_ENABLED", value:"true", is_runtime:true, is_buildtime:true, is_shown_once:false}',
     )
+    expect(workflow).toContain('--data-binary \'{"use_build_secrets":true}\'')
+    expect(dockerfile).toContain('${SENTRY_SOURCE_MAPS_BUILD_ENABLED:-false}')
+    expect(dockerfile).toContain('test -n "${SENTRY_AUTH_TOKEN:-}"')
+    expect(dockerfile).toContain('test "${NODE_OPTIONS:-}" = "--max-old-space-size=4096"')
+    expect(dockerfile).toContain('rm -rf /app/.next/cache')
+    expect(nextConfig).toContain("deleteSourcemapsAfterUpload: sentryUploadEnabled")
     expect(workflow).not.toMatch(/echo\s+["']?\$(?:CRON_SECRET|SENTRY_DSN)["']?\s*$/m)
   })
 })
