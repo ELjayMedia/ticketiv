@@ -15,6 +15,7 @@ import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/action
 import { describePromoFailure } from "@/lib/checkout/promo-copy";
 import { PromoCodeInput, type PromoResult } from "@/components/quiet/screens/checkout/promo-code-input";
 import { trackBuyerFunnel } from "@/components/analytics/buyer-funnel";
+import { BrandLockup } from "@/components/brand/brand-mark";
 
 /* ──────────────────────────────────────────────────────────────
  * Desktop checkout · `/events/[id]/checkout` on md+
@@ -193,10 +194,7 @@ export function DesktopCheckout({
       <div className="border-b border-line bg-surface">
         <div className="mx-auto flex max-w-[1400px] items-center gap-4 px-10 py-3">
           <Link href="/" className="flex items-center gap-2">
-            <span className="inline-flex h-[22px] w-[22px] items-center justify-center rounded-md bg-accent text-[12px] font-bold text-white">
-              T
-            </span>
-            <span className="text-[15px] font-semibold tracking-tight">ticketiv</span>
+            <BrandLockup />
           </Link>
           <span className="h-4 w-px bg-line" />
           <Link

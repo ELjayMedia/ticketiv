@@ -6,6 +6,7 @@ import {
   Platform,
   Pressable,
   Alert,
+  Image,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -254,9 +255,12 @@ export default function App() {
       <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
       <SafeAreaView style={styles.safeArea} edges={["top", "right", "bottom", "left"]}>
         <View style={styles.appBar}>
-          <View>
-            <Text style={styles.brand}>Ticketiv Organizer</Text>
-            <Text style={styles.environment}>ticketiv.app</Text>
+          <View style={styles.brandRow}>
+            <Image source={require("./src/assets/brand-mark.png")} style={styles.brandMark} accessibilityIgnoresInvertColors />
+            <View>
+              <Text style={styles.brand}>Ticketiv Organizer</Text>
+              <Text style={styles.environment}>ticketiv.app</Text>
+            </View>
           </View>
           <StatusMark paired={Boolean(shell.scanner)} signedIn={Boolean(account)} />
         </View>
@@ -1129,6 +1133,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  brandMark: { width: 28, height: 28, borderRadius: 7 },
   brand: {
     color: colors.ink,
     fontSize: 18,

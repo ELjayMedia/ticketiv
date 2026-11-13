@@ -2,14 +2,15 @@ import Link from "next/link"
 
 import { Logo } from "@/components/Logo"
 import { OrganizerPasswordForm } from "@/components/OrganizerPasswordForm"
+import { ORGANIZER_ICONS } from "@/lib/brand/icons"
 
-export const metadata = { title: "Secure your organizer account" }
+export const metadata = { title: "Secure your organizer account", icons: ORGANIZER_ICONS }
 
 export default function OrganizerSetPasswordPage() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col px-6 py-10">
       <header className="flex items-center justify-between">
-        <Link href="/" aria-label="Back to home"><Logo /></Link>
+        <Link href="/" aria-label="Back to home"><Logo product="organizer" /></Link>
       </header>
 
       <section className="flex flex-1 flex-col justify-center pb-24 pt-12">

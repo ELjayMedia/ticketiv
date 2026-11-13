@@ -13,6 +13,7 @@ import {
   type OrganizerRole,
   type OrganizerSection,
 } from "@ticketiv/shared";
+import { BrandLockup } from "@/components/brand/brand-mark";
 
 /* ──────────────────────────────────────────────────────────────
  * Organizer workspace navigation for every /orgs/[orgId]/… page.
@@ -97,6 +98,9 @@ export function OrgSidebar({ orgId, orgName, roleLabel, ...access }: OrgNavProps
 
   return (
     <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-line bg-surface md:flex print:hidden">
+      <div className="px-4 pt-4">
+        <BrandLockup product="organizer" size={20} textClassName="text-[13px]" />
+      </div>
       <div className="flex items-center gap-2.5 border-b border-line px-4 py-4">
         <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius)] bg-accent text-[15px] font-bold text-white">
           {orgName.trim().charAt(0).toUpperCase() || "O"}

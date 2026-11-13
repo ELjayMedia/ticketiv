@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon, type IconName } from "@/components/quiet/ui/icon";
 import { cn } from "@/lib/cn";
+import { BrandLockup } from "@/components/brand/brand-mark";
 
 export interface AttendeeTabItem {
   href: string;
@@ -131,10 +132,7 @@ export function MobileTopBar({
         </>
       ) : (
         <Link href="/" className="inline-flex items-center gap-1.5">
-          <span className="inline-flex h-[22px] w-[22px] items-center justify-center rounded-md bg-accent text-[12px] font-bold text-white">
-            T
-          </span>
-          <span className="text-[17px] font-semibold tracking-tight">ticketiv</span>
+          <BrandLockup textClassName="text-[17px]" />
         </Link>
       )}
       {!back && (

@@ -112,9 +112,12 @@ export default function App() {
       <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
       <SafeAreaView style={styles.safeArea} edges={["top", "right", "bottom", "left"]}>
         <View style={styles.appBar}>
-          <View>
-            <Text style={styles.brand}>Ticketiv</Text>
-            <Text style={styles.environment}>Events around you</Text>
+          <View style={styles.brandRow}>
+            <Image source={require("./src/assets/brand-mark.png")} style={styles.brandMark} accessibilityIgnoresInvertColors />
+            <View>
+              <Text style={styles.brand}>Ticketiv</Text>
+              <Text style={styles.environment}>Events around you</Text>
+            </View>
           </View>
           <View style={styles.liveMark}>
             <View style={styles.liveDot} />
@@ -750,6 +753,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  brandMark: { width: 28, height: 28, borderRadius: 7 },
   brand: { color: colors.ink, fontSize: 21, fontWeight: "800" },
   environment: { marginTop: 1, color: colors.ink3, fontSize: 11 },
   liveMark: { flexDirection: "row", alignItems: "center", gap: 6 },

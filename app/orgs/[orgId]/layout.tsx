@@ -5,6 +5,9 @@ import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { OrgSidebar, OrgTopTabs } from "@/components/quiet/shell/org-nav"
 import { getOrganizerAccess } from "@/lib/organizer/access"
 import { getAuthUser } from "@/lib/auth/session"
+import { ORGANIZER_ICONS } from "@/lib/brand/icons"
+
+export const metadata = { icons: ORGANIZER_ICONS }
 
 /**
  * Org-scoped layout for /orgs/[orgId]/…

@@ -9,6 +9,7 @@ import { AccountMenu } from "@/components/quiet/shell/account-menu";
 import { isAccountPath } from "@/components/quiet/shell/account-nav";
 import type { UserContext } from "@/lib/data/identity/contexts";
 import { cn } from "@/lib/cn";
+import { BrandLockup } from "@/components/brand/brand-mark";
 
 const NAV_ITEMS = [
   { href: "/", label: "Discover" },
@@ -50,10 +51,7 @@ export function DesktopNav({
       <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-5 px-10">
         {/* Brand */}
         <Link href="/" className="flex shrink-0 items-center gap-2">
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-[var(--radius)] bg-accent text-[14px] font-bold text-white">
-            T
-          </span>
-          <span className="text-[18px] font-semibold tracking-tight">ticketiv</span>
+          <BrandLockup size={28} textClassName="text-[18px]" />
         </Link>
 
         {showSwitcher && <ContextSwitcher contexts={contexts} activeKey={activeContextKey} />}

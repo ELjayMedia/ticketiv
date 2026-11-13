@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/quiet/ui/button";
 import { Icon } from "@/components/quiet/ui/icon";
 import { getCurrentUserProfile } from "@/lib/auth";
+import { BrandLockup } from "@/components/brand/brand-mark"
 
 export default async function NotFound() {
   const userSession = await getCurrentUserProfile();
@@ -15,10 +16,7 @@ export default async function NotFound() {
       <header className="border-b border-line bg-surface">
         <div className="mx-auto flex max-w-[1400px] items-center gap-2 px-10 py-3">
           <Link href="/" className="flex items-center gap-2">
-            <span className="inline-flex h-[22px] w-[22px] items-center justify-center rounded-md bg-accent text-[12px] font-bold text-white">
-              T
-            </span>
-            <span className="text-[15px] font-semibold tracking-tight">ticketiv</span>
+            <BrandLockup />
           </Link>
         </div>
       </header>
