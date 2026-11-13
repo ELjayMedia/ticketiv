@@ -7,9 +7,6 @@
  *
  * Needs Playwright's Chromium (a dev dependency; `pnpm test:e2e:install`), or set
  * CHROMIUM_PATH to an existing Chromium binary.
- *
- * The Ticketiv Play icon (apps/ticketiv/store-assets/play-icon-512.png) is the
- * original artwork and is not rewritten; the web favicons are cut from it.
  */
 import { mkdir, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
@@ -43,22 +40,29 @@ async function main() {
     await write(`public/brand/${product}-mark.svg`, `${markSvg(product)}\n`)
   }
 
-  // Web: Organizer favicons for the organiser workspace and organiser sign-up.
-  const faviconSizes = []
-  for (const size of [16, 32, 48]) faviconSizes.push(await png(markSvg("organizer"), size)) // one page: render in turn
-  await write("public/organizer/favicon.ico", ico(faviconSizes))
-  await write("public/organizer/icon-192.png", await png(markSvg("organizer"), 192))
-  await write("public/organizer/icon-512.png", await png(markSvg("organizer"), 512))
-  await write("public/organizer/apple-icon.png", await png(markSvg("organizer"), 180))
-
-  // Ticketiv Organizer Android app: launcher icons and Play icon.
-  for (const [density, size] of Object.entries(ANDROID_DENSITIES)) {
-    const image = await png(markSvg("organizer"), size)
-    for (const name of ["ic_launcher", "ic_launcher_round"]) {
-      await write(`apps/access/android/app/src/main/res/mipmap-${density}/${name}.png`, image)
+  // Per app: Android launcher icons, Play icon and web favicons. The attendee
+  // site uses the Ticketiv set at the web root; organiser pages use /organizer.
+  for (const [product, app, webDir] of [["ticketiv", "ticketiv", "public"], ["organizer", "access", "public/organizer"]]) {
+    const svg = markSvg(product)
+    for (const [density, size] of Object.entries(ANDROID_DENSITIES)) {
+      const image = await png(svg, size)
+      for (const name of ["ic_launcher", "ic_launcher_round"]) {
+        await write(`apps/${app}/android/app/src/main/res/mipmap-${density}/${name}.png`, image)
+      }
     }
+    await write(`apps/${app}/store-assets/play-icon-512.png`, await png(svg, 512))
+
+    const faviconSizes = []
+    for (const size of [16, 32, 48]) faviconSizes.push(await png(svg, size)) // one page: render in turn
+    await write(`${webDir}/favicon.ico`, ico(faviconSizes))
+    await write(`${webDir}/icon-192.png`, await png(svg, 192))
+    await write(`${webDir}/icon-512.png`, await png(svg, 512))
+    await write(`${webDir}/apple-icon.png`, await png(svg, 180))
   }
-  await write("apps/access/store-assets/play-icon-512.png", await png(markSvg("organizer"), 512))
+  // Older references (push badge, legacy links) to 32px PNGs at the web root.
+  for (const name of ["favicon.png", "icon-light-32x32.png", "icon-dark-32x32.png"]) {
+    await write(`public/${name}`, await png(markSvg("ticketiv"), 32))
+  }
 
   // In-app header marks for both React Native apps.
   for (const [app, product] of [["ticketiv", "ticketiv"], ["access", "organizer"]]) {
