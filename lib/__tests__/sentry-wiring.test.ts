@@ -64,7 +64,8 @@ describe("Sentry wiring", () => {
 
   it("turns upload off outright when there is no token, rather than warning", () => {
     const config = read("next.config.mjs")
-    expect(config).toContain("sourcemaps: { disable: !sentryUploadEnabled }")
+    expect(config).toContain("disable: !sentryUploadEnabled")
+    expect(config).toContain("deleteSourcemapsAfterUpload: sentryUploadEnabled")
     expect(config).toContain("release: { create: sentryUploadEnabled }")
   })
 

@@ -38,8 +38,19 @@ ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 \
     VERCEL_GIT_COMMIT_SHA=${SOURCE_COMMIT}
 COPY . .
 # Empty optional build arguments must behave like unset environment variables.
+# When Coolify enables BuildKit secrets, the build-only values are mounted as
+# ephemeral environment variables for this RUN instruction and never become
+# image ARG/ENV metadata. A requested Sentry upload is fail-closed if either
+# its token or the explicit heap limit is missing.
 RUN for v in $(env | sed -n "s/^\([A-Z0-9_]*\)=$/\1/p"); do unset "$v"; done \
-    && pnpm build
+    && if [ "${SENTRY_SOURCE_MAPS_BUILD_ENABLED:-false}" = "true" ]; then \
+         test -n "${SENTRY_AUTH_TOKEN:-}" \
+         && test "${NODE_OPTIONS:-}" = "--max-old-space-size=4096"; \
+       fi \
+    && export VERCEL_GIT_COMMIT_SHA="${SOURCE_COMMIT:-${VERCEL_GIT_COMMIT_SHA:-}}" \
+    && export SENTRY_RELEASE="${SOURCE_COMMIT:-${SENTRY_RELEASE:-}}" \
+    && pnpm build \
+    && rm -rf /app/.next/cache
 
 FROM node:22-alpine AS runner
 WORKDIR /app
