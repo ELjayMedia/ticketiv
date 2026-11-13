@@ -59,4 +59,22 @@ describe("Coolify deployment contract", () => {
     expect(nextConfig).toContain("deleteSourcemapsAfterUpload: sentryUploadEnabled")
     expect(workflow).not.toMatch(/echo\s+["']?\$(?:CRON_SECRET|SENTRY_DSN)["']?\s*$/m)
   })
+
+  it("authenticates every Coolify API call through Cloudflare Access", () => {
+    const workflow = readFileSync(resolve(root, ".github/workflows/ci.yml"), "utf8")
+
+    expect(workflow).toContain(
+      "CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}",
+    )
+    expect(workflow).toContain(
+      "CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}",
+    )
+    expect(workflow).toContain(
+      '--header "CF-Access-Client-Id: ${CLOUDFLARE_ACCESS_CLIENT_ID}"',
+    )
+    expect(workflow).toContain(
+      '--header "CF-Access-Client-Secret: ${CLOUDFLARE_ACCESS_CLIENT_SECRET}"',
+    )
+    expect(workflow.match(/--location --max-redirs 0/g)).toHaveLength(4)
+  })
 })
