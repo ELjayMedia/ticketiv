@@ -165,15 +165,6 @@ function duplicateScannerResult(): ScannerClientResult {
   };
 }
 
-function networkErrorScannerResult(error: unknown): ScannerClientResult {
-  return {
-    valid: false,
-    status: "error",
-    inputMode: "qr",
-    message: error instanceof Error ? error.message : "Network unavailable",
-  };
-}
-
 function markTicketCodeLocallyUsed(
   state: AccessScannerSessionState,
   ticketCode: string

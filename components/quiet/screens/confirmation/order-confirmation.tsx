@@ -54,32 +54,30 @@ const STATE_TONE: Record<ConfirmationState, string> = {
   refunded: "bg-line/40 text-ink-3",
 };
 
-const NEXT_STEPS: ReadonlyArray<{
-  icon: IconName;
-  title: string;
-  sub: string;
-  href?: string;
-}> = [
-  {
-    icon: "wallet",
-    title: "Add to Apple Wallet",
-    sub: "Show ticket without unlocking",
-  },
-  {
-    icon: "cal",
-    title: "Add to calendar",
-    sub: "Reminder 3h before",
-  },
-  {
-    icon: "share",
-    title: "Invite friends",
-    sub: "5 friends already going",
-    href: "/friends",
-  },
-];
-
 export function OrderConfirmation({ order }: OrderConfirmationProps) {
   const showTickets = order.state === "paid";
+  // Every Next action must go somewhere real: never show inert wallet/calendar
+  // buttons or claim a social count we have not fetched.
+  const nextSteps: ReadonlyArray<{ icon: IconName; title: string; sub: string; href: string }> = [
+    {
+      icon: "ticket",
+      title: "Save ticket for offline entry",
+      sub: "Open your QR and choose Save for offline",
+      href: `/tickets/${order.firstTicketId}`,
+    },
+    {
+      icon: "cal",
+      title: "Plan your event day",
+      sub: "Entrance, door time, travel and official updates",
+      href: order.eventId ? `/tickets/event/${order.eventId}` : `/tickets/${order.firstTicketId}`,
+    },
+    {
+      icon: "share",
+      title: "Invite friends",
+      sub: "Share the event or manage your friends",
+      href: "/friends",
+    },
+  ];
   return (
     <div className="flex h-full flex-col bg-bg">
       <div className="mx-auto flex w-full max-w-[480px] flex-1 flex-col">
@@ -175,8 +173,8 @@ export function OrderConfirmation({ order }: OrderConfirmationProps) {
             <section className="px-5 pb-4">
               <div className="text-label mb-2">Next</div>
               <div className="flex flex-col gap-1.5">
-                {NEXT_STEPS.map((s) => {
-                  const Inner = (
+                {nextSteps.map((s) => (
+                  <Link key={s.title} href={s.href}>
                     <Card className="flex items-center gap-3 p-3" flat>
                       <div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent-soft text-accent">
                         <Icon name={s.icon} size={16} />
@@ -187,17 +185,8 @@ export function OrderConfirmation({ order }: OrderConfirmationProps) {
                       </div>
                       <Icon name="chevR" size={16} className="text-ink-3" />
                     </Card>
-                  );
-                  return s.href ? (
-                    <Link key={s.title} href={s.href}>
-                      {Inner}
-                    </Link>
-                  ) : (
-                    <button key={s.title} className="text-left">
-                      {Inner}
-                    </button>
-                  );
-                })}
+                  </Link>
+                ))}
               </div>
             </section>
           )}
