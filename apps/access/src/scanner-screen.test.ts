@@ -202,7 +202,7 @@ describe("Access scanner screen controller", () => {
     });
     const fetch = vi.fn<AccessSyncClientConfig["fetch"]>()
       .mockResolvedValueOnce(jsonResponse(refreshedManifest))
-      .mockResolvedValueOnce(jsonResponse({ synced: ["TIV-1"] }));
+      .mockResolvedValueOnce(jsonResponse({ inserted: 1, results: [{ code: "TIV-1", outcome: "validated", idempotent: false }] }));
     const storage = storageAdapter();
     const onSyncResult = vi.fn();
     const controller = createAccessScannerScreenController({
