@@ -14,6 +14,7 @@ import { CheckInCelebration } from "@/components/tickets/check-in-celebration";
 import { EventSocialStrip } from "@/components/quiet/screens/event-detail/event-social-strip";
 import { CompanionPushOptIn } from "@/components/quiet/screens/companion/companion-push-optin";
 import { TicketQrCode } from "@/components/tickets/ticket-qr-code";
+import { DoorReadiness, type DoorReadinessTransfer } from "@/components/quiet/screens/companion/door-readiness";
 import { useTicketCheckIns, type TicketCheckIn } from "@/lib/hooks/use-ticket-check-ins";
 
 /**
@@ -68,6 +69,10 @@ export interface EventCompanionProps {
   visibleToFriends: boolean;
   /** After the event: rating, highlights, follow, suggestions (release 3). */
   memory?: React.ReactNode;
+  /** Signed-in holder, used to check this phone's offline copies. */
+  ownerId: string;
+  /** Tickets offered to a friend who hasn't accepted yet. */
+  pendingTransfers: DoorReadinessTransfer[];
 }
 
 function SectionTitle({ children, aside }: { children: React.ReactNode; aside?: React.ReactNode }) {
@@ -183,7 +188,10 @@ export function EventCompanion(props: EventCompanionProps) {
     },
   });
 
-  const entryTicket = tickets.find((t) => !t.checkedInAt) ?? tickets[0];
+  // Show a ticket this person keeps: not used, and not offered to a friend.
+  const offeredIds = new Set(props.pendingTransfers.map((t) => t.ticketId));
+  const entryTicket =
+    tickets.find((t) => !t.checkedInAt && !offeredIds.has(t.id)) ?? tickets.find((t) => !t.checkedInAt) ?? tickets[0];
   const entryIndex = tickets.indexOf(entryTicket);
   const typeLabel = tickets[0]?.typeName ?? "Ticket";
   const ticketsLabel = tickets.length > 1 ? `${tickets.length} tickets · ${typeLabel}` : typeLabel;
@@ -407,18 +415,7 @@ export function EventCompanion(props: EventCompanionProps) {
                   </a>
                 ) : null}
               </div>
-              {tickets.length > 1 ? (
-                <Link
-                  href={`/tickets/${tickets[1].id}/transfer`}
-                  className="mt-3 flex items-center justify-between rounded-[var(--radius)] border border-dashed border-line-2 px-3 py-2 text-left hover:bg-bg"
-                >
-                  <span className="flex flex-col">
-                    <span className="text-[12px] font-semibold">Bringing someone?</span>
-                    <span className="font-mono text-[10px] text-ink-3">Send them their ticket so they get their own QR.</span>
-                  </span>
-                  <Icon name="chevR" size={14} className="text-ink-3" />
-                </Link>
-              ) : null}
+
             </div>
           </Card>
         ) : null}
@@ -460,7 +457,7 @@ export function EventCompanion(props: EventCompanionProps) {
               </a>
             </div>
             <p className="font-mono text-[10px] leading-relaxed text-ink-3">
-              Open your ticket before you join the queue and turn your brightness up. Save it for offline from the full-screen view.
+              Open your ticket before you join the queue and turn your brightness up.
             </p>
           </div>
         ) : null}
@@ -519,6 +516,16 @@ export function EventCompanion(props: EventCompanionProps) {
 
         {/* ── Stage-ordered sections ─────────────────────────────── */}
         {stage !== "after" && latestUpdate && stage !== "booked" ? <UpdateNotice update={latestUpdate} /> : null}
+
+        {stage === "booked" || stage === "today" ? (
+          <DoorReadiness
+            ownerId={props.ownerId}
+            tickets={tickets.map((t) => ({ id: t.id, checkedInAt: t.checkedInAt }))}
+            pendingTransfers={props.pendingTransfers}
+            entrance={guide?.entrance ?? null}
+            doorsLabel={props.doorsLabel}
+          />
+        ) : null}
 
         {stage === "booked" || stage === "today" ? <CompanionPushOptIn /> : null}
 
