@@ -13,7 +13,7 @@ import type { Currency } from "@/lib/format";
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
 import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/actions";
 import { describePromoFailure } from "@/lib/checkout/promo-copy";
-import { PromoCodeInput, type PromoResult } from "@/components/quiet/screens/checkout/promo-code-input";
+import { PromoCodeInput, promoDiscountMinor, type AppliedPromo } from "@/components/quiet/screens/checkout/promo-code-input";
 import { trackBuyerFunnel } from "@/components/analytics/buyer-funnel";
 import { cartSubtotalMinor, checkoutTotalMinor, type CheckoutCartLine } from "@/lib/checkout/pricing";
 
@@ -48,8 +48,6 @@ export interface MobileCheckoutProps {
     sub: string;
     type: "card" | "mobile_money" | "ewallet";
   }>;
-  /** Promo banner pre-applied (e.g. WELCOME10). */
-  appliedPromo?: { code: string; description: string; savedMinor: number };
   /** Buyer's email; prefilled for signed-in users, empty for guests. */
   defaultBuyerEmail?: string;
   /** Signed-in buyer profile defaults. */
@@ -69,7 +67,6 @@ export function MobileCheckout({
   lines,
   editTicketsHref,
   paymentMethods = [],
-  appliedPromo,
   defaultBuyerEmail = "",
   defaultBuyerName = "",
   defaultBuyerPhone = "",
@@ -87,51 +84,19 @@ export function MobileCheckout({
 
   const [paymentId, setPaymentId] = React.useState(paymentMethods[0]?.id);
   const [holdRemaining, setHoldRemaining] = React.useState(holdSeconds);
-  const [activePromo, setActivePromo] = React.useState(appliedPromo ?? null);
   const [accepted, setAccepted] = React.useState(false);
   const [guaranteeOpen, setGuaranteeOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [buyerEmail, setBuyerEmail] = React.useState(defaultBuyerEmail);
-  const [promoInput, setPromoInput] = React.useState("");
-  const [promoFeedback, setPromoFeedback] = React.useState<
-    { ok: true; label: string; savedMinor: number } | { ok: false; message: string } | null
-  >(null);
-  const [isApplyingPromo, setIsApplyingPromo] = React.useState(false);
-  const [validatedPromo, setValidatedPromo] = React.useState<PromoResult | null>(null);
+  // The one promo control: previewed without creating an order, sent by code at payment.
+  const [promo, setPromo] = React.useState<AppliedPromo | null>(null);
+  const [promoRejection, setPromoRejection] = React.useState<string | null>(null);
   const [attendeeName, setAttendeeName] = React.useState(defaultBuyerName);
   const [attendeePhone, setAttendeePhone] = React.useState(defaultBuyerPhone);
   const items = lines.map((l) => ({ ticketTypeId: l.ticketTypeId, quantity: l.quantity }));
   const totalQuantity = items.reduce((sum, l) => sum + l.quantity, 0);
   const singleTicketTypeId = lines.length === 1 ? lines[0].ticketTypeId : null;
-
-  async function handleApplyPromo() {
-    const code = promoInput.trim().toUpperCase();
-    if (!code) return;
-    if (!buyerEmail.trim()) {
-      setPromoFeedback({ ok: false, message: "Enter your email to apply a promo code." });
-      return;
-    }
-    setIsApplyingPromo(true);
-    setPromoFeedback(null);
-    try {
-      const result = await startCheckoutAction({
-        eventId: eventUuid,
-        buyerEmail: buyerEmail.trim(),
-        items,
-        promoCode: code,
-      });
-      if (!result.ok) {
-        setPromoFeedback({ ok: false, message: result.error });
-      } else if (result.promo && !result.promo.applied) {
-        setPromoFeedback({ ok: false, message: describePromoFailure(result.promo.reason) });
-      } else {
-        setPromoFeedback({ ok: true, label: code, savedMinor: result.promo?.adjustmentCents ?? 0 });
-      }
-    } finally {
-      setIsApplyingPromo(false);
-    }
-  }
 
   async function handlePay() {
     setSubmitError(null);
@@ -140,7 +105,7 @@ export function MobileCheckout({
       eventId: eventUuid,
       buyerEmail: buyerEmail.trim(),
       items,
-      promoCode: promoInput.trim() || null,
+      promoCode: promo?.code ?? null,
     });
     if (!result.ok) {
       setSubmitError(result.error);
@@ -153,10 +118,12 @@ export function MobileCheckout({
       setSubmitting(false);
       return;
     }
-    // Surface promo-apply failure but proceed — the order itself was created.
-    // Buyer can choose not to follow the Paystack redirect and retry.
+    // The preview passed but the order-time check refused the code (e.g. it ran
+    // out meanwhile). Stop before payment so the buyer is never charged a total
+    // that differs from the one on screen.
     if (result.promo && !result.promo.applied) {
-      setPromoFeedback({ ok: false, message: describePromoFailure(result.promo.reason) });
+      setPromo(null);
+      setPromoRejection(`${describePromoFailure(result.promo.reason)} Your total has been updated; tap Pay again to continue without it.`);
       trackBuyerFunnel("checkout_error", {
         event_id: eventUuid,
         event_slug: eventId,
@@ -206,13 +173,8 @@ export function MobileCheckout({
 
   const currency = lines[0]?.currency ?? "SZL";
   const subtotal = cartSubtotalMinor(lines);
-  const discount = activePromo?.savedMinor ?? 0;
-  const promoDiscount = validatedPromo
-    ? validatedPromo.discountType === "percent"
-      ? Math.round(subtotal * validatedPromo.discountValue / 100)
-      : validatedPromo.discountValue
-    : 0;
-  const total = checkoutTotalMinor(subtotal, discount + promoDiscount);
+  const promoDiscount = promoDiscountMinor(promo, subtotal);
+  const total = checkoutTotalMinor(subtotal, promoDiscount);
 
   return (
     <div className="flex h-full flex-col bg-bg">
@@ -302,96 +264,20 @@ export function MobileCheckout({
           </div>
         </section>
 
-        {/* Promo */}
-        {activePromo && (
-          <section className="px-5 pb-4">
-            <Card
-              className="flex items-center gap-2.5 border-[color:var(--color-accent-soft)] bg-accent-soft px-3 py-2.5"
-              flat
-            >
-              <div className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-accent text-[14px] font-bold text-white">
-                %
-              </div>
-              <div className="flex flex-1 flex-col">
-                <span className="text-[13px] font-semibold">
-                  {activePromo.code} applied
-                </span>
-                <span className="font-mono text-[11px] text-ink-3">
-                  {activePromo.description} · saved{" "}
-                  {formatPrice(activePromo.savedMinor, currency)}
-                </span>
-              </div>
-              <button
-                type="button"
-                className="text-[12px] font-semibold text-accent"
-                onClick={() => {
-                  setActivePromo(null);
-                  setPromoInput("");
-                }}
-              >
-                Remove
-              </button>
-            </Card>
-          </section>
-        )}
-
-        {/* Promo code entry */}
+        {/* Promo: one control */}
         <section className="px-5 pb-4">
-          <label htmlFor="promo-code" className="text-label mb-1.5 block">
-            Promo code
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-              id="promo-code"
-              type="text"
-              autoCapitalize="characters"
-              inputMode="text"
-              value={promoInput}
-              onChange={(event) => {
-                setPromoInput(event.target.value);
-                if (promoFeedback) setPromoFeedback(null);
-              }}
-              placeholder="Add a code"
-              className="h-9 flex-1 rounded-[var(--radius-md)] border border-line bg-surface px-3 font-mono text-[13px] uppercase tracking-wide placeholder:normal-case placeholder:text-ink-3 focus:border-accent focus:outline-none"
-              disabled={submitting || isApplyingPromo || promoFeedback?.ok === true}
-            />
-            <button
-              type="button"
-              onClick={handleApplyPromo}
-              disabled={!promoInput.trim() || submitting || isApplyingPromo || promoFeedback?.ok === true}
-              className="h-9 shrink-0 rounded-[var(--radius-md)] border border-line-2 bg-surface px-3 font-mono text-[12px] font-semibold text-ink disabled:opacity-40"
-            >
-              {isApplyingPromo ? "Applying…" : "Apply"}
-            </button>
-          </div>
-          {promoFeedback?.ok === true && (
-            <div className="mt-1.5 flex items-center gap-1.5">
-              <p className="flex-1 text-[12px] text-accent">
-                {promoFeedback.label} — verified at checkout
-              </p>
-              <button
-                type="button"
-                onClick={() => { setPromoFeedback(null); setPromoInput(""); }}
-                className="text-[11px] text-ink-3 hover:text-ink"
-              >
-                Remove
-              </button>
-            </div>
-          )}
-          {promoFeedback?.ok === false && (
-            <p role="alert" className="mt-1.5 text-[12px] text-danger">
-              {promoFeedback.message}
-            </p>
-          )}
-          <div className="mt-3">
-            <PromoCodeInput
-              eventId={eventUuid}
-              onApply={(result) => {
-                setValidatedPromo(result);
-                if (result) setPromoInput(result.promoId);
-              }}
-            />
-          </div>
+          <PromoCodeInput
+            eventId={eventUuid}
+            value={promo}
+            onChange={(next) => {
+              setPromo(next);
+              setPromoRejection(null);
+            }}
+            savingMinor={promoDiscount}
+            formatSaving={(minor) => formatPrice(minor, currency)}
+            disabled={submitting}
+            externalError={promoRejection}
+          />
         </section>
 
         {/* Buyer email — required so the ticket can be delivered. Prefilled
@@ -427,14 +313,6 @@ export function MobileCheckout({
                 subtitle={p.sub}
               />
             ))}
-            <button
-              onClick={() => router.push("/profile")}
-              className="flex items-center gap-3 rounded-[var(--radius-md)] border border-line p-3 text-[13px] text-ink-3 hover:border-line-2"
-            >
-              <span className="inline-block h-[18px] w-[18px] rounded-full border-2 border-line-2" />
-              <Icon name="plus" size={20} />
-              <span>Add new payment method</span>
-            </button>
           </div>
         </section>
 
@@ -448,16 +326,9 @@ export function MobileCheckout({
                 value={formatPrice(l.priceMinor * l.quantity, l.currency)}
               />
             ))}
-            {activePromo && (
+            {promo && promoDiscount > 0 && (
               <SummaryRow
-                label={activePromo.code}
-                value={`−${formatPrice(discount, currency)}`}
-                accent
-              />
-            )}
-            {validatedPromo && promoDiscount > 0 && (
-              <SummaryRow
-                label="Promo"
+                label={`Promo ${promo.code}`}
                 value={`−${formatPrice(promoDiscount, currency)}`}
                 accent
               />

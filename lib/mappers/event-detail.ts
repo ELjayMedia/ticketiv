@@ -71,6 +71,7 @@ function buildFacts(row: EventPublicView, refundPolicy: unknown, endTimeIso?: st
 function mapLineup(rows: EventLineupRow[] | undefined) {
   if (!rows || rows.length === 0) return [];
   return rows.map((r, i) => ({
+    id: r.artist_id,
     name: r.artist_name,
     role: r.role ?? (i === 0 ? "Headliner" : "Support"),
     photo: r.artist_image_url ?? (i % 2 === 0 ? PHOTOS.face_4 : PHOTOS.face_2),
@@ -108,6 +109,7 @@ export function mapEventDetail(row: EventPublicView, input: MapInput = {}): Mobi
     facts: buildFacts(row, input.refundPolicy, row.event_ends_at),
     lineup: mapLineup(input.lineup),
     organizer: {
+      id: row.organizer_id ?? null,
       name: row.organizer_name ?? "Ticketiv",
       handle: row.organizer_id ? row.organizer_id.slice(0, 8) : "ticketiv",
       eventsHosted: input.organizerEventsHosted ?? 0,

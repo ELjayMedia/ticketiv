@@ -51,7 +51,7 @@ export function buildReminderEmail(reminder: ReminderRow, appUrl: string): { sub
 }
 
 /** Companion notifications that also go out as Web Push. */
-export const PUSH_TYPES = ["event_reminder", "saved_event_reminder", "event_update", "feedback_request", "organizer_new_event"]
+export const PUSH_TYPES = ["event_reminder", "saved_event_reminder", "event_update", "feedback_request", "organizer_new_event", "artist_new_event"]
 
 /** Reminder types honour the "event reminders" switch; the rest don't. */
 export const REMINDER_SWITCH_TYPES = new Set(["event_reminder", "saved_event_reminder", "feedback_request"])

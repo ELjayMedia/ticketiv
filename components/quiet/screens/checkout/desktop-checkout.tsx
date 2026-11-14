@@ -13,7 +13,7 @@ import { cartSubtotalMinor, checkoutTotalMinor, type CheckoutCartLine } from "@/
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
 import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/actions";
 import { describePromoFailure } from "@/lib/checkout/promo-copy";
-import { PromoCodeInput, type PromoResult } from "@/components/quiet/screens/checkout/promo-code-input";
+import { PromoCodeInput, promoDiscountMinor, type AppliedPromo } from "@/components/quiet/screens/checkout/promo-code-input";
 import { trackBuyerFunnel } from "@/components/analytics/buyer-funnel";
 import { BrandLockup } from "@/components/brand/brand-mark";
 
@@ -43,7 +43,6 @@ interface DesktopCheckoutProps {
   lines: ReadonlyArray<CheckoutCartLine>;
   /** Back to the event page's ticket picker with this cart preloaded. */
   editTicketsHref: string;
-  appliedPromo?: { code: string; description: string; savedMinor: number };
   holdSeconds?: number;
   /** Buyer's email; prefilled for signed-in users, empty for guests. */
   defaultBuyerEmail?: string;
@@ -65,7 +64,6 @@ export function DesktopCheckout({
   seats = [],
   lines,
   editTicketsHref,
-  appliedPromo,
   holdSeconds = 522,
   defaultBuyerEmail = "",
 }: DesktopCheckoutProps) {
@@ -86,33 +84,10 @@ export function DesktopCheckout({
   const [attendeeDetails, setAttendeeDetails] = React.useState<Array<{ name: string; phone: string }>>(() =>
     Array.from({ length: quantity }, () => ({ name: "", phone: "" }))
   );
-  const [promoInput, setPromoInput] = React.useState("");
   const [promoFeedback, setPromoFeedback] = React.useState<string | null>(null);
   const [policyAccepted, setPolicyAccepted] = React.useState(false);
-  const [isApplyingPromo, setIsApplyingPromo] = React.useState(false);
-  const [activePromo, setActivePromo] = React.useState(appliedPromo ?? null);
-  const [validatedPromo, setValidatedPromo] = React.useState<PromoResult | null>(null);
-
-  async function handleApplyPromo() {
-    if (!promoInput.trim()) return;
-    setIsApplyingPromo(true);
-    setPromoFeedback(null);
-    try {
-      const result = await startCheckoutAction({
-        eventId: eventUuid,
-        buyerEmail: buyerEmail.trim() || "promo-check@placeholder.invalid",
-        items,
-        promoCode: promoInput.trim(),
-      });
-      if (!result.ok) {
-        setPromoFeedback(result.error);
-      } else if (result.promo && !result.promo.applied) {
-        setPromoFeedback(describePromoFailure(result.promo.reason));
-      }
-    } finally {
-      setIsApplyingPromo(false);
-    }
-  }
+  // The one promo control: previewed without creating an order, sent by code at payment.
+  const [promo, setPromo] = React.useState<AppliedPromo | null>(null);
 
   async function handleContinueToPayment() {
     setSubmitError(null);
@@ -121,7 +96,7 @@ export function DesktopCheckout({
       eventId: eventUuid,
       buyerEmail: buyerEmail.trim(),
       items,
-      promoCode: promoInput.trim() || null,
+      promoCode: promo?.code ?? null,
     });
     if (!result.ok) {
       setSubmitError(result.error);
@@ -134,8 +109,11 @@ export function DesktopCheckout({
       setSubmitting(false);
       return;
     }
+    // The preview passed but the order-time check refused the code. Stop before
+    // payment so the buyer is never charged a total that differs from the screen.
     if (result.promo && !result.promo.applied) {
-      setPromoFeedback(describePromoFailure(result.promo.reason));
+      setPromo(null);
+      setPromoFeedback(`${describePromoFailure(result.promo.reason)} Your total has been updated; continue again to pay without it.`);
       trackBuyerFunnel("checkout_error", {
         event_id: eventUuid,
         event_slug: eventId,
@@ -180,13 +158,8 @@ export function DesktopCheckout({
     return () => clearInterval(i);
   }, [holdRemaining]);
 
-  const discount = activePromo?.savedMinor ?? 0;
-  const promoDiscount = validatedPromo
-    ? validatedPromo.discountType === "percent"
-      ? Math.round(subtotalMinor * validatedPromo.discountValue / 100)
-      : validatedPromo.discountValue
-    : 0;
-  const total = checkoutTotalMinor(subtotalMinor, discount + promoDiscount);
+  const promoDiscount = promoDiscountMinor(promo, subtotalMinor);
+  const total = checkoutTotalMinor(subtotalMinor, promoDiscount);
 
   return (
     <div className="min-h-dvh bg-bg">
@@ -345,71 +318,21 @@ export function DesktopCheckout({
               <h2 className="text-[18px] font-semibold tracking-[-0.02em]">
                 Promo code
               </h2>
-              <span className="font-mono text-[11px] text-ink-3">3 of 3</span>
+              <span className="font-mono text-[11px] text-ink-3">Optional · 3 of 3</span>
             </div>
-            <div className="flex items-end gap-2">
-              <div className="flex-1">
-                <FormField
-                  label=""
-                  placeholder="Enter code"
-                  value={promoInput}
-                  onChange={(event) => {
-                    setPromoInput(event.target.value);
-                    if (promoFeedback) setPromoFeedback(null);
-                  }}
-                  className="!gap-0"
-                  disabled={isApplyingPromo || submitting}
-                />
-              </div>
-              <Button
-                variant="default"
-                type="button"
-                onClick={handleApplyPromo}
-                disabled={isApplyingPromo || submitting}
-              >
-                {isApplyingPromo ? "Applying…" : "Apply"}
-              </Button>
-            </div>
-            {promoFeedback && (
-              <p role="alert" className="mt-2 text-[12px] text-danger">
-                {promoFeedback}
-              </p>
-            )}
-            {activePromo && (
-              <div className="mt-3 flex items-center gap-2.5 rounded-md border border-accent bg-accent-soft p-3">
-                <div className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-white">
-                  <Icon name="check" size={12} strokeWidth={3} />
-                </div>
-                <div className="flex flex-1 flex-col">
-                  <span className="text-[13px] font-semibold">
-                    {activePromo.code} applied
-                  </span>
-                  <span className="font-mono text-[11px] text-ink-3">
-                    {activePromo.description} · saved{" "}
-                    {formatPrice(activePromo.savedMinor, currency)}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className="text-[12px] font-semibold text-accent"
-                  onClick={() => {
-                    setActivePromo(null);
-                    setPromoInput("");
-                  }}
-                >
-                  Remove
-                </button>
-              </div>
-            )}
-            <div className="mt-4">
-              <PromoCodeInput
-                eventId={eventUuid}
-                onApply={(result) => {
-                  setValidatedPromo(result);
-                  if (result) setPromoInput(result.promoId);
-                }}
-              />
-            </div>
+            <PromoCodeInput
+              eventId={eventUuid}
+              value={promo}
+              onChange={(next) => {
+                setPromo(next);
+                setPromoFeedback(null);
+              }}
+              savingMinor={promoDiscount}
+              formatSaving={(minor) => formatPrice(minor, currency)}
+              disabled={submitting}
+              externalError={promoFeedback}
+              hideLabel
+            />
           </Card>
 
           <div className="flex flex-col gap-2">
@@ -498,16 +421,9 @@ export function DesktopCheckout({
                 value={formatPrice(l.priceMinor * l.quantity, l.currency)}
               />
             ))}
-            {activePromo && (
+            {promo && promoDiscount > 0 && (
               <SummaryRow
-                label={activePromo.code}
-                value={`−${formatPrice(discount, currency)}`}
-                accent
-              />
-            )}
-            {validatedPromo && promoDiscount > 0 && (
-              <SummaryRow
-                label="Promo"
+                label={`Promo ${promo.code}`}
                 value={`−${formatPrice(promoDiscount, currency)}`}
                 accent
               />
