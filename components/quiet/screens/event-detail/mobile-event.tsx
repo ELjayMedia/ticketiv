@@ -1,5 +1,6 @@
 "use client";
 
+import { useFollows } from "@/components/quiet/screens/event-detail/use-follows";
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -35,8 +36,10 @@ export interface MobileEventData {
   timeLabel: string;
   venue: { name: string; distanceKm: number };
   facts: ReadonlyArray<readonly [string, string]>;
-  lineup: ReadonlyArray<{ name: string; role: string; photo: string; headliner?: boolean }>;
-  organizer: { name: string; handle: string; eventsHosted: number; rating: number; verified: boolean; photo: string };
+  /** `id` is the artist's record, used to follow them. */
+  lineup: ReadonlyArray<{ id?: string | null; name: string; role: string; photo: string; headliner?: boolean }>;
+  /** `id` is the organisation, used to follow it. */
+  organizer: { id?: string | null; name: string; handle: string; eventsHosted: number; rating: number; verified: boolean; photo: string };
   goingFriends: { count: number; names: string[]; photos: string[] };
   currency?: Currency;
   fromPriceMinor: number | null;
@@ -54,10 +57,13 @@ export function MobileEvent({ event }: MobileEventProps) {
   const router = useRouter();
   const [saved, setSaved] = React.useState(false);
   const [savingFav, setSavingFav] = React.useState(false);
-  const [followedArtists, setFollowedArtists] = React.useState<Set<string>>(new Set());
-  const [followedOrganizer, setFollowedOrganizer] = React.useState(false);
   const ticketTypes = event?.ticketTypes ?? [];
   const picker = useTicketPicker();
+  const follows = useFollows({
+    orgId: event?.organizer.id ?? null,
+    artistIds: (event?.lineup ?? []).flatMap((a) => (a.id ? [a.id] : [])),
+    returnTo: event ? `/events/${event.id}` : "/",
+  });
 
   if (!event) {
     return (
@@ -71,15 +77,6 @@ export function MobileEvent({ event }: MobileEventProps) {
         </Card>
       </div>
     );
-  }
-
-  function toggleArtist(name: string) {
-    setFollowedArtists((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
   }
 
   function handleShare() {
@@ -202,9 +199,18 @@ export function MobileEvent({ event }: MobileEventProps) {
                       </div>
                       <span className="font-mono text-[11px] text-ink-3">{a.role}</span>
                     </div>
-                    <Button variant={followedArtists.has(a.name) ? "accent" : "default"} size="xs" onClick={() => toggleArtist(a.name)}>
-                      {followedArtists.has(a.name) ? "Following" : "Follow"}
-                    </Button>
+                    {a.id ? (
+                      <Button
+                        variant={follows.isArtistFollowed(a.id) ? "accent" : "default"}
+                        size="xs"
+                        aria-pressed={follows.isArtistFollowed(a.id)}
+                        aria-label={`${follows.isArtistFollowed(a.id) ? "Unfollow" : "Follow"} ${a.name}`}
+                        disabled={follows.isPending("artist", a.id)}
+                        onClick={() => follows.toggle("artist", a.id ?? null, a.name)}
+                      >
+                        {follows.isArtistFollowed(a.id) ? "Following" : "Follow"}
+                      </Button>
+                    ) : null}
                   </Card>
                 </li>
               ))}
@@ -280,10 +286,22 @@ export function MobileEvent({ event }: MobileEventProps) {
               </div>
               <span className="font-mono text-[11px] text-ink-3">{formatOrganizerStats(event.organizer)}</span>
             </div>
-            <Button variant={followedOrganizer ? "accent" : "default"} size="xs" onClick={() => setFollowedOrganizer((v) => !v)}>
-              {followedOrganizer ? "Following" : "Follow"}
-            </Button>
+            {event.organizer.id ? (
+              <Button
+                variant={follows.organizerFollowed ? "accent" : "default"}
+                size="xs"
+                aria-pressed={follows.organizerFollowed}
+                aria-label={`${follows.organizerFollowed ? "Unfollow" : "Follow"} ${event.organizer.name}`}
+                disabled={follows.isPending("organizer", event.organizer.id)}
+                onClick={() => follows.toggle("organizer", event.organizer.id ?? null, event.organizer.name)}
+              >
+                {follows.organizerFollowed ? "Following" : "Follow"}
+              </Button>
+            ) : null}
           </Card>
+          {follows.notice ? (
+            <p role="status" className="mt-2 px-1 text-[12px] text-ink-3">{follows.notice}</p>
+          ) : null}
         </section>
 
         {event.goingFriends.count > 0 && (
