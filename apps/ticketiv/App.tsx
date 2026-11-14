@@ -22,7 +22,6 @@ import { TicketCompanion } from "./TicketCompanion";
 
 import {
   applyTicketivConsumerDeepLink,
-  bootTicketivConsumerAppShell,
   canUseCachedTicketivTicketDelivery,
   createTicketivConsumerAppShellState,
   describeTicketivWalletTicket,
@@ -47,6 +46,7 @@ import {
 } from "./src";
 import { getTicketivAndroidSecureStorage } from "./src/android-secure-storage";
 import { getTicketivAndroidBrowserSession } from "./src/android-browser-session";
+import { bootTicketivConsumerAppSafely } from "./src/startup";
 
 type DiscoveryStatus = "loading" | "ready" | "empty" | "error";
 const browserSession = getTicketivAndroidBrowserSession();
@@ -57,6 +57,8 @@ export default function App() {
     createTicketivConsumerAppShellState()
   );
   const [booting, setBooting] = useState(true);
+  const [startupFailed, setStartupFailed] = useState(false);
+  const [bootAttempt, setBootAttempt] = useState(0);
 
   const applyDeepLink = useCallback((url: string | null) => {
     if (!url) return;
@@ -66,21 +68,35 @@ export default function App() {
   useEffect(() => {
     let active = true;
 
-    void Linking.getInitialURL()
-      .then((initialUrl) => bootTicketivConsumerAppShell({ initialUrl, storage: secureStorage }))
-      .then((nextShell) => {
-        if (active) setShell(nextShell);
-      })
-      .finally(() => {
+    async function start() {
+      try {
+        const result = await bootTicketivConsumerAppSafely({
+          readInitialUrl: () => Linking.getInitialURL(),
+          storage: secureStorage,
+        });
+        if (!active) return;
+
+        if (result.ok) {
+          setShell(result.state);
+          setStartupFailed(false);
+        } else {
+          // Never discard an offline wallet or clear Android Keystore on failure.
+          console.error("[Ticketiv] Startup data could not be loaded", result.error);
+          setStartupFailed(true);
+        }
+      } finally {
         if (active) setBooting(false);
-      });
+      }
+    }
+
+    void start();
 
     const subscription = Linking.addEventListener("url", ({ url }) => applyDeepLink(url));
     return () => {
       active = false;
       subscription.remove();
     };
-  }, [applyDeepLink]);
+  }, [applyDeepLink, bootAttempt]);
 
   const section = ticketivConsumerSectionForRoute(shell.activeRoute);
   const focused = isTicketivConsumerFocusedRoute(shell.activeRoute);
@@ -128,6 +144,20 @@ export default function App() {
         <View style={styles.content}>
           {booting ? (
             <CenteredStatus label="Opening Ticketiv" />
+          ) : startupFailed ? (
+            <ScrollView contentContainerStyle={styles.screen}>
+              <StateBand
+                actionLabel="Try again"
+                message="Ticketiv could not load its saved data. If you have offline tickets, do not clear app data or uninstall. Try opening again."
+                onAction={() => {
+                  setBooting(true);
+                  setStartupFailed(false);
+                  setBootAttempt((attempt) => attempt + 1);
+                }}
+                title="Could not open Ticketiv"
+                tone="error"
+              />
+            </ScrollView>
           ) : shell.activeRoute.route === "discover" ? (
             <DiscoverScreen onOpenEvent={applyDeepLink} />
           ) : shell.activeRoute.route === "tickets" ? (
