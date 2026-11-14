@@ -1,5 +1,6 @@
 "use client";
 
+import { useFollows } from "@/components/quiet/screens/event-detail/use-follows";
 import * as React from "react";
 import Link from "next/link";
 import { useTicketPicker } from "@/components/quiet/screens/event-detail/ticket-picker";
@@ -37,11 +38,14 @@ type Tab = typeof TABS[number];
 
 export function DesktopEvent({ event }: DesktopEventProps) {
   const [activeTab, setActiveTab] = React.useState<Tab>("About");
-  const [followedArtists, setFollowedArtists] = React.useState<Set<string>>(new Set());
-  const [followedOrganizer, setFollowedOrganizer] = React.useState(false);
   const [friendsModalOpen, setFriendsModalOpen] = React.useState(false);
   const ticketTypes = event?.ticketTypes ?? [];
   const picker = useTicketPicker();
+  const follows = useFollows({
+    orgId: event?.organizer.id ?? null,
+    artistIds: (event?.lineup ?? []).flatMap((a) => (a.id ? [a.id] : [])),
+    returnTo: event ? `/events/${event.id}` : "/",
+  });
 
   if (!event) {
     return (
@@ -65,14 +69,7 @@ export function DesktopEvent({ event }: DesktopEventProps) {
   const amenities = event.amenities ?? [];
   const aboutText = event.longDescription || event.description;
 
-  function toggleArtist(name: string) {
-    setFollowedArtists((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  }
+
 
   return (
     <div className="mx-auto max-w-[1280px] px-10">
@@ -165,13 +162,18 @@ export function DesktopEvent({ event }: DesktopEventProps) {
                           </div>
                           <span className="font-mono text-[11px] text-ink-3">{a.role}</span>
                         </div>
-                        <Button
-                          variant={followedArtists.has(a.name) ? "accent" : "default"}
-                          size="xs"
-                          onClick={() => toggleArtist(a.name)}
-                        >
-                          {followedArtists.has(a.name) ? "Following" : "Follow"}
-                        </Button>
+                        {a.id ? (
+                          <Button
+                            variant={follows.isArtistFollowed(a.id) ? "accent" : "default"}
+                            size="xs"
+                            aria-pressed={follows.isArtistFollowed(a.id)}
+                            aria-label={`${follows.isArtistFollowed(a.id) ? "Unfollow" : "Follow"} ${a.name}`}
+                            disabled={follows.isPending("artist", a.id)}
+                            onClick={() => follows.toggle("artist", a.id ?? null, a.name)}
+                          >
+                            {follows.isArtistFollowed(a.id) ? "Following" : "Follow"}
+                          </Button>
+                        ) : null}
                       </Card>
                     ))}
                   </div>
@@ -241,10 +243,21 @@ export function DesktopEvent({ event }: DesktopEventProps) {
               </div>
               <span className="font-mono text-[11px] text-ink-3">{formatDesktopOrganizerStats(event.organizer)}</span>
             </div>
-            <Button variant={followedOrganizer ? "accent" : "default"} size="sm" onClick={() => setFollowedOrganizer((v) => !v)}>
-              {followedOrganizer ? "Following" : "Follow organizer"}
-            </Button>
+            {event.organizer.id ? (
+              <Button
+                variant={follows.organizerFollowed ? "accent" : "default"}
+                size="sm"
+                aria-pressed={follows.organizerFollowed}
+                disabled={follows.isPending("organizer", event.organizer.id)}
+                onClick={() => follows.toggle("organizer", event.organizer.id ?? null, event.organizer.name)}
+              >
+                {follows.organizerFollowed ? "Following" : "Follow organizer"}
+              </Button>
+            ) : null}
           </Card>
+          {follows.notice ? (
+            <p role="status" className="-mt-2 text-[12px] text-ink-3">{follows.notice}</p>
+          ) : null}
         </div>
 
         <aside className="sticky top-[88px] self-start">
