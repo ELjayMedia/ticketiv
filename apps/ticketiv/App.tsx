@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -42,7 +42,6 @@ import {
   type TicketivConsumerAppShellState,
   type TicketivConsumerShellRoute,
   type TicketivDiscoverEvent,
-  type TicketivDiscoverWhen,
   type TicketivWalletTicket,
   type TicketivWalletState,
 } from "./src";
@@ -108,6 +107,18 @@ export default function App() {
     }));
   }, []);
 
+  // The app's secure local wallet is the offline source of truth. An explicit
+  // refresh can bring in new organiser updates and authoritative ticket state
+  // without destroying the saved copy when the network is unavailable.
+  const refreshSavedTicket = useCallback(async (ticket: TicketivWalletTicket) => {
+    if (!ticket.deliveryToken) {
+      throw new Error("Reopen your original ticket link to refresh this ticket.");
+    }
+    const delivery = await fetchTicketivTicketDelivery(ticket.deliveryToken);
+    const wallet = importTicketivTicketDelivery(shell.wallet, delivery);
+    await importDeliveredWallet(wallet, delivery.ticket.id);
+  }, [shell.wallet, importDeliveredWallet]);
+
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
@@ -130,12 +141,13 @@ export default function App() {
           {booting ? (
             <CenteredStatus label="Opening Ticketiv" />
           ) : shell.activeRoute.route === "discover" ? (
-            <DiscoverScreen onOpenEvent={(slug) => void openWebPath(`/events/${encodeURIComponent(slug)}`)} />
+            <DiscoverScreen onOpenEvent={applyDeepLink} />
           ) : shell.activeRoute.route === "tickets" ? (
             <TicketsScreen onOpenTicket={openTicket} tickets={shell.wallet.tickets} />
           ) : shell.activeRoute.route === "ticket" ? (
             <TicketScreen
               onBack={() => navigate("tickets")}
+              onRefreshTicket={refreshSavedTicket}
               ticket={findTicketivWalletTicket(shell.wallet, shell.activeRoute.ticketId)}
             />
           ) : shell.activeRoute.route === "ticket-token" ? (
@@ -161,62 +173,49 @@ export default function App() {
   );
 }
 
-function DiscoverScreen({ onOpenEvent }: { onOpenEvent: (slug: string) => void }) {
+function DiscoverScreen({ onOpenEvent }: { onOpenEvent: (url: string) => void }) {
   const [events, setEvents] = useState<TicketivDiscoverEvent[]>([]);
-  const [when, setWhen] = useState<TicketivDiscoverWhen>("upcoming");
-  const requestSequence = useRef(0);
   const [status, setStatus] = useState<DiscoveryStatus>("loading");
   const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState("Loading events from ticketiv.app");
 
   const loadEvents = useCallback(async (refresh = false) => {
-    const sequence = ++requestSequence.current;
     if (refresh) setRefreshing(true);
     else setStatus("loading");
 
     try {
-      const nextEvents = await fetchTicketivDiscoverEvents(fetch, TICKETIV_PUBLIC_ORIGIN, when);
-      if (sequence !== requestSequence.current) return;
+      const nextEvents = await fetchTicketivDiscoverEvents();
       setEvents(nextEvents);
       setStatus(nextEvents.length > 0 ? "ready" : "empty");
-      setMessage(nextEvents.length > 0 ? "" : `No published events for ${when === "upcoming" ? "upcoming dates" : when}.`);
+      setMessage(nextEvents.length > 0 ? "" : "No published events are available yet.");
     } catch (error) {
-      if (sequence !== requestSequence.current) return;
       setStatus("error");
       setMessage(error instanceof Error ? error.message : "Events are unavailable right now.");
     } finally {
-      if (sequence === requestSequence.current) setRefreshing(false);
+      setRefreshing(false);
     }
-  }, [when]);
+  }, []);
 
   useEffect(() => {
-    void loadEvents();
-    return () => { requestSequence.current += 1; };
-  }, [loadEvents]);
+    let active = true;
 
-  const filters = (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.discoverFilters}>
-      {([
-        ["upcoming", "Upcoming"],
-        ["tonight", "Tonight"],
-        ["weekend", "This weekend"],
-        ["week", "This week"],
-      ] as const).map(([key, label]) => (
-        <Pressable
-          key={key}
-          accessibilityRole="button"
-          accessibilityState={{ selected: when === key }}
-          onPress={() => setWhen(key)}
-          style={[styles.discoverFilter, when === key && styles.discoverFilterActive]}
-        >
-          <Text style={[styles.discoverFilterText, when === key && styles.discoverFilterTextActive]}>{label}</Text>
-        </Pressable>
-      ))}
-      <Pressable accessibilityRole="button" onPress={() => void openWebPath("/")} style={styles.discoverFilter}>
-        <Text style={styles.discoverFilterText}>Following · Web</Text>
-      </Pressable>
-    </ScrollView>
-  );
+    void fetchTicketivDiscoverEvents()
+      .then((nextEvents) => {
+        if (!active) return;
+        setEvents(nextEvents);
+        setStatus(nextEvents.length > 0 ? "ready" : "empty");
+        setMessage(nextEvents.length > 0 ? "" : "No published events are available yet.");
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setStatus("error");
+        setMessage(error instanceof Error ? error.message : "Events are unavailable right now.");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const header = (
     <View style={styles.discoverHeader}>
@@ -228,13 +227,7 @@ function DiscoverScreen({ onOpenEvent }: { onOpenEvent: (slug: string) => void }
     </View>
   );
 
-  if (status === "loading") return (
-    <ScrollView contentContainerStyle={styles.screen}>
-      {header}
-      {filters}
-      <Text style={styles.subtitle}>Finding events…</Text>
-    </ScrollView>
-  );
+  if (status === "loading") return <CenteredStatus label={message} />;
 
   if (status === "error" || status === "empty") {
     return (
@@ -243,12 +236,11 @@ function DiscoverScreen({ onOpenEvent }: { onOpenEvent: (slug: string) => void }
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadEvents(true)} />}
       >
         {header}
-        {filters}
         <StateBand
-          actionLabel={status === "error" ? "Try again" : "Show all events"}
+          actionLabel="Try again"
           message={message}
-          onAction={() => status === "error" ? void loadEvents() : setWhen("upcoming")}
-          title={status === "error" ? "Could not load events" : "No matching events"}
+          onAction={() => void loadEvents()}
+          title={status === "error" ? "Could not load events" : "Nothing on sale yet"}
           tone={status === "error" ? "error" : "neutral"}
         />
       </ScrollView>
@@ -260,10 +252,15 @@ function DiscoverScreen({ onOpenEvent }: { onOpenEvent: (slug: string) => void }
       contentContainerStyle={styles.listContent}
       data={events}
       keyExtractor={(event) => event.id}
-      ListHeaderComponent={<>{header}{filters}</>}
+      ListHeaderComponent={header}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadEvents(true)} />}
       renderItem={({ item }) => (
-        <EventRow event={item} onPress={() => onOpenEvent(item.slug)} />
+        <EventRow
+          event={item}
+          onPress={() =>
+            onOpenEvent(`${TICKETIV_PUBLIC_ORIGIN}/events/${encodeURIComponent(item.slug)}`)
+          }
+        />
       )}
     />
   );
@@ -453,11 +450,16 @@ function TicketDeliveryScreen({
 
 function TicketScreen({
   onBack,
+  onRefreshTicket,
   ticket,
 }: {
   onBack: () => void;
+  onRefreshTicket: (ticket: TicketivWalletTicket) => Promise<void>;
   ticket: TicketivWalletTicket | null;
 }) {
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+
   if (!ticket) {
     return (
       <ScrollView contentContainerStyle={styles.screen}>
@@ -475,6 +477,22 @@ function TicketScreen({
   const description = describeTicketivWalletTicket(ticket);
   const qrPayload = qrPayloadForTicketivWalletTicket(ticket);
   const statusLabel = ticket.status.replaceAll("_", " ").toUpperCase();
+  const guide = ticket.companion?.guide ?? null;
+  const offlineExpiry = ticket.offlineExpiresAt ? Date.parse(ticket.offlineExpiresAt) : Number.NaN;
+  const canUseOffline = Boolean(qrPayload) && Number.isFinite(offlineExpiry) && offlineExpiry > Date.now();
+
+  async function refreshGuide() {
+    if (refreshing || !ticket) return;
+    setRefreshing(true);
+    setRefreshError(null);
+    try {
+      await onRefreshTicket(ticket);
+    } catch (error) {
+      setRefreshError(error instanceof Error ? error.message : "Can't refresh right now. Your saved ticket is still here.");
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.ticketScreen}>
@@ -521,6 +539,24 @@ function TicketScreen({
           <Text style={styles.ticketMetaLabel}>TICKET TYPE</Text>
           <Text style={styles.ticketMetaValue}>{ticket.ticketTypeName ?? "General"}</Text>
         </View>
+      </View>
+
+      <View style={styles.doorReady}>
+        <Text style={styles.doorReadyTitle}>READY FOR THE DOOR</Text>
+        <Text style={styles.doorReadyBody}>
+          {canUseOffline
+            ? "✓ Your ticket is saved on this phone for offline entry."
+            : "Your ticket needs an updated valid QR before entry. Reopen the ticket link while connected."}
+        </Text>
+        {guide?.entrance ? <Text style={styles.doorReadyBody}>Entrance: {guide.entrance}</Text> : null}
+        {guide?.doorsOpenAt ? <Text style={styles.doorReadyBody}>Doors: {new Date(guide.doorsOpenAt).toLocaleTimeString("en-GB", { timeZone: ticket.companion?.timeZone ?? "Africa/Mbabane", hour: "2-digit", minute: "2-digit" })}</Text> : null}
+        <Text style={styles.doorReadyHint}>Updates are saved with the ticket. Refresh while online before leaving.</Text>
+        {ticket.deliveryToken ? (
+          <Pressable accessibilityRole="button" disabled={refreshing} onPress={() => void refreshGuide()} style={styles.refreshTicketButton}>
+            <Text style={styles.refreshTicketText}>{refreshing ? "Refreshing event details…" : "Refresh event updates"}</Text>
+          </Pressable>
+        ) : null}
+        {refreshError ? <Text accessibilityLiveRegion="polite" style={styles.invalidTicketMessage}>{refreshError}</Text> : null}
       </View>
 
       <TicketCompanion ticket={ticket} onOpenPath={(path) => void openWebPath(path)} />
@@ -795,11 +831,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   discoverHeader: { marginBottom: 10, gap: 6 },
-  discoverFilters: { flexDirection: "row", gap: 8, paddingVertical: 8, marginBottom: 12 },
-  discoverFilter: { minHeight: 42, paddingHorizontal: 14, borderRadius: 8, borderWidth: 1, borderColor: colors.line2, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
-  discoverFilterActive: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
-  discoverFilterText: { color: colors.ink2, fontSize: 12, fontWeight: "700" },
-  discoverFilterTextActive: { color: colors.accent },
   eyebrow: { color: colors.accent, fontSize: 11, fontWeight: "700" },
   title: { color: colors.ink, fontSize: 28, fontWeight: "700" },
   subtitle: { maxWidth: 560, color: colors.ink3, fontSize: 14, lineHeight: 20 },
@@ -893,6 +924,12 @@ const styles = StyleSheet.create({
   },
   invalidTicketTitle: { color: colors.ink, fontSize: 17, fontWeight: "700" },
   invalidTicketMessage: { color: colors.ink3, fontSize: 13, lineHeight: 19 },
+  doorReady: { borderWidth: 1, borderColor: colors.line2, borderRadius: 10, padding: 16, backgroundColor: colors.surface, gap: 8 },
+  doorReadyTitle: { color: colors.accent, fontSize: 11, fontWeight: "800", letterSpacing: 0.5 },
+  doorReadyBody: { color: colors.ink, fontSize: 13, lineHeight: 19 },
+  doorReadyHint: { color: colors.ink3, fontSize: 12, lineHeight: 18 },
+  refreshTicketButton: { minHeight: 44, borderRadius: 8, backgroundColor: colors.accentSoft, alignItems: "center", justifyContent: "center" },
+  refreshTicketText: { color: colors.accent, fontSize: 13, fontWeight: "700" },
   ticketMeta: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.line2,
