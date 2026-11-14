@@ -153,19 +153,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          keytool -genkeypair -noprompt -keyalg RSA -keysize 2048 -validity 1 \\
-            -storetype PKCS12 -keystore "$RUNNER_TEMP/ticketiv-smoke.p12" \\
-            -storepass ticketiv-smoke-only -keypass ticketiv-smoke-only \\
+          keytool -genkeypair -noprompt -keyalg RSA -keysize 2048 -validity 1 \
+            -storetype PKCS12 -keystore "$RUNNER_TEMP/ticketiv-smoke.p12" \
+            -storepass ticketiv-smoke-only -keypass ticketiv-smoke-only \
             -alias smoke -dname "CN=Ticketiv Smoke Test,O=CI,C=SZ"
           mapfile -t apks < <(find "$RUNNER_TEMP/ticketiv-unsigned" -type f -name '*.apk')
           test "${#apks[@]}" -eq 1
           android_sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Android SDK not configured}}"
           build_tools="$android_sdk/build-tools/36.0.0"
           "$build_tools/zipalign" -P 16 -f -v 4 "${apks[0]}" "$RUNNER_TEMP/ticketiv-aligned.apk"
-          "$build_tools/apksigner" sign \\
-            --ks "$RUNNER_TEMP/ticketiv-smoke.p12" --ks-type PKCS12 \\
-            --ks-key-alias smoke --ks-pass pass:ticketiv-smoke-only \\
-            --key-pass pass:ticketiv-smoke-only \\
+          "$build_tools/apksigner" sign \
+            --ks "$RUNNER_TEMP/ticketiv-smoke.p12" --ks-type PKCS12 \
+            --ks-key-alias smoke --ks-pass pass:ticketiv-smoke-only \
+            --key-pass pass:ticketiv-smoke-only \
             --out "$RUNNER_TEMP/ticketiv-play-smoke.apk" "$RUNNER_TEMP/ticketiv-aligned.apk"
           "$build_tools/apksigner" verify "$RUNNER_TEMP/ticketiv-play-smoke.apk"
 
