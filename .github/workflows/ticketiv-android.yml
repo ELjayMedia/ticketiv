@@ -202,7 +202,7 @@ jobs:
       inputs.build_upload_signed_play &&
       inputs.release_confirmation == 'UPLOAD_TICKETIV_PLAY'
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
     env:
       TICKETIV_ANDROID_VERSION_CODE: ${{ github.run_number }}
       TICKETIV_ANDROID_VERSION_NAME: 0.1.${{ github.run_number }}
@@ -385,6 +385,33 @@ jobs:
           name: ticketiv-play-internal-signed-apk-${{ github.run_number }}-${{ github.run_attempt }}
           path: apps/ticketiv/android/app/build/outputs/apk/play/release/app-play-release.apk
           if-no-files-found: error
+          retention-days: 7
+
+      # The owner-signed APK is what will be shipped to testers. Prove it
+      # launches on Android before a Play upload can be attempted.
+      - name: Allow Android emulator hardware acceleration
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+
+      - name: Smoke test owner-signed Play APK before publishing
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: bash scripts/android-launch-smoke.sh apps/ticketiv/android/app/build/outputs/apk/play/release/app-play-release.apk
+
+      - name: Upload signed build launch diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ticketiv-owner-signed-launch-logs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/ticketiv-android-smoke.log
+            ${{ runner.temp }}/ticketiv-android-window.xml
+          if-no-files-found: ignore
           retention-days: 7
 
       - name: Require Play publish secret
