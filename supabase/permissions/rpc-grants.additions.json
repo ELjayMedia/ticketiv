@@ -354,6 +354,40 @@
       "grantees": [
         "postgres"
       ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_set_artist_follow",
+      "arguments": "p_artist_id uuid, p_follow boolean",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "notify_artist_followers_of_new_event",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "can_platform_mutate",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
     }
   ]
 }
