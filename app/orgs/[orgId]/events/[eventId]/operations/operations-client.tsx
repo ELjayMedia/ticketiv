@@ -139,6 +139,12 @@ export function EventOperationsClient({
               Edit event
             </Link>
             <Link
+              href={`/orgs/${orgId}/events/${eventId}/live`}
+              className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-transparent px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-bg"
+            >
+              <Icon name="activity" size={14} /> Door live
+            </Link>
+            <Link
               href={`/orgs/${orgId}/events/${eventId}/scanner`}
               className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-ink bg-ink px-4 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-2"
             >
