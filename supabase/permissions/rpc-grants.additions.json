@@ -376,6 +376,18 @@
       "grantees": [
         "postgres"
       ]
+    },
+    {
+      "schema": "app",
+      "name": "can_platform_mutate",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
     }
   ]
 }
