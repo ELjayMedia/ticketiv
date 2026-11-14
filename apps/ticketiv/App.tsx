@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -42,6 +42,7 @@ import {
   type TicketivConsumerAppShellState,
   type TicketivConsumerShellRoute,
   type TicketivDiscoverEvent,
+  type TicketivDiscoverWhen,
   type TicketivWalletTicket,
   type TicketivWalletState,
 } from "./src";
@@ -129,7 +130,7 @@ export default function App() {
           {booting ? (
             <CenteredStatus label="Opening Ticketiv" />
           ) : shell.activeRoute.route === "discover" ? (
-            <DiscoverScreen onOpenEvent={applyDeepLink} />
+            <DiscoverScreen onOpenEvent={(slug) => void openWebPath(`/events/${encodeURIComponent(slug)}`)} />
           ) : shell.activeRoute.route === "tickets" ? (
             <TicketsScreen onOpenTicket={openTicket} tickets={shell.wallet.tickets} />
           ) : shell.activeRoute.route === "ticket" ? (
@@ -160,49 +161,62 @@ export default function App() {
   );
 }
 
-function DiscoverScreen({ onOpenEvent }: { onOpenEvent: (url: string) => void }) {
+function DiscoverScreen({ onOpenEvent }: { onOpenEvent: (slug: string) => void }) {
   const [events, setEvents] = useState<TicketivDiscoverEvent[]>([]);
+  const [when, setWhen] = useState<TicketivDiscoverWhen>("upcoming");
+  const requestSequence = useRef(0);
   const [status, setStatus] = useState<DiscoveryStatus>("loading");
   const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState("Loading events from ticketiv.app");
 
   const loadEvents = useCallback(async (refresh = false) => {
+    const sequence = ++requestSequence.current;
     if (refresh) setRefreshing(true);
     else setStatus("loading");
 
     try {
-      const nextEvents = await fetchTicketivDiscoverEvents();
+      const nextEvents = await fetchTicketivDiscoverEvents(fetch, TICKETIV_PUBLIC_ORIGIN, when);
+      if (sequence !== requestSequence.current) return;
       setEvents(nextEvents);
       setStatus(nextEvents.length > 0 ? "ready" : "empty");
-      setMessage(nextEvents.length > 0 ? "" : "No published events are available yet.");
+      setMessage(nextEvents.length > 0 ? "" : `No published events for ${when === "upcoming" ? "upcoming dates" : when}.`);
     } catch (error) {
+      if (sequence !== requestSequence.current) return;
       setStatus("error");
       setMessage(error instanceof Error ? error.message : "Events are unavailable right now.");
     } finally {
-      setRefreshing(false);
+      if (sequence === requestSequence.current) setRefreshing(false);
     }
-  }, []);
+  }, [when]);
 
   useEffect(() => {
-    let active = true;
+    void loadEvents();
+    return () => { requestSequence.current += 1; };
+  }, [loadEvents]);
 
-    void fetchTicketivDiscoverEvents()
-      .then((nextEvents) => {
-        if (!active) return;
-        setEvents(nextEvents);
-        setStatus(nextEvents.length > 0 ? "ready" : "empty");
-        setMessage(nextEvents.length > 0 ? "" : "No published events are available yet.");
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-        setStatus("error");
-        setMessage(error instanceof Error ? error.message : "Events are unavailable right now.");
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
+  const filters = (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.discoverFilters}>
+      {([
+        ["upcoming", "Upcoming"],
+        ["tonight", "Tonight"],
+        ["weekend", "This weekend"],
+        ["week", "This week"],
+      ] as const).map(([key, label]) => (
+        <Pressable
+          key={key}
+          accessibilityRole="button"
+          accessibilityState={{ selected: when === key }}
+          onPress={() => setWhen(key)}
+          style={[styles.discoverFilter, when === key && styles.discoverFilterActive]}
+        >
+          <Text style={[styles.discoverFilterText, when === key && styles.discoverFilterTextActive]}>{label}</Text>
+        </Pressable>
+      ))}
+      <Pressable accessibilityRole="button" onPress={() => void openWebPath("/")} style={styles.discoverFilter}>
+        <Text style={styles.discoverFilterText}>Following · Web</Text>
+      </Pressable>
+    </ScrollView>
+  );
 
   const header = (
     <View style={styles.discoverHeader}>
@@ -214,7 +228,13 @@ function DiscoverScreen({ onOpenEvent }: { onOpenEvent: (url: string) => void })
     </View>
   );
 
-  if (status === "loading") return <CenteredStatus label={message} />;
+  if (status === "loading") return (
+    <ScrollView contentContainerStyle={styles.screen}>
+      {header}
+      {filters}
+      <Text style={styles.subtitle}>Finding events…</Text>
+    </ScrollView>
+  );
 
   if (status === "error" || status === "empty") {
     return (
@@ -223,11 +243,12 @@ function DiscoverScreen({ onOpenEvent }: { onOpenEvent: (url: string) => void })
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadEvents(true)} />}
       >
         {header}
+        {filters}
         <StateBand
-          actionLabel="Try again"
+          actionLabel={status === "error" ? "Try again" : "Show all events"}
           message={message}
-          onAction={() => void loadEvents()}
-          title={status === "error" ? "Could not load events" : "Nothing on sale yet"}
+          onAction={() => status === "error" ? void loadEvents() : setWhen("upcoming")}
+          title={status === "error" ? "Could not load events" : "No matching events"}
           tone={status === "error" ? "error" : "neutral"}
         />
       </ScrollView>
@@ -239,15 +260,10 @@ function DiscoverScreen({ onOpenEvent }: { onOpenEvent: (url: string) => void })
       contentContainerStyle={styles.listContent}
       data={events}
       keyExtractor={(event) => event.id}
-      ListHeaderComponent={header}
+      ListHeaderComponent={<>{header}{filters}</>}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadEvents(true)} />}
       renderItem={({ item }) => (
-        <EventRow
-          event={item}
-          onPress={() =>
-            onOpenEvent(`${TICKETIV_PUBLIC_ORIGIN}/events/${encodeURIComponent(item.slug)}`)
-          }
-        />
+        <EventRow event={item} onPress={() => onOpenEvent(item.slug)} />
       )}
     />
   );
@@ -779,6 +795,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   discoverHeader: { marginBottom: 10, gap: 6 },
+  discoverFilters: { flexDirection: "row", gap: 8, paddingVertical: 8, marginBottom: 12 },
+  discoverFilter: { minHeight: 42, paddingHorizontal: 14, borderRadius: 8, borderWidth: 1, borderColor: colors.line2, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
+  discoverFilterActive: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
+  discoverFilterText: { color: colors.ink2, fontSize: 12, fontWeight: "700" },
+  discoverFilterTextActive: { color: colors.accent },
   eyebrow: { color: colors.accent, fontSize: 11, fontWeight: "700" },
   title: { color: colors.ink, fontSize: 28, fontWeight: "700" },
   subtitle: { maxWidth: 560, color: colors.ink3, fontSize: 14, lineHeight: 20 },

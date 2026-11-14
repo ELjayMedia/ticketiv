@@ -14,6 +14,8 @@ export type TicketivDiscoverEvent = {
   stockType: "sold-out" | "low" | null;
 };
 
+export type TicketivDiscoverWhen = "upcoming" | "tonight" | "weekend" | "week";
+
 export type TicketivDiscoverFetch = (
   input: string,
   init: { headers: { accept: string } }
@@ -29,9 +31,12 @@ export function readTicketivDiscoverEvents(value: unknown): TicketivDiscoverEven
 
 export async function fetchTicketivDiscoverEvents(
   fetcher: TicketivDiscoverFetch = fetch,
-  origin = TICKETIV_PUBLIC_ORIGIN
+  origin = TICKETIV_PUBLIC_ORIGIN,
+  when: TicketivDiscoverWhen = "upcoming"
 ): Promise<TicketivDiscoverEvent[]> {
-  const response = await fetcher(`${origin}/api/discover/events?limit=24`, {
+  const query = new URLSearchParams({ limit: "24" });
+  if (when !== "upcoming") query.set("when", when);
+  const response = await fetcher(`${origin}/api/discover/events?${query.toString()}`, {
     headers: { accept: "application/json" },
   });
   if (!response.ok) throw new Error("Events are unavailable right now.");
