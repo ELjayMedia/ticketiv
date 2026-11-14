@@ -9,6 +9,7 @@ import { Photo, Divider } from "@/components/quiet/ui/primitives";
 import { SearchTrigger } from "@/components/quiet/search/search-overlay";
 import { RecentlyViewedSection } from "@/components/quiet/screens/discover/recently-viewed-section";
 import { SuggestedEventsRow } from "@/components/quiet/screens/discover/suggested-events-row";
+import { FollowingEventsRow } from "@/components/quiet/screens/discover/following-events-row";
 import { DiscoverFilterChips } from "@/components/quiet/screens/discover/discover-filter-chips";
 import { LoadMoreSection } from "@/components/quiet/screens/discover/load-more-section";
 import { PHOTOS } from "@/lib/photos";
@@ -115,6 +116,7 @@ export function MobileDiscover({
       </div>
 
       <RecentlyViewedSection variant="mobile" />
+      <FollowingEventsRow variant="mobile" />
 
       {HERO ? (
         <section className="px-5 pb-6">

@@ -15,9 +15,12 @@ const CATEGORY_CHIPS = [
   { label: "Free", value: "free" },
 ] as const
 
-// Discover is not limited to tonight/this weekend or a location: "This week" is the next 7 days and
-// "Upcoming" is every event that has not taken place yet (search with no date preset).
+// Intent first: "Tonight" and "This weekend" answer the most common question
+// ("what's on soon?"); "This week" is the next 7 days and "Upcoming" is every
+// event that has not taken place yet (search with no date preset).
 const WHEN_CHIPS = [
+  { label: "Tonight", value: "tonight" },
+  { label: "This weekend", value: "weekend" },
   { label: "This week", value: "week" },
   { label: "Upcoming", value: "upcoming" },
   { label: "Past events", value: "past" },
