@@ -10,8 +10,8 @@ export function DeploymentEnvironmentBanner() {
         <span className="font-mono font-semibold uppercase">{banner.label}</span>
         <span className="h-1.5 w-1.5 rounded-full bg-warning" aria-hidden="true" />
         <span className="min-w-0 font-medium">{banner.message}</span>
-        {banner.branchLabel && (
-          <span className="font-mono text-[11px] text-warning">{banner.branchLabel}</span>
+        {banner.commitLabel && (
+          <span className="font-mono text-[11px] text-warning">{banner.commitLabel}</span>
         )}
       </div>
     </div>

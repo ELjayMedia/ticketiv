@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic"
 
 export async function GET() {
   const revision =
-    process.env.SOURCE_COMMIT?.trim() || process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "unknown"
+    process.env.SOURCE_COMMIT?.trim() || "unknown"
 
   return NextResponse.json(
     {

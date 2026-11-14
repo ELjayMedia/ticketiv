@@ -41,7 +41,7 @@ export interface MomoEnvInput {
   apiKey?: string
   baseUrl?: string
   environment?: string
-  /** "production" | "preview" | "development" — from VERCEL_ENV / NODE_ENV. */
+  /** "production" | "preview" | "development" — from DEPLOYMENT_ENV / NODE_ENV. */
   deploymentEnv?: string
 }
 

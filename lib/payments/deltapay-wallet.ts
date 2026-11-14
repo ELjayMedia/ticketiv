@@ -26,7 +26,7 @@ export function getDeltaPayWalletConfig(): DeltaPayWalletConfig {
     callbackPublicKey: process.env.DELTAPAY_CALLBACK_PUBLIC_KEY,
     payoutsEnabled: process.env.DELTAPAY_PAYOUTS_ENABLED,
     productionEnabled: process.env.DELTAPAY_PRODUCTION_ENABLED,
-    deploymentEnv: process.env.VERCEL_ENV ?? process.env.NODE_ENV,
+    deploymentEnv: process.env.DEPLOYMENT_ENV ?? process.env.NODE_ENV,
   })
 }
 

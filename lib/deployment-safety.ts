@@ -19,7 +19,7 @@ export interface DeploymentSafetyReport {
 export interface DeploymentSafetyBanner {
   label: string
   message: string
-  branchLabel: string | null
+  commitLabel: string | null
 }
 
 export class DeploymentSafetyError extends Error {
@@ -33,9 +33,10 @@ export class DeploymentSafetyError extends Error {
 }
 
 export function resolveDeploymentEnvironment(env: EnvBag = process.env): DeploymentEnvironment {
-  const vercelEnv = env.VERCEL_ENV?.trim().toLowerCase()
-  if (vercelEnv === "production" || vercelEnv === "preview" || vercelEnv === "development") return vercelEnv
-  if (env.VERCEL === "1" || vercelEnv) return "unknown"
+  // DEPLOYMENT_ENV is set by the Coolify Dockerfile (production); unset locally.
+  const deploymentEnv = env.DEPLOYMENT_ENV?.trim().toLowerCase()
+  if (deploymentEnv === "production" || deploymentEnv === "preview" || deploymentEnv === "development") return deploymentEnv
+  if (deploymentEnv) return "unknown"
   return "local"
 }
 
@@ -54,7 +55,7 @@ export function describeDeploymentSafety(env: EnvBag = process.env): DeploymentS
   const supabaseProjectRef = extractSupabaseProjectRef(env.NEXT_PUBLIC_SUPABASE_URL)
   const usesProductionSupabase = supabaseProjectRef === TICKETIV_PRODUCTION_SUPABASE_REF
   const issues: string[] = []
-  const managedDeployment = env.VERCEL === "1" || Boolean(env.VERCEL_ENV)
+  const managedDeployment = Boolean(env.DEPLOYMENT_ENV?.trim())
   const nonProductionDeployment = deploymentEnvironment !== "production"
   const paystackMode = resolvePaystackKeyMode(env.PAYSTACK_SECRET_KEY)
 
@@ -108,7 +109,7 @@ export function getDeploymentSafetyBanner(env: EnvBag = process.env): Deployment
   return {
     label: `${formatDeploymentLabel(report.deploymentEnvironment)} build`,
     message: "Connected to production Supabase data",
-    branchLabel: formatBranchLabel(env.VERCEL_GIT_COMMIT_REF),
+    commitLabel: formatCommitLabel(env.SOURCE_COMMIT),
   }
 }
 
@@ -178,8 +179,8 @@ function formatDeploymentLabel(deploymentEnvironment: DeploymentEnvironment) {
   return "Local"
 }
 
-function formatBranchLabel(branch: string | null | undefined) {
-  const normalized = branch?.trim()
+function formatCommitLabel(commit: string | null | undefined) {
+  const normalized = commit?.trim()
   if (!normalized) return null
-  return normalized.length > 28 ? `${normalized.slice(0, 25)}...` : normalized
+  return normalized.slice(0, 7)
 }

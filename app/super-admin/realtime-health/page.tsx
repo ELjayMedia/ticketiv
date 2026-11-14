@@ -107,9 +107,8 @@ export default async function SuperAdminRealtimeHealthPage() {
   const auditEntries = auditRes.data ?? []
 
   const projectRef = supabaseProjectRef()
-  const vercelSha = process.env.SOURCE_COMMIT?.trim() || process.env.VERCEL_GIT_COMMIT_SHA || null
-  const vercelBranch = process.env.VERCEL_GIT_COMMIT_REF ?? null
-  const vercelEnv = process.env.VERCEL_ENV ?? null
+  const deployedSha = process.env.SOURCE_COMMIT?.trim() || null
+  const deploymentEnv = process.env.DEPLOYMENT_ENV?.trim() || null
 
   const liveLayerRows: MetricRow[] = [
     {
@@ -161,9 +160,9 @@ export default async function SuperAdminRealtimeHealthPage() {
     },
     {
       label: "Deployed commit",
-      value: vercelSha ? vercelSha.slice(0, 7) : "—",
-      tone: vercelSha ? "ok" : "muted",
-      hint: vercelBranch && vercelEnv ? `${vercelBranch} · ${vercelEnv}` : vercelBranch ?? vercelEnv ?? undefined,
+      value: deployedSha ? deployedSha.slice(0, 7) : "—",
+      tone: deployedSha ? "ok" : "muted",
+      hint: deploymentEnv ?? undefined,
     },
   ]
 

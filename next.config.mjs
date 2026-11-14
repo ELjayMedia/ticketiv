@@ -35,12 +35,12 @@ assertManagedDeploymentSafety()
 
 function assertManagedDeploymentSafety() {
   const env = process.env
-  const managedDeployment = env.VERCEL === "1" || Boolean(env.VERCEL_ENV)
-  if (!managedDeployment) return
+  // DEPLOYMENT_ENV is set by the Coolify Dockerfile; local and CI builds skip this.
+  const deploymentEnv = env.DEPLOYMENT_ENV?.trim().toLowerCase()
+  if (!deploymentEnv) return
 
   const issues = []
-  const vercelEnv = env.VERCEL_ENV?.trim().toLowerCase()
-  const nonProductionDeployment = vercelEnv !== "production"
+  const nonProductionDeployment = deploymentEnv !== "production"
   const appHost = normalizeAppHost(env.NEXT_PUBLIC_APP_URL)
   const supabaseProjectRef = extractSupabaseProjectRef(env.NEXT_PUBLIC_SUPABASE_URL)
 
@@ -56,7 +56,7 @@ function assertManagedDeploymentSafety() {
     issues.push("NEXT_PUBLIC_APP_URL must be an absolute https? URL or bare hostname.")
   }
 
-  if (vercelEnv === "production" && appHost && appHost !== "ticketiv.app") {
+  if (deploymentEnv === "production" && appHost && appHost !== "ticketiv.app") {
     issues.push("Production must use NEXT_PUBLIC_APP_URL=https://ticketiv.app.")
   }
 

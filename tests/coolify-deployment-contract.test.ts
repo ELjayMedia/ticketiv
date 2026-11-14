@@ -20,6 +20,15 @@ describe("Coolify deployment contract", () => {
     expect(dockerfile).not.toContain("r.status<500")
   })
 
+  it("exposes the deployment tier and commit without Vercel-era variables", () => {
+    const dockerfile = readFileSync(resolve(root, "Dockerfile"), "utf8")
+
+    // Builder and runner both set them: the build-time safety check and the
+    // runtime health/version code read DEPLOYMENT_ENV and SOURCE_COMMIT.
+    expect(dockerfile.match(/DEPLOYMENT_ENV=\$\{DEPLOYMENT_ENV\} SOURCE_COMMIT=\$\{SOURCE_COMMIT\}/g)).toHaveLength(2)
+    expect(dockerfile).not.toMatch(/VERCEL/)
+  })
+
   it("synchronizes the deployed GitHub revision into Coolify", () => {
     const workflow = readFileSync(resolve(root, ".github/workflows/ci.yml"), "utf8")
 

@@ -8,13 +8,12 @@ import { activePayoutEncryptionKeyId } from "../lib/payout-crypto-core.ts"
  * Production deployment gate for TICK-376.
  *
  * Every production runtime must have a valid active payout-encryption keyring.
- * DEPLOYMENT_ENV is the platform-neutral switch used by Coolify. VERCEL_ENV is
- * retained as a compatibility fallback while the application finishes moving
- * away from Vercel. Preview and local builds intentionally skip this check so
- * they do not need production secrets.
+ * DEPLOYMENT_ENV (set by the Coolify Dockerfile) is the switch. Preview and
+ * local builds intentionally skip this check so they do not need production
+ * secrets.
  */
 export function verifyProductionPayoutEncryption({
-  deploymentEnv = process.env.DEPLOYMENT_ENV ?? process.env.VERCEL_ENV,
+  deploymentEnv = process.env.DEPLOYMENT_ENV,
   verifyKeyring = activePayoutEncryptionKeyId,
 } = {}) {
   if (deploymentEnv !== "production") {

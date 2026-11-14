@@ -31,14 +31,17 @@ describe("production payout encryption runtime gate", () => {
     ).toThrow("invalid keyring")
   })
 
-  it("accepts the legacy Vercel environment only as a compatibility fallback", () => {
-    const verifyKeyring = vi.fn(() => "compatibility-key")
+  it("reads DEPLOYMENT_ENV and no longer honours the retired VERCEL_ENV", () => {
+    const verifyKeyring = vi.fn(() => "active-key")
     const previousDeploymentEnv = process.env.DEPLOYMENT_ENV
     const previousVercelEnv = process.env.VERCEL_ENV
-    delete process.env.DEPLOYMENT_ENV
-    process.env.VERCEL_ENV = "production"
 
     try {
+      delete process.env.DEPLOYMENT_ENV
+      process.env.VERCEL_ENV = "production"
+      expect(verifyProductionPayoutEncryption({ verifyKeyring })).toEqual({ checked: false })
+
+      process.env.DEPLOYMENT_ENV = "production"
       expect(verifyProductionPayoutEncryption({ verifyKeyring })).toEqual({ checked: true })
       expect(verifyKeyring).toHaveBeenCalledOnce()
     } finally {

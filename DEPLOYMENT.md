@@ -31,10 +31,12 @@ behind Cloudflare Access.
 
 - `NEXT_PUBLIC_*` values are inlined into the browser bundle, so Coolify passes
   them at build time and at runtime. Server secrets are runtime-only.
-- The `Dockerfile` sets `DEPLOYMENT_ENV=production` and, for code that still
-  reads it, `VERCEL_ENV=production`, plus `VERCEL_GIT_COMMIT_SHA` from
-  `SOURCE_COMMIT`. The deploy-safety check (`lib/deployment-safety.ts`) and the
-  Paystack live-key guard rely on these to tell production apart.
+- The `Dockerfile` sets `DEPLOYMENT_ENV=production` and `SOURCE_COMMIT` in both
+  the build and the runtime image. The deploy-safety check
+  (`lib/deployment-safety.ts`), the Paystack live-key guard, payment
+  availability, Sentry's environment and the app version read
+  `DEPLOYMENT_ENV`; `/api/health` and the version label read `SOURCE_COMMIT`.
+  Leave `DEPLOYMENT_ENV` unset locally.
 - See `.env.example` for every variable and where it comes from. Add or rotate
   secrets in Coolify (or in GitHub Actions secrets for values the deploy job
   syncs). See `docs/SECRET_ROTATION.md`.
