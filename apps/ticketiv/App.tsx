@@ -182,7 +182,7 @@ export default function App() {
           )}
         </View>
 
-        {focused ? null : (
+        {focused || booting || startupFailed ? null : (
           <BottomNavigation active={section} onNavigate={navigate} />
         )}
       </SafeAreaView>
