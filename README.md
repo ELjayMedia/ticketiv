@@ -258,6 +258,28 @@ are kept in lockstep. Do **not** run raw `psql` against production. See
 
 ---
 
+## Ticketiv Attendee Google Play AAB (internal testing)
+
+Use the **signed Android App Bundle**, not the automatically generated unsigned AAB or APK, to upload the attendee app to Google Play. Attendee and Access are separate apps:
+
+| App | Android package | Signed Play workflow |
+|---|---|---|
+| **Ticketiv Attendee** | `com.ticketiv.app` | [Ticketiv Android — Run workflow](https://github.com/ELjayMedia/ticketiv/actions/workflows/ticketiv-android.yml) |
+| Ticketiv Access | `com.ticketiv.access` | [Access Android — Run workflow](https://github.com/ELjayMedia/ticketiv/actions/workflows/access-android.yml) |
+
+To create a **fresh, signed Ticketiv Attendee AAB** without automatically uploading it to Google Play:
+
+1. Open the [Ticketiv Android Actions workflow](https://github.com/ELjayMedia/ticketiv/actions/workflows/ticketiv-android.yml), select **Run workflow**, and set the branch to **main**.
+2. Tick **Build the owner-managed, upload-signed Play bundle** (`build_upload_signed_play = true`).
+3. Set **Release confirmation** to `UPLOAD_TICKETIV_PLAY`.
+4. Leave **Publish to Play Internal testing** **unchecked** (`publish_to_play_internal = false`). Then click **Run workflow**.
+5. Open the completed run, confirm **upload-signed Play bundle** succeeded, and download the `ticketiv-play-upload-signed-<run_number>-<attempt>` ZIP from **Artifacts** at the bottom of the run page.
+6. Extract `ticketiv-play-upload-signed.aab` and upload that **.aab** to **Google Play Console → Ticketiv (`com.ticketiv.app`) → Testing → Internal testing → Create new release**. Review changes, add the release to internal testing, and check tester eligibility.
+
+The workflow uses the existing Ticketiv attendee **upload signing key**, verifies the bundle's signing certificate and SHA-256 checksum, and sets `versionCode` from its GitHub run number. It **does not** publish unless the publish checkbox is explicitly selected. The signed AAB artifact expires after **7 days**. If required `TICKETIV_UPLOAD_*` secrets are absent, the build stops instead of producing an unsigned file labeled as signed. **Never** upload `ticketiv-play-unsigned-...` to Play.
+
+Before starting a fresh upload, inspect the existing Play Console internal track: an earlier GitHub Actions run may already have published a Ticketiv attendee build. Use the new release only if you want to update it, and ensure its `versionCode` is greater than any code already uploaded. If the app's existing Google Play upload certificate differs from the workflow's signing certificate, do not rotate keys without following the Play Console upload-key reset process.
+
 ## Android APK builds (internal testing)
 
 The [Ticketiv Android](https://github.com/ELjayMedia/ticketiv/actions/workflows/ticketiv-android.yml) and [Ticketiv Access Android](https://github.com/ELjayMedia/ticketiv/actions/workflows/access-android.yml) workflows compile both Play and Huawei **release APKs** on relevant pull requests and on pushes to `main`, alongside the existing AAB builds. The badges above reflect the `main` push workflows; a green badge means the build checks passed, **not** that an installable signed APK was published.
