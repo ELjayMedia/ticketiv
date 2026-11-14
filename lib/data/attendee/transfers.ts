@@ -333,3 +333,53 @@ export async function getMyTransferHistory(): Promise<TransferHistoryItem[]> {
     }
   })
 }
+
+export interface PendingSentTransfer {
+  orderItemId: string
+  toName: string
+  expiresAt: string | null
+}
+
+/**
+ * Tickets the signed-in holder has sent but the friend hasn't accepted yet,
+ * for the Event Companion's "Ready for the door" check. Expired offers are
+ * left out: the ticket is back with the sender.
+ */
+export async function getMyPendingSentTransfers(orderItemIds: string[]): Promise<PendingSentTransfer[]> {
+  if (orderItemIds.length === 0) return []
+  const supabase = await createServerSupabaseClient()
+  if (!supabase) return []
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data: rows, error } = await supabase
+    .from("transfers")
+    .select("order_item_id, to_user_id, status, expires_at")
+    .eq("from_user_id", user.id)
+    .in("order_item_id", orderItemIds.slice(0, 100))
+    .in("status", ["requested", "pending"])
+  if (error) {
+    console.error("[transfers] getMyPendingSentTransfers:", error)
+    return []
+  }
+
+  const live = ((rows ?? []) as unknown as Array<{ order_item_id: string | null; to_user_id: string | null; status: TransferStatus; expires_at: string | null }>)
+    .filter((r) => r.order_item_id && !isExpired(r.status, r.expires_at))
+  const recipientIds = Array.from(new Set(live.map((r) => r.to_user_id).filter((id): id is string => Boolean(id))))
+  const names = new Map<string, string>()
+  if (recipientIds.length > 0) {
+    const { data: profs } = await supabase.from("profiles").select("user_id, display_name, name").in("user_id", recipientIds)
+    for (const p of (profs ?? []) as Array<{ user_id: string; display_name: string | null; name: string | null }>) {
+      const display = p.display_name?.trim() || p.name?.trim()
+      if (display) names.set(p.user_id, display)
+    }
+  }
+
+  return live.map((r) => ({
+    orderItemId: r.order_item_id as string,
+    toName: (r.to_user_id && names.get(r.to_user_id)) || "your friend",
+    expiresAt: r.expires_at,
+  }))
+}

@@ -7,6 +7,7 @@ import { EventMemory } from "@/components/quiet/screens/companion/event-memory";
 import { getBecauseYouWent, getEventHighlights, getMyFeedback, isFollowingOrg } from "@/lib/data/companion-memory";
 import { getMySocialPrivacySettings } from "@/lib/data/attendee/social-privacy";
 import { getEventCompanion } from "@/lib/data/companion";
+import { getMyPendingSentTransfers } from "@/lib/data/attendee/transfers";
 import { PHOTOS } from "@/lib/photos";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
@@ -39,6 +40,7 @@ export default async function EventCompanionPage({ params }: { params: Promise<{
 
   const [data, privacy] = await Promise.all([getEventCompanion(eventId), getMySocialPrivacySettings()]);
   if (!data) notFound();
+  const pendingTransfers = await getMyPendingSentTransfers(data.tickets.map((t) => t.order_item_id));
 
   const nowMs = Date.now();
   // Every time on this screen reads as the clock does where the event happens.
@@ -114,6 +116,12 @@ export default async function EventCompanionPage({ params }: { params: Promise<{
         isNew: nowMs - new Date(u.createdAt).getTime() < 24 * 60 * 60 * 1000,
       }))}
       friendsGoing={data.friendsGoing}
+      ownerId={auth.user.id}
+      pendingTransfers={pendingTransfers.map((t) => ({
+        ticketId: t.orderItemId,
+        toName: t.toName,
+        expiresLabel: t.expiresAt ? `until ${day(t.expiresAt)} ${time(t.expiresAt)}` : null,
+      }))}
       visibleToFriends={privacy?.showEventsGoingToFriends ?? false}
       memory={
         memory ? (
