@@ -1,3 +1,5 @@
+import Link from "next/link"
+import { guestGuidePath } from "@/lib/guest-companion"
 import { TicketView } from "@/components/quiet/screens/tickets/ticket-view"
 import { TokenRecoveryScreen } from "@/components/quiet/screens/tickets/token-recovery"
 import { mapTicketView } from "@/lib/mappers/tickets"
@@ -13,7 +15,7 @@ import { verifyTicketToken } from "@/lib/ticket-tokens"
 // from the database, and TicketView already withholds the QR for non-valid
 // states. No mutations are reachable from this page.
 
-export const metadata = { title: "Your ticket" }
+export const metadata = { title: "Your ticket", robots: { index: false, follow: false } }
 export const dynamic = "force-dynamic"
 
 export default async function TokenTicketPage({
@@ -40,5 +42,10 @@ export default async function TokenTicketPage({
   const parsed = MyTicketsViewSchema.safeParse(rawRow)
   if (!parsed.success) return <TokenRecoveryScreen reason="malformed" />
 
-  return <TicketView ticket={mapTicketView(parsed.data)} />
+  return <>
+    <div className="relative z-10 bg-surface px-5 py-3 text-center">
+      <Link href={guestGuidePath(token)} className="text-[13px] font-semibold text-accent">Event guide &amp; door times</Link>
+    </div>
+    <TicketView ticket={mapTicketView(parsed.data)} />
+  </>
 }

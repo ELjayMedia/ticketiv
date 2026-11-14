@@ -36,6 +36,7 @@ interface OrderConfirmationProps {
     receiptEmail: string;
     eventSlug: string | null;
     firstTicketId: string;
+    eventId: string | null;
   };
 }
 
@@ -234,10 +235,10 @@ export function OrderConfirmation({ order }: OrderConfirmationProps) {
           {order.state === "paid" ? (
             <>
               <Link
-                href="/tickets"
+                href={order.eventId ? `/tickets/event/${order.eventId}` : "/tickets"}
                 className="flex flex-1 items-center justify-center rounded-[var(--radius-md)] border border-line-2 bg-surface px-4 py-3.5 text-[14px] font-semibold hover:bg-bg"
               >
-                Done
+                Event guide
               </Link>
               <Link
                 href={`/tickets/${order.firstTicketId}`}

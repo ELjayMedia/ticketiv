@@ -14,6 +14,7 @@ import { ticketDisplayStatus, type TicketDisplayStatus } from "@/lib/mappers/tic
 import { getTicketivPublicOrigin } from "@/lib/public-url"
 import { MyTicketsViewSchema, type MyTicketsView } from "@/lib/schemas/views"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { guestGuidePath } from "@/lib/guest-companion"
 import { issueTicketToken, verifyOrderToken } from "@/lib/ticket-tokens"
 
 const TICKET_BASE_URL = getTicketivPublicOrigin(process.env.NEXT_PUBLIC_TICKET_BASE_URL ?? APP_URL)
@@ -120,6 +121,11 @@ export default async function OrderTokenPage({
                     </div>
                     <Chip size="sm" variant={STATUS_VARIANT[display]}>{STATUS_LABEL[display]}</Chip>
                   </Link>
+                  {itemToken && display === "issued" ? (
+                    <Link href={guestGuidePath(itemToken)} className="text-[12px] font-semibold text-accent">
+                      Event guide
+                    </Link>
+                  ) : null}
                   {absoluteHref && display === "issued" ? (
                     <ForwardTicketButton
                       url={absoluteHref}
