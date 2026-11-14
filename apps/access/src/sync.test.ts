@@ -132,7 +132,7 @@ describe("Access scanner sync", () => {
 
     const result = await syncAccessOfflineQueue({ baseUrl: BASE_URL, fetch }, state);
 
-    expect(result).toMatchObject({ ok: true, syncedCodes: ["TIV-1"], skipped: false });
+    expect(result).toMatchObject({ ok: true, syncedCodes: ["TIV-1"], rejected: [], pendingCount: 0, skipped: false });
     expect(fetch).toHaveBeenCalledWith(
       "https://ticketiv.app/api/scanner/sync",
       expect.objectContaining({
@@ -145,6 +145,39 @@ describe("Access scanner sync", () => {
     }
   });
 
+  it("keeps the queue when the server returns only a count without per-code results", async () => {
+    const state = createAccessScannerSessionState({
+      eventId: "event-1", deviceId: "device-1",
+      offlineQueue: [{ code: "A", eventId: "event-1", deviceId: "device-1", sessionId: "session-1", scannedAt: SCANNED_AT }],
+    });
+    const fetch = vi.fn<AccessSyncFetch>().mockResolvedValue(jsonResponse({ inserted: 1 }));
+    const result = await syncAccessOfflineQueue({ baseUrl: BASE_URL, fetch }, state);
+    expect(result).toMatchObject({ ok: false, error: { code: "sync_invalid" } });
+    expect(result.state.offlineQueue).toHaveLength(1);
+  });
+
+  it("surfaces duplicate/revoked conflicts and preserves unacknowledged scans", async () => {
+    const state = createAccessScannerSessionState({
+      eventId: "event-1", deviceId: "device-1",
+      offlineQueue: ["A", "B", "C", "D"].map(code => ({
+        code, eventId: "event-1", deviceId: "device-1", sessionId: "session-1", scannedAt: SCANNED_AT,
+      })),
+    });
+    const fetch = vi.fn<AccessSyncFetch>().mockResolvedValue(jsonResponse({
+      inserted: 1,
+      results: [
+        { code: "A", outcome: "validated" },
+        { code: "B", outcome: "duplicate" },
+        { code: "C", outcome: "error" },
+      ],
+    }));
+    const result = await syncAccessOfflineQueue({ baseUrl: BASE_URL, fetch }, state);
+    expect(result).toMatchObject({
+      ok: true, syncedCodes: ["A"], rejected: [{ code: "B", outcome: "duplicate" }], pendingCount: 2,
+    });
+    expect(result.state.offlineQueue.map(s => s.code)).toEqual(["C", "D"]);
+  });
+
   it("skips offline sync when there is no queued work", async () => {
     const state = createAccessScannerSessionState({
       eventId: "event-1",
@@ -154,7 +187,7 @@ describe("Access scanner sync", () => {
 
     const result = await syncAccessOfflineQueue({ baseUrl: BASE_URL, fetch }, state);
 
-    expect(result).toMatchObject({ ok: true, skipped: true, syncedCodes: [] });
+    expect(result).toMatchObject({ ok: true, skipped: true, syncedCodes: [], rejected: [], pendingCount: 0 });
     expect(fetch).not.toHaveBeenCalled();
   });
 

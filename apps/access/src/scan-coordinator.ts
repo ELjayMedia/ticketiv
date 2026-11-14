@@ -128,32 +128,20 @@ export async function submitAccessQrScan(
       error: null,
     };
   } catch (error) {
-    if (input.queueOnNetworkError === false) {
-      return {
-        source: "online",
-        state,
-        result: networkErrorScannerResult(error),
-        offlineScan: null,
-        localOutcome,
-        onlineStatus: null,
-        error: {
-          code: "network_error",
-          message: error instanceof Error ? error.message : "Network unavailable",
-        },
-      };
-    }
-
-    const fallback = queueFallbackOfflineScan(state, {
-      ticketCode,
-      scannedAt,
-      gate: input.gate,
-    });
-
+    // A manifest miss is NOT proof of a valid ticket. In particular, a camera
+    // must never approve an arbitrary QR merely because connectivity dropped.
+    // Only a positive, event-matched offline manifest evaluation may queue
+    // entry. An unknown code needs live verification or staff intervention.
     return {
-      source: "offline_fallback",
-      state: fallback.state,
-      result: fallback.result,
-      offlineScan: fallback.offlineScan,
+      source: "online",
+      state,
+      result: {
+        valid: false,
+        status: "error",
+        inputMode: "qr",
+        message: "Cannot verify this ticket offline. Reconnect or ask the gate supervisor.",
+      },
+      offlineScan: null,
       localOutcome,
       onlineStatus: null,
       error: {
@@ -166,36 +154,6 @@ export async function submitAccessQrScan(
 
 export function buildAccessValidateUrl(baseUrl: string): string {
   return new URL("/api/scanner/validate", normalizedBaseUrl(baseUrl)).toString();
-}
-
-function queueFallbackOfflineScan(
-  state: AccessScannerSessionState,
-  input: Required<Pick<AccessQrScanInput, "ticketCode" | "scannedAt">> &
-    Pick<AccessQrScanInput, "gate">
-) {
-  const gate = normalizeNullable(input.gate) ?? state.gate;
-  const offlineScan: ScannerOfflineScanPayload = {
-    code: input.ticketCode,
-    eventId: state.eventId,
-    deviceId: state.deviceId,
-    sessionId: state.sessionId ?? `offline-${state.deviceId}`,
-    scannedAt: input.scannedAt,
-    gate,
-  };
-
-  return {
-    state: {
-      ...markTicketCodeLocallyUsed(state, input.ticketCode),
-      offlineQueue: [...state.offlineQueue, offlineScan],
-    },
-    result: {
-      valid: true,
-      status: "offline",
-      inputMode: "qr",
-      message: "Network unavailable. Scan stored offline.",
-    } satisfies ScannerClientResult,
-    offlineScan,
-  };
 }
 
 function duplicateScannerResult(): ScannerClientResult {

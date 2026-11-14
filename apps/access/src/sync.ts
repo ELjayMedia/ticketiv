@@ -50,6 +50,10 @@ export type AccessOfflineQueueSyncResult =
       ok: true;
       state: AccessScannerSessionState;
       syncedCodes: string[];
+      /** Terminal server rejections must be surfaced to gate staff. */
+      rejected: Array<{ code: string; outcome: string }>;
+      /** Scans not explicitly acknowledged remain safely queued. */
+      pendingCount: number;
       skipped: boolean;
     }
   | {
@@ -140,6 +144,8 @@ export async function syncAccessOfflineQueue(
       ok: true,
       state,
       syncedCodes: [],
+      rejected: [],
+      pendingCount: 0,
       skipped: true,
     };
   }
@@ -174,15 +180,15 @@ export async function syncAccessOfflineQueue(
     };
   }
 
-  const body = (await readJson(response)) as SyncOfflineResponse;
-  const syncedCodes = extractSyncedCodes(body, scans);
-  if (syncedCodes.length === 0) {
+  const body = (await readJson(response)) as SyncOfflineResponse | null;
+  const acknowledgements = extractAcknowledgements(body, scans);
+  if (!acknowledgements || acknowledgements.processedCodes.length === 0) {
     return {
       ok: false,
       state,
       error: {
         code: "sync_invalid",
-        message: "Offline sync response did not confirm any queued scans",
+        message: "Scanner server did not acknowledge queued scans. Nothing was discarded.",
         status: response.status,
       },
     };
@@ -190,8 +196,10 @@ export async function syncAccessOfflineQueue(
 
   return {
     ok: true,
-    state: markAccessOfflineQueueSynced(state, syncedCodes),
-    syncedCodes,
+    state: markAccessOfflineQueueSynced(state, acknowledgements.processedCodes),
+    syncedCodes: acknowledgements.syncedCodes,
+    rejected: acknowledgements.rejected,
+    pendingCount: scans.length - acknowledgements.processedCodes.length,
     skipped: false,
   };
 }
@@ -251,24 +259,35 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
-function extractSyncedCodes(
-  body: SyncOfflineResponse,
-  fallbackScans: ScannerOfflineScanPayload[]
-): string[] {
-  const synced = asStringArray(body.synced);
-  if (synced.length > 0) return synced;
-
-  const queued = asStringArray(body.queued);
-  if (queued.length > 0) return queued;
-
-  if (Array.isArray(body.results)) {
-    const codes = body.results
-      .map((item) => (isRecord(item) ? item.code : null))
-      .filter((code): code is string => typeof code === "string" && code.trim().length > 0);
-    if (codes.length > 0) return uniqueStrings(codes);
+/**
+ * Never trust a top-level "inserted" count, an echo of the request, or a
+ * partially parsed response as proof of entry. Each scan is removed only after
+ * its code has a server-authoritative terminal outcome.
+ */
+function extractAcknowledgements(
+  body: SyncOfflineResponse | null,
+  scans: ScannerOfflineScanPayload[],
+): { processedCodes: string[]; syncedCodes: string[]; rejected: Array<{ code: string; outcome: string }> } | null {
+  if (!body || !Array.isArray(body.results)) return null;
+  const pending = new Set(scans.map((scan) => scan.code));
+  const processed = new Set<string>();
+  const syncedCodes: string[] = [];
+  const rejected: Array<{ code: string; outcome: string }> = [];
+  const terminalRejections = new Set(["duplicate", "not_found", "wrong_event", "revoked", "refunded", "transferred", "not_paid"]);
+  for (const item of body.results) {
+    if (!isRecord(item) || typeof item.code !== "string" || typeof item.outcome !== "string") continue;
+    const code = item.code.trim();
+    if (!pending.has(code) || processed.has(code)) continue;
+    if (item.outcome === "validated") {
+      processed.add(code);
+      syncedCodes.push(code);
+    } else if (terminalRejections.has(item.outcome)) {
+      processed.add(code);
+      rejected.push({ code, outcome: item.outcome });
+    }
+    // "error", "unauthorized", missing/unknown statuses stay in the queue.
   }
-
-  return fallbackScans.map((scan) => scan.code).filter(Boolean);
+  return { processedCodes: [...processed], syncedCodes, rejected };
 }
 
 function isScannerManifest(value: unknown): value is ScannerManifest {
