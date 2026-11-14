@@ -303,7 +303,7 @@ export function safeTapBandConfigPayload(decision: TapBandAccessDecision) {
 }
 
 export function resolveTapBandEnvironment() {
-  return normalizeEnvironment(process.env.TAPBAND_ENVIRONMENT ?? process.env.VERCEL_ENV ?? process.env.NODE_ENV)
+  return normalizeEnvironment(process.env.TAPBAND_ENVIRONMENT ?? process.env.DEPLOYMENT_ENV ?? process.env.NODE_ENV)
 }
 
 function applyFeatureConfigRow(effective: EffectiveTapBandConfig, row: TapBandFeatureConfigRow): EffectiveTapBandConfig {

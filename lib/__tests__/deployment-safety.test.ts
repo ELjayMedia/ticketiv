@@ -11,9 +11,8 @@ import {
 } from "@/lib/deployment-safety"
 
 const previewEnv = {
-  VERCEL: "1",
-  VERCEL_ENV: "preview",
-  VERCEL_GIT_COMMIT_REF: "agent/tick-342-shared-env-safety",
+  DEPLOYMENT_ENV: "preview",
+  SOURCE_COMMIT: "a1b2c3d4e5f6a7b8",
   NEXT_PUBLIC_APP_URL: "https://ticketiv.app",
   NEXT_PUBLIC_SUPABASE_URL: `https://${TICKETIV_PRODUCTION_SUPABASE_REF}.supabase.co`,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test",
@@ -32,7 +31,7 @@ describe("deployment safety", () => {
     expect(getDeploymentSafetyBanner(previewEnv)).toEqual({
       label: "Preview build",
       message: "Connected to production Supabase data",
-      branchLabel: "agent/tick-342-shared-env...",
+      commitLabel: "a1b2c3d",
     })
   })
 
@@ -40,8 +39,7 @@ describe("deployment safety", () => {
     expect(
       getDeploymentSafetyBanner({
         ...previewEnv,
-        VERCEL_ENV: "production",
-        VERCEL_GIT_COMMIT_REF: "main",
+        DEPLOYMENT_ENV: "production",
       }),
     ).toBeNull()
   })
@@ -96,7 +94,7 @@ describe("deployment safety", () => {
   it("fails fast when production points at a non-canonical app domain", () => {
     const report = describeDeploymentSafety({
       ...previewEnv,
-      VERCEL_ENV: "production",
+      DEPLOYMENT_ENV: "production",
       NEXT_PUBLIC_APP_URL: "https://ticketiv.com",
     })
 

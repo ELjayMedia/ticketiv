@@ -9,8 +9,8 @@ export function resolvePaystackKeyMode(secretKey: string | null | undefined): Pa
   return "unknown"
 }
 
-function resolvePaystackDeploymentEnvironment(vercelEnv: string | null | undefined): PaystackDeploymentEnvironment {
-  const normalized = vercelEnv?.trim().toLowerCase()
+function resolvePaystackDeploymentEnvironment(deploymentEnv: string | null | undefined): PaystackDeploymentEnvironment {
+  const normalized = deploymentEnv?.trim().toLowerCase()
   if (normalized === "production" || normalized === "preview" || normalized === "development") return normalized
   if (normalized) return "unknown"
   return "local"
@@ -18,18 +18,19 @@ function resolvePaystackDeploymentEnvironment(vercelEnv: string | null | undefin
 
 /**
  * Live Paystack credentials must only resolve in the production deployment
- * (Coolify sets VERCEL_ENV=production in the Docker build; see Dockerfile). Preview/UAT share production data, so a live key there is a
+ * (DEPLOYMENT_ENV=production, set by the Coolify Dockerfile). Preview/UAT
+ * share production data, so a live key there is a
  * live-money mistake, even if PAYSTACK_ALLOW_LIVE_MODE was copied over too.
  */
 export function assertPaystackModeAllowed(
   secretKey: string | null | undefined,
   allowLive: boolean,
-  vercelEnv = process.env.VERCEL_ENV,
+  deploymentEnv = process.env.DEPLOYMENT_ENV,
 ) {
   const mode = resolvePaystackKeyMode(secretKey)
   if (mode !== "live") return
 
-  const deploymentEnvironment = resolvePaystackDeploymentEnvironment(vercelEnv)
+  const deploymentEnvironment = resolvePaystackDeploymentEnvironment(deploymentEnv)
 
   if (deploymentEnvironment !== "production") {
     throw new Error(

@@ -47,7 +47,7 @@ export function getDeltaPayConfig(): DeltaPayConfig {
   return evaluateDeltaPayConfig({
     apiKey: process.env.DELTAPAY_API_KEY,
     baseUrl: process.env.DELTAPAY_BASE_URL,
-    deploymentEnv: process.env.VERCEL_ENV ?? process.env.NODE_ENV,
+    deploymentEnv: process.env.DEPLOYMENT_ENV ?? process.env.NODE_ENV,
     productionEnabled: process.env.DELTAPAY_PRODUCTION_ENABLED,
   })
 }

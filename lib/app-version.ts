@@ -15,7 +15,7 @@ export const APP_PACKAGE_VERSION = packageJson.version
 const SHORT_SHA_LENGTH = 7
 
 function shortCommitSha(env: EnvBag) {
-  const sha = env.VERCEL_GIT_COMMIT_SHA?.trim()
+  const sha = env.SOURCE_COMMIT?.trim()
   if (!sha) return null
   return sha.slice(0, SHORT_SHA_LENGTH)
 }
@@ -37,8 +37,8 @@ export function resolveAppVersion(env: EnvBag = process.env): string {
   const sha = shortCommitSha(env)
   if (!sha) return `${version} · dev`
 
-  const vercelEnv = env.VERCEL_ENV?.trim().toLowerCase()
-  const label = vercelEnv === "production" ? version : `${version}-${vercelEnv || "preview"}`
+  const deploymentEnv = env.DEPLOYMENT_ENV?.trim().toLowerCase()
+  const label = deploymentEnv === "production" ? version : `${version}-${deploymentEnv || "preview"}`
   return `${label} · ${sha}`
 }
 

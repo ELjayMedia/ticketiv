@@ -32,10 +32,8 @@ ARG NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN
 ARG GOOGLE_MAPS_EMBED_KEY
 ARG SOURCE_COMMIT
 ARG DEPLOYMENT_ENV=production
-ARG VERCEL_ENV=production
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 \
-    DEPLOYMENT_ENV=${DEPLOYMENT_ENV} VERCEL_ENV=${VERCEL_ENV} \
-    VERCEL_GIT_COMMIT_SHA=${SOURCE_COMMIT}
+    DEPLOYMENT_ENV=${DEPLOYMENT_ENV} SOURCE_COMMIT=${SOURCE_COMMIT}
 COPY . .
 # Empty optional build arguments must behave like unset environment variables.
 # When Coolify enables BuildKit secrets, the build-only values are mounted as
@@ -47,7 +45,6 @@ RUN for v in $(env | sed -n "s/^\([A-Z0-9_]*\)=$/\1/p"); do unset "$v"; done \
          test -n "${SENTRY_AUTH_TOKEN:-}" \
          && test "${NODE_OPTIONS:-}" = "--max-old-space-size=4096"; \
        fi \
-    && export VERCEL_GIT_COMMIT_SHA="${SOURCE_COMMIT:-${VERCEL_GIT_COMMIT_SHA:-}}" \
     && export SENTRY_RELEASE="${SOURCE_COMMIT:-${SENTRY_RELEASE:-}}" \
     && pnpm build \
     && rm -rf /app/.next/cache
@@ -55,11 +52,9 @@ RUN for v in $(env | sed -n "s/^\([A-Z0-9_]*\)=$/\1/p"); do unset "$v"; done \
 FROM node:22-alpine AS runner
 WORKDIR /app
 ARG DEPLOYMENT_ENV=production
-ARG VERCEL_ENV=production
 ARG SOURCE_COMMIT
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 \
-    DEPLOYMENT_ENV=${DEPLOYMENT_ENV} VERCEL_ENV=${VERCEL_ENV} \
-    VERCEL_GIT_COMMIT_SHA=${SOURCE_COMMIT}
+    DEPLOYMENT_ENV=${DEPLOYMENT_ENV} SOURCE_COMMIT=${SOURCE_COMMIT}
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 COPY --from=builder --chown=nextjs:nodejs /app/package.json /app/next.config.mjs ./
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules

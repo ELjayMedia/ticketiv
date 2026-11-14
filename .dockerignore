@@ -6,7 +6,6 @@ out
 .env.*
 !.env.example
 !.env.production
-.vercel
 .git
 .github
 .claude

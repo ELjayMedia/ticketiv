@@ -65,8 +65,9 @@ once `MOMO_ENVIRONMENT=mtnswaziland`.
 **Sandbox belongs on preview, not production.** `evaluateMomoConfig` refuses to
 present MoMo when a production deployment points at the sandbox host, so sandbox
 credentials on the production project will (correctly) leave MoMo hidden at
-checkout. Test the rail on a Vercel **preview** deployment, where `VERCEL_ENV`
-is not `production` and a coherent sandbox configuration is allowed.
+checkout. Test the rail locally or on a non-production build, where
+`DEPLOYMENT_ENV` is not `production` and a coherent sandbox configuration is
+allowed.
 
 ## MTN MoMo — production go-live checklist
 

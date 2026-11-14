@@ -41,7 +41,7 @@ export function getMomoConfigState(): MomoConfigState {
     apiKey: process.env.MOMO_API_KEY,
     baseUrl: process.env.MOMO_BASE_URL,
     environment: process.env.MOMO_ENVIRONMENT,
-    deploymentEnv: process.env.VERCEL_ENV ?? process.env.NODE_ENV,
+    deploymentEnv: process.env.DEPLOYMENT_ENV ?? process.env.NODE_ENV,
   })
 }
 

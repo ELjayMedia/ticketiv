@@ -52,7 +52,7 @@ export async function GET(request: Request) {
   const config = {
     serverDsn,
     clientDsn,
-    environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? null,
+    environment: process.env.DEPLOYMENT_ENV ?? process.env.NODE_ENV ?? null,
     tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE ?? 0.1),
     sourceMapUploadConfigured,
     sourceMaps,
