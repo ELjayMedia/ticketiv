@@ -51,6 +51,13 @@ export default async function EventDoorPage({ params }: { params: Promise<{ orgI
       show: canOpenSection(access.role, "boxOffice"),
     },
     {
+      label: "Door live",
+      description: "Who's in, entry pace, each entrance, scanners and problems. Updates itself.",
+      icon: "activity",
+      href: `/orgs/${orgId}/events/${eventId}/live`,
+      show: canManageEventIn(access, eventId),
+    },
+    {
       label: "Manage event",
       description: "Edit the event, tickets, orders and staff.",
       icon: "settings",
