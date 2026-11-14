@@ -4,72 +4,106 @@ import * as React from "react"
 import { Icon } from "@/components/quiet/ui/icon"
 import { Button } from "@/components/quiet/ui/button"
 
-export interface PromoResult {
-  promoId: string
+/**
+ * A promo code the server has previewed for this event. `code` is what the
+ * buyer typed and what checkout sends; the discount fields only drive the
+ * on-screen estimate. fn_apply_promo_code_to_order stays the enforcement layer
+ * when the order is created.
+ */
+export interface AppliedPromo {
+  code: string
   discountType: "percent" | "fixed"
   discountValue: number
 }
 
-interface PromoCodeInputProps {
-  eventId: string
-  onApply: (result: PromoResult | null) => void
+/** On-screen estimate of a previewed promo, in minor units, never above the subtotal. */
+export function promoDiscountMinor(promo: AppliedPromo | null, subtotalMinor: number): number {
+  if (!promo) return 0
+  const raw =
+    promo.discountType === "percent" ? Math.round((subtotalMinor * promo.discountValue) / 100) : promo.discountValue
+  return Math.max(0, Math.min(raw, subtotalMinor))
 }
 
-export function PromoCodeInput({ eventId, onApply }: PromoCodeInputProps) {
-  const [open, setOpen] = React.useState(false)
+interface PromoCodeInputProps {
+  eventId: string
+  value: AppliedPromo | null
+  onChange: (promo: AppliedPromo | null) => void
+  formatSaving: (minor: number) => string
+  savingMinor: number
+  disabled?: boolean
+  /** Shown under the field, e.g. when checkout rejected the code at payment time. */
+  externalError?: string | null
+  /** The surrounding card already titles the section (desktop). */
+  hideLabel?: boolean
+}
+
+/**
+ * The only promo control in checkout. Checking a code calls the read-only,
+ * rate-limited preview endpoint: it never creates an order or holds tickets.
+ */
+export function PromoCodeInput({
+  eventId,
+  value,
+  onChange,
+  formatSaving,
+  savingMinor,
+  disabled,
+  externalError,
+  hideLabel,
+}: PromoCodeInputProps) {
   const [code, setCode] = React.useState("")
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const [applied, setApplied] = React.useState<PromoResult | null>(null)
+  const inputId = React.useId()
+  const errorId = `${inputId}-error`
+  const shownError = error ?? externalError ?? null
 
   async function handleApply() {
-    if (!code.trim()) return
+    const trimmed = code.trim().toUpperCase()
+    if (!trimmed || loading) return
     setLoading(true)
     setError(null)
     try {
       const res = await fetch("/api/orders/validate-promo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: code.trim(), eventId }),
+        body: JSON.stringify({ code: trimmed, eventId }),
       })
-      const json = await res.json()
-      if (json.valid) {
-        setApplied(json)
-        onApply(json)
-        setError(null)
+      const json = await res.json().catch(() => null)
+      if (json?.valid) {
+        onChange({ code: trimmed, discountType: json.discountType, discountValue: json.discountValue })
+        setCode("")
       } else {
-        setError(json.error ?? "Invalid code")
-        onApply(null)
+        setError(json?.error ?? (res.status === 429 ? "Too many tries. Wait a minute and try again." : "Invalid or expired promo code"))
+        onChange(null)
       }
     } catch {
-      setError("Could not validate code")
+      setError("Could not check the code. Check your connection and try again.")
     } finally {
       setLoading(false)
     }
   }
 
-  function handleRemove() {
-    setApplied(null)
-    setCode("")
-    setError(null)
-    onApply(null)
-  }
-
-  if (applied) {
-    const label =
-      applied.discountType === "percent"
-        ? `${applied.discountValue}% off`
-        : `SZL ${(applied.discountValue / 100).toFixed(2)} off`
+  if (value) {
     return (
-      <div className="flex items-center justify-between rounded-[var(--radius)] border border-line bg-accent-soft/30 px-3 py-2">
-        <div className="flex items-center gap-2">
-          <Icon name="check" size={14} className="text-accent" />
-          <span className="text-[13px] font-semibold text-accent">Code applied — {label}</span>
+      <div className="flex items-center gap-2.5 rounded-[var(--radius-md)] border border-accent bg-accent-soft px-3 py-2.5">
+        <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-white">
+          <Icon name="check" size={12} strokeWidth={3} />
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate font-mono text-[13px] font-semibold uppercase tracking-wide">{value.code} applied</span>
+          <span className="text-[12px] text-ink-3">
+            {savingMinor > 0 ? `You save ${formatSaving(savingMinor)}` : "Discount applied at payment"}
+          </span>
         </div>
         <button
           type="button"
-          onClick={handleRemove}
-          className="font-mono text-[10px] uppercase text-ink-3 hover:text-ink"
+          onClick={() => {
+            onChange(null)
+            setError(null)
+          }}
+          disabled={disabled}
+          className="min-h-[44px] px-1 text-[12px] font-semibold text-accent disabled:opacity-40"
         >
           Remove
         </button>
@@ -79,36 +113,40 @@ export function PromoCodeInput({ eventId, onApply }: PromoCodeInputProps) {
 
   return (
     <div>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-ink-3 hover:text-ink"
-      >
-        <Icon name="plus" size={11} />
-        {open ? "Hide" : "Have a promo code?"}
-      </button>
-      {open && (
-        <div className="mt-2 flex gap-2">
-          <input
-            type="text"
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-            onKeyDown={(e) => e.key === "Enter" && handleApply()}
-            placeholder="PROMO CODE"
-            className="flex-1 rounded-[var(--radius)] border border-line bg-bg px-3 py-2 font-mono text-[13px] uppercase tracking-wider placeholder:text-ink-4 focus:border-line-2 focus:outline-none"
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleApply}
-            disabled={loading || !code.trim()}
-          >
-            {loading ? "…" : "Apply"}
-          </Button>
-        </div>
-      )}
-      {error && (
-        <p className="mt-1.5 font-mono text-[11px] text-danger">{error}</p>
+      <label htmlFor={inputId} className={hideLabel ? "sr-only" : "text-label mb-1.5 block"}>
+        Promo code <span className="font-normal text-ink-3">(optional)</span>
+      </label>
+      <div className="flex items-center gap-2">
+        <input
+          id={inputId}
+          type="text"
+          autoCapitalize="characters"
+          autoComplete="off"
+          value={code}
+          onChange={(e) => {
+            setCode(e.target.value.toUpperCase())
+            if (error) setError(null)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault()
+              void handleApply()
+            }
+          }}
+          placeholder="Add a code"
+          aria-invalid={shownError ? true : undefined}
+          aria-describedby={shownError ? errorId : undefined}
+          disabled={disabled || loading}
+          className="h-11 min-w-0 flex-1 rounded-[var(--radius-md)] border border-line bg-surface px-3 font-mono text-[13px] uppercase tracking-wide placeholder:normal-case placeholder:tracking-normal placeholder:text-ink-3 focus:border-accent focus:outline-none"
+        />
+        <Button type="button" variant="outline" size="md" onClick={handleApply} disabled={disabled || loading || !code.trim()}>
+          {loading ? "Checking…" : "Apply"}
+        </Button>
+      </div>
+      {shownError && (
+        <p id={errorId} role="alert" className="mt-1.5 text-[12px] text-danger">
+          {shownError}
+        </p>
       )}
     </div>
   )
