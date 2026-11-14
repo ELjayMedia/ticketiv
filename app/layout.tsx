@@ -5,6 +5,7 @@ import "./globals.css";
 import { DeploymentEnvironmentBanner } from "@/components/deployment-environment-banner";
 import { SearchOverlayProvider } from "@/components/quiet/search/search-overlay";
 import { ToastProvider } from "@/components/quiet/ui/toast";
+import { TICKETIV_ICONS } from "@/lib/brand/icons";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://ticketiv.app"),
@@ -16,16 +17,8 @@ export const metadata: Metadata = {
     "Discover, book and manage tickets for events across Southern Africa.",
   applicationName: "Ticketiv",
   formatDetection: { telephone: false },
-  icons: {
-    // The Ticketiv app mark, same as the Android app (scripts/brand/render-brand-assets.mjs).
-    icon: [
-      { url: "/favicon.ico", sizes: "16x16 32x32 48x48" },
-      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
-      { url: "/icon-512.png", type: "image/png", sizes: "512x512" },
-    ],
-    apple: "/apple-icon.png",
-    shortcut: "/favicon.ico",
-  },
+  // The Ticketiv app mark, same as the Android app (scripts/brand/render-brand-assets.mjs).
+  icons: TICKETIV_ICONS,
 };
 
 export const viewport = {
