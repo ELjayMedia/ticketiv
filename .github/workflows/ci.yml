@@ -85,7 +85,10 @@ jobs:
           fi
 
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            git fetch origin "${{ github.base_ref }}" --depth=1
+            # The checkout already has full history (fetch-depth: 0). A shallow
+            # fetch here would cut it at the base's newest commit, and if the
+            # base moved after this run started there is no merge base left.
+            git fetch origin "${{ github.base_ref }}"
             diff_range="origin/${{ github.base_ref }}...HEAD"
           elif [ "${{ github.event_name }}" = "push" ]; then
             before="${{ github.event.before }}"
