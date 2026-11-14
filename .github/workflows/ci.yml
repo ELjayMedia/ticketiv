@@ -7,8 +7,13 @@ on:
       - main
   workflow_dispatch:
 
+# PR and branch runs: a newer push cancels the superseded run. Runs on main
+# get one group per commit, so a later merge can never cancel an earlier
+# merge's run while it is deploying (TICK-474). Superseded main image builds
+# are cancelled by the build-image job's own group, and production deploys
+# are serialised by the deploy job's non-cancelling group.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -235,9 +240,11 @@ jobs:
     needs: [release-gate, change-scope, e2e-smoke]
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
+    # A newer commit's build supersedes an older in-flight build on the same
+    # ref; the skip-if-published step below keeps it to one build per commit.
     concurrency:
-      group: ticketiv-image-${{ github.sha }}
-      cancel-in-progress: false
+      group: ticketiv-image-${{ github.ref }}
+      cancel-in-progress: true
     permissions:
       contents: read
       packages: write
@@ -396,6 +403,13 @@ jobs:
     needs: [release-gate, change-scope, e2e-smoke]
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # One production deployment at a time, and never cancelled by a later
+    # merge: an in-progress deploy always runs to completion. GitHub keeps at
+    # most one pending deploy in the group, so a newer merge replaces an older
+    # *queued* deploy, which is the intended superseding behaviour.
+    concurrency:
+      group: ticketiv-production-deploy
+      cancel-in-progress: false
     permissions:
       contents: read
     steps:
