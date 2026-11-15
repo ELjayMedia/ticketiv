@@ -137,7 +137,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
+      <StatusBar barStyle="dark-content" />
       <SafeAreaFrame>
         <View style={styles.appBar}>
           <View style={styles.brandRow}>
