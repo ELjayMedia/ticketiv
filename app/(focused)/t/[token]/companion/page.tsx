@@ -55,10 +55,13 @@ export default async function GuestEventCompanionPage({
     );
   }
 
+  // event_guides and event_updates are deployed ahead of generated Database
+  // types, so use a narrow untyped Supabase query bridge (as in lib/data/companion).
+  const db = admin as unknown as { from: (table: string) => any };
   const [eventRes, guideRes, updatesRes] = await Promise.all([
     admin.from("events").select("tz, organizations(name), venues(tz)").eq("id", ticket.event_id).maybeSingle(),
-    admin.from("event_guides").select("*").eq("event_id", ticket.event_id).maybeSingle(),
-    admin.from("event_updates")
+    db.from("event_guides").select("*").eq("event_id", ticket.event_id).maybeSingle(),
+    db.from("event_updates")
       .select("id, title, body, created_at")
       .eq("event_id", ticket.event_id)
       .is("hidden_at", null)
