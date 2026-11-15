@@ -486,8 +486,8 @@ jobs:
           rm -f "$cron_query_err"
           CRON_SECRET="$(printf '%s' "$cron_query_output" \
             | jq -er '.. | objects | select(.cron_secret? != null) | .cron_secret' \
-            | sed -n '1p')"
-          test -n "$CRON_SECRET" || { echo "::error::Supabase Vault did not return the Ticketiv cron secret"; exit 1; }
+            | sed -n '1p' || true)"
+          test -n "$CRON_SECRET" || { echo "::error::Supabase Vault did not return the Ticketiv cron secret (query output shape: $(printf '%s' "$cron_query_output" | jq -c '[paths(scalars)|map(tostring)|join(".")]' 2>/dev/null | head -c 300 || echo unparseable))"; exit 1; }
           echo "::add-mask::$CRON_SECRET"
           unset cron_query_output
 
