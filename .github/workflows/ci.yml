@@ -472,15 +472,18 @@ jobs:
           # Without --read-only the CLI asks for confirmation on hosted targets,
           # hence --yes. On failure the output is a CLI/SQL error (never the
           # secret), so surface it instead of exiting silently.
+          cron_query_err="$(mktemp)"
           if ! cron_query_output="$(supabase db query \
             --remote="$PROJECT_REF" \
             --yes \
             --agent no \
             --output-format json \
-            "select decrypted_secret as cron_secret from vault.decrypted_secrets where name = 'ops_alert_cron_secret' limit 1" 2>&1)"; then
-            echo "::error::Supabase Vault query failed: $(printf '%s' "$cron_query_output" | tr '\n' ' ' | head -c 600)"
+            "select decrypted_secret as cron_secret from vault.decrypted_secrets where name = 'ops_alert_cron_secret' limit 1" 2>"$cron_query_err")"; then
+            echo "::error::Supabase Vault query failed: $(cat "$cron_query_err" | tr '\n' ' ' | head -c 600) $(printf '%s' "$cron_query_output" | tr '\n' ' ' | head -c 600)"
+            rm -f "$cron_query_err"
             exit 1
           fi
+          rm -f "$cron_query_err"
           CRON_SECRET="$(printf '%s' "$cron_query_output" \
             | jq -er '.. | objects | select(.cron_secret? != null) | .cron_secret' \
             | sed -n '1p')"
