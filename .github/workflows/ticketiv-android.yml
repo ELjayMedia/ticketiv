@@ -12,6 +12,7 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - "scripts/*play*.mjs"
+      - "scripts/android-launch-smoke.sh"
       - "scripts/tests/play-listings.test.mjs"
       - ".github/workflows/play-*.yml"
   # Same filter as pull_request: main merges that touch no Android-relevant
@@ -30,6 +31,7 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - "scripts/*play*.mjs"
+      - "scripts/android-launch-smoke.sh"
       - "scripts/tests/play-listings.test.mjs"
       - ".github/workflows/play-*.yml"
   workflow_dispatch:
@@ -208,6 +210,7 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_6
+          cores: 4
           disable-animations: true
           script: bash scripts/android-launch-smoke.sh "$RUNNER_TEMP/ticketiv-play-smoke.apk"
 
@@ -219,6 +222,7 @@ jobs:
           path: |
             ${{ runner.temp }}/ticketiv-android-smoke.log
             ${{ runner.temp }}/ticketiv-android-window.xml
+            ${{ runner.temp }}/ticketiv-android-window.png
           if-no-files-found: ignore
           retention-days: 7
 
@@ -436,6 +440,7 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_6
+          cores: 4
           disable-animations: true
           script: bash scripts/android-launch-smoke.sh apps/ticketiv/android/app/build/outputs/apk/play/release/app-play-release.apk
 
@@ -447,6 +452,7 @@ jobs:
           path: |
             ${{ runner.temp }}/ticketiv-android-smoke.log
             ${{ runner.temp }}/ticketiv-android-window.xml
+            ${{ runner.temp }}/ticketiv-android-window.png
           if-no-files-found: ignore
           retention-days: 7
 
