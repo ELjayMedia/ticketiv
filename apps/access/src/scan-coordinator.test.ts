@@ -179,7 +179,7 @@ describe("Access scan coordinator", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("queues a fallback offline scan when network validation is unavailable", async () => {
+  it("never approves or queues an unknown QR when the network goes down", async () => {
     const state = createAccessScannerSessionState({
       eventId: "event-1",
       deviceId: "device-1",
@@ -191,27 +191,33 @@ describe("Access scan coordinator", () => {
     const result = await submitAccessQrScan(
       { baseUrl: BASE_URL, fetch },
       state,
-      { ticketCode: "TIV-100", scannedAt: SCANNED_AT }
+      { ticketCode: "UNKNOWN", scannedAt: SCANNED_AT }
     );
 
     expect(result).toMatchObject({
-      source: "offline_fallback",
-      result: {
-        valid: true,
-        status: "offline",
-        message: "Network unavailable. Scan stored offline.",
-      },
-      offlineScan: {
-        code: "TIV-100",
-        eventId: "event-1",
-        deviceId: "device-1",
-        sessionId: "offline-device-1",
-        gate: "South",
-      },
+      source: "online",
+      result: { valid: false, status: "error", message: expect.stringContaining("Cannot verify") },
+      offlineScan: null,
       error: { code: "network_error", message: "fetch failed" },
     });
-    expect(result.state.offlineQueue).toHaveLength(1);
-    expect(result.state.localUsedTicketCodes).toContain("TIV-100");
+    expect(result.state.offlineQueue).toHaveLength(0);
+    expect(result.state.localUsedTicketCodes).not.toContain("UNKNOWN");
+  });
+
+  it("does not trust a code missing from an otherwise valid offline manifest", async () => {
+    const state = createAccessScannerSessionState({
+      eventId: "event-1",
+      deviceId: "device-1",
+      manifest: manifest([item({ ticket_code: "KNOWN" })]),
+    });
+    const fetch = vi.fn<AccessSyncClientConfig["fetch"]>().mockRejectedValue(new Error("offline"));
+    const result = await submitAccessQrScan(
+      { baseUrl: BASE_URL, fetch },
+      state,
+      { ticketCode: "OTHER", scannedAt: SCANNED_AT }
+    );
+    expect(result.result.valid).toBe(false);
+    expect(result.state.offlineQueue).toEqual([]);
   });
 
   it("can return a network error without queueing when requested", async () => {
@@ -233,7 +239,7 @@ describe("Access scan coordinator", () => {
 
     expect(result).toMatchObject({
       source: "online",
-      result: { valid: false, status: "error", message: "offline" },
+      result: { valid: false, status: "error", message: expect.stringContaining("Cannot verify") },
       offlineScan: null,
       error: { code: "network_error" },
     });

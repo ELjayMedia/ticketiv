@@ -15,7 +15,7 @@ import {
   View,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "@ticketiv/tokens";
 
 import { TicketCompanion } from "./TicketCompanion";
@@ -123,10 +123,22 @@ export default function App() {
     }));
   }, []);
 
+  // The app's secure local wallet is the offline source of truth. An explicit
+  // refresh can bring in new organiser updates and authoritative ticket state
+  // without destroying the saved copy when the network is unavailable.
+  const refreshSavedTicket = useCallback(async (ticket: TicketivWalletTicket) => {
+    if (!ticket.deliveryToken) {
+      throw new Error("Reopen your original ticket link to refresh this ticket.");
+    }
+    const delivery = await fetchTicketivTicketDelivery(ticket.deliveryToken);
+    const wallet = importTicketivTicketDelivery(shell.wallet, delivery);
+    await importDeliveredWallet(wallet, delivery.ticket.id);
+  }, [shell.wallet, importDeliveredWallet]);
+
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
-      <SafeAreaView style={styles.safeArea} edges={["top", "right", "bottom", "left"]}>
+      <SafeAreaFrame>
         <View style={styles.appBar}>
           <View style={styles.brandRow}>
             <Image source={require("./src/assets/brand-mark.png")} style={styles.brandMark} accessibilityIgnoresInvertColors />
@@ -165,6 +177,7 @@ export default function App() {
           ) : shell.activeRoute.route === "ticket" ? (
             <TicketScreen
               onBack={() => navigate("tickets")}
+              onRefreshTicket={refreshSavedTicket}
               ticket={findTicketivWalletTicket(shell.wallet, shell.activeRoute.ticketId)}
             />
           ) : shell.activeRoute.route === "ticket-token" ? (
@@ -185,8 +198,27 @@ export default function App() {
         {focused || booting || startupFailed ? null : (
           <BottomNavigation active={section} onNavigate={navigate} />
         )}
-      </SafeAreaView>
+      </SafeAreaFrame>
     </SafeAreaProvider>
+  );
+}
+
+/**
+ * Fabric's RNCSafeAreaViewShadowNode crashes in the Android 16 release build.
+ * Keep the safe-area provider for inset measurements, but render a core View
+ * with equivalent padding instead of mounting that native shadow node.
+ */
+function SafeAreaFrame({ children }: { children: React.ReactNode }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[styles.safeArea, {
+      paddingTop: insets.top,
+      paddingRight: insets.right,
+      paddingBottom: insets.bottom,
+      paddingLeft: insets.left,
+    }]}>
+      {children}
+    </View>
   );
 }
 
@@ -467,11 +499,16 @@ function TicketDeliveryScreen({
 
 function TicketScreen({
   onBack,
+  onRefreshTicket,
   ticket,
 }: {
   onBack: () => void;
+  onRefreshTicket: (ticket: TicketivWalletTicket) => Promise<void>;
   ticket: TicketivWalletTicket | null;
 }) {
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+
   if (!ticket) {
     return (
       <ScrollView contentContainerStyle={styles.screen}>
@@ -489,6 +526,22 @@ function TicketScreen({
   const description = describeTicketivWalletTicket(ticket);
   const qrPayload = qrPayloadForTicketivWalletTicket(ticket);
   const statusLabel = ticket.status.replaceAll("_", " ").toUpperCase();
+  const guide = ticket.companion?.guide ?? null;
+  const offlineExpiry = ticket.offlineExpiresAt ? Date.parse(ticket.offlineExpiresAt) : Number.NaN;
+  const canUseOffline = Boolean(qrPayload) && Number.isFinite(offlineExpiry) && offlineExpiry > Date.now();
+
+  async function refreshGuide() {
+    if (refreshing || !ticket) return;
+    setRefreshing(true);
+    setRefreshError(null);
+    try {
+      await onRefreshTicket(ticket);
+    } catch (error) {
+      setRefreshError(error instanceof Error ? error.message : "Can't refresh right now. Your saved ticket is still here.");
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.ticketScreen}>
@@ -535,6 +588,24 @@ function TicketScreen({
           <Text style={styles.ticketMetaLabel}>TICKET TYPE</Text>
           <Text style={styles.ticketMetaValue}>{ticket.ticketTypeName ?? "General"}</Text>
         </View>
+      </View>
+
+      <View style={styles.doorReady}>
+        <Text style={styles.doorReadyTitle}>READY FOR THE DOOR</Text>
+        <Text style={styles.doorReadyBody}>
+          {canUseOffline
+            ? "✓ Your ticket is saved on this phone for offline entry."
+            : "Your ticket needs an updated valid QR before entry. Reopen the ticket link while connected."}
+        </Text>
+        {guide?.entrance ? <Text style={styles.doorReadyBody}>Entrance: {guide.entrance}</Text> : null}
+        {guide?.doorsOpenAt ? <Text style={styles.doorReadyBody}>Doors: {new Date(guide.doorsOpenAt).toLocaleTimeString("en-GB", { timeZone: ticket.companion?.timeZone ?? "Africa/Mbabane", hour: "2-digit", minute: "2-digit" })}</Text> : null}
+        <Text style={styles.doorReadyHint}>Updates are saved with the ticket. Refresh while online before leaving.</Text>
+        {ticket.deliveryToken ? (
+          <Pressable accessibilityRole="button" disabled={refreshing} onPress={() => void refreshGuide()} style={styles.refreshTicketButton}>
+            <Text style={styles.refreshTicketText}>{refreshing ? "Refreshing event details…" : "Refresh event updates"}</Text>
+          </Pressable>
+        ) : null}
+        {refreshError ? <Text accessibilityLiveRegion="polite" style={styles.invalidTicketMessage}>{refreshError}</Text> : null}
       </View>
 
       <TicketCompanion ticket={ticket} onOpenPath={(path) => void openWebPath(path)} />
@@ -902,6 +973,12 @@ const styles = StyleSheet.create({
   },
   invalidTicketTitle: { color: colors.ink, fontSize: 17, fontWeight: "700" },
   invalidTicketMessage: { color: colors.ink3, fontSize: 13, lineHeight: 19 },
+  doorReady: { borderWidth: 1, borderColor: colors.line2, borderRadius: 10, padding: 16, backgroundColor: colors.surface, gap: 8 },
+  doorReadyTitle: { color: colors.accent, fontSize: 11, fontWeight: "800", letterSpacing: 0.5 },
+  doorReadyBody: { color: colors.ink, fontSize: 13, lineHeight: 19 },
+  doorReadyHint: { color: colors.ink3, fontSize: 12, lineHeight: 18 },
+  refreshTicketButton: { minHeight: 44, borderRadius: 8, backgroundColor: colors.accentSoft, alignItems: "center", justifyContent: "center" },
+  refreshTicketText: { color: colors.accent, fontSize: 13, fontWeight: "700" },
   ticketMeta: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.line2,

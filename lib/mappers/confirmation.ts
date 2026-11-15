@@ -35,6 +35,7 @@ export interface ConfirmationProps {
   /** Slug of the event so failed/pending states can offer a retry CTA. */
   eventSlug: string | null;
   firstTicketId: string;
+  eventId: string | null;
 }
 
 const SHORT_DATE = new Intl.DateTimeFormat("en-GB", { timeZone: DEFAULT_EVENT_TIME_ZONE, day: "numeric", month: "short" });
@@ -104,5 +105,6 @@ export function mapConfirmation(order: BuyerOrder): ConfirmationProps {
     receiptEmail: order.buyer_email ?? "",
     eventSlug: first?.event_slug ?? null,
     firstTicketId: first?.id ?? "",
+    eventId: order.event_id,
   };
 }

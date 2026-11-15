@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getPublicEventsList } from "@/lib/adapters/events"
 import { getDiscoverSection } from "@/lib/data/public/discover-feed"
 import { mapDiscoverEvent } from "@/lib/mappers/discover"
+import { resolveWhenPreset } from "@/lib/data/public/search"
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -14,6 +15,8 @@ export async function GET(req: NextRequest) {
       ? "past" as const
       : "current" as const
   const now = Date.now()
+  // Match the same date semantics as web Discover and Search for native clients.
+  const preset = resolveWhenPreset(when, new Date(now))
 
   // Discover sections share their windows with the server-rendered page (lib/data/public/discover-feed).
   if (lifecycle === "current" && (when === "thisWeek" || when === "upcoming")) {
@@ -28,6 +31,8 @@ export async function GET(req: NextRequest) {
     category,
     lifecycle,
     nowMs: now,
+    startsAfter: preset.startsAfter ?? undefined,
+    startsBefore: preset.startsBefore ?? undefined,
   })
 
   return NextResponse.json({
