@@ -74,7 +74,10 @@ export default async function GuestEventCompanionPage({
     ? `${formatInTimeZone(ticket.event_starts_at, { weekday: "short", day: "numeric", month: "short" }, zone)} · ${formatEventClock(ticket.event_starts_at, zone)}`
     : "Date to be confirmed";
   const directions = [ticket.venue_name, ticket.venue_address, ticket.city].filter(Boolean).join(", ");
-  const updates = updatesRes.data ?? [];
+  // The guide tables are not yet represented in generated Supabase types.
+  // Describe the selected columns explicitly so JSX callbacks remain typed.
+  const updates: Array<{ id: string; title: string; body: string | null; created_at: string }> =
+    updatesRes.data ?? [];
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col gap-5 px-5 py-8">
       <Link href={`/t/${token}`} className="text-[13px] font-semibold text-accent">← Back to your ticket</Link>
