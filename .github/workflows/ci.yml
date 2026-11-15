@@ -471,7 +471,7 @@ jobs:
             --read-only \
             --agent no \
             --output-format json \
-            "select secret as cron_secret from vault.decrypted_secrets where name = 'ops_alert_cron_secret' limit 1")"
+            "select decrypted_secret as cron_secret from vault.decrypted_secrets where name = 'ops_alert_cron_secret' limit 1")"
           CRON_SECRET="$(printf '%s' "$cron_query_output" \
             | jq -er '.. | objects | select(.cron_secret? != null) | .cron_secret' \
             | sed -n '1p')"
