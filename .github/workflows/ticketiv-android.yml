@@ -12,6 +12,7 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - "scripts/*play*.mjs"
+      - "scripts/android-launch-smoke.sh"
       - "scripts/tests/play-listings.test.mjs"
       - ".github/workflows/play-*.yml"
   # Same filter as pull_request: main merges that touch no Android-relevant
@@ -30,6 +31,7 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - "scripts/*play*.mjs"
+      - "scripts/android-launch-smoke.sh"
       - "scripts/tests/play-listings.test.mjs"
       - ".github/workflows/play-*.yml"
   workflow_dispatch:
@@ -100,6 +102,16 @@ jobs:
 
       - name: Build unsigned release AAB
         run: pnpm --filter @ticketiv/app-consumer native:bundle:${{ matrix.target }}
+
+      # A green Gradle build alone does not prove R8 was applied. Require the
+      # mapping output for both Play and Huawei release variants.
+      - name: Verify release DEX optimization was enabled
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapping="apps/ticketiv/android/app/build/outputs/mapping/${{ matrix.target }}Release/mapping.txt"
+          test -s "$mapping"
+          echo "R8 mapping present for ${{ matrix.target }}Release" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload release bundle contract
         uses: actions/upload-artifact@v4
@@ -198,6 +210,7 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_6
+          cores: 4
           disable-animations: true
           script: bash scripts/android-launch-smoke.sh "$RUNNER_TEMP/ticketiv-play-smoke.apk"
 
@@ -209,6 +222,7 @@ jobs:
           path: |
             ${{ runner.temp }}/ticketiv-android-smoke.log
             ${{ runner.temp }}/ticketiv-android-window.xml
+            ${{ runner.temp }}/ticketiv-android-window.png
           if-no-files-found: ignore
           retention-days: 7
 
@@ -315,6 +329,14 @@ jobs:
           TICKETIV_UPLOAD_KEY_PASSWORD: ${{ secrets.TICKETIV_UPLOAD_KEY_PASSWORD }}
         run: pnpm --filter @ticketiv/app-consumer native:bundle:play
 
+      - name: Require R8 mapping for signed Play release
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapping="apps/ticketiv/android/app/build/outputs/mapping/playRelease/mapping.txt"
+          test -s "$mapping"
+          echo "R8 mapping verified for upload-signed attendee Play bundle" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Verify signature and publish certificate fingerprint
         id: signature
         shell: bash
@@ -418,6 +440,7 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_6
+          cores: 4
           disable-animations: true
           script: bash scripts/android-launch-smoke.sh apps/ticketiv/android/app/build/outputs/apk/play/release/app-play-release.apk
 
@@ -429,6 +452,7 @@ jobs:
           path: |
             ${{ runner.temp }}/ticketiv-android-smoke.log
             ${{ runner.temp }}/ticketiv-android-window.xml
+            ${{ runner.temp }}/ticketiv-android-window.png
           if-no-files-found: ignore
           retention-days: 7
 
