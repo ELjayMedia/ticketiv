@@ -101,6 +101,16 @@ jobs:
       - name: Build unsigned release AAB
         run: pnpm --filter @ticketiv/app-consumer native:bundle:${{ matrix.target }}
 
+      # A green Gradle build alone does not prove R8 was applied. Require the
+      # mapping output for both Play and Huawei release variants.
+      - name: Verify release DEX optimization was enabled
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapping="apps/ticketiv/android/app/build/outputs/mapping/${{ matrix.target }}Release/mapping.txt"
+          test -s "$mapping"
+          echo "R8 mapping present for ${{ matrix.target }}Release" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload release bundle contract
         uses: actions/upload-artifact@v4
         with:
@@ -314,6 +324,14 @@ jobs:
           TICKETIV_UPLOAD_KEY_ALIAS: ${{ secrets.TICKETIV_UPLOAD_KEY_ALIAS }}
           TICKETIV_UPLOAD_KEY_PASSWORD: ${{ secrets.TICKETIV_UPLOAD_KEY_PASSWORD }}
         run: pnpm --filter @ticketiv/app-consumer native:bundle:play
+
+      - name: Require R8 mapping for signed Play release
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapping="apps/ticketiv/android/app/build/outputs/mapping/playRelease/mapping.txt"
+          test -s "$mapping"
+          echo "R8 mapping verified for upload-signed attendee Play bundle" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify signature and publish certificate fingerprint
         id: signature
