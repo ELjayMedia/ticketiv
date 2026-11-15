@@ -466,9 +466,11 @@ jobs:
           # secret. Capture the read-only query output without writing it to
           # the Actions log, mask it immediately, and pass it directly to
           # Coolify's encrypted environment store.
+          # Not --read-only: supabase_read_only_user can SELECT the Vault view
+          # but has no execute grant on vault._crypto_aead_det_decrypt, so it
+          # cannot see decrypted_secret. The statement below is a plain SELECT.
           cron_query_output="$(supabase db query \
             --remote="$PROJECT_REF" \
-            --read-only \
             --agent no \
             --output-format json \
             "select decrypted_secret as cron_secret from vault.decrypted_secrets where name = 'ops_alert_cron_secret' limit 1")"
