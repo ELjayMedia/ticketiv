@@ -46,4 +46,18 @@ describe("Ticketiv native discovery", () => {
       "Events are unavailable right now."
     );
   });
+  it("uses the same date presets as web without changing the default request", async () => {
+    const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ events: [] }) });
+    await fetchTicketivDiscoverEvents(fetcher, "https://ticketiv.app", "tonight");
+    expect(fetcher).toHaveBeenLastCalledWith(
+      "https://ticketiv.app/api/discover/events?limit=24&when=tonight",
+      { headers: { accept: "application/json" } }
+    );
+    await fetchTicketivDiscoverEvents(fetcher, "https://ticketiv.app", "weekend");
+    expect(fetcher).toHaveBeenLastCalledWith(
+      "https://ticketiv.app/api/discover/events?limit=24&when=weekend",
+      { headers: { accept: "application/json" } }
+    );
+  });
+
 });

@@ -837,7 +837,6 @@ function ScannerScreen({
           {
             ticketCode: value,
             gate: activeScanner.gate,
-            queueOnNetworkError: true,
           }
         );
 
@@ -890,6 +889,13 @@ function ScannerScreen({
       return;
     }
 
+    if (result.queue.ok && (result.queue.rejected.length > 0 || result.queue.pendingCount > 0)) {
+      setSyncStatus("error");
+      setSyncMessage(
+        `${result.queue.rejected.length} scan conflict(s) need supervisor review; ${result.queue.pendingCount} scan(s) still queued. Entry data refreshed.`
+      );
+      return;
+    }
     setSyncStatus("ready");
     setSyncMessage(
       `Manifest ready. ${result.state.manifest?.items.length ?? 0} tickets available offline.`

@@ -202,7 +202,7 @@ describe("Access scanner screen controller", () => {
     });
     const fetch = vi.fn<AccessSyncClientConfig["fetch"]>()
       .mockResolvedValueOnce(jsonResponse(refreshedManifest))
-      .mockResolvedValueOnce(jsonResponse({ synced: ["TIV-1"] }));
+      .mockResolvedValueOnce(jsonResponse({ inserted: 1, results: [{ code: "TIV-1", outcome: "validated", idempotent: false }] }));
     const storage = storageAdapter();
     const onSyncResult = vi.fn();
     const controller = createAccessScannerScreenController({
@@ -227,6 +227,31 @@ describe("Access scanner screen controller", () => {
       expect.objectContaining({ offlineQueueCount: 0 })
     );
     expect(storage.values.size).toBe(1);
+  });
+
+  it("escalates gate conflicts instead of reporting a fully successful sync", async () => {
+    const queuedScanner = createAccessScannerSessionState({
+      ...scannerState(),
+      offlineQueue: [{
+        code: "TIV-1",
+        eventId: "event-1",
+        deviceId: "device-1",
+        sessionId: "session-1",
+        gate: "Gate A",
+        scannedAt: SCANNED_AT,
+      }],
+    });
+    const fetch = vi.fn<AccessSyncClientConfig["fetch"]>()
+      .mockResolvedValueOnce(jsonResponse(manifest()))
+      .mockResolvedValueOnce(jsonResponse({ results: [{ code: "TIV-1", outcome: "duplicate" }] }));
+    const controller = createAccessScannerScreenController({
+      config: { baseUrl: BASE_URL, fetch },
+      state: createAccessAppShellState({ scanner: queuedScanner }),
+    });
+    await expect(controller.syncNow()).resolves.toMatchObject({
+      ok: false,
+      error: { code: "sync_failed", message: expect.stringContaining("supervisor review") },
+    });
   });
 
   it("surfaces sync errors without dropping the active scanner session", async () => {

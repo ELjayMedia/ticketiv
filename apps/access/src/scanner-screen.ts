@@ -342,6 +342,18 @@ function scanSummary(result: AccessQrScanResult): AccessScannerScreenScanSummary
 function firstSyncError(result: AccessFullSyncResult): AccessSyncError | null {
   if (!result.manifest.ok) return result.manifest.error;
   if (!result.queue.ok) return result.queue.error;
+  if (result.queue.rejected.length > 0) {
+    return {
+      code: "sync_failed",
+      message: `${result.queue.rejected.length} offline entry conflict(s) need supervisor review.`,
+    };
+  }
+  if (result.queue.pendingCount > 0) {
+    return {
+      code: "sync_invalid",
+      message: `${result.queue.pendingCount} scan(s) are not acknowledged and remain queued.`,
+    };
+  }
   return null;
 }
 
