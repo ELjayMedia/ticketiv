@@ -118,7 +118,10 @@ jobs:
       - name: Upload unsigned release APK
         uses: actions/upload-artifact@v4
         with:
-          name: ticketiv-${{ matrix.target }}-apk-unsigned-${{ github.run_number }}-${{ github.run_attempt }}
+          # No run_attempt: "Re-run failed jobs" reuses this upload without rebuilding,
+          # so launch-smoke must find it under the same name on every attempt.
+          name: ticketiv-${{ matrix.target }}-apk-unsigned-${{ github.run_number }}
+          overwrite: true
           path: apps/ticketiv/android/app/build/outputs/apk/${{ matrix.target }}/release/*.apk
           if-no-files-found: error
           retention-days: 3
@@ -143,7 +146,7 @@ jobs:
       - name: Download exact unsigned Play release APK
         uses: actions/download-artifact@v4
         with:
-          name: ticketiv-play-apk-unsigned-${{ github.run_number }}-${{ github.run_attempt }}
+          name: ticketiv-play-apk-unsigned-${{ github.run_number }}
           path: ${{ runner.temp }}/ticketiv-unsigned
 
       # Release builds in PRs have no signing secrets. Sign the APK only to
