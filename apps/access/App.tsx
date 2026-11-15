@@ -14,7 +14,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Camera, CameraType } from "react-native-camera-kit";
 import { colors } from "@ticketiv/tokens";
 
@@ -253,7 +253,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
-      <SafeAreaView style={styles.safeArea} edges={["top", "right", "bottom", "left"]}>
+      <SafeAreaFrame>
         <View style={styles.appBar}>
           <View style={styles.brandRow}>
             <Image source={require("./src/assets/brand-mark.png")} style={styles.brandMark} accessibilityIgnoresInvertColors />
@@ -296,8 +296,27 @@ export default function App() {
         ) : (
           <SignInScreen onSignedIn={updateAccount} onUsePairing={() => setAuthMode("pair")} />
         )}
-      </SafeAreaView>
+      </SafeAreaFrame>
     </SafeAreaProvider>
+  );
+}
+
+/**
+ * Fabric's RNCSafeAreaViewShadowNode crashes in the Android 16 release build.
+ * Keep the safe-area provider for inset measurements, but render a core View
+ * with equivalent padding instead of mounting that native shadow node.
+ */
+function SafeAreaFrame({ children }: { children: React.ReactNode }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[styles.safeArea, {
+      paddingTop: insets.top,
+      paddingRight: insets.right,
+      paddingBottom: insets.bottom,
+      paddingLeft: insets.left,
+    }]}>
+      {children}
+    </View>
   );
 }
 

@@ -15,14 +15,13 @@ import {
   View,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "@ticketiv/tokens";
 
 import { TicketCompanion } from "./TicketCompanion";
 
 import {
   applyTicketivConsumerDeepLink,
-  bootTicketivConsumerAppShell,
   canUseCachedTicketivTicketDelivery,
   createTicketivConsumerAppShellState,
   describeTicketivWalletTicket,
@@ -47,6 +46,7 @@ import {
 } from "./src";
 import { getTicketivAndroidSecureStorage } from "./src/android-secure-storage";
 import { getTicketivAndroidBrowserSession } from "./src/android-browser-session";
+import { bootTicketivConsumerAppSafely } from "./src/startup";
 
 type DiscoveryStatus = "loading" | "ready" | "empty" | "error";
 const browserSession = getTicketivAndroidBrowserSession();
@@ -57,6 +57,8 @@ export default function App() {
     createTicketivConsumerAppShellState()
   );
   const [booting, setBooting] = useState(true);
+  const [startupFailed, setStartupFailed] = useState(false);
+  const [bootAttempt, setBootAttempt] = useState(0);
 
   const applyDeepLink = useCallback((url: string | null) => {
     if (!url) return;
@@ -66,21 +68,35 @@ export default function App() {
   useEffect(() => {
     let active = true;
 
-    void Linking.getInitialURL()
-      .then((initialUrl) => bootTicketivConsumerAppShell({ initialUrl, storage: secureStorage }))
-      .then((nextShell) => {
-        if (active) setShell(nextShell);
-      })
-      .finally(() => {
+    async function start() {
+      try {
+        const result = await bootTicketivConsumerAppSafely({
+          readInitialUrl: () => Linking.getInitialURL(),
+          storage: secureStorage,
+        });
+        if (!active) return;
+
+        if (result.ok) {
+          setShell(result.state);
+          setStartupFailed(false);
+        } else {
+          // Never discard an offline wallet or clear Android Keystore on failure.
+          console.error("[Ticketiv] Startup data could not be loaded", result.error);
+          setStartupFailed(true);
+        }
+      } finally {
         if (active) setBooting(false);
-      });
+      }
+    }
+
+    void start();
 
     const subscription = Linking.addEventListener("url", ({ url }) => applyDeepLink(url));
     return () => {
       active = false;
       subscription.remove();
     };
-  }, [applyDeepLink]);
+  }, [applyDeepLink, bootAttempt]);
 
   const section = ticketivConsumerSectionForRoute(shell.activeRoute);
   const focused = isTicketivConsumerFocusedRoute(shell.activeRoute);
@@ -122,7 +138,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
-      <SafeAreaView style={styles.safeArea} edges={["top", "right", "bottom", "left"]}>
+      <SafeAreaFrame>
         <View style={styles.appBar}>
           <View style={styles.brandRow}>
             <Image source={require("./src/assets/brand-mark.png")} style={styles.brandMark} accessibilityIgnoresInvertColors />
@@ -140,6 +156,20 @@ export default function App() {
         <View style={styles.content}>
           {booting ? (
             <CenteredStatus label="Opening Ticketiv" />
+          ) : startupFailed ? (
+            <ScrollView contentContainerStyle={styles.screen}>
+              <StateBand
+                actionLabel="Try again"
+                message="Ticketiv could not load its saved data. If you have offline tickets, do not clear app data or uninstall. Try opening again."
+                onAction={() => {
+                  setBooting(true);
+                  setStartupFailed(false);
+                  setBootAttempt((attempt) => attempt + 1);
+                }}
+                title="Could not open Ticketiv"
+                tone="error"
+              />
+            </ScrollView>
           ) : shell.activeRoute.route === "discover" ? (
             <DiscoverScreen onOpenEvent={applyDeepLink} />
           ) : shell.activeRoute.route === "tickets" ? (
@@ -165,11 +195,30 @@ export default function App() {
           )}
         </View>
 
-        {focused ? null : (
+        {focused || booting || startupFailed ? null : (
           <BottomNavigation active={section} onNavigate={navigate} />
         )}
-      </SafeAreaView>
+      </SafeAreaFrame>
     </SafeAreaProvider>
+  );
+}
+
+/**
+ * Fabric's RNCSafeAreaViewShadowNode crashes in the Android 16 release build.
+ * Keep the safe-area provider for inset measurements, but render a core View
+ * with equivalent padding instead of mounting that native shadow node.
+ */
+function SafeAreaFrame({ children }: { children: React.ReactNode }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[styles.safeArea, {
+      paddingTop: insets.top,
+      paddingRight: insets.right,
+      paddingBottom: insets.bottom,
+      paddingLeft: insets.left,
+    }]}>
+      {children}
+    </View>
   );
 }
 
