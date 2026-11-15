@@ -14,9 +14,24 @@ on:
       - "scripts/*play*.mjs"
       - "scripts/tests/play-listings.test.mjs"
       - ".github/workflows/play-*.yml"
+  # Same filter as pull_request: main merges that touch no Android-relevant
+  # path were already validated on their PR and cannot change the APK/AAB
+  # (TICK-474 FinOps; ~425 min/30 days of redundant builds).
   push:
     branches:
       - main
+    paths:
+      - "apps/access/**"
+      - "packages/adapters/**"
+      - "packages/shared/**"
+      - "packages/tokens/**"
+      - ".github/workflows/access-android.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "scripts/*play*.mjs"
+      - "scripts/tests/play-listings.test.mjs"
+      - ".github/workflows/play-*.yml"
   workflow_dispatch:
     inputs:
       build_upload_signed_play:
