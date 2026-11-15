@@ -469,15 +469,25 @@ jobs:
           # Not --read-only: supabase_read_only_user can SELECT the Vault view
           # but has no execute grant on vault._crypto_aead_det_decrypt, so it
           # cannot see decrypted_secret. The statement below is a plain SELECT.
-          cron_query_output="$(supabase db query \
+          # Without --read-only the CLI asks for confirmation on hosted targets,
+          # hence --yes. On failure the output is a CLI/SQL error (never the
+          # secret), so surface it instead of exiting silently.
+          cron_query_err="$(mktemp)"
+          if ! cron_query_output="$(supabase db query \
             --remote="$PROJECT_REF" \
+            --yes \
             --agent no \
             --output-format json \
-            "select decrypted_secret as cron_secret from vault.decrypted_secrets where name = 'ops_alert_cron_secret' limit 1")"
+            "select decrypted_secret as cron_secret from vault.decrypted_secrets where name = 'ops_alert_cron_secret' limit 1" 2>"$cron_query_err")"; then
+            echo "::error::Supabase Vault query failed: $(cat "$cron_query_err" | tr '\n' ' ' | head -c 600) $(printf '%s' "$cron_query_output" | tr '\n' ' ' | head -c 600)"
+            rm -f "$cron_query_err"
+            exit 1
+          fi
+          rm -f "$cron_query_err"
           CRON_SECRET="$(printf '%s' "$cron_query_output" \
             | jq -er '.. | objects | select(.cron_secret? != null) | .cron_secret' \
-            | sed -n '1p')"
-          test -n "$CRON_SECRET" || { echo "::error::Supabase Vault did not return the Ticketiv cron secret"; exit 1; }
+            | sed -n '1p' || true)"
+          test -n "$CRON_SECRET" || { echo "::error::Supabase Vault did not return the Ticketiv cron secret (query output shape: $(printf '%s' "$cron_query_output" | jq -c '[paths(scalars)|map(tostring)|join(".")]' 2>/dev/null | head -c 300 || echo unparseable))"; exit 1; }
           echo "::add-mask::$CRON_SECRET"
           unset cron_query_output
 
