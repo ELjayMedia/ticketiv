@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
+import { duplicateGuardMessage } from "@/lib/events/duplicates-core"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
@@ -97,7 +98,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     .select("id, title, description, category, cover_image_url, status, visibility, org_id")
     .maybeSingle()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return NextResponse.json({ error: duplicateGuardMessage(error) ?? error.message }, { status: duplicateGuardMessage(error) ? 409 : 400 })
 
   await admin.from("audit_log").insert({
     org_id: event.org_id,

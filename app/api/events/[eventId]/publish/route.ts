@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 
 import { notifyEventChanged, notifyEventPublished } from "@/lib/notifications"
 import { getEffectivePaymentProvidersForEvent } from "@/lib/payments/availability"
+import { duplicateGuardMessage, unresolvedBlocking, type DuplicateMatch } from "@/lib/events/duplicates-core"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getAuthUser } from "@/lib/auth/session"
 
@@ -55,6 +56,7 @@ async function buildReadiness(admin: ReturnType<typeof createAdminClient>, event
     { count: payoutCount },
     { data: liveStatsRow },
     effectivePaymentProviders,
+    duplicateRes,
   ] = await Promise.all([
     admin.from("ticket_types").select("id, sales_status").eq("event_id", eventId),
     admin.from("event_dates").select("id", { count: "exact", head: true }).eq("event_id", eventId),
@@ -62,7 +64,9 @@ async function buildReadiness(admin: ReturnType<typeof createAdminClient>, event
     admin.from("payout_accounts").select("id", { count: "exact", head: true }).eq("org_id", orgId),
     admin.from("event_live_stats").select("event_id").eq("event_id", eventId).maybeSingle(),
     getEffectivePaymentProvidersForEvent(eventId),
+    (admin.rpc as any)("fn_event_duplicate_check", { p_event_id: eventId }),
   ])
+  const duplicateBlocks = unresolvedBlocking((duplicateRes?.data ?? []) as DuplicateMatch[])
 
   const tickets = ticketIdRows ?? []
   const sellableTickets = tickets.filter((tt: any) => tt.sales_status === "on_sale" || tt.sales_status === "paused")
@@ -142,6 +146,18 @@ async function buildReadiness(admin: ReturnType<typeof createAdminClient>, event
       recommended: false,
       step: "policies",
       hint: "Choose at least one Ticketiv-supported payment method whose platform credentials are operational.",
+    },
+    {
+      key: "not_duplicate",
+      label: "Not a copy of another organiser's event",
+      complete: !duplicateRes?.error && duplicateBlocks.length === 0,
+      recommended: false,
+      step: "basics",
+      hint: duplicateRes?.error
+        ? "Ticketiv couldn't check for matching events. Try again in a moment."
+        : duplicateBlocks.length > 0
+          ? `This matches "${duplicateBlocks[0].title}" by ${duplicateBlocks[0].orgName}. Change the details, or ask support for permission from the notice at the top of the form.`
+          : "No other organiser has a matching event.",
     },
     {
       key: "image",
@@ -228,7 +244,10 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     .select("id, org_id, title, category, venue_id, starts_at, ends_at, status, visibility, cover_image_url, refund_policy, confirmation_message, payment_providers")
     .maybeSingle()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) {
+    const duplicate = duplicateGuardMessage(error)
+    return NextResponse.json({ error: duplicate ?? error.message, readiness }, { status: duplicate ? 409 : 400 })
+  }
 
   await admin.from("audit_log").insert({
     org_id: event.org_id,

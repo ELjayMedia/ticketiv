@@ -1,4 +1,5 @@
 import { eventTimeZone, parseEventLocalDateTime } from "@ticketiv/shared"
+import { duplicateGuardMessage } from "@/lib/events/duplicates-core"
 import { NextResponse, type NextRequest } from "next/server"
 
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -94,7 +95,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     .select("id, org_id, starts_at, ends_at, tz")
     .maybeSingle()
 
-  if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 })
+  if (updateError) return NextResponse.json({ error: duplicateGuardMessage(updateError) ?? updateError.message }, { status: duplicateGuardMessage(updateError) ? 409 : 400 })
 
   await admin.from("event_dates").delete().eq("event_id", eventId)
   const { data: savedDates, error: dateError } = await admin
