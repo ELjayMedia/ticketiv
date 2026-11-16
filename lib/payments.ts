@@ -235,26 +235,32 @@ async function getOrderAllowedProviders(orderId: string): Promise<string[]> {
   const admin = createAdminClient()
   const { data, error } = await admin
     .from("order_items")
-    .select("ticket_types(events(id, payment_providers))")
+    .select("ticket_types(id, payment_providers, events(id, payment_providers))")
     .eq("order_id", orderId)
 
   if (error || !data) return []
 
-  const lockByEvent = new Map<string, string[]>()
+  // Event locks and ticket-type locks narrow the same way: an empty list adds
+  // no restriction, a non-empty one is intersected with the rest.
+  const locks = new Map<string, string[]>()
   for (const row of data as any[]) {
-    const ev = row?.ticket_types?.events
+    const ticket = row?.ticket_types
+    const ev = ticket?.events
     if (ev?.id && Array.isArray(ev.payment_providers) && ev.payment_providers.length > 0) {
-      lockByEvent.set(ev.id, ev.payment_providers.map(String))
+      locks.set(`event:${ev.id}`, ev.payment_providers.map(String))
+    }
+    if (ticket?.id && Array.isArray(ticket.payment_providers) && ticket.payment_providers.length > 0) {
+      locks.set(`ticket:${ticket.id}`, ticket.payment_providers.map(String))
     }
   }
 
-  const locks = [...lockByEvent.values()]
-  if (locks.length === 0) return []
+  const all = [...locks.values()]
+  if (all.length === 0) return []
 
-  let allowed = locks[0]
-  for (const lock of locks.slice(1)) allowed = allowed.filter((p) => lock.includes(p))
+  let allowed = all[0]
+  for (const lock of all.slice(1)) allowed = allowed.filter((p) => lock.includes(p))
   if (allowed.length === 0) {
-    throw new Error("This order's events have no payment provider in common")
+    throw new Error("The tickets in this order have no payment method in common")
   }
   return allowed
 }

@@ -23,7 +23,7 @@ export default async function EditTicketTypePage({
 
   const { data: ticketType } = await supabase
     .from("ticket_types")
-    .select("id, name, price_cents, quota, per_user_limit, sales_status")
+    .select("id, name, price_cents, currency, quota, per_user_limit, sales_status, payment_providers")
     .eq("id", ticketId)
     .eq("event_id", eventId)
     .maybeSingle()

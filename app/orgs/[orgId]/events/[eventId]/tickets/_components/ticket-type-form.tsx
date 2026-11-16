@@ -6,6 +6,7 @@ import { FormField } from "@/components/quiet/ui/form"
 import { Button } from "@/components/quiet/ui/button"
 import { Card, CardBody } from "@/components/quiet/ui/card"
 import { purchaseLimitInputValue } from "@/lib/tickets/purchase-limits"
+import { TicketPaymentMethodsField, useTicketPaymentOptions } from "@/components/organizer/ticket-payment-methods-field"
 
 type SalesStatus = "on_sale" | "paused" | "sold_out" | "hidden"
 
@@ -19,6 +20,8 @@ interface TicketTypeFormProps {
     quota: number
     per_user_limit: number | null
     sales_status?: string
+    currency?: string | null
+    payment_providers?: string[] | null
   }
 }
 
@@ -46,6 +49,9 @@ export function TicketTypeForm({
   const [salesStatus, setSalesStatus] = useState<SalesStatus>(
     (defaultValues?.sales_status as SalesStatus) ?? "on_sale"
   )
+  const [paymentProviders, setPaymentProviders] = useState<string[]>(defaultValues?.payment_providers ?? [])
+  const paymentOptions = useTicketPaymentOptions(eventId)
+  const currency = defaultValues?.currency ?? "SZL"
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -67,6 +73,7 @@ export function TicketTypeForm({
             quota: parseInt(quota, 10),
             per_user_limit: perUserLimit,
             sales_status: salesStatus,
+            payment_providers: paymentProviders,
           }),
         })
       } else {
@@ -79,8 +86,9 @@ export function TicketTypeForm({
             price_cents: Math.round(parseFloat(price) * 100),
             quota: parseInt(quota, 10),
             per_user_limit: perUserLimit,
-            currency: "SZL",
+            currency,
             channels: [],
+            payment_providers: paymentProviders,
           }),
         })
       }
@@ -153,6 +161,13 @@ export function TicketTypeForm({
               </select>
             </label>
           )}
+          <TicketPaymentMethodsField
+            data={paymentOptions}
+            value={paymentProviders}
+            onChange={setPaymentProviders}
+            currency={currency}
+            disabled={loading}
+          />
           {error && <p className="text-sm text-danger">{error}</p>}
         </CardBody>
       </Card>

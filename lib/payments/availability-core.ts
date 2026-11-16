@@ -154,3 +154,81 @@ export function resolveEffectivePaymentProviders(
 
   return effective
 }
+
+/**
+ * Clean an organiser-supplied payment-method list for a ticket type or event:
+ * known checkout providers only, no duplicates, catalog order. An empty list
+ * means "every method the event accepts" (the default).
+ */
+export function parsePaymentProviderList(
+  raw: unknown,
+): { ok: true; providers: CheckoutPaymentProvider[] } | { ok: false; error: string } {
+  if (raw == null) return { ok: true, providers: [] }
+  if (!Array.isArray(raw)) return { ok: false, error: "Payment methods must be a list" }
+  const unknown = raw.filter((value) => !isCheckoutProvider(value))
+  if (unknown.length > 0) return { ok: false, error: "Choose payment methods Ticketiv supports" }
+  const chosen = new Set(raw as CheckoutPaymentProvider[])
+  return { ok: true, providers: CHECKOUT_PROVIDERS.filter((provider) => chosen.has(provider)) }
+}
+
+export interface TicketTypePaymentRule {
+  id: string
+  name?: string | null
+  currency: string | null
+  /** Empty or null = every method the event accepts. */
+  payment_providers: string[] | null
+}
+
+/**
+ * Methods a buyer can use for one ticket type: operational for its currency,
+ * allowed by the event, and allowed by the ticket type's own list.
+ */
+export function resolveTicketTypePaymentProviders(
+  operational: CheckoutPaymentProvider[],
+  eventProviders: string[],
+  ticket: TicketTypePaymentRule,
+): CheckoutPaymentProvider[] {
+  const forCurrency = filterProvidersByCurrencies(operational, ticket.currency ? [ticket.currency] : [])
+  return resolveEffectivePaymentProviders(forCurrency, [eventProviders, ticket.payment_providers ?? []])
+}
+
+/**
+ * Methods that can pay for a whole cart: every ticket type in it must accept
+ * the method. Empty when the cart mixes tickets with no method in common.
+ */
+export function resolveCartPaymentProviders(
+  operational: CheckoutPaymentProvider[],
+  eventProviders: string[],
+  tickets: ReadonlyArray<TicketTypePaymentRule>,
+): CheckoutPaymentProvider[] {
+  if (tickets.length === 0) return []
+  let effective = resolveEffectivePaymentProviders(operational, [eventProviders])
+  for (const ticket of tickets) {
+    const allowed = resolveTicketTypePaymentProviders(operational, eventProviders, ticket)
+    effective = effective.filter((provider) => allowed.includes(provider))
+  }
+  return effective
+}
+
+/**
+ * Why an organiser's per-ticket method list can't be saved, or null when it
+ * can. Methods must take the ticket's currency and, when the event itself is
+ * limited to some methods, be among them.
+ */
+export function ticketPaymentMethodsProblem(
+  providers: ReadonlyArray<CheckoutPaymentProvider>,
+  eventProviders: ReadonlyArray<string>,
+  currency: string | null,
+): string | null {
+  if (providers.length === 0) return null
+  const wrongCurrency = currency ? providers.filter((p) => !providerSupportsCurrencies(p, [currency])) : []
+  if (wrongCurrency.length > 0) {
+    return `${wrongCurrency.map((p) => PAYMENT_PROVIDER_CATALOG[p].label).join(", ")} can't take ${currency} payments. Pick a method that works with this ticket's currency.`
+  }
+  const eventLock = eventProviders.filter(isCheckoutProvider)
+  const outsideEvent = eventLock.length > 0 ? providers.filter((p) => !eventLock.includes(p)) : []
+  if (outsideEvent.length > 0) {
+    return `This event doesn't accept ${outsideEvent.map((p) => PAYMENT_PROVIDER_CATALOG[p].label).join(", ")}. Add it under Payments & policies first, or pick another method.`
+  }
+  return null
+}

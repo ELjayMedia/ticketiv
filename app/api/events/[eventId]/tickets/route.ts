@@ -11,6 +11,8 @@ import {
   isValidOptionalPurchaseLimit,
   parseOptionalPurchaseLimit,
 } from "@/lib/tickets/purchase-limits"
+import { parsePaymentProviderList } from "@/lib/payments/availability-core"
+import { ticketPaymentMethodsError } from "@/lib/payments/ticket-payment-methods"
 
 type RouteContext = { params: Promise<{ eventId: string }> }
 
@@ -44,7 +46,9 @@ function parseTicketPayload(body: any) {
   const onlineQuota = body.online_quota == null || body.online_quota === "" ? quota : Number.parseInt(String(body.online_quota), 10)
   const onlinePerOrderLimit = parseOptionalPurchaseLimit(body.online_per_order_limit)
 
-  return { name, price, quota, perUserLimit, currency, salesStatus, isReservedSeating, onlineQuota, onlinePerOrderLimit }
+  const paymentProviders = parsePaymentProviderList(body.payment_providers)
+
+  return { name, price, quota, perUserLimit, currency, salesStatus, isReservedSeating, onlineQuota, onlinePerOrderLimit, paymentProviders }
 }
 
 function validateTicketPayload(input: ReturnType<typeof parseTicketPayload>) {
@@ -58,6 +62,7 @@ function validateTicketPayload(input: ReturnType<typeof parseTicketPayload>) {
   if (input.onlineQuota > input.quota) return "Online channel quota cannot exceed total quantity"
   if (!isValidOptionalPurchaseLimit(input.onlinePerOrderLimit)) return "Online per-order limit must be a positive whole number or left blank"
   if (!isPerOrderLimitWithinBuyerLimit(input.perUserLimit, input.onlinePerOrderLimit)) return "Online per-order limit cannot exceed the per-buyer limit"
+  if (!input.paymentProviders.ok) return input.paymentProviders.error
   return null
 }
 
@@ -73,7 +78,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
   const { data, error } = await admin
     .from("ticket_types")
-    .select("id, name, price_cents, currency, quota, per_user_limit, sales_status, is_reserved_seating, created_at, ticket_type_channels(channel, quota, per_order_limit)")
+    .select("id, name, price_cents, currency, quota, per_user_limit, sales_status, is_reserved_seating, payment_providers, created_at, ticket_type_channels(channel, quota, per_order_limit)")
     .eq("event_id", eventId)
     .order("created_at", { ascending: true })
 
@@ -95,6 +100,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const input = parseTicketPayload(body)
   const validationError = validateTicketPayload(input)
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 })
+  const paymentProviders = input.paymentProviders.ok ? input.paymentProviders.providers : []
+  const methodsError = await ticketPaymentMethodsError(admin, eventId, paymentProviders, input.currency)
+  if (methodsError) return NextResponse.json({ error: methodsError }, { status: 400 })
 
   const { data: ticket, error } = await admin
     .from("ticket_types")
@@ -107,10 +115,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
       per_user_limit: input.perUserLimit,
       sales_status: input.salesStatus,
       is_reserved_seating: input.isReservedSeating,
+      payment_providers: paymentProviders,
       sales_paused_at: input.salesStatus === "paused" ? new Date().toISOString() : null,
       sales_pause_reason: input.salesStatus === "paused" ? "Paused from ticket builder" : null,
     })
-    .select("id, name, price_cents, currency, quota, per_user_limit, sales_status, is_reserved_seating, created_at")
+    .select("id, name, price_cents, currency, quota, per_user_limit, sales_status, is_reserved_seating, payment_providers, created_at")
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
@@ -139,6 +148,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       online_quota: input.onlineQuota,
       online_per_order_limit: input.onlinePerOrderLimit,
       is_reserved_seating: input.isReservedSeating,
+      payment_providers: paymentProviders,
     },
   })
 

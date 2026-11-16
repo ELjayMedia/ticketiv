@@ -10,6 +10,7 @@ import { purchaseLimitInputValue } from "@/lib/tickets/purchase-limits"
 import { Button } from "@/components/quiet/ui/button";
 import { Input } from "@/components/quiet/ui/form";
 import { Icon } from "@/components/quiet/ui/icon"
+import { TicketPaymentMethodsField, useTicketPaymentOptions } from "@/components/organizer/ticket-payment-methods-field"
 
 const SALES_STATUSES = [
   { value: "on_sale", label: "On sale" },
@@ -28,6 +29,8 @@ type TicketForm = {
   online_quota: string
   online_per_order_limit: string
   is_reserved_seating: boolean
+  /** Empty = every method the event accepts. */
+  payment_providers: string[]
 }
 
 function emptyTicketForm(): TicketForm {
@@ -41,6 +44,7 @@ function emptyTicketForm(): TicketForm {
     online_quota: "",
     online_per_order_limit: "",
     is_reserved_seating: false,
+    payment_providers: [],
   }
 }
 
@@ -60,6 +64,7 @@ function toForm(ticket: any): TicketForm {
     online_quota: String(channelValue(ticket, "quota") ?? ticket.quota ?? ""),
     online_per_order_limit: purchaseLimitInputValue(channelValue(ticket, "per_order_limit")),
     is_reserved_seating: Boolean(ticket.is_reserved_seating),
+    payment_providers: Array.isArray(ticket.payment_providers) ? ticket.payment_providers.map(String) : [],
   }
 }
 
@@ -70,6 +75,7 @@ export function TicketsStep({ eventId, onSaving }: { eventId: string; onSaving: 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
+  const paymentOptions = useTicketPaymentOptions(eventId)
 
   useEffect(() => {
     loadTicketTypes()
@@ -163,7 +169,7 @@ export function TicketsStep({ eventId, onSaving }: { eventId: string; onSaving: 
     }
   }
 
-  function setDraftField(id: string, field: keyof TicketForm, value: string | boolean) {
+  function setDraftField(id: string, field: keyof TicketForm, value: string | boolean | string[]) {
     setDrafts((prev) => ({ ...prev, [id]: { ...prev[id], [field]: value } }))
   }
 
@@ -194,7 +200,7 @@ export function TicketsStep({ eventId, onSaving }: { eventId: string; onSaving: 
                     <div>
                       <p className="font-medium">{ticket.name}</p>
                       <p className="text-xs text-ink-3">
-                        {ticket.currency || DEFAULT_TICKET_CURRENCY} {(ticket.price_cents / 100).toFixed(2)} • {ticket.quota} total • {purchaseLimitInputValue(ticket.per_user_limit) ? `Limit ${purchaseLimitInputValue(ticket.per_user_limit)}/buyer` : "No buyer limit"} • {ticket.sales_status ?? "on_sale"}
+                        {ticket.currency || DEFAULT_TICKET_CURRENCY} {(ticket.price_cents / 100).toFixed(2)} • {ticket.quota} total • {purchaseLimitInputValue(ticket.per_user_limit) ? `Limit ${purchaseLimitInputValue(ticket.per_user_limit)}/buyer` : "No buyer limit"} • {ticket.sales_status ?? "on_sale"} • {Array.isArray(ticket.payment_providers) && ticket.payment_providers.length > 0 ? `Pay with ${ticket.payment_providers.map((id: string) => paymentOptions?.options.find((o) => o.id === id)?.label ?? id).join(", ")} only` : "All payment methods"}
                       </p>
                     </div>
                     <button disabled={saving} onClick={() => deleteTicket(ticket.id)} className="text-danger hover:text-danger disabled:opacity-50" aria-label="Delete ticket type">
@@ -215,6 +221,16 @@ export function TicketsStep({ eventId, onSaving }: { eventId: string; onSaving: 
                     </select>
                     <Input type="number" min="0" placeholder="Online quota" value={draft.online_quota} onChange={(e) => setDraftField(ticket.id, "online_quota", e.target.value)} disabled={saving} />
                     <Input type="number" min="1" placeholder="Online per-order limit (optional)" value={draft.online_per_order_limit} onChange={(e) => setDraftField(ticket.id, "online_per_order_limit", e.target.value)} disabled={saving} />
+                  </div>
+
+                  <div className="mt-3">
+                    <TicketPaymentMethodsField
+                      data={paymentOptions}
+                      value={draft.payment_providers}
+                      onChange={(next) => setDraftField(ticket.id, "payment_providers", next)}
+                      currency={draft.currency}
+                      disabled={saving}
+                    />
                   </div>
 
                   <label className="mt-3 flex items-center gap-2 text-sm text-ink-3">
@@ -249,6 +265,13 @@ export function TicketsStep({ eventId, onSaving }: { eventId: string; onSaving: 
             <Input type="number" min="0" placeholder="Online quota" value={newTicket.online_quota} onChange={(e) => setNewTicket({ ...newTicket, online_quota: e.target.value })} disabled={saving} />
             <Input type="number" min="1" placeholder="Online per-order limit (optional)" value={newTicket.online_per_order_limit} onChange={(e) => setNewTicket({ ...newTicket, online_per_order_limit: e.target.value })} disabled={saving} />
           </div>
+          <TicketPaymentMethodsField
+            data={paymentOptions}
+            value={newTicket.payment_providers}
+            onChange={(next) => setNewTicket({ ...newTicket, payment_providers: next })}
+            currency={newTicket.currency}
+            disabled={saving}
+          />
           <label className="flex items-center gap-2 text-sm text-ink-3">
             <input type="checkbox" checked={newTicket.is_reserved_seating} onChange={(e) => setNewTicket({ ...newTicket, is_reserved_seating: e.target.checked })} disabled={saving} />
             Reserved seating placeholder
