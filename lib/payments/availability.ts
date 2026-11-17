@@ -5,8 +5,11 @@ import {
   filterProvidersByCurrencies,
   providerAcceptsAmountCents,
   providerSupportsCurrencies,
+  resolveCartPaymentProviders,
   resolveEffectivePaymentProviders,
+  resolveTicketTypePaymentProviders,
   type CheckoutPaymentProvider,
+  type TicketTypePaymentRule,
   type MomoConfigState,
 } from "@/lib/payments/availability-core"
 import { getDeltaPayConfig } from "@/lib/payments/deltapay"
@@ -25,6 +28,8 @@ export interface CheckoutPaymentMethod {
 
 export interface OrganizerPaymentProviderOption extends CheckoutPaymentMethod {
   enabled: boolean
+  /** Switched on and credentials complete, whatever the event's currency. */
+  configured: boolean
   operational: boolean
   warning: string | null
 }
@@ -113,6 +118,7 @@ export async function getOrganizerPaymentProviderOptions(
     {
       ...methodFor("paystack"),
       enabled: paystackEnabled,
+      configured: paystackEnabled && paystackHasCredentials,
       operational: paystackEnabled && paystackHasCredentials && paystackSupportsEvent,
       warning:
         paystackEnabled && !paystackHasCredentials
@@ -128,6 +134,7 @@ export async function getOrganizerPaymentProviderOptions(
     {
       ...methodFor("momo"),
       enabled: momoEnabled,
+      configured: momoEnabled && momoHasCredentials,
       operational: momoEnabled && momoHasCredentials && momoSupportsEvent,
       warning:
         momoEnabled && !momoHasCredentials
@@ -143,6 +150,7 @@ export async function getOrganizerPaymentProviderOptions(
     {
       ...methodFor("deltapay"),
       enabled: deltaPayEnabled,
+      configured: deltaPayEnabled && deltaPayConfig.operational,
       operational: deltaPayEnabled && deltaPayConfig.operational && deltaPaySupportsEvent,
       warning:
         deltaPayEnabled && !deltaPayConfig.operational
@@ -168,50 +176,99 @@ export async function getOperationalPaymentProviders(
   return filterProvidersByCurrencies(operational, currencies)
 }
 
+async function loadEventPaymentRules(eventId: string): Promise<{
+  eventProviders: string[]
+  tickets: TicketTypePaymentRule[]
+} | null> {
+  const admin = createAdminClient()
+  const [{ data: event, error }, { data: tickets, error: ticketError }] = await Promise.all([
+    admin.from("events").select("id, payment_providers").eq("id", eventId).maybeSingle(),
+    admin.from("ticket_types").select("id, name, currency, payment_providers").eq("event_id", eventId),
+  ])
+
+  if (error || ticketError) {
+    console.error("[payments] Failed to load event payment methods", { eventId, code: (error ?? ticketError)?.code })
+    return null
+  }
+  if (!event) return null
+
+  return {
+    eventProviders: Array.isArray(event.payment_providers) ? event.payment_providers.map(String) : [],
+    tickets: (tickets ?? []).map((ticket) => ({
+      id: String(ticket.id),
+      name: ticket.name ?? null,
+      currency: ticket.currency ? String(ticket.currency).trim().toUpperCase() : null,
+      payment_providers: Array.isArray(ticket.payment_providers) ? ticket.payment_providers.map(String) : [],
+    })),
+  }
+}
+
+/**
+ * Methods buyers can use for this event. With `ticketTypeIds` (a cart), only
+ * methods every one of those ticket types accepts. Without, the event-wide
+ * set: methods that at least the event accepts, before any ticket type narrows
+ * it.
+ */
 export async function getEffectivePaymentProvidersForEvent(
   eventId: string,
+  ticketTypeIds?: ReadonlyArray<string>,
 ): Promise<CheckoutPaymentProvider[]> {
-  const admin = createAdminClient()
-  const { data: event, error } = await admin
-    .from("events")
-    .select("id, payment_providers")
-    .eq("id", eventId)
-    .maybeSingle()
+  const rules = await loadEventPaymentRules(eventId)
+  if (!rules) return []
+  const operational = await getOperationalPaymentProviders()
 
-  if (error) {
-    console.error("[payments] Failed to load event payment methods", error)
-    return []
+  if (ticketTypeIds && ticketTypeIds.length > 0) {
+    const wanted = new Set(ticketTypeIds)
+    const cart = rules.tickets.filter((ticket) => wanted.has(ticket.id))
+    if (cart.length !== wanted.size) return []
+    return resolveCartPaymentProviders(operational, rules.eventProviders, cart)
   }
-  if (!event) return []
 
-  const currencies = await getEventCurrencies(eventId)
-  if (currencies === null) return []
-  const operational = await getOperationalPaymentProviders(currencies)
-  const eventList = Array.isArray(event.payment_providers)
-    ? event.payment_providers.map(String)
-    : []
+  const currencies = [...new Set(rules.tickets.map((ticket) => ticket.currency).filter(Boolean) as string[])]
+  return resolveEffectivePaymentProviders(filterProvidersByCurrencies(operational, currencies), [rules.eventProviders])
+}
 
-  return resolveEffectivePaymentProviders(operational, [eventList])
+export interface TicketTypePaymentMethods {
+  id: string
+  name: string
+  /** True when the organiser picked specific methods for this ticket type. */
+  restricted: boolean
+  methods: CheckoutPaymentMethod[]
+}
+
+/** Per ticket type: which methods a buyer can use. Feeds checkout and publish readiness. */
+export async function getTicketTypePaymentMethods(eventId: string): Promise<TicketTypePaymentMethods[]> {
+  const rules = await loadEventPaymentRules(eventId)
+  if (!rules) return []
+  const operational = await getOperationalPaymentProviders()
+  return rules.tickets.map((ticket) => ({
+    id: ticket.id,
+    name: ticket.name ?? "Ticket",
+    restricted: (ticket.payment_providers ?? []).length > 0,
+    methods: resolveTicketTypePaymentProviders(operational, rules.eventProviders, ticket).map(methodFor),
+  }))
 }
 
 export async function getEffectivePaymentMethodsForEvent(
   eventId: string,
+  ticketTypeIds?: ReadonlyArray<string>,
 ): Promise<CheckoutPaymentMethod[]> {
-  const providers = await getEffectivePaymentProvidersForEvent(eventId)
+  const providers = await getEffectivePaymentProvidersForEvent(eventId, ticketTypeIds)
   return providers.map(methodFor)
 }
 
 export async function assertPaymentProviderAvailableForEvent(
   eventId: string,
   requested: string,
+  ticketTypeIds?: ReadonlyArray<string>,
 ): Promise<CheckoutPaymentProvider> {
   if (!isCheckoutProvider(requested)) {
     throw new Error("This event does not accept that payment method. Choose another option.")
   }
 
-  const effective = await getEffectivePaymentProvidersForEvent(eventId)
+  const effective = await getEffectivePaymentProvidersForEvent(eventId, ticketTypeIds)
   if (!effective.includes(requested)) {
-    throw new Error("This event does not accept that payment method. Choose another option.")
+    throw new Error("These tickets can't be paid for with that method. Choose another option.")
   }
 
   return requested
@@ -228,7 +285,7 @@ export async function assertPaymentProviderAvailableForOrder(
   const admin = createAdminClient()
   const { data, error } = await admin
     .from("order_items")
-    .select("ticket_types(currency, events(id, payment_providers))")
+    .select("ticket_types(id, currency, payment_providers, events(id, payment_providers))")
     .eq("order_id", orderId)
 
   if (error) {
@@ -237,15 +294,21 @@ export async function assertPaymentProviderAvailableForOrder(
   }
 
   const eventLists = new Map<string, string[]>()
+  const ticketLists = new Map<string, string[]>()
   const currencies: string[] = []
   for (const row of (data ?? []) as any[]) {
-    const event = row?.ticket_types?.events
+    const ticket = row?.ticket_types
+    const event = ticket?.events
     if (!event?.id) continue
     eventLists.set(
       String(event.id),
       Array.isArray(event.payment_providers) ? event.payment_providers.map(String) : [],
     )
-    if (row?.ticket_types?.currency) currencies.push(String(row.ticket_types.currency))
+    // Each ticket type may narrow the event's methods (empty = no narrowing).
+    if (ticket?.id) {
+      ticketLists.set(String(ticket.id), Array.isArray(ticket.payment_providers) ? ticket.payment_providers.map(String) : [])
+    }
+    if (ticket?.currency) currencies.push(String(ticket.currency))
   }
 
   if (eventLists.size === 0) {
@@ -253,7 +316,7 @@ export async function assertPaymentProviderAvailableForOrder(
   }
 
   const operational = await getOperationalPaymentProviders(currencies)
-  let effective = resolveEffectivePaymentProviders(operational, [...eventLists.values()])
+  let effective = resolveEffectivePaymentProviders(operational, [...eventLists.values(), ...ticketLists.values()])
 
   // Some rails (MoMo) cannot charge fractional major units; others (DeltaPay)
   // can, so the restriction comes from each provider's catalog entry rather

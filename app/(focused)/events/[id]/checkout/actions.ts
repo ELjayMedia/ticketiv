@@ -81,7 +81,8 @@ export async function startCheckoutAction(input: StartCheckoutInput): Promise<St
     // operational state before an order or provider attempt is created.
     const cookieStore = await cookies()
     const cookieProvider = cookieStore.get(PAYMENT_PROVIDER_COOKIE)?.value ?? null
-    const effectiveProviders = await getEffectivePaymentProvidersForEvent(input.eventId)
+    const ticketTypeIds = items.map((item) => item.ticketTypeId)
+    const effectiveProviders = await getEffectivePaymentProvidersForEvent(input.eventId, ticketTypeIds)
 
     if (effectiveProviders.length === 0) {
       const unavailable = createPaymentChannelUnavailableError("no_matching_route", {
@@ -91,7 +92,10 @@ export async function startCheckoutAction(input: StartCheckoutInput): Promise<St
       reportPaymentChannelUnavailable(unavailable)
       return {
         ok: false,
-        error: unavailable.message,
+        error:
+          items.length > 1
+            ? "These tickets can't be paid for together. Buy them in separate orders."
+            : unavailable.message,
       }
     }
 
@@ -100,7 +104,7 @@ export async function startCheckoutAction(input: StartCheckoutInput): Promise<St
     // is rejected rather than silently switched.
     const cookieSelection = effectiveProviders.find((provider) => provider === cookieProvider)
     const requestedProvider = input.provider ?? cookieSelection ?? effectiveProviders[0]
-    const provider = await assertPaymentProviderAvailableForEvent(input.eventId, requestedProvider)
+    const provider = await assertPaymentProviderAvailableForEvent(input.eventId, requestedProvider, ticketTypeIds)
 
     const order = await createOrder({
       eventId: input.eventId,

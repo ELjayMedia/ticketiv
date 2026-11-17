@@ -11,6 +11,8 @@ import {
   isValidOptionalPurchaseLimit,
   parseOptionalPurchaseLimit,
 } from "@/lib/tickets/purchase-limits"
+import { parsePaymentProviderList } from "@/lib/payments/availability-core"
+import { ticketPaymentMethodsError } from "@/lib/payments/ticket-payment-methods"
 
 type RouteContext = { params: Promise<{ eventId: string; ticketTypeId: string }> }
 
@@ -46,8 +48,10 @@ function parsePatchPayload(body: any) {
   if (body.is_reserved_seating !== undefined) patch.is_reserved_seating = Boolean(body.is_reserved_seating)
   if (body.online_quota !== undefined) channelPatch.quota = Number.parseInt(String(body.online_quota), 10)
   if (body.online_per_order_limit !== undefined) channelPatch.per_order_limit = parseOptionalPurchaseLimit(body.online_per_order_limit)
+  const paymentProviders = body.payment_providers !== undefined ? parsePaymentProviderList(body.payment_providers) : null
+  if (paymentProviders?.ok) patch.payment_providers = paymentProviders.providers
 
-  return { patch, channelPatch }
+  return { patch, channelPatch, paymentProvidersError: paymentProviders && !paymentProviders.ok ? paymentProviders.error : null }
 }
 
 function validatePatch(
@@ -91,7 +95,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   const { data: existing, error: loadError } = await admin
     .from("ticket_types")
-    .select("id, event_id, name, quota, per_user_limit, sales_status, ticket_type_channels(channel, quota, per_order_limit)")
+    .select("id, event_id, name, quota, currency, per_user_limit, sales_status, payment_providers, ticket_type_channels(channel, quota, per_order_limit)")
     .eq("id", ticketTypeId)
     .eq("event_id", eventId)
     .maybeSingle()
@@ -100,7 +104,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   if (!existing) return NextResponse.json({ error: "Ticket type not found" }, { status: 404 })
 
   const body = await request.json().catch(() => ({}))
-  const { patch, channelPatch } = parsePatchPayload(body)
+  const { patch, channelPatch, paymentProvidersError } = parsePatchPayload(body)
+  if (paymentProvidersError) return NextResponse.json({ error: paymentProvidersError }, { status: 400 })
   const onlineChannel = existing.ticket_type_channels?.find((channel) => channel.channel === "online")
   const validationError = validatePatch(patch, channelPatch, {
     quota: existing.quota,
@@ -109,6 +114,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     perOrderLimit: onlineChannel?.per_order_limit ?? null,
   })
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 })
+
+  if (patch.payment_providers !== undefined || patch.currency !== undefined) {
+    const methodsError = await ticketPaymentMethodsError(
+      admin,
+      eventId,
+      patch.payment_providers ?? (existing.payment_providers ?? []),
+      patch.currency ?? existing.currency,
+    )
+    if (methodsError) return NextResponse.json({ error: methodsError }, { status: 400 })
+  }
 
   if (patch.sales_status === "paused" && existing.sales_status !== "paused") {
     patch.sales_paused_at = new Date().toISOString()
@@ -124,7 +139,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     .update(patch as any)
     .eq("id", ticketTypeId)
     .eq("event_id", eventId)
-    .select("id, name, price_cents, currency, quota, per_user_limit, sales_status, is_reserved_seating, created_at")
+    .select("id, name, price_cents, currency, quota, per_user_limit, sales_status, is_reserved_seating, payment_providers, created_at")
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })

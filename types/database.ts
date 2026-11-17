@@ -6113,6 +6113,7 @@ export type Database = {
           is_reserved_seating: boolean | null
           name: string
           per_user_limit: number | null
+          payment_providers: string[]
           price_cents: number
           quota: number
           sales_pause_reason: string | null
@@ -6128,6 +6129,7 @@ export type Database = {
           is_reserved_seating?: boolean | null
           name: string
           per_user_limit?: number | null
+          payment_providers?: string[]
           price_cents: number
           quota: number
           sales_pause_reason?: string | null
@@ -6143,6 +6145,7 @@ export type Database = {
           is_reserved_seating?: boolean | null
           name?: string
           per_user_limit?: number | null
+          payment_providers?: string[]
           price_cents?: number
           quota?: number
           sales_pause_reason?: string | null

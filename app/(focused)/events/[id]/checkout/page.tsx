@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { MobileCheckout } from "@/components/quiet/screens/checkout/mobile-checkout";
 import { DesktopCheckout } from "@/components/quiet/screens/checkout/desktop-checkout";
 import { CheckoutProviderBridge } from "@/components/quiet/screens/checkout/checkout-provider-bridge";
+import { PaySeparatelyNotice } from "@/components/quiet/screens/checkout/pay-separately-notice";
 import { CheckoutStartTracker } from "@/components/analytics/buyer-funnel";
 import { getPublicEventBySlug } from "@/lib/adapters/events";
 import {
@@ -12,7 +13,7 @@ import {
 } from "@/lib/mappers/checkout";
 import { loadCheckoutAvailability } from "@/lib/checkout/availability";
 import { clampCart, parseCartParam, serializeCart, type CartLine } from "@/lib/checkout/cart";
-import { getEffectivePaymentMethodsForEvent } from "@/lib/payments/availability";
+import { getEffectivePaymentMethodsForEvent, getTicketTypePaymentMethods } from "@/lib/payments/availability";
 import {
   createPaymentChannelUnavailableError,
   reportPaymentChannelUnavailable,
@@ -94,10 +95,7 @@ export default async function CheckoutPage({
   }
 
   const sharedProps = mapCheckoutEvent(row);
-  const [{ ticketTypes }, paymentMethods] = await Promise.all([
-    loadCheckoutAvailability(row.id),
-    getEffectivePaymentMethodsForEvent(row.id),
-  ]);
+  const { ticketTypes } = await loadCheckoutAvailability(row.id);
 
   // Prefill the buyer-email field when the buyer is already signed in (and
   // their account carries a real address — not an anonymous guest from a
@@ -146,7 +144,37 @@ export default async function CheckoutPage({
     redirect(`/events/${id}?${pickerParams.toString()}`);
   }
   const cartLines = mapCheckoutCartLines(cart, mappedTypes);
+  // Only methods every ticket in the cart accepts. Organisers can limit a
+  // ticket type to specific methods; by default each accepts all of them.
+  const paymentMethods = await getEffectivePaymentMethodsForEvent(
+    row.id,
+    cart.map((line) => line.ticketTypeId),
+  );
   const editTicketsHref = `/events/${id}?${new URLSearchParams({ tickets: "1", items: serializeCart(cart) }).toString()}`;
+
+  // The tickets each have methods but share none: say which ticket takes
+  // which method instead of a generic "checkout paused".
+  if (paymentMethods.length === 0 && cart.length > 1) {
+    const perTicket = await getTicketTypePaymentMethods(row.id);
+    const inCart = perTicket.filter((t) => cart.some((line) => line.ticketTypeId === t.id));
+    if (inCart.every((t) => t.methods.length > 0)) {
+      return (
+        <PaySeparatelyNotice
+          editTicketsHref={editTicketsHref}
+          tickets={inCart.map((t) => {
+            const line = cart.find((l) => l.ticketTypeId === t.id)!;
+            return {
+              id: t.id,
+              name: t.name,
+              quantity: line.quantity,
+              methods: t.methods.map((m) => m.label),
+              href: `/events/${id}/checkout?${new URLSearchParams({ items: serializeCart([line]) }).toString()}`,
+            };
+          })}
+        />
+      );
+    }
+  }
 
   if (paymentMethods.length === 0) {
     const unavailable = createPaymentChannelUnavailableError("no_matching_route", {

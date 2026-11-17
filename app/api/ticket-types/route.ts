@@ -5,6 +5,7 @@ import {
   isValidOptionalPurchaseLimit,
   parseOptionalPurchaseLimit,
 } from "@/lib/tickets/purchase-limits"
+import { parsePaymentProviderList, ticketPaymentMethodsProblem } from "@/lib/payments/availability-core"
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,7 +35,12 @@ export async function POST(request: NextRequest) {
       sale_end_at,
       is_reserved_seating,
       channels: rawChannels,
+      payment_providers: rawPaymentProviders,
     } = body
+    const paymentProviders = parsePaymentProviderList(rawPaymentProviders)
+    if (!paymentProviders.ok) {
+      return NextResponse.json({ error: paymentProviders.error }, { status: 400 })
+    }
     const perUserLimit = parseOptionalPurchaseLimit(rawPerUserLimit)
     const channels = Array.isArray(rawChannels)
       ? rawChannels.map((channel: any) => ({
@@ -58,7 +64,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify event ownership
-    const { data: event } = await supabase.from("events").select("org_id").eq("id", event_id).single()
+    const { data: event } = await supabase.from("events").select("org_id, payment_providers").eq("id", event_id).single()
 
     if (!event) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
@@ -73,6 +79,15 @@ export async function POST(request: NextRequest) {
 
     if (!orgMember) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    const methodsProblem = ticketPaymentMethodsProblem(
+      paymentProviders.providers,
+      Array.isArray(event.payment_providers) ? event.payment_providers.map(String) : [],
+      typeof currency === "string" ? currency.toUpperCase() : null,
+    )
+    if (methodsProblem) {
+      return NextResponse.json({ error: methodsProblem }, { status: 400 })
     }
 
     // Validate channel quotas
@@ -92,6 +107,7 @@ export async function POST(request: NextRequest) {
         quota,
         per_user_limit: perUserLimit,
         is_reserved_seating: is_reserved_seating || false,
+        payment_providers: paymentProviders.providers,
       })
       .select()
       .single()

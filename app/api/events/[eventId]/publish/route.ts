@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 
 import { notifyEventChanged, notifyEventPublished } from "@/lib/notifications"
-import { getEffectivePaymentProvidersForEvent } from "@/lib/payments/availability"
+import { getEffectivePaymentProvidersForEvent, getTicketTypePaymentMethods } from "@/lib/payments/availability"
 import { duplicateGuardMessage, unresolvedBlocking, type DuplicateMatch } from "@/lib/events/duplicates-core"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getAuthUser } from "@/lib/auth/session"
@@ -56,6 +56,7 @@ async function buildReadiness(admin: ReturnType<typeof createAdminClient>, event
     { count: payoutCount },
     { data: liveStatsRow },
     effectivePaymentProviders,
+    ticketPaymentMethods,
     duplicateRes,
   ] = await Promise.all([
     admin.from("ticket_types").select("id, sales_status").eq("event_id", eventId),
@@ -64,6 +65,7 @@ async function buildReadiness(admin: ReturnType<typeof createAdminClient>, event
     admin.from("payout_accounts").select("id", { count: "exact", head: true }).eq("org_id", orgId),
     admin.from("event_live_stats").select("event_id").eq("event_id", eventId).maybeSingle(),
     getEffectivePaymentProvidersForEvent(eventId),
+    getTicketTypePaymentMethods(eventId),
     (admin.rpc as any)("fn_event_duplicate_check", { p_event_id: eventId }),
   ])
   const duplicateBlocks = unresolvedBlocking((duplicateRes?.data ?? []) as DuplicateMatch[])
@@ -81,6 +83,12 @@ async function buildReadiness(admin: ReturnType<typeof createAdminClient>, event
       .eq("channel", "online")
     onlineChannelCount = count ?? 0
   }
+
+  // A ticket type limited to methods that are switched off (or that the event
+  // no longer accepts) can't be bought.
+  const ticketsWithoutMethod = ticketPaymentMethods.filter(
+    (tt) => sellableIds.includes(tt.id) && tt.methods.length === 0,
+  )
 
   const hasDates = Boolean(event.starts_at && event.ends_at) || (dateCount ?? 0) > 0
   const datesValid = !event.starts_at || !event.ends_at || new Date(event.ends_at) > new Date(event.starts_at)
@@ -146,6 +154,17 @@ async function buildReadiness(admin: ReturnType<typeof createAdminClient>, event
       recommended: false,
       step: "policies",
       hint: "Choose at least one Ticketiv-supported payment method whose platform credentials are operational.",
+    },
+    {
+      key: "ticket_payment_methods",
+      label: "Every ticket type can be paid for",
+      complete: ticketsWithoutMethod.length === 0,
+      recommended: false,
+      step: "tickets",
+      hint:
+        ticketsWithoutMethod.length > 0
+          ? `${ticketsWithoutMethod.map((tt) => tt.name).join(", ")} ${ticketsWithoutMethod.length === 1 ? "has" : "have"} no payment method that works. Pick another method on the Tickets tab, or set it back to all methods.`
+          : "Each ticket type accepts at least one working payment method.",
     },
     {
       key: "not_duplicate",
