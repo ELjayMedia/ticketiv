@@ -43,6 +43,7 @@ export type ConsoleAction =
   | "manage_integrations"
   | "manage_provider_readiness"
   | "hide_event_update"
+  | "route_duplicate_request"
 
 export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   resend_tickets: ["super_admin", "support_admin", "event_ops_admin"],
@@ -67,6 +68,8 @@ export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   manage_provider_readiness: ["super_admin"],
   // Event Companion: take down an organiser's update (wrong, harmful, spam).
   hide_event_update: ["super_admin", "support_admin", "event_ops_admin"],
+  // Duplicate-event guard: pass a permission request to the original organiser, or decide it.
+  route_duplicate_request: ["super_admin", "support_admin", "event_ops_admin"],
 }
 
 /** Actions that change something and so must carry a reason in the audit log. */
@@ -143,7 +146,7 @@ export const IDLE_RESULT: ConsoleActionResult = { status: "idle" }
 // ---------------------------------------------------------------------------
 // Work queues (phase 2)
 
-export type QueueKey = "payments" | "delivery" | "refunds" | "payouts" | "reconciliation" | "scanners"
+export type QueueKey = "payments" | "delivery" | "refunds" | "payouts" | "reconciliation" | "scanners" | "duplicates"
 
 export const QUEUES: Array<{ key: QueueKey; label: string; team: "Support" | "Money" | "Events" }> = [
   { key: "payments", label: "Payment errors", team: "Support" },
@@ -152,6 +155,7 @@ export const QUEUES: Array<{ key: QueueKey; label: string; team: "Support" | "Mo
   { key: "payouts", label: "Payouts to send", team: "Money" },
   { key: "reconciliation", label: "Reconciliation issues", team: "Money" },
   { key: "scanners", label: "Scanners offline", team: "Events" },
+  { key: "duplicates", label: "Duplicate event requests", team: "Support" },
 ]
 
 /** Stable key for a queue item, also the primary key of admin_queue_claims. */

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
+import { duplicateGuardMessage } from "@/lib/events/duplicates-core"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
@@ -116,7 +117,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const { error: updateError } = await admin.from("events").update({ venue_id: venue.id, city: nextCity }).eq("id", eventId)
   if (updateError) {
     console.error("[events/venue] Failed to update event venue:", updateError.message)
-    return NextResponse.json({ error: updateError.message }, { status: 400 })
+    return NextResponse.json({ error: duplicateGuardMessage(updateError) ?? updateError.message }, { status: duplicateGuardMessage(updateError) ? 409 : 400 })
   }
 
   await admin.from("audit_log").insert({

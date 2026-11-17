@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 
+import { DuplicateEventNotice } from "@/components/event-wizard/DuplicateEventNotice"
 import { EventReadinessPanel } from "@/components/event-wizard/EventReadinessPanel"
 import { BasicsStep } from "@/components/event-wizard/steps/BasicsStep"
 import { LineupStep } from "@/components/event-wizard/steps/LineupStep"
@@ -202,6 +203,7 @@ export default function EventWizardClient({ orgId, eventId }: { orgId: string; e
       <main className="mx-auto grid w-full max-w-7xl gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
         <Card>
           <CardBody className="p-5 sm:p-6">
+            <DuplicateEventNotice eventId={eventId} refreshKey={readinessRefreshKey} />
             {step === "basics" && (
               <BasicsStep event={event} onSaving={handleSaving} onError={() => setSaveState("error")} />
             )}

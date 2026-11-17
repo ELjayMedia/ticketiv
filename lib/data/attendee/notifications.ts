@@ -259,6 +259,24 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
     }
   }
 
+  // Duplicate-event guard: a request to the original organiser, and the answer to the requester.
+  if (type === "duplicate_permission_request" || type === "duplicate_permission_decision") {
+    const incoming = type === "duplicate_permission_request"
+    return {
+      id: row.id,
+      type,
+      status: row.status,
+      channel: row.channel,
+      title: explicitTitle ?? (incoming ? "An organiser is asking to list an event like yours" : "Your request was answered"),
+      message: explicitMessage || (incoming ? "Read their message and approve or decline." : "Open the event to see the answer."),
+      createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
+      ...base,
+      actionHref: explicitHref ?? "/organizer",
+      actionLabel: incoming ? "Review request" : "Open event",
+      actionKind: "generic",
+    }
+  }
+
   return {
     id: row.id,
     type,
