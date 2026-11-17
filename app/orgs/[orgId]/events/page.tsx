@@ -77,6 +77,12 @@ export default async function OrgEventsPage({
 
   const { q: rawQ, status: rawStatus } = await searchParams
 
+  // Other organisers asking to publish an event that matches one of ours.
+  const { data: dupRequests } = await (supabase.rpc as any)("fn_org_duplicate_requests", { p_org_id: orgId })
+  const waitingRequests = ((dupRequests ?? []) as Array<{ direction: string; status: string }>).filter(
+    (r) => r.direction === "incoming" && r.status === "with_organiser",
+  ).length
+
   const searchQuery = rawQ?.trim() ?? ""
   const statusFilter: StatusFilter =
     (STATUS_OPTIONS.includes(rawStatus as StatusFilter) ? rawStatus : "all") as StatusFilter
@@ -217,6 +223,22 @@ export default async function OrgEventsPage({
             Create event
           </Link>
         </div>
+
+        {waitingRequests > 0 ? (
+          <Link
+            href={`/orgs/${orgId}/permission-requests`}
+            className="flex items-center gap-2.5 rounded-[var(--radius-lg)] border border-accent/25 bg-accent-soft px-4 py-3 text-[13px] text-ink hover:border-accent"
+          >
+            <Icon name="bell" size={15} className="shrink-0 text-accent" />
+            <span className="flex-1">
+              <strong className="font-semibold">
+                {waitingRequests} organiser{waitingRequests === 1 ? " is" : "s are"} asking to list an event like yours.
+              </strong>{" "}
+              Review and approve or decline.
+            </span>
+            <Icon name="chevR" size={14} className="text-ink-3" />
+          </Link>
+        ) : null}
 
         <EventsFilterBar currentQ={searchQuery} currentStatus={statusFilter} />
 

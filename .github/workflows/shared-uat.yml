@@ -201,8 +201,11 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ env.TEST_SUPABASE_SERVICE_ROLE_KEY }}
         run: pnpm seed:uat:teardown
 
+      # Diagnostics only: upload when something failed, and never let a full
+      # artifact-storage quota fail the run.
       - name: Upload Playwright failure artifacts
-        if: always()
+        if: failure()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: shared-uat-playwright-${{ github.run_attempt }}

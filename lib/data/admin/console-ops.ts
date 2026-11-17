@@ -3,6 +3,7 @@ import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { guideCompleteness, mapGuide } from "@/lib/data/companion"
+import { autoForwardAt, timeLeftLabel } from "@/lib/events/duplicates-core"
 import { emailsFor, humanFailureReason, loadNotes, personName, untyped, type AdminNote } from "@/lib/data/admin/console"
 import {
   formatMoney,
@@ -184,10 +185,30 @@ export async function getWorkQueues(viewerId: string, now = new Date()): Promise
     })
   }
 
+  // Duplicate-event permission requests waiting on support (auto-forwarded after 3 hours).
+  const { data: dupRows } = await db
+    .from("event_duplicate_requests")
+    .select("id, created_at, events!event_duplicate_requests_event_id_fkey(title), organizations!event_duplicate_requests_requesting_org_id_fkey(name), original:events!event_duplicate_requests_original_event_id_fkey(title)")
+    .eq("status", "with_support")
+    .order("created_at", { ascending: true })
+    .limit(50)
+  for (const row of (dupRows ?? []) as any[]) {
+    const left = timeLeftLabel(autoForwardAt(row.created_at), now)
+    items.push({
+      key: queueItemKey("duplicates", row.id),
+      queue: "duplicates",
+      title: `${row.organizations?.name ?? "An organiser"} wants to list "${row.events?.title ?? "an event"}"`,
+      detail: `Matches "${row.original?.title ?? "another event"}" · goes to the other organiser in ${left}`,
+      at: row.created_at,
+      href: `/super-admin/duplicates?r=${row.id}`,
+      tone: "warning",
+    })
+  }
+
   const claims = new Map(((claimsRes.data ?? []) as Array<{ item_key: string; admin_id: string }>).map((c) => [c.item_key, c.admin_id]))
   const emails = await emailsFor(admin, [...new Set(items.map((i) => claims.get(i.key)).filter(Boolean))])
 
-  const counts = { payments: 0, delivery: 0, refunds: 0, payouts: 0, reconciliation: 0, scanners: 0 } as Record<QueueKey, number>
+  const counts = { payments: 0, delivery: 0, refunds: 0, payouts: 0, reconciliation: 0, scanners: 0, duplicates: 0 } as Record<QueueKey, number>
   for (const item of items) counts[item.queue] += 1
 
   return {
