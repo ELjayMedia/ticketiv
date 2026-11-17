@@ -68,6 +68,12 @@ describe("duplicate-event guard wiring", () => {
     expect(sql).toMatch(/e\.status = 'published'/)
   })
 
+  it("ignores events that are already over", () => {
+    const latest = read("supabase/migrations/20261117050000_duplicate_guard_ignore_past_events.sql")
+    expect(latest).toMatch(/create or replace function app\.event_duplicate_matches/)
+    expect(latest).toMatch(/coalesce\(e\.ends_at, e\.starts_at \+ interval '12 hours'\) > now\(\)/)
+  })
+
   it("auto-forwards to the original organiser after 3 hours, checked every 5 minutes", () => {
     expect(sql).toMatch(/created_at <= now\(\) - interval '3 hours'/)
     expect(sql).toMatch(/cron\.schedule\('ticketiv-duplicate-request-autoforward', '\*\/5 \* \* \* \*'/)
