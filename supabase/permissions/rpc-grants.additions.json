@@ -388,6 +388,159 @@
         "postgres",
         "service_role"
       ]
+    },
+    {
+      "schema": "app",
+      "name": "event_duplicate_pair_approved",
+      "arguments": "p_a uuid, p_b uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "event_duplicate_matches",
+      "arguments": "p_event_id uuid, p_org_id uuid, p_title text, p_venue_id uuid, p_starts_at timestamp with time zone",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "guard_event_duplicate",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "notify_org_managers",
+      "arguments": "p_org uuid, p_type text, p_payload jsonb, p_dedupe text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "forward_event_duplicate_request",
+      "arguments": "p_request_id uuid, p_by text, p_note text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "notify_event_duplicate_decision",
+      "arguments": "p_request_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres"
+      ]
+    },
+    {
+      "schema": "app",
+      "name": "can_manage_org_events",
+      "arguments": "p_org uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_event_duplicate_check",
+      "arguments": "p_event_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_request_duplicate_permission",
+      "arguments": "p_event_id uuid, p_original_event_id uuid, p_reason text, p_message text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_withdraw_duplicate_request",
+      "arguments": "p_request_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_admin_route_duplicate_request",
+      "arguments": "p_request_id uuid, p_action text, p_note text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_decide_duplicate_request",
+      "arguments": "p_request_id uuid, p_decision text, p_note text",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_org_duplicate_requests",
+      "arguments": "p_org_id uuid",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "authenticated",
+        "postgres",
+        "service_role"
+      ]
+    },
+    {
+      "schema": "public",
+      "name": "fn_auto_forward_duplicate_requests",
+      "arguments": "",
+      "securityDefiner": true,
+      "searchPathPinned": true,
+      "grantees": [
+        "postgres",
+        "service_role"
+      ]
     }
   ]
 }
