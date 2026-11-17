@@ -213,8 +213,11 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: pnpm seed:uat:teardown
 
+      # Diagnostics only: upload when something failed, and never let a full
+      # artifact-storage quota fail an otherwise green gate.
       - name: Upload Playwright failure artifacts
-        if: ${{ always() && needs.change-scope.outputs.money_path == 'true' }}
+        if: ${{ failure() && needs.change-scope.outputs.money_path == 'true' }}
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: playwright-artifacts-${{ github.run_attempt }}

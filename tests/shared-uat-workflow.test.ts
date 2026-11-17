@@ -39,7 +39,8 @@ describe("shared Supabase UAT workflow", () => {
     expect(workflow).toContain("--project=desktop-chromium")
     expect(workflow).toContain("--workers=1")
     expect(workflow).toContain("cancel-in-progress: false")
-    expect(workflow).toContain("if: always()")
+    // Teardown runs even when tests fail.
+    expect(workflow).toMatch(/- name: Remove deterministic shared fixtures\n\s+if: \$\{\{ always\(\) &&/)
     expect(workflow).toContain("run: pnpm seed:uat:teardown")
   })
 
@@ -52,6 +53,8 @@ describe("shared Supabase UAT workflow", () => {
     expect(anonymousBoundary).toBeGreaterThan(moneyPathStep)
     expect(browserUat).toBeGreaterThan(anonymousBoundary)
     expect(workflow).toContain("actions/upload-artifact@v4")
+    // Failure evidence is best-effort: a full artifact quota must not fail the run.
+    expect(workflow).toMatch(/if: failure\(\)\n\s+continue-on-error: true\n\s+uses: actions\/upload-artifact@v4/)
     expect(workflow).toContain("retention-days: 7")
   })
 
