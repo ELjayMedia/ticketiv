@@ -16,6 +16,7 @@ jobs:
     permissions:
       contents: read
       deployments: read
+      actions: read
 
   build:
     name: Build UAT image
@@ -42,8 +43,8 @@ jobs:
           SECRETS_ISOLATED: ${{ vars.CICD_SECRETS_ISOLATED }}
         run: |
           set -euo pipefail
-          test -n "$PUBLIC_KEY"
           test "$SECRETS_ISOLATED" = true || { echo "::error::Move production repository secrets into branch-restricted environments before enabling UAT deployment."; exit 1; }
+          test -n "$PUBLIC_KEY" || { echo "::error::Missing UAT public build configuration."; exit 1; }
           test "$(node scripts/ci/schema-fingerprint.mjs)" = "$SCHEMA_FINGERPRINT" || {
             echo '::error::Apply and verify reviewed UAT database migrations before updating UAT_SCHEMA_FINGERPRINT.'
             exit 1

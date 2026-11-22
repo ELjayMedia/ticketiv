@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process"
+import { isTrustedUatRun } from "./release-evidence.mjs"
 
 const repo = process.env.GITHUB_REPOSITORY
 const sha = process.argv[2]
@@ -14,7 +15,12 @@ for (const deployment of deployments) {
   try { candidate = git("rev-parse", `${deployment.sha}^{tree}`) } catch { continue }
   if (candidate !== tree) continue
   const statuses = gh(`repos/${repo}/deployments/${deployment.id}/statuses?per_page=1`)
-  if (statuses[0]?.state === "success") { tested = deployment; break }
+  const status = statuses[0]
+  if (status?.state !== "success") continue
+  const match = status.log_url?.match(/^https:\/\/github\.com\/ELjayMedia\/ticketiv\/actions\/runs\/(\d+)(?:\/|$)/)
+  if (!match) continue
+  const run = gh(`repos/${repo}/actions/runs/${match[1]}`)
+  if (isTrustedUatRun(run, deployment.sha)) { tested = deployment; break }
 }
 if (!tested) throw new Error("No successful UAT deployment exists for this exact source tree")
 console.log(`Verified UAT deployment ${tested.id}, revision ${tested.sha}, tree ${tree}`)
