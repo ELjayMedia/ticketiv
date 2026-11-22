@@ -1,0 +1,19 @@
+name: Audit deployment environment boundary
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment whose branch policy should allow or reject this run
+        required: true
+        type: choice
+        options: [UAT, Production, google-play-production]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Record allowed branch
+        run: echo "Environment policy allowed this branch. This audit uses no credentials."
