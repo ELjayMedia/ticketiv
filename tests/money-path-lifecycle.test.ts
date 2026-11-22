@@ -18,48 +18,11 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 //   #8  refund state propagation
 //
 // ---------------------------------------------------------------------------
-// SAFETY
-// ---------------------------------------------------------------------------
-// This suite CREATES AND DELETES rows. Ticketiv currently runs development, UAT
-// and production against a single Supabase project, so "just point it at the
-// database" would mean manufacturing orders and payments in production — the
-// exact problem the UAT seed fixtures caused. Three guards:
-//
-//   1. It requires TEST_SUPABASE_URL / TEST_SUPABASE_SERVICE_ROLE_KEY. It never
-//      reads NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY, so pointing
-//      it at production has to be a deliberate act, not an accident of having a
-//      normal .env loaded.
-//   2. TEST_SUPABASE_ALLOW_PROJECT_REF must name the project ref in that URL.
-//      A copied-in production URL fails the check instead of running.
-//   3. E2E_ALLOW_SHARED_UAT=1 explicitly acknowledges that the target may be
-//      the shared production-backed project.
-//   4. Everything it creates is tracked and torn down in afterAll, in FK order.
-//
-// Without the env the suite skips, so `pnpm test` stays green on a clean clone.
-
+// SAFETY: only the isolated self-hosted UAT API is accepted. No production override exists.
+import { isIsolatedUatTarget } from "@/lib/testing/uat-target"
 const URL_ = process.env.TEST_SUPABASE_URL
 const SERVICE_KEY = process.env.TEST_SUPABASE_SERVICE_ROLE_KEY
-const ALLOWED_REF = process.env.TEST_SUPABASE_ALLOW_PROJECT_REF
-
-const REQUIRED_ENV = [
-  "TEST_SUPABASE_URL",
-  "TEST_SUPABASE_SERVICE_ROLE_KEY",
-  "TEST_SUPABASE_ALLOW_PROJECT_REF",
-] as const
-
-function missingEnv() {
-  return REQUIRED_ENV.filter((key) => !process.env[key]?.trim())
-}
-
-/** Project ref from https://<ref>.supabase.co */
-function projectRef(url: string | undefined): string | null {
-  return url?.match(/^https:\/\/([a-z0-9]+)\.supabase\.co/i)?.[1] ?? null
-}
-
-const envReady = missingEnv().length === 0
-const refMatches = envReady && projectRef(URL_) !== null && projectRef(URL_) === ALLOWED_REF?.trim()
-const sharedEnvironmentAcknowledged = process.env.E2E_ALLOW_SHARED_UAT === "1"
-const configured = envReady && refMatches && sharedEnvironmentAcknowledged
+const configured = Boolean(SERVICE_KEY && isIsolatedUatTarget(URL_) && process.env.E2E_ALLOW_ISOLATED_UAT === "1")
 
 const TAG = `e2e-money-${Date.now()}`
 const PAYSTACK_CURRENCY = "ZAR"
@@ -358,23 +321,8 @@ describe.skipIf(!configured)("money path lifecycle (database-asserted)", () => {
   })
 })
 
-// Visibility marker: make the suite's presence and its gating obvious in CI
-// output even when the integration cases skip, matching tests/rls-isolation.
 describe("money path lifecycle harness", () => {
-  it(
-    configured
-      ? "is configured against an explicitly acknowledged project"
-      : "is present but skipped (needs allow-listed TEST_SUPABASE_* env and shared-UAT acknowledgement)",
-    () => {
-      if (configured) {
-        expect(missingEnv()).toEqual([])
-        expect(projectRef(URL_)).toBe(ALLOWED_REF?.trim())
-        expect(sharedEnvironmentAcknowledged).toBe(true)
-      } else {
-        // Either the env is absent, or it is present but the project ref was
-        // not explicitly allow-listed — both must keep the suite from running.
-        expect(missingEnv().length > 0 || !refMatches || !sharedEnvironmentAcknowledged).toBe(true)
-      }
-    },
-  )
+  it("requires the isolated UAT target and explicit acknowledgement", () => {
+    expect(configured).toBe(Boolean(SERVICE_KEY && isIsolatedUatTarget(URL_) && process.env.E2E_ALLOW_ISOLATED_UAT === "1"))
+  })
 })

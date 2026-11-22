@@ -41,6 +41,7 @@ COPY . .
 # image ARG/ENV metadata. A requested Sentry upload is fail-closed if either
 # its token or the explicit heap limit is missing.
 RUN for v in $(env | sed -n "s/^\([A-Z0-9_]*\)=$/\1/p"); do unset "$v"; done \
+    && if [ "${DEPLOYMENT_ENV:-}" = "uat" ]; then rm -f .env.production; fi \
     && if [ "${SENTRY_SOURCE_MAPS_BUILD_ENABLED:-false}" = "true" ]; then \
          test -n "${SENTRY_AUTH_TOKEN:-}" \
          && test "${NODE_OPTIONS:-}" = "--max-old-space-size=4096"; \

@@ -31,7 +31,7 @@ describe("shared UAT browser harness", () => {
 
   it("uses run-owned Auth users and deterministic checkout identifiers", () => {
     const helper = source("e2e/support/uat-auth.ts")
-    const workflow = source(".github/workflows/shared-uat.yml")
+    const workflow = source(".github/workflows/uat.yml")
 
     expect(helper).toContain("admin.auth.admin.createUser({")
     expect(helper).toContain('source: "shared-uat"')

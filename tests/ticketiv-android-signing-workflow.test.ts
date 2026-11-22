@@ -36,7 +36,7 @@ describe("Ticketiv Android upload signing", () => {
     expect(workflow).toContain("github.event_name == 'workflow_dispatch'")
     expect(workflow).toContain("github.ref == 'refs/heads/main'")
     expect(workflow).toContain("inputs.build_upload_signed_play")
-    expect(workflow).not.toContain("environment:")
+    expect(workflow).toContain("environment: google-play-production")
     expect(workflow).toContain("github.event_name != 'workflow_dispatch' || !inputs.build_upload_signed_play")
     expect(workflow).toContain("'google-play-ticketiv' || format(")
     expect(workflow).toContain("cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' || !inputs.build_upload_signed_play }}")

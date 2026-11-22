@@ -17,7 +17,7 @@ export default defineConfig({
   use: {
     baseURL,
     screenshot: "only-on-failure",
-    trace: "retain-on-failure",
+    trace: baseURL === "https://uat.ticketiv.app" ? "off" : "retain-on-failure",
     video: "retain-on-failure",
   },
   projects: [

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 
-import { expect, test } from "@playwright/test"
+import { expect, test } from "./support/fixtures"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import {
@@ -75,7 +75,7 @@ test.describe("organizer draft creation and publish guard", () => {
   test("owner creates a private draft and incomplete readiness blocks publication", async ({ page }, testInfo) => {
     test.skip(
       !shouldRun(testInfo.project.name),
-      "Organizer UAT requires E2E_STRICT=1, E2E_ALLOW_SHARED_UAT=1 and allow-listed TEST_SUPABASE_* env; runs on desktop only.",
+      "Organizer UAT requires E2E_STRICT=1, E2E_ALLOW_ISOLATED_UAT=1 and allow-listed TEST_SUPABASE_* env; runs on desktop only.",
     )
 
     if (!login || !admin || !config.baseUrl) {

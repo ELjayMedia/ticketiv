@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 
-import { expect, test } from "@playwright/test"
+import { expect, test } from "./support/fixtures"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import {
@@ -89,7 +89,7 @@ test.describe("workspace deletion safety", () => {
   test("non-empty workspace exposes dependency protection instead of deletion", async ({ page }, testInfo) => {
     test.skip(
       !shouldRun(testInfo.project.name),
-      "Workspace deletion UAT requires E2E_STRICT=1, E2E_ALLOW_SHARED_UAT=1 and allow-listed TEST_SUPABASE_* env; runs on desktop only.",
+      "Workspace deletion UAT requires E2E_STRICT=1, E2E_ALLOW_ISOLATED_UAT=1 and allow-listed TEST_SUPABASE_* env; runs on desktop only.",
     )
 
     if (!login || !config.baseUrl) throw new Error("Workspace deletion UAT setup did not initialize.")

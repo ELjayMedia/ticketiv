@@ -6,7 +6,7 @@ export const TICKETIV_PRODUCTION_HOST = "ticketiv.app"
 export const TICKETIV_PRODUCTION_SUPABASE_REF = "radsfmlsjznqvcpogluo"
 
 type EnvBag = Record<string, string | undefined>
-type DeploymentEnvironment = "production" | "preview" | "development" | "local" | "unknown"
+type DeploymentEnvironment = "production" | "preview" | "development" | "uat" | "local" | "unknown"
 
 export interface DeploymentSafetyReport {
   deploymentEnvironment: DeploymentEnvironment
@@ -35,7 +35,7 @@ export class DeploymentSafetyError extends Error {
 export function resolveDeploymentEnvironment(env: EnvBag = process.env): DeploymentEnvironment {
   // DEPLOYMENT_ENV is set by the Coolify Dockerfile (production); unset locally.
   const deploymentEnv = env.DEPLOYMENT_ENV?.trim().toLowerCase()
-  if (deploymentEnv === "production" || deploymentEnv === "preview" || deploymentEnv === "development") return deploymentEnv
+  if (deploymentEnv === "production" || deploymentEnv === "preview" || deploymentEnv === "development" || deploymentEnv === "uat" || deploymentEnv === "uat") return deploymentEnv
   if (deploymentEnv) return "unknown"
   return "local"
 }
@@ -65,8 +65,17 @@ export function describeDeploymentSafety(env: EnvBag = process.env): DeploymentS
     requireManagedEnv(env, "NEXT_PUBLIC_APP_URL", issues)
   }
 
-  if (env.NEXT_PUBLIC_SUPABASE_URL && !supabaseProjectRef) {
-    issues.push("NEXT_PUBLIC_SUPABASE_URL must be a valid Supabase project URL.")
+  const isSelfHostedUat =
+    deploymentEnvironment === "uat" &&
+    appHost === "uat.ticketiv.app" &&
+    env.NEXT_PUBLIC_SUPABASE_URL === "https://uat-api.ticketiv.app"
+
+  if (deploymentEnvironment === "uat" && !isSelfHostedUat) {
+    issues.push("UAT must use https://uat.ticketiv.app and its isolated https://uat-api.ticketiv.app backend.")
+  }
+
+  if (env.NEXT_PUBLIC_SUPABASE_URL && !supabaseProjectRef && !isSelfHostedUat) {
+    issues.push("NEXT_PUBLIC_SUPABASE_URL must be a managed Supabase URL or the explicitly allowed self-hosted UAT URL.")
   }
 
   if (env.NEXT_PUBLIC_APP_URL && !appOrigin) {
@@ -104,6 +113,13 @@ export function assertDeploymentSafety(env: EnvBag = process.env) {
 
 export function getDeploymentSafetyBanner(env: EnvBag = process.env): DeploymentSafetyBanner | null {
   const report = describeDeploymentSafety(env)
+  if (report.deploymentEnvironment === "uat") {
+    return {
+      label: "UAT build",
+      message: "Testing environment. No live payments.",
+      commitLabel: formatCommitLabel(env.SOURCE_COMMIT),
+    }
+  }
   if (report.deploymentEnvironment === "production" || !report.usesProductionSupabase) return null
 
   return {

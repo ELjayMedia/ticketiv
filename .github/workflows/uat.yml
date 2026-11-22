@@ -1,0 +1,162 @@
+name: UAT
+on:
+  push:
+    branches: [uat]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ticketiv-uat-release
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verification
+    uses: ./.github/workflows/checks.yml
+    permissions:
+      contents: read
+      deployments: read
+
+  build:
+    name: Build UAT image
+    if: github.ref == 'refs/heads/uat'
+    needs: verify
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Require verified UAT schema and public configuration
+        env:
+          SCHEMA_FINGERPRINT: ${{ vars.UAT_SCHEMA_FINGERPRINT }}
+          PUBLIC_KEY: ${{ vars.UAT_SUPABASE_PUBLIC_KEY }}
+          SECRETS_ISOLATED: ${{ vars.CICD_SECRETS_ISOLATED }}
+        run: |
+          set -euo pipefail
+          test -n "$PUBLIC_KEY"
+          test "$SECRETS_ISOLATED" = true || { echo "::error::Move production repository secrets into branch-restricted environments before enabling UAT deployment."; exit 1; }
+          test "$(node scripts/ci/schema-fingerprint.mjs)" = "$SCHEMA_FINGERPRINT" || {
+            echo '::error::Apply and verify reviewed UAT database migrations before updating UAT_SCHEMA_FINGERPRINT.'
+            exit 1
+          }
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Publish immutable UAT image
+        id: image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          provenance: mode=max
+          sbom: true
+          tags: ghcr.io/eljaymedia/ticketiv:uat-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          build-args: |
+            DEPLOYMENT_ENV=uat
+            SOURCE_COMMIT=${{ github.sha }}
+            NEXT_PUBLIC_APP_URL=https://uat.ticketiv.app
+            NEXT_PUBLIC_TICKET_BASE_URL=https://uat.ticketiv.app
+            NEXT_PUBLIC_SUPABASE_URL=https://uat-api.ticketiv.app
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ vars.UAT_SUPABASE_PUBLIC_KEY }}
+          cache-from: type=registry,ref=ghcr.io/eljaymedia/ticketiv:buildcache-uat-arm64
+          cache-to: type=registry,ref=ghcr.io/eljaymedia/ticketiv:buildcache-uat-arm64,mode=max,image-manifest=true,oci-mediatypes=true
+
+  deploy:
+    name: Deploy and test UAT
+    if: github.ref == 'refs/heads/uat'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment:
+      name: UAT
+      url: https://uat.ticketiv.app
+    permissions:
+      contents: read
+      deployments: write
+    env:
+      COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+      CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+      CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
+      NEXT_PUBLIC_SUPABASE_URL: https://uat-api.ticketiv.app
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.UAT_SUPABASE_PUBLIC_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TEST_SUPABASE_URL: https://uat-api.ticketiv.app
+      TEST_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      E2E_ALLOW_ISOLATED_UAT: "1"
+      E2E_STRICT: "1"
+      PLAYWRIGHT_BASE_URL: https://uat.ticketiv.app
+      E2E_TEST_EVENT_SLUG: uat-public-discovery-event
+      E2E_TEST_BUYER_EMAIL: uat-checkout@ticketiv.app
+      E2E_PAYSTACK_TEST_KEY: ${{ secrets.E2E_PAYSTACK_TEST_KEY }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - run: corepack enable
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Validate UAT credentials
+        run: |
+          set -euo pipefail
+          for name in COOLIFY_TOKEN CLOUDFLARE_ACCESS_CLIENT_ID CLOUDFLARE_ACCESS_CLIENT_SECRET SUPABASE_SERVICE_ROLE_KEY E2E_PAYSTACK_TEST_KEY; do
+            test -n "${!name}" || { echo "::error::Missing UAT environment secret: $name"; exit 1; }
+          done
+          case "$E2E_PAYSTACK_TEST_KEY" in sk_test_*) ;; *) echo '::error::Only a Paystack sandbox key is accepted'; exit 1 ;; esac
+      - name: Deploy digest and verify exact revision
+        env:
+          IMAGE_DIGEST: ${{ needs.build.outputs.digest }}
+        run: node scripts/ci/deploy-coolify.mjs uat "$IMAGE_DIGEST" "$GITHUB_SHA"
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Prepare sandbox payment fixture
+        id: sandbox
+        run: node --experimental-strip-types scripts/ci/uat-payment-fixture.mjs prepare
+      - name: Seed deterministic UAT fixtures
+        id: seed
+        run: pnpm seed:uat
+      - name: Prove database money and scanner lifecycle
+        run: pnpm exec vitest run tests/money-path-lifecycle.test.ts
+      - name: Run browser UAT
+        run: >-
+          pnpm test:e2e e2e/discovery-to-checkout.spec.ts
+          e2e/anonymous-privilege-boundaries.spec.ts
+          e2e/authenticated-org-boundaries.spec.ts
+          e2e/refunded-ticket-propagation.spec.ts
+          e2e/organizer-draft-publish-guard.spec.ts
+          e2e/workspace-deletion-safety.spec.ts
+          e2e/organizer-onboarding.spec.ts
+          --project=desktop-chromium --workers=1
+      - name: Remove deterministic UAT fixtures
+        if: ${{ always() && steps.seed.outcome == 'success' }}
+        run: pnpm seed:uat:teardown
+      - name: Restore payment configuration
+        if: ${{ always() && steps.sandbox.outcome != 'skipped' }}
+        run: node --experimental-strip-types scripts/ci/uat-payment-fixture.mjs restore
+      - name: Retain failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: uat-failure-${{ github.run_id }}
+          path: |
+            test-results/e2e
+            playwright-report
+          if-no-files-found: ignore
+          retention-days: 3

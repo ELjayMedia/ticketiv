@@ -1,0 +1,143 @@
+name: Release production
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type DEPLOY_PRODUCTION to release the tested main revision
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+  deployments: read
+concurrency:
+  group: ticketiv-production-release
+  cancel-in-progress: false
+
+jobs:
+  policy:
+    environment: Production
+    name: Validate production release
+    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'DEPLOY_PRODUCTION'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Require enforceable main protection and a green main CI run
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_POLICY_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN"
+          gh api "repos/$GITHUB_REPOSITORY/branches/main/protection" \
+            --jq '.enforce_admins.enabled == true and .allow_force_pushes.enabled == false and .allow_deletions.enabled == false and .required_pull_request_reviews != null and .required_status_checks.strict == true' \
+            | grep -qx true
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/checks.yml/runs?head_sha=$GITHUB_SHA&branch=main&status=success&per_page=20" \
+            --jq '.workflow_runs | any(.event == "push" and .conclusion == "success")' | grep -qx true
+          node scripts/ci/require-tested-release.mjs "$GITHUB_SHA"
+
+  release:
+    name: Build and deploy production
+    needs: policy
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 40
+    environment:
+      name: Production
+      url: https://ticketiv.app
+    permissions:
+      contents: read
+      packages: write
+      deployments: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Verify production schema and public build configuration
+        env:
+          SCHEMA_FINGERPRINT: ${{ vars.SCHEMA_FINGERPRINT }}
+          PUBLIC_KEY: ${{ vars.SUPABASE_PUBLIC_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$PUBLIC_KEY"
+          test "$(node scripts/ci/schema-fingerprint.mjs)" = "$SCHEMA_FINGERPRINT" || {
+            echo '::error::Production migrations need a recovery point, reviewed rollout and verified SCHEMA_FINGERPRINT before this release.'
+            exit 1
+          }
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Prepare ephemeral monitoring upload secrets
+        id: monitoring
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          cp Dockerfile "$RUNNER_TEMP/Dockerfile.release"
+          if [ -n "$SENTRY_AUTH_TOKEN" ]; then
+            umask 077
+            mkdir -p "$RUNNER_TEMP/ticketiv-build-secrets"
+            printf '%s' "$SENTRY_AUTH_TOKEN" > "$RUNNER_TEMP/ticketiv-build-secrets/SENTRY_AUTH_TOKEN"
+            printf '%s' true > "$RUNNER_TEMP/ticketiv-build-secrets/SENTRY_SOURCE_MAPS_BUILD_ENABLED"
+            printf '%s' --max-old-space-size=4096 > "$RUNNER_TEMP/ticketiv-build-secrets/NODE_OPTIONS"
+            python3 - <<'PY'
+          import os,pathlib
+          p=pathlib.Path(os.environ['RUNNER_TEMP'])/'Dockerfile.release'
+          s=p.read_text()
+          mounts=' '.join('--mount=type=secret,id='+k+',env='+k for k in ['SENTRY_AUTH_TOKEN','SENTRY_SOURCE_MAPS_BUILD_ENABLED','NODE_OPTIONS'])
+          assert s.count('RUN for v in ')==1
+          p.write_text(s.replace('RUN for v in ','RUN '+mounts+' for v in '))
+          PY
+            {
+              echo 'files<<BUILD_SECRET_FILES'
+              for file in "$RUNNER_TEMP/ticketiv-build-secrets"/*; do echo "$(basename "$file")=$file"; done
+              echo BUILD_SECRET_FILES
+            } >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and publish the production image
+        id: image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: ${{ runner.temp }}/Dockerfile.release
+          platforms: linux/arm64
+          push: true
+          provenance: mode=max
+          sbom: true
+          tags: ghcr.io/eljaymedia/ticketiv:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          build-args: |
+            DEPLOYMENT_ENV=production
+            SOURCE_COMMIT=${{ github.sha }}
+            NEXT_PUBLIC_APP_URL=https://ticketiv.app
+            NEXT_PUBLIC_TICKET_BASE_URL=https://ticketiv.app
+            NEXT_PUBLIC_SUPABASE_URL=https://radsfmlsjznqvcpogluo.supabase.co
+            NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${{ vars.SUPABASE_PUBLIC_KEY }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ vars.SUPABASE_PUBLIC_KEY }}
+            NEXT_PUBLIC_SENTRY_DSN=${{ vars.SENTRY_DSN }}
+          secret-files: ${{ steps.monitoring.outputs.files }}
+          cache-from: type=registry,ref=ghcr.io/eljaymedia/ticketiv:buildcache-production-arm64
+          cache-to: type=registry,ref=ghcr.io/eljaymedia/ticketiv:buildcache-production-arm64,mode=max,image-manifest=true,oci-mediatypes=true
+      - name: Deploy digest with automatic health-check rollback
+        env:
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        run: node scripts/ci/deploy-coolify.mjs production "$IMAGE_DIGEST" "$GITHUB_SHA"
+      - name: Remove ephemeral secrets
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/ticketiv-build-secrets" "$RUNNER_TEMP/Dockerfile.release"

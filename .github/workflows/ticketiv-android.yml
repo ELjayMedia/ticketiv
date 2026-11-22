@@ -227,6 +227,7 @@ jobs:
           retention-days: 7
 
   upload-signed-play-bundle:
+    environment: google-play-production
     name: upload-signed Play bundle
     if: >-
       github.event_name == 'workflow_dispatch' &&

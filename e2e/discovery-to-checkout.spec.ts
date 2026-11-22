@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test"
+import { test, expect } from "./support/fixtures"
 
 // TICK-334 / TICK-407 — buyer happy path: discovery → event detail →
 // checkout → Paystack hosted-payment handoff.

@@ -1,0 +1,5 @@
+/.github/ @ELjayMedia
+/scripts/ci/ @ELjayMedia
+/supabase/ @ELjayMedia
+/Dockerfile @ELjayMedia
+/lib/deployment-safety.ts @ELjayMedia

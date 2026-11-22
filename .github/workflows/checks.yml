@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [uat, main]
+  push:
+    branches: [main]
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  release-policy:
+    name: Release policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Require UAT promotion into main
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          SOURCE_BRANCH: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          test "$SOURCE_REPO" = "$GITHUB_REPOSITORY"
+          test "$SOURCE_BRANCH" = uat
+          node scripts/ci/require-tested-release.mjs "$GITHUB_SHA"
+
+  release-gate:
+    name: Release gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # corepack must be enabled before setup-node so its `cache: pnpm` step can
+      # resolve the pnpm store path (otherwise: "Unable to locate executable file: pnpm").
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Setup Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # TICK-466: check:crossorg needs an isolated database with Ticketiv's
+      # schema. A throwaway local Supabase Postgres, built from
+      # supabase/migrations, lives only for this job. It is never the shared
+      # project; the harness also rolls back everything it seeds.
+      - name: Start isolated verification database
+        uses: ./.github/actions/start-isolated-supabase
+
+      - name: Verify public security controls on isolated database
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -X -v ON_ERROR_STOP=1 -f supabase/tests/security_public_surface.sql
+
+      # Pull-request checks never receive deployment or production credentials.
+      # check:release includes check:permissions. The invariants over the
+      # committed matrix always run; the live drift diff additionally runs when
+      # these secrets are configured, which is what catches a grant applied
+      # straight to the database without a migration (TICK-337).
+      - name: Run release verification
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          TICKETIV_CROSS_ORG_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: pnpm check:release
+
+      - name: Stop isolated verification database
+        if: always()
+        run: supabase stop --no-backup || true
+

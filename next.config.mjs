@@ -19,7 +19,7 @@ const securityHeaders = [
   {
     key: "Content-Security-Policy-Report-Only",
     value:
-      "default-src 'self'; script-src 'self' 'unsafe-inline' https://*.posthog.com https://chat.eljaymedia.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.posthog.com https://*.sentry.io https://chat.eljaymedia.com wss://chat.eljaymedia.com; frame-src 'self' https://www.google.com https://chat.eljaymedia.com; worker-src 'self' blob:; manifest-src 'self'; media-src 'self' blob: https:; form-action 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; report-uri /api/csp-report; report-to csp",
+      "default-src 'self'; script-src 'self' 'unsafe-inline' https://*.posthog.com https://chat.eljaymedia.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://uat-api.ticketiv.app wss://uat-api.ticketiv.app https://*.posthog.com https://*.sentry.io https://chat.eljaymedia.com wss://chat.eljaymedia.com; frame-src 'self' https://www.google.com https://chat.eljaymedia.com; worker-src 'self' blob:; manifest-src 'self'; media-src 'self' blob: https:; form-action 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; report-uri /api/csp-report; report-to csp",
   },
   { key: "Reporting-Endpoints", value: 'csp="/api/csp-report"' },
 ]
@@ -48,8 +48,17 @@ function assertManagedDeploymentSafety() {
   requireManagedEnv(env, "NEXT_PUBLIC_SUPABASE_ANON_KEY", issues)
   requireManagedEnv(env, "NEXT_PUBLIC_APP_URL", issues)
 
-  if (env.NEXT_PUBLIC_SUPABASE_URL && !supabaseProjectRef) {
-    issues.push("NEXT_PUBLIC_SUPABASE_URL must be a valid https://<project-ref>.supabase.co URL.")
+  const isSelfHostedUat =
+    deploymentEnv === "uat" &&
+    appHost === "uat.ticketiv.app" &&
+    env.NEXT_PUBLIC_SUPABASE_URL === "https://uat-api.ticketiv.app"
+
+  if (deploymentEnv === "uat" && !isSelfHostedUat) {
+    issues.push("UAT must use https://uat.ticketiv.app and its isolated https://uat-api.ticketiv.app backend.")
+  }
+
+  if (env.NEXT_PUBLIC_SUPABASE_URL && !supabaseProjectRef && !isSelfHostedUat) {
+    issues.push("NEXT_PUBLIC_SUPABASE_URL must be a managed Supabase URL or the explicitly allowed self-hosted UAT URL.")
   }
 
   if (env.NEXT_PUBLIC_APP_URL && !appHost) {

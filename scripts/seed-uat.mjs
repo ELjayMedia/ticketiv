@@ -13,6 +13,7 @@
 // and silently "succeeding" would leave a test suite to fail confusingly later.
 
 import { createClient } from "@supabase/supabase-js"
+import { assertIsolatedUatTarget } from "../lib/testing/uat-target.ts"
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -21,6 +22,8 @@ if (!url || !serviceKey) {
   console.error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.")
   process.exit(1)
 }
+
+assertIsolatedUatTarget(url)
 
 const teardown = process.argv.includes("--teardown")
 const client = createClient(url, serviceKey, { auth: { persistSession: false } })
