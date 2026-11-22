@@ -53,3 +53,37 @@ describe("deployment health and rollback", () => {
     expect((await h.health()).ok).toBe(true)
   })
 })
+
+describe("production deployment recovery", () => {
+  it.each([false, true])("preserves runtime secrets and restores the prior image on failure=%s", async (failNew) => {
+    const oldTag = "previous-release"
+    let image = { docker_registry_image_name: "ghcr.io/eljaymedia/ticketiv", docker_registry_image_tag: oldTag }
+    let configuredRevision = previousRevision
+    let running = previousRevision
+    const envWrites: unknown[] = []
+    const api = async (path: string, method = "GET", data?: Record<string, unknown>) => {
+      if (path.endsWith("/envs/bulk")) {
+        envWrites.push(data)
+        configuredRevision = (data!.data as { value: string }[])[0].value
+        return {}
+      }
+      if (path === "/deploy") { running = configuredRevision; return { deployments: [{ deployment_uuid: "release" }] } }
+      if (path === "/deployments/release") return { status: "finished" }
+      if (method === "PATCH") image = data as typeof image
+      return image
+    }
+    const health = async () => ({ ok: !(failNew && running === revision), revision: running })
+    const release = validateRelease("production", digest, revision, "main")
+    const result = deployRelease(release, { api, health, pause: async () => {}, attempts: 1 })
+    if (failNew) {
+      await expect(result).rejects.toThrow("previous healthy revision was restored")
+      expect(image.docker_registry_image_tag).toBe(oldTag)
+      expect(running).toBe(previousRevision)
+    } else {
+      await expect(result).resolves.toMatchObject({ image: `ghcr.io/eljaymedia/ticketiv@${digest}` })
+      expect(image.docker_registry_image_tag).toBe(digest.replace("sha256:", "sha256-"))
+    }
+    for (const write of envWrites) expect(write).toMatchObject({ data: [{ key: "SOURCE_COMMIT" }] })
+    expect(JSON.stringify(envWrites)).not.toMatch(/SUPABASE|PAYOUT|CRON_SECRET/)
+  })
+})

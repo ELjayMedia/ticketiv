@@ -16,7 +16,7 @@ Do not manually retag or overwrite commit images. The UAT and production fronten
 
 ## GitHub account requirements
 
-This is a private personal repository. Enforced branch protection, environment secrets, and deployment-branch policies require GitHub Pro or a higher eligible plan. Repository settings returning HTTP 403 are an installation blocker, not an enforced protection.
+This is a private personal repository. GitHub currently rejects main branch protection with HTTP 403 and requires a GitHub Pro upgrade. This installation accepted environment branch policies: a credential-free audit confirmed that a Production job from `uat` was rejected before any steps ran, while a UAT job from `uat` succeeded. Repository settings returning HTTP 403 are an installation blocker, not an enforced protection.
 
 Required environment policies:
 
@@ -55,3 +55,7 @@ For schema changes: review migrations, create and verify a recovery point, apply
 Do not re-enable `.github/workflows/shared-uat.yml`: its production-backed mutation path has been retired. Mutation harnesses and fixture scripts reject the production project even if production credentials are supplied accidentally.
 
 The legacy `ci.yml` workflow is disabled during the migration because its main-push job deploys production automatically. `checks.yml` replaces verification without deployment credentials. Leave the legacy shared-production UAT workflow disabled.
+
+## Installation status
+
+`uat` is the default branch. UAT, Production and Google Play environments have exact branch restrictions. Main protection is still blocked by GitHub's plan requirement. The legacy production auto-deploy is disabled. Existing repository-wide secret migration awaits explicit approval for the prepared encrypted transfer; `CICD_SECRETS_ISOLATED` stays unset. Deployment credentials and release-policy token still need provisioning. PR #577 stays a draft until these controls and an isolated UAT release pass.
