@@ -5,6 +5,8 @@ on:
 
 jobs:
   compare-baseline-to-production:
+    if: github.ref == 'refs/heads/main'
+    environment: Production
     runs-on: ubuntu-latest
     timeout-minutes: 60
 

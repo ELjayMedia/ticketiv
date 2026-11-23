@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test"
+import { expect, test } from "./support/fixtures"
 import type { SupabaseClient as SupabaseJsClient } from "@supabase/supabase-js"
 
 import {
@@ -19,7 +19,7 @@ import {
 // Playwright projects would make the shared UAT fixture race with itself.
 //
 // It is also deliberately opt-in. Ticketiv still shares one Supabase project
-// across environments, so the suite requires E2E_ALLOW_SHARED_UAT=1 *and* the
+// across environments, so the suite requires E2E_ALLOW_ISOLATED_UAT=1 *and* the
 // TEST_SUPABASE project-ref allow-list before it will write fixture rows.
 
 const config = readAuthenticatedUatConfig()
@@ -71,7 +71,7 @@ test.describe("authenticated organization boundaries", () => {
     test.setTimeout(180_000)
     test.skip(
       !shouldRun(testInfo.project.name),
-      "Authenticated UAT requires E2E_STRICT=1, E2E_ALLOW_SHARED_UAT=1 and allow-listed TEST_SUPABASE_* env; runs on desktop only.",
+      "Authenticated UAT requires E2E_STRICT=1, E2E_ALLOW_ISOLATED_UAT=1 and allow-listed TEST_SUPABASE_* env; runs on desktop only.",
     )
 
     if (!admin || !config.baseUrl) throw new Error("Authenticated UAT setup did not initialize.")
@@ -108,7 +108,7 @@ test.describe("authenticated organization boundaries", () => {
   test("Beta owner can enter Beta but is refused from Alpha", async ({ page }, testInfo) => {
     test.skip(
       !shouldRun(testInfo.project.name),
-      "Authenticated UAT requires E2E_STRICT=1, E2E_ALLOW_SHARED_UAT=1 and allow-listed TEST_SUPABASE_* env; runs on desktop only.",
+      "Authenticated UAT requires E2E_STRICT=1, E2E_ALLOW_ISOLATED_UAT=1 and allow-listed TEST_SUPABASE_* env; runs on desktop only.",
     )
 
     if (!admin || !config.baseUrl) throw new Error("Authenticated UAT setup did not initialize.")

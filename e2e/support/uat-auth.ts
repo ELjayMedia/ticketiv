@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto"
+import { isIsolatedUatTarget } from "../../lib/testing/uat-target"
 
 import type { Page } from "@playwright/test"
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
@@ -49,7 +50,6 @@ const REQUIRED_ENV = [
   "PLAYWRIGHT_BASE_URL",
   "TEST_SUPABASE_URL",
   "TEST_SUPABASE_SERVICE_ROLE_KEY",
-  "TEST_SUPABASE_ALLOW_PROJECT_REF",
 ] as const
 
 export interface AuthenticatedUatConfig {
@@ -63,19 +63,14 @@ export interface AuthenticatedUatConfig {
   allowedProjectRef: string | null
 }
 
-function projectRef(url: string | undefined): string | null {
-  return url?.match(/^https:\/\/([a-z0-9]+)\.supabase\.co/i)?.[1] ?? null
-}
-
 export function readAuthenticatedUatConfig(): AuthenticatedUatConfig {
   const missing = REQUIRED_ENV.filter((key) => !process.env[key]?.trim())
   const baseUrl = process.env.PLAYWRIGHT_BASE_URL?.trim() || null
   const supabaseUrl = process.env.TEST_SUPABASE_URL?.trim() || null
   const serviceKey = process.env.TEST_SUPABASE_SERVICE_ROLE_KEY?.trim() || null
   const allowedProjectRef = process.env.TEST_SUPABASE_ALLOW_PROJECT_REF?.trim() || null
-  const sharedEnvironmentAcknowledged = process.env.E2E_ALLOW_SHARED_UAT === "1"
-  const actualProjectRef = projectRef(supabaseUrl ?? undefined)
-  const projectRefMatches = Boolean(actualProjectRef && allowedProjectRef && actualProjectRef === allowedProjectRef)
+  const sharedEnvironmentAcknowledged = process.env.E2E_ALLOW_ISOLATED_UAT === "1"
+  const projectRefMatches = isIsolatedUatTarget(supabaseUrl)
 
   return {
     ready:

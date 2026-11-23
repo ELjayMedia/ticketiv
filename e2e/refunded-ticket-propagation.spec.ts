@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 
-import { expect, test } from "@playwright/test"
+import { expect, test } from "./support/fixtures"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import {
@@ -138,7 +138,7 @@ test.describe("refunded ticket propagation", () => {
   test("attendee sees Refunded and the ticket detail exposes no QR or transfer/resale action", async ({ page }, testInfo) => {
     test.skip(
       !shouldRun(testInfo.project.name),
-      "Refunded-ticket UAT requires E2E_STRICT=1, E2E_ALLOW_SHARED_UAT=1 and allow-listed TEST_SUPABASE_* env; runs on desktop only.",
+      "Refunded-ticket UAT requires E2E_STRICT=1, E2E_ALLOW_ISOLATED_UAT=1 and allow-listed TEST_SUPABASE_* env; runs on desktop only.",
     )
 
     if (!login || !refundedTicket || !config.baseUrl) {

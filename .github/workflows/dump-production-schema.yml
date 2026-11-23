@@ -12,6 +12,8 @@ concurrency:
 
 jobs:
   backup:
+    if: github.ref == 'refs/heads/main'
+    environment: Production
     name: Export and encrypt current production state
     runs-on: ubuntu-latest
     timeout-minutes: 90

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test"
+import { test, expect } from "./support/fixtures"
 
 // TICK-407 — buyer money path: discover → event detail → checkout reachable.
 //

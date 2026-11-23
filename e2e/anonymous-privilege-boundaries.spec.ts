@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test"
+import { expect, test } from "./support/fixtures"
 
 // TICK-334 — anonymous privilege boundary coverage.
 //
