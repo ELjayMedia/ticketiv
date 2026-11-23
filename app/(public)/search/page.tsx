@@ -58,7 +58,7 @@ export default async function SearchPage({
   const props = mapSearch(results, { ...filters, when: sp.when, past: sp.past }, facets)
 
   return (
-    <div className="mx-auto max-w-[480px] md:max-w-[680px]">
+    <div className="mx-auto max-w-[480px] md:max-w-[80rem] md:px-5">
       <SearchResults {...props} />
     </div>
   )

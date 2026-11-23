@@ -96,8 +96,8 @@ export function LiveEventShell({ eventId, mobile, desktop, initialStats = null }
 
 function SoldOutWaitlistBanner({ href }: { href: string }) {
   return (
-    <div className="border-b border-line bg-accent-soft px-5 py-3 md:px-10">
-      <div className="mx-auto flex max-w-[1280px] flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <div className="border-b border-line bg-accent-soft py-3">
+      <div className="page-frame flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="text-[13px] font-semibold text-accent">Primary tickets are sold out</div>
           <div className="mt-0.5 font-mono text-[11px] text-ink-3">

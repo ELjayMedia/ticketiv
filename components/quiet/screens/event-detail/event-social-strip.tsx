@@ -65,10 +65,10 @@ export function EventSocialStrip({
         className={
           variant === "card"
             ? "rounded-[var(--radius-lg)] border border-line bg-surface px-3.5 py-3"
-            : "border-b border-line bg-surface/95 px-5 py-2.5 md:px-10"
+            : "border-b border-line bg-surface/95 py-2.5"
         }
       >
-        <div className={variant === "card" ? "flex items-center gap-3" : "mx-auto flex max-w-[1280px] items-center gap-3"}>
+        <div className={variant === "card" ? "flex items-center gap-3" : "page-frame flex items-center gap-3"}>
           {going.length > 0 ? (
             <AvatarStack>
               {going.slice(0, 4).map((friend) => (

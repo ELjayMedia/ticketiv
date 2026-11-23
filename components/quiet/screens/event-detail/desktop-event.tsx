@@ -72,7 +72,7 @@ export function DesktopEvent({ event }: DesktopEventProps) {
 
 
   return (
-    <div className="mx-auto max-w-[1280px] px-10">
+    <div className="page-frame">
       <div className="pt-6">
         <Photo src={event.posterUrl} height={420} overlay="dim" className="rounded-2xl">
           <div className="mt-auto">

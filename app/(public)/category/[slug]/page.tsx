@@ -21,7 +21,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   if (!events || events.length === 0) notFound()
 
   return (
-    <main className="mx-auto flex w-full max-w-[1200px] flex-col gap-8 px-4 py-12 sm:px-6 lg:px-8">
+    <main className="page-frame flex flex-col gap-8 py-12">
       <div className="flex flex-col gap-2">
         <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Category</p>
         <h1 className="text-h1">{categoryName} events</h1>

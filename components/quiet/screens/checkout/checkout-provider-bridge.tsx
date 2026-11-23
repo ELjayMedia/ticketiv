@@ -73,7 +73,7 @@ export function CheckoutProviderBridge({
   return (
     <div ref={rootRef}>
       {showDesktopPicker && (
-        <section className="mx-auto max-w-[1100px] px-10 pt-6">
+        <section className="page-frame pt-6">
           <div className="rounded-[var(--radius-lg)] border border-line bg-surface p-4">
             <div className="mb-3">
               <h2 className="text-[16px] font-semibold">Payment method</h2>

@@ -21,7 +21,7 @@ export function PublicProfileScreen({ profile }: { profile: PublicProfile }) {
     .join("")
 
   return (
-    <div className="mx-auto min-h-[60dvh] max-w-[480px] bg-bg px-5 pb-24 pt-20">
+    <div className="mx-auto min-h-[60dvh] max-w-[480px] bg-bg px-5 pb-24 pt-20 md:page-frame md:pt-10">
       <header className="flex justify-end gap-2">
         {profile.isOwner ? (
           <Link

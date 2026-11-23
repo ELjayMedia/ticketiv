@@ -34,7 +34,7 @@ function formatExpiry(iso: string | null): string | null {
 export function ResaleCheckoutReview({ listing, pendingOrderId, pendingPaymentId, paymentStatus }: ResaleCheckoutReviewProps) {
   if (!listing) {
     return (
-      <div className="mx-auto max-w-[480px] bg-bg pb-24">
+      <div className="mx-auto max-w-[480px] md:max-w-none bg-bg pb-24">
         <div className="h-[max(env(safe-area-inset-top),0.25rem)]" />
         <header className="px-5 pb-4 pt-2">
           <Link
@@ -82,7 +82,7 @@ export function ResaleCheckoutReview({ listing, pendingOrderId, pendingPaymentId
   const eventHref = listing.eventSlug ? `/events/${listing.eventSlug}` : "/";
 
   return (
-    <div className="mx-auto max-w-[480px] bg-bg pb-24">
+    <div className="mx-auto max-w-[480px] md:max-w-none bg-bg pb-24">
       <div className="h-[max(env(safe-area-inset-top),0.25rem)]" />
 
       <header className="px-5 pb-4 pt-2">
