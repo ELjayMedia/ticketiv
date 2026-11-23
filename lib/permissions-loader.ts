@@ -13,6 +13,14 @@ export interface UserAuthzData {
   permissions: Permissions
 }
 
+/** A permissions query failed. Thrown, not swallowed, so a database fault is never reported as "no access". */
+export class PermissionsLoadError extends Error {
+  constructor(source: string, cause: { code?: string | null; message?: string | null }) {
+    super(`Could not load permissions (${source}): ${cause.code ?? ""} ${cause.message ?? ""}`.trim())
+    this.name = "PermissionsLoadError"
+  }
+}
+
 /**
  * Load all permissions for a user
  * Should be called once per session/request to build the permission context
@@ -23,11 +31,15 @@ export async function loadUserPermissions(userId: string): Promise<UserAuthzData
 
   try {
     // 1. Fetch user profile
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("user_id, display_name")
       .eq("user_id", userId)
       .maybeSingle()
+
+    // A query error (for example a missing grant) is not a missing profile.
+    // Returning null here turned database faults into "access denied".
+    if (profileError) throw new PermissionsLoadError("profiles", profileError)
 
     if (!profile) {
       console.warn("[v0] Profile not found for user:", userId)
@@ -35,10 +47,11 @@ export async function loadUserPermissions(userId: string): Promise<UserAuthzData
     }
 
     // 2. Fetch org memberships
-    const { data: orgMembershipsData } = await supabase
+    const { data: orgMembershipsData, error: orgMembershipsError } = await supabase
       .from("org_members")
       .select("org_id, role, created_at")
       .eq("user_id", userId)
+    if (orgMembershipsError) throw new PermissionsLoadError("org_members", orgMembershipsError)
     const orgMemberships = orgMembershipsData ?? []
 
     // 3. Fetch event staff roles (event_staff has no org_id — join through events if org context needed)
@@ -46,11 +59,12 @@ export async function loadUserPermissions(userId: string): Promise<UserAuthzData
     let eventOrgByEventId: Record<string, string> = {}
     if (orgMemberships.length > 0) {
       const orgIds = orgMemberships.map((m) => m.org_id)
-      const { data: eventStaffData } = await supabase
+      const { data: eventStaffData, error: eventStaffError } = await supabase
         .from("event_staff")
         .select("event_id, role, events!inner(org_id)")
         .eq("user_id", userId)
         .in("events.org_id", orgIds)
+      if (eventStaffError) throw new PermissionsLoadError("event_staff", eventStaffError)
       const eventStaff = eventStaffData ?? []
 
       eventAccessByEventId = eventStaff.reduce(
@@ -74,11 +88,12 @@ export async function loadUserPermissions(userId: string): Promise<UserAuthzData
     }
 
     // 4. Check if global admin
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck, error: adminError } = await supabase
       .from("admin_users")
       .select("user_id")
       .eq("user_id", userId)
       .maybeSingle()
+    if (adminError) throw new PermissionsLoadError("admin_users", adminError)
 
     const isGlobalAdmin = !!adminCheck
 
@@ -96,6 +111,7 @@ export async function loadUserPermissions(userId: string): Promise<UserAuthzData
       },
     }
   } catch (error) {
+    if (error instanceof PermissionsLoadError) throw error
     console.error("[v0] Error loading user permissions:", error)
     return null
   }
