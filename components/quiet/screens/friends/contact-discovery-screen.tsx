@@ -158,7 +158,7 @@ export function ContactDiscoveryScreen({
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-[480px] flex-col gap-5 px-5 pb-24 pt-20">
+    <main className="mx-auto flex w-full max-w-[480px] flex-col gap-5 px-5 pb-24 pt-20 md:max-w-none md:px-0 md:pt-0">
       <header className="flex items-start gap-3">
         <Link
           href="/friends"

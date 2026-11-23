@@ -88,7 +88,7 @@ export default async function TransfersPage() {
   const outgoing = transfers.filter((item) => item.direction === "sent");
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-3xl px-5 pb-28 pt-8 md:px-8 md:pt-12">
+    <main className="mx-auto min-h-dvh w-full max-w-3xl px-5 pb-28 pt-8 md:max-w-none md:px-0 md:pt-0">
       <header className="flex items-start gap-3">
         <Link
           href="/me"

@@ -20,7 +20,7 @@ export default function OrganisersClient({ initialOrganisers }: OrganisersClient
     : initialOrganisers
 
   return (
-    <main className="mx-auto flex w-full max-w-[980px] flex-col gap-6 px-4 py-10 sm:px-6 lg:px-8">
+    <main className="page-frame flex flex-col gap-6 py-10">
       <h1 className="text-h1 sm:text-[32px]">Organisers</h1>
 
       <label className="flex w-full max-w-md items-stretch overflow-hidden rounded-md border border-line-2 bg-surface focus-within:border-accent focus-within:ring-[3px] focus-within:ring-accent-soft">

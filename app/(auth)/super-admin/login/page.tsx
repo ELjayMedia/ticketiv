@@ -6,7 +6,7 @@ export const metadata = { title: "Super Admin Login" }
 
 export default function SuperAdminLoginPage() {
   return (
-    <main className="mx-auto grid min-h-dvh max-w-[1100px] gap-8 px-6 py-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:py-12">
+    <main className="page-frame grid min-h-dvh gap-8 py-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:py-12">
       <section className="hidden rounded-[var(--radius-xl)] border border-line bg-surface p-10 shadow-[var(--shadow-card)] lg:block">
         <Link href="/" aria-label="Back to home" className="inline-flex">
           <Logo />
