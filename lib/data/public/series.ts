@@ -132,10 +132,10 @@ export type SeriesFollowState = {
 export async function getSeriesFollowState(seriesId: string): Promise<SeriesFollowState> {
   const supabase = await createClient()
 
-  const { count } = await supabase
-    .from("series_follows")
-    .select("id", { count: "exact", head: true })
-    .eq("series_id", seriesId)
+  // series_follows is select-own under RLS, so a direct count only saw the
+  // viewer's own row. fn_follower_count returns the public total.
+  const { data: total } = await (supabase as any).rpc("fn_follower_count", { p_kind: "series", p_id: seriesId })
+  const count = typeof total === "number" ? total : 0
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
