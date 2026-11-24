@@ -6,8 +6,6 @@ import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider } from "@/components/quiet/ui/primitives";
-import { RecentlyViewedSection } from "@/components/quiet/screens/discover/recently-viewed-section";
-import { SuggestedEventsRow } from "@/components/quiet/screens/discover/suggested-events-row";
 import { FollowingEventsRow } from "@/components/quiet/screens/discover/following-events-row";
 import { DiscoverFilterChips } from "@/components/quiet/screens/discover/discover-filter-chips";
 import { LoadMoreSection } from "@/components/quiet/screens/discover/load-more-section";
@@ -92,10 +90,7 @@ export function DesktopDiscover({
         </Suspense>
       </div>
 
-      <RecentlyViewedSection variant="desktop" />
       <FollowingEventsRow variant="desktop" />
-
-      <SuggestedEventsRow variant="desktop" />
 
       {/* This week + upcoming */}
         <div className="flex flex-col gap-10">

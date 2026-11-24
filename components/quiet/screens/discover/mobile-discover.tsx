@@ -7,7 +7,6 @@ import { Chip } from "@/components/quiet/ui/chip";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider } from "@/components/quiet/ui/primitives";
 import { SearchTrigger } from "@/components/quiet/search/search-overlay";
-import { RecentlyViewedSection } from "@/components/quiet/screens/discover/recently-viewed-section";
 import { SuggestedEventsRow } from "@/components/quiet/screens/discover/suggested-events-row";
 import { FollowingEventsRow } from "@/components/quiet/screens/discover/following-events-row";
 import { DiscoverFilterChips } from "@/components/quiet/screens/discover/discover-filter-chips";
@@ -115,9 +114,6 @@ export function MobileDiscover({
         </Suspense>
       </div>
 
-      <RecentlyViewedSection variant="mobile" />
-      <FollowingEventsRow variant="mobile" />
-
       {HERO ? (
         <section className="px-5 pb-6">
           <div className="mb-2 flex items-center gap-1.5">
@@ -148,6 +144,9 @@ export function MobileDiscover({
       ) : (
         <EmptySection title="No featured event yet" body="Featured events will appear here once published events are available." />
       )}
+
+      {/* Below the editor's pick so the top of the screen stays calm. */}
+      <FollowingEventsRow variant="mobile" />
 
       <EventListSection
         title="This week"
