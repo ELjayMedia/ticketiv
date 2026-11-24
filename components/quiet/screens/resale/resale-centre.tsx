@@ -172,6 +172,14 @@ export function TicketListingsCentre({
 
       {showBuyerContext && hasPublicListings && (
         <section className="px-5 pb-4">
+          <div role="note" className="mb-3 flex items-start gap-2.5 rounded-[var(--radius-md)] border border-line bg-surface p-3">
+            <Icon name="shield" size={16} className="mt-0.5 shrink-0 text-success" />
+            <p className="text-[12px] leading-relaxed text-ink-2">
+              <span className="font-semibold text-ink">Only buy resale tickets here.</span> Each one is a real ticket Ticketiv issued and
+              checked. When you buy, the seller&apos;s QR stops working and you get a fresh one. Never pay a seller outside Ticketiv;
+              screenshots and PDFs can be copied and sold more than once.
+            </p>
+          </div>
           <ul className="flex flex-col gap-2">
             {publicListings.map((listing) => {
               const expiry = formatExpiry(listing.listingExpiresAt);
@@ -205,6 +213,11 @@ export function TicketListingsCentre({
                           <Icon name="user" size={11} className="text-ink-4" />
                           <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase ${trust.className}`}>
                             {trust.label}
+                          </span>
+                          {/* Every listing is a live ticket Ticketiv issued; a sale re-issues the QR (TICK-448). */}
+                          <span className="inline-flex items-center gap-1 rounded bg-success-soft px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase text-success">
+                            <Icon name="checkCircle" size={10} />
+                            Verified ticket
                           </span>
                         </div>
                         <div className="mt-3 grid grid-cols-2 gap-2">
