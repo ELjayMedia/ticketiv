@@ -44,6 +44,7 @@ vi.mock("@/app/(focused)/events/[id]/checkout/actions", () => ({
 
 import { MobileCheckout } from "@/components/quiet/screens/checkout/mobile-checkout"
 import { DesktopCheckout } from "@/components/quiet/screens/checkout/desktop-checkout"
+import { CheckoutProviderBridge } from "@/components/quiet/screens/checkout/checkout-provider-bridge"
 
 // Production-exact composition for the UAT event: one GA type at E150.00,
 // remaining=null (anon 42501 at the time), active hold, guest buyer.
@@ -92,5 +93,59 @@ describe("UAT B4 checkout render repro", () => {
       }),
     )
     expect(html.length).toBeGreaterThan(100)
+  })
+})
+
+describe("desktop checkout payment-method picker", () => {
+  const desktopProps = {
+    eventId: "gathering-of-worshipers-test",
+    eventUuid: "00000000-0000-4000-8000-000000000401",
+    eventTitle: "Gathering of Worshipers",
+    eventPhoto: "/images/dj-set.jpg",
+    eventWhenLabel: "Sat 7 Feb · 16:00",
+    lines,
+    editTicketsHref,
+    holdSeconds: 518,
+    defaultBuyerEmail: "",
+  }
+  const methods = [
+    { id: "paystack", label: "Card", sub: "Visa · Mastercard", type: "card" },
+    { id: "momo", label: "MTN MoMo", sub: "Mobile money", type: "mobile_money" },
+  ] as const
+
+  function renderDesktop(bridgeMethods: ReadonlyArray<(typeof methods)[number]>) {
+    return renderToString(
+      React.createElement(
+        CheckoutProviderBridge as any,
+        {
+          methods: bridgeMethods,
+          eventId: desktopProps.eventUuid,
+          eventSlug: desktopProps.eventId,
+          showDesktopPicker: true,
+        },
+        React.createElement(DesktopCheckout as any, desktopProps),
+      ),
+    )
+  }
+
+  it("sits in the form column, after the header and before the pay button", () => {
+    const html = renderDesktop(methods)
+    const picker = html.indexOf("Payment method")
+    expect(picker).toBeGreaterThan(-1)
+    // Not above the checkout header/stepper (the old bug) ...
+    expect(picker).toBeGreaterThan(html.indexOf("back to event"))
+    expect(picker).toBeGreaterThan(html.indexOf("Buyer details"))
+    // ... and before the policy checkbox and "Continue to payment".
+    expect(picker).toBeLessThan(html.indexOf("desktop-policy-acceptance"))
+    expect(picker).toBeLessThan(html.indexOf("Continue to payment"))
+    expect(html).toContain("MTN MoMo")
+    expect(html).toMatch(/aria-pressed="true"[^>]*>[\s\S]*?Card/)
+  })
+
+  it("is omitted when the organizer offers no methods or there is no bridge", () => {
+    expect(renderDesktop([])).not.toContain("Payment method")
+    expect(
+      renderToString(React.createElement(DesktopCheckout as any, desktopProps)),
+    ).not.toContain("Payment method")
   })
 })
