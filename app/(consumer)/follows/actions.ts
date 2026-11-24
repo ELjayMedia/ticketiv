@@ -10,7 +10,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export type FollowKind = "organizer" | "artist"
+export type FollowKind = "organizer" | "artist" | "venue"
 
 export interface FollowState {
   /** False for signed-out visitors and guest-checkout sessions. */
@@ -69,7 +69,9 @@ export async function setFollowAction(kind: FollowKind, id: string, follow: bool
   const { error } =
     kind === "organizer"
       ? await me.supabase.rpc("fn_set_org_follow", { p_org_id: id, p_follow: follow })
-      : await me.supabase.rpc("fn_set_artist_follow", { p_artist_id: id, p_follow: follow })
+      : kind === "venue"
+        ? await me.supabase.rpc("fn_set_venue_follow", { p_venue_id: id, p_follow: follow })
+        : await me.supabase.rpc("fn_set_artist_follow", { p_artist_id: id, p_follow: follow })
   if (error) {
     console.error(`[follows] set ${kind}:`, error)
     return { ok: false, reason: "error", message: "Couldn't update that right now. Try again." }

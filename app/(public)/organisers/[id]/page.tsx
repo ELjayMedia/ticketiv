@@ -4,6 +4,8 @@ import { EventCardStandard as EventCard, type EventCardData } from "@/components
 import { Card } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { getOrganiserDetail, getOrganiserEvents } from "@/lib/data/public"
+import { getFollowSnapshot } from "@/lib/data/public/follows"
+import { FollowButton } from "@/components/follows/follow-button"
 
 interface OrganizerPageProps {
   params: Promise<{ id: string }>
@@ -14,7 +16,7 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
   const organizer = await getOrganiserDetail(id)
   if (!organizer) notFound()
 
-  const events = await getOrganiserEvents(id)
+  const [events, follow] = await Promise.all([getOrganiserEvents(id), getFollowSnapshot("organizer", organizer.id)])
   const currentEvents = events.filter((event: any) => event.lifecycle === "upcoming" || event.lifecycle === "live")
   const pastEvents = events.filter((event: any) => event.lifecycle === "ended")
   const cancelledEvents = events.filter((event: any) => event.lifecycle === "cancelled")
@@ -60,6 +62,15 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
             {organizer.bio && (
               <p className="line-clamp-2 text-[14px] leading-relaxed text-ink-3">{organizer.bio}</p>
             )}
+            <FollowButton
+              kind="organizer"
+              id={organizer.id}
+              name={organizer.name}
+              initialFollowing={follow.following}
+              initialCount={follow.followerCount}
+              signedIn={follow.signedIn}
+              returnTo={`/organisers/${id}`}
+            />
           </div>
         </div>
       </Card>

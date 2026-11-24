@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic"
 
 type Venue = {
   id: string
+  slug: string
   name: string
   city: string | null
   address: string | null
@@ -20,7 +21,7 @@ async function getVenues(): Promise<Venue[]> {
 
   const { data, error } = await supabase
     .from("venues")
-    .select("id, name, city, address, capacity")
+    .select("id, slug, name, city, address, capacity")
     .order("name", { ascending: true })
 
   if (error) return []
@@ -50,7 +51,8 @@ export default async function VenuesPage() {
       {venues.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {venues.map((venue) => (
-            <Card key={venue.id} className="transition-colors hover:border-line-2">
+            <Link key={venue.id} href={`/venues/${venue.slug}`} className="block">
+            <Card className="h-full transition-colors hover:border-line-2">
               <CardBody className="flex flex-col gap-4 p-5">
                 <span className="inline-flex h-12 w-12 items-center justify-center rounded-[var(--radius-md)] bg-accent-soft text-accent">
                   <Icon name="pin" size={20} />
@@ -69,6 +71,7 @@ export default async function VenuesPage() {
                 )}
               </CardBody>
             </Card>
+            </Link>
           ))}
         </div>
       ) : (

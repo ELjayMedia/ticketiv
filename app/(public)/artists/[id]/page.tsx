@@ -6,6 +6,8 @@ import { Card } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { Photo } from "@/components/quiet/ui/primitives"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { getFollowSnapshot } from "@/lib/data/public/follows"
+import { FollowButton } from "@/components/follows/follow-button"
 import type { ArtistRecord } from "@/types"
 import { splitArtistTourDates, toArtistTourDate, type ArtistTourDate } from "@/lib/events/artist-tour-dates"
 
@@ -60,6 +62,7 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
   }
 
   const { current: currentDates, past: pastDates } = splitArtistTourDates(tourDates)
+  const follow = await getFollowSnapshot("artist", artist.id)
 
   return (
     <main className="page-frame flex flex-col gap-6 py-8 sm:py-12">
@@ -88,6 +91,15 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
                 {artist.bio}
               </p>
             )}
+            <FollowButton
+              kind="artist"
+              id={artist.id}
+              name={artist.name}
+              initialFollowing={follow.following}
+              initialCount={follow.followerCount}
+              signedIn={follow.signedIn}
+              returnTo={`/artists/${id}`}
+            />
           </div>
         </div>
       </Card>
