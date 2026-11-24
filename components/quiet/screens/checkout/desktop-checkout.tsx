@@ -16,6 +16,10 @@ import { describePromoFailure } from "@/lib/checkout/promo-copy";
 import { PromoCodeInput, promoDiscountMinor, type AppliedPromo } from "@/components/quiet/screens/checkout/promo-code-input";
 import { trackBuyerFunnel } from "@/components/analytics/buyer-funnel";
 import { BrandLockup } from "@/components/brand/brand-mark";
+import {
+  DesktopPaymentMethodPicker,
+  useCheckoutPaymentMethods,
+} from "@/components/quiet/screens/checkout/checkout-provider-bridge";
 
 /* ──────────────────────────────────────────────────────────────
  * Desktop checkout · `/events/[id]/checkout` on md+
@@ -335,6 +339,8 @@ export function DesktopCheckout({
             />
           </Card>
 
+          <DesktopPaymentMethodCard />
+
           <div className="flex flex-col gap-2">
             <div className="flex items-start gap-2 text-[12px] text-ink-3">
               <input
@@ -495,6 +501,21 @@ export function DesktopCheckout({
         <DesktopBuyerGuaranteeModal onClose={() => setGuaranteeOpen(false)} />
       )}
     </div>
+  );
+}
+
+function DesktopPaymentMethodCard() {
+  if (useCheckoutPaymentMethods().length === 0) return null;
+  return (
+    <Card className="p-5">
+      <div className="mb-3.5">
+        <h2 className="text-[18px] font-semibold tracking-[-0.02em]">Payment method</h2>
+        <p className="mt-0.5 font-mono text-[11px] text-ink-3">
+          Choose how you want to pay. Only methods accepted by this organizer are shown.
+        </p>
+      </div>
+      <DesktopPaymentMethodPicker />
+    </Card>
   );
 }
 
