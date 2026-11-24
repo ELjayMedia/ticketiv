@@ -7,13 +7,13 @@ const item = (label: string) => ORG_NAV_ITEMS.find((i) => i.label === label)!
 describe("organizer workspace navigation", () => {
   it("shows owners every workspace section, including Settings", () => {
     expect(labels(visibleOrgNavItems({ role: "manager", storedRole: "organizer_owner", isPlatformAdmin: false }))).toEqual([
-      "Dashboard", "Events", "Series", "Finance", "Payouts", "Team", "Settings",
+      "Dashboard", "Events", "Series", "Venue enquiries", "Finance", "Payouts", "Team", "Settings",
     ])
   })
 
   it("hides owner-only Settings from admins (who do see money pages), and shows platform admins everything", () => {
     expect(labels(visibleOrgNavItems({ role: "manager", storedRole: "organizer_admin", isPlatformAdmin: false }))).toEqual([
-      "Dashboard", "Events", "Series", "Finance", "Payouts", "Team",
+      "Dashboard", "Events", "Series", "Venue enquiries", "Finance", "Payouts", "Team",
     ])
     expect(labels(visibleOrgNavItems({ role: "manager", storedRole: null, isPlatformAdmin: true }))).toContain("Settings")
   })

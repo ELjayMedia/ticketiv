@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn"
 import type { VenueActionResult } from "@/app/manage/venues/[venueId]/actions"
 import type { ManagedVenue } from "@/lib/venues/access"
 import { venueRoleLabel, type VenueRole } from "@/lib/venues/core"
+import { VENUE_TYPES } from "@/lib/venues/marketplace"
 
 type Action = (prev: VenueActionResult | null, formData: FormData) => Promise<VenueActionResult>
 
@@ -51,6 +52,21 @@ export function VenueProfileForm({ venue, action, readOnly }: { venue: ManagedVe
             defaultValue={venue.capacity ?? ""}
             hint="Largest standing or seated audience"
           />
+          <label className="flex flex-col gap-1">
+            <span className="text-label">Venue type</span>
+            <select
+              name="venueType"
+              defaultValue={venue.venueType ?? ""}
+              className="h-[42px] rounded-md border border-line-2 bg-surface px-3 text-[14px] outline-none focus:border-accent focus:ring-[3px] focus:ring-accent-soft"
+            >
+              <option value="">Not set</option>
+              {Object.entries(VENUE_TYPES).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
           <FormField label="Website" name="website" type="url" defaultValue={venue.website ?? ""} placeholder="https://" maxLength={300} />
           <FormField label="Booking email" name="contactEmail" type="email" defaultValue={venue.contactEmail ?? ""} maxLength={320} />
           <FormField label="Booking phone" name="contactPhone" type="tel" defaultValue={venue.contactPhone ?? ""} maxLength={40} />

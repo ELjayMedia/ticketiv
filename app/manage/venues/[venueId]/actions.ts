@@ -35,6 +35,7 @@ export async function updateVenueProfileAction(_prev: VenueActionResult | null, 
     p_website: text(formData, "website", 300),
     p_contact_email: text(formData, "contactEmail", 320),
     p_contact_phone: text(formData, "contactPhone", 40),
+    p_venue_type: String(formData.get("venueType") ?? "").trim(),
   })
   if (error) return fail(venueErrorMessage(error))
 

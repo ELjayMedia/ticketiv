@@ -1,3 +1,5 @@
+import { MARKETPLACE_ERROR_COPY, slotConflictMessage } from "@/lib/venues/marketplace"
+
 // TICK-481 — Venue workspace rules shared by UI and server actions.
 // The database (venue_members + SECURITY DEFINER RPCs) is the authority; these
 // helpers only decide what to show, and mirror the RPC checks so the UI never
@@ -80,10 +82,14 @@ const VENUE_ERROR_COPY: Record<string, string> = {
   claim_rate_limited: "You have several requests waiting. Wait for them to be reviewed before sending more.",
 }
 
-export function venueErrorMessage(error: { message?: string | null; code?: string | null } | null | undefined): string {
+export function venueErrorMessage(
+  error: { message?: string | null; code?: string | null; details?: string | null } | null | undefined,
+): string {
   const message = error?.message ?? ""
-  const code = Object.keys(VENUE_ERROR_COPY).find((key) => message.includes(key))
-  if (code) return VENUE_ERROR_COPY[code]
+  if (message.includes("slot_unavailable")) return slotConflictMessage(error?.details)
+  const copy = { ...VENUE_ERROR_COPY, ...MARKETPLACE_ERROR_COPY }
+  const code = Object.keys(copy).find((key) => message.includes(key))
+  if (code) return copy[code]
   if (error?.code === "42501") return VENUE_ERROR_COPY.forbidden
   return "Something went wrong. Please try again."
 }
