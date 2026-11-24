@@ -36,7 +36,8 @@ Batch 1 PRs (#583 to #588) are all merged to `uat`.
 | TICK-353, TICK-484 | Artist | Merged, Done | #592, #594 | `artist_ownership.sql` (32), `artist_claim_safeguards.sql` | `artist_members`, `artist_claims`, profile columns, merge and reset RPCs, `artist_redirects` | `uat` |
 | TICK-434, TICK-452 | Attendee, Organizer | Merged | #595 | `follow_completion.sql`, `tests/follow-completion.test.ts` | Series alerts; one alert per event (org > series > artist > venue); `v_organizer_public.follower_count` (threshold 50); `fn_org_follower_trend`; `fn_my_follows` | No |
 
-| TICK-482, TICK-460 | Venue, Organizer | PR open | this batch | `venue_marketplace.sql` (55), `tests/venue-marketplace.test.ts` | `venue_spaces`, `venue_blocks`, `venue_enquiries`, `venue_enquiry_messages`, `venue_bookings` (exclusion constraint), `venues.venue_type`, 12 RPCs | No |
+| TICK-482, TICK-460 | Venue, Organizer | PR open | #596 | `venue_marketplace.sql` (55), `tests/venue-marketplace.test.ts` | `venue_spaces`, `venue_blocks`, `venue_enquiries`, `venue_enquiry_messages`, `venue_bookings` (exclusion constraint), `venues.venue_type`, 12 RPCs | No |
+| TICK-483 | Venue | PR open (stacked on #596) | this batch | `venue_utilisation.sql`, `tests/venue-utilisation.test.ts` | `fn_venue_utilisation` (read-only) | No |
 
 ### Rollback notes (batch 2)
 - **#593:** restore the three completion functions and the guard trigger from `20261124170000`'s predecessors. Codes already reissued stay valid; the code is just a unique string.
@@ -48,7 +49,7 @@ Batch 1 PRs (#583 to #588) are all merged to `uat`.
 
 Items 1 to 4 (Wave 1 fixes, TICK-448, TICK-353 / TICK-484, follows) are done.
 
-5. ~~TICK-482, TICK-460~~ (PR open), then TICK-483 venue calendar and utilisation
+5. ~~TICK-482, TICK-460~~ (#596), ~~TICK-483~~ venue utilisation (PR open)
 6. TICK-461 / TICK-485 / TICK-486 artist bookings, calendar, audience
 7. Wave 4 organiser integration (event wizard picks booked venue and accepted artist; consent model TICK-433 first)
 8. Wave 6 ecosystem acceptance scenario

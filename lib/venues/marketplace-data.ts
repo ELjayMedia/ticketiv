@@ -2,6 +2,7 @@ import "server-only"
 
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { UUID_RE } from "@/lib/venues/core"
+import { parseUtilisation, type VenueUtilisation } from "@/lib/venues/utilisation"
 
 // The marketplace tables are newer than the generated Database types.
 type Loose = any
@@ -279,4 +280,13 @@ export async function searchVenues(params: {
     spaceCount: r.space_count ?? 0,
     available: typeof r.available === "boolean" ? r.available : null,
   }))
+}
+
+/** Aggregate utilisation for venue members (fn_venue_utilisation); null when not allowed or unavailable. */
+export async function getVenueUtilisation(venueId: string, from: string, to: string): Promise<VenueUtilisation | null> {
+  const supabase = client()
+  if (!supabase || !UUID_RE.test(venueId)) return null
+  const { data, error } = await supabase.rpc("fn_venue_utilisation", { p_venue_id: venueId, p_from: from, p_to: to })
+  if (error) return null
+  return parseUtilisation(data)
 }

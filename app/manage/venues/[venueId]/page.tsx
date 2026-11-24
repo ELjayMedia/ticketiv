@@ -6,6 +6,9 @@ import { Icon } from "@/components/quiet/ui/icon"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { getVenueAccess } from "@/lib/venues/access"
 import { canEditVenueProfile, claimStatusLabel, type VenueClaimStatus } from "@/lib/venues/core"
+import { UtilisationCard } from "@/components/venues/utilisation-card"
+import { getVenueUtilisation } from "@/lib/venues/marketplace-data"
+import { addDays, venueLocalDate } from "@/lib/venues/utilisation"
 
 export const dynamic = "force-dynamic"
 
@@ -29,6 +32,11 @@ export default async function VenueOverviewPage({ params }: { params: Promise<{ 
   const { venue, role } = access
 
   const supabase = createServerSupabaseClient()
+  const today = venueLocalDate(new Date())
+  const [upcomingUse, pastUse] = await Promise.all([
+    getVenueUtilisation(venueId, today, addDays(today, 89)),
+    getVenueUtilisation(venueId, addDays(today, -90), addDays(today, -1)),
+  ])
   // Public events only (events RLS): a venue sees what attendees see, never
   // the organiser's drafts or its buyers.
   const [eventsRes, claimRes] = await Promise.all([
@@ -100,6 +108,11 @@ export default async function VenueOverviewPage({ params }: { params: Promise<{ 
             </Link>
           </CardBody>
         </Card>
+      ) : null}
+
+      {upcomingUse ? <UtilisationCard title="Next 90 days" data={upcomingUse} /> : null}
+      {pastUse && (pastUse.bookings > 0 || pastUse.events > 0 || pastUse.enquiriesReceived > 0) ? (
+        <UtilisationCard title="Last 90 days" data={pastUse} />
       ) : null}
 
       <Card>
