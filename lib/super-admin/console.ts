@@ -44,6 +44,7 @@ export type ConsoleAction =
   | "manage_provider_readiness"
   | "hide_event_update"
   | "route_duplicate_request"
+  | "review_venue_claim"
 
 export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   resend_tickets: ["super_admin", "support_admin", "event_ops_admin"],
@@ -70,6 +71,8 @@ export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   hide_event_update: ["super_admin", "support_admin", "event_ops_admin"],
   // Duplicate-event guard: pass a permission request to the original organiser, or decide it.
   route_duplicate_request: ["super_admin", "support_admin", "event_ops_admin"],
+  // TICK-481: approve or reject a request to manage a venue.
+  review_venue_claim: ["super_admin", "support_admin"],
 }
 
 /** Actions that change something and so must carry a reason in the audit log. */
