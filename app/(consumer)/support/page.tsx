@@ -37,6 +37,12 @@ const CASES: {
     body: "Gate staff record the scan time and device, then support reviews ticket status before escalating to event operations.",
     asks: ["Ticket code", "Gate or scanner lane", "Arrival time"],
   },
+  {
+    icon: "shield",
+    title: "Fake or scam resale ticket",
+    body: "Report tickets offered outside Ticketiv or a listing that looks wrong. Support checks the ticket code and, if it is real, whether it was already transferred; only Ticketiv resales issue the buyer a fresh code.",
+    asks: ["Where it was offered (link or number)", "Ticket code you were sent", "Event name", "Amount paid"],
+  },
 ]
 
 const SLA_ITEMS = [
