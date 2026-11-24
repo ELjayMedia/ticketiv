@@ -12,6 +12,8 @@ import { buildOrganizerSetupSteps, needsOrganizerSetup } from "@/lib/data/organi
 import { getOrgEventKPIs } from "@/lib/adapters/kpis"
 import DashboardCharts from "./dashboard-charts"
 import { requireOrganizerSection } from "@/lib/organizer/access"
+import { FollowersCard } from "@/components/organizer/followers-card"
+import { getOrgFollowerTrend } from "@/lib/data/organizer/followers"
 
 export const dynamic = "force-dynamic"
 
@@ -59,7 +61,7 @@ export default async function OrgDashboardPage({ params }: { params: Promise<{ o
     status: string
     starts_at: string | null
   }>
-  const kpis = await getOrgEventKPIs(orgId)
+  const [kpis, followerTrend] = await Promise.all([getOrgEventKPIs(orgId), getOrgFollowerTrend(orgId)])
   const publishedEvents = events.filter((event) => event.status === "published")
   const recentEvents = events.slice(0, 5)
 
@@ -200,6 +202,8 @@ export default async function OrgDashboardPage({ params }: { params: Promise<{ o
           <Metric label="Events" value={events.length.toLocaleString()} icon="cal" />
           <Metric label="Avg. ticket" value={avgTicketCents !== null ? `SZL ${(avgTicketCents / 100).toLocaleString("en-SZ", { minimumFractionDigits: 2 })}` : "—"} icon="trending" />
         </div>
+
+        {followerTrend && <FollowersCard trend={followerTrend} publicHref={`/organisers/${orgId}`} />}
 
         {needsOnboarding && setupSteps.length > 0 && (
           <div className="flex flex-col gap-3">

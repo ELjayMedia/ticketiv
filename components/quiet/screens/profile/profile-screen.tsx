@@ -121,6 +121,14 @@ export function ProfileScreen({ user, appVersion, tapBand, orgContexts, adminCon
       description: "Saved events and followed series",
     },
     {
+      icon: "users",
+      label: "Following",
+      value: String(user.stats.following),
+      href: "/me/following",
+      accent: true,
+      description: "Organisers, artists, venues and series you follow",
+    },
+    {
       icon: "clock",
       label: "Waitlist",
       value: "offers",
