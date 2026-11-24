@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function AccountDeletionPage() {
   return (
-    <main className="mx-auto flex min-h-[70vh] w-full max-w-2xl flex-col gap-8 px-4 py-12 sm:px-6 sm:py-16">
+    <main className="page-frame flex min-h-[70vh] flex-col gap-8 py-12 *:max-w-3xl sm:py-16">
       <header className="flex flex-col gap-3">
         <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Account & privacy</span>
         <h1 className="text-h1">Delete your Ticketiv account</h1>

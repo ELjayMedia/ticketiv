@@ -48,7 +48,7 @@ export function DesktopNav({
 
   return (
     <header className="border-b border-line bg-surface">
-      <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-5 px-10">
+      <div className="page-frame flex h-16 items-center gap-5">
         {/* Brand */}
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <BrandLockup size={28} textClassName="text-[18px]" />

@@ -41,7 +41,7 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
   const organizerCancelledEvents: EventCardData[] = cancelledEvents.map(mapEvent)
 
   return (
-    <main className="mx-auto flex w-full max-w-[1200px] flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+    <main className="page-frame flex flex-col gap-6 py-8 sm:py-12">
       <Card className="overflow-hidden">
         <div className="h-40 w-full bg-gradient-to-br from-accent-soft to-bg sm:h-56" />
         <div className="flex flex-col gap-4 px-5 pb-5 sm:flex-row sm:items-start sm:px-6 sm:pb-6">

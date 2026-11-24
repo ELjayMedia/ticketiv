@@ -62,7 +62,7 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
   const { current: currentDates, past: pastDates } = splitArtistTourDates(tourDates)
 
   return (
-    <main className="mx-auto flex w-full max-w-[1200px] flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+    <main className="page-frame flex flex-col gap-6 py-8 sm:py-12">
       <Card className="overflow-hidden">
         <Photo
           src={(artist as any).banner_url || "/placeholder.svg?height=400&width=1200"}

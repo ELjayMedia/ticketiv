@@ -31,7 +31,7 @@ export default async function VenuesPage() {
   const venues = await getVenues()
 
   return (
-    <main className="mx-auto flex w-full max-w-[1200px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
+    <main className="page-frame flex flex-col gap-8 py-8">
       <div className="flex flex-col gap-3">
         <Link
           href="/"

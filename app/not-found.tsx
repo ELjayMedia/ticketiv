@@ -14,7 +14,7 @@ export default async function NotFound() {
   return (
     <div className="min-h-dvh flex flex-col bg-bg text-ink">
       <header className="border-b border-line bg-surface">
-        <div className="mx-auto flex max-w-[1400px] items-center gap-2 px-10 py-3">
+        <div className="page-frame flex items-center gap-2 py-3">
           <Link href="/" className="flex items-center gap-2">
             <BrandLockup />
           </Link>

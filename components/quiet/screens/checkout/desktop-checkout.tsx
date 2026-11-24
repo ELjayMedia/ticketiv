@@ -165,7 +165,7 @@ export function DesktopCheckout({
     <div className="min-h-dvh bg-bg">
       {/* Top nav with stepper */}
       <div className="border-b border-line bg-surface">
-        <div className="mx-auto flex max-w-[1400px] items-center gap-4 px-10 py-3">
+        <div className="page-frame flex items-center gap-4 py-3">
           <Link href="/" className="flex items-center gap-2">
             <BrandLockup />
           </Link>
@@ -184,7 +184,7 @@ export function DesktopCheckout({
       </div>
 
       {/* Body */}
-      <div className="mx-auto grid max-w-[1100px] grid-cols-[1fr_360px] items-start gap-8 px-10 py-8">
+      <div className="page-frame grid grid-cols-[1fr_360px] items-start gap-8 py-8">
         {/* ── Form column ─────────────────────────────────── */}
         <div className="flex flex-col gap-4">
           {/* Buyer */}

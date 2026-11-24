@@ -64,7 +64,7 @@ export function DesktopDiscover({
 }: DesktopDiscoverProps = {}) {
   const slides = featured?.length ? featured : editorPick ? [editorPick] : [];
   return (
-    <div className="mx-auto max-w-[1280px] px-10 py-6">
+    <div className="page-frame py-6">
       <FeaturedHero events={slides} />
 
       {/* Page header */}

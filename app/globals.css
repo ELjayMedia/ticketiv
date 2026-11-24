@@ -71,6 +71,22 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ============================================================
+ * Page frame — the one desktop content width.
+ * The desktop nav, footer and every consumer page use it so their
+ * left and right edges line up. Narrow content (forms, legal text)
+ * sits inside it, aligned to the same left edge.
+ * ============================================================ */
+@utility page-frame {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 80rem; /* 1280px */
+  padding-inline: 1.25rem;
+  @media (width >= 48rem) {
+    padding-inline: 2.5rem;
+  }
+}
+
 /* hairline border helper — 1px on hi-dpi, kept crisp */
 .hairline {
   border-color: var(--color-line);

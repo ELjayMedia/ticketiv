@@ -25,7 +25,7 @@ export default async function SeriesIndexPage() {
   const series = await listPublicSeries()
 
   return (
-    <main className="mx-auto flex w-full max-w-[980px] flex-col gap-6 px-4 py-10 sm:px-6 lg:px-8">
+    <main className="page-frame flex flex-col gap-6 py-10">
       <div className="flex flex-col gap-1">
         <h1 className="text-h1 sm:text-[32px]">Series</h1>
         <p className="text-[14px] text-ink-3">Tours, recurring nights and seasons. Follow one to hear about every date.</p>
