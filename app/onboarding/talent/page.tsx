@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { Suspense, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 
 import { Button } from "@/components/quiet/ui/button"
@@ -12,13 +12,14 @@ import { Logo } from "@/components/Logo"
 import { createTalentProfileAction } from "./actions"
 import { ArtistClaim } from "@/components/artists/artist-claim"
 
-export default function TalentOnboardingPage() {
+function TalentOnboarding() {
   const router = useRouter()
   const [name, setName] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [done, setDone] = useState(false)
-  const [claimQuery, setClaimQuery] = useState("")
+  const searchParams = useSearchParams()
+  const [claimQuery, setClaimQuery] = useState(() => (searchParams?.get("claim") ?? "").slice(0, 120))
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -109,5 +110,14 @@ export default function TalentOnboardingPage() {
         </Card>
       </section>
     </main>
+  )
+}
+
+// useSearchParams (?claim=) needs a Suspense boundary for static rendering.
+export default function TalentOnboardingPage() {
+  return (
+    <Suspense fallback={null}>
+      <TalentOnboarding />
+    </Suspense>
   )
 }
