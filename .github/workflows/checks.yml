@@ -83,6 +83,9 @@ jobs:
       - name: Verify venue ownership authorization on isolated database
         run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -X -v ON_ERROR_STOP=1 -f supabase/tests/venue_ownership.sql
 
+      - name: Verify signed-in visitors can read public lineups on isolated database
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -X -v ON_ERROR_STOP=1 -f supabase/tests/artist_public_read.sql
+
       # Pull-request checks never receive deployment or production credentials.
       # check:release includes check:permissions. The invariants over the
       # committed matrix always run; the live drift diff additionally runs when
