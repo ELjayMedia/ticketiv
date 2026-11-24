@@ -90,7 +90,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
   const base = baseFields(row)
 
   // Event Companion, release 3: "How was it?" and new events from followed organisers and artists.
-  if (type === "feedback_request" || type === "organizer_new_event" || type === "artist_new_event" || type === "venue_new_event") {
+  if (type === "feedback_request" || type === "organizer_new_event" || type === "artist_new_event" || type === "venue_new_event" || type === "series_new_event") {
     const ask = type === "feedback_request"
     return {
       id: row.id,
@@ -98,7 +98,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
       status: row.status,
       channel: row.channel,
       title: explicitTitle ?? (ask ? (eventTitle ? `How was ${eventTitle}?` : "How was it?") : eventTitle ? `New event: ${eventTitle}` : "New event"),
-      message: explicitMessage || (ask ? "Rate it in a tap. Only the organiser sees your rating." : type === "artist_new_event" ? "An artist you follow has a new event." : type === "venue_new_event" ? "A venue you follow has a new event." : "An organiser you follow announced a new event."),
+      message: explicitMessage || (ask ? "Rate it in a tap. Only the organiser sees your rating." : type === "artist_new_event" ? "An artist you follow has a new event." : type === "venue_new_event" ? "A venue you follow has a new event." : type === "series_new_event" ? "A series you follow has a new date." : "An organiser you follow announced a new event."),
       createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
       ...base,
       actionHref: explicitHref ?? (eventSlug ? `/events/${eventSlug}` : "/tickets"),

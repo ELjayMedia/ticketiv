@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { setFollowAction, type FollowKind } from "@/app/(consumer)/follows/actions"
 import { Button } from "@/components/quiet/ui/button"
 import { Icon } from "@/components/quiet/ui/icon"
+import { publicFollowerCount } from "@/lib/follows/threshold"
 
 /** Follow an organiser, artist or venue from its public page (TICK-434 / TICK-452). */
 export function FollowButton({
@@ -66,9 +67,11 @@ export function FollowButton({
           <Icon name={following ? "check" : "bell"} size={14} />
           {following ? "Following" : "Follow"}
         </Button>
-        <span className="font-mono text-[12px] text-ink-3">
-          {count.toLocaleString("en-GB")} {count === 1 ? "follower" : "followers"}
-        </span>
+        {publicFollowerCount(count) !== null ? (
+          <span className="font-mono text-[12px] text-ink-3">
+            {count.toLocaleString("en-GB")} followers
+          </span>
+        ) : null}
       </div>
       {error ? (
         <span role="alert" className="text-[12px] text-danger">

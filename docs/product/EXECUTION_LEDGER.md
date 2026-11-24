@@ -2,10 +2,9 @@
 
 The living record for the Four Pillars programme. **Read this first when resuming.** Update it at the end of every batch.
 
-How each batch is verified while GitHub Actions has no runners:
-- the release gate, run locally (`pnpm check:release` steps)
-- the SQL harnesses on an isolated `supabase db start` database (`TICKETIV_CROSS_ORG_TEST_DB_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres`)
-- a production Docker build
+How each batch is verified:
+- GitHub Actions (the repo is public, so runners are available): Release gate, which runs every `supabase/tests/*.sql` harness via `scripts/ci/run-sql-harnesses.sh` except those in `.gate-exclude`; Release policy; reconstruct-production-history
+- before pushing: the SQL harnesses on an isolated `supabase db start` database (`postgresql://postgres:postgres@127.0.0.1:54322/postgres`), vitest, tsc and lint
 
 Nothing here has been applied to production. Deployment status means "merged to `uat`" or "applied to the UAT database" only when stated.
 
@@ -25,12 +24,27 @@ Nothing here has been applied to production. Deployment status means "merged to 
 - **#586:** re-apply `fn_publish_resale_listing_unchecked` from the baseline.
 - **#587:** drop the venue RPCs and helpers; drop `venue_claims` and `venue_members`; restore `fn_get_ticketiv_effective_roles` from the baseline; drop the `venues_select_venue_member` policy. The new `venues` columns can stay (nullable or defaulted).
 
+## Batch 2: 2026-11-24
+
+Batch 1 PRs (#583 to #588) are all merged to `uat`.
+
+| Jira | Pillar | Status | PR | Tests | DB change | Deployed |
+|---|---|---|---|---|---|---|
+| Wave 1 fixes | Artist, Venue | Merged | #589 | `artist_public_read.sql` | Authenticated line-up read policies | `uat` |
+| TICK-448 | Attendee | Merged | #590, #593 | `resale_cap.sql`, `transfer_reissues_code.sql`, vitest | Reissue `ticket_code` on transfer and resale; audit cap changes | `uat` |
+| TICK-452, TICK-434 | Attendee | Merged | #591 | `follows.sql` | `venue_follows`, `fn_follower_count`, venue alerts | `uat` |
+| TICK-353, TICK-484 | Artist | Merged, Done | #592, #594 | `artist_ownership.sql` (32), `artist_claim_safeguards.sql` | `artist_members`, `artist_claims`, profile columns, merge and reset RPCs, `artist_redirects` | `uat` |
+| TICK-434, TICK-452 | Attendee, Organizer | PR open | this batch | `follow_completion.sql`, `tests/follow-completion.test.ts` | Series alerts; one alert per event (org > series > artist > venue); `v_organizer_public.follower_count` (threshold 50); `fn_org_follower_trend`; `fn_my_follows` | No |
+
+### Rollback notes (batch 2)
+- **#593:** restore the three completion functions and the guard trigger from `20261124170000`'s predecessors. Codes already reissued stay valid; the code is just a unique string.
+- **#594:** drop the `limit_claims` triggers, `artist_redirects`, `fn_admin_merge_artists` and `fn_admin_reset_artist_owner`; re-create `fn_get_or_create_artist` from `20261124160000`.
+- **Follow completion:** see the header of `20261124190000_tick434_452_follow_completion.sql`.
+
 ## Queue (dependency order)
 
-1. Fix `/api/venues` 500 and the artist page query (`display_order`, `banner_url`) (Wave 1)
-2. TICK-448: wire the "List for" button; verified badge
-3. TICK-353 / TICK-484: `artist_members` + `artist_claims`, reusing the venue claim pattern; generalise the admin queue
-4. Follower-count aggregates; series count fix; `venue_follows` (TICK-452)
+Items 1 to 4 (Wave 1 fixes, TICK-448, TICK-353 / TICK-484, follows) are done.
+
 5. TICK-482 venue spaces, then TICK-460 public venue page, availability, enquiries and bookings (exclusion constraint), then TICK-483
 6. TICK-461 / TICK-485 / TICK-486 artist bookings, calendar, audience
 7. Wave 4 organiser integration (event wizard picks booked venue and accepted artist; consent model TICK-433 first)
@@ -40,13 +54,13 @@ Nothing here has been applied to production. Deployment status means "merged to 
 
 | Item | Needs |
 |---|---|
-| CI runners | Owner: GitHub Actions billing/minutes or a self-hosted runner |
 | UAT pipeline | Cloudflare Access service token `ticketiv-uat-ci` (owner action) |
-| Production migrations | Review and approval before applying #585/#586/#587 to production |
+| Production migrations | Review and approval before applying the batch 1 and batch 2 migrations to production |
 | TICK-166 / TICK-167 | Physical procurement; staff training records |
 | TICK-441, TICK-457, TICK-445 | Legal and regulatory approval (stored value, lending, instalments) |
 | TICK-453 | DeltaPay production sign-off |
 | TICK-468 native push | Firebase/FCM project |
+| TICK-434 inline channel consent | TICK-433 consent model first |
 | TICK-435+ | Data-protection review before any audience export |
 
 ## Product maturity (verified criteria only)

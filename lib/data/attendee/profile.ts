@@ -62,10 +62,8 @@ export async function getMyProfile(): Promise<MyProfile | null> {
     supabase
       .from("user_friends")
       .select("friend_id", { count: "exact", head: true }),
-    supabase
-      .from("series_follows")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id),
+    // Organisers, series, artists and venues (TICK-452); fn_my_follows is caller-scoped.
+    (supabase as any).rpc("fn_my_follows", {}, { count: "exact", head: true }),
     supabase
       .from("transfers")
       .select("id", { count: "exact", head: true })
