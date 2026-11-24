@@ -8,6 +8,7 @@ import { Photo } from "@/components/quiet/ui/primitives"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { getFollowSnapshot } from "@/lib/data/public/follows"
 import { FollowButton } from "@/components/follows/follow-button"
+import { ARTIST_LINK_KEYS, PERFORMER_TYPES } from "@/lib/artists/core"
 import type { ArtistRecord } from "@/types"
 import { splitArtistTourDates, toArtistTourDate, type ArtistTourDate } from "@/lib/events/artist-tour-dates"
 
@@ -64,12 +65,23 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
 
   const { current: currentDates, past: pastDates } = splitArtistTourDates(tourDates)
   const follow = await getFollowSnapshot("artist", artist.id)
+  const raw = artist as any
+  const isHttps = (v: unknown): v is string => typeof v === "string" && /^https:\/\//i.test(v)
+  const profile = {
+    verified: raw.verification_status === "verified",
+    typeLabel: PERFORMER_TYPES.find(([v]) => v === raw.performer_type)?.[1] ?? null,
+    genres: (raw.genres ?? []) as string[],
+    links: ARTIST_LINK_KEYS.filter(([k]) => isHttps(raw.links?.[k])).map(([key, label]) => ({ key, label, url: raw.links[key] as string })),
+    pressKitUrl: isHttps(raw.press_kit_url) ? raw.press_kit_url : null,
+    bookingEmail: (raw.booking_email as string | null) ?? null,
+    bookingInfo: (raw.booking_info as string | null) ?? null,
+  }
 
   return (
     <main className="page-frame flex flex-col gap-6 py-8 sm:py-12">
       <Card className="overflow-hidden">
         <Photo
-          src={artist.image_url || "/placeholder.svg?height=400&width=1200"}
+          src={(artist as any).cover_image_url || artist.image_url || "/placeholder.svg?height=400&width=1200"}
           alt={artist.name}
           height={240}
           overlay="dim"
@@ -85,13 +97,36 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
           </div>
 
           <div className="flex flex-1 flex-col gap-2 pt-2">
-            <h1 className="text-h1 sm:text-[28px]">{artist.name}</h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-h1 sm:text-[28px]">{artist.name}</h1>
+              {profile.verified ? (
+                <span className="inline-flex items-center gap-1 rounded bg-success-soft px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase text-success">
+                  Verified artist
+                </span>
+              ) : null}
+            </div>
+            {profile.typeLabel || profile.genres.length > 0 ? (
+              <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+                {[profile.typeLabel, ...profile.genres].filter(Boolean).join(" · ")}
+              </p>
+            ) : null}
 
             {artist.bio && (
               <p className="text-[14px] leading-relaxed text-ink-3">
                 {artist.bio}
               </p>
             )}
+            {profile.links.length > 0 ? (
+              <ul className="flex flex-wrap gap-2" aria-label="Links">
+                {profile.links.map((l) => (
+                  <li key={l.key}>
+                    <a href={l.url} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex rounded-full border border-line-2 px-2.5 py-1 text-[12px] font-medium text-ink-2 hover:bg-bg">
+                      {l.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
             <FollowButton
               kind="artist"
               id={artist.id}
@@ -104,6 +139,27 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
           </div>
         </div>
       </Card>
+
+      {profile.pressKitUrl || profile.bookingEmail || profile.bookingInfo ? (
+        <Card>
+          <div className="flex flex-col gap-2 p-5">
+            <h2 className="text-h3">Bookings and press</h2>
+            {profile.bookingInfo ? <p className="whitespace-pre-line text-[13px] text-ink-2">{profile.bookingInfo}</p> : null}
+            <div className="flex flex-wrap gap-3 text-[13px]">
+              {profile.bookingEmail ? (
+                <a href={`mailto:${profile.bookingEmail}`} className="font-semibold text-accent hover:underline">
+                  {profile.bookingEmail}
+                </a>
+              ) : null}
+              {profile.pressKitUrl ? (
+                <a href={profile.pressKitUrl} target="_blank" rel="noopener noreferrer nofollow" className="font-semibold text-accent hover:underline">
+                  Press kit
+                </a>
+              ) : null}
+            </div>
+          </div>
+        </Card>
+      ) : null}
 
       <section className="flex flex-col gap-6">
         <h2 className="text-h2">Tour dates</h2>

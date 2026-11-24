@@ -32,6 +32,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { label: "Cases", href: "/super-admin/cases", icon: "bell", roles: SUPPORT },
       { label: "Duplicate events", href: "/super-admin/duplicates", icon: "copy" },
       { label: "Venue claims", href: "/super-admin/venue-claims", icon: "building" },
+      { label: "Artist claims", href: "/super-admin/artist-claims", icon: "music" },
       { label: "Saved replies", href: "/super-admin/replies", icon: "copy", roles: SUPPORT },
     ],
   },
