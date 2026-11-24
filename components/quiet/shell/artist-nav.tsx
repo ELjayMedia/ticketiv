@@ -25,6 +25,8 @@ interface ArtistNavItem {
 export const ARTIST_NAV_ITEMS: ArtistNavItem[] = [
   { label: "Overview", icon: "trending", path: "" },
   { label: "Profile & press kit", icon: "music", path: "profile" },
+  { label: "Bookings", icon: "cal", path: "bookings" },
+  { label: "Insights", icon: "activity", path: "insights" },
   { label: "Team", icon: "users", path: "team" },
 ];
 

@@ -109,8 +109,8 @@ describe("wiring", () => {
     for (const path of ["spaces", "calendar", "enquiries"]) expect(nav).toContain(`path: "${path}"`)
   })
   it("organiser workspace links venue enquiries for managers only", () => {
-    expect(read("components/quiet/shell/org-nav.tsx")).toContain('section: "venues", path: "venue-enquiries"')
-    expect(read("app/orgs/[orgId]/venue-enquiries/page.tsx")).toContain('requireOrganizerSection(orgId, "venues")')
+    expect(read("components/quiet/shell/org-nav.tsx")).toContain('section: "bookings", path: "venue-enquiries"')
+    expect(read("app/orgs/[orgId]/venue-enquiries/page.tsx")).toContain('requireOrganizerSection(orgId, "bookings")')
   })
   it("the public venue page offers enquiries only for verified venues", () => {
     const page = read("app/(public)/venues/[slug]/page.tsx")

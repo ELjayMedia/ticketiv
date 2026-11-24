@@ -277,6 +277,26 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
     }
   }
 
+  // Artist bookings (TICK-461) and announcements to followers (TICK-486).
+  if (type === "artist_booking_request" || type === "artist_booking_message" || type === "artist_booking_decision" || type === "artist_announcement") {
+    const announcement = type === "artist_announcement"
+    return {
+      id: row.id,
+      type,
+      status: row.status,
+      channel: row.channel,
+      title:
+        explicitTitle ??
+        (announcement ? "News from an artist you follow" : type === "artist_booking_request" ? "New booking request" : type === "artist_booking_message" ? "New message about a booking" : "Your booking request was answered"),
+      message: explicitMessage || (announcement ? "Open to read it." : "Open the booking to read it."),
+      createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
+      ...base,
+      actionHref: explicitHref ?? "/me",
+      actionLabel: announcement ? "View" : "Open booking",
+      actionKind: announcement ? "event" : "generic",
+    }
+  }
+
   // Venue marketplace (TICK-460): enquiries, replies and decisions.
   if (type === "venue_enquiry" || type === "venue_enquiry_message" || type === "venue_enquiry_decision") {
     return {

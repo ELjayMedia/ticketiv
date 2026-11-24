@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic"
 
 export default async function OrgVenueEnquiryPage({ params }: { params: Promise<{ orgId: string; enquiryId: string }> }) {
   const { orgId, enquiryId } = await params
-  await requireOrganizerSection(orgId, "venues")
+  await requireOrganizerSection(orgId, "bookings")
   const enquiry = await getEnquiry(enquiryId)
   if (!enquiry || enquiry.orgId !== orgId) notFound()
   const hidden = { enquiryId, venueId: enquiry.venueId, orgId }

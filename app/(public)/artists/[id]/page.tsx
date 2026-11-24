@@ -9,6 +9,10 @@ import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { getFollowSnapshot } from "@/lib/data/public/follows"
 import { FollowButton } from "@/components/follows/follow-button"
 import { ARTIST_LINK_KEYS, PERFORMER_TYPES } from "@/lib/artists/core"
+import { BookingRequestForm } from "@/components/artists/booking-request-form"
+import { submitArtistBookingAction } from "@/lib/artists/booking-actions"
+import { getOrgUpcomingEvents } from "@/lib/artists/bookings-data"
+import { getMyManagedOrgs } from "@/lib/venues/marketplace-data"
 import type { ArtistRecord } from "@/types"
 import { splitArtistTourDates, toArtistTourDate, type ArtistTourDate } from "@/lib/events/artist-tour-dates"
 
@@ -86,6 +90,31 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
     bookingInfo: (raw.booking_info as string | null) ?? null,
   }
 
+  // TICK-461: claimed artists take booking requests from organisation managers.
+  const claimed = Boolean((artist as { primary_user_id?: string | null }).primary_user_id)
+  const managedOrgs = claimed ? await getMyManagedOrgs() : []
+  const orgEvents = (
+    await Promise.all(managedOrgs.map(async (o) => (await getOrgUpcomingEvents(o.id)).map((e) => ({ id: e.id, orgId: o.id, title: e.title }))))
+  ).flat()
+  const bookingPanel = claimed ? (
+    <Card>
+      <div className="flex flex-col gap-3 p-5">
+        <h2 className="text-h3">Request a booking</h2>
+        {managedOrgs.length > 0 ? (
+          <BookingRequestForm artistId={artist.id} orgs={managedOrgs} events={orgEvents} action={submitArtistBookingAction} />
+        ) : (
+          <p className="text-[13px] text-ink-3">
+            Organisers can send {artist.name} a booking request here.{" "}
+            <Link href={`/login?from=/artists/${id}`} className="font-semibold text-accent hover:underline">
+              Sign in
+            </Link>{" "}
+            with an organiser account to send one.
+          </p>
+        )}
+      </div>
+    </Card>
+  ) : null
+
   return (
     <main className="page-frame flex flex-col gap-6 py-8 sm:py-12">
       <Card className="overflow-hidden">
@@ -156,6 +185,8 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
           </div>
         </div>
       </Card>
+
+      {bookingPanel}
 
       {profile.pressKitUrl || profile.bookingEmail || profile.bookingInfo ? (
         <Card>
