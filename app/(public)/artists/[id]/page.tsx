@@ -42,7 +42,7 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
     const { data: eventRelations } = await supabase
       .from("event_artists")
       .select(`
-        display_order,
+        role,
         events:events (
           id, title, slug, starts_at, ends_at, status, cancelled_at,
           event_dates(starts_at, ends_at),
@@ -57,7 +57,8 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
     if (eventRelations && eventRelations.length > 0) {
       tourDates = eventRelations
         .filter((relation: any) => relation.events)
-        .map((relation: any) => toArtistTourDate(relation.events, relation.display_order || 2))
+        // event_artists has no ordering column; headliners sort first.
+        .map((relation: any) => toArtistTourDate(relation.events, relation.role === "headliner" ? 1 : 2))
     }
   }
 
@@ -68,7 +69,7 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
     <main className="page-frame flex flex-col gap-6 py-8 sm:py-12">
       <Card className="overflow-hidden">
         <Photo
-          src={(artist as any).banner_url || "/placeholder.svg?height=400&width=1200"}
+          src={artist.image_url || "/placeholder.svg?height=400&width=1200"}
           alt={artist.name}
           height={240}
           overlay="dim"
