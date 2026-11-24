@@ -6380,45 +6380,135 @@ export type Database = {
         }
         Relationships: []
       }
+      venue_claims: {
+        Row: {
+          claimant_id: string
+          claimant_role: string
+          contact_phone: string | null
+          created_at: string
+          evidence: string
+          id: string
+          kind: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+          venue_id: string
+        }
+        Insert: {
+          claimant_id: string
+          claimant_role: string
+          contact_phone?: string | null
+          created_at?: string
+          evidence: string
+          id?: string
+          kind?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          venue_id: string
+        }
+        Update: {
+          claimant_id?: string
+          claimant_role?: string
+          contact_phone?: string | null
+          created_at?: string
+          evidence?: string
+          id?: string
+          kind?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          venue_id?: string
+        }
+        Relationships: []
+      }
+      venue_members: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          role: string
+          user_id: string
+          venue_id: string
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          role: string
+          user_id: string
+          venue_id: string
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          role?: string
+          user_id?: string
+          venue_id?: string
+        }
+        Relationships: []
+      }
       venues: {
         Row: {
           address: string | null
           capacity: number | null
           city: string | null
           city_key: string | null
+          contact_email: string | null
+          contact_phone: string | null
           created_at: string | null
+          description: string | null
           id: string
           name: string
           name_key: string | null
           org_id: string | null
           slug: string
           tz: string | null
+          verification_status: string
+          verified_at: string | null
+          website: string | null
         }
         Insert: {
           address?: string | null
           capacity?: number | null
           city?: string | null
           city_key?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string | null
+          description?: string | null
           id?: string
           name: string
           name_key?: string | null
           org_id?: string | null
           slug: string
           tz?: string | null
+          verification_status?: string
+          verified_at?: string | null
+          website?: string | null
         }
         Update: {
           address?: string | null
           capacity?: number | null
           city?: string | null
           city_key?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string | null
+          description?: string | null
           id?: string
           name?: string
           name_key?: string | null
           org_id?: string | null
           slug?: string
           tz?: string | null
+          verification_status?: string
+          verified_at?: string | null
+          website?: string | null
         }
         Relationships: []
       }
@@ -8400,6 +8490,66 @@ export type Database = {
         }
         Returns: string
       }
+      fn_add_venue_member: {
+        Args: { p_email: string; p_role: string; p_venue_id: string }
+        Returns: string
+      }
+      fn_create_venue_profile: {
+        Args: {
+          p_address: string | null
+          p_capacity: number | null
+          p_city: string
+          p_contact_phone?: string | null
+          p_evidence: string
+          p_name: string
+        }
+        Returns: Json
+      }
+      fn_my_venue_claims: {
+        Args: never
+        Returns: {
+          created_at: string
+          id: string
+          kind: string
+          review_note: string | null
+          status: string
+          venue_id: string
+          venue_name: string
+        }[]
+      }
+      fn_remove_venue_member: {
+        Args: { p_user_id: string; p_venue_id: string }
+        Returns: undefined
+      }
+      fn_review_venue_claim: {
+        Args: { p_approve: boolean; p_claim_id: string; p_note?: string | null; p_replace_owner?: boolean }
+        Returns: Json
+      }
+      fn_search_claimable_venues: {
+        Args: { p_query: string }
+        Returns: { city: string | null; has_owner: boolean; id: string; name: string; verification_status: string }[]
+      }
+      fn_submit_venue_claim: {
+        Args: { p_claimant_role: string; p_contact_phone?: string | null; p_evidence: string; p_venue_id: string }
+        Returns: string
+      }
+      fn_update_venue_profile: {
+        Args: {
+          p_address: string | null
+          p_capacity: number | null
+          p_contact_email: string | null
+          p_contact_phone: string | null
+          p_description: string | null
+          p_venue_id: string
+          p_website: string | null
+        }
+        Returns: undefined
+      }
+      fn_venue_team: {
+        Args: { p_venue_id: string }
+        Returns: { created_at: string; display_name: string; role: string; user_id: string }[]
+      }
+      fn_withdraw_venue_claim: { Args: { p_claim_id: string }; Returns: undefined }
       fn_get_ticketiv_effective_roles: {
         Args: { p_user_id: string }
         Returns: {

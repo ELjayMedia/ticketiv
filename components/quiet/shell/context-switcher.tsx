@@ -9,6 +9,7 @@ const KIND_ICON: Record<ContextKind, IconName> = {
   personal: "user",
   org: "users",
   talent: "music",
+  venue: "building",
   scan: "qr",
   admin: "settings",
 }
@@ -19,6 +20,7 @@ const KIND_BG: Record<ContextKind, string> = {
   personal: "bg-accent",
   org: "bg-ink",
   talent: "bg-ink-2",
+  venue: "bg-success",
   scan: "bg-warning",
   admin: "bg-danger",
 }

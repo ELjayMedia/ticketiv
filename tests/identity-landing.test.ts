@@ -4,6 +4,7 @@ import type { UserContext } from "@/lib/data/identity/contexts"
 
 const personal: UserContext = { key: "personal", kind: "personal", label: "Personal", href: "/me" } as UserContext
 const org: UserContext = { key: "org:1", kind: "org", label: "Sunset Collective", href: "/orgs/1/dashboard" } as UserContext
+const venue: UserContext = { key: "venue:9", kind: "venue", label: "Harness Hall", href: "/manage/venues/9" } as UserContext
 const scan: UserContext = { key: "scan", kind: "scan", label: "Scanner", href: "/scan" } as UserContext
 
 describe("pickLanding (post-login destination)", () => {
@@ -29,5 +30,11 @@ describe("pickLanding (post-login destination)", () => {
 
   it("sends door-only staff to the scanner", () => {
     expect(pickLanding([personal, scan], null)).toBe("/scan")
+  })
+
+  it("keeps venue managers on Discover unless the venue workspace was last used", () => {
+    expect(pickLanding([personal, venue], null)).toBe("/")
+    expect(pickLanding([personal, venue], "venue:9")).toBe("/manage/venues/9")
+    expect(pickLanding([personal, org, venue], null)).toBe("/orgs/1/dashboard")
   })
 })
