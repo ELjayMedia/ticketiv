@@ -6469,6 +6469,7 @@ export type Database = {
           slug: string
           tz: string | null
           verification_status: string
+          venue_type: string | null
           verified_at: string | null
           website: string | null
         }
@@ -6488,6 +6489,7 @@ export type Database = {
           slug: string
           tz?: string | null
           verification_status?: string
+          venue_type?: string | null
           verified_at?: string | null
           website?: string | null
         }
@@ -6507,6 +6509,7 @@ export type Database = {
           slug?: string
           tz?: string | null
           verification_status?: string
+          venue_type?: string | null
           verified_at?: string | null
           website?: string | null
         }
@@ -8541,6 +8544,7 @@ export type Database = {
           p_contact_phone: string | null
           p_description: string | null
           p_venue_id: string
+          p_venue_type?: string | null
           p_website: string | null
         }
         Returns: undefined

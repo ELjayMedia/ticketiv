@@ -277,6 +277,23 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
     }
   }
 
+  // Venue marketplace (TICK-460): enquiries, replies and decisions.
+  if (type === "venue_enquiry" || type === "venue_enquiry_message" || type === "venue_enquiry_decision") {
+    return {
+      id: row.id,
+      type,
+      status: row.status,
+      channel: row.channel,
+      title: explicitTitle ?? (type === "venue_enquiry" ? "New venue enquiry" : type === "venue_enquiry_message" ? "New message on a venue enquiry" : "Your venue enquiry was answered"),
+      message: explicitMessage || "Open the enquiry to read it.",
+      createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
+      ...base,
+      actionHref: explicitHref ?? "/me",
+      actionLabel: "Open enquiry",
+      actionKind: "generic",
+    }
+  }
+
   return {
     id: row.id,
     type,

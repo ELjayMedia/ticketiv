@@ -19,6 +19,7 @@ export interface ManagedVenue {
   contactPhone: string | null
   verificationStatus: VenueVerification
   verifiedAt: string | null
+  venueType: string | null
 }
 
 export interface VenueAccess {
@@ -44,7 +45,7 @@ export const getVenueAccess = cache(async (venueId: string): Promise<VenueAccess
     supabase.from("venue_members").select("role").eq("venue_id", venueId).eq("user_id", user.id).maybeSingle(),
     supabase
       .from("venues")
-      .select("id, name, slug, city, address, capacity, description, website, contact_email, contact_phone, verification_status, verified_at")
+      .select("id, name, slug, city, address, capacity, description, website, contact_email, contact_phone, verification_status, verified_at, venue_type")
       .eq("id", venueId)
       .maybeSingle(),
   ])
@@ -71,6 +72,7 @@ export const getVenueAccess = cache(async (venueId: string): Promise<VenueAccess
       contactPhone: v.contact_phone,
       verificationStatus: v.verification_status === "verified" ? "verified" : "unverified",
       verifiedAt: v.verified_at,
+      venueType: v.venue_type ?? null,
     },
   }
 })
