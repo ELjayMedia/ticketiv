@@ -1,0 +1,5 @@
+# Harnesses not run by scripts/ci/run-sql-harnesses.sh. One file name per line, then why.
+cross_org_authorization.sql   run by pnpm check:crossorg (needs its report parser)
+anon_reprice_rpc_guard.sql    stale fixtures: mixes SZL and ZAR ticket types in one order (tech debt, 2026-11-24)
+tick336_order_money.sql       stale fixtures: mixed-currency order (tech debt, 2026-11-24)
+tick356_payment_net.sql       stale expectation on platform_fee_cents (tech debt, 2026-11-24)

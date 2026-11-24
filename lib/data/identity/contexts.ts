@@ -59,7 +59,8 @@ export async function loadContexts(
   if (rows.length === 0) return []
 
   const orgRows = rows.filter((r) => r.source === "org_members" && r.source_id)
-  const talentRows = rows.filter((r) => r.source === "artists.primary_user_id" && r.source_id)
+  // Owners (artists.primary_user_id) and managers (artist_members) both get the artist workspace.
+  const talentRows = rows.filter((r) => (r.source === "artists.primary_user_id" || r.source === "artist_members") && r.source_id)
   const venueRows = rows.filter((r) => r.source === "venue_members" && r.source_id)
   const hasScan = rows.some((r) => r.source === "event_staff")
   const isSuperAdmin = rows.some((r) => r.source === "admin_users" && r.role_key === "super_admin")
@@ -107,14 +108,15 @@ export async function loadContexts(
     })
   }
 
-  // Talent — one per artist.
+  // Talent — one per artist, into the artist workspace (TICK-484).
   for (const id of artistIds) {
+    const isOwner = talentRows.some((r) => r.source_id === id && r.source === "artists.primary_user_id")
     contexts.push({
       key: `talent:${id}`,
       kind: "talent",
       label: artistName.get(id) ?? "Talent",
-      sublabel: "Talent",
-      href: `/artists/${id}`,
+      sublabel: isOwner ? "Artist" : "Artist manager",
+      href: `/manage/artists/${id}`,
     })
   }
 
