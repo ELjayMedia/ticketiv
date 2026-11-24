@@ -94,13 +94,16 @@ export function DesktopDiscover({
 
       {/* This week + upcoming */}
         <div className="flex flex-col gap-10">
-          <DesktopEventGridSection
-            title="This week"
-            subtitle="Happening in the next 7 days"
-            section={thisWeek}
-            when="thisWeek"
-            emptyText="No events in the next 7 days. See what's coming up below."
-          />
+          {/* Only shown when something is on in the next 7 days. */}
+          {thisWeek.events.length > 0 ? (
+            <DesktopEventGridSection
+              title="This week"
+              subtitle="Happening in the next 7 days"
+              section={thisWeek}
+              when="thisWeek"
+              emptyText="No events in the next 7 days. See what's coming up below."
+            />
+          ) : null}
           <DesktopEventGridSection
             title="Upcoming"
             subtitle="All events after this week"

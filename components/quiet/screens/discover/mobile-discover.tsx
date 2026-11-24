@@ -148,13 +148,16 @@ export function MobileDiscover({
       {/* Below the editor's pick so the top of the screen stays calm. */}
       <FollowingEventsRow variant="mobile" />
 
-      <EventListSection
-        title="This week"
-        subtitle="HAPPENING IN THE NEXT 7 DAYS"
-        section={thisWeek}
-        when="thisWeek"
-        emptyText="No events in the next 7 days. See what's coming up below."
-      />
+      {/* Only shown when something is on in the next 7 days. */}
+      {thisWeek.events.length > 0 ? (
+        <EventListSection
+          title="This week"
+          subtitle="HAPPENING IN THE NEXT 7 DAYS"
+          section={thisWeek}
+          when="thisWeek"
+          emptyText="No events in the next 7 days. See what's coming up below."
+        />
+      ) : null}
 
       <EventListSection
         title="Upcoming"
