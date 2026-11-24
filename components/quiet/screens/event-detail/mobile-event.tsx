@@ -1,5 +1,7 @@
 "use client";
 
+import { SoldOutResaleNotice } from "@/components/quiet/screens/event-detail/sold-out-resale-notice";
+
 import { useFollows } from "@/components/quiet/screens/event-detail/use-follows";
 import * as React from "react";
 import Link from "next/link";
@@ -243,6 +245,7 @@ export function MobileEvent({ event }: MobileEventProps) {
         {ticketTypes.length > 0 && (
           <section className="px-5 pt-5">
             <h2 className="mb-3 text-h3">Tickets</h2>
+            <SoldOutResaleNotice ticketTypes={ticketTypes} lifecycle={event.lifecycle} className="mb-3" />
             <ul className="flex flex-col gap-2">
               {ticketTypes.map((t) => {
                 const archiveClosed = event.lifecycle === "ended" || event.lifecycle === "cancelled";

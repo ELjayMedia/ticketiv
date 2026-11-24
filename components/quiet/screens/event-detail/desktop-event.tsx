@@ -1,5 +1,7 @@
 "use client";
 
+import { SoldOutResaleNotice } from "@/components/quiet/screens/event-detail/sold-out-resale-notice";
+
 import { useFollows } from "@/components/quiet/screens/event-detail/use-follows";
 import * as React from "react";
 import Link from "next/link";
@@ -298,6 +300,7 @@ export function DesktopEvent({ event }: DesktopEventProps) {
               </div>
 
               <Divider className="my-4" />
+              <SoldOutResaleNotice ticketTypes={ticketTypes} lifecycle={event.lifecycle} className="mb-3" />
               <ul className="flex flex-col gap-1.5">
                 {ticketTypes.map((t) => {
                   const soldOut = t.remaining === 0;
