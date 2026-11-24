@@ -51,6 +51,14 @@ export default async function WorkspaceSettingsPage({
           <p className="mt-1 text-[13px] text-ink-3">Manage permanent settings for {org.name}.</p>
         </div>
 
+        <Link href={`/orgs/${orgId}/settings/payments`} className="flex items-center justify-between rounded-[var(--radius-md)] border border-line bg-surface p-4 hover:border-line-2">
+          <span className="flex flex-col">
+            <span className="text-[14px] font-semibold text-ink">Payment methods</span>
+            <span className="text-[12px] text-ink-3">Choose which payment methods buyers see by default.</span>
+          </span>
+          <Icon name="chevR" size={16} />
+        </Link>
+
         <DeleteWorkspacePanel
           orgId={orgId}
           orgName={org.name}
