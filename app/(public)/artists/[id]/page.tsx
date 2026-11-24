@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { DEFAULT_EVENT_TIME_ZONE } from "@ticketiv/shared"
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 
 import { Card } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
@@ -34,6 +34,15 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
   }
 
   if (!artist) {
+    // TICK-353: a profile merged into another keeps its old URL working.
+    if (supabase) {
+      const { data: moved } = await (supabase as any)
+        .from("artist_redirects")
+        .select("artist_id")
+        .or(`old_id.eq.${/^[0-9a-f-]{36}$/i.test(id) ? id : "00000000-0000-0000-0000-000000000000"},old_slug.eq.${id.replace(/[^a-z0-9-]/gi, "")}`)
+        .maybeSingle()
+      if (moved?.artist_id) redirect(`/artists/${moved.artist_id}`)
+    }
     notFound()
   }
 
@@ -116,6 +125,14 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
                 {artist.bio}
               </p>
             )}
+            {!raw.primary_user_id ? (
+              <Link
+                href={`/onboarding/talent?claim=${encodeURIComponent(artist.name)}`}
+                className="w-fit text-[12px] font-semibold text-accent hover:underline"
+              >
+                Is this you? Claim this profile
+              </Link>
+            ) : null}
             {profile.links.length > 0 ? (
               <ul className="flex flex-wrap gap-2" aria-label="Links">
                 {profile.links.map((l) => (

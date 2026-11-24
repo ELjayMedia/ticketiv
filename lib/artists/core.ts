@@ -79,6 +79,10 @@ const ERROR_COPY: Record<string, string> = {
   forbidden: "Your role can't do this.",
   artist_already_owned: "This artist already has a verified owner.",
   claim_not_pending: "Someone already reviewed this request.",
+  claim_rate_limited: "You have several requests waiting. Wait for them to be reviewed before sending more.",
+  merge_owner_conflict: "Both profiles have different owners. Reset one owner first.",
+  merge_same_artist: "Choose two different artists.",
+  note_required: "Add a note (at least 5 characters) for the audit log.",
 }
 
 export function artistErrorMessage(error: { message?: string | null; code?: string | null } | null | undefined): string {

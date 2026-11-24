@@ -77,6 +77,7 @@ const VENUE_ERROR_COPY: Record<string, string> = {
   forbidden: "Your role can't do this.",
   venue_already_owned: "This venue already has a verified owner.",
   claim_not_pending: "Someone already reviewed this request.",
+  claim_rate_limited: "You have several requests waiting. Wait for them to be reviewed before sending more.",
 }
 
 export function venueErrorMessage(error: { message?: string | null; code?: string | null } | null | undefined): string {

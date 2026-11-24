@@ -1,6 +1,7 @@
 import Link from "next/link"
 
-import { reviewArtistClaimAction } from "@/app/super-admin/artist-claims/actions"
+import { mergeArtistsAction, resetArtistOwnerAction, reviewArtistClaimAction } from "@/app/super-admin/artist-claims/actions"
+import { MergeArtistsForm, ResetArtistOwnerForm } from "@/components/super-admin/ArtistToolsForms"
 import { VenueClaimReviewForm } from "@/components/super-admin/VenueClaimReviewForm"
 import { Facts, Panel, Pill, when } from "@/components/super-admin/console-ui"
 import { listArtistClaims, type ArtistClaimFilter } from "@/lib/data/admin/artist-claims"
@@ -119,6 +120,18 @@ export default async function ArtistClaimsPage({ searchParams }: { searchParams:
           ) : null}
         </div>
       )}
+      {canAct ? (
+        <Panel title="Artist profile tools">
+          <div className="grid gap-6 md:grid-cols-2">
+            <MergeArtistsForm action={mergeArtistsAction} />
+            <ResetArtistOwnerForm action={resetArtistOwnerAction} />
+          </div>
+          <p className="mt-3 text-[12px] text-ink-3">
+            Merging keeps every line-up and follower on the canonical profile and redirects the old URL. Removing an owner keeps line-ups
+            and followers. Both are written to the audit log.
+          </p>
+        </Panel>
+      ) : null}
     </div>
   )
 }
