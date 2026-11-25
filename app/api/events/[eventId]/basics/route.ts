@@ -1,12 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { duplicateGuardMessage } from "@/lib/events/duplicates-core"
 
+import { isEventManager } from "@/lib/events/manage-access"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 type RouteContext = { params: Promise<{ eventId: string }> }
 
-const MANAGER_ROLES = new Set(["admin", "organizer", "organizer_owner", "organizer_admin"])
 
 async function getUserId() {
   const supabase = createServerSupabaseClient()
@@ -32,8 +32,7 @@ async function loadManageContext(admin: ReturnType<typeof createAdminClient>, ev
   const { data: globalAdmin } = await admin.from("admin_users").select("role_tier").eq("user_id", userId).eq("active", true).maybeSingle()
   if (globalAdmin && (readOnly || globalAdmin.role_tier !== "read_only_admin")) return { allowed: true, event }
 
-  const { data: member } = await admin.from("org_members").select("role").eq("org_id", event.org_id).eq("user_id", userId).maybeSingle()
-  return { allowed: Boolean(member?.role && MANAGER_ROLES.has(String(member.role))), event }
+  return { allowed: await isEventManager(admin, event, userId), event }
 }
 
 export async function GET(_request: NextRequest, context: RouteContext) {

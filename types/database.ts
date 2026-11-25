@@ -8581,6 +8581,18 @@ export type Database = {
         Args: { p_note: string; p_user_id: string; p_venue_id: string }
         Returns: undefined
       }
+      fn_admin_create_organization: {
+        Args: { p_currency?: string; p_name: string; p_note: string; p_owner_user_id: string }
+        Returns: Json
+      }
+      fn_admin_create_event: {
+        Args: { p_admin_user_id?: string | null; p_note: string; p_org_id: string; p_title: string }
+        Returns: string
+      }
+      fn_admin_assign_event_admin: {
+        Args: { p_event_id: string; p_note: string; p_user_id: string }
+        Returns: undefined
+      }
       fn_review_venue_claim: {
         Args: { p_approve: boolean; p_claim_id: string; p_note?: string | null; p_replace_owner?: boolean }
         Returns: Json
