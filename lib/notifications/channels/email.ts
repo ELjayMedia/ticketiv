@@ -1,5 +1,7 @@
 import "server-only"
 
+import { resolveIntegration } from "@/lib/integrations/runtime"
+
 import type { ChannelResult } from "./types"
 
 // Email channel adapter. Resend is the first live provider; the interface is
@@ -10,6 +12,9 @@ import type { ChannelResult } from "./types"
 // RESEND_FROM defaults to onboarding@resend.dev, which Resend allows before a
 // domain is verified (delivers only to the account owner). Once ticketiv.app
 // is verified (TICK-60) set RESEND_FROM to a branded address.
+//
+// Both can also be saved (and the channel switched off) in the admin
+// console's Integrations page; saved values win over the environment.
 
 const PROVIDER = "resend"
 
@@ -21,8 +26,12 @@ export interface EmailMessage {
 }
 
 export async function sendEmail(message: EmailMessage): Promise<ChannelResult> {
-  const apiKey = process.env.RESEND_API_KEY
-  const from = process.env.RESEND_FROM ?? "Ticketiv <onboarding@resend.dev>"
+  const resolved = await resolveIntegration("resend")
+  if (resolved.source === "off") {
+    return { status: "skipped", reason: "Email is switched off in Integrations", provider: PROVIDER }
+  }
+  const apiKey = resolved.env.RESEND_API_KEY?.trim()
+  const from = resolved.env.RESEND_FROM?.trim() || "Ticketiv <onboarding@resend.dev>"
 
   if (!apiKey) {
     return { status: "skipped", reason: "RESEND_API_KEY not configured", provider: PROVIDER }

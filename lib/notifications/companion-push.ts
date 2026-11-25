@@ -26,7 +26,7 @@ type Loose = { from: (table: string) => any }
 
 export async function sendPendingCompanionPushes(options: { sinceMs: number; types?: string[]; now?: Date }): Promise<PushRun> {
   const run: PushRun = { considered: 0, delivered: 0, noDevice: 0, optedOut: 0 }
-  if (!isPushSendingConfigured()) return run
+  if (!(await isPushSendingConfigured())) return run
 
   const admin = createAdminClient() as unknown as Loose
   const now = options.now ?? new Date()

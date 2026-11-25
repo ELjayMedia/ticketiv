@@ -217,7 +217,8 @@ export const SETTINGS_TABLES: Record<string, string> = {
   pricing_plans: "Pricing plans",
   tapband_feature_configs: "TapBand config",
   payment_provider_settings: "Payment providers",
-  admin_integration_settings: "Integrations",
+  admin_integration_settings: "Integrations (Chatwoot)",
+  admin_integration_configs: "Integrations",
 }
 
 /** Fields that change on every save and say nothing about what was changed. */

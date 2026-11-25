@@ -186,7 +186,7 @@ export default async function SuperAdminPayoutsPage({
   searchParams: Promise<{ deltapay?: string; deltapay_error?: string }>
 }) {
   const { deltapay, deltapay_error } = await searchParams
-  const deltaPayEnabled = deltaPayPayoutsAvailable()
+  const deltaPayEnabled = await deltaPayPayoutsAvailable()
   // Transitions themselves are super_admin-gated inside finance-actions; this
   // view is readable by finance + read-only tiers too.
   const { roleTier } = await requireAdminRole(["super_admin", "finance_admin", "read_only_admin"])

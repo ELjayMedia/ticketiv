@@ -2,6 +2,7 @@ import "server-only"
 
 import { cache } from "react"
 
+import { loadIntegrationConfig } from "@/lib/integrations/runtime"
 import { decryptPayoutDetails } from "@/lib/payout-crypto-core"
 import { createAdminClient } from "@/lib/supabase/admin"
 import {
@@ -58,13 +59,17 @@ export function decryptChatwootToken(stored: string | null): string | null {
   }
 }
 
-export type ChatwootConfigSource = "console" | "environment"
+export type ChatwootConfigSource = "console" | "environment" | "off"
 
 /**
  * Settings saved in the console win over CHATWOOT_* environment variables, so
  * the owner can connect or change Chatwoot without a redeploy.
  */
 export const getChatwootConfig = cache(async (): Promise<ChatwootConfigResult & { source: ChatwootConfigSource }> => {
+  // The Integrations card's on/off switch (admin_integration_configs).
+  if ((await loadIntegrationConfig("chatwoot"))?.enabled === false) {
+    return { ok: false, missing: [], problem: "Chatwoot is switched off in Integrations.", source: "off" }
+  }
   const stored = await loadStoredChatwootSettings()
   if (stored && (stored.baseUrl || stored.accountId || stored.tokenEncrypted)) {
     const token = decryptChatwootToken(stored.tokenEncrypted)
