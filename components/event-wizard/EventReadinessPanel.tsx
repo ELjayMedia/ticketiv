@@ -8,7 +8,7 @@ import { Progress } from "@/components/quiet/ui/primitives";
 import { Icon } from "@/components/quiet/ui/icon"
 
 
-const WIZARD_STEPS = new Set(["basics", "lineup", "schedule", "venue", "tickets", "policies", "publish"])
+const WIZARD_STEPS = new Set(["basics", "lineup", "schedule", "venue", "sponsors", "tickets", "policies", "publish"])
 
 type ReadinessItem = {
   key: string

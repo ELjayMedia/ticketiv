@@ -8581,6 +8581,18 @@ export type Database = {
         Args: { p_note: string; p_user_id: string; p_venue_id: string }
         Returns: undefined
       }
+      fn_org_save_sponsor: {
+        Args: { p_logo_url?: string | null; p_name: string; p_org_id: string; p_sponsor_id?: string | null; p_website_url?: string | null }
+        Returns: string
+      }
+      fn_event_set_sponsors: {
+        Args: { p_event_id: string; p_sponsors: Json }
+        Returns: number
+      }
+      fn_public_event_sponsors: {
+        Args: { p_event_id: string }
+        Returns: { featured: boolean; logo_url: string | null; name: string; website_url: string | null }[]
+      }
       fn_review_venue_claim: {
         Args: { p_approve: boolean; p_claim_id: string; p_note?: string | null; p_replace_owner?: boolean }
         Returns: Json

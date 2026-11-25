@@ -22,6 +22,8 @@ import {
 import type { Currency } from "@/lib/format";
 import { ExpandableText } from "./expandable-text";
 import type { EventLifecycleState } from "@/lib/events/lifecycle";
+import type { PublicSponsor } from "@/lib/sponsors";
+import { FaqSection, OrganizerBadge, PresentedBy, SponsorsSection } from "./event-sections";
 
 export interface MobileEventProps {
   event?: MobileEventData;
@@ -54,6 +56,8 @@ export interface MobileEventData {
   supportUrl?: string;
   lifecycle: EventLifecycleState;
   organizerUpcomingHref: string;
+  /** Sponsors the organiser added to this event, featured first. */
+  sponsors?: ReadonlyArray<PublicSponsor>;
 }
 
 export function MobileEvent({ event }: MobileEventProps) {
@@ -151,6 +155,11 @@ export function MobileEvent({ event }: MobileEventProps) {
           </Photo>
         </div>
 
+        <section className="flex flex-col gap-3 px-5 pt-4">
+          <OrganizerBadge event={event} follows={follows} compact />
+          {event.sponsors?.length ? <PresentedBy sponsors={event.sponsors} /> : null}
+        </section>
+
         {(event.lifecycle === "ended" || event.lifecycle === "cancelled") && (
           <section className="px-5 pt-4">
             <Card className="border-line-2 bg-surface p-4" flat>
@@ -194,8 +203,14 @@ export function MobileEvent({ event }: MobileEventProps) {
 
         <TrustSignalsRow event={event} />
 
+        {event.description && (
+          <section className="px-5 pt-5">
+            <h2 className="mb-2.5 text-h3">About</h2>
+            <ExpandableText text={event.description} />
+          </section>
+        )}
+
         <section className="px-5 pt-5">
-          <Link className="mb-4 block underline" href={`/events/${event.id}/reviews`}>Verified reviews and event photos</Link>
           <h2 className="mb-3 text-h3">Lineup</h2>
           {event.lineup.length > 0 ? (
             <ul className="flex flex-col gap-2">
@@ -229,13 +244,6 @@ export function MobileEvent({ event }: MobileEventProps) {
             <Card className="px-3.5 py-3" flat><span className="text-[13px] text-ink-3">Lineup to be announced.</span></Card>
           )}
         </section>
-
-        {event.description && (
-          <section className="px-5 pt-5">
-            <h2 className="mb-2.5 text-h3">About</h2>
-            <ExpandableText text={event.description} />
-          </section>
-        )}
 
         {event.facts.length > 0 && (
           <section className="px-5 pt-5">
@@ -287,33 +295,6 @@ export function MobileEvent({ event }: MobileEventProps) {
           </section>
         )}
 
-        <section className="px-5 pt-5">
-          <Card className="flex items-center gap-3 p-3.5">
-            <Avatar src={event.organizer.photo} size={44} />
-            <div className="flex flex-1 flex-col">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[14px] font-semibold">{event.organizer.name}</span>
-                {event.organizer.verified && <Chip variant="accent" size="sm">Verified</Chip>}
-              </div>
-              <span className="font-mono text-[11px] text-ink-3">{formatOrganizerStats(event.organizer)}</span>
-            </div>
-            {event.organizer.id ? (
-              <Button
-                variant={follows.organizerFollowed ? "accent" : "default"}
-                size="xs"
-                aria-pressed={follows.organizerFollowed}
-                aria-label={`${follows.organizerFollowed ? "Unfollow" : "Follow"} ${event.organizer.name}`}
-                disabled={follows.isPending("organizer", event.organizer.id)}
-                onClick={() => follows.toggle("organizer", event.organizer.id ?? null, event.organizer.name)}
-              >
-                {follows.organizerFollowed ? "Following" : "Follow"}
-              </Button>
-            ) : null}
-          </Card>
-          {follows.notice ? (
-            <p role="status" className="mt-2 px-1 text-[12px] text-ink-3">{follows.notice}</p>
-          ) : null}
-        </section>
 
         {event.goingFriends.count > 0 && (
           <section className="px-5 pb-6 pt-3">
@@ -328,19 +309,21 @@ export function MobileEvent({ event }: MobileEventProps) {
           </section>
         )}
 
-        <section className="px-5 pb-6 pt-1">
-          <Card className="flex items-center gap-3 p-3.5" flat>
-            <div className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent"><Icon name="check" size={16} /></div>
-            <div className="flex flex-1 flex-col">
-              <span className="text-[13px] font-semibold">Need help?</span>
-              <span className="font-mono text-[11px] text-ink-3">Secure checkout · refund policy · contact support</span>
-            </div>
-            <div className="flex flex-col items-end gap-1">
-              <Link href="/refund-policy" className="inline-flex items-center gap-1 text-[12px] font-semibold text-accent">Refunds <Icon name="chevR" size={12} /></Link>
-              <Link href="/terms" className="inline-flex items-center gap-1 text-[12px] font-semibold text-accent">Terms <Icon name="chevR" size={12} /></Link>
-              <Link href={event.supportUrl ?? "/help"} className="inline-flex items-center gap-1 text-[12px] font-semibold text-accent">Help <Icon name="chevR" size={12} /></Link>
-            </div>
-          </Card>
+        <section className="px-5 pt-5">
+          <h2 className="mb-2.5 text-h3">Reviews</h2>
+          <Link className="text-[13px] font-semibold text-accent hover:underline" href={`/events/${event.id}/reviews`}>
+            Verified reviews and event photos
+          </Link>
+        </section>
+
+        {event.sponsors?.length ? (
+          <section className="px-5 pt-5">
+            <SponsorsSection sponsors={event.sponsors} headingClass="text-h3" />
+          </section>
+        ) : null}
+
+        <section className="px-5 pb-6 pt-5">
+          <FaqSection event={event} headingClass="text-h3" />
         </section>
 
         <div className="h-24" />
@@ -382,23 +365,14 @@ export function MobileEvent({ event }: MobileEventProps) {
   );
 }
 
-function formatOrganizerStats(o: MobileEventData["organizer"]): string {
-  const parts = [`@${o.handle}`];
-  if (o.eventsHosted > 0) parts.push(`${o.eventsHosted} event${o.eventsHosted === 1 ? "" : "s"}`);
-  if (o.rating > 0) parts.push(`★ ${o.rating.toFixed(1)} (${o.reviewCount ?? 0} reviews)`);
-  return parts.join(" · ");
-}
-
 function TrustSignalsRow({ event }: { event: MobileEventData }) {
   const goingLabel = formatGoingCount(event.attendeeCount ?? event.goingFriends.count);
-  const verified = event.organizer.verified;
-  if (!goingLabel && !verified) return null;
+  if (!goingLabel) return null;
 
   return (
     <section className="px-5 pt-4">
       <div className="flex flex-wrap items-center gap-1.5">
-        {verified && <Chip variant="accent" size="sm"><Icon name="check" size={11} strokeWidth={3} /> Verified organizer</Chip>}
-        {goingLabel && <Chip size="sm">{goingLabel}</Chip>}
+          {goingLabel && <Chip size="sm">{goingLabel}</Chip>}
       </div>
     </section>
   );

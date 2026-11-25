@@ -11,6 +11,7 @@ import { LineupStep } from "@/components/event-wizard/steps/LineupStep"
 import { PoliciesStep } from "@/components/event-wizard/steps/PoliciesStep"
 import { PublishStep } from "@/components/event-wizard/steps/PublishStep"
 import { ScheduleStep } from "@/components/event-wizard/steps/ScheduleStep"
+import { SponsorsStep } from "@/components/event-wizard/steps/SponsorsStep"
 import { TicketsStep } from "@/components/event-wizard/steps/TicketsStep"
 import { VenueStep } from "@/components/event-wizard/steps/VenueStep"
 import { Card, CardBody } from "@/components/quiet/ui/card"
@@ -26,6 +27,7 @@ const STEPS = [
   { key: "lineup", label: "Lineup" },
   { key: "schedule", label: "Dates" },
   { key: "venue", label: "Venue" },
+  { key: "sponsors", label: "Sponsors" },
   { key: "tickets", label: "Tickets" },
   { key: "policies", label: "Payments & policies" },
   { key: "publish", label: "Publish" },
@@ -210,6 +212,7 @@ export default function EventWizardClient({ orgId, eventId }: { orgId: string; e
             {step === "lineup" && <LineupStep eventId={eventId} onSaving={handleSaving} />}
             {step === "schedule" && <ScheduleStep eventId={eventId} onSaving={handleSaving} />}
             {step === "venue" && <VenueStep eventId={eventId} onSaving={handleSaving} />}
+            {step === "sponsors" && <SponsorsStep eventId={eventId} onSaving={handleSaving} />}
             {step === "tickets" && <TicketsStep eventId={eventId} onSaving={handleSaving} />}
             {step === "policies" && <PoliciesStep eventId={eventId} onSaving={handleSaving} />}
             {step === "publish" && <PublishStep event={event} onSaving={handleSaving} />}

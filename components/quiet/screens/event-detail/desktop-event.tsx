@@ -18,6 +18,7 @@ import {
   formatScarcityLabel,
 } from "@/lib/format";
 import type { MobileEventData } from "./mobile-event";
+import { FaqSection, OrganizerBadge, PresentedBy, SponsorsSection } from "./event-sections";
 
 interface DesktopEventProps {
   event?: DesktopEventData;
@@ -35,11 +36,7 @@ export interface DesktopEventData extends MobileEventData {
   }>;
 }
 
-const TABS = ["About", "Lineup", "Venue", "Reviews", "FAQ"] as const;
-type Tab = typeof TABS[number];
-
 export function DesktopEvent({ event }: DesktopEventProps) {
-  const [activeTab, setActiveTab] = React.useState<Tab>("About");
   const [friendsModalOpen, setFriendsModalOpen] = React.useState(false);
   const ticketTypes = event?.ticketTypes ?? [];
   const picker = useTicketPicker();
@@ -100,29 +97,13 @@ export function DesktopEvent({ event }: DesktopEventProps) {
 
       <div className="grid grid-cols-[1fr_380px] items-start gap-8 pt-8 pb-12">
         <div className="flex flex-col gap-7">
+          <OrganizerBadge event={event} follows={follows} />
+          {event.sponsors?.length ? <PresentedBy sponsors={event.sponsors} /> : null}
           <DesktopTrustRow event={event} />
           <DesktopMetaGrid event={event} />
 
-          <div>
-            <div className="flex gap-6 border-b border-line">
-              {TABS.map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setActiveTab(t)}
-                  className={
-                    "-mb-px border-b-2 py-2.5 text-[14px] " +
-                    (t === activeTab
-                      ? "border-accent font-medium text-ink"
-                      : "border-transparent text-ink-3 hover:text-ink")
-                  }
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-
-            {activeTab === "About" && (
-              <div className="py-5">
+          <div className="flex flex-col gap-7">
+            <section id="about" className="scroll-mt-[96px] border-t border-line pt-7">
                 <h2 className="text-h2">About this show</h2>
                 {aboutText ? (
                   <p className="mt-3 max-w-[640px] text-[14px] leading-relaxed text-ink-2">
@@ -142,11 +123,8 @@ export function DesktopEvent({ event }: DesktopEventProps) {
                     ))}
                   </div>
                 )}
-              </div>
-            )}
-
-            {activeTab === "Lineup" && (
-              <div className="py-5">
+            </section>
+            <section id="lineup" className="scroll-mt-[96px] border-t border-line pt-7">
                 <div className="mb-3.5 flex items-end justify-between">
                   <h2 className="text-h2">Lineup</h2>
                   <span className="font-mono text-[11px] text-ink-3">
@@ -184,11 +162,9 @@ export function DesktopEvent({ event }: DesktopEventProps) {
                     Lineup to be announced.
                   </Card>
                 )}
-              </div>
-            )}
-
-            {activeTab === "Venue" && (
-              <div className="py-5">
+            </section>
+            <section id="venue" className="scroll-mt-[96px] border-t border-line pt-7">
+                <h2 className="mb-3.5 text-h2">Venue</h2>
                 <Card className="grid grid-cols-2 overflow-hidden p-0">
                   <div className="relative h-[220px] bg-line">
                     <svg viewBox="0 0 400 220" className="absolute inset-0 h-full w-full">
@@ -222,50 +198,23 @@ export function DesktopEvent({ event }: DesktopEventProps) {
                     </a>
                   </div>
                 </Card>
-              </div>
-            )}
-
-            {activeTab === "Reviews" && (
-              <div className="py-5">
+            </section>
+            <section id="reviews" className="scroll-mt-[96px] border-t border-line pt-7">
+                <h2 className="mb-3.5 text-h2">Reviews</h2>
                 <div className="rounded-[var(--radius-lg)] border border-dashed border-line-2 px-6 py-10 text-center font-mono text-[11px] text-ink-3">
                   <Link className="underline" href={`/events/${event.id}/reviews`}>View verified reviews and event photos</Link>
                 </div>
+            </section>
+            {event.sponsors?.length ? (
+              <div id="sponsors" className="scroll-mt-[96px] border-t border-line pt-7">
+                <SponsorsSection sponsors={event.sponsors} headingClass="text-h2" />
               </div>
-            )}
-
-            {activeTab === "FAQ" && (
-              <div className="py-5">
-                <div className="rounded-[var(--radius-lg)] border border-dashed border-line-2 px-6 py-10 text-center font-mono text-[11px] text-ink-3">
-                  FAQ coming soon.
-                </div>
-              </div>
-            )}
+            ) : null}
+            <div id="faqs" className="scroll-mt-[96px] border-t border-line pt-7">
+              <FaqSection event={event} headingClass="text-h2" />
+            </div>
           </div>
 
-          <Card className="flex items-center gap-3 p-4">
-            <Avatar src={event.organizer.photo} size={48} />
-            <div className="flex flex-1 flex-col">
-              <div className="flex items-center gap-2">
-                <span className="text-[15px] font-semibold">{event.organizer.name}</span>
-                {event.organizer.verified && <Chip variant="accent" size="sm">Verified</Chip>}
-              </div>
-              <span className="font-mono text-[11px] text-ink-3">{formatDesktopOrganizerStats(event.organizer)}</span>
-            </div>
-            {event.organizer.id ? (
-              <Button
-                variant={follows.organizerFollowed ? "accent" : "default"}
-                size="sm"
-                aria-pressed={follows.organizerFollowed}
-                disabled={follows.isPending("organizer", event.organizer.id)}
-                onClick={() => follows.toggle("organizer", event.organizer.id ?? null, event.organizer.name)}
-              >
-                {follows.organizerFollowed ? "Following" : "Follow organizer"}
-              </Button>
-            ) : null}
-          </Card>
-          {follows.notice ? (
-            <p role="status" className="-mt-2 text-[12px] text-ink-3">{follows.notice}</p>
-          ) : null}
         </div>
 
         <aside className="sticky top-[88px] self-start">
@@ -442,20 +391,11 @@ function DesktopMetaGrid({ event }: { event: DesktopEventData }) {
   );
 }
 
-function formatDesktopOrganizerStats(o: DesktopEventData["organizer"]): string {
-  const parts = [`@${o.handle}`];
-  if (o.eventsHosted > 0) parts.push(`${o.eventsHosted} event${o.eventsHosted === 1 ? "" : "s"} hosted`);
-  if (o.rating > 0) parts.push(`★ ${o.rating.toFixed(1)} (${o.reviewCount ?? 0} reviews)`);
-  return parts.join(" · ");
-}
-
 function DesktopTrustRow({ event }: { event: DesktopEventData }) {
   const goingLabel = formatGoingCount(event.attendeeCount ?? event.goingFriends.count);
-  const verified = event.organizer.verified;
-  if (!goingLabel && !verified) return null;
+  if (!goingLabel) return null;
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {verified && <Chip variant="accent" size="sm"><Icon name="check" size={11} strokeWidth={3} /> Verified organizer</Chip>}
       {goingLabel && <Chip size="sm">{goingLabel}</Chip>}
     </div>
   );
