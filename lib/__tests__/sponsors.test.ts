@@ -19,7 +19,7 @@ describe("splitSponsors", () => {
 describe("sponsorErrorMessage", () => {
   it("maps database errors to plain messages", () => {
     expect(sponsorErrorMessage({ message: "forbidden" })).toMatch(/can't change/)
-    expect(sponsorErrorMessage({ message: "sponsor_exists" })).toMatch(/already have a sponsor/)
+    expect(sponsorErrorMessage({ message: "sponsor_exists" })).toMatch(/already exists/)
     expect(sponsorErrorMessage({ message: "website_invalid" })).toMatch(/example\.com/)
     expect(sponsorErrorMessage(null)).toMatch(/Try again/)
   })

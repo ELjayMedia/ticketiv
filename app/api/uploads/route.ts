@@ -72,7 +72,8 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const fileValue = formData.get("file")
     const eventIdValue = formData.get("eventId")
-    // "sponsor_logo": a logo for the event organiser's sponsor library.
+    // "sponsor_logo": a logo for the shared sponsor directory. Organisers send
+    // the event they're editing; super admins (command centre) may send none.
     const isLogo = formData.get("kind") === "sponsor_logo"
 
     if (!(fileValue instanceof File)) {
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
     }
 
     const eventId = typeof eventIdValue === "string" ? eventIdValue.trim() : ""
-    if (!eventId) {
+    if (!eventId && !isLogo) {
       return NextResponse.json({ error: "Event id is required" }, { status: 400 })
     }
 
@@ -102,18 +103,29 @@ export async function POST(request: NextRequest) {
     }
 
     const admin = createAdminClient()
-    const { allowed, event } = await canManageEvent(admin, eventId, user.id)
-
-    if (!event) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 })
-    }
-
-    if (!allowed) {
-      return NextResponse.json({ error: "You do not have permission to edit this event" }, { status: 403 })
+    if (eventId) {
+      const { allowed, event } = await canManageEvent(admin, eventId, user.id)
+      if (!event) {
+        return NextResponse.json({ error: "Event not found" }, { status: 404 })
+      }
+      if (!allowed) {
+        return NextResponse.json({ error: "You do not have permission to edit this event" }, { status: 403 })
+      }
+    } else {
+      const { data: owner, error: ownerError } = await admin
+        .from("admin_users")
+        .select("role_tier")
+        .eq("user_id", user.id)
+        .eq("active", true)
+        .maybeSingle()
+      if (ownerError) throw ownerError
+      if (owner?.role_tier !== "super_admin") {
+        return NextResponse.json({ error: "Only the Ticketiv owner can upload sponsor logos here" }, { status: 403 })
+      }
     }
 
     const objectPath = isLogo
-      ? `sponsors/${event.org_id}/${randomUUID()}.${extension}`
+      ? `sponsors/${randomUUID()}.${extension}`
       : `events/${eventId}/${randomUUID()}.${extension}`
     const fileBuffer = Buffer.from(await fileValue.arrayBuffer())
 

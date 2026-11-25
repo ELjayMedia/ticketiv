@@ -4,10 +4,11 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { sponsorErrorMessage, type EventSponsor, type LibrarySponsor } from "@/lib/sponsors"
 
-// Event wizard → Sponsors. GET returns the event's sponsors and the
-// organisation's sponsor library (searchable); POST adds/edits a library
-// sponsor or replaces the event's list. Writes go through RPCs with the
-// caller's session, which re-check they can manage the organisation.
+// Event wizard → Sponsors. GET returns the event's sponsors and the shared
+// sponsor directory (searchable); POST finds or adds a sponsor (filling in a
+// missing logo or website only) or replaces the event's list. Writes go through
+// RPCs with the caller's session, which re-check they can manage the organisation.
+// Changing an existing logo is a super-admin job (command centre → Sponsors).
 
 type RouteContext = { params: Promise<{ eventId: string }> }
 type Untyped = { from: (t: string) => any }
@@ -32,9 +33,9 @@ async function canManage(admin: ReturnType<typeof createAdminClient>, eventId: s
   return { allowed: Boolean(member?.role && MANAGER_ROLES.has(String(member.role))), event }
 }
 
-async function load(eventId: string, orgId: string, query: string) {
+async function load(eventId: string, query: string) {
   const db = createAdminClient() as unknown as Untyped
-  let library = db.from("sponsors").select("id, name, logo_url, website_url").eq("org_id", orgId).order("name").limit(query ? 20 : 100)
+  let library = db.from("sponsors").select("id, name, logo_url, website_url").order("name").limit(query ? 20 : 100)
   if (query) library = library.ilike("name", `%${query.replace(/[%_,()]/g, "")}%`)
   const [{ data: rows, error: rowsError }, { data: lib, error: libError }] = await Promise.all([
     db
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 })
   if (!allowed) return NextResponse.json({ error: "You do not have permission to manage this event" }, { status: 403 })
   const query = request.nextUrl.searchParams.get("q")?.trim().slice(0, 80) ?? ""
-  return NextResponse.json(await load(eventId, event.org_id, query))
+  return NextResponse.json(await load(eventId, query))
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
@@ -85,15 +86,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (body.action === "save_sponsor") {
     const sponsorId = text(body.sponsor_id)
     if (sponsorId && !UUID.test(sponsorId)) return NextResponse.json({ error: "Unknown sponsor" }, { status: 400 })
-    const { data, error } = await supabase.rpc("fn_org_save_sponsor", {
+    const { data, error } = await supabase.rpc("fn_save_sponsor", {
       p_org_id: event.org_id,
-      p_name: text(body.name),
+      p_name: text(body.name) || null,
       p_logo_url: text(body.logo_url) || null,
       p_website_url: text(body.website_url) || null,
       p_sponsor_id: sponsorId || null,
     })
     if (error) return NextResponse.json({ error: sponsorErrorMessage(error) }, { status: 400 })
-    return NextResponse.json({ sponsorId: data, ...(await load(eventId, event.org_id, "")) })
+    return NextResponse.json({ sponsorId: data, ...(await load(eventId, text(body.name).slice(0, 80))) })
   }
 
   if (body.action === "set_event_sponsors") {
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (sponsors.some((s) => !UUID.test(s.sponsor_id))) return NextResponse.json({ error: "Unknown sponsor" }, { status: 400 })
     const { error } = await supabase.rpc("fn_event_set_sponsors", { p_event_id: eventId, p_sponsors: sponsors })
     if (error) return NextResponse.json({ error: sponsorErrorMessage(error) }, { status: 400 })
-    return NextResponse.json(await load(eventId, event.org_id, ""))
+    return NextResponse.json(await load(eventId, ""))
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 })

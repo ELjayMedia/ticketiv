@@ -1,6 +1,7 @@
 // Event sponsors: shared types and messages (no server imports).
+// Sponsors are one shared directory (like venues); only super admins change an existing logo.
 
-/** A sponsor in an organisation's library. */
+/** A sponsor in the shared directory. */
 export interface LibrarySponsor {
   id: string
   name: string
@@ -23,14 +24,13 @@ export interface PublicSponsor {
 
 export function sponsorErrorMessage(error: { message?: string } | null): string {
   const m = String(error?.message ?? "")
-  if (m.includes("forbidden")) return "You can't change this organisation's sponsors."
+  if (m.includes("forbidden")) return "You can't change these sponsors."
   if (m.includes("name_required")) return "Enter the sponsor's name."
   if (m.includes("name_too_long")) return "Keep the sponsor's name under 120 characters."
   if (m.includes("logo_invalid")) return "Upload the logo again."
   if (m.includes("website_invalid")) return "Enter a website like example.com."
-  if (m.includes("sponsor_exists")) return "You already have a sponsor with that name. Pick it from the list."
+  if (m.includes("sponsor_exists")) return "A sponsor with that name already exists. Pick it from the list."
   if (m.includes("too_many_sponsors")) return "An event can show up to 30 sponsors."
-  if (m.includes("sponsor_not_in_org")) return "That sponsor belongs to another organisation."
   if (m.includes("not_found")) return "That sponsor no longer exists."
   if (m.includes("event_not_found")) return "Event not found."
   return "Couldn't save the sponsors. Try again."

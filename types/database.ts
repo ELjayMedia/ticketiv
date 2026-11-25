@@ -8093,9 +8093,13 @@ export type Database = {
       }
     }
     Functions: {
-      fn_org_save_sponsor: {
-        Args: { p_logo_url?: string | null; p_name: string; p_org_id: string; p_sponsor_id?: string | null; p_website_url?: string | null }
+      fn_save_sponsor: {
+        Args: { p_logo_url?: string | null; p_name?: string | null; p_org_id: string; p_sponsor_id?: string | null; p_website_url?: string | null }
         Returns: string
+      }
+      fn_admin_update_sponsor: {
+        Args: { p_clear_logo?: boolean; p_logo_url?: string | null; p_name: string; p_sponsor_id: string; p_website_url?: string | null }
+        Returns: undefined
       }
       fn_event_set_sponsors: {
         Args: { p_event_id: string; p_sponsors: Json }

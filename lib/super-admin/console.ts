@@ -47,6 +47,7 @@ export type ConsoleAction =
   | "review_venue_claim"
   | "review_artist_claim"
   | "manage_venue_access"
+  | "manage_sponsors"
 
 export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   resend_tickets: ["super_admin", "support_admin", "event_ops_admin"],
@@ -79,6 +80,8 @@ export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   review_artist_claim: ["super_admin", "support_admin"],
   // Venue MVP: create venues and assign venue admins from the command centre.
   manage_venue_access: ["super_admin"],
+  // Shared sponsor directory: only the owner changes names, logos and websites.
+  manage_sponsors: ["super_admin"],
 }
 
 /** Actions that change something and so must carry a reason in the audit log. */

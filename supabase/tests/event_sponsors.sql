@@ -1,4 +1,4 @@
--- Event sponsors harness: organisation sponsor library + event sponsor list.
+-- Event sponsors harness: shared sponsor directory + event sponsor list.
 --
 -- Run against an ISOLATED database only (supabase db start), never live:
 --   psql "$TICKETIV_CROSS_ORG_TEST_DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/event_sponsors.sql
@@ -75,37 +75,64 @@ select org_b, owner_b, 'organizer_owner'::public.app_role from _ids;
 insert into public.events (id, org_id, title, slug) select event_a, org_a, 'SP Night', 'sp-night-' || left(event_a::text, 8) from _ids;
 insert into public.events (id, org_id, title, slug) select event_b, org_b, 'SP Other', 'sp-other-' || left(event_b::text, 8) from _ids;
 
--- ── library ────────────────────────────────────────────────────────────────
+-- ── shared directory ───────────────────────────────────────────────────────
+insert into public.admin_users (user_id, role_tier, active)
+select stranger, 'support_admin'::public.admin_role_tier, true from _ids;
+
 select pg_temp.as_user(staff_a) from _ids;
-select pg_temp.expect('save: organiser staff refused', format($q$select public.fn_org_save_sponsor(%L, 'MTN')$q$, (select org_a from _ids)), false, 'forbidden');
+select pg_temp.expect('save: organiser staff refused', format($q$select public.fn_save_sponsor(%L, 'MTN')$q$, (select org_a from _ids)), false, 'forbidden');
 reset role;
 select pg_temp.as_user(owner_b) from _ids;
-select pg_temp.expect('save: other org refused', format($q$select public.fn_org_save_sponsor(%L, 'MTN')$q$, (select org_a from _ids)), false, 'forbidden');
+select pg_temp.expect('save: must manage the org named', format($q$select public.fn_save_sponsor(%L, 'MTN')$q$, (select org_a from _ids)), false, 'forbidden');
 reset role;
 select pg_temp.as_user(owner_a) from _ids;
-select pg_temp.expect('save: name required', format($q$select public.fn_org_save_sponsor(%L, '  ')$q$, (select org_a from _ids)), false, 'name_required');
-select pg_temp.expect('save: logo must be https', format($q$select public.fn_org_save_sponsor(%L, 'MTN', 'http://x/logo.png')$q$, (select org_a from _ids)), false, 'logo_invalid');
-select pg_temp.expect('save: website checked', format($q$select public.fn_org_save_sponsor(%L, 'MTN', null, 'not a site')$q$, (select org_a from _ids)), false, 'website_invalid');
-create temp table _s1 as select public.fn_org_save_sponsor((select org_a from _ids), 'MTN  Eswatini', 'https://cdn.example/mtn.png', 'mtn.co.sz') as id;
-create temp table _s2 as select public.fn_org_save_sponsor((select org_a from _ids), 'mtn eswatini') as id;
-create temp table _s3 as select public.fn_org_save_sponsor((select org_a from _ids), 'Eswatini Beverages') as id;
+select pg_temp.expect('save: name required', format($q$select public.fn_save_sponsor(%L, '  ')$q$, (select org_a from _ids)), false, 'name_required');
+select pg_temp.expect('save: logo must be https', format($q$select public.fn_save_sponsor(%L, 'MTN', 'http://x/logo.png')$q$, (select org_a from _ids)), false, 'logo_invalid');
+select pg_temp.expect('save: website checked', format($q$select public.fn_save_sponsor(%L, 'MTN', null, 'not a site')$q$, (select org_a from _ids)), false, 'website_invalid');
+create temp table _s1 as select public.fn_save_sponsor((select org_a from _ids), 'MTN  Eswatini', null, 'mtn.co.sz') as id;
+create temp table _s3 as select public.fn_save_sponsor((select org_a from _ids), 'Eswatini Beverages') as id;
 reset role;
-grant select on _s1, _s2, _s3 to authenticated, anon;
-select pg_temp.expect_eq('save: same name (case/spacing) reuses the sponsor', $q$select ((select id from _s1) = (select id from _s2))::text$q$, 'true');
-select pg_temp.expect_eq('save: website gets https', $q$select website_url from public.sponsors where id = (select id from _s1)$q$, 'https://mtn.co.sz');
-select pg_temp.expect_eq('save: reuse keeps the logo', $q$select logo_url from public.sponsors where id = (select id from _s1)$q$, 'https://cdn.example/mtn.png');
+grant select on _s1, _s3 to authenticated, anon;
+
+-- another organiser finds the same sponsor by name, and may fill in the missing logo
+select pg_temp.as_user(owner_b) from _ids;
+create temp table _s2 as select public.fn_save_sponsor((select org_b from _ids), 'mtn eswatini', 'https://cdn.example/mtn.png', 'https://other.example') as id;
+reset role;
+grant select on _s2 to authenticated, anon;
+select pg_temp.expect_eq('shared: same name from another org is the same sponsor', $q$select ((select id from _s1) = (select id from _s2))::text$q$, 'true');
+select pg_temp.expect_eq('shared: missing logo filled in', $q$select logo_url from public.sponsors where id = (select id from _s1)$q$, 'https://cdn.example/mtn.png');
+select pg_temp.expect_eq('shared: existing website kept', $q$select website_url from public.sponsors where id = (select id from _s1)$q$, 'https://mtn.co.sz');
+
+-- an organiser can't replace a logo that is already set
+select pg_temp.as_user(owner_a) from _ids;
+select pg_temp.expect('organiser: by id, no error', format($q$select public.fn_save_sponsor(%L, null, 'https://cdn.example/other.png', null, %L)$q$, (select org_a from _ids), (select id from _s1)), true);
+reset role;
+select pg_temp.expect_eq('organiser: logo unchanged', $q$select logo_url from public.sponsors where id = (select id from _s1)$q$, 'https://cdn.example/mtn.png');
+
+-- only the super admin edits
+select pg_temp.as_user(owner_a) from _ids;
+select pg_temp.expect('admin edit: organiser refused', format($q$select public.fn_admin_update_sponsor(%L, 'MTN', 'https://cdn.example/new.png')$q$, (select id from _s1)), false, 'forbidden');
+reset role;
+select pg_temp.as_user(stranger) from _ids;
+select pg_temp.expect('admin edit: support admin refused', format($q$select public.fn_admin_update_sponsor(%L, 'MTN', 'https://cdn.example/new.png')$q$, (select id from _s1)), false, 'forbidden');
+reset role;
+insert into public.admin_users (user_id, role_tier, active) select owner_b, 'super_admin'::public.admin_role_tier, true from _ids
+on conflict (user_id) do update set role_tier = 'super_admin', active = true;
+select pg_temp.as_user(owner_b) from _ids;
+select pg_temp.expect('admin edit: super admin renames and changes the logo', format($q$select public.fn_admin_update_sponsor(%L, 'MTN', 'https://cdn.example/new.png', 'mtn.co.sz')$q$, (select id from _s1)), true);
+select pg_temp.expect('admin edit: rename onto another sponsor refused', format($q$select public.fn_admin_update_sponsor(%L, 'Eswatini Beverages')$q$, (select id from _s1)), false, 'sponsor_exists');
+reset role;
+select pg_temp.expect_eq('admin edit: saved', $q$select name || '|' || logo_url from public.sponsors where id = (select id from _s1)$q$, 'MTN|https://cdn.example/new.png');
+select pg_temp.as_user(owner_b) from _ids;
+select pg_temp.expect('admin edit: remove the logo', format($q$select public.fn_admin_update_sponsor(%L, 'MTN', null, 'mtn.co.sz', true)$q$, (select id from _s1)), true);
+reset role;
+select pg_temp.expect_eq('admin edit: logo removed', $q$select coalesce(logo_url, 'none') from public.sponsors where id = (select id from _s1)$q$, 'none');
+select pg_temp.expect_eq('admin edit: audited', $q$select count(*)::text from public.audit_log where table_name = 'sponsors' and record_id = (select id::text from _s1)$q$, '2');
+delete from public.admin_users where user_id = (select owner_b from _ids);
 
 select pg_temp.as_user(owner_a) from _ids;
-select pg_temp.expect('edit: rename', format($q$select public.fn_org_save_sponsor(%L, 'MTN', null, null, %L)$q$, (select org_a from _ids), (select id from _s1)), true);
-select pg_temp.expect('edit: rename onto another sponsor refused', format($q$select public.fn_org_save_sponsor(%L, 'Eswatini Beverages', null, null, %L)$q$, (select org_a from _ids), (select id from _s1)), false, 'sponsor_exists');
 select pg_temp.expect('tables: not readable directly', $q$select count(*) from public.sponsors$q$, false, 'permission denied');
 reset role;
-
-select pg_temp.as_user(owner_b) from _ids;
-create temp table _sb as select public.fn_org_save_sponsor((select org_b from _ids), 'MTN') as id;
-reset role;
-grant select on _sb to authenticated, anon;
-select pg_temp.expect_eq('save: same name in another org is separate', $q$select ((select id from _s1) <> (select id from _sb))::text$q$, 'true');
 
 -- ── event list ─────────────────────────────────────────────────────────────
 select pg_temp.as_user(owner_b) from _ids;
@@ -113,8 +140,8 @@ select pg_temp.expect('set: other org refused',
   format($q$select public.fn_event_set_sponsors(%L, '[]'::jsonb)$q$, (select event_a from _ids)), false, 'forbidden');
 reset role;
 select pg_temp.as_user(owner_a) from _ids;
-select pg_temp.expect('set: another org''s sponsor refused',
-  format($q$select public.fn_event_set_sponsors(%L, jsonb_build_array(jsonb_build_object('sponsor_id', %L)))$q$, (select event_a from _ids), (select id from _sb)), false, 'sponsor_not_in_org');
+select pg_temp.expect('set: unknown sponsor refused',
+  format($q$select public.fn_event_set_sponsors(%L, jsonb_build_array(jsonb_build_object('sponsor_id', %L)))$q$, (select event_a from _ids), gen_random_uuid()), false, 'not_found');
 select pg_temp.expect('set: duplicates refused',
   format($q$select public.fn_event_set_sponsors(%L, jsonb_build_array(jsonb_build_object('sponsor_id', %L), jsonb_build_object('sponsor_id', %L)))$q$, (select event_a from _ids), (select id from _s1), (select id from _s1)), false, 'sponsors_invalid');
 select pg_temp.expect('set: bad shape refused', format($q$select public.fn_event_set_sponsors(%L, '{"a":1}'::jsonb)$q$, (select event_a from _ids)), false, 'sponsors_invalid');
@@ -141,7 +168,7 @@ select pg_temp.as_user(owner_a) from _ids;
 select pg_temp.expect('set: empty list clears', format($q$select public.fn_event_set_sponsors(%L, '[]'::jsonb)$q$, (select event_a from _ids)), true);
 reset role;
 select pg_temp.expect_eq('set: cleared', $q$select count(*)::text from public.event_sponsors where event_id = (select event_a from _ids)$q$, '0');
-select pg_temp.expect_eq('library: kept after clearing the event', $q$select count(*)::text from public.sponsors where org_id = (select org_a from _ids)$q$, '2');
+select pg_temp.expect_eq('directory: kept after clearing the event', $q$select count(*)::text from public.sponsors where id in ((select id from _s1), (select id from _s3))$q$, '2');
 
 -- ── report ─────────────────────────────────────────────────────────────────
 do $$

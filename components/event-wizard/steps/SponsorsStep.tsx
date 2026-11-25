@@ -7,13 +7,15 @@ import { Input, Label } from "@/components/quiet/ui/form"
 import { Icon } from "@/components/quiet/ui/icon"
 import type { EventSponsor, LibrarySponsor } from "@/lib/sponsors"
 
-// Event wizard → Sponsors. Sponsors live in the organisation's library: add a
-// sponsor once (name, logo, website) and pick it again on any event. On this
-// event: choose which sponsors show, in what order, and which are featured.
+// Event wizard → Sponsors. Sponsors are one shared directory, like venues: a
+// sponsor (name, logo, website) is added once and any organiser can pick it.
+// On this event: choose which sponsors show, in what order, and which are
+// featured. Organisers can fill in a missing logo or website; changing an
+// existing logo is done by Ticketiv (command centre).
 
 type Payload = { sponsors: EventSponsor[]; library: LibrarySponsor[]; sponsorId?: string; error?: string }
 
-const EMPTY_FORM = { id: "", name: "", websiteUrl: "", logoUrl: "" }
+const EMPTY_FORM = { id: "", name: "", websiteUrl: "", logoUrl: "", hasLogo: false, hasWebsite: false }
 
 export function SponsorsStep({ eventId, onSaving }: { eventId: string; onSaving: () => void }) {
   const [sponsors, setSponsors] = useState<EventSponsor[]>([])
@@ -41,6 +43,18 @@ export function SponsorsStep({ eventId, onSaving }: { eventId: string; onSaving:
       cancelled = true
     }
   }, [eventId])
+
+  useEffect(() => {
+    if (loading) return
+    const q = query.trim()
+    const timer = window.setTimeout(() => {
+      fetch(`/api/events/${eventId}/sponsors${q ? `?q=${encodeURIComponent(q)}` : ""}`, { cache: "no-store" })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((payload: Payload | null) => payload && setLibrary(payload.library ?? []))
+        .catch(() => {})
+    }, 250)
+    return () => window.clearTimeout(timer)
+  }, [eventId, query, loading])
 
   const onEvent = useMemo(() => new Set(sponsors.map((s) => s.id)), [sponsors])
   const matches = useMemo(() => {
@@ -117,9 +131,9 @@ export function SponsorsStep({ eventId, onSaving }: { eventId: string; onSaving:
     const payload = await post({
       action: "save_sponsor",
       sponsor_id: form.id || undefined,
-      name: form.name,
-      website_url: form.websiteUrl,
-      logo_url: form.logoUrl,
+      name: form.id ? undefined : form.name,
+      website_url: form.hasWebsite ? undefined : form.websiteUrl,
+      logo_url: form.hasLogo ? undefined : form.logoUrl,
     })
     if (!payload) return
     setForm(null)
@@ -140,7 +154,8 @@ export function SponsorsStep({ eventId, onSaving }: { eventId: string; onSaving:
           <div>
             <h3 className="font-medium">Sponsors</h3>
             <p className="mt-1 text-sm text-ink-3">
-              Add a sponsor once with its logo and website, then pick it again on any of your events. Featured sponsors appear as
+              Sponsors are shared across Ticketiv, like venues: search first, and add a sponsor with its logo only if it isn&apos;t
+              listed. Once a logo is set, only Ticketiv can change it. Featured sponsors appear as
               &ldquo;Presented by&rdquo; near the top of the event page; the rest are shown in a Sponsors section. Optional.
             </p>
           </div>
@@ -183,15 +198,19 @@ export function SponsorsStep({ eventId, onSaving }: { eventId: string; onSaving:
                   <Button type="button" variant="ghost" size="xs" disabled={busy || i === sponsors.length - 1} onClick={() => move(i, 1)} aria-label={`Move ${s.name} down`}>
                     <Icon name="chevD" size={14} />
                   </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="xs"
-                    disabled={busy}
-                    onClick={() => setForm({ id: s.id, name: s.name, websiteUrl: s.websiteUrl ?? "", logoUrl: s.logoUrl ?? "" })}
-                  >
-                    Edit
-                  </Button>
+                  {!s.logoUrl || !s.websiteUrl ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      disabled={busy}
+                      onClick={() =>
+                        setForm({ id: s.id, name: s.name, websiteUrl: s.websiteUrl ?? "", logoUrl: s.logoUrl ?? "", hasLogo: Boolean(s.logoUrl), hasWebsite: Boolean(s.websiteUrl) })
+                      }
+                    >
+                      {s.logoUrl ? "Add website" : "Add logo"}
+                    </Button>
+                  ) : null}
                   <Button
                     type="button"
                     variant="ghost"
@@ -211,31 +230,39 @@ export function SponsorsStep({ eventId, onSaving }: { eventId: string; onSaving:
 
       {form ? (
         <section className="space-y-3 rounded-[var(--radius-md)] border border-line bg-bg p-4">
-          <h3 className="text-[14px] font-semibold text-ink">{form.id ? "Edit sponsor" : "New sponsor"}</h3>
-          {form.id ? <p className="text-[12px] text-ink-3">Changes apply everywhere this sponsor appears.</p> : null}
+          <h3 className="text-[14px] font-semibold text-ink">{form.id ? `Add missing details for ${form.name}` : "New sponsor"}</h3>
+          <p className="text-[12px] text-ink-3">
+            {form.id ? "This sponsor is shared, so what you add shows on every event that uses it. " : ""}Once a logo is set, only Ticketiv can change it.
+          </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1">
               <Label htmlFor="sponsor-name">Name</Label>
-              <Input id="sponsor-name" value={form.name} maxLength={120} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              <Input id="sponsor-name" value={form.name} maxLength={120} readOnly={Boolean(form.id)} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </div>
             <div className="flex flex-col gap-1">
               <Label htmlFor="sponsor-site">
                 Website <span className="font-normal text-ink-3">(optional)</span>
               </Label>
-              <Input id="sponsor-site" value={form.websiteUrl} placeholder="example.com" onChange={(e) => setForm({ ...form, websiteUrl: e.target.value })} />
+              <Input
+                id="sponsor-site"
+                value={form.websiteUrl}
+                placeholder="example.com"
+                readOnly={form.hasWebsite}
+                onChange={(e) => setForm({ ...form, websiteUrl: e.target.value })}
+              />
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <Logo sponsor={{ name: form.name || "?", logoUrl: form.logoUrl || null }} />
-            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-1.5 text-[13px] font-semibold text-ink hover:bg-bg">
+            {form.hasLogo ? null : <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-[var(--radius)] border border-line-2 bg-surface px-3 py-1.5 text-[13px] font-semibold text-ink hover:bg-bg">
               <Icon name="download" size={14} /> {uploading ? "Uploading…" : form.logoUrl ? "Replace logo" : "Upload logo"}
               <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" disabled={uploading} onChange={(e) => void uploadLogo(e.target.files?.[0])} />
-            </label>
+            </label>}
             <span className="text-[12px] text-ink-3">PNG with a transparent background works best. Up to 2 MB.</span>
           </div>
           <div className="flex gap-2">
             <Button type="button" variant="accent" size="sm" disabled={busy || uploading || !form.name.trim()} onClick={() => void saveSponsor()}>
-              {busy ? "Saving…" : form.id ? "Save sponsor" : "Add sponsor"}
+              {busy ? "Saving…" : form.id ? "Save" : "Add sponsor"}
             </Button>
             <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => setForm(null)}>
               Cancel
