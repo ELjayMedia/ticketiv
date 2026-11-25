@@ -136,6 +136,13 @@ export default async function OrgDashboardPage({ params }: { params: Promise<{ o
       visible: caps.payouts,
     },
     {
+      label: "Payment methods",
+      description: "Choose which payment methods buyers see by default.",
+      href: `/orgs/${orgId}/settings/payments`,
+      icon: "card",
+      visible: caps.manage,
+    },
+    {
       label: "Workspace settings",
       description: "Manage owner-only permanent workspace settings.",
       href: `/orgs/${orgId}/settings`,

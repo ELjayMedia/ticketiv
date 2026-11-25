@@ -114,7 +114,7 @@ export async function getOrganizerPaymentProviderOptions(
   const deltaPaySupportsEvent = currencyStateAvailable && providerSupportsCurrencies("deltapay", eventCurrencies)
   const currencyLabel = eventCurrencies.join(", ")
 
-  return [
+  const options: OrganizerPaymentProviderOption[] = [
     {
       ...methodFor("paystack"),
       enabled: paystackEnabled,
@@ -164,6 +164,24 @@ export async function getOrganizerPaymentProviderOptions(
             : null,
     },
   ]
+  return eventId ? applyOrgDefault(options, eventId) : options
+}
+
+/**
+ * For an event's settings: methods outside the organisation's default
+ * (TICK-394) can't be offered, so they show as unavailable with the reason.
+ */
+async function applyOrgDefault(options: OrganizerPaymentProviderOption[], eventId: string): Promise<OrganizerPaymentProviderOption[]> {
+  const admin = createAdminClient()
+  const { data } = await admin.from("events").select("organizations(payment_providers)").eq("id", eventId).maybeSingle()
+  const raw = (data as { organizations?: { payment_providers?: unknown } | null } | null)?.organizations?.payment_providers
+  const allowed = Array.isArray(raw) ? raw.map(String) : []
+  if (allowed.length === 0) return options
+  return options.map((option) =>
+    allowed.includes(option.id)
+      ? option
+      : { ...option, configured: false, operational: false, warning: "Not in your organisation's default payment methods. Change it in Settings → Payment methods." },
+  )
 }
 
 export async function getOperationalPaymentProviders(
@@ -177,12 +195,14 @@ export async function getOperationalPaymentProviders(
 }
 
 async function loadEventPaymentRules(eventId: string): Promise<{
+  /** The organisation's default (TICK-394); empty = every available method. */
+  orgProviders: string[]
   eventProviders: string[]
   tickets: TicketTypePaymentRule[]
 } | null> {
   const admin = createAdminClient()
   const [{ data: event, error }, { data: tickets, error: ticketError }] = await Promise.all([
-    admin.from("events").select("id, payment_providers").eq("id", eventId).maybeSingle(),
+    admin.from("events").select("id, payment_providers, organizations(payment_providers)").eq("id", eventId).maybeSingle(),
     admin.from("ticket_types").select("id, name, currency, payment_providers").eq("event_id", eventId),
   ])
 
@@ -192,7 +212,9 @@ async function loadEventPaymentRules(eventId: string): Promise<{
   }
   if (!event) return null
 
+  const org = (event as { organizations?: { payment_providers?: unknown } | null }).organizations
   return {
+    orgProviders: Array.isArray(org?.payment_providers) ? (org.payment_providers as unknown[]).map(String) : [],
     eventProviders: Array.isArray(event.payment_providers) ? event.payment_providers.map(String) : [],
     tickets: (tickets ?? []).map((ticket) => ({
       id: String(ticket.id),
@@ -215,7 +237,8 @@ export async function getEffectivePaymentProvidersForEvent(
 ): Promise<CheckoutPaymentProvider[]> {
   const rules = await loadEventPaymentRules(eventId)
   if (!rules) return []
-  const operational = await getOperationalPaymentProviders()
+  // The organisation default narrows what the platform offers; events and ticket types narrow further.
+  const operational = resolveEffectivePaymentProviders(await getOperationalPaymentProviders(), [rules.orgProviders])
 
   if (ticketTypeIds && ticketTypeIds.length > 0) {
     const wanted = new Set(ticketTypeIds)
@@ -240,7 +263,7 @@ export interface TicketTypePaymentMethods {
 export async function getTicketTypePaymentMethods(eventId: string): Promise<TicketTypePaymentMethods[]> {
   const rules = await loadEventPaymentRules(eventId)
   if (!rules) return []
-  const operational = await getOperationalPaymentProviders()
+  const operational = resolveEffectivePaymentProviders(await getOperationalPaymentProviders(), [rules.orgProviders])
   return rules.tickets.map((ticket) => ({
     id: ticket.id,
     name: ticket.name ?? "Ticket",
@@ -285,7 +308,7 @@ export async function assertPaymentProviderAvailableForOrder(
   const admin = createAdminClient()
   const { data, error } = await admin
     .from("order_items")
-    .select("ticket_types(id, currency, payment_providers, events(id, payment_providers))")
+    .select("ticket_types(id, currency, payment_providers, events(id, payment_providers, organizations(id, payment_providers)))")
     .eq("order_id", orderId)
 
   if (error) {
@@ -293,6 +316,7 @@ export async function assertPaymentProviderAvailableForOrder(
     throw new Error("Unable to verify this payment method right now.")
   }
 
+  const orgLists = new Map<string, string[]>()
   const eventLists = new Map<string, string[]>()
   const ticketLists = new Map<string, string[]>()
   const currencies: string[] = []
@@ -304,6 +328,13 @@ export async function assertPaymentProviderAvailableForOrder(
       String(event.id),
       Array.isArray(event.payment_providers) ? event.payment_providers.map(String) : [],
     )
+    // The organisation's default (TICK-394) can never be bypassed by an event.
+    if (event.organizations?.id) {
+      orgLists.set(
+        String(event.organizations.id),
+        Array.isArray(event.organizations.payment_providers) ? event.organizations.payment_providers.map(String) : [],
+      )
+    }
     // Each ticket type may narrow the event's methods (empty = no narrowing).
     if (ticket?.id) {
       ticketLists.set(String(ticket.id), Array.isArray(ticket.payment_providers) ? ticket.payment_providers.map(String) : [])
@@ -316,7 +347,7 @@ export async function assertPaymentProviderAvailableForOrder(
   }
 
   const operational = await getOperationalPaymentProviders(currencies)
-  let effective = resolveEffectivePaymentProviders(operational, [...eventLists.values(), ...ticketLists.values()])
+  let effective = resolveEffectivePaymentProviders(operational, [...orgLists.values(), ...eventLists.values(), ...ticketLists.values()])
 
   // Some rails (MoMo) cannot charge fractional major units; others (DeltaPay)
   // can, so the restriction comes from each provider's catalog entry rather
