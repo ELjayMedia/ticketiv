@@ -19,7 +19,7 @@ export type OrganizerSection =
   | "dashboard"
   | "events"
   | "series"
-  | "venues"
+  | "bookings"
   | "finance"
   | "payouts"
   | "team"
@@ -57,7 +57,7 @@ export function strongestOrganizerRole(roles: ReadonlyArray<string | null | unde
 }
 
 const SECTIONS: Record<OrganizerRole, OrganizerSection[]> = {
-  manager: ["dashboard", "events", "series", "venues", "finance", "payouts", "team", "settings", "scan", "guestlist", "boxOffice"],
+  manager: ["dashboard", "events", "series", "bookings", "finance", "payouts", "team", "settings", "scan", "guestlist", "boxOffice"],
   finance: ["dashboard", "finance", "payouts"],
   staff: ["events", "scan", "guestlist", "boxOffice"],
   scanner: ["scan"],

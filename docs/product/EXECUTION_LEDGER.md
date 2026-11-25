@@ -36,21 +36,23 @@ Batch 1 PRs (#583 to #588) are all merged to `uat`.
 | TICK-353, TICK-484 | Artist | Merged, Done | #592, #594 | `artist_ownership.sql` (32), `artist_claim_safeguards.sql` | `artist_members`, `artist_claims`, profile columns, merge and reset RPCs, `artist_redirects` | `uat` |
 | TICK-434, TICK-452 | Attendee, Organizer | Merged | #595 | `follow_completion.sql`, `tests/follow-completion.test.ts` | Series alerts; one alert per event (org > series > artist > venue); `v_organizer_public.follower_count` (threshold 50); `fn_org_follower_trend`; `fn_my_follows` | No |
 
-| TICK-482, TICK-460 | Venue, Organizer | PR open | #596 | `venue_marketplace.sql` (55), `tests/venue-marketplace.test.ts` | `venue_spaces`, `venue_blocks`, `venue_enquiries`, `venue_enquiry_messages`, `venue_bookings` (exclusion constraint), `venues.venue_type`, 12 RPCs | No |
-| TICK-483 | Venue | PR open (stacked on #596) | this batch | `venue_utilisation.sql`, `tests/venue-utilisation.test.ts` | `fn_venue_utilisation` (read-only) | No |
+| TICK-482, TICK-460 | Venue, Organizer | Merged, Done | #596 | `venue_marketplace.sql` (55), `tests/venue-marketplace.test.ts` | `venue_spaces`, `venue_blocks`, `venue_enquiries`, `venue_enquiry_messages`, `venue_bookings` (exclusion constraint), `venues.venue_type`, 12 RPCs | No |
+| TICK-483 | Venue | PR open | #597 | `venue_utilisation.sql`, `tests/venue-utilisation.test.ts` | `fn_venue_utilisation` (read-only) | No |
+| TICK-461, TICK-485, TICK-486 | Artist, Organizer | PR open (stacked on #597) | this batch | `artist_bookings.sql` (44), `tests/artist-bookings.test.ts` | `artist_booking_requests`, `artist_booking_messages`, `artist_announcements`, 7 RPCs | No |
 
 ### Rollback notes (batch 2)
 - **#593:** restore the three completion functions and the guard trigger from `20261124170000`'s predecessors. Codes already reissued stay valid; the code is just a unique string.
 - **#594:** drop the `limit_claims` triggers, `artist_redirects`, `fn_admin_merge_artists` and `fn_admin_reset_artist_owner`; re-create `fn_get_or_create_artist` from `20261124160000`.
 - **Follow completion:** see the header of `20261124190000_tick434_452_follow_completion.sql`.
 - **Venue marketplace:** see the header of `20261124200000_tick482_460_venue_marketplace.sql`.
+- **Artist bookings:** see the header of `20261124220000_tick461_485_486_artist_bookings.sql`.
 
 ## Queue (dependency order)
 
 Items 1 to 4 (Wave 1 fixes, TICK-448, TICK-353 / TICK-484, follows) are done.
 
 5. ~~TICK-482, TICK-460~~ (#596), ~~TICK-483~~ venue utilisation (PR open)
-6. TICK-461 / TICK-485 / TICK-486 artist bookings, calendar, audience
+6. ~~TICK-461 / TICK-485 / TICK-486~~ artist bookings, calendar, audience (PR open)
 7. Wave 4 organiser integration (event wizard picks booked venue and accepted artist; consent model TICK-433 first)
 8. Wave 6 ecosystem acceptance scenario
 

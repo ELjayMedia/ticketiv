@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic"
 /** The organisation's venue enquiries and bookings (TICK-460). */
 export default async function OrgVenueEnquiriesPage({ params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params
-  await requireOrganizerSection(orgId, "venues")
+  await requireOrganizerSection(orgId, "bookings")
   const enquiries = await listEnquiries({ orgId })
   return (
     <main className="flex-1 overflow-auto">
