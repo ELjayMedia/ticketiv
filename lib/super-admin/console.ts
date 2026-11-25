@@ -35,6 +35,7 @@ export type ConsoleAction =
   | "manage_team"
   | "approve_refund"
   | "pause_sales"
+  | "create_organizers_events"
   | "take_queue_item"
   | "view_as"
   | "work_cases"
@@ -62,6 +63,8 @@ export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   // Money leaves the wallet: only the owner approves, whoever asked.
   approve_refund: ["super_admin"],
   pause_sales: ["super_admin", "event_ops_admin"],
+  // Create organisers and events, and assign their owners / event admins.
+  create_organizers_events: ["super_admin"],
   take_queue_item: ["super_admin", "support_admin", "finance_admin", "event_ops_admin"],
   view_as: ["super_admin", "support_admin"],
   // Phase 3

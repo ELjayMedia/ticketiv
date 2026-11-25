@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto"
 
 import { type NextRequest, NextResponse } from "next/server"
 
+import { isEventManager } from "@/lib/events/manage-access"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
@@ -40,13 +41,12 @@ async function canManageEvent(
   if (adminError) throw adminError
   if (memberError) throw memberError
 
-  return {
-    allowed: Boolean(
-      (globalAdmin && globalAdmin.role_tier !== "read_only_admin") ||
-      (member?.role && MANAGER_ROLES.has(String(member.role))),
-    ),
-    event,
-  }
+  const allowed =
+    Boolean(globalAdmin && globalAdmin.role_tier !== "read_only_admin") ||
+    Boolean(member?.role && MANAGER_ROLES.has(String(member.role))) ||
+    // The event's own admin (event_staff organizer_admin), e.g. assigned from the command centre.
+    (await isEventManager(admin, event, userId))
+  return { allowed, event }
 }
 
 export async function POST(request: NextRequest) {
