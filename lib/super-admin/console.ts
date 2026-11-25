@@ -35,6 +35,7 @@ export type ConsoleAction =
   | "manage_team"
   | "approve_refund"
   | "pause_sales"
+  | "create_organizers_events"
   | "take_queue_item"
   | "view_as"
   | "work_cases"
@@ -47,7 +48,6 @@ export type ConsoleAction =
   | "review_venue_claim"
   | "review_artist_claim"
   | "manage_venue_access"
-  | "create_organizers_events"
 
 export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   resend_tickets: ["super_admin", "support_admin", "event_ops_admin"],
@@ -61,6 +61,8 @@ export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   // Money leaves the wallet: only the owner approves, whoever asked.
   approve_refund: ["super_admin"],
   pause_sales: ["super_admin", "event_ops_admin"],
+  // Create organisers and events, and assign their owners / event admins.
+  create_organizers_events: ["super_admin"],
   take_queue_item: ["super_admin", "support_admin", "finance_admin", "event_ops_admin"],
   view_as: ["super_admin", "support_admin"],
   // Phase 3
@@ -80,8 +82,6 @@ export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   review_artist_claim: ["super_admin", "support_admin"],
   // Venue MVP: create venues and assign venue admins from the command centre.
   manage_venue_access: ["super_admin"],
-  // Create organisers and events, and assign their owners / event admins.
-  create_organizers_events: ["super_admin"],
 }
 
 /** Actions that change something and so must carry a reason in the audit log. */
