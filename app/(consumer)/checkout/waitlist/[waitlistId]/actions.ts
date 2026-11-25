@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { completeSpecialCheckoutForBuyer } from "@/lib/payments/special-checkout"
-import { assertFeatureEnabled } from "@/lib/feature-flags"
+import { assertFeatureEnabled, eventIdForWaitlist } from "@/lib/feature-flags"
 
 type CreateWaitlistCheckoutState = {
   ok: false
@@ -23,6 +23,8 @@ export async function createWaitlistCheckout(
   await assertFeatureEnabled("waitlist_enabled")
   const waitlistId = String(formData.get("waitlistId") ?? "").trim()
   if (!waitlistId) return { ok: false, message: "Waitlist offer is missing. Please go back and choose the offer again." }
+  const waitlistEventId = await eventIdForWaitlist(waitlistId)
+  if (waitlistEventId) await assertFeatureEnabled("waitlist_enabled", { eventId: waitlistEventId })
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return { ok: false, message: "Ticketiv could not connect. Please try again." }
@@ -67,6 +69,8 @@ export async function completeWaitlistCheckout(
   if (!waitlistId || !paymentId) {
     return { ok: false, message: "Missing waitlist checkout details. Please refresh and try again." }
   }
+  const waitlistEventId = await eventIdForWaitlist(waitlistId)
+  if (waitlistEventId) await assertFeatureEnabled("waitlist_enabled", { eventId: waitlistEventId })
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return { ok: false, message: "Ticketiv could not connect. Please try again." }

@@ -16,9 +16,8 @@ export default async function POSPage({
   searchParams?: Promise<{ device?: string }>
 }) {
   // TICK-346 — pos_enabled is off: this feature is outside the launch scope.
-  if (!(await isFeatureEnabled("pos_enabled"))) notFound();
-
   const { orgId, eventId } = await params
+  if (!(await isFeatureEnabled("pos_enabled", { orgId, eventId }))) notFound();
 
   await requireOrganizerSection(orgId, "boxOffice", { eventId })
   const { device } = (await searchParams) ?? {}
