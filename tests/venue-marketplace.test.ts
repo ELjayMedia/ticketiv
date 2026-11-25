@@ -104,9 +104,29 @@ describe("venue search params", () => {
 
 describe("wiring", () => {
   const read = (p: string) => readFileSync(p, "utf8")
-  it("venue workspace has spaces, calendar and enquiries", () => {
+  it("venue workspace has booking requests, bookings, availability and spaces", () => {
     const nav = read("components/quiet/shell/venue-nav.tsx")
-    for (const path of ["spaces", "calendar", "enquiries"]) expect(nav).toContain(`path: "${path}"`)
+    for (const path of ["enquiries", "bookings", "calendar", "spaces"]) expect(nav).toContain(`path: "${path}"`)
+  })
+  it("only owners and managers can cancel a booking from the bookings page", () => {
+    const page = read("app/manage/venues/[venueId]/bookings/page.tsx")
+    expect(page).toContain("getVenueAccess(venueId)")
+    expect(page).toMatch(/canManage && tab === "upcoming" \? \(\s*<ActionForm\s+action=\{cancelVenueBookingAction\}/)
+  })
+  it("command centre venue access is owner-only in the app and the database", () => {
+    expect(read("lib/super-admin/console.ts")).toContain('manage_venue_access: ["super_admin"]')
+    const actions = read("app/super-admin/venues/actions.ts")
+    expect(actions.match(/adminForAction\("manage_venue_access"\)/g)?.length).toBe(3)
+    const migration = read("supabase/migrations/20261125100000_venue_admin_assignment.sql")
+    for (const fn of ["fn_admin_create_venue", "fn_admin_assign_venue_member", "fn_admin_remove_venue_member"]) {
+      expect(migration).toMatch(new RegExp(`function public\\.${fn}\\([\\s\\S]*?if not app\\.is_platform_owner\\(\\) then`))
+    }
+    expect(migration).not.toMatch(/grant execute on function public\.fn_admin_[a-z_]+\([^)]*\) to [^;]*\banon\b/)
+  })
+  it("event pages link the venue and the wizard points to booking requests", () => {
+    expect(read("components/quiet/screens/event-detail/desktop-event.tsx")).toContain("href={`/venues/${event.venue.slug}`}")
+    expect(read("components/quiet/screens/event-detail/mobile-event.tsx")).toContain("href={`/venues/${event.venue.slug}`}")
+    expect(read("components/event-wizard/steps/VenueStep.tsx")).toContain("#request-booking")
   })
   it("organiser workspace links venue enquiries for managers only", () => {
     expect(read("components/quiet/shell/org-nav.tsx")).toContain('section: "bookings", path: "venue-enquiries"')
@@ -114,7 +134,7 @@ describe("wiring", () => {
   })
   it("the public venue page offers enquiries only for verified venues", () => {
     const page = read("app/(public)/venues/[slug]/page.tsx")
-    expect(page).toMatch(/\{verified \? \(\s*<Card>\s*<CardBody[^>]*>\s*<h2 className="text-h3">Enquire about a date/)
+    expect(page).toMatch(/\{verified \? \(\s*<Card id="request-booking"[^>]*>\s*<CardBody[^>]*>\s*<h2 className="text-h3">Request a booking/)
   })
   it("the database has the double-booking constraint", () => {
     expect(sql).toMatch(/constraint venue_bookings_no_overlap exclude using gist/)

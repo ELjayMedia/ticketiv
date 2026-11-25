@@ -36,7 +36,8 @@ export interface MobileEventData {
   description: string;
   dateLabel: string;
   timeLabel: string;
-  venue: { name: string; distanceKm: number };
+  /** `slug` links to the public venue page when the venue is listed. */
+  venue: { name: string; distanceKm: number; slug?: string | null };
   facts: ReadonlyArray<readonly [string, string]>;
   /** `id` is the artist's record, used to follow them. */
   lineup: ReadonlyArray<{ id?: string | null; name: string; role: string; photo: string; headliner?: boolean }>;
@@ -175,7 +176,13 @@ export function MobileEvent({ event }: MobileEventProps) {
             </Card>
             <Card className="p-3" flat>
               <div className="text-label">Where</div>
-              <div className="mt-1 text-[15px] font-semibold">{event.venue.name}</div>
+              {event.venue.slug ? (
+                <Link href={`/venues/${event.venue.slug}`} className="mt-1 block text-[15px] font-semibold hover:underline">
+                  {event.venue.name}
+                </Link>
+              ) : (
+                <div className="mt-1 text-[15px] font-semibold">{event.venue.name}</div>
+              )}
               {event.venue.distanceKm > 0 && (
                 <a href={`https://www.google.com/maps/search/${encodeURIComponent(event.venue.name)}`} target="_blank" rel="noopener noreferrer" className="mt-0.5 font-mono text-[11px] text-accent">
                   {event.venue.distanceKm} km · directions ↗

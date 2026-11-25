@@ -132,6 +132,39 @@ export async function getVenueCalendar(venueId: string, fromIso: string, toIso: 
   }
 }
 
+export interface VenueBookingRow extends VenueBooking {
+  spaceName: string | null
+  cancelledAt: string | null
+  createdAt: string
+}
+
+/** Every booking at the venue (members only, via RLS), soonest first. */
+export async function listVenueBookings(venueId: string): Promise<VenueBookingRow[]> {
+  const supabase = client()
+  if (!supabase || !UUID_RE.test(venueId)) return []
+  const { data, error } = await supabase
+    .from("venue_bookings")
+    .select("id, space_id, enquiry_id, org_id, org_name, event_id, starts_at, ends_at, status, cancelled_at, created_at, venue_spaces(name)")
+    .eq("venue_id", venueId)
+    .order("starts_at", { ascending: true })
+    .limit(500)
+  if (error) throw new Error(`Could not load bookings: ${error.message}`)
+  return (data ?? []).map((b: Loose) => ({
+    id: b.id,
+    spaceId: b.space_id,
+    spaceName: b.venue_spaces?.name ?? null,
+    enquiryId: b.enquiry_id,
+    orgId: b.org_id,
+    orgName: b.org_name ?? null,
+    eventId: b.event_id,
+    startsAt: b.starts_at,
+    endsAt: b.ends_at,
+    status: b.status,
+    cancelledAt: b.cancelled_at ?? null,
+    createdAt: b.created_at,
+  }))
+}
+
 export interface EnquirySummary {
   id: string
   venueId: string

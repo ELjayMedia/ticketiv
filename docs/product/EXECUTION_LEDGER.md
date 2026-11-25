@@ -42,12 +42,15 @@ Batch 1 PRs (#583 to #588) are all merged to `uat`.
 | TICK-394 | Organizer | Merged | #599 | `org_payment_providers.sql` | Organisation payment defaults | `uat` |
 | TICK-451 | Attendee, Organizer | Implemented on feature branch | feat/TICK-451-reviews-gallery | `event_reviews.sql` | Verified reviews, reports, replies and public ratings | Pending UAT schema rollout |
 
+| Venue MVP | Venue, Organizer | PR open | feat/venue-admin-mvp | `venue_admin_assignment.sql` (22), `tests/venue-marketplace.test.ts`, `lib/venues/core.test.ts` | `fn_admin_create_venue`, `fn_admin_assign_venue_member`, `fn_admin_remove_venue_member`, `app.is_platform_owner` | Pending UAT schema rollout |
+
 ### Rollback notes (batch 2)
 - **#593:** restore the three completion functions and the guard trigger from `20261124170000`'s predecessors. Codes already reissued stay valid; the code is just a unique string.
 - **#594:** drop the `limit_claims` triggers, `artist_redirects`, `fn_admin_merge_artists` and `fn_admin_reset_artist_owner`; re-create `fn_get_or_create_artist` from `20261124160000`.
 - **Follow completion:** see the header of `20261124190000_tick434_452_follow_completion.sql`.
 - **Venue marketplace:** see the header of `20261124200000_tick482_460_venue_marketplace.sql`.
 - **Artist bookings:** see the header of `20261124220000_tick461_485_486_artist_bookings.sql`.
+- **Venue MVP admin assignment:** drop the three `fn_admin_*venue*` functions and `app.is_platform_owner` (`20261125100000`). Memberships granted stay valid.
 
 ## Queue (dependency order)
 
@@ -62,7 +65,6 @@ Items 1 to 4 (Wave 1 fixes, TICK-448, TICK-353 / TICK-484, follows) are done.
 
 | Item | Needs |
 |---|---|
-| UAT pipeline | Cloudflare Access service token `ticketiv-uat-ci` (owner action) |
 | Production migrations | Review and approval before applying the batch 1 and batch 2 migrations to production |
 | TICK-166 / TICK-167 | Physical procurement; staff training records |
 | TICK-441, TICK-457, TICK-445 | Legal and regulatory approval (stored value, lending, instalments) |

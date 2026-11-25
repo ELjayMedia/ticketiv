@@ -165,3 +165,13 @@ export const MARKETPLACE_ERROR_COPY: Record<string, string> = {
   reason_required: "Give a short reason for cancelling.",
   venue_type_invalid: "Choose a venue type from the list.",
 }
+
+/** Split bookings into upcoming (soonest first), past and cancelled (most recent first). */
+export function groupVenueBookings<T extends { status: string; endsAt: string }>(rows: T[], nowMs: number = Date.now()) {
+  const confirmed = rows.filter((b) => b.status === "confirmed")
+  return {
+    upcoming: confirmed.filter((b) => new Date(b.endsAt).getTime() >= nowMs),
+    past: confirmed.filter((b) => new Date(b.endsAt).getTime() < nowMs).reverse(),
+    cancelled: rows.filter((b) => b.status === "cancelled").reverse(),
+  }
+}

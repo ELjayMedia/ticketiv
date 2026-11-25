@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest"
 
+import { groupVenueBookings } from "@/lib/venues/marketplace"
+
 import {
   assignableVenueRoles,
   canEditVenueProfile,
@@ -53,5 +55,21 @@ describe("venue error copy", () => {
     expect(existingVenueIdFromError({ message: "venue_exists", details: id })).toBe(id)
     expect(existingVenueIdFromError({ message: "venue_exists", details: "nope" })).toBeNull()
     expect(existingVenueIdFromError({ message: "name_required", details: id })).toBeNull()
+  })
+})
+
+describe("groupVenueBookings", () => {
+  it("splits upcoming, past and cancelled around now", () => {
+    const now = Date.parse("2026-12-01T12:00:00Z")
+    const rows = [
+      { id: "past", status: "confirmed", endsAt: "2026-11-30T23:00:00Z" },
+      { id: "running", status: "confirmed", endsAt: "2026-12-01T13:00:00Z" },
+      { id: "next", status: "confirmed", endsAt: "2026-12-10T23:00:00Z" },
+      { id: "gone", status: "cancelled", endsAt: "2026-12-10T23:00:00Z" },
+    ]
+    const g = groupVenueBookings(rows, now)
+    expect(g.upcoming.map((b) => b.id)).toEqual(["running", "next"])
+    expect(g.past.map((b) => b.id)).toEqual(["past"])
+    expect(g.cancelled.map((b) => b.id)).toEqual(["gone"])
   })
 })

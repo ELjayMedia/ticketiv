@@ -8569,6 +8569,18 @@ export type Database = {
         Args: { p_user_id: string; p_venue_id: string }
         Returns: undefined
       }
+      fn_admin_assign_venue_member: {
+        Args: { p_note: string; p_role: string; p_user_id: string; p_venue_id: string; p_verify?: boolean }
+        Returns: Json
+      }
+      fn_admin_create_venue: {
+        Args: { p_address?: string | null; p_capacity?: number | null; p_city: string; p_name: string }
+        Returns: string
+      }
+      fn_admin_remove_venue_member: {
+        Args: { p_note: string; p_user_id: string; p_venue_id: string }
+        Returns: undefined
+      }
       fn_review_venue_claim: {
         Args: { p_approve: boolean; p_claim_id: string; p_note?: string | null; p_replace_owner?: boolean }
         Returns: Json
