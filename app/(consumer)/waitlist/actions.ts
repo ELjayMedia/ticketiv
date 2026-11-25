@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { assertFeatureEnabled } from "@/lib/feature-flags"
+import { assertFeatureEnabled, isFeatureEnabled } from "@/lib/feature-flags"
 
 type JoinWaitlistResult = {
   ok: false
@@ -43,6 +43,9 @@ export async function joinWaitlist(_prevState: JoinWaitlistResult | null, formDa
 
   const eventId = cleanUuid(formData.get("eventId"))
   if (!eventId) return { ok: false, message: "Choose a valid event before joining the waitlist." }
+  if (!(await isFeatureEnabled("waitlist_enabled", { eventId }))) {
+    return { ok: false, message: "The waitlist isn't available for this event." }
+  }
 
   const ticketTypeId = cleanUuid(formData.get("ticketTypeId"))
   const quantityRequested = cleanQuantity(formData.get("quantityRequested"))

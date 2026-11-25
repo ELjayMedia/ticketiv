@@ -57,6 +57,7 @@ export default async function ResalePage({
   const { id } = await params;
   const ticket = await getTicketById(id);
   if (!ticket) notFound();
+  if (!(await isFeatureEnabled("resale_enabled", { eventId: ticket.event_id }))) notFound();
 
   const { capBps, feeBps } = await fetchResaleConfig(ticket.event_id);
   const start = ticket.event_starts_at ? new Date(ticket.event_starts_at) : null;

@@ -3,7 +3,7 @@ import { WaitlistOfferCheckout } from "@/components/quiet/screens/waitlist/waitl
 import { CheckoutStatusPoller } from "@/components/quiet/screens/checkout/checkout-status-poller";
 import { getMyWaitlistOffer } from "@/lib/data/attendee/waitlist";
 import { getWaitlistCheckoutPaymentStatus } from "@/lib/data/attendee/waitlist-checkout";
-import { isFeatureEnabled } from "@/lib/feature-flags";
+import { eventIdForWaitlist, isFeatureEnabled } from "@/lib/feature-flags";
 
 export const metadata = { title: "Waitlist checkout" };
 export const dynamic = "force-dynamic";
@@ -19,6 +19,8 @@ export default async function WaitlistOfferCheckoutPage({
   if (!(await isFeatureEnabled("waitlist_enabled"))) notFound();
 
   const { waitlistId } = await params;
+  const waitlistEventId = await eventIdForWaitlist(waitlistId);
+  if (waitlistEventId && !(await isFeatureEnabled("waitlist_enabled", { eventId: waitlistEventId }))) notFound();
   const query = (await searchParams) ?? {};
   const offer = await getMyWaitlistOffer(waitlistId);
   const orderId = typeof query.orderId === "string" ? query.orderId : null;

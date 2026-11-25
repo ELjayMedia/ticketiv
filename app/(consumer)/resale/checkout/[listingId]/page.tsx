@@ -3,7 +3,7 @@ import { ResaleCheckoutReview } from "@/components/quiet/screens/resale/resale-c
 import { CheckoutStatusPoller } from "@/components/quiet/screens/checkout/checkout-status-poller";
 import { getResaleCheckoutPaymentStatus } from "@/lib/data/attendee/resale-checkout";
 import { getPublicTicketListing } from "@/lib/data/attendee/ticket-listings";
-import { isFeatureEnabled } from "@/lib/feature-flags";
+import { eventIdForResaleListing, isFeatureEnabled } from "@/lib/feature-flags";
 
 export const metadata = { title: "Resale checkout" };
 export const dynamic = "force-dynamic";
@@ -19,6 +19,8 @@ export default async function ResaleCheckoutPage({
   if (!(await isFeatureEnabled("resale_enabled"))) notFound();
 
   const { listingId } = await params;
+  const listingEventId = await eventIdForResaleListing(listingId);
+  if (listingEventId && !(await isFeatureEnabled("resale_enabled", { eventId: listingEventId }))) notFound();
   const query = (await searchParams) ?? {};
   const listing = await getPublicTicketListing(listingId);
   const orderId = typeof query.orderId === "string" ? query.orderId : null;
