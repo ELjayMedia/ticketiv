@@ -1,6 +1,7 @@
 import "server-only"
 
 import { getOrgPayoutReconciliationBlock } from "@/lib/data/admin/reconciliation"
+import { loadIntegrationConfig } from "@/lib/integrations/runtime"
 import { payoutStatusForTransaction, payoutIdFromReference } from "@/lib/payments/deltapay-wallet-core"
 import {
   DeltaPayWalletError,
@@ -62,9 +63,15 @@ async function loadPayout(admin: Admin, payoutId: string): Promise<PayoutRow | n
   return (data as PayoutRow | null) ?? null
 }
 
-/** Whether DeltaPay payouts can be sent from this deployment (all config present). */
-export function deltaPayPayoutsAvailable(): boolean {
-  return getDeltaPayWalletConfig().operational
+/**
+ * Whether DeltaPay payouts can be sent: every setting present in the
+ * environment (DELTAPAY_PAYOUTS_ENABLED included) AND not switched off on the
+ * Integrations card. The card can only switch payouts off, never bypass the
+ * environment's own guards.
+ */
+export async function deltaPayPayoutsAvailable(): Promise<boolean> {
+  if (!getDeltaPayWalletConfig().operational) return false
+  return (await loadIntegrationConfig("deltapay_wallet"))?.enabled !== false
 }
 
 /** The org's primary payout account as an EPS destination, or why it can't be paid automatically. */
@@ -101,7 +108,7 @@ export async function sendPayoutViaDeltaPay({ payoutId, actorId, note }: { payou
     throw new PayoutSendError(`Only requested or failed payouts can be sent (this one is ${payout.status}).`)
   }
   if (payout.currency !== "SZL") throw new PayoutSendError("DeltaPay payouts are SZL only.")
-  if (!deltaPayPayoutsAvailable()) throw new PayoutSendError("DeltaPay payouts are not configured on this deployment.")
+  if (!(await deltaPayPayoutsAvailable())) throw new PayoutSendError("DeltaPay payouts are off (switched off in Integrations, or not configured on this deployment).")
 
   const block = await getOrgPayoutReconciliationBlock(payout.org_id)
   if (block.blocked) {

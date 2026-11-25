@@ -20,7 +20,7 @@ export function CompanionPushOptIn() {
   React.useEffect(() => {
     let active = true;
     (async () => {
-      if (!isPushSupported() || !isPushConfigured() || Notification.permission === "denied") return;
+      if (!isPushSupported() || Notification.permission === "denied" || !(await isPushConfigured())) return;
       try {
         const registration = await navigator.serviceWorker.getRegistration("/sw.js");
         const existing = registration ? await registration.pushManager.getSubscription() : null;

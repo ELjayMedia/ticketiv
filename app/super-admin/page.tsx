@@ -41,11 +41,12 @@ export default async function SuperAdminPage({ searchParams }: { searchParams: P
   const { queue } = await searchParams
   const activeQueue: QueueKey | "all" | "mine" =
     queue === "mine" || QUEUES.some((q) => q.key === queue) ? (queue as QueueKey | "mine") : "all"
-  const [{ metrics, attention, operations, categories }, queues, activity, chatwoot] = await Promise.all([
+  const [{ metrics, attention, operations, categories }, queues, activity, chatwoot, payoutsOn] = await Promise.all([
     getCommandCentreData(),
     getWorkQueues(user.id),
     getRecentAdminActivity(),
     getChatwootConfig(),
+    deltaPayPayoutsAvailable(),
   ])
   const queueTotal = queues.items.length
   const hour = Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hourCycle: "h23", timeZone: "Africa/Mbabane" }).format(new Date()))
@@ -77,7 +78,7 @@ export default async function SuperAdminPage({ searchParams }: { searchParams: P
       href: queues.counts.reconciliation ? "/super-admin/reconciliation" : undefined,
     },
     { label: "Chatwoot", value: chatwoot.ok ? "Connected" : "Not connected", tone: chatwoot.ok ? "success" : "muted", href: chatwoot.ok ? undefined : "/super-admin/integrations" },
-    { label: "DeltaPay payouts", value: deltaPayPayoutsAvailable() ? "On" : "Off", tone: deltaPayPayoutsAvailable() ? "success" : "muted" },
+    { label: "DeltaPay payouts", value: payoutsOn ? "On" : "Off", tone: payoutsOn ? "success" : "muted" },
   ]
 
   const checkInRate = percentage(metrics.tickets_checked_in, metrics.tickets_issued)

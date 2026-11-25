@@ -1,5 +1,8 @@
 import "server-only"
 
+import type { EnvSnapshot } from "@/lib/integrations/catalog"
+import { hasRequiredSettings, resolveChannel } from "@/lib/integrations/runtime"
+
 import type { ChannelResult } from "./types"
 
 // SMS channel adapter — the fallback for buyers without WhatsApp / on basic
@@ -10,6 +13,10 @@ import type { ChannelResult } from "./types"
 // Credentials in SMS_API_KEY (+ provider-specific extras). When unconfigured
 // the adapter reports `skipped` so delivery never fails.
 //
+// The provider and its settings can also be chosen in the admin console
+// (Integrations): a provider switched on there wins over SMS_PROVIDER, and its
+// saved values win over the environment (lib/integrations/runtime.ts).
+//
 // Messages carry a short secure ticket link (not a QR image) and stay compact
 // for basic-device compatibility (the dispatcher renders an SMS-safe template).
 
@@ -18,8 +25,9 @@ export interface SmsMessage {
   body: string
 }
 
-export function isSmsConfigured(): boolean {
-  return Boolean(process.env.SMS_PROVIDER && process.env.SMS_API_KEY)
+export async function isSmsConfigured(): Promise<boolean> {
+  const resolved = await resolveChannel("sms")
+  return Boolean(resolved && hasRequiredSettings(resolved))
 }
 
 function e164(to: string): string {
@@ -32,17 +40,20 @@ function e164(to: string): string {
  * the integrations catalog (lib/integrations/catalog.ts); the consistency test
  * fails if a catalog provider has no sender here.
  */
-export const SMS_SENDERS: Record<string, ((message: SmsMessage, apiKey: string) => Promise<ChannelResult>) | undefined> = {
-  twilio: (message, apiKey) => sendViaTwilio(message, apiKey),
-  africastalking: (message, apiKey) => sendViaAfricasTalking(message, apiKey),
+type SmsSender = (message: SmsMessage, apiKey: string, env: EnvSnapshot) => Promise<ChannelResult>
+
+export const SMS_SENDERS: Record<string, SmsSender | undefined> = {
+  twilio: (message, apiKey, env) => sendViaTwilio(message, apiKey, env),
+  africastalking: (message, apiKey, env) => sendViaAfricasTalking(message, apiKey, env),
   clickatell: (message, apiKey) => sendViaClickatell(message, apiKey),
 }
 
 export async function sendSms(message: SmsMessage): Promise<ChannelResult> {
-  const provider = process.env.SMS_PROVIDER ?? "sms"
-  const apiKey = process.env.SMS_API_KEY
+  const resolved = await resolveChannel("sms")
+  const provider = resolved?.integration.selectedBy?.value ?? process.env.SMS_PROVIDER ?? "sms"
+  const apiKey = resolved?.env.SMS_API_KEY?.trim()
 
-  if (!provider || !apiKey) {
+  if (!resolved || !apiKey) {
     return { status: "skipped", reason: "SMS provider not configured", provider }
   }
 
@@ -51,17 +62,17 @@ export async function sendSms(message: SmsMessage): Promise<ChannelResult> {
     if (!send) {
       return { status: "skipped", reason: `Unknown SMS_PROVIDER: ${provider}`, provider }
     }
-    return await send(message, apiKey)
+    return await send(message, apiKey, resolved.env)
   } catch (error: any) {
     return { status: "failed", error: error?.message ?? "sms send failed", provider }
   }
 }
 
 // --- Twilio ---------------------------------------------------------------
-async function sendViaTwilio(message: SmsMessage, authToken: string): Promise<ChannelResult> {
+async function sendViaTwilio(message: SmsMessage, authToken: string, env: EnvSnapshot): Promise<ChannelResult> {
   const provider = "twilio"
-  const sid = process.env.TWILIO_ACCOUNT_SID
-  const from = process.env.SMS_FROM // e.g. +12025550123 or an alphanumeric sender id
+  const sid = env.TWILIO_ACCOUNT_SID
+  const from = env.SMS_FROM // e.g. +12025550123 or an alphanumeric sender id
   if (!sid || !from) {
     return { status: "skipped", reason: "TWILIO_ACCOUNT_SID / SMS_FROM not set", provider }
   }
@@ -83,14 +94,14 @@ async function sendViaTwilio(message: SmsMessage, authToken: string): Promise<Ch
 }
 
 // --- Africa's Talking -----------------------------------------------------
-async function sendViaAfricasTalking(message: SmsMessage, apiKey: string): Promise<ChannelResult> {
+async function sendViaAfricasTalking(message: SmsMessage, apiKey: string, env: EnvSnapshot): Promise<ChannelResult> {
   const provider = "africastalking"
-  const username = process.env.AT_USERNAME
+  const username = env.AT_USERNAME
   if (!username) {
     return { status: "skipped", reason: "AT_USERNAME not set", provider }
   }
   const form = new URLSearchParams({ username, to: e164(message.to), message: message.body })
-  if (process.env.SMS_FROM) form.set("from", process.env.SMS_FROM)
+  if (env.SMS_FROM) form.set("from", env.SMS_FROM)
   const res = await fetch("https://api.africastalking.com/version1/messaging", {
     method: "POST",
     headers: { apiKey, "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
