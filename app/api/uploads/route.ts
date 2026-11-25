@@ -9,6 +9,8 @@ export const runtime = "nodejs"
 
 const EVENT_COVERS_BUCKET = "event-covers"
 const MAX_FILE_SIZE = 8 * 1024 * 1024
+// Sponsor logos are small marks shown in a strip, so they get a tighter limit.
+const MAX_LOGO_SIZE = 2 * 1024 * 1024
 const MANAGER_ROLES = new Set(["admin", "organizer", "organizer_owner", "organizer_admin"])
 const IMAGE_EXTENSIONS: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -70,13 +72,16 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const fileValue = formData.get("file")
     const eventIdValue = formData.get("eventId")
+    // "sponsor_logo": a logo for the shared sponsor directory. Organisers send
+    // the event they're editing; super admins (command centre) may send none.
+    const isLogo = formData.get("kind") === "sponsor_logo"
 
     if (!(fileValue instanceof File)) {
       return NextResponse.json({ error: "No image file provided" }, { status: 400 })
     }
 
     const eventId = typeof eventIdValue === "string" ? eventIdValue.trim() : ""
-    if (!eventId) {
+    if (!eventId && !isLogo) {
       return NextResponse.json({ error: "Event id is required" }, { status: 400 })
     }
 
@@ -89,22 +94,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "The selected image is empty" }, { status: 400 })
     }
 
+    if (isLogo && fileValue.size > MAX_LOGO_SIZE) {
+      return NextResponse.json({ error: "Logos must be smaller than 2 MB" }, { status: 413 })
+    }
+
     if (fileValue.size > MAX_FILE_SIZE) {
       return NextResponse.json({ error: "Cover images must be smaller than 8 MB" }, { status: 413 })
     }
 
     const admin = createAdminClient()
-    const { allowed, event } = await canManageEvent(admin, eventId, user.id)
-
-    if (!event) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 })
+    if (eventId) {
+      const { allowed, event } = await canManageEvent(admin, eventId, user.id)
+      if (!event) {
+        return NextResponse.json({ error: "Event not found" }, { status: 404 })
+      }
+      if (!allowed) {
+        return NextResponse.json({ error: "You do not have permission to edit this event" }, { status: 403 })
+      }
+    } else {
+      const { data: owner, error: ownerError } = await admin
+        .from("admin_users")
+        .select("role_tier")
+        .eq("user_id", user.id)
+        .eq("active", true)
+        .maybeSingle()
+      if (ownerError) throw ownerError
+      if (owner?.role_tier !== "super_admin") {
+        return NextResponse.json({ error: "Only the Ticketiv owner can upload sponsor logos here" }, { status: 403 })
+      }
     }
 
-    if (!allowed) {
-      return NextResponse.json({ error: "You do not have permission to edit this event" }, { status: 403 })
-    }
-
-    const objectPath = `events/${eventId}/${randomUUID()}.${extension}`
+    const objectPath = isLogo
+      ? `sponsors/${randomUUID()}.${extension}`
+      : `events/${eventId}/${randomUUID()}.${extension}`
     const fileBuffer = Buffer.from(await fileValue.arrayBuffer())
 
     const { data, error: uploadError } = await admin.storage

@@ -8093,6 +8093,22 @@ export type Database = {
       }
     }
     Functions: {
+      fn_save_sponsor: {
+        Args: { p_logo_url?: string | null; p_name?: string | null; p_org_id: string; p_sponsor_id?: string | null; p_website_url?: string | null }
+        Returns: string
+      }
+      fn_admin_update_sponsor: {
+        Args: { p_clear_logo?: boolean; p_logo_url?: string | null; p_name: string; p_sponsor_id: string; p_website_url?: string | null }
+        Returns: undefined
+      }
+      fn_event_set_sponsors: {
+        Args: { p_event_id: string; p_sponsors: Json }
+        Returns: number
+      }
+      fn_public_event_sponsors: {
+        Args: { p_event_id: string }
+        Returns: { featured: boolean; logo_url: string | null; name: string; website_url: string | null }[]
+      }
       fn_event_review_access: { Args: { p_event_id: string }; Returns: { can_review: boolean; can_reply: boolean } }
       fn_submit_event_review: { Args: { p_event_id: string; p_rating: number; p_body: string; p_tags: string[] }; Returns: string }
       fn_reply_event_review: { Args: { p_review_id: string; p_reply: string }; Returns: undefined }

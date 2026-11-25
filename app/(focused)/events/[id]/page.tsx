@@ -163,6 +163,19 @@ export default async function EventDetailPage({
     mobile.venue = { ...mobile.venue, slug };
     desktop.venue = { ...desktop.venue, slug };
   }
+  // Sponsors the organiser added (public events only; featured first).
+  const sponsorClient = createPublicSupabaseClient();
+  const sponsorRes = sponsorClient ? await sponsorClient.rpc("fn_public_event_sponsors", { p_event_id: row.id }) : null;
+  if (sponsorRes?.error) console.error("[event] sponsors read failed", sponsorRes.error.message);
+  type SponsorRow = { name: string; logo_url: string | null; website_url: string | null; featured: boolean };
+  const sponsors = ((sponsorRes?.data ?? []) as SponsorRow[]).map((s) => ({
+    name: s.name,
+    logoUrl: s.logo_url,
+    websiteUrl: s.website_url,
+    featured: Boolean(s.featured),
+  }));
+  mobile.sponsors = sponsors;
+  desktop.sponsors = sponsors;
   if (planFacts.length) {
     mobile.facts = [...planFacts, ...mobile.facts];
     desktop.facts = [...planFacts, ...desktop.facts];

@@ -40,6 +40,7 @@ export type ConsoleAction =
   | "work_cases"
   | "manage_replies"
   | "restore_setting"
+  | "manage_sponsors"
   | "manage_integrations"
   | "manage_provider_readiness"
   | "hide_event_update"
@@ -67,6 +68,8 @@ export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   work_cases: ["super_admin", "support_admin"],
   manage_replies: ["super_admin", "support_admin"],
   restore_setting: ["super_admin"],
+  // Shared sponsor directory: only the owner changes names, logos and websites.
+  manage_sponsors: ["super_admin"],
   manage_integrations: ["super_admin"],
   // TICK-403: approving a provider for real money, or switching it off, is the owner's call.
   manage_provider_readiness: ["super_admin"],
