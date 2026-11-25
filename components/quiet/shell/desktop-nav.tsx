@@ -15,6 +15,8 @@ const NAV_ITEMS = [
   { href: "/", label: "Discover" },
   { href: "/series", label: "Series" },
   { href: "/organisers", label: "Organisers" },
+  { href: "/venues", label: "Venues" },
+  { href: "/artists", label: "Artists" },
   // The signed-in attendee's own area (tickets, orders, profile…). On mobile
   // this is the tab bar; on desktop it's this link plus the avatar menu.
   { href: "/tickets", label: "My tickets", signedInOnly: true },
