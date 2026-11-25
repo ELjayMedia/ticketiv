@@ -41,7 +41,7 @@ export interface MobileEventData {
   /** `id` is the artist's record, used to follow them. */
   lineup: ReadonlyArray<{ id?: string | null; name: string; role: string; photo: string; headliner?: boolean }>;
   /** `id` is the organisation, used to follow it. */
-  organizer: { id?: string | null; name: string; handle: string; eventsHosted: number; rating: number; verified: boolean; photo: string };
+  organizer: { id?: string | null; name: string; handle: string; eventsHosted: number; rating: number; reviewCount?: number; verified: boolean; photo: string };
   goingFriends: { count: number; names: string[]; photos: string[] };
   currency?: Currency;
   fromPriceMinor: number | null;
@@ -188,6 +188,7 @@ export function MobileEvent({ event }: MobileEventProps) {
         <TrustSignalsRow event={event} />
 
         <section className="px-5 pt-5">
+          <Link className="mb-4 block underline" href={`/events/${event.id}/reviews`}>Verified reviews and event photos</Link>
           <h2 className="mb-3 text-h3">Lineup</h2>
           {event.lineup.length > 0 ? (
             <ul className="flex flex-col gap-2">
@@ -377,7 +378,7 @@ export function MobileEvent({ event }: MobileEventProps) {
 function formatOrganizerStats(o: MobileEventData["organizer"]): string {
   const parts = [`@${o.handle}`];
   if (o.eventsHosted > 0) parts.push(`${o.eventsHosted} event${o.eventsHosted === 1 ? "" : "s"}`);
-  if (o.rating > 0) parts.push(`★ ${o.rating.toFixed(1)}`);
+  if (o.rating > 0) parts.push(`★ ${o.rating.toFixed(1)} (${o.reviewCount ?? 0} reviews)`);
   return parts.join(" · ");
 }
 

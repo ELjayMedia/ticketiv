@@ -4,6 +4,7 @@ import { LiveEventShell } from "@/components/quiet/screens/event-detail/live-eve
 import { HoldExpiredBanner } from "@/components/quiet/screens/event-detail/hold-expired-banner";
 import { RecordRecentlyViewed } from "@/components/quiet/screens/event-detail/record-recently-viewed";
 import { EventViewTracker } from "@/components/analytics/buyer-funnel";
+import { getOrganizerRating } from "@/lib/data/reviews";
 import { getPublicEventBySlug } from "@/lib/adapters/events";
 import { getPublicEventGuide, guidePlanFacts } from "@/lib/data/companion";
 import { mapEventDetail, mapDesktopEventDetail } from "@/lib/mappers/event-detail";
@@ -136,6 +137,7 @@ export default async function EventDetailPage({
   const planFacts = guidePlanFacts(await getPublicEventGuide(row.id), eventTimeZone(row.venue_tz));
 
   const trust = {
+    organizerRating: await getOrganizerRating(row.organizer_id),
     soldCount,
     attendeeCount,
     recentSoldCount,

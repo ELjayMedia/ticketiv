@@ -222,7 +222,7 @@ export function DesktopEvent({ event }: DesktopEventProps) {
             {activeTab === "Reviews" && (
               <div className="py-5">
                 <div className="rounded-[var(--radius-lg)] border border-dashed border-line-2 px-6 py-10 text-center font-mono text-[11px] text-ink-3">
-                  No reviews yet — be the first to rate this event after attending.
+                  <Link className="underline" href={`/events/${event.id}/reviews`}>View verified reviews and event photos</Link>
                 </div>
               </div>
             )}
@@ -433,7 +433,7 @@ function DesktopMetaGrid({ event }: { event: DesktopEventData }) {
 function formatDesktopOrganizerStats(o: DesktopEventData["organizer"]): string {
   const parts = [`@${o.handle}`];
   if (o.eventsHosted > 0) parts.push(`${o.eventsHosted} event${o.eventsHosted === 1 ? "" : "s"} hosted`);
-  if (o.rating > 0) parts.push(`★ ${o.rating.toFixed(1)}`);
+  if (o.rating > 0) parts.push(`★ ${o.rating.toFixed(1)} (${o.reviewCount ?? 0} reviews)`);
   return parts.join(" · ");
 }
 

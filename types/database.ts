@@ -6,6 +6,18 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+type PublicEventReview = {
+  id: string
+  event_id: string
+  rating: number
+  body: string | null
+  tags: string[]
+  org_reply: string | null
+  org_reply_at: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
@@ -14,6 +26,32 @@ export type Database = {
   }
   public: {
     Tables: {
+      event_reviews: {
+        Row: PublicEventReview & {
+          status: string
+          report_count: number
+          user_id: string
+          org_reply_by: string | null
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      user_reports: {
+        Row: {
+          id: string
+          reporter_id: string
+          reported_id: string | null
+          reason: string
+          created_at: string
+          review_id: string | null
+          resolved_at: string | null
+          resolution: string | null
+        }
+        Insert: { reporter_id: string; reported_id: string; reason: string }
+        Update: never
+        Relationships: []
+      }
       admin_action_catalog: {
         Row: {
           backend_function: string | null
@@ -6818,6 +6856,7 @@ export type Database = {
       }
     }
     Views: {
+      v_public_event_reviews: { Row: PublicEventReview; Relationships: [] }
       admin_attention_queue: {
         Row: {
           created_at: string | null
@@ -8054,6 +8093,12 @@ export type Database = {
       }
     }
     Functions: {
+      fn_event_review_access: { Args: { p_event_id: string }; Returns: { can_review: boolean; can_reply: boolean } }
+      fn_submit_event_review: { Args: { p_event_id: string; p_rating: number; p_body: string; p_tags: string[] }; Returns: string }
+      fn_reply_event_review: { Args: { p_review_id: string; p_reply: string }; Returns: undefined }
+      fn_report_event_review: { Args: { p_review_id: string; p_reason: string }; Returns: string }
+      fn_moderate_event_review: { Args: { p_review_id: string; p_decision: string }; Returns: undefined }
+      fn_org_rating: { Args: { p_org_id: string }; Returns: { count: number; average: number | null } }
       admin_log_action: {
         Args: {
           p_action: Database["public"]["Enums"]["audit_action"]
