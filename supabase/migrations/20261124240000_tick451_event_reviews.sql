@@ -17,8 +17,7 @@
 --     organiser's members and platform admins.
 -- The private "How was it?" rating (event_feedback) is unchanged.
 --
--- Additive. Rollback: drop the view, the RPCs, event_review_reports and
--- event_reviews.
+-- Extends user_reports with a review subject. Existing account reports retain their subject.
 
 create table if not exists public.event_reviews (
   id uuid primary key default gen_random_uuid(),
@@ -38,30 +37,29 @@ create table if not exists public.event_reviews (
 );
 create index if not exists event_reviews_event_idx on public.event_reviews (event_id, status, created_at desc);
 
-create table if not exists public.event_review_reports (
-  id uuid primary key default gen_random_uuid(),
-  review_id uuid not null references public.event_reviews (id) on delete cascade,
-  reporter_id uuid not null references auth.users (id) on delete cascade,
-  reason text not null check (char_length(btrim(reason)) between 3 and 300),
-  created_at timestamptz not null default now(),
-  resolved_at timestamptz,
-  resolution text check (resolution is null or resolution in ('restored', 'removed')),
-  unique (review_id, reporter_id)
-);
+-- The existing report inbox now accepts either an account or a review as its
+-- subject. A review report never exposes the author's account to the reporter.
+alter table public.user_reports
+  alter column reported_id drop not null,
+  add column review_id uuid references public.event_reviews(id) on delete cascade,
+  add column resolved_at timestamptz,
+  add column resolution text check (resolution in ('restored', 'removed')),
+  add constraint user_reports_one_subject check (num_nonnulls(reported_id, review_id) = 1),
+  add constraint user_reports_review_once unique (review_id, reporter_id);
+
+drop policy user_reports_insert_own on public.user_reports;
+create policy user_reports_insert_own on public.user_reports for insert to authenticated
+  with check (reporter_id = (select auth.uid()) and review_id is null and resolved_at is null and resolution is null);
+create policy user_reports_review_admin on public.user_reports for select to authenticated
+  using (review_id is not null and app.is_platform_admin());
 
 alter table public.event_reviews enable row level security;
-alter table public.event_review_reports enable row level security;
-revoke all on public.event_reviews, public.event_review_reports from anon, authenticated;
+revoke all on public.event_reviews from anon, authenticated;
 grant select on public.event_reviews to authenticated;
-grant select on public.event_review_reports to authenticated;
-grant all on public.event_reviews, public.event_review_reports to service_role;
+grant all on public.event_reviews to service_role;
 
-drop policy if exists event_reviews_party_select on public.event_reviews;
 create policy event_reviews_party_select on public.event_reviews for select to authenticated
-  using (user_id = (select auth.uid()) or app.is_org_member_of(app.event_org_id(event_id)) or app.is_platform_admin());
-drop policy if exists event_review_reports_admin_select on public.event_review_reports;
-create policy event_review_reports_admin_select on public.event_review_reports for select to authenticated
-  using (reporter_id = (select auth.uid()) or app.is_platform_admin());
+  using (user_id = (select auth.uid()) or app.is_org_manager(app.event_org_id(event_id)) or app.is_platform_admin());
 
 create or replace function app.review_tag_keys() returns text[]
 language sql immutable set search_path to '' as $$
@@ -77,7 +75,9 @@ $$;
 -- The event's end, or six hours after the start when it has no end.
 create or replace function app.event_end_at(p_event uuid) returns timestamptz
 language sql stable security definer set search_path to '' as $$
-  select coalesce(e.ends_at, e.starts_at + interval '6 hours') from public.events e where e.id = p_event
+  select coalesce((select max(coalesce(d.ends_at, d.starts_at)) from public.event_dates d where d.event_id = e.id),
+                  e.ends_at, e.starts_at + interval '6 hours')
+    from public.events e where e.id = p_event and e.status in ('published', 'paused', 'archived') and e.cancelled_at is null
 $$;
 revoke all on function app.event_end_at(uuid) from public, anon;
 grant execute on function app.event_end_at(uuid) to authenticated, service_role;
@@ -91,6 +91,8 @@ language sql stable security definer set search_path to '' as $$
       join public.orders o on o.id = oi.order_id
      where tt.event_id = p_event
        and oi.checked_in_at is not null
+       and (exists (select 1 from public.scans s where s.order_item_id = oi.id and s.event_id = tt.event_id and s.outcome = 'valid')
+         or exists (select 1 from public.scans_archive s where s.order_item_id = oi.id and s.event_id = tt.event_id and s.outcome = 'valid'))
        and (oi.current_owner_id = (select auth.uid()) or (oi.current_owner_id is null and o.buyer_id = (select auth.uid())))
   )
 $$;
@@ -165,18 +167,18 @@ declare
 begin
   perform app.require_claimed_account();
   select * into r from public.event_reviews where id = p_review_id for update;
-  if not found or r.status = 'removed' then
+  if not found or r.status <> 'published' or not exists (select 1 from public.v_public_event_reviews v where v.id = r.id) then
     raise exception 'review_not_found' using errcode = 'P0002';
   end if;
   if r.user_id = v_user then
     raise exception 'cannot_report_own' using errcode = 'P0001';
   end if;
-  if char_length(btrim(coalesce(p_reason, ''))) < 3 then
+  if char_length(btrim(coalesce(p_reason, ''))) not between 3 and 300 then
     raise exception 'reason_required' using errcode = 'P0001';
   end if;
-  insert into public.event_review_reports (review_id, reporter_id, reason) values (r.id, v_user, btrim(p_reason))
+  insert into public.user_reports (review_id, reporter_id, reason) values (r.id, v_user, btrim(p_reason))
   on conflict (review_id, reporter_id) do nothing;
-  select count(*) into v_count from public.event_review_reports where review_id = r.id and resolved_at is null;
+  select count(*) into v_count from public.user_reports where review_id = r.id and resolved_at is null;
   update public.event_reviews set report_count = v_count,
     status = case when status = 'published' and v_count >= 3 then 'hidden' else status end
   where id = r.id;
@@ -193,10 +195,10 @@ security definer
 set search_path to ''
 as $$
 begin
-  if not app.is_platform_admin() then
+  if not exists (select 1 from public.admin_users where user_id = (select auth.uid()) and active and role_tier = 'super_admin') then
     raise exception 'forbidden' using errcode = '42501';
   end if;
-  if p_decision not in ('restore', 'remove') then
+  if p_decision is null or p_decision not in ('restore', 'remove') then
     raise exception 'decision_invalid' using errcode = 'P0001';
   end if;
   update public.event_reviews
@@ -207,7 +209,7 @@ begin
   if not found then
     raise exception 'review_not_found' using errcode = 'P0002';
   end if;
-  update public.event_review_reports set resolved_at = now(), resolution = case when p_decision = 'restore' then 'restored' else 'removed' end
+  update public.user_reports set resolved_at = now(), resolution = case when p_decision = 'restore' then 'restored' else 'removed' end
    where review_id = p_review_id and resolved_at is null;
   insert into public.audit_log (actor_id, table_name, record_id, action, changes)
   values ((select auth.uid()), 'event_reviews', p_review_id::text, 'other'::public.audit_action,
@@ -259,7 +261,7 @@ as $$
   )
     from public.event_reviews r
     join public.events e on e.id = r.event_id
-   where e.org_id = p_org_id and r.status = 'published' and e.visibility = 'public'
+   where e.org_id = p_org_id and r.status = 'published' and e.visibility = 'public' and e.status in ('published','paused','archived')
 $$;
 revoke all on function public.fn_org_rating(uuid) from public;
 grant execute on function public.fn_org_rating(uuid) to anon, authenticated, service_role;
@@ -274,3 +276,13 @@ grant select on public.v_public_event_reviews to anon, authenticated;
 
 comment on table public.event_reviews is 'Verified-attendee reviews (TICK-451). Public through v_public_event_reviews only.';
 comment on view public.v_public_event_reviews is 'Published reviews of public events, without reviewer identities (TICK-451).';
+
+-- Page controls use the same attendance, time and manager checks as the writes.
+create or replace function public.fn_event_review_access(p_event_id uuid) returns jsonb
+language sql stable security definer set search_path to '' as $$
+  select jsonb_build_object(
+    'can_review', app.checked_in_at_event(p_event_id) and now() between app.event_end_at(p_event_id) and app.event_end_at(p_event_id) + interval '14 days',
+    'can_reply', app.is_org_manager(app.event_org_id(p_event_id)))
+$$;
+revoke all on function public.fn_event_review_access(uuid) from public;
+grant execute on function public.fn_event_review_access(uuid) to authenticated;

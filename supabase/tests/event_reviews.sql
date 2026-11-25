@@ -46,6 +46,11 @@ begin
   insert into public.order_items (order_id, ticket_type_id, status, ticket_code, current_owner_id)
   select o.id, v_tt, 'issued', upper(gen_random_uuid()::text), holder from o;
 
+  insert into public.scans(event_id, order_item_id, ticket_code, outcome)
+  select tt.event_id, oi.id, oi.ticket_code, 'valid' from public.order_items oi
+    join public.ticket_types tt on tt.id = oi.ticket_type_id
+    where oi.current_owner_id = attendee and oi.checked_in_at is not null;
+
   -- ── who can review, and when ───────────────────────────────────────────────
   perform set_config('request.jwt.claims', json_build_object('sub', holder::text, 'role', 'authenticated', 'is_anonymous', false)::text, true);
   execute 'set local role authenticated';
@@ -130,12 +135,12 @@ begin
   if coalesce(v_err, '') !~ 'forbidden' then raise exception 'organisers must not moderate (got %)', coalesce(v_err, 'success'); end if;
   perform set_config('request.jwt.claims', json_build_object('sub', admin_u::text, 'role', 'authenticated', 'is_anonymous', false)::text, true);
   execute 'set local role authenticated';
-  select count(*) into n from public.event_review_reports where review_id = v_review and resolved_at is null;
+  select count(*) into n from public.user_reports where review_id = v_review and resolved_at is null;
   perform public.fn_moderate_event_review(v_review, 'restore', 'Fair criticism');
   execute 'reset role';
   if n <> 3 then raise exception 'admin should see 3 open reports (got %)', n; end if;
   if (select status from public.event_reviews where id = v_review) <> 'published' then raise exception 'restore should republish'; end if;
-  if (select count(*) from public.event_review_reports where review_id = v_review and resolution = 'restored') <> 3 then raise exception 'reports should be resolved'; end if;
+  if (select count(*) from public.user_reports where review_id = v_review and resolution = 'restored') <> 3 then raise exception 'reports should be resolved'; end if;
 
   -- ── organiser rating only from 5 reviews ───────────────────────────────────
   j := public.fn_org_rating(v_org);

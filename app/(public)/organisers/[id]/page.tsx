@@ -1,3 +1,4 @@
+import { getOrganizerRating } from "@/lib/data/reviews"
 import { notFound } from "next/navigation"
 
 import { EventCardStandard as EventCard, type EventCardData } from "@/components/standardized/event-card-standard"
@@ -16,7 +17,7 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
   const organizer = await getOrganiserDetail(id)
   if (!organizer) notFound()
 
-  const [events, follow] = await Promise.all([getOrganiserEvents(id), getFollowSnapshot("organizer", organizer.id)])
+  const [events, follow, rating] = await Promise.all([getOrganiserEvents(id), getFollowSnapshot("organizer", organizer.id), getOrganizerRating(organizer.id)])
   const currentEvents = events.filter((event: any) => event.lifecycle === "upcoming" || event.lifecycle === "live")
   const pastEvents = events.filter((event: any) => event.lifecycle === "ended")
   const cancelledEvents = events.filter((event: any) => event.lifecycle === "cancelled")
@@ -59,6 +60,7 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
           <div className="flex flex-1 flex-col gap-2 pt-2">
             <Chip size="sm" variant="default" className="w-fit">Event organiser</Chip>
             <h1 className="text-h1 sm:text-[28px]">{organizer.name}</h1>
+            {rating?.average != null && <p>★ {rating.average.toFixed(1)} from {rating.count} verified reviews</p>}
             {organizer.bio && (
               <p className="line-clamp-2 text-[14px] leading-relaxed text-ink-3">{organizer.bio}</p>
             )}

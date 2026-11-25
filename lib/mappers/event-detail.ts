@@ -41,6 +41,7 @@ interface MapInput {
   recentSoldWindow?: string;
   supportUrl?: string;
   /** Total events published by this organizer — drives the "23 events hosted" line. */
+  organizerRating?: { average: number | null; count: number } | null;
   organizerEventsHosted?: number | null;
   /** Ticket types for the selector on the event detail page. */
   ticketTypes?: TicketTypeRow[];
@@ -113,7 +114,8 @@ export function mapEventDetail(row: EventPublicView, input: MapInput = {}): Mobi
       name: row.organizer_name ?? "Ticketiv",
       handle: row.organizer_id ? row.organizer_id.slice(0, 8) : "ticketiv",
       eventsHosted: input.organizerEventsHosted ?? 0,
-      rating: 0,
+      rating: input.organizerRating?.average ?? 0,
+      reviewCount: input.organizerRating?.count ?? 0,
       verified: Boolean(row.organizer_logo_url),
       photo: row.organizer_logo_url ?? PHOTOS.face_6,
     },

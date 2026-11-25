@@ -38,7 +38,9 @@ Batch 1 PRs (#583 to #588) are all merged to `uat`.
 
 | TICK-482, TICK-460 | Venue, Organizer | Merged, Done | #596 | `venue_marketplace.sql` (55), `tests/venue-marketplace.test.ts` | `venue_spaces`, `venue_blocks`, `venue_enquiries`, `venue_enquiry_messages`, `venue_bookings` (exclusion constraint), `venues.venue_type`, 12 RPCs | No |
 | TICK-483 | Venue | PR open | #597 | `venue_utilisation.sql`, `tests/venue-utilisation.test.ts` | `fn_venue_utilisation` (read-only) | No |
-| TICK-461, TICK-485, TICK-486 | Artist, Organizer | PR open (stacked on #597) | this batch | `artist_bookings.sql` (44), `tests/artist-bookings.test.ts` | `artist_booking_requests`, `artist_booking_messages`, `artist_announcements`, 7 RPCs | No |
+| TICK-461, TICK-485, TICK-486 | Artist, Organizer | Merged | #598 | `artist_bookings.sql` (44), `tests/artist-bookings.test.ts` | `artist_booking_requests`, `artist_booking_messages`, `artist_announcements`, 7 RPCs | `uat` |
+| TICK-394 | Organizer | Merged | #599 | `org_payment_providers.sql` | Organisation payment defaults | `uat` |
+| TICK-451 | Attendee, Organizer | Implemented on feature branch | feat/TICK-451-reviews-gallery | `event_reviews.sql` | Verified reviews, reports, replies and public ratings | Pending UAT schema rollout |
 
 ### Rollback notes (batch 2)
 - **#593:** restore the three completion functions and the guard trigger from `20261124170000`'s predecessors. Codes already reissued stay valid; the code is just a unique string.
