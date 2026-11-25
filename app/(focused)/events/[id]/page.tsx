@@ -153,6 +153,16 @@ export default async function EventDetailPage({
     refundPolicy,
     ...trust,
   });
+  // Link the venue name to its public page. venues RLS only returns a venue
+  // the public may see (verified, or hosting a public event), so a hidden
+  // venue simply stays unlinked.
+  const publicClient = row.venue_id ? createPublicSupabaseClient() : null;
+  if (row.venue_id && publicClient) {
+    const { data: venueRow } = await publicClient.from("venues").select("slug").eq("id", row.venue_id).maybeSingle();
+    const slug = (venueRow as { slug?: string | null } | null)?.slug ?? null;
+    mobile.venue = { ...mobile.venue, slug };
+    desktop.venue = { ...desktop.venue, slug };
+  }
   if (planFacts.length) {
     mobile.facts = [...planFacts, ...mobile.facts];
     desktop.facts = [...planFacts, ...desktop.facts];

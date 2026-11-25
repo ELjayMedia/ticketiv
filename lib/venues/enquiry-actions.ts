@@ -19,6 +19,8 @@ function refresh(enquiryId: string, venueId: string, orgId: string) {
     revalidatePath(`/manage/venues/${venueId}/enquiries/${enquiryId}`)
     revalidatePath(`/manage/venues/${venueId}/enquiries`)
     revalidatePath(`/manage/venues/${venueId}/calendar`)
+    revalidatePath(`/manage/venues/${venueId}/bookings`)
+    revalidatePath(`/manage/venues/${venueId}`)
   }
   if (UUID_RE.test(orgId)) {
     revalidatePath(`/orgs/${orgId}/venue-enquiries/${enquiryId}`)

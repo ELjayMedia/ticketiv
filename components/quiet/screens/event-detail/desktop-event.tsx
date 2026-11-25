@@ -199,7 +199,13 @@ export function DesktopEvent({ event }: DesktopEventProps) {
                   </div>
                   <div className="flex flex-col gap-1.5 p-5">
                     <span className="text-label">VENUE</span>
-                    <span className="text-[16px] font-semibold">{event.venue.name}</span>
+                    {event.venue.slug ? (
+                      <Link href={`/venues/${event.venue.slug}`} className="text-[16px] font-semibold hover:underline">
+                        {event.venue.name}
+                      </Link>
+                    ) : (
+                      <span className="text-[16px] font-semibold">{event.venue.name}</span>
+                    )}
                     {event.venue.distanceKm > 0 && (
                       <span className="font-mono text-[12px] text-ink-3">
                         {event.venue.distanceKm} km from city centre
@@ -417,7 +423,13 @@ function DesktopMetaGrid({ event }: { event: DesktopEventData }) {
       </div>
       <div className={cellCls}>
         <div className="mb-1.5 flex items-center gap-1.5 text-ink-3"><Icon name="pin" size={14} /><span className="text-label">Where</span></div>
-        <div className="text-[15px] font-semibold">{event.venue.name}</div>
+        {event.venue.slug ? (
+          <Link href={`/venues/${event.venue.slug}`} className="block text-[15px] font-semibold hover:underline">
+            {event.venue.name}
+          </Link>
+        ) : (
+          <div className="text-[15px] font-semibold">{event.venue.name}</div>
+        )}
         {event.venue.distanceKm > 0 && <div className="mt-0.5 font-mono text-[11px] text-ink-3">{event.venue.distanceKm} km</div>}
       </div>
       {factsToShow.map(([label, value]) => (

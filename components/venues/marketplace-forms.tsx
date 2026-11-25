@@ -240,7 +240,7 @@ export function EnquiryForm({
       </fieldset>
       <div>
         <Button type="submit" variant="accent" disabled={pending}>
-          {pending ? "Sending…" : "Send enquiry"}
+          {pending ? "Sending…" : "Send booking request"}
         </Button>
       </div>
       <p className="text-[12px] text-ink-3">Only you, your organisation's team and the venue's team can see the enquiry.</p>

@@ -11,7 +11,8 @@ import { cn } from "@/lib/cn";
  * (TICK-481). Same shape as the organizer workspace: a sidebar on desktop,
  * a sticky strip of section tabs on phones.
  *
- * Spaces (TICK-482), calendar and enquiries (TICK-460) follow the profile.
+ * Day-to-day work first (booking requests, bookings, availability), then
+ * setup (spaces, profile, team). Venue MVP ordering.
  * ────────────────────────────────────────────────────────────── */
 
 interface VenueNavItem {
@@ -23,10 +24,11 @@ interface VenueNavItem {
 
 export const VENUE_NAV_ITEMS: VenueNavItem[] = [
   { label: "Overview", icon: "trending", path: "" },
-  { label: "Venue profile", icon: "building", path: "profile" },
+  { label: "Booking requests", icon: "clipboard", path: "enquiries" },
+  { label: "Bookings", icon: "ticket", path: "bookings" },
+  { label: "Availability", icon: "cal", path: "calendar" },
   { label: "Spaces", icon: "map", path: "spaces" },
-  { label: "Calendar", icon: "cal", path: "calendar" },
-  { label: "Enquiries", icon: "clipboard", path: "enquiries" },
+  { label: "Venue profile", icon: "building", path: "profile" },
   { label: "Team", icon: "users", path: "team" },
 ];
 

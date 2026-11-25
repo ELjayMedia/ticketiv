@@ -54,7 +54,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (!allowed) return NextResponse.json({ error: "You do not have permission to manage this event" }, { status: 403 })
 
   const search = request.nextUrl.searchParams.get("q")?.trim() ?? ""
-  let venuesQuery = admin.from("venues").select("id, name, city, address, capacity, tz").order("name", { ascending: true }).limit(search ? 12 : 50)
+  let venuesQuery = admin.from("venues").select("id, name, city, address, capacity, tz, slug, verification_status").order("name", { ascending: true }).limit(search ? 12 : 50)
 
   if (search) {
     const escaped = search.replace(/[%_]/g, "")
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   const [{ data: currentVenue }, { data: venues, error }] = await Promise.all([
-    event.venue_id ? admin.from("venues").select("id, name, city, address, capacity, tz").eq("id", event.venue_id).maybeSingle() : Promise.resolve({ data: null }),
+    event.venue_id ? admin.from("venues").select("id, name, city, address, capacity, tz, slug, verification_status").eq("id", event.venue_id).maybeSingle() : Promise.resolve({ data: null }),
     venuesQuery,
   ])
 
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     venueId = String(data)
   }
 
-  const { data: venue, error: venueError } = await admin.from("venues").select("id, name, city, address, capacity, tz").eq("id", venueId).maybeSingle()
+  const { data: venue, error: venueError } = await admin.from("venues").select("id, name, city, address, capacity, tz, slug, verification_status").eq("id", venueId).maybeSingle()
   if (venueError) throw venueError
   if (!venue) return NextResponse.json({ error: "Venue not found" }, { status: 404 })
 

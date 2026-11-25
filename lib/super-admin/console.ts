@@ -46,6 +46,7 @@ export type ConsoleAction =
   | "route_duplicate_request"
   | "review_venue_claim"
   | "review_artist_claim"
+  | "manage_venue_access"
 
 export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   resend_tickets: ["super_admin", "support_admin", "event_ops_admin"],
@@ -76,6 +77,8 @@ export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   review_venue_claim: ["super_admin", "support_admin"],
   // TICK-353: approve or reject a request to manage an artist.
   review_artist_claim: ["super_admin", "support_admin"],
+  // Venue MVP: create venues and assign venue admins from the command centre.
+  manage_venue_access: ["super_admin"],
 }
 
 /** Actions that change something and so must carry a reason in the audit log. */

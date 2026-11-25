@@ -15,10 +15,11 @@ export default async function OrgVenueEnquiriesPage({ params }: { params: Promis
     <main className="flex-1 overflow-auto">
       <div className="container mx-auto flex max-w-3xl flex-col gap-5 p-6">
         <header className="flex flex-col gap-1">
-          <h1 className="text-h1">Venue enquiries</h1>
+          <h1 className="text-h1">Venue requests</h1>
           <p className="text-[13px] text-ink-3">
-            Ask a verified venue for a date from its page. When the venue accepts, the date is booked for you and you can create
-            the event draft with the venue and times filled in.{" "}
+            Send a verified venue a booking request from its page. The venue team gets it as a lead and replies here. If they accept,
+            the date is held for you and you can create the event draft with the venue and times filled in. Contracts and payment are
+            agreed with the venue directly.{" "}
             <Link href="/venues" className="font-semibold text-accent hover:underline">
               Find a venue
             </Link>
@@ -28,7 +29,7 @@ export default async function OrgVenueEnquiriesPage({ params }: { params: Promis
           enquiries={enquiries}
           hrefFor={(e) => `/orgs/${orgId}/venue-enquiries/${e.id}`}
           counterpart={(e) => e.venueName ?? "Venue"}
-          empty="No enquiries yet. Find a venue and ask about a date."
+          empty="No venue requests yet. Find a venue and send a booking request."
         />
       </div>
     </main>
