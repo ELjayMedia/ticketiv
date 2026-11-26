@@ -3,12 +3,14 @@ import Link from "next/link"
 import { Card, CardBody } from "@/components/quiet/ui/card"
 import { Icon } from "@/components/quiet/ui/icon"
 import { PERFORMER_TYPES } from "@/lib/artists/core"
+import { artistHref } from "@/lib/events/artist-tour-dates"
 import { createPublicSupabaseClient } from "@/lib/supabase-public"
 
 export const dynamic = "force-dynamic"
 
 type ArtistCard = {
   id: string
+  slug: string | null
   name: string
   image_url: string | null
   performer_type: string | null
@@ -35,7 +37,7 @@ async function getArtists(query: string, type: string): Promise<ArtistCard[]> {
   if (!supabase) return []
   let req = supabase
     .from("artists")
-    .select("id, name, image_url, performer_type, genres, verification_status")
+    .select("id, slug, name, image_url, performer_type, genres, verification_status")
     .order("verification_status", { ascending: false })
     .order("name", { ascending: true })
     .limit(120)
@@ -104,7 +106,7 @@ export default async function ArtistsPage({ searchParams }: { searchParams: Prom
           {artists.map((artist) => {
             const meta = [artist.performer_type ? TYPE_LABEL.get(artist.performer_type) : null, ...(artist.genres ?? []).slice(0, 2)].filter(Boolean).join(" · ")
             return (
-              <Link key={artist.id} href={`/artists/${artist.id}`} className="block">
+              <Link key={artist.id} href={artistHref(artist)} className="block">
                 <Card className="h-full overflow-hidden transition-colors hover:border-line-2">
                   <div className="aspect-square overflow-hidden bg-bg">
                     {artist.image_url ? (
