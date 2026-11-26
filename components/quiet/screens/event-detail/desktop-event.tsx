@@ -101,6 +101,11 @@ export function DesktopEvent({ event }: DesktopEventProps) {
           {event.sponsors?.length ? <PresentedBy sponsors={event.sponsors} /> : null}
           <DesktopTrustRow event={event} />
           <DesktopMetaGrid event={event} />
+          {event.sponsors?.length ? (
+            <div id="sponsors" className="scroll-mt-[96px]">
+              <SponsorsSection sponsors={event.sponsors} headingClass="text-h2" />
+            </div>
+          ) : null}
 
           <div className="flex flex-col gap-7">
             <section id="about" className="scroll-mt-[96px] border-t border-line pt-7">
@@ -205,11 +210,6 @@ export function DesktopEvent({ event }: DesktopEventProps) {
                   <Link className="underline" href={`/events/${event.id}/reviews`}>View verified reviews and event photos</Link>
                 </div>
             </section>
-            {event.sponsors?.length ? (
-              <div id="sponsors" className="scroll-mt-[96px] border-t border-line pt-7">
-                <SponsorsSection sponsors={event.sponsors} headingClass="text-h2" />
-              </div>
-            ) : null}
             <div id="faqs" className="scroll-mt-[96px] border-t border-line pt-7">
               <FaqSection event={event} headingClass="text-h2" />
             </div>
@@ -359,8 +359,9 @@ function FriendsGoingModal({ friends, eventTitle, onClose }: { friends: DesktopE
 const META_GRID_COLS: Record<number, string> = { 2: "grid-cols-2", 3: "grid-cols-3", 4: "grid-cols-4", 5: "grid-cols-5", 6: "grid-cols-6" };
 
 function DesktopMetaGrid({ event }: { event: DesktopEventData }) {
-  const factsToShow = event.facts.slice(0, 4);
-  const colCount = Math.min(2 + factsToShow.length, 6);
+  // Only When / Where / Doors here; the rest of the guide facts stay off this card.
+  const factsToShow = event.facts.filter(([label]) => label === "Doors").slice(0, 1);
+  const colCount = 2 + factsToShow.length;
   const gridCls = META_GRID_COLS[colCount];
   const cellCls = "p-4 border-r border-line last:border-r-0";
   return (
