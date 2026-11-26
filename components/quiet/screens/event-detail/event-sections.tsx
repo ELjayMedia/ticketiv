@@ -4,12 +4,14 @@
 // the organiser badge under the cover, sponsors, and the FAQ that closes the page.
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { Avatar } from "@/components/quiet/ui/primitives";
 import { Button } from "@/components/quiet/ui/button";
 import { Card } from "@/components/quiet/ui/card";
 import { Chip } from "@/components/quiet/ui/chip";
 import { splitSponsors, type PublicSponsor } from "@/lib/sponsors";
+import { artistHref } from "@/lib/events/artist-tour-dates";
 import type { MobileEventData } from "./mobile-event";
 import type { useFollows } from "./use-follows";
 
@@ -159,5 +161,23 @@ export function FaqSection({ event, headingClass }: { event: MobileEventData; he
         </details>
       </div>
     </section>
+  );
+}
+
+/** Wraps a lineup entry so it opens the artist's page (tour dates, bio, links). */
+export function ArtistLink({
+  artist,
+  className,
+  children,
+}: {
+  artist: { id?: string | null; slug?: string | null; name: string };
+  className?: string;
+  children: ReactNode;
+}) {
+  if (!artist.id) return <div className={className}>{children}</div>;
+  return (
+    <Link href={artistHref({ id: artist.id, slug: artist.slug })} className={`${className ?? ""} rounded-[var(--radius)] hover:opacity-80`}>
+      {children}
+    </Link>
   );
 }
