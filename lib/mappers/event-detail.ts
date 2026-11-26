@@ -73,6 +73,7 @@ function mapLineup(rows: EventLineupRow[] | undefined) {
   if (!rows || rows.length === 0) return [];
   return rows.map((r, i) => ({
     id: r.artist_id,
+    slug: r.artist_slug,
     name: r.artist_name,
     role: r.role ?? (i === 0 ? "Headliner" : "Support"),
     photo: r.artist_image_url ?? (i % 2 === 0 ? PHOTOS.face_4 : PHOTOS.face_2),

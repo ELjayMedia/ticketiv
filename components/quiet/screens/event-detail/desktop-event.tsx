@@ -18,7 +18,7 @@ import {
   formatScarcityLabel,
 } from "@/lib/format";
 import type { MobileEventData } from "./mobile-event";
-import { FaqSection, OrganizerBadge, PresentedBy, SponsorsSection } from "./event-sections";
+import { ArtistLink, FaqSection, OrganizerBadge, PresentedBy, SponsorsSection } from "./event-sections";
 
 interface DesktopEventProps {
   event?: DesktopEventData;
@@ -140,13 +140,13 @@ export function DesktopEvent({ event }: DesktopEventProps) {
                   <div className="flex flex-wrap gap-3">
                     {event.lineup.map((a) => (
                       <Card key={a.name} className="flex min-w-[240px] flex-1 items-center gap-3 p-3.5" flat>
-                        <Avatar src={a.photo} size={48} />
-                        <div className="flex flex-1 flex-col">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[15px] font-semibold">{a.name}</span>
+                        <ArtistLink artist={a} className="flex min-w-0 flex-1 items-center gap-3">
+                          <Avatar src={a.photo} size={48} />
+                          <div className="flex min-w-0 flex-1 flex-col">
+                            <span className="truncate text-[15px] font-semibold">{a.name}</span>
+                            <span className="font-mono text-[11px] text-ink-3">{a.role}{a.id ? " · View tour dates" : ""}</span>
                           </div>
-                          <span className="font-mono text-[11px] text-ink-3">{a.role}</span>
-                        </div>
+                        </ArtistLink>
                         {a.id ? (
                           <Button
                             variant={follows.isArtistFollowed(a.id) ? "accent" : "default"}
@@ -193,6 +193,14 @@ export function DesktopEvent({ event }: DesktopEventProps) {
                       </span>
                     )}
                     <Divider className="my-3" />
+                    {event.venue.slug ? (
+                      <Link
+                        href={`/venues/${event.venue.slug}`}
+                        className="self-start inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-ink bg-ink px-3 py-1.5 text-[13px] font-semibold text-surface hover:opacity-90"
+                      >
+                        View venue page <Icon name="arrowR" size={13} />
+                      </Link>
+                    ) : null}
                     <a
                       href={`https://www.google.com/maps/search/${encodeURIComponent(event.venue.name)}`}
                       target="_blank"
@@ -376,6 +384,7 @@ function DesktopMetaGrid({ event }: { event: DesktopEventData }) {
         {event.venue.slug ? (
           <Link href={`/venues/${event.venue.slug}`} className="block text-[15px] font-semibold hover:underline">
             {event.venue.name}
+            <span className="mt-0.5 block font-mono text-[11px] font-normal text-accent">View venue →</span>
           </Link>
         ) : (
           <div className="text-[15px] font-semibold">{event.venue.name}</div>

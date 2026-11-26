@@ -5,6 +5,7 @@ import { SoldOutResaleNotice } from "@/components/quiet/screens/event-detail/sol
 import { useFollows } from "@/components/quiet/screens/event-detail/use-follows";
 import * as React from "react";
 import Link from "next/link";
+import { ArtistLink } from "./event-sections";
 import { useRouter } from "next/navigation";
 import { useTicketPicker } from "@/components/quiet/screens/event-detail/ticket-picker";
 import { toggleFavourite } from "@/app/(consumer)/favourites/actions";
@@ -42,7 +43,7 @@ export interface MobileEventData {
   venue: { name: string; distanceKm: number; slug?: string | null };
   facts: ReadonlyArray<readonly [string, string]>;
   /** `id` is the artist's record, used to follow them. */
-  lineup: ReadonlyArray<{ id?: string | null; name: string; role: string; photo: string; headliner?: boolean }>;
+  lineup: ReadonlyArray<{ id?: string | null; slug?: string | null; name: string; role: string; photo: string; headliner?: boolean }>;
   /** `id` is the organisation, used to follow it. */
   organizer: { id?: string | null; name: string; handle: string; eventsHosted: number; rating: number; reviewCount?: number; verified: boolean; photo: string };
   goingFriends: { count: number; names: string[]; photos: string[] };
@@ -188,6 +189,7 @@ export function MobileEvent({ event }: MobileEventProps) {
               {event.venue.slug ? (
                 <Link href={`/venues/${event.venue.slug}`} className="mt-1 block text-[15px] font-semibold hover:underline">
                   {event.venue.name}
+                  <span className="mt-0.5 block font-mono text-[11px] font-normal text-accent">View venue →</span>
                 </Link>
               ) : (
                 <div className="mt-1 text-[15px] font-semibold">{event.venue.name}</div>
@@ -217,13 +219,13 @@ export function MobileEvent({ event }: MobileEventProps) {
               {event.lineup.map((a) => (
                 <li key={a.name}>
                   <Card className="flex items-center gap-3 p-2.5" flat>
-                    <Avatar src={a.photo} size={40} />
-                    <div className="flex flex-1 flex-col">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[14px] font-semibold">{a.name}</span>
+                    <ArtistLink artist={a} className="flex min-w-0 flex-1 items-center gap-3">
+                      <Avatar src={a.photo} size={40} />
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate text-[14px] font-semibold">{a.name}</span>
+                        <span className="font-mono text-[11px] text-ink-3">{a.role}{a.id ? " · View tour dates" : ""}</span>
                       </div>
-                      <span className="font-mono text-[11px] text-ink-3">{a.role}</span>
-                    </div>
+                    </ArtistLink>
                     {a.id ? (
                       <Button
                         variant={follows.isArtistFollowed(a.id) ? "accent" : "default"}
