@@ -33,8 +33,6 @@ interface PromoCodeInputProps {
   disabled?: boolean
   /** Shown under the field, e.g. when checkout rejected the code at payment time. */
   externalError?: string | null
-  /** The surrounding card already titles the section (desktop). */
-  hideLabel?: boolean
   /**
    * Start as a small "Have a promo code?" link so most buyers, who have no
    * code, never see an empty field. Opens by itself when a code is applied
@@ -55,7 +53,6 @@ export function PromoCodeInput({
   savingMinor,
   disabled,
   externalError,
-  hideLabel,
   collapsible,
 }: PromoCodeInputProps) {
   const [open, setOpen] = React.useState(!collapsible)
@@ -134,7 +131,7 @@ export function PromoCodeInput({
 
   return (
     <div>
-      <label htmlFor={inputId} className={hideLabel ? "sr-only" : "text-label mb-1.5 block"}>
+      <label htmlFor={inputId} className="text-label mb-1.5 block">
         Promo code <span className="font-normal text-ink-3">(optional)</span>
       </label>
       <div className="flex items-center gap-2">
