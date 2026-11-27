@@ -325,7 +325,7 @@ export function Transfer({ ticket, friends = [] }: TransferProps) {
               ticket_id: ticket.id,
               recipient_kind: manualRecipient ? manualRecipient.matchKind : "friend",
             });
-            router.push("/transfers");
+            router.push("/tickets?tab=transfers");
           }}
           className="flex flex-[2] items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >

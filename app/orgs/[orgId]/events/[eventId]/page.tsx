@@ -7,6 +7,8 @@ import { EventManagementTabs } from "@/components/event-management-tabs"
 import { getMyOrgCapabilities } from "@/lib/data/organizer/access"
 import { requireOrganizerEventManager } from "@/lib/org-management"
 import { DuplicateEventButton } from "../_components/duplicate-event-button"
+import { EventStatusBar } from "./_components/event-status-bar"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { requireEventManager } from "@/lib/organizer/access"
 
 export const dynamic = "force-dynamic"
@@ -20,8 +22,20 @@ interface EventDetailPageProps {
 
 export default async function EventDetailPage({ params }: EventDetailPageProps) {
   const { orgId, eventId } = await params
-  await requireEventManager(orgId, eventId)
+  const access = await requireEventManager(orgId, eventId)
   const { event } = await requireOrganizerEventManager(orgId, eventId)
+  // Pause / cancel / archive: owners, admins and platform admins (was on the
+  // retired Operations page).
+  const canManageStatus =
+    access.isPlatformAdmin || access.storedRole === "organizer_owner" || access.storedRole === "organizer_admin"
+  let issuedTickets = 0
+  if (canManageStatus) {
+    const supabase = createServerSupabaseClient()
+    const { data: stats } = supabase
+      ? await (supabase as any).from("event_live_stats").select("tickets_sold").eq("event_id", eventId).maybeSingle()
+      : { data: null }
+    issuedTickets = Number(stats?.tickets_sold ?? 0)
+  }
   const caps = await getMyOrgCapabilities(orgId)
 
   if (!event) return redirect("/403")
@@ -56,9 +70,9 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
       visible: caps.manage,
     },
     {
-      label: "Check-in",
-      description: "Open the event scanner and gate tools.",
-      href: `/orgs/${orgId}/events/${eventId}/scanner`,
+      label: "Door",
+      description: "Scanner, guestlist, box office, live counts and scan history.",
+      href: `/orgs/${orgId}/events/${eventId}/door`,
       icon: "qr",
       visible: caps.manage || caps.staff,
     },
@@ -92,7 +106,12 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
           </div>
           <div className="mt-4 flex items-start justify-between gap-4">
             <h1 className="text-h1">{event.title}</h1>
-            {caps.manage && <DuplicateEventButton orgId={orgId} eventId={eventId} />}
+            <div className="flex flex-wrap items-center gap-2">
+              {canManageStatus && (
+                <EventStatusBar orgId={orgId} eventId={eventId} status={event.status ?? ""} issuedTickets={issuedTickets} />
+              )}
+              {caps.manage && <DuplicateEventButton orgId={orgId} eventId={eventId} />}
+            </div>
           </div>
           {event.description && <p className="mt-1 text-[14px] text-ink-3">{event.description}</p>}
         </div>

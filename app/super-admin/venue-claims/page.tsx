@@ -2,6 +2,7 @@ import Link from "next/link"
 
 import { reviewVenueClaimAction } from "@/app/super-admin/venue-claims/actions"
 import { VenueClaimReviewForm } from "@/components/super-admin/VenueClaimReviewForm"
+import { ClaimsSwitch } from "@/components/super-admin/claims-switch"
 import { Facts, Panel, Pill, when } from "@/components/super-admin/console-ui"
 import { listVenueClaims, type VenueClaimFilter } from "@/lib/data/admin/venue-claims"
 import { requireAdminRole } from "@/lib/super-admin/auth"
@@ -28,12 +29,14 @@ export default async function VenueClaimsPage({ searchParams }: { searchParams: 
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">Venue claims</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">Claims</h1>
         <p className="text-[13px] text-ink-3">
           People asking to manage a venue, and new venues waiting for verification. Check the evidence (call the venue&apos;s public number,
           not the one supplied) before approving. A second owner claim is a dispute: contact both people first.
         </p>
       </div>
+
+      <ClaimsSwitch active="venues" />
 
       <nav className="flex flex-wrap gap-2" aria-label="Filter claims">
         {FILTERS.map((f) => (

@@ -20,19 +20,6 @@ export default async function SignupPage({
         <div className="mt-16">
           <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Create your Ticketiv account</p>
           <h1 className="mt-3 text-[40px] font-semibold leading-[1.05] tracking-tight text-ink">Keep tickets, purchases and profile details together.</h1>
-          <p className="mt-5 max-w-md text-[14px] leading-6 text-ink-3">
-            Sign up with your contact details and choose a password. Normal account registration does not use an OTP.
-          </p>
-          <div className="mt-8 grid gap-3">
-            <div className="rounded-[var(--radius-md)] border border-line bg-bg p-4">
-              <p className="text-[13px] font-semibold text-ink">1. Add your details</p>
-              <p className="mt-1 text-[12px] text-ink-3">First name, surname, phone number and email are required.</p>
-            </div>
-            <div className="rounded-[var(--radius-md)] border border-line bg-bg p-4">
-              <p className="text-[13px] font-semibold text-ink">2. Create a password</p>
-              <p className="mt-1 text-[12px] text-ink-3">Use the same email and password whenever you return.</p>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -43,7 +30,7 @@ export default async function SignupPage({
         <div>
           <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Account sign-up</p>
           <h1 className="mt-3 text-[32px] font-semibold leading-[1.05] tracking-tight text-ink">Create your account.</h1>
-          <p className="mt-3 text-[14px] leading-6 text-ink-3">Use email and password. No six-digit code is required for normal sign-up.</p>
+          <p className="mt-3 text-[14px] leading-6 text-ink-3">Your name, email and a password.</p>
           <div className="mt-8"><SignupForm next={next} /></div>
           <p className="mt-8 font-mono text-[11px] text-ink-3">Organizer registration has its own verified-email journey and remains separate from this account sign-up.</p>
         </div>

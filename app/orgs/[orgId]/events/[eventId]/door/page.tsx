@@ -7,17 +7,32 @@ import { Icon, type IconName } from "@/components/quiet/ui/icon"
 import { canOpenSection } from "@ticketiv/shared"
 import { canManageEventIn, requireOrganizerSection } from "@/lib/organizer/access"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { cn } from "@/lib/cn"
+
+import { DoorLivePanel, ScanHistoryPanel } from "./door-panels"
 
 export const dynamic = "force-dynamic"
 
+type DoorView = "tools" | "live" | "scans"
+
 /**
- * Door page for one event (ADR 0002): where door staff and scanners start.
- * Scan opens the single scanner (/scan, offline, device pairing); guestlist
- * and box office stay in the workspace.
+ * Door page for one event (ADR 0002): the one place organisers go on event
+ * night. Door staff and scanners see the tools (scanner, guestlist, box
+ * office); managers also get Live (who's in, pace, entrances, scanners) and
+ * Scan history tabs. The old /live and /scans pages redirect here.
  */
-export default async function EventDoorPage({ params }: { params: Promise<{ orgId: string; eventId: string }> }) {
+export default async function EventDoorPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ orgId: string; eventId: string }>
+  searchParams: Promise<{ view?: string | string[] }>
+}) {
   const { orgId, eventId } = await params
+  const { view: rawView } = await searchParams
   const access = await requireOrganizerSection(orgId, "scan", { eventId })
+  const isManager = canManageEventIn(access, eventId)
+  const view: DoorView = isManager && (rawView === "live" || rawView === "scans") ? rawView : "tools"
 
   const supabase = createServerSupabaseClient()
   if (!supabase) redirect("/login")
@@ -51,24 +66,17 @@ export default async function EventDoorPage({ params }: { params: Promise<{ orgI
       show: canOpenSection(access.role, "boxOffice"),
     },
     {
-      label: "Door live",
-      description: "Who's in, entry pace, each entrance, scanners and problems. Updates itself.",
-      icon: "activity",
-      href: `/orgs/${orgId}/events/${eventId}/live`,
-      show: canManageEventIn(access, eventId),
-    },
-    {
       label: "Manage event",
       description: "Edit the event, tickets, orders and staff.",
       icon: "settings",
       href: `/orgs/${orgId}/events/${eventId}`,
-      show: canManageEventIn(access, eventId),
+      show: isManager,
     },
   ]
 
   return (
     <main className="flex-1 overflow-auto">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4 md:p-6">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:p-6">
         <div className="flex flex-col gap-1">
           <Link
             href={`/orgs/${orgId}/events`}
@@ -86,6 +94,33 @@ export default async function EventDoorPage({ params }: { params: Promise<{ orgI
           )}
         </div>
 
+        {isManager ? (
+          <nav aria-label="Door views" className="flex w-full max-w-md rounded-[var(--radius-md)] bg-line/40 p-1">
+            {([
+              { key: "tools", label: "Door" },
+              { key: "live", label: "Live" },
+              { key: "scans", label: "Scan history" },
+            ] as const).map((tab) => (
+              <Link
+                key={tab.key}
+                href={`/orgs/${orgId}/events/${eventId}/door${tab.key === "tools" ? "" : `?view=${tab.key}`}`}
+                aria-current={view === tab.key ? "page" : undefined}
+                className={cn(
+                  "flex-1 rounded-md px-2 py-1.5 text-center text-[12px] font-medium transition-colors",
+                  view === tab.key ? "bg-surface text-ink shadow-sm" : "text-ink-3 hover:text-ink",
+                )}
+              >
+                {tab.label}
+              </Link>
+            ))}
+          </nav>
+        ) : null}
+
+        {view === "live" ? (
+          <DoorLivePanel supabase={supabase} orgId={orgId} eventId={eventId} eventTitle={String(event.title ?? "Event")} />
+        ) : view === "scans" ? (
+          <ScanHistoryPanel supabase={supabase} orgId={orgId} eventId={eventId} />
+        ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {tools
             .filter((tool) => tool.show)
@@ -106,6 +141,7 @@ export default async function EventDoorPage({ params }: { params: Promise<{ orgI
               </Link>
             ))}
         </div>
+        )}
       </div>
     </main>
   )

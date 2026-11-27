@@ -1,4 +1,5 @@
 import { BookingList } from "@/components/artists/booking-view"
+import { BookingsSwitch } from "@/components/organizer/bookings-switch"
 import { requireOrganizerSection } from "@/lib/organizer/access"
 import { listBookings } from "@/lib/artists/bookings-data"
 
@@ -13,11 +14,12 @@ export default async function OrgArtistBookingsPage({ params }: { params: Promis
     <main className="flex-1 overflow-auto">
       <div className="container mx-auto flex max-w-3xl flex-col gap-5 p-6">
         <header className="flex flex-col gap-1">
-          <h1 className="text-h1">Artist bookings</h1>
+          <h1 className="text-h1">Bookings</h1>
           <p className="text-[13px] text-ink-3">
             Send a booking request from a claimed artist&apos;s profile. When they accept, they&apos;re added to the event&apos;s line-up.
           </p>
         </header>
+        <BookingsSwitch orgId={orgId} active="artists" />
         <BookingList
           bookings={[...bookings].reverse()}
           hrefFor={(b) => `/orgs/${orgId}/artist-bookings/${b.id}`}

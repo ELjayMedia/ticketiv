@@ -23,7 +23,6 @@ export const ACCOUNT_NAV: { label: string; items: AccountNavItem[] }[] = [
     items: [
       { href: "/tickets", label: "My tickets", icon: "ticket" },
       { href: "/orders", label: "Orders", icon: "receipt" },
-      { href: "/transfers", label: "Transfers", icon: "share" },
       { href: "/resale", label: "Resale", icon: "refresh" },
       { href: "/waitlist", label: "Waitlists", icon: "clock" },
     ],

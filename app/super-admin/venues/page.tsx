@@ -41,7 +41,7 @@ export default async function AdminVenuesPage({ searchParams }: { searchParams: 
             Give venue teams their own dashboard to manage bookings, availability and booking requests from organisers. Find the venue
             (or add it), then give access to the person who runs it. People asking for access themselves are in{" "}
             <Link href="/super-admin/venue-claims" className="font-semibold text-accent hover:underline">
-              Venue claims
+              Claims
             </Link>
             .
           </p>
@@ -112,7 +112,7 @@ export default async function AdminVenuesPage({ searchParams }: { searchParams: 
                   { label: "Open booking requests", value: String(selected.openLeads) },
                   { label: "Upcoming bookings", value: String(selected.upcomingBookings), sub: `${selected.upcomingEvents} upcoming event${selected.upcomingEvents === 1 ? "" : "s"}` },
                   { label: "Contact", value: selected.contactEmail ?? "—", sub: selected.contactPhone ?? undefined },
-                  { label: "Pending claims", value: String(selected.pendingClaims), sub: selected.pendingClaims ? "see Venue claims" : undefined },
+                  { label: "Pending claims", value: String(selected.pendingClaims), sub: selected.pendingClaims ? "see Claims" : undefined },
                 ]}
               />
               <div className="flex flex-wrap gap-3 text-[13px]">

@@ -152,7 +152,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
       message: explicitMessage ?? (eventTitle ? `There is a transfer update for ${eventTitle}.` : "You have a ticket transfer update."),
       createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
       ...base,
-      actionHref: explicitHref ?? "/transfers",
+      actionHref: explicitHref ?? "/tickets?tab=transfers",
       actionLabel: "View transfers",
       actionKind: "transfer",
     }

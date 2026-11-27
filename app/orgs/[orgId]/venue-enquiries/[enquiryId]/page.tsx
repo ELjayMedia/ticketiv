@@ -27,7 +27,7 @@ export default async function OrgVenueEnquiryPage({ params }: { params: Promise<
     <main className="flex-1 overflow-auto">
       <div className="container mx-auto flex max-w-3xl flex-col gap-5 p-6">
         <Link href={`/orgs/${orgId}/venue-enquiries`} className="text-[13px] font-semibold text-accent hover:underline">
-          ← All venue enquiries
+          ← Bookings
         </Link>
         <EnquiryDetailView
           enquiry={enquiry}

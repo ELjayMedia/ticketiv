@@ -33,7 +33,7 @@ describe("desktop navigation", () => {
   });
 
   it("puts account pages in the desktop sidebar, but not focused flows", () => {
-    for (const p of ["/tickets", "/tickets/abc", "/orders", "/orders/123", "/me", "/notifications", "/favourites", "/friends", "/calendar", "/transfers", "/resale", "/waitlist"]) {
+    for (const p of ["/tickets", "/tickets/abc", "/orders", "/orders/123", "/me", "/notifications", "/favourites", "/friends", "/calendar", "/resale", "/waitlist"]) {
       expect(isAccountPath(p), p).toBe(true);
     }
     for (const p of ["/", "/events/x", "/search", "/series", "/tickets/abc/transfer", "/orders/1/refund", "/tickets-old", "/help"]) {

@@ -156,7 +156,7 @@ export function DoorReadiness({
               icon="arrowUR"
               title={`Waiting for ${t.toName} to accept`}
               detail={`Until they accept, the ticket stays yours${t.expiresLabel ? `. The offer lasts ${t.expiresLabel}` : ""}. Remind them to open the link.`}
-              href="/transfers"
+              href="/tickets?tab=transfers"
               cta="See transfer"
             />
           ))}
