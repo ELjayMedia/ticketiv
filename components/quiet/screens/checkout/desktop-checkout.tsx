@@ -10,6 +10,7 @@ import { FormField, Stepper } from "@/components/quiet/ui/form";
 import { useRouter } from "next/navigation";
 import { formatPrice, formatHoldTimer } from "@/lib/format";
 import { cartSubtotalMinor, checkoutTotalMinor, type CheckoutCartLine } from "@/lib/checkout/pricing";
+import { checkoutPayBlocker } from "@/lib/checkout/pay-blocker";
 import { useEventLiveStats } from "@/lib/hooks/use-event-live-stats";
 import { startCheckoutAction } from "@/app/(focused)/events/[id]/checkout/actions";
 import { describePromoFailure } from "@/lib/checkout/promo-copy";
@@ -24,14 +25,12 @@ import {
 /* ──────────────────────────────────────────────────────────────
  * Desktop checkout · `/events/[id]/checkout` on md+
  *
- * Multi-step: Cart → Details → Payment → Done. We render Details
- * here as the worked step; the others reuse the same layout.
+ * Cart → Details → Payment → Done. This screen is Details; payment
+ * happens with the provider after "Continue to payment".
  *
- * Right column is a sticky 360-px order summary. Left column is
- * a stacked form: buyer details, per-attendee details, promo.
- *
- * State is local; Phase 2 wires a server action to commit to
- * Supabase `orders` and `order_items`.
+ * Right column is a sticky 360-px order summary. Left column asks
+ * only for what the order uses: where to send the tickets and how to
+ * pay. A promo code sits behind a link.
  * ────────────────────────────────────────────────────────────── */
 
 interface DesktopCheckoutProps {
@@ -74,8 +73,6 @@ export function DesktopCheckout({
   const router = useRouter();
   const items = lines.map((l) => ({ ticketTypeId: l.ticketTypeId, quantity: l.quantity }));
   const quantity = items.reduce((sum, l) => sum + l.quantity, 0);
-  // One attendee slot per ticket, labelled with its ticket type.
-  const attendeeTicketNames = lines.flatMap((l) => Array.from({ length: l.quantity }, () => l.name));
   const currency = lines[0]?.currency ?? "SZL";
   const subtotalMinor = cartSubtotalMinor(lines);
   const [holdRemaining, setHoldRemaining] = React.useState(holdSeconds);
@@ -83,13 +80,7 @@ export function DesktopCheckout({
   const [submitting, setSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [buyerEmail, setBuyerEmail] = React.useState(defaultBuyerEmail);
-  const [buyerName, setBuyerName] = React.useState("");
-  const [buyerPhone, setBuyerPhone] = React.useState("");
-  const [attendeeDetails, setAttendeeDetails] = React.useState<Array<{ name: string; phone: string }>>(() =>
-    Array.from({ length: quantity }, () => ({ name: "", phone: "" }))
-  );
   const [promoFeedback, setPromoFeedback] = React.useState<string | null>(null);
-  const [policyAccepted, setPolicyAccepted] = React.useState(false);
   // The one promo control: previewed without creating an order, sent by code at payment.
   const [promo, setPromo] = React.useState<AppliedPromo | null>(null);
 
@@ -164,6 +155,7 @@ export function DesktopCheckout({
 
   const promoDiscount = promoDiscountMinor(promo, subtotalMinor);
   const total = checkoutTotalMinor(subtotalMinor, promoDiscount);
+  const payBlocker = checkoutPayBlocker({ buyerEmail, holdRemaining, lineCount: lines.length });
 
   return (
     <div className="min-h-dvh bg-bg">
@@ -191,176 +183,44 @@ export function DesktopCheckout({
       <div className="page-frame grid grid-cols-[1fr_360px] items-start gap-8 py-8">
         {/* ── Form column ─────────────────────────────────── */}
         <div className="flex flex-col gap-4">
-          {/* Buyer */}
+          {/* Where the tickets go — the only detail the order uses. */}
           <Card className="p-5">
-            <div className="mb-3.5 flex items-center justify-between">
-              <h2 className="text-[18px] font-semibold tracking-[-0.02em]">
-                Buyer details
-              </h2>
-              <span className="font-mono text-[11px] text-ink-3">1 of 3</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                label="Full name"
-                value={buyerName}
-                onChange={(e) => setBuyerName(e.target.value)}
-                placeholder="Your full name"
-                autoFocus
-                disabled={submitting}
-              />
-              <FormField
-                label="Email"
-                type="email"
-                value={buyerEmail}
-                onChange={(e) => setBuyerEmail(e.target.value)}
-                placeholder="you@example.com"
-                autoComplete="email"
-                disabled={submitting}
-              />
-              <FormField
-                label="Phone (+268)"
-                type="tel"
-                value={buyerPhone}
-                onChange={(e) => setBuyerPhone(e.target.value)}
-                placeholder="76 123 4567"
-                disabled={submitting}
-              />
-              <FormField label="Country" defaultValue="Eswatini" readOnly />
-            </div>
-          </Card>
-
-          {/* Attendees */}
-          <Card className="p-5">
-            <div className="mb-3.5 flex items-center justify-between">
-              <h2 className="text-[18px] font-semibold tracking-[-0.02em]">
-                Attendee details{" "}
-                <span className="font-mono text-[12px] font-medium text-ink-3">
-                  · {quantity} attendee{quantity === 1 ? "" : "s"}
-                </span>
-              </h2>
-              <span className="font-mono text-[11px] text-ink-3">2 of 3</span>
-            </div>
-
-            <div className="flex flex-col gap-2.5">
-              {Array.from({ length: quantity }).map((_, i) => {
-                const isFirst = i === 0;
-                const seat = seats[i];
-                return (
-                  <div
-                    key={i}
-                    className={
-                      "rounded-[var(--radius-md)] border p-3.5 " +
-                      (isFirst
-                        ? "border-accent bg-accent-soft"
-                        : "border-line")
-                    }
-                  >
-                    <div className="mb-3 flex items-center">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={
-                            "inline-flex h-5 w-5 items-center justify-center rounded-md font-mono text-[11px] font-bold text-white " +
-                            (isFirst ? "bg-accent" : "bg-ink")
-                          }
-                        >
-                          {i + 1}
-                        </span>
-                        <span className="text-[14px] font-semibold">
-                          Ticket {i + 1}
-                          {seat ? ` · Seat ${seat}` : ""} · {attendeeTicketNames[i]}
-                        </span>
-                      </div>
-                      <span className="flex-1" />
-                      {isFirst && (
-                        <span className="inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-accent">
-                          <Icon name="check" size={11} strokeWidth={3} />
-                          SAME AS BUYER
-                        </span>
-                      )}
-                    </div>
-                    {!isFirst && (
-                      <div className="grid grid-cols-2 gap-2.5">
-                        <FormField
-                          label="Name"
-                          placeholder="Full name"
-                          value={attendeeDetails[i]?.name ?? ""}
-                          onChange={(e) =>
-                            setAttendeeDetails((prev) =>
-                              prev.map((a, j) => j === i ? { ...a, name: e.target.value } : a)
-                            )
-                          }
-                          disabled={submitting}
-                        />
-                        <FormField
-                          label="Phone"
-                          type="tel"
-                          placeholder="+268 …"
-                          value={attendeeDetails[i]?.phone ?? ""}
-                          onChange={(e) =>
-                            setAttendeeDetails((prev) =>
-                              prev.map((a, j) => j === i ? { ...a, phone: e.target.value } : a)
-                            )
-                          }
-                          disabled={submitting}
-                        />
-                      </div>
-                    )}
-                    {isFirst && (
-                      <span className="font-mono text-[11px] text-ink-3">
-                        Your buyer details will be used for this ticket.
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-
-          {/* Promo */}
-          <Card className="p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-[18px] font-semibold tracking-[-0.02em]">
-                Promo code
-              </h2>
-              <span className="font-mono text-[11px] text-ink-3">Optional · 3 of 3</span>
-            </div>
-            <PromoCodeInput
-              eventId={eventUuid}
-              value={promo}
-              onChange={(next) => {
-                setPromo(next);
-                setPromoFeedback(null);
-              }}
-              savingMinor={promoDiscount}
-              formatSaving={(minor) => formatPrice(minor, currency)}
+            <h2 className="mb-1 text-[18px] font-semibold tracking-[-0.02em]">
+              Send tickets to
+            </h2>
+            <p className="mb-3.5 font-mono text-[11px] text-ink-3">
+              Your {quantity === 1 ? "ticket" : `${quantity} tickets`} and receipt go to this email.
+            </p>
+            <FormField
+              label="Email"
+              type="email"
+              value={buyerEmail}
+              onChange={(e) => setBuyerEmail(e.target.value)}
+              placeholder="you@example.com"
+              autoComplete="email"
+              autoFocus={!defaultBuyerEmail}
               disabled={submitting}
-              externalError={promoFeedback}
-              hideLabel
             />
+            <div className="mt-3">
+              <PromoCodeInput
+                eventId={eventUuid}
+                value={promo}
+                onChange={(next) => {
+                  setPromo(next);
+                  setPromoFeedback(null);
+                }}
+                savingMinor={promoDiscount}
+                formatSaving={(minor) => formatPrice(minor, currency)}
+                disabled={submitting}
+                externalError={promoFeedback}
+                collapsible
+              />
+            </div>
           </Card>
 
           <DesktopPaymentMethodCard />
 
           <div className="flex flex-col gap-2">
-            <div className="flex items-start gap-2 text-[12px] text-ink-3">
-              <input
-                id="desktop-policy-acceptance"
-                type="checkbox"
-                checked={policyAccepted}
-                onChange={(e) => setPolicyAccepted(e.target.checked)}
-                className="mt-0.5 accent-accent"
-              />
-              <span>
-                <label htmlFor="desktop-policy-acceptance">I accept the </label>
-                <Link href="/refund-policy" className="font-semibold text-accent hover:underline">
-                  refund &amp; cancellation policy
-                </Link>{" "}
-                and{" "}
-                <Link href="/terms" className="font-semibold text-accent hover:underline">
-                  Terms
-                </Link>
-              </span>
-            </div>
             {holdRemaining <= 0 && (
               <div role="alert" className="rounded-md border border-danger/40 bg-danger/5 px-3 py-2 text-[12px] text-danger">
                 Your hold has expired — go back and select tickets again.
@@ -377,13 +237,19 @@ export function DesktopCheckout({
               <button
                 type="button"
                 onClick={handleContinueToPayment}
-                disabled={submitting || !buyerEmail.trim() || holdRemaining <= 0 || !policyAccepted}
+                disabled={submitting || payBlocker !== null}
                 className="flex flex-[2] items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-2.5 text-[14px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {submitting ? "Starting payment…" : "Continue to payment"}
-                {!submitting && <Icon name="arrowR" size={14} />}
+                {submitting ? "Starting payment…" : payBlocker ?? "Continue to payment"}
+                {!submitting && !payBlocker && <Icon name="arrowR" size={14} />}
               </button>
             </div>
+            <p className="text-center text-[12px] text-ink-3">
+              By continuing you agree to the{" "}
+              <Link href="/terms" className="font-semibold text-accent hover:underline">Terms</Link>
+              {" "}and{" "}
+              <Link href="/refund-policy" className="font-semibold text-accent hover:underline">refund &amp; cancellation policy</Link>.
+            </p>
             {submitError && (
               <div role="alert" className="rounded-md border border-danger/40 bg-danger/5 px-3 py-2 text-[12px] text-danger">
                 {submitError}
