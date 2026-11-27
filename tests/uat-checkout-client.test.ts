@@ -123,6 +123,6 @@ describe("UAT B4 client-mount repro", () => {
       }),
     )
     expect(errors).toEqual([])
-    expect(container.textContent).toContain("Buyer details")
+    expect(container.textContent).toContain("Send tickets to")
   })
 })

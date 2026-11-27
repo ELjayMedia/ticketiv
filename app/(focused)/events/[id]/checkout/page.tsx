@@ -104,26 +104,6 @@ export default async function CheckoutPage({
     data: { user },
   } = supabase ? await supabase.auth.getUser() : { data: { user: null } };
   const defaultBuyerEmail = user?.email ?? "";
-  let defaultBuyerName =
-    (user?.user_metadata?.full_name as string | undefined) ??
-    (user?.user_metadata?.name as string | undefined) ??
-    "";
-  let defaultBuyerPhone =
-    (user?.user_metadata?.phone as string | undefined) ??
-    (user?.user_metadata?.phone_number as string | undefined) ??
-    user?.phone ??
-    "";
-
-  if (user) {
-    const { data: profile } = await supabase!
-      .from("profiles")
-      .select("name, surname, display_name, phone")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    const profileName = [profile?.name, profile?.surname].filter(Boolean).join(" ");
-    defaultBuyerName = profile?.display_name ?? (profileName || defaultBuyerName);
-    defaultBuyerPhone = profile?.phone ?? defaultBuyerPhone;
-  }
 
   const mappedTypes = ticketTypes.map(mapCheckoutTicketType);
   const requestedCart =
@@ -234,8 +214,6 @@ export default async function CheckoutPage({
             paymentMethods={paymentMethods}
             holdSeconds={holdSeconds}
             defaultBuyerEmail={defaultBuyerEmail}
-            defaultBuyerName={defaultBuyerName}
-            defaultBuyerPhone={defaultBuyerPhone}
           />
         </CheckoutProviderBridge>
       </div>

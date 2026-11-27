@@ -35,6 +35,12 @@ interface PromoCodeInputProps {
   externalError?: string | null
   /** The surrounding card already titles the section (desktop). */
   hideLabel?: boolean
+  /**
+   * Start as a small "Have a promo code?" link so most buyers, who have no
+   * code, never see an empty field. Opens by itself when a code is applied
+   * or checkout reports a problem with one.
+   */
+  collapsible?: boolean
 }
 
 /**
@@ -50,7 +56,9 @@ export function PromoCodeInput({
   disabled,
   externalError,
   hideLabel,
+  collapsible,
 }: PromoCodeInputProps) {
+  const [open, setOpen] = React.useState(!collapsible)
   const [code, setCode] = React.useState("")
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -111,6 +119,19 @@ export function PromoCodeInput({
     )
   }
 
+  if (!open && !shownError) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        disabled={disabled}
+        className="min-h-[44px] text-[13px] font-semibold text-accent disabled:opacity-40"
+      >
+        Have a promo code?
+      </button>
+    )
+  }
+
   return (
     <div>
       <label htmlFor={inputId} className={hideLabel ? "sr-only" : "text-label mb-1.5 block"}>
@@ -134,6 +155,7 @@ export function PromoCodeInput({
             }
           }}
           placeholder="Add a code"
+          autoFocus={collapsible}
           aria-invalid={shownError ? true : undefined}
           aria-describedby={shownError ? errorId : undefined}
           disabled={disabled || loading}

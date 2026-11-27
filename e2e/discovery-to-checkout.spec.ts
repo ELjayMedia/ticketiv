@@ -135,14 +135,9 @@ test.describe("seeded guest checkout → hosted payment handoff", () => {
     expect(checkoutUrl.searchParams.get("hold"), "checkout must carry an active seat hold").toBeTruthy()
 
     // Mobile and desktop checkout trees are both mounted, with CSS hiding one.
-    // Fill the visible buyer fields with user-like interactions, then assert the
-    // gates that actually control the payment CTA before crossing the provider boundary.
-    const buyerNameField = page.locator('input[placeholder="Your full name"]:visible').first()
-    await expect(buyerNameField).toBeVisible()
-    await buyerNameField.click()
-    await buyerNameField.pressSequentially("UAT Buyer")
-    await expect(buyerNameField).toHaveValue("UAT Buyer")
-
+    // Checkout asks only for the email the tickets go to; fill the visible
+    // field like a user, then assert the gates that control the payment CTA
+    // before crossing the provider boundary.
     const buyerEmailField = page.locator('input[type="email"]:visible').first()
     await expect(buyerEmailField).toBeVisible()
     await buyerEmailField.click()
@@ -150,22 +145,10 @@ test.describe("seeded guest checkout → hosted payment handoff", () => {
     await buyerEmailField.pressSequentially(buyerEmail)
     await expect(buyerEmailField).toHaveValue(buyerEmail)
 
-    const buyerPhoneField = page.locator('input[type="tel"]:visible').first()
-    await expect(buyerPhoneField).toBeVisible()
-    await buyerPhoneField.click()
-    await buyerPhoneField.pressSequentially("76123456")
-    await expect(buyerPhoneField).not.toHaveValue("")
-
-    const policyCheckbox = page.locator("#desktop-policy-acceptance")
-    await expect(policyCheckbox).toBeVisible()
-    await policyCheckbox.click()
-    await expect(policyCheckbox).toBeChecked()
-
-    // The checkout component enables payment when React has buyer email,
-    // an active hold and accepted policy. These assertions make CI failures
+    // The checkout component enables payment when React has a valid buyer
+    // email and an active hold. These assertions make CI failures
     // diagnostic rather than hiding a hydration/state regression.
     await expect(buyerEmailField, "buyer email must remain populated in the controlled checkout form").toHaveValue(buyerEmail)
-    await expect(policyCheckbox, "refund/terms acceptance must remain checked").toBeChecked()
     await expect(page.getByText(/your seats are held for/i), "seat hold must remain active before payment").toBeVisible()
 
     const paymentCta = page.getByRole("button", { name: /continue to payment/i })

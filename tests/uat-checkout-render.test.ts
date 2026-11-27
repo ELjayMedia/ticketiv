@@ -134,10 +134,11 @@ describe("desktop checkout payment-method picker", () => {
     expect(picker).toBeGreaterThan(-1)
     // Not above the checkout header/stepper (the old bug) ...
     expect(picker).toBeGreaterThan(html.indexOf("back to event"))
-    expect(picker).toBeGreaterThan(html.indexOf("Buyer details"))
-    // ... and before the policy checkbox and "Continue to payment".
-    expect(picker).toBeLessThan(html.indexOf("desktop-policy-acceptance"))
-    expect(picker).toBeLessThan(html.indexOf("Continue to payment"))
+    expect(picker).toBeGreaterThan(html.indexOf("Send tickets to"))
+    // ... and before the pay button (labelled with what's missing until the
+    // buyer adds an email) and the terms line under it.
+    expect(picker).toBeLessThan(html.indexOf("Add your email"))
+    expect(picker).toBeLessThan(html.indexOf("By continuing you agree"))
     expect(html).toContain("MTN MoMo")
     expect(html).toMatch(/aria-pressed="true"[^>]*>[\s\S]*?Card/)
   })
