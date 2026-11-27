@@ -129,7 +129,8 @@ describe("wiring", () => {
     expect(read("components/event-wizard/steps/VenueStep.tsx")).toContain("#request-booking")
   })
   it("organiser workspace links venue enquiries for managers only", () => {
-    expect(read("components/quiet/shell/org-nav.tsx")).toContain('section: "bookings", path: "venue-enquiries"')
+    // One Bookings item (Venues / Artists switch) covers venue requests.
+    expect(read("components/quiet/shell/org-nav.tsx")).toContain('section: "bookings",\n    path: "bookings",\n    also: ["venue-enquiries", "artist-bookings"]')
     expect(read("app/orgs/[orgId]/venue-enquiries/page.tsx")).toContain('requireOrganizerSection(orgId, "bookings")')
   })
   it("the public venue page offers enquiries only for verified venues", () => {

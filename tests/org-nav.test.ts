@@ -7,13 +7,13 @@ const item = (label: string) => ORG_NAV_ITEMS.find((i) => i.label === label)!
 describe("organizer workspace navigation", () => {
   it("shows owners every workspace section, including Settings", () => {
     expect(labels(visibleOrgNavItems({ role: "manager", storedRole: "organizer_owner", isPlatformAdmin: false }))).toEqual([
-      "Dashboard", "Events", "Series", "Venue requests", "Artist bookings", "Finance", "Payouts", "Team", "Settings",
+      "Dashboard", "Events", "Series", "Bookings", "Finance", "Payouts", "Team", "Settings",
     ])
   })
 
   it("hides owner-only Settings from admins (who do see money pages), and shows platform admins everything", () => {
     expect(labels(visibleOrgNavItems({ role: "manager", storedRole: "organizer_admin", isPlatformAdmin: false }))).toEqual([
-      "Dashboard", "Events", "Series", "Venue requests", "Artist bookings", "Finance", "Payouts", "Team",
+      "Dashboard", "Events", "Series", "Bookings", "Finance", "Payouts", "Team",
     ])
     expect(labels(visibleOrgNavItems({ role: "manager", storedRole: null, isPlatformAdmin: true }))).toContain("Settings")
   })
@@ -41,6 +41,8 @@ describe("organizer workspace navigation", () => {
     expect(isOrgNavItemActive(item("Dashboard"), "o1", "/orgs/o1/onboarding")).toBe(true)
     expect(isOrgNavItemActive(item("Settings"), "o1", "/orgs/o1/profile")).toBe(true)
     expect(isOrgNavItemActive(item("Payouts"), "o1", "/orgs/o1/payouts/accounts")).toBe(true)
+    expect(isOrgNavItemActive(item("Bookings"), "o1", "/orgs/o1/venue-enquiries/q1")).toBe(true)
+    expect(isOrgNavItemActive(item("Bookings"), "o1", "/orgs/o1/artist-bookings")).toBe(true)
   })
 
   it("does not confuse sections that share a prefix or another org", () => {

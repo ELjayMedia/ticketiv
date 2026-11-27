@@ -5,7 +5,7 @@ import { useActionState, useEffect } from "react"
 import posthog from "posthog-js"
 
 import { signupAction } from "@/app/(auth)/actions"
-import { AuthAlert, AuthNote, AuthSteps, AuthSwitchLinks } from "@/components/auth/auth-ui"
+import { AuthAlert, AuthSteps, AuthSwitchLinks } from "@/components/auth/auth-ui"
 import { Button } from "@/components/quiet/ui/button"
 import { FormField } from "@/components/quiet/ui/form"
 import { Icon } from "@/components/quiet/ui/icon"
@@ -42,7 +42,6 @@ export function SignupForm({ next }: { next?: string | null }) {
           <FormField label="First name *" name="firstName" autoComplete="given-name" placeholder="First name" defaultValue={v.firstName ?? ""} maxLength={100} required />
           <FormField label="Surname *" name="surname" autoComplete="family-name" placeholder="Surname" defaultValue={v.surname ?? ""} maxLength={100} required />
         </div>
-        <FormField label="Phone number *" name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="e.g. +268 7600 0000" defaultValue={v.phone ?? ""} required />
         <FormField label="Email address *" name="email" type="email" inputMode="email" autoComplete="email" placeholder="you@example.com" defaultValue={v.email ?? ""} required />
         <FormField
           label="Password *"
@@ -52,10 +51,7 @@ export function SignupForm({ next }: { next?: string | null }) {
           placeholder="At least 8 characters"
           minLength={8}
           required
-          hint="You will use this password to log in. No OTP is required."
         />
-
-        <AuthNote>Create your account with a password. Ticketiv will not ask for an OTP during sign-up.</AuthNote>
 
         {state.status === "error" && <AuthAlert tone="error">{state.message}</AuthAlert>}
 

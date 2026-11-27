@@ -111,8 +111,8 @@ describe("signupAction", () => {
     mocks.origin = "https://organizer.ticketiv.app"
   })
 
-  it("requires every field and an 8+ character password", async () => {
-    expect((await signupAction(INITIAL_AUTH_STATE, form({ ...valid, phone: "" }))).status).toBe("error")
+  it("requires name, email and an 8+ character password (phone is not asked for)", async () => {
+    expect((await signupAction(INITIAL_AUTH_STATE, form({ ...valid, surname: "" }))).status).toBe("error")
     const short = await signupAction(INITIAL_AUTH_STATE, form({ ...valid, password: "short" }))
     expect(short.message).toMatch(/at least 8/)
     expect(short.values).not.toHaveProperty("password")
@@ -127,6 +127,13 @@ describe("signupAction", () => {
     expect(args.options.emailRedirectTo).toBe("https://organizer.ticketiv.app/auth/callback?next=%2F")
     expect(args.options.data).toMatchObject({ first_name: "Ada", surname: "Lovelace", phone: "+268 7600 0000", signup_intent: "account" })
     expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+
+  it("signs up without a phone number", async () => {
+    mocks.signUp.mockResolvedValue({ data: { session: null, user }, error: null })
+    const { phone: _phone, ...noPhone } = valid
+    expect((await signupAction(INITIAL_AUTH_STATE, form(noPhone))).status).toBe("check-email")
+    expect(mocks.signUp.mock.calls[0][0].options.data).not.toHaveProperty("phone")
   })
 
   it("signs straight in when email confirmation is off", async () => {

@@ -54,8 +54,10 @@ export async function signupAction(_prev: AuthFormState, formData: FormData): Pr
   const password = typeof formData.get("password") === "string" ? (formData.get("password") as string) : ""
   const values = { firstName, surname, phone, email }
 
-  if (!firstName || !surname || !phone) {
-    return { status: "error", message: "First name, surname and phone number are required.", values }
+  // Phone is not asked for at sign-up; it is collected where it is needed
+  // (mobile money, checkout, account settings).
+  if (!firstName || !surname) {
+    return { status: "error", message: "First name and surname are required.", values }
   }
   if (firstName.length > 100 || surname.length > 100) {
     return { status: "error", message: "Names must be 100 characters or fewer.", values }
@@ -77,7 +79,7 @@ export async function signupAction(_prev: AuthFormState, formData: FormData): Pr
       data: {
         first_name: firstName,
         surname,
-        phone,
+        ...(phone ? { phone } : {}),
         display_name: `${firstName} ${surname}`,
         signup_intent: "account",
       },

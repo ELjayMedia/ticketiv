@@ -199,7 +199,7 @@ export default async function PublicVenuePage({ params }: { params: Promise<{ sl
           <Card id="request-booking" className="scroll-mt-24">
             <CardBody className="flex flex-col gap-3 p-5">
               <h2 className="text-h3">Request a booking</h2>
-              <p className="text-[13px] text-ink-3">Send the venue your date. They reply here and in Venue requests; nothing is charged.</p>
+              <p className="text-[13px] text-ink-3">Send the venue your date. They reply here and in Bookings; nothing is charged.</p>
               {managedOrgs.length > 0 ? (
                 <EnquiryForm
                   venueId={venue.id}

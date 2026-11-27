@@ -132,7 +132,7 @@ export function VenueStep({ eventId, onSaving }: { eventId: string; onSaving: ()
               <a href="/venues" target="_blank" rel="noopener noreferrer" className="font-medium text-accent hover:underline">
                 Browse venues
               </a>{" "}
-              and send a booking request. The venue replies in Venue requests.
+              and send a booking request. The venue replies in Bookings.
             </p>
           </div>
         </div>

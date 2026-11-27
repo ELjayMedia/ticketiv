@@ -3,6 +3,7 @@ import Link from "next/link"
 import { mergeArtistsAction, resetArtistOwnerAction, reviewArtistClaimAction } from "@/app/super-admin/artist-claims/actions"
 import { MergeArtistsForm, ResetArtistOwnerForm } from "@/components/super-admin/ArtistToolsForms"
 import { VenueClaimReviewForm } from "@/components/super-admin/VenueClaimReviewForm"
+import { ClaimsSwitch } from "@/components/super-admin/claims-switch"
 import { Facts, Panel, Pill, when } from "@/components/super-admin/console-ui"
 import { listArtistClaims, type ArtistClaimFilter } from "@/lib/data/admin/artist-claims"
 import { requireAdminRole } from "@/lib/super-admin/auth"
@@ -29,12 +30,14 @@ export default async function ArtistClaimsPage({ searchParams }: { searchParams:
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">Artist claims</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">Claims</h1>
         <p className="text-[13px] text-ink-3">
           Performers and managers asking to take over an artist profile organisers created. Check the evidence against the artist&apos;s
           official pages before approving. A second owner claim is a dispute: contact both people first.
         </p>
       </div>
+
+      <ClaimsSwitch active="artists" />
 
       <nav className="flex flex-wrap gap-2" aria-label="Filter claims">
         {FILTERS.map((f) => (

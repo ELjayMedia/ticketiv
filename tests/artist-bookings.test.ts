@@ -59,6 +59,7 @@ describe("wiring", () => {
     const nav = read("components/quiet/shell/artist-nav.tsx")
     expect(nav).toContain('path: "bookings"')
     expect(nav).toContain('path: "insights"')
-    expect(read("components/quiet/shell/org-nav.tsx")).toContain('section: "bookings", path: "artist-bookings"')
+    expect(read("components/quiet/shell/org-nav.tsx")).toContain('also: ["venue-enquiries", "artist-bookings"]')
+    expect(read("app/orgs/[orgId]/artist-bookings/page.tsx")).toContain('<BookingsSwitch orgId={orgId} active="artists" />')
   })
 })
