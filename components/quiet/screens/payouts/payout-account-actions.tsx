@@ -6,6 +6,7 @@ import { Button } from "@/components/quiet/ui/button"
 import {
   deletePayoutAccountAction,
   setPrimaryPayoutAccountAction,
+  type PayoutAccountActionResult,
 } from "@/app/orgs/[orgId]/payouts/accounts/actions"
 
 /**
@@ -29,11 +30,15 @@ export function PayoutAccountActions({
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  function run(action: () => Promise<void>) {
+  function run(action: () => Promise<PayoutAccountActionResult>) {
     setError(null)
     startTransition(async () => {
       try {
-        await action()
+        const result = await action()
+        if (!result.ok) {
+          setError(result.error)
+          return
+        }
         setConfirming(false)
       } catch (e) {
         setError(e instanceof Error ? e.message : "Something went wrong. Please try again.")

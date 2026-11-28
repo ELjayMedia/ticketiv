@@ -21,9 +21,14 @@ const RPC_ERRORS: Record<string, string> = {
   claimed_account_required: "Verify your account before managing payout accounts.",
 }
 
-function rpcError(error: { message?: string } | null): Error {
+// Expected failures are RETURNED, not thrown: Next.js replaces thrown server-action
+// messages with a generic error in production, so the user would never see why
+// (Sentry TICKETIV-7/8: "A payout is being paid to this account" became a crash screen).
+export type PayoutAccountActionResult = { ok: true } | { ok: false; error: string }
+
+function rpcError(error: { message?: string } | null): PayoutAccountActionResult {
   const key = Object.keys(RPC_ERRORS).find((k) => error?.message?.includes(k))
-  return new Error(key ? RPC_ERRORS[key] : "Couldn't update payout accounts. Please try again.")
+  return { ok: false, error: key ? RPC_ERRORS[key] : "Couldn't update payout accounts. Please try again." }
 }
 
 async function signedInClient() {
@@ -48,7 +53,7 @@ export async function addPayoutAccountAction(
   branchCode: string,
   accountName: string,
   makePrimary = false,
-) {
+): Promise<PayoutAccountActionResult> {
   await requireOrgManager(orgId)
   const supabase = await signedInClient()
 
@@ -59,7 +64,7 @@ export async function addPayoutAccountAction(
   let eps: { eps_agent_id: string; eps_scheme: string } | null = null
   if (epsDestinationFor(provider)) {
     const check = checkEpsAccount(provider, accountNumber)
-    if (!check.ok) throw new Error(check.message)
+    if (!check.ok) return { ok: false, error: check.message }
     number = check.accountNumber
     eps = { eps_agent_id: check.destination.agentId, eps_scheme: check.destination.scheme }
   }
@@ -77,7 +82,7 @@ export async function addPayoutAccountAction(
     if (error instanceof PayoutEncryptionConfigurationError) {
       // Fail closed. Never fall back to plaintext and never echo bank details or
       // encryption key material through a server-action error.
-      throw new Error("Payout account storage is temporarily unavailable. Please contact support.")
+      return { ok: false, error: "Payout account storage is temporarily unavailable. Please contact support." }
     }
     throw error
   }
@@ -91,22 +96,31 @@ export async function addPayoutAccountAction(
     p_details_encrypted: details,
     p_make_primary: makePrimary,
   })
-  if (error) throw rpcError(error)
+  if (error) return rpcError(error)
   revalidate(orgId)
+  return { ok: true }
 }
 
-export async function setPrimaryPayoutAccountAction(orgId: string, accountId: string) {
+export async function setPrimaryPayoutAccountAction(
+  orgId: string,
+  accountId: string,
+): Promise<PayoutAccountActionResult> {
   await requireOrgManager(orgId)
   const supabase = await signedInClient()
   const { error } = await (supabase.rpc as any)("fn_set_primary_payout_account", { p_account_id: accountId })
-  if (error) throw rpcError(error)
+  if (error) return rpcError(error)
   revalidate(orgId)
+  return { ok: true }
 }
 
-export async function deletePayoutAccountAction(orgId: string, accountId: string) {
+export async function deletePayoutAccountAction(
+  orgId: string,
+  accountId: string,
+): Promise<PayoutAccountActionResult> {
   await requireOrgManager(orgId)
   const supabase = await signedInClient()
   const { error } = await (supabase.rpc as any)("fn_delete_payout_account", { p_account_id: accountId })
-  if (error) throw rpcError(error)
+  if (error) return rpcError(error)
   revalidate(orgId)
+  return { ok: true }
 }
