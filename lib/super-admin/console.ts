@@ -35,15 +35,21 @@ export type ConsoleAction =
   | "manage_team"
   | "approve_refund"
   | "pause_sales"
+  | "create_organizers_events"
   | "take_queue_item"
   | "view_as"
   | "work_cases"
   | "manage_replies"
   | "restore_setting"
+  | "manage_sponsors"
   | "manage_integrations"
   | "manage_provider_readiness"
   | "hide_event_update"
   | "route_duplicate_request"
+  | "review_venue_claim"
+  | "review_artist_claim"
+  | "manage_venue_access"
+  | "manage_feature_flags"
 
 export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   resend_tickets: ["super_admin", "support_admin", "event_ops_admin"],
@@ -57,12 +63,16 @@ export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   // Money leaves the wallet: only the owner approves, whoever asked.
   approve_refund: ["super_admin"],
   pause_sales: ["super_admin", "event_ops_admin"],
+  // Create organisers and events, and assign their owners / event admins.
+  create_organizers_events: ["super_admin"],
   take_queue_item: ["super_admin", "support_admin", "finance_admin", "event_ops_admin"],
   view_as: ["super_admin", "support_admin"],
   // Phase 3
   work_cases: ["super_admin", "support_admin"],
   manage_replies: ["super_admin", "support_admin"],
   restore_setting: ["super_admin"],
+  // Shared sponsor directory: only the owner changes names, logos and websites.
+  manage_sponsors: ["super_admin"],
   manage_integrations: ["super_admin"],
   // TICK-403: approving a provider for real money, or switching it off, is the owner's call.
   manage_provider_readiness: ["super_admin"],
@@ -70,6 +80,15 @@ export const CONSOLE_ACTION_ROLES: Record<ConsoleAction, AdminRoleTier[]> = {
   hide_event_update: ["super_admin", "support_admin", "event_ops_admin"],
   // Duplicate-event guard: pass a permission request to the original organiser, or decide it.
   route_duplicate_request: ["super_admin", "support_admin", "event_ops_admin"],
+  // TICK-481: approve or reject a request to manage a venue.
+  review_venue_claim: ["super_admin", "support_admin"],
+  // TICK-353: approve or reject a request to manage an artist.
+  review_artist_claim: ["super_admin", "support_admin"],
+  // Venue MVP: create venues and assign venue admins from the command centre.
+  manage_venue_access: ["super_admin"],
+  // Feature flag switches and per-organisation / per-event exclusions
+  // (matches app.can_platform_mutate in the database: every tier but read-only).
+  manage_feature_flags: ["super_admin", "finance_admin", "support_admin", "event_ops_admin"],
 }
 
 /** Actions that change something and so must carry a reason in the audit log. */
@@ -208,7 +227,8 @@ export const SETTINGS_TABLES: Record<string, string> = {
   pricing_plans: "Pricing plans",
   tapband_feature_configs: "TapBand config",
   payment_provider_settings: "Payment providers",
-  admin_integration_settings: "Integrations",
+  admin_integration_settings: "Integrations (Chatwoot)",
+  admin_integration_configs: "Integrations",
 }
 
 /** Fields that change on every save and say nothing about what was changed. */

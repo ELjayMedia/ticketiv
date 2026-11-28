@@ -29,3 +29,12 @@ export function isListingPriceAllowed(
 ): boolean {
   return proposedCents >= 0 && proposedCents <= capForListing(faceValueCents, eventOverride);
 }
+
+/** The database enforces the organiser's cap (TICK-448) and returns the maximum in cents. */
+export function resaleCapMessage(details: string | null | undefined): string {
+  const max = Number.parseInt(String(details ?? ""), 10)
+  if (!Number.isFinite(max) || max <= 0) {
+    return "This ticket can't be resold for money. The organiser doesn't allow resale above face value for it."
+  }
+  return `The organiser caps resale for this ticket at ${(max / 100).toFixed(2)}. Lower your price and try again.`
+}

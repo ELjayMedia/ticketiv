@@ -31,8 +31,14 @@ export function WaitlistPushOptIn() {
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
     setSupported(isPushSupported());
-    setConfigured(isPushConfigured());
+    void isPushConfigured().then((configured) => {
+      if (active) setConfigured(configured);
+    });
+    return () => {
+      active = false;
+    };
   }, []);
 
   async function handleEnable() {

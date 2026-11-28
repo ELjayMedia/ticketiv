@@ -6,6 +6,7 @@ import {
   resolvePaystackKeyMode,
   type PaystackKeyMode,
 } from "@/lib/payments/paystack-key-mode"
+import { decryptIntegrationSecrets, loadIntegrationConfig } from "@/lib/integrations/runtime"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 export { assertPaystackModeAllowed, resolvePaystackKeyMode }
@@ -23,9 +24,14 @@ function liveModeAllowed() {
 }
 
 /**
- * Single reader for the Paystack credentials (TICK-339). The row is only
- * honoured while `is_enabled` is set; `PAYSTACK_SECRET_KEY` remains the
- * fallback so preview environments work without a settings row.
+ * Single reader for the Paystack credentials (TICK-339). Order:
+ *   1. keys saved on the Integrations card (admin_integration_configs,
+ *      encrypted) — used whether or not Paystack is offered at checkout, so
+ *      webhooks and refunds for earlier orders keep verifying;
+ *   2. the payment_provider_settings row, only while `is_enabled` is set;
+ *   3. `PAYSTACK_SECRET_KEY`, so preview environments work without either.
+ * Whether Paystack is offered at checkout is payment_provider_settings.is_enabled
+ * (the card's switch), decided in lib/payments/availability.ts.
  *
  * `secret_key` and `webhook_secret` must never reach the browser — every
  * caller of this module is `server-only`.
@@ -39,10 +45,14 @@ export async function getPaystackSettings(): Promise<PaystackSettings> {
     .maybeSingle()
 
   const enabled = Boolean(data?.is_enabled)
+  const consoleRow = await loadIntegrationConfig("paystack")
+  const consoleSecrets = decryptIntegrationSecrets(consoleRow?.secretsEncrypted ?? null)
+  const consoleKey = consoleSecrets.PAYSTACK_SECRET_KEY?.trim() || null
+  const consoleWebhook = consoleSecrets.PAYSTACK_WEBHOOK_SECRET?.trim() || null
 
   const settings: PaystackSettings = {
-    secretKey: (enabled && data?.secret_key) || PAYSTACK_SECRET_KEY || null,
-    webhookSecret: (enabled && (data?.webhook_secret || data?.secret_key)) || PAYSTACK_SECRET_KEY || null,
+    secretKey: consoleKey || (enabled && data?.secret_key) || PAYSTACK_SECRET_KEY || null,
+    webhookSecret: consoleWebhook || consoleKey || (enabled && (data?.webhook_secret || data?.secret_key)) || PAYSTACK_SECRET_KEY || null,
     callbackUrl: (enabled && data?.callback_url) || null,
   }
 

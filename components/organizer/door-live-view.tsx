@@ -54,6 +54,7 @@ export function DoorLiveView({
   backHref,
   scannerHref,
   autoRefresh = true,
+  embedded = false,
 }: {
   summary: DoorLiveSummary;
   eventTitle: string;
@@ -62,6 +63,8 @@ export function DoorLiveView({
   backHref: string;
   scannerHref: string;
   autoRefresh?: boolean;
+  /** Inside the Door page's Live tab: the page owns the title and back link. */
+  embedded?: boolean;
 }) {
   const router = useRouter();
   React.useEffect(() => {
@@ -76,18 +79,19 @@ export function DoorLiveView({
   const stalled = summary.entrances.filter((e) => e.stalled);
   const outside = Math.max(0, summary.sold - summary.entered);
 
-  return (
-    <main className="flex-1 overflow-auto">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 md:p-6">
+  const body = (
+      <div className={embedded ? "flex flex-col gap-5" : "mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 md:p-6"}>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="flex flex-col gap-1">
-            <Link href={backHref} className="mb-1 inline-flex w-fit items-center gap-1 text-[12px] font-medium text-ink-3 hover:text-ink">
-              <Icon name="chevL" size={13} /> Event
-            </Link>
+            {embedded ? null : (
+              <Link href={backHref} className="mb-1 inline-flex w-fit items-center gap-1 text-[12px] font-medium text-ink-3 hover:text-ink">
+                <Icon name="chevL" size={13} /> Event
+              </Link>
+            )}
             <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-accent">
               <LiveDot /> Door live
             </span>
-            <h1 className="text-h1">{eventTitle}</h1>
+            {embedded ? null : <h1 className="text-h1">{eventTitle}</h1>}
             <span className="text-[13px] text-ink-3">
               {sinceLabel(summary.lastScanAt, nowMs)} · updates every 15 seconds
             </span>
@@ -242,6 +246,6 @@ export function DoorLiveView({
           </section>
         </div>
       </div>
-    </main>
   );
+  return embedded ? body : <main className="flex-1 overflow-auto">{body}</main>;
 }

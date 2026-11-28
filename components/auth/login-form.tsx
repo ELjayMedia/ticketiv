@@ -6,7 +6,7 @@ import { useActionState, useEffect } from "react"
 import posthog from "posthog-js"
 
 import { loginAction } from "@/app/(auth)/actions"
-import { AuthAlert, AuthNote, AuthSteps, AuthSwitchLinks } from "@/components/auth/auth-ui"
+import { AuthAlert, AuthSteps, AuthSwitchLinks } from "@/components/auth/auth-ui"
 import { Button } from "@/components/quiet/ui/button"
 import { FormField } from "@/components/quiet/ui/form"
 import { Icon } from "@/components/quiet/ui/icon"
@@ -68,8 +68,6 @@ export function LoginForm({ next, linkError, notice, internal = false }: LoginFo
             Forgot password?
           </Link>
         </div>
-
-        <AuthNote>Log in directly with your email and password. Ticketiv will not send a login OTP.</AuthNote>
 
         {state.status === "idle" && notice && <AuthAlert tone="info">{notice}</AuthAlert>}
         {error && <AuthAlert tone="error">{error}</AuthAlert>}

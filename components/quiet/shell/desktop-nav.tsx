@@ -15,6 +15,8 @@ const NAV_ITEMS = [
   { href: "/", label: "Discover" },
   { href: "/series", label: "Series" },
   { href: "/organisers", label: "Organisers" },
+  { href: "/venues", label: "Venues" },
+  { href: "/artists", label: "Artists" },
   // The signed-in attendee's own area (tickets, orders, profile…). On mobile
   // this is the tab bar; on desktop it's this link plus the avatar menu.
   { href: "/tickets", label: "My tickets", signedInOnly: true },
@@ -48,7 +50,7 @@ export function DesktopNav({
 
   return (
     <header className="border-b border-line bg-surface">
-      <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-5 px-10">
+      <div className="page-frame flex h-16 items-center gap-5">
         {/* Brand */}
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <BrandLockup size={28} textClassName="text-[18px]" />

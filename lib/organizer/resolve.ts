@@ -49,9 +49,12 @@ export function resolveOrganizerAccess(input: OrganizerAccessInput): ResolvedOrg
     isPlatformAdmin,
     // An org-level membership covers every event; event-only access is scoped.
     eventIds: orgRole ? null : [...new Set(assignments.map((a) => a.event_id))],
-    managedEventIds: orgRole
-      ? []
-      : assignments.filter((a) => strongestOrganizerRole([a.role]) === "manager").map((a) => a.event_id),
+    // Org managers already manage everything; anyone else (no org role, or
+    // door staff) manages the events they're admin of.
+    managedEventIds:
+      orgRole === "manager"
+        ? []
+        : assignments.filter((a) => strongestOrganizerRole([a.role]) === "manager").map((a) => a.event_id),
   }
 }
 

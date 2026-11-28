@@ -43,6 +43,13 @@ export const ORG_NAV_ITEMS: OrgNavItem[] = [
   { label: "Dashboard", icon: "trending", section: "dashboard", path: "dashboard", also: ["onboarding"] },
   { label: "Events", icon: "cal", section: "events", path: "events" },
   { label: "Series", icon: "spark", section: "series", path: "series" },
+  {
+    label: "Bookings",
+    icon: "building",
+    section: "bookings",
+    path: "bookings",
+    also: ["venue-enquiries", "artist-bookings"],
+  },
   { label: "Finance", icon: "fileText", section: "finance", path: "finance" },
   { label: "Payouts", icon: "wallet", section: "payouts", path: "payouts" },
   { label: "Team", icon: "users", section: "team", path: "team" },

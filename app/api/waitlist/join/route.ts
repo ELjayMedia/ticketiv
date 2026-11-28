@@ -25,6 +25,9 @@ export async function POST(request: Request) {
     if (!eventId || !email || !quantity) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
+    if (!(await isFeatureEnabled("waitlist_enabled", { eventId }))) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 })
+    }
 
     // Get user ID if logged in
     const supabase = createServerSupabaseClient()

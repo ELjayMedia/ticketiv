@@ -90,7 +90,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
   const base = baseFields(row)
 
   // Event Companion, release 3: "How was it?" and new events from followed organisers and artists.
-  if (type === "feedback_request" || type === "organizer_new_event" || type === "artist_new_event") {
+  if (type === "feedback_request" || type === "organizer_new_event" || type === "artist_new_event" || type === "venue_new_event" || type === "series_new_event") {
     const ask = type === "feedback_request"
     return {
       id: row.id,
@@ -98,7 +98,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
       status: row.status,
       channel: row.channel,
       title: explicitTitle ?? (ask ? (eventTitle ? `How was ${eventTitle}?` : "How was it?") : eventTitle ? `New event: ${eventTitle}` : "New event"),
-      message: explicitMessage || (ask ? "Rate it in a tap. Only the organiser sees your rating." : type === "artist_new_event" ? "An artist you follow has a new event." : "An organiser you follow announced a new event."),
+      message: explicitMessage || (ask ? "Rate it in a tap. Only the organiser sees your rating." : type === "artist_new_event" ? "An artist you follow has a new event." : type === "venue_new_event" ? "A venue you follow has a new event." : type === "series_new_event" ? "A series you follow has a new date." : "An organiser you follow announced a new event."),
       createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
       ...base,
       actionHref: explicitHref ?? (eventSlug ? `/events/${eventSlug}` : "/tickets"),
@@ -152,7 +152,7 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
       message: explicitMessage ?? (eventTitle ? `There is a transfer update for ${eventTitle}.` : "You have a ticket transfer update."),
       createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
       ...base,
-      actionHref: explicitHref ?? "/transfers",
+      actionHref: explicitHref ?? "/tickets?tab=transfers",
       actionLabel: "View transfers",
       actionKind: "transfer",
     }
@@ -273,6 +273,43 @@ function mapNotification(row: RawNotificationRow): AttendeeNotification {
       ...base,
       actionHref: explicitHref ?? "/organizer",
       actionLabel: incoming ? "Review request" : "Open event",
+      actionKind: "generic",
+    }
+  }
+
+  // Artist bookings (TICK-461) and announcements to followers (TICK-486).
+  if (type === "artist_booking_request" || type === "artist_booking_message" || type === "artist_booking_decision" || type === "artist_announcement") {
+    const announcement = type === "artist_announcement"
+    return {
+      id: row.id,
+      type,
+      status: row.status,
+      channel: row.channel,
+      title:
+        explicitTitle ??
+        (announcement ? "News from an artist you follow" : type === "artist_booking_request" ? "New booking request" : type === "artist_booking_message" ? "New message about a booking" : "Your booking request was answered"),
+      message: explicitMessage || (announcement ? "Open to read it." : "Open the booking to read it."),
+      createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
+      ...base,
+      actionHref: explicitHref ?? "/me",
+      actionLabel: announcement ? "View" : "Open booking",
+      actionKind: announcement ? "event" : "generic",
+    }
+  }
+
+  // Venue marketplace (TICK-460): enquiries, replies and decisions.
+  if (type === "venue_enquiry" || type === "venue_enquiry_message" || type === "venue_enquiry_decision") {
+    return {
+      id: row.id,
+      type,
+      status: row.status,
+      channel: row.channel,
+      title: explicitTitle ?? (type === "venue_enquiry" ? "New venue enquiry" : type === "venue_enquiry_message" ? "New message on a venue enquiry" : "Your venue enquiry was answered"),
+      message: explicitMessage || "Open the enquiry to read it.",
+      createdAt: row.created_at ?? row.sent_at ?? new Date().toISOString(),
+      ...base,
+      actionHref: explicitHref ?? "/me",
+      actionLabel: "Open enquiry",
       actionKind: "generic",
     }
   }

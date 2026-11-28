@@ -121,6 +121,14 @@ export function ProfileScreen({ user, appVersion, tapBand, orgContexts, adminCon
       description: "Saved events and followed series",
     },
     {
+      icon: "users",
+      label: "Following",
+      value: String(user.stats.following),
+      href: "/me/following",
+      accent: true,
+      description: "Organisers, artists, venues and series you follow",
+    },
+    {
       icon: "clock",
       label: "Waitlist",
       value: "offers",
@@ -280,7 +288,7 @@ export function ProfileScreen({ user, appVersion, tapBand, orgContexts, adminCon
         </section>
       )}
 
-      <section className="px-5 pb-4">
+      <section className="flex flex-col gap-2 px-5 pb-4">
         <Link href="/onboarding/talent">
           <Card className="p-3.5">
             <div className="flex items-center gap-3">
@@ -288,6 +296,18 @@ export function ProfileScreen({ user, appVersion, tapBand, orgContexts, adminCon
               <div className="flex flex-1 flex-col gap-0.5">
                 <span className="text-[13px] font-semibold text-ink">Perform on Ticketiv</span>
                 <span className="font-mono text-[11px] text-ink-3">create a talent profile · get added to line-ups</span>
+              </div>
+              <Icon name="chevR" size={16} className="text-ink-3" />
+            </div>
+          </Card>
+        </Link>
+        <Link href="/onboarding/venue">
+          <Card className="p-3.5">
+            <div className="flex items-center gap-3">
+              <div className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent"><Icon name="building" size={18} /></div>
+              <div className="flex flex-1 flex-col gap-0.5">
+                <span className="text-[13px] font-semibold text-ink">Manage a venue</span>
+                <span className="font-mono text-[11px] text-ink-3">claim or add your venue · run its profile and team</span>
               </div>
               <Icon name="chevR" size={16} className="text-ink-3" />
             </div>

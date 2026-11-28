@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { completeSpecialCheckoutForBuyer } from "@/lib/payments/special-checkout"
-import { assertFeatureEnabled } from "@/lib/feature-flags"
+import { assertFeatureEnabled, eventIdForResaleListing } from "@/lib/feature-flags"
 
 type CreateResaleCheckoutState = {
   ok: false
@@ -23,6 +23,8 @@ export async function createResaleCheckout(
   await assertFeatureEnabled("resale_enabled")
   const listingId = String(formData.get("listingId") ?? "").trim()
   if (!listingId) return { ok: false, message: "Listing is missing. Please go back and choose a resale ticket again." }
+  const listingEventId = await eventIdForResaleListing(listingId)
+  if (listingEventId) await assertFeatureEnabled("resale_enabled", { eventId: listingEventId })
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return { ok: false, message: "Ticketiv could not connect. Please try again." }
@@ -67,6 +69,8 @@ export async function completeResaleCheckout(
   if (!listingId || !paymentId) {
     return { ok: false, message: "Missing resale checkout details. Please refresh and try again." }
   }
+  const listingEventId = await eventIdForResaleListing(listingId)
+  if (listingEventId) await assertFeatureEnabled("resale_enabled", { eventId: listingEventId })
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return { ok: false, message: "Ticketiv could not connect. Please try again." }

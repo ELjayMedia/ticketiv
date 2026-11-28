@@ -127,6 +127,13 @@ export function VenueStep({ eventId, onSaving }: { eventId: string; onSaving: ()
           <div>
             <h3 className="font-medium">Reusable venue setup</h3>
             <p className="mt-1 text-sm text-ink-3">Type a venue name to search existing venues. Select a match to reuse it, or keep typing and add city, address and capacity to create a reusable venue safely.</p>
+            <p className="mt-1 text-sm text-ink-3">
+              Still looking for a place?{" "}
+              <a href="/venues" target="_blank" rel="noopener noreferrer" className="font-medium text-accent hover:underline">
+                Browse venues
+              </a>{" "}
+              and send a booking request. The venue replies in Bookings.
+            </p>
           </div>
         </div>
       </div>
@@ -138,6 +145,14 @@ export function VenueStep({ eventId, onSaving }: { eventId: string; onSaving: ()
             <div>
               <p className="font-medium">Selected existing venue</p>
               <p className="text-ink-3">{selectedVenue.name} {[selectedVenue.city, selectedVenue.address].filter(Boolean).join(" • ")}</p>
+              {selectedVenue.verification_status === "verified" && selectedVenue.slug ? (
+                <p className="mt-1 text-ink-3">
+                  This venue manages its bookings on Ticketiv, and your published event will show on its calendar. Haven&apos;t agreed the date with them yet?{" "}
+                  <a href={`/venues/${selectedVenue.slug}#request-booking`} target="_blank" rel="noopener noreferrer" className="font-medium text-accent hover:underline">
+                    Send a booking request
+                  </a>
+                </p>
+              ) : null}
             </div>
           </div>
         </div>
@@ -167,7 +182,15 @@ export function VenueStep({ eventId, onSaving }: { eventId: string; onSaving: ()
           <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border bg-surface p-2">
             {venues.map((venue) => (
               <button key={venue.id} type="button" onClick={() => selectVenue(venue)} className="w-full rounded-md p-3 text-left text-sm transition hover:bg-surface-2">
-                <span className="flex items-center gap-2 font-medium"><Icon name="pin" className="h-4 w-4 text-ink-3" />{venue.name}</span>
+                <span className="flex items-center gap-2 font-medium">
+                  <Icon name="pin" className="h-4 w-4 text-ink-3" />
+                  {venue.name}
+                  {venue.verification_status === "verified" ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-normal text-success">
+                      <Icon name="checkCircle" size={11} /> Verified venue
+                    </span>
+                  ) : null}
+                </span>
                 <span className="mt-1 block pl-6 text-xs text-ink-3">{[venue.city, venue.address, venue.capacity ? `${venue.capacity} capacity` : null].filter(Boolean).join(" • ") || "No location details yet"}</span>
               </button>
             ))}

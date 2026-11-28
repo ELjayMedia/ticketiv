@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server"
 
+import { isEventManager } from "@/lib/events/manage-access"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getAuthUser } from "@/lib/auth/session"
 
 type RouteContext = { params: Promise<{ eventId: string }> }
-const MANAGER_ROLES = new Set(["admin", "organizer", "organizer_owner", "organizer_admin"])
 
 async function getUserId() {
   return (await getAuthUser())?.id ?? null
@@ -14,8 +14,7 @@ async function canManage(admin: ReturnType<typeof createAdminClient>, event: any
   const { data: globalAdmin } = await admin.from("admin_users").select("user_id").eq("user_id", userId).eq("active", true).maybeSingle()
   if (globalAdmin) return true
 
-  const { data: member } = await admin.from("org_members").select("role").eq("org_id", event.org_id).eq("user_id", userId).maybeSingle()
-  return Boolean(member?.role && MANAGER_ROLES.has(String(member.role)))
+  return isEventManager(admin, event, userId)
 }
 
 export async function GET(_request: NextRequest, context: RouteContext) {

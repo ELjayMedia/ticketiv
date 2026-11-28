@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Icon } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
-import { Photo, Divider } from "@/components/quiet/ui/primitives";
+import { Photo } from "@/components/quiet/ui/primitives";
 import { RadioCard } from "@/components/quiet/ui/form";
 import { Modal, ModalContent, ModalFooter } from "@/components/quiet/ui/modal";
 import { useRouter } from "next/navigation";
@@ -16,13 +16,15 @@ import { describePromoFailure } from "@/lib/checkout/promo-copy";
 import { PromoCodeInput, promoDiscountMinor, type AppliedPromo } from "@/components/quiet/screens/checkout/promo-code-input";
 import { trackBuyerFunnel } from "@/components/analytics/buyer-funnel";
 import { cartSubtotalMinor, checkoutTotalMinor, type CheckoutCartLine } from "@/lib/checkout/pricing";
+import { checkoutPayBlocker } from "@/lib/checkout/pay-blocker";
 
 /* ──────────────────────────────────────────────────────────────
  * Mobile checkout · `/events/[id]/checkout` on phones.
  *
- * Single page (no multi-step), single-column. Top hold-timer
- * decrements client-side; on expiry the Phase 2 wiring will
- * release the cart via /api/checkout/release.
+ * Single page, single column: where to send the tickets, how to
+ * pay, Pay. Only the buyer's email is collected because it is the
+ * only detail the order uses. Top hold-timer decrements client-side;
+ * on expiry the buyer is sent back to the event page.
  *
  * "use client" because of the timer + state — the data fetch
  * is done by the parent server component and passed in.
@@ -50,9 +52,6 @@ export interface MobileCheckoutProps {
   }>;
   /** Buyer's email; prefilled for signed-in users, empty for guests. */
   defaultBuyerEmail?: string;
-  /** Signed-in buyer profile defaults. */
-  defaultBuyerName?: string;
-  defaultBuyerPhone?: string;
 }
 
 
@@ -68,8 +67,6 @@ export function MobileCheckout({
   editTicketsHref,
   paymentMethods = [],
   defaultBuyerEmail = "",
-  defaultBuyerName = "",
-  defaultBuyerPhone = "",
 }: MobileCheckoutProps) {
   const router = useRouter();
   const { stats: liveStats } = useEventLiveStats(eventId);
@@ -84,7 +81,6 @@ export function MobileCheckout({
 
   const [paymentId, setPaymentId] = React.useState(paymentMethods[0]?.id);
   const [holdRemaining, setHoldRemaining] = React.useState(holdSeconds);
-  const [accepted, setAccepted] = React.useState(false);
   const [guaranteeOpen, setGuaranteeOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
@@ -92,8 +88,6 @@ export function MobileCheckout({
   // The one promo control: previewed without creating an order, sent by code at payment.
   const [promo, setPromo] = React.useState<AppliedPromo | null>(null);
   const [promoRejection, setPromoRejection] = React.useState<string | null>(null);
-  const [attendeeName, setAttendeeName] = React.useState(defaultBuyerName);
-  const [attendeePhone, setAttendeePhone] = React.useState(defaultBuyerPhone);
   const items = lines.map((l) => ({ ticketTypeId: l.ticketTypeId, quantity: l.quantity }));
   const totalQuantity = items.reduce((sum, l) => sum + l.quantity, 0);
   const singleTicketTypeId = lines.length === 1 ? lines[0].ticketTypeId : null;
@@ -175,6 +169,7 @@ export function MobileCheckout({
   const subtotal = cartSubtotalMinor(lines);
   const promoDiscount = promoDiscountMinor(promo, subtotal);
   const total = checkoutTotalMinor(subtotal, promoDiscount);
+  const payBlocker = checkoutPayBlocker({ buyerEmail, holdRemaining, lineCount: lines.length });
 
   return (
     <div className="flex h-full flex-col bg-bg">
@@ -202,9 +197,6 @@ export function MobileCheckout({
           </Link>
         </header>
 
-        {/* Progress indicator: Tickets (done in the picker) → Details → Payment → Done */}
-        <MobileCheckoutProgress currentIndex={1} />
-
         {/* Event ribbon */}
         <div className="mx-5 mb-4 flex items-center gap-2.5 rounded-xl bg-ink p-3">
           <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md">
@@ -216,10 +208,28 @@ export function MobileCheckout({
               {eventWhenLabel} · {eventVenue}
             </span>
           </div>
-          <Icon name="chevR" size={16} className="text-white/50" />
         </div>
 
-        {/* Your tickets — chosen in the picker; edit goes back there. */}
+        {/* Buyer email — the one required field, so it comes first. Prefilled
+            for signed-in buyers, collected from guests. */}
+        <section className="px-5 pb-4">
+          <label htmlFor="buyer-email" className="text-label mb-2 block">Send tickets to</label>
+          <input
+            id="buyer-email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            value={buyerEmail}
+            onChange={(e) => setBuyerEmail(e.target.value)}
+            placeholder="you@example.com"
+            className="h-11 w-full rounded-[var(--radius-md)] border border-line bg-surface px-3 text-[14px] placeholder:text-ink-3 focus:border-accent focus:outline-none"
+            disabled={submitting}
+          />
+        </section>
+
+        {/* Your tickets — chosen in the picker; edit goes back there. The
+            sticky bar carries the total, so this card only adds one when a
+            promo changes it. */}
         <section className="px-5 pb-4">
           <div className="mb-2 flex items-center">
             <span className="text-label flex-1">Your tickets</span>
@@ -235,66 +245,28 @@ export function MobileCheckout({
                 <span className="font-mono text-[13px] tabular-nums">{formatPrice(l.priceMinor * l.quantity, l.currency)}</span>
               </div>
             ))}
+            {promo && promoDiscount > 0 && (
+              <div className="flex items-center gap-3 py-2.5">
+                <span className="flex-1 font-mono text-[12px] text-accent">Promo {promo.code}</span>
+                <span className="font-mono text-[13px] tabular-nums text-accent">−{formatPrice(promoDiscount, currency)}</span>
+              </div>
+            )}
           </Card>
-        </section>
-
-        {/* Attendee details */}
-        <section className="px-5 pb-4">
-          <div className="text-label mb-2">Attendee details</div>
-          <div className="flex flex-col gap-2">
-            <input
-              type="text"
-              autoComplete="name"
-              value={attendeeName}
-              onChange={(e) => setAttendeeName(e.target.value)}
-              placeholder="Full name"
-              className="h-10 w-full rounded-[var(--radius-md)] border border-line bg-surface px-3 text-[14px] placeholder:text-ink-3 focus:border-accent focus:outline-none"
+          <div className="mt-2">
+            <PromoCodeInput
+              eventId={eventUuid}
+              value={promo}
+              onChange={(next) => {
+                setPromo(next);
+                setPromoRejection(null);
+              }}
+              savingMinor={promoDiscount}
+              formatSaving={(minor) => formatPrice(minor, currency)}
               disabled={submitting}
-            />
-            <input
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              value={attendeePhone}
-              onChange={(e) => setAttendeePhone(e.target.value)}
-              placeholder="Phone number (optional)"
-              className="h-10 w-full rounded-[var(--radius-md)] border border-line bg-surface px-3 text-[14px] placeholder:text-ink-3 focus:border-accent focus:outline-none"
-              disabled={submitting}
+              externalError={promoRejection}
+              collapsible
             />
           </div>
-        </section>
-
-        {/* Promo: one control */}
-        <section className="px-5 pb-4">
-          <PromoCodeInput
-            eventId={eventUuid}
-            value={promo}
-            onChange={(next) => {
-              setPromo(next);
-              setPromoRejection(null);
-            }}
-            savingMinor={promoDiscount}
-            formatSaving={(minor) => formatPrice(minor, currency)}
-            disabled={submitting}
-            externalError={promoRejection}
-          />
-        </section>
-
-        {/* Buyer email — required so the ticket can be delivered. Prefilled
-            for signed-in buyers, collected from guests. */}
-        <section className="px-5 pb-4">
-          <label htmlFor="buyer-email" className="text-label mb-2 block">Send ticket to</label>
-          <input
-            id="buyer-email"
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            value={buyerEmail}
-            onChange={(e) => setBuyerEmail(e.target.value)}
-            placeholder="you@example.com"
-            className="h-10 w-full rounded-[var(--radius-md)] border border-line bg-surface px-3 text-[14px] placeholder:text-ink-3 focus:border-accent focus:outline-none"
-            disabled={submitting}
-          />
         </section>
 
         {/* Payment */}
@@ -314,33 +286,6 @@ export function MobileCheckout({
               />
             ))}
           </div>
-        </section>
-
-        {/* Summary */}
-        <section className="px-5 pb-4">
-          <Card className="bg-bg p-3.5" flat>
-            {lines.map((l) => (
-              <SummaryRow
-                key={l.ticketTypeId}
-                label={`${l.quantity} × ${l.name}`}
-                value={formatPrice(l.priceMinor * l.quantity, l.currency)}
-              />
-            ))}
-            {promo && promoDiscount > 0 && (
-              <SummaryRow
-                label={`Promo ${promo.code}`}
-                value={`−${formatPrice(promoDiscount, currency)}`}
-                accent
-              />
-            )}
-            <Divider className="my-2" />
-            <div className="flex items-center">
-              <span className="flex-1 text-[14px] font-semibold">Total</span>
-              <span className="font-mono text-[16px] font-semibold">
-                {formatPrice(total, currency)}
-              </span>
-            </div>
-          </Card>
         </section>
 
         {/* Reassurance block */}
@@ -375,47 +320,34 @@ export function MobileCheckout({
           <BuyerGuaranteeModal onClose={() => setGuaranteeOpen(false)} />
         )}
 
-        {/* Terms */}
-        <div className="flex items-start gap-2 px-5 pb-4 text-[11px] text-ink-3">
-          <input
-            id="mobile-policy-acceptance"
-            type="checkbox"
-            checked={accepted}
-            onChange={(e) => setAccepted(e.target.checked)}
-            className="mt-0.5 accent-accent"
-          />
-          <span>
-            <label htmlFor="mobile-policy-acceptance">I accept the </label>
-            <Link href="/refund-policy" className="font-semibold text-accent hover:underline">
-              refund &amp; cancellation policy
-            </Link>{" "}
-            and{" "}
-            <Link href="/terms" className="font-semibold text-accent hover:underline">
-              Terms
-            </Link>
-          </span>
-        </div>
-
-        <div className="h-20" />
+        <div className="h-28" />
       </div>
 
       {/* Sticky pay */}
-      <div className="sticky bottom-0 flex items-center gap-3 border-t border-line bg-surface px-5 py-3.5 pb-7">
-        <div className="flex flex-col">
-          <span className="text-label">Total</span>
-          <span className="font-mono text-[18px] font-semibold leading-none">
-            {formatPrice(total, currency)}
-          </span>
+      <div className="sticky bottom-0 border-t border-line bg-surface px-5 pb-7 pt-3.5">
+        <div className="flex items-center gap-3">
+          <div className="flex flex-col">
+            <span className="text-label">Total</span>
+            <span className="font-mono text-[18px] font-semibold leading-none">
+              {formatPrice(total, currency)}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handlePay}
+            disabled={payBlocker !== null || submitting}
+            className="flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {submitting ? "Starting payment…" : payBlocker ?? `Pay ${formatPrice(total, currency)}`}
+            {!submitting && !payBlocker && <Icon name="arrowR" size={16} />}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={handlePay}
-          disabled={!accepted || holdRemaining <= 0 || submitting || !buyerEmail.trim() || lines.length === 0}
-          className="flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {submitting ? "Starting payment…" : `Pay ${formatPrice(total, currency)}`}
-          {!submitting && <Icon name="arrowR" size={16} />}
-        </button>
+        <p className="mt-2 text-center text-[11px] text-ink-3">
+          By paying you agree to the{" "}
+          <Link href="/terms" className="font-semibold text-accent hover:underline">Terms</Link>
+          {" "}and{" "}
+          <Link href="/refund-policy" className="font-semibold text-accent hover:underline">refund policy</Link>.
+        </p>
       </div>
       {submitError && (
         <div
@@ -430,29 +362,6 @@ export function MobileCheckout({
 }
 
 /* ── Local helpers ──────────────────────────────────────── */
-
-function SummaryRow({
-  label,
-  value,
-  accent,
-}: {
-  label: string;
-  value: string;
-  accent?: boolean;
-}) {
-  return (
-    <div className="flex items-center py-0.5">
-      <span className="flex-1 font-mono text-[12px] text-ink-3">{label}</span>
-      <span
-        className={
-          "font-mono text-[12px] " + (accent ? "text-accent" : "text-ink")
-        }
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
 
 function HoldTimerLabel({ remaining }: { remaining: number }) {
   const critical = remaining <= 0;
@@ -552,54 +461,6 @@ function BuyerGuaranteeModal({ onClose }: { onClose: () => void }) {
         </ModalFooter>
       </ModalContent>
     </Modal>
-  );
-}
-
-const CHECKOUT_STEPS = ["Tickets", "Details", "Payment", "Confirmation"] as const;
-
-function MobileCheckoutProgress({ currentIndex }: { currentIndex: number }) {
-  return (
-    <div className="px-5 pb-3">
-      <div className="flex items-center gap-1.5" aria-label="Checkout progress">
-        {CHECKOUT_STEPS.map((label, i) => {
-          const done = i < currentIndex;
-          const active = i === currentIndex;
-          return (
-            <React.Fragment key={label}>
-              <div className="flex items-center gap-1.5">
-                <span
-                  className={
-                    "inline-flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold " +
-                    (active
-                      ? "bg-accent text-white"
-                      : done
-                      ? "bg-ink text-white"
-                      : "bg-line text-ink-3")
-                  }
-                >
-                  {done ? "✓" : i + 1}
-                </span>
-                <span
-                  className={
-                    "font-mono text-[10px] font-semibold uppercase " +
-                    (active ? "text-ink" : "text-ink-3")
-                  }
-                >
-                  {label}
-                </span>
-              </div>
-              {i < CHECKOUT_STEPS.length - 1 && (
-                <span
-                  className={
-                    "h-px flex-1 " + (done ? "bg-ink" : "bg-line")
-                  }
-                />
-              )}
-            </React.Fragment>
-          );
-        })}
-      </div>
-    </div>
   );
 }
 

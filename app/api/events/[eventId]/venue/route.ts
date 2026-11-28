@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { duplicateGuardMessage } from "@/lib/events/duplicates-core"
 
+import { isEventManager } from "@/lib/events/manage-access"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
@@ -8,7 +9,6 @@ type RouteContext = {
   params: Promise<{ eventId: string }>
 }
 
-const MANAGER_ROLES = new Set(["admin", "organizer", "organizer_owner", "organizer_admin"])
 
 async function getAuthenticatedUserId() {
   const supabase = createServerSupabaseClient()
@@ -29,8 +29,7 @@ async function canManageEvent(admin: ReturnType<typeof createAdminClient>, event
   const { data: adminUser } = await admin.from("admin_users").select("role_tier").eq("user_id", userId).eq("active", true).maybeSingle()
   if (adminUser && (readOnly || adminUser.role_tier !== "read_only_admin")) return { allowed: true, event }
 
-  const { data: membership } = await admin.from("org_members").select("role").eq("org_id", event.org_id).eq("user_id", userId).maybeSingle()
-  return { allowed: Boolean(membership?.role && MANAGER_ROLES.has(String(membership.role))), event }
+  return { allowed: await isEventManager(admin, event, userId), event }
 }
 
 function normalizeCapacity(value: unknown) {
@@ -54,7 +53,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (!allowed) return NextResponse.json({ error: "You do not have permission to manage this event" }, { status: 403 })
 
   const search = request.nextUrl.searchParams.get("q")?.trim() ?? ""
-  let venuesQuery = admin.from("venues").select("id, name, city, address, capacity, tz").order("name", { ascending: true }).limit(search ? 12 : 50)
+  let venuesQuery = admin.from("venues").select("id, name, city, address, capacity, tz, slug, verification_status").order("name", { ascending: true }).limit(search ? 12 : 50)
 
   if (search) {
     const escaped = search.replace(/[%_]/g, "")
@@ -62,7 +61,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   const [{ data: currentVenue }, { data: venues, error }] = await Promise.all([
-    event.venue_id ? admin.from("venues").select("id, name, city, address, capacity, tz").eq("id", event.venue_id).maybeSingle() : Promise.resolve({ data: null }),
+    event.venue_id ? admin.from("venues").select("id, name, city, address, capacity, tz, slug, verification_status").eq("id", event.venue_id).maybeSingle() : Promise.resolve({ data: null }),
     venuesQuery,
   ])
 
@@ -109,7 +108,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     venueId = String(data)
   }
 
-  const { data: venue, error: venueError } = await admin.from("venues").select("id, name, city, address, capacity, tz").eq("id", venueId).maybeSingle()
+  const { data: venue, error: venueError } = await admin.from("venues").select("id, name, city, address, capacity, tz, slug, verification_status").eq("id", venueId).maybeSingle()
   if (venueError) throw venueError
   if (!venue) return NextResponse.json({ error: "Venue not found" }, { status: 404 })
 

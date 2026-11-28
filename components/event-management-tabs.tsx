@@ -13,6 +13,7 @@ import { PoliciesStep } from '@/components/event-wizard/steps/PoliciesStep'
 import { FinishSetupNudge } from '@/components/event-management/finish-setup-nudge'
 import { GuestlistTab } from '@/components/event-management/guestlist-tab'
 import { TicketSalesBreakdown } from '@/components/event-management/ticket-sales-breakdown'
+import { EventPerformancePanel } from '@/components/event-management/event-performance-panel'
 import { useEventLiveStats } from '@/lib/hooks/use-event-live-stats'
 
 interface EventManagementTabsProps {
@@ -302,6 +303,7 @@ function OperationsTab({ orgId, eventId }: { orgId: string; eventId: string }) {
 
 const TABS = [
   { value: 'overview', label: 'Overview', icon: 'trending' },
+  { value: 'performance', label: 'Performance', icon: 'activity' },
   { value: 'checkin', label: 'Check-in', icon: 'qr' },
   { value: 'tickets', label: 'Tickets', icon: 'ticket' },
   { value: 'guestlist', label: 'Guestlist', icon: 'users' },
@@ -447,6 +449,11 @@ export function EventManagementTabs({ eventId, orgId, event }: EventManagementTa
             </CardBody>
           </Card>
         </div>
+      )}
+
+      {/* Commercial performance tab: reads the same live stats as the Overview. */}
+      {tab === 'performance' && (
+        <EventPerformancePanel stats={liveStats} liveStatus={liveStatus} />
       )}
 
       {/* Check-in Tab */}

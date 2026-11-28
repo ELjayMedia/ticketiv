@@ -6,8 +6,6 @@ import { Icon } from "@/components/quiet/ui/icon";
 import { Chip } from "@/components/quiet/ui/chip";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider } from "@/components/quiet/ui/primitives";
-import { RecentlyViewedSection } from "@/components/quiet/screens/discover/recently-viewed-section";
-import { SuggestedEventsRow } from "@/components/quiet/screens/discover/suggested-events-row";
 import { FollowingEventsRow } from "@/components/quiet/screens/discover/following-events-row";
 import { DiscoverFilterChips } from "@/components/quiet/screens/discover/discover-filter-chips";
 import { LoadMoreSection } from "@/components/quiet/screens/discover/load-more-section";
@@ -66,7 +64,7 @@ export function DesktopDiscover({
 }: DesktopDiscoverProps = {}) {
   const slides = featured?.length ? featured : editorPick ? [editorPick] : [];
   return (
-    <div className="mx-auto max-w-[1280px] px-10 py-6">
+    <div className="page-frame py-6">
       <FeaturedHero events={slides} />
 
       {/* Page header */}
@@ -92,20 +90,20 @@ export function DesktopDiscover({
         </Suspense>
       </div>
 
-      <RecentlyViewedSection variant="desktop" />
       <FollowingEventsRow variant="desktop" />
-
-      <SuggestedEventsRow variant="desktop" />
 
       {/* This week + upcoming */}
         <div className="flex flex-col gap-10">
-          <DesktopEventGridSection
-            title="This week"
-            subtitle="Happening in the next 7 days"
-            section={thisWeek}
-            when="thisWeek"
-            emptyText="No events in the next 7 days. See what's coming up below."
-          />
+          {/* Only shown when something is on in the next 7 days. */}
+          {thisWeek.events.length > 0 ? (
+            <DesktopEventGridSection
+              title="This week"
+              subtitle="Happening in the next 7 days"
+              section={thisWeek}
+              when="thisWeek"
+              emptyText="No events in the next 7 days. See what's coming up below."
+            />
+          ) : null}
           <DesktopEventGridSection
             title="Upcoming"
             subtitle="All events after this week"

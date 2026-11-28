@@ -31,6 +31,10 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { label: "Search", href: "/super-admin/search", icon: "search" },
       { label: "Cases", href: "/super-admin/cases", icon: "bell", roles: SUPPORT },
       { label: "Duplicate events", href: "/super-admin/duplicates", icon: "copy" },
+      { label: "Venues", href: "/super-admin/venues", icon: "building" },
+      { label: "Sponsors", href: "/super-admin/sponsors", icon: "spark" },
+      { label: "Claims", href: "/super-admin/claims", icon: "flag" },
+      { label: "Reported reviews", href: "/super-admin/reviews", icon: "flag", roles: ["super_admin"] },
       { label: "Saved replies", href: "/super-admin/replies", icon: "copy", roles: SUPPORT },
     ],
   },
@@ -107,6 +111,7 @@ const ALSO_ACTIVE: Record<string, string[]> = {
   "/super-admin/events": ["/super-admin/event/"],
   "/super-admin/organizations": ["/super-admin/organizer/"],
   "/super-admin/search": ["/super-admin/people/"],
+  "/super-admin/claims": ["/super-admin/venue-claims", "/super-admin/artist-claims"],
 }
 
 /** Home matches only itself; every other link also matches its sub-pages. */

@@ -60,12 +60,12 @@ export type DeliveryOutcome = { channel: NotificationChannel; status: ChannelSta
  * formal receipt and backup. If no external channel is available we fall back
  * to in-app only (the ticket is already in My Tickets regardless).
  */
-export function resolveChannels(recipient: TransactionalRecipient): NotificationChannel[] {
+export async function resolveChannels(recipient: TransactionalRecipient): Promise<NotificationChannel[]> {
   const channels: NotificationChannel[] = []
   const hasPhone = Boolean(recipient.phone)
 
-  if (hasPhone && isWhatsAppConfigured()) channels.push("whatsapp")
-  if (hasPhone && isSmsConfigured()) channels.push("sms")
+  if (hasPhone && (await isWhatsAppConfigured())) channels.push("whatsapp")
+  if (hasPhone && (await isSmsConfigured())) channels.push("sms")
   if (recipient.email && recipient.emailOptIn !== false) channels.push("email")
 
   if (channels.length === 0) channels.push("in_app")
@@ -135,7 +135,7 @@ export async function sendTransactionalNotification(input: TransactionalInput): 
   const outcomes: DeliveryOutcome[] = []
   try {
     const admin = createAdminClient()
-    const channels = input.channels ?? resolveChannels(input.recipient)
+    const channels = input.channels ?? (await resolveChannels(input.recipient))
 
     for (const channel of channels) {
       // Idempotency: if this order+channel+template was already delivered,

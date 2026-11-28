@@ -1,5 +1,8 @@
 import "server-only"
 
+import type { EnvSnapshot } from "@/lib/integrations/catalog"
+import { hasRequiredSettings, resolveChannel } from "@/lib/integrations/runtime"
+
 import type { ChannelResult } from "./types"
 
 // WhatsApp channel adapter. Provider is selected via WHATSAPP_PROVIDER:
@@ -9,6 +12,10 @@ import type { ChannelResult } from "./types"
 // Credentials in WHATSAPP_API_KEY (+ provider-specific extras below). When the
 // channel is unconfigured the adapter reports `skipped` so ticket delivery
 // never fails — email remains the durable receipt.
+//
+// The provider and its settings can also be chosen in the admin console
+// (Integrations): a provider switched on there wins over WHATSAPP_PROVIDER,
+// and its saved values win over the environment (lib/integrations/runtime.ts).
 //
 // We send a *secure ticket link* (not the QR image) so the live ticket page
 // always reflects the current status (transferred / refunded / revoked /
@@ -24,8 +31,9 @@ export interface WhatsAppMessage {
   body: string
 }
 
-export function isWhatsAppConfigured(): boolean {
-  return Boolean(process.env.WHATSAPP_PROVIDER && process.env.WHATSAPP_API_KEY)
+export async function isWhatsAppConfigured(): Promise<boolean> {
+  const resolved = await resolveChannel("whatsapp")
+  return Boolean(resolved && hasRequiredSettings(resolved))
 }
 
 function digits(to: string): string {
@@ -37,17 +45,20 @@ function digits(to: string): string {
  * the integrations catalog (lib/integrations/catalog.ts); the consistency test
  * fails if a catalog provider has no sender here.
  */
-export const WHATSAPP_SENDERS: Record<string, ((message: WhatsAppMessage, apiKey: string) => Promise<ChannelResult>) | undefined> = {
-  meta_cloud: (message, apiKey) => sendViaMetaCloud(message, apiKey),
-  twilio: (message, apiKey) => sendViaTwilio(message, apiKey),
-  "360dialog": (message, apiKey) => sendVia360dialog(message, apiKey),
+type WhatsAppSender = (message: WhatsAppMessage, apiKey: string, env: EnvSnapshot) => Promise<ChannelResult>
+
+export const WHATSAPP_SENDERS: Record<string, WhatsAppSender | undefined> = {
+  meta_cloud: (message, apiKey, env) => sendViaMetaCloud(message, apiKey, env),
+  twilio: (message, apiKey, env) => sendViaTwilio(message, apiKey, env),
+  "360dialog": (message, apiKey, env) => sendVia360dialog(message, apiKey, env),
 }
 
 export async function sendWhatsApp(message: WhatsAppMessage): Promise<ChannelResult> {
-  const provider = process.env.WHATSAPP_PROVIDER ?? "whatsapp"
-  const apiKey = process.env.WHATSAPP_API_KEY
+  const resolved = await resolveChannel("whatsapp")
+  const provider = resolved?.integration.selectedBy?.value ?? process.env.WHATSAPP_PROVIDER ?? "whatsapp"
+  const apiKey = resolved?.env.WHATSAPP_API_KEY?.trim()
 
-  if (!provider || !apiKey) {
+  if (!resolved || !apiKey) {
     return { status: "skipped", reason: "WhatsApp Business not configured", provider }
   }
 
@@ -56,21 +67,21 @@ export async function sendWhatsApp(message: WhatsAppMessage): Promise<ChannelRes
     if (!send) {
       return { status: "skipped", reason: `Unknown WHATSAPP_PROVIDER: ${provider}`, provider }
     }
-    return await send(message, apiKey)
+    return await send(message, apiKey, resolved.env)
   } catch (error: any) {
     return { status: "failed", error: error?.message ?? "whatsapp send failed", provider }
   }
 }
 
 // --- Meta WhatsApp Cloud API ---------------------------------------------
-async function sendViaMetaCloud(message: WhatsAppMessage, accessToken: string): Promise<ChannelResult> {
+async function sendViaMetaCloud(message: WhatsAppMessage, accessToken: string, env: EnvSnapshot): Promise<ChannelResult> {
   const provider = "meta_cloud"
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID
+  const phoneNumberId = env.WHATSAPP_PHONE_NUMBER_ID
   if (!phoneNumberId) {
     return { status: "skipped", reason: "WHATSAPP_PHONE_NUMBER_ID not set", provider }
   }
   const version = process.env.WHATSAPP_API_VERSION ?? "v21.0"
-  const template = process.env.WHATSAPP_TEMPLATE
+  const template = env.WHATSAPP_TEMPLATE?.trim()
 
   const payload = template
     ? {
@@ -79,7 +90,7 @@ async function sendViaMetaCloud(message: WhatsAppMessage, accessToken: string): 
         type: "template",
         template: {
           name: template,
-          language: { code: process.env.WHATSAPP_TEMPLATE_LANG ?? "en" },
+          language: { code: env.WHATSAPP_TEMPLATE_LANG?.trim() || "en" },
           components: [{ type: "body", parameters: [{ type: "text", text: message.body }] }],
         },
       }
@@ -105,10 +116,10 @@ async function sendViaMetaCloud(message: WhatsAppMessage, accessToken: string): 
 }
 
 // --- Twilio WhatsApp ------------------------------------------------------
-async function sendViaTwilio(message: WhatsAppMessage, authToken: string): Promise<ChannelResult> {
+async function sendViaTwilio(message: WhatsAppMessage, authToken: string, env: EnvSnapshot): Promise<ChannelResult> {
   const provider = "twilio"
-  const sid = process.env.TWILIO_ACCOUNT_SID
-  const from = process.env.WHATSAPP_FROM // e.g. +14155238886
+  const sid = env.TWILIO_ACCOUNT_SID
+  const from = env.WHATSAPP_FROM // e.g. +14155238886
   if (!sid || !from) {
     return { status: "skipped", reason: "TWILIO_ACCOUNT_SID / WHATSAPP_FROM not set", provider }
   }
@@ -134,9 +145,9 @@ async function sendViaTwilio(message: WhatsAppMessage, authToken: string): Promi
 }
 
 // --- 360dialog ------------------------------------------------------------
-async function sendVia360dialog(message: WhatsAppMessage, apiKey: string): Promise<ChannelResult> {
+async function sendVia360dialog(message: WhatsAppMessage, apiKey: string, env: EnvSnapshot): Promise<ChannelResult> {
   const provider = "360dialog"
-  const base = process.env.WHATSAPP_360_BASE_URL ?? "https://waba-v2.360dialog.io"
+  const base = env.WHATSAPP_360_BASE_URL?.trim() || "https://waba-v2.360dialog.io"
   const res = await fetch(`${base}/messages`, {
     method: "POST",
     headers: { "D360-API-KEY": apiKey, "Content-Type": "application/json" },

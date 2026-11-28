@@ -23,7 +23,6 @@ export const ACCOUNT_NAV: { label: string; items: AccountNavItem[] }[] = [
     items: [
       { href: "/tickets", label: "My tickets", icon: "ticket" },
       { href: "/orders", label: "Orders", icon: "receipt" },
-      { href: "/transfers", label: "Transfers", icon: "share" },
       { href: "/resale", label: "Resale", icon: "refresh" },
       { href: "/waitlist", label: "Waitlists", icon: "clock" },
     ],
@@ -65,7 +64,7 @@ export function AccountDesktopLayout({ children }: { children: React.ReactNode }
   const active = activeAccountHref(pathname);
 
   return (
-    <div className="md:mx-auto md:grid md:max-w-[1200px] md:grid-cols-[220px_minmax(0,1fr)] md:gap-10 md:px-10 md:pt-8">
+    <div className="md:page-frame md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-10 md:pt-8">
       <aside className="hidden md:block">
         <nav aria-label="Account" className="sticky top-24 flex flex-col gap-6">
           {ACCOUNT_NAV.map((group) => (
@@ -96,7 +95,7 @@ export function AccountDesktopLayout({ children }: { children: React.ReactNode }
           ))}
         </nav>
       </aside>
-      <div className="min-w-0 md:max-w-[760px]">{children}</div>
+      <div className="min-w-0">{children}</div>
     </div>
   );
 }

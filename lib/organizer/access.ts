@@ -66,6 +66,12 @@ export const getOrganizerAccess = cache(async (orgId: string): Promise<Organizer
     supabase.from("admin_users").select("user_id, role_tier").eq("user_id", user.id).eq("active", true).maybeSingle(),
   ])
 
+  // A failed query is not "no access". Treating it as one sent organisers to
+  // /403 when UAT's database lost its profiles column grants; surface it.
+  for (const [name, res] of [["org_members", membershipRes], ["event_staff", assignmentsRes], ["admin_users", adminRes]] as const) {
+    if (res.error) throw new Error(`Could not load organiser access (${name}): ${res.error.code ?? ""} ${res.error.message}`.trim())
+  }
+
   const resolved = resolveOrganizerAccess({
     storedRole: membershipRes.data?.role ? String(membershipRes.data.role) : null,
     assignments: (assignmentsRes.data ?? []) as Array<{ event_id: string; role: string | null }>,

@@ -4,6 +4,8 @@ import { notFound } from "next/navigation"
 import { addNoteAction, hideEventUpdateAction, pauseSalesAction, resumeSalesAction } from "@/app/super-admin/console-actions"
 import { Crumbs, Facts, NotesList, Panel, Pill, when, type Tone } from "@/components/super-admin/console-ui"
 import { GuardedAction, NoteForm } from "@/components/super-admin/GuardedAction"
+import { AssignEventAdminForm } from "@/components/super-admin/OnboardingForms"
+import { assignEventAdminAction } from "@/app/super-admin/onboarding/actions"
 import { humanFailureReason } from "@/lib/data/admin/console"
 import { getEvent360 } from "@/lib/data/admin/console-ops"
 import { getAdminContext, requireSuperAdmin } from "@/lib/super-admin/auth"
@@ -38,6 +40,16 @@ export default async function AdminEventPage({ params }: { params: Promise<{ id:
           </div>
         </div>
         <div className="flex flex-wrap gap-3 text-[13px]">
+          {event.org && role && role !== "read_only_admin" ? (
+            <Link href={`/orgs/${event.org.id}/events/${event.id}/edit`} className="font-semibold text-accent hover:underline">
+              Edit event
+            </Link>
+          ) : null}
+          {event.org ? (
+            <Link href={`/orgs/${event.org.id}/events/${event.id}`} className="text-accent hover:underline">
+              Event workspace
+            </Link>
+          ) : null}
           {event.slug ? (
             <Link href={`/events/${event.slug}`} className="text-accent hover:underline">
               Public page
@@ -219,6 +231,11 @@ export default async function AdminEventPage({ params }: { params: Promise<{ id:
             )}
           </Panel>
 
+          {canDo("create_organizers_events", role) ? (
+            <Panel title="Event admin" aside="Edits and runs this event">
+              <AssignEventAdminForm action={assignEventAdminAction} eventId={event.id} />
+            </Panel>
+          ) : null}
           <Panel title="Internal notes">
             <div className="flex flex-col gap-3">
               <NotesList notes={event.notes} />

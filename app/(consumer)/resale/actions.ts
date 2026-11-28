@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { assertFeatureEnabled } from "@/lib/feature-flags"
+import { eventIdForOrderItem, isFeatureEnabled, assertFeatureEnabled } from "@/lib/feature-flags"
+import { resaleCapMessage } from "@/lib/resale-cap"
 
 type PublishResaleListingState = {
   ok: false
@@ -34,6 +35,10 @@ export async function publishResaleListing(
 
   if (!ticketId) return { ok: false, message: "Ticket is missing. Please go back to My Tickets and try again." }
   if (!priceCents) return { ok: false, message: "Enter a valid listing price greater than zero." }
+  const ticketEventId = await eventIdForOrderItem(ticketId)
+  if (ticketEventId && !(await isFeatureEnabled("resale_enabled", { eventId: ticketEventId }))) {
+    return { ok: false, message: "Resale isn't available for this event." }
+  }
 
   const supabase = createServerSupabaseClient()
   if (!supabase) return { ok: false, message: "Ticketiv could not connect. Please try again." }
@@ -53,6 +58,9 @@ export async function publishResaleListing(
   })
 
   if (error) {
+    if (String(error.message).includes("resale_price_above_cap")) {
+      return { ok: false, message: resaleCapMessage(error.details) }
+    }
     console.error("[resale] publish listing:", error)
     return {
       ok: false,

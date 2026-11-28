@@ -7,6 +7,15 @@ import { getDeltaPayWalletConfig } from "@/lib/payments/deltapay-wallet"
 import { isCheckoutProvider } from "@/lib/payments/providers/catalog"
 import { getProviderProductionReadiness } from "@/lib/payments/provider-readiness"
 import { getChatwootConfig } from "@/lib/support/chatwoot"
+import { deltaPayPayoutsAvailable } from "@/lib/payouts/deltapay-payouts"
+import {
+  decryptIntegrationSecrets,
+  layerIntegrationEnv,
+  loadIntegrationConfigs,
+  pickChannelProvider,
+  type IntegrationSource,
+  type StoredIntegrationConfig,
+} from "@/lib/integrations/runtime"
 
 /**
  * The state of every integration, for the admin console. Built from the same
@@ -30,11 +39,16 @@ export interface IntegrationStatus {
   settings: IntegrationDescriptor["settings"]
   selectedBy?: IntegrationDescriptor["selectedBy"]
   consoleConfigurable: boolean
+  consoleMode: IntegrationDescriptor["consoleMode"]
+  /** The card's on/off switch as the app sees it right now. */
+  switchedOn: boolean
+  /** Where its settings come from. */
+  source: IntegrationSource
   /** Payments only: the production-readiness gate (TICK-400). */
   readiness?: { badge: string; tone: Tone; detail: string }
 }
 
-function base(integration: IntegrationDescriptor) {
+function base(integration: IntegrationDescriptor, switchedOn = false, source: IntegrationSource = "environment") {
   return {
     id: integration.id,
     kind: integration.kind,
@@ -42,33 +56,45 @@ function base(integration: IntegrationDescriptor) {
     purpose: integration.purpose,
     settings: integration.settings,
     selectedBy: integration.selectedBy,
-    consoleConfigurable: Boolean(integration.consoleConfigurable),
+    consoleConfigurable: Boolean(integration.consoleConfigurable || integration.consoleMode === "full"),
+    consoleMode: integration.consoleMode,
+    switchedOn,
+    source,
   }
 }
 
 /** Pure: badge and summary from environment presence alone (email, SMS, WhatsApp, push). */
-export function channelStatus(integration: IntegrationDescriptor, env: EnvSnapshot): IntegrationStatus {
+export function channelStatus(integration: IntegrationDescriptor, env: EnvSnapshot, source: IntegrationSource = "environment"): IntegrationStatus {
+  if (source === "off") {
+    return { ...base(integration, false, "off"), badge: "Off", tone: "muted", summary: "Switched off. Nothing is sent on this channel through this provider.", missing: [] }
+  }
   const state = envStatus(integration, env)
   if (integration.selectedBy && !state.selected) {
     return {
-      ...base(integration),
+      ...base(integration, false, source),
       badge: "Not selected",
       tone: "muted",
-      summary: `Set ${integration.selectedBy.name}=${integration.selectedBy.value} to use this provider.`,
+      summary: `Not in use. Switch it on to use it instead of the current ${integration.kind === "sms" ? "SMS" : "WhatsApp"} provider (or set ${integration.selectedBy.name}=${integration.selectedBy.value} in Coolify).`,
       // Not in use, so its unset settings aren't a problem worth highlighting.
       missing: [],
     }
   }
   if (state.missing.length > 0) {
     return {
-      ...base(integration),
+      ...base(integration, true, source),
       badge: integration.selectedBy ? "Incomplete" : "Not configured",
       tone: "warning",
       summary: `Missing ${state.missing.join(", ")}. Messages on this channel are skipped until it is set.`,
       missing: state.missing,
     }
   }
-  return { ...base(integration), badge: "Active", tone: "success", summary: "Configured and in use.", missing: [] }
+  return {
+    ...base(integration, true, source),
+    badge: "Active",
+    tone: "success",
+    summary: source === "console" ? "Configured here and in use." : "Configured through the Coolify environment and in use.",
+    missing: [],
+  }
 }
 
 async function paymentStatus(
@@ -95,7 +121,7 @@ async function paymentStatus(
 
   if (!option) {
     return {
-      ...base(integration),
+      ...base(integration, false),
       badge: "Unknown",
       tone: "muted",
       summary: "Payment availability couldn't be checked.",
@@ -109,7 +135,7 @@ async function paymentStatus(
   const badge = option.operational ? "Active" : option.enabled ? "Incomplete" : "Off"
   const tone: Tone = option.operational ? "success" : option.enabled ? "warning" : "muted"
   return {
-    ...base(integration),
+    ...base(integration, option.enabled, integration.consoleMode === "full" ? "console" : "environment"),
     badge,
     tone,
     summary: option.warning ?? "Offered at checkout where the event allows it.",
@@ -118,13 +144,16 @@ async function paymentStatus(
   }
 }
 
-function payoutStatus(integration: IntegrationDescriptor, env: EnvSnapshot): IntegrationStatus {
+async function payoutStatus(integration: IntegrationDescriptor, env: EnvSnapshot, row: StoredIntegrationConfig | null): Promise<IntegrationStatus> {
   const { missing } = envStatus(integration, env)
   const config = getDeltaPayWalletConfig()
-  return config.operational
-    ? { ...base(integration), badge: "Active", tone: "success", summary: "Payouts can be sent from the payouts queue.", missing: [] }
+  if (row?.enabled === false) {
+    return { ...base(integration, false, "off"), badge: "Off", tone: "muted", summary: "Switched off here. No payouts are sent over DeltaPay.", missing: [] }
+  }
+  return (await deltaPayPayoutsAvailable())
+    ? { ...base(integration, true), badge: "Active", tone: "success", summary: "Payouts can be sent from the payouts queue.", missing: [] }
     : {
-        ...base(integration),
+        ...base(integration, true),
         badge: "Off",
         tone: missing.length ? "warning" : "muted",
         summary: config.problems.join(" ") || "Payouts over DeltaPay are switched off.",
@@ -134,9 +163,12 @@ function payoutStatus(integration: IntegrationDescriptor, env: EnvSnapshot): Int
 
 async function supportStatus(integration: IntegrationDescriptor): Promise<IntegrationStatus> {
   const config = await getChatwootConfig()
+  if (config.source === "off") {
+    return { ...base(integration, false, "off"), badge: "Off", tone: "muted", summary: "Switched off. Cases doesn't load conversations.", missing: [] }
+  }
   if (config.ok) {
     return {
-      ...base(integration),
+      ...base(integration, true, config.source),
       badge: "Active",
       tone: "success",
       summary: config.source === "console" ? "Connected from this console." : "Connected through the CHATWOOT_* environment variables.",
@@ -144,7 +176,7 @@ async function supportStatus(integration: IntegrationDescriptor): Promise<Integr
     }
   }
   return {
-    ...base(integration),
+    ...base(integration, false, config.source),
     badge: "Not connected",
     tone: "warning",
     summary: config.problem ?? `Missing ${config.missing.join(", ")}. Connect it below.`,
@@ -158,17 +190,29 @@ export async function getIntegrationStatuses(env: EnvSnapshot = process.env): Pr
     return null
   })
 
+  const rows = await loadIntegrationConfigs()
+
   return Promise.all(
     INTEGRATIONS.map((integration) => {
+      const row = rows.get(integration.id) ?? null
       switch (integration.kind) {
         case "payments":
           return paymentStatus(integration, env, options)
         case "payouts":
-          return payoutStatus(integration, env)
+          return payoutStatus(integration, env, row)
         case "support":
           return supportStatus(integration)
-        default:
-          return channelStatus(integration, env)
+        default: {
+          const secrets = row?.enabled ? decryptIntegrationSecrets(row.secretsEncrypted) : {}
+          const resolved = layerIntegrationEnv(integration, row, secrets, env)
+          if (integration.selectedBy && resolved.source !== "off") {
+            // Selection follows the runtime rule: a switched-on card wins over the env selector.
+            const active = pickChannelProvider(integration.kind, rows, env)
+            const selectedEnv = { ...resolved.env, [integration.selectedBy.name]: active?.id === integration.id ? integration.selectedBy.value : "" }
+            return channelStatus(integration, selectedEnv, resolved.source)
+          }
+          return channelStatus(integration, resolved.env, resolved.source)
+        }
       }
     }),
   )

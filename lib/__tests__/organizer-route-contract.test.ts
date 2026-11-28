@@ -35,7 +35,8 @@ describe("organizer route contract", () => {
     const source = readFileSync(at("app/orgs/[orgId]/events/[eventId]/page.tsx"), "utf8")
     expect(source).toContain(`/orgs/\${orgId}/events/\${eventId}/edit?step=tickets`)
     expect(source).toContain(`/orgs/\${orgId}/events/\${eventId}/orders`)
-    expect(source).toContain(`/orgs/\${orgId}/events/\${eventId}/scanner`)
+    // Event night: one Door page (scanner, guestlist, box office, live, scan history).
+    expect(source).toContain(`/orgs/\${orgId}/events/\${eventId}/door`)
     expect(source).toContain(`/orgs/\${orgId}/finance`)
     expect(source).toContain(`/orgs/\${orgId}/events/\${eventId}/edit?step=basics`)
   })

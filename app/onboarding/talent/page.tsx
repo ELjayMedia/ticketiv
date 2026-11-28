@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { Suspense, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 
 import { Button } from "@/components/quiet/ui/button"
@@ -10,13 +10,16 @@ import { FormField } from "@/components/quiet/ui/form"
 import { Icon } from "@/components/quiet/ui/icon"
 import { Logo } from "@/components/Logo"
 import { createTalentProfileAction } from "./actions"
+import { ArtistClaim } from "@/components/artists/artist-claim"
 
-export default function TalentOnboardingPage() {
+function TalentOnboarding() {
   const router = useRouter()
   const [name, setName] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [done, setDone] = useState(false)
+  const searchParams = useSearchParams()
+  const [claimQuery, setClaimQuery] = useState(() => (searchParams?.get("claim") ?? "").slice(0, 120))
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -29,12 +32,14 @@ export default function TalentOnboardingPage() {
     const result = await createTalentProfileAction({ name })
     if (!result.ok) {
       setError(result.error)
+      // The name is already on a line-up: search for it so they can claim it.
+      if (result.existingArtistId) setClaimQuery(name.trim())
       setLoading(false)
       return
     }
     setDone(true)
-    // Land on the talent profile — the Talent context's home.
-    router.push(`/artists/${result.artistId}`)
+    // Land in the artist workspace — the Talent context's home (TICK-484).
+    router.push(`/manage/artists/${result.artistId}`)
   }
 
   return (
@@ -93,6 +98,8 @@ export default function TalentOnboardingPage() {
           </CardBody>
         </Card>
 
+        <ArtistClaim initialQuery={claimQuery} />
+
         <Card flat className="bg-bg">
           <CardBody>
             <p className="text-[12px] text-ink-3">
@@ -103,5 +110,14 @@ export default function TalentOnboardingPage() {
         </Card>
       </section>
     </main>
+  )
+}
+
+// useSearchParams (?claim=) needs a Suspense boundary for static rendering.
+export default function TalentOnboardingPage() {
+  return (
+    <Suspense fallback={null}>
+      <TalentOnboarding />
+    </Suspense>
   )
 }

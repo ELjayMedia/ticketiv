@@ -37,6 +37,12 @@ const CASES: {
     body: "Gate staff record the scan time and device, then support reviews ticket status before escalating to event operations.",
     asks: ["Ticket code", "Gate or scanner lane", "Arrival time"],
   },
+  {
+    icon: "shield",
+    title: "Fake or scam resale ticket",
+    body: "Report tickets offered outside Ticketiv or a listing that looks wrong. Support checks the ticket code and, if it is real, whether it was already transferred; only Ticketiv resales issue the buyer a fresh code.",
+    asks: ["Where it was offered (link or number)", "Ticket code you were sent", "Event name", "Amount paid"],
+  },
 ]
 
 const SLA_ITEMS = [
@@ -52,7 +58,7 @@ export default function BuyerSupportPage() {
   )
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 lg:px-6 lg:py-10">
+    <main className="page-frame flex flex-col gap-6 py-8 *:max-w-3xl lg:py-10">
       <header className="flex flex-col gap-2">
         <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Support</span>
         <h1 className="text-h1">Buyer support</h1>

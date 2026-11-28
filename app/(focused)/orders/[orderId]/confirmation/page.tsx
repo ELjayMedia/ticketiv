@@ -3,6 +3,8 @@ import { OrderConfirmation } from "@/components/quiet/screens/confirmation/order
 import { RealtimeOrderStatus } from "@/components/quiet/screens/confirmation/realtime-order-status";
 import { SaveMyTicketsCard } from "@/components/quiet/screens/tickets/save-my-tickets-card";
 import { PaymentOutcomeTracker } from "@/components/analytics/buyer-funnel";
+import { PostPurchaseFollow } from "@/components/follows/post-purchase-follow";
+import { getFollowSnapshot } from "@/lib/data/public/follows";
 import { getOrderForBuyer } from "@/lib/data/attendee/orders";
 import { mapConfirmation } from "@/lib/mappers/confirmation";
 import { reconcileVerifiedPaystackReturn } from "@/lib/payments/paystack-return";
@@ -64,6 +66,22 @@ export default async function ConfirmationPage({
   const isAnonymous = Boolean(user && (user as { is_anonymous?: boolean }).is_anonymous);
   const defaultClaimEmail = order.buyer_email ?? "";
 
+  // Follow prompt for signed-in buyers once the order is paid (TICK-434).
+  // Guest-checkout sessions get the save-my-tickets card instead.
+  let organiser: { id: string; name: string; following: boolean; followerCount: number } | null = null;
+  if (supabase && user && !isAnonymous && props.state === "paid" && order.event_id) {
+    const { data: event } = await supabase
+      .from("events")
+      .select("org_id, organizations(name)")
+      .eq("id", order.event_id)
+      .maybeSingle();
+    const org = (event as { org_id?: string; organizations?: { name?: string } | null } | null) ?? null;
+    if (org?.org_id && org.organizations?.name) {
+      const snap = await getFollowSnapshot("organizer", org.org_id);
+      organiser = { id: org.org_id, name: org.organizations.name, following: snap.following, followerCount: snap.followerCount };
+    }
+  }
+
   return (
     <div className="h-dvh">
       <RealtimeOrderStatus orderId={orderId} active={props.state === "pending"} />
@@ -75,6 +93,15 @@ export default async function ConfirmationPage({
         totalMinor={props.totalMinor}
       />
       <OrderConfirmation order={props} />
+      {organiser && (
+        <PostPurchaseFollow
+          orgId={organiser.id}
+          orgName={organiser.name}
+          following={organiser.following}
+          followerCount={organiser.followerCount}
+          returnTo={`/orders/${orderId}/confirmation`}
+        />
+      )}
       {isAnonymous && props.state !== "pending" && (
         <div className="mx-auto max-w-[480px] px-4 pb-6">
           <SaveMyTicketsCard defaultEmail={defaultClaimEmail} />

@@ -157,7 +157,6 @@ const nextConfig = {
   async redirects() {
     return [
       { source: "/events", destination: "/browse", permanent: false },
-      { source: "/artists", destination: "/search", permanent: false },
       { source: "/categories", destination: "/browse", permanent: false },
       // US spelling of the public organisers directory.
       { source: "/organizers", destination: "/organisers", permanent: true },

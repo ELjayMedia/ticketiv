@@ -2,13 +2,30 @@ import "server-only"
 
 import webpush from "web-push"
 import { SUPPORT_EMAIL } from "@ticketiv/shared"
+import { resolveIntegration } from "@/lib/integrations/runtime"
 import { createAdminClient } from "@/lib/supabase/admin"
 
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY ?? ""
+// VAPID keys come from the admin console (Integrations › Web Push) when saved
+// there, else NEXT_PUBLIC_VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY. They're read at
+// send time and passed per request, so a change needs no redeploy.
 
-if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(`mailto:${SUPPORT_EMAIL}`, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
+export interface VapidKeys {
+  publicKey: string
+  privateKey: string
+}
+
+/** The VAPID pair in use, or null when push is switched off or not set up. */
+export async function getVapidKeys(): Promise<VapidKeys | null> {
+  const resolved = await resolveIntegration("web_push")
+  if (resolved.source === "off") return null
+  const publicKey = resolved.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim() ?? ""
+  const privateKey = resolved.env.VAPID_PRIVATE_KEY?.trim() ?? ""
+  return publicKey && privateKey ? { publicKey, privateKey } : null
+}
+
+/** Throws when the pair isn't a valid VAPID key pair (web-push validates lengths and encoding). */
+export function assertVapidKeys(keys: VapidKeys) {
+  webpush.getVapidHeaders("https://fcm.googleapis.com", `mailto:${SUPPORT_EMAIL}`, keys.publicKey, keys.privateKey, "aes128gcm")
 }
 
 export interface PushPayload {
@@ -19,9 +36,9 @@ export interface PushPayload {
   icon?: string
 }
 
-/** True when the server can send Web Push (both VAPID keys are set). */
-export function isPushSendingConfigured(): boolean {
-  return Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY)
+/** True when the server can send Web Push (both VAPID keys are set and push is on). */
+export async function isPushSendingConfigured(): Promise<boolean> {
+  return (await getVapidKeys()) !== null
 }
 
 /**
@@ -31,7 +48,9 @@ export function isPushSendingConfigured(): boolean {
  * Returns how many devices accepted it.
  */
 export async function sendPushToUser(userId: string, payload: PushPayload): Promise<number> {
-  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return 0
+  const keys = await getVapidKeys()
+  if (!keys) return 0
+  const vapidDetails = { subject: `mailto:${SUPPORT_EMAIL}`, publicKey: keys.publicKey, privateKey: keys.privateKey }
 
   const admin = createAdminClient()
   if (!admin) return 0
@@ -53,6 +72,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
           message,
+          { vapidDetails },
         )
         delivered += 1
       } catch (err: unknown) {

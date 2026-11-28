@@ -37,7 +37,7 @@ export function AccountSettingsScreen({ settings, initialTab = "profile" }: { se
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-8 lg:px-6 lg:py-10">
+    <main className="page-frame flex flex-col gap-5 py-8 *:max-w-3xl lg:py-10">
       <header className="flex flex-col gap-1">
         <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Account</span>
         <h1 className="text-h1">Settings</h1>

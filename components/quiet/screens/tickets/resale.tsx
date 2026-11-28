@@ -6,6 +6,7 @@ import { Icon } from "@/components/quiet/ui/icon";
 import { Card } from "@/components/quiet/ui/card";
 import { Photo, Divider } from "@/components/quiet/ui/primitives";
 import { formatPrice } from "@/lib/format";
+import { publishResaleListing } from "@/app/(consumer)/resale/actions";
 
 /* ──────────────────────────────────────────────────────────────
  * `/tickets/[id]/resale` — port of QuietResale
@@ -47,6 +48,7 @@ export function Resale({
   capRate = 1.1,
 }: ResaleProps) {
   const [askMinor, setAskMinor] = React.useState(0);
+  const [state, formAction, pending] = React.useActionState(publishResaleListing, null);
 
   if (!ticket) {
     return (
@@ -61,7 +63,8 @@ export function Resale({
     );
   }
 
-  const capMinor = Math.round(ticket.faceMinor * capRate);
+  // Same rounding as fn_publish_resale_listing (floor), so the slider never offers a refused price.
+  const capMinor = Math.floor(ticket.faceMinor * capRate);
   const feeMinor = Math.round(askMinor * feeRate);
   const payoutMinor = askMinor - feeMinor;
 
@@ -205,20 +208,31 @@ export function Resale({
         <div className="h-24" />
       </div>
 
-      <div className="sticky bottom-0 flex items-center gap-2 border-t border-line bg-surface px-5 py-3.5 pb-7">
-        <Link
-          href={`/tickets/${ticket.id}`}
-          className="flex flex-1 items-center justify-center rounded-[var(--radius-md)] border border-line-2 bg-surface px-4 py-3.5 text-[14px] font-semibold hover:bg-bg"
-        >
-          Cancel
-        </Link>
-        <button
-          disabled={askMinor <= 0 || askMinor > capMinor}
-          className="flex flex-[2] items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          List for {formatPrice(askMinor)} <Icon name="arrowR" size={16} />
-        </button>
-      </div>
+      <form action={formAction} className="sticky bottom-0 flex flex-col gap-2 border-t border-line bg-surface px-5 py-3.5 pb-7">
+        <input type="hidden" name="ticketId" value={ticket.id} />
+        <input type="hidden" name="price" value={(askMinor / 100).toFixed(2)} />
+        <input type="hidden" name="expiresIn" value="24" />
+        {state && !state.ok ? (
+          <p role="alert" className="rounded-md bg-danger-soft px-3 py-2 text-[12px] text-danger">
+            {state.message}
+          </p>
+        ) : null}
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/tickets/${ticket.id}`}
+            className="flex flex-1 items-center justify-center rounded-[var(--radius-md)] border border-line-2 bg-surface px-4 py-3.5 text-[14px] font-semibold hover:bg-bg"
+          >
+            Cancel
+          </Link>
+          <button
+            type="submit"
+            disabled={pending || askMinor <= 0 || askMinor > capMinor}
+            className="flex flex-[2] items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 py-3.5 text-[14px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {pending ? "Listing…" : <>List for {formatPrice(askMinor)} <Icon name="arrowR" size={16} /></>}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

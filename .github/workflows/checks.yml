@@ -71,8 +71,9 @@ jobs:
       - name: Start isolated verification database
         uses: ./.github/actions/start-isolated-supabase
 
-      - name: Verify public security controls on isolated database
-        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -X -v ON_ERROR_STOP=1 -f supabase/tests/security_public_surface.sql
+      - name: Verify database harnesses on isolated database
+        # Every supabase/tests/*.sql except those listed in supabase/tests/.gate-exclude.
+        run: scripts/ci/run-sql-harnesses.sh "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
 
       # Pull-request checks never receive deployment or production credentials.
       # check:release includes check:permissions. The invariants over the

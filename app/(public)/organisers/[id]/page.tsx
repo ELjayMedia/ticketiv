@@ -1,9 +1,12 @@
+import { getOrganizerRating } from "@/lib/data/reviews"
 import { notFound } from "next/navigation"
 
 import { EventCardStandard as EventCard, type EventCardData } from "@/components/standardized/event-card-standard"
 import { Card } from "@/components/quiet/ui/card"
 import { Chip } from "@/components/quiet/ui/chip"
 import { getOrganiserDetail, getOrganiserEvents } from "@/lib/data/public"
+import { getFollowSnapshot } from "@/lib/data/public/follows"
+import { FollowButton } from "@/components/follows/follow-button"
 
 interface OrganizerPageProps {
   params: Promise<{ id: string }>
@@ -14,7 +17,7 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
   const organizer = await getOrganiserDetail(id)
   if (!organizer) notFound()
 
-  const events = await getOrganiserEvents(id)
+  const [events, follow, rating] = await Promise.all([getOrganiserEvents(id), getFollowSnapshot("organizer", organizer.id), getOrganizerRating(organizer.id)])
   const currentEvents = events.filter((event: any) => event.lifecycle === "upcoming" || event.lifecycle === "live")
   const pastEvents = events.filter((event: any) => event.lifecycle === "ended")
   const cancelledEvents = events.filter((event: any) => event.lifecycle === "cancelled")
@@ -41,7 +44,7 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
   const organizerCancelledEvents: EventCardData[] = cancelledEvents.map(mapEvent)
 
   return (
-    <main className="mx-auto flex w-full max-w-[1200px] flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+    <main className="page-frame flex flex-col gap-6 py-8 sm:py-12">
       <Card className="overflow-hidden">
         <div className="h-40 w-full bg-gradient-to-br from-accent-soft to-bg sm:h-56" />
         <div className="flex flex-col gap-4 px-5 pb-5 sm:flex-row sm:items-start sm:px-6 sm:pb-6">
@@ -57,9 +60,19 @@ export default async function OrganizerPage({ params }: OrganizerPageProps) {
           <div className="flex flex-1 flex-col gap-2 pt-2">
             <Chip size="sm" variant="default" className="w-fit">Event organiser</Chip>
             <h1 className="text-h1 sm:text-[28px]">{organizer.name}</h1>
+            {rating?.average != null && <p>★ {rating.average.toFixed(1)} from {rating.count} verified reviews</p>}
             {organizer.bio && (
               <p className="line-clamp-2 text-[14px] leading-relaxed text-ink-3">{organizer.bio}</p>
             )}
+            <FollowButton
+              kind="organizer"
+              id={organizer.id}
+              name={organizer.name}
+              initialFollowing={follow.following}
+              initialCount={follow.followerCount}
+              signedIn={follow.signedIn}
+              returnTo={`/organisers/${id}`}
+            />
           </div>
         </div>
       </Card>

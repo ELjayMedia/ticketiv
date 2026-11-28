@@ -9,6 +9,7 @@ import { formatSeriesDateRange } from "@/lib/series/date-range"
 import { SeriesEventRow } from "@/components/series/series-event-row"
 import { PastEventsAccordion } from "@/components/series/past-events-accordion"
 import { SeriesFollowButton } from "@/components/series/series-follow-button"
+import { publicFollowerCount } from "@/lib/follows/threshold"
 
 export const dynamic = "force-dynamic"
 
@@ -101,9 +102,9 @@ export default async function SeriesPage({ params }: SeriesPageProps) {
             <span />
           )}
           <div className="flex items-center gap-3">
-            {followState.followerCount > 0 && (
+            {publicFollowerCount(followState.followerCount) !== null && (
               <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                {followState.followerCount} follower{followState.followerCount === 1 ? "" : "s"}
+                {followState.followerCount.toLocaleString("en-GB")} followers
               </span>
             )}
             <SeriesFollowButton

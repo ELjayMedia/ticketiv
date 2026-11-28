@@ -54,7 +54,7 @@ export function ConsumerFrame({
       </main>
 
       <footer className="border-t border-line bg-surface">
-        <div className="mx-auto flex max-w-[1280px] flex-col gap-4 px-5 py-6 pb-28 md:flex-row md:items-center md:justify-between md:px-10 md:pb-6">
+        <div className="page-frame flex flex-col gap-4 py-6 pb-28 md:flex-row md:items-center md:justify-between md:pb-6">
           <div>
             <p className="text-[13px] font-semibold text-ink">Ticketiv</p>
             <p className="mt-1 text-[12px] text-ink-3">

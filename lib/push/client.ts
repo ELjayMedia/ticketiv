@@ -8,16 +8,25 @@
 //   3. subscribe via PushManager using the VAPID public key,
 //   4. hand the subscription to the server to persist (storePushSubscription).
 //
-// The VAPID public key is read from NEXT_PUBLIC_VAPID_PUBLIC_KEY. Until that key
-// is provisioned (see TICK-214 Jira comment) capability checks report the
-// feature as unavailable rather than throwing, so callers can hide/disable the
-// opt-in affordance cleanly.
+// The VAPID public key is fetched from /api/push/public-key at run time (so a
+// key saved in the admin console works without a rebuild). Until a key is
+// provisioned, capability checks report the feature as unavailable rather than
+// throwing, so callers can hide/disable the opt-in affordance cleanly.
 
 export type PushOptInResult =
   | { ok: true }
   | { ok: false; reason: "unsupported" | "denied" | "unconfigured" | "error"; message: string }
 
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""
+let publicKeyRequest: Promise<string> | null = null
+
+/** The server's VAPID public key, or "" when push isn't set up. Fetched once per page load. */
+function getVapidPublicKey(): Promise<string> {
+  publicKeyRequest ??= fetch("/api/push/public-key", { cache: "no-store" })
+    .then(async (res) => (res.ok ? (((await res.json()) as { publicKey?: unknown }).publicKey ?? "") : ""))
+    .then((key) => (typeof key === "string" ? key : ""))
+    .catch(() => "")
+  return publicKeyRequest
+}
 
 /** True when the browser exposes the APIs Web Push needs. */
 export function isPushSupported(): boolean {
@@ -30,8 +39,8 @@ export function isPushSupported(): boolean {
 }
 
 /** True when a VAPID key is configured (i.e. the server sender can be wired up). */
-export function isPushConfigured(): boolean {
-  return VAPID_PUBLIC_KEY.length > 0
+export async function isPushConfigured(): Promise<boolean> {
+  return (await getVapidPublicKey()).length > 0
 }
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
@@ -70,7 +79,8 @@ export async function enableWaitlistPush(
   if (!isPushSupported()) {
     return { ok: false, reason: "unsupported", message: "Push notifications are not supported on this device." }
   }
-  if (!isPushConfigured()) {
+  const vapidPublicKey = await getVapidPublicKey()
+  if (!vapidPublicKey) {
     return {
       ok: false,
       reason: "unconfigured",
@@ -91,7 +101,7 @@ export async function enableWaitlistPush(
       (await registration.pushManager.getSubscription()) ??
       (await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
       }))
 
     const json = subscription.toJSON()

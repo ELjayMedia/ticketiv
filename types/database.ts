@@ -6,6 +6,18 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+type PublicEventReview = {
+  id: string
+  event_id: string
+  rating: number
+  body: string | null
+  tags: string[]
+  org_reply: string | null
+  org_reply_at: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
@@ -14,6 +26,32 @@ export type Database = {
   }
   public: {
     Tables: {
+      event_reviews: {
+        Row: PublicEventReview & {
+          status: string
+          report_count: number
+          user_id: string
+          org_reply_by: string | null
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      user_reports: {
+        Row: {
+          id: string
+          reporter_id: string
+          reported_id: string | null
+          reason: string
+          created_at: string
+          review_id: string | null
+          resolved_at: string | null
+          resolution: string | null
+        }
+        Insert: { reporter_id: string; reported_id: string; reason: string }
+        Update: never
+        Relationships: []
+      }
       admin_action_catalog: {
         Row: {
           backend_function: string | null
@@ -6380,45 +6418,138 @@ export type Database = {
         }
         Relationships: []
       }
+      venue_claims: {
+        Row: {
+          claimant_id: string
+          claimant_role: string
+          contact_phone: string | null
+          created_at: string
+          evidence: string
+          id: string
+          kind: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+          venue_id: string
+        }
+        Insert: {
+          claimant_id: string
+          claimant_role: string
+          contact_phone?: string | null
+          created_at?: string
+          evidence: string
+          id?: string
+          kind?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          venue_id: string
+        }
+        Update: {
+          claimant_id?: string
+          claimant_role?: string
+          contact_phone?: string | null
+          created_at?: string
+          evidence?: string
+          id?: string
+          kind?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          venue_id?: string
+        }
+        Relationships: []
+      }
+      venue_members: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          role: string
+          user_id: string
+          venue_id: string
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          role: string
+          user_id: string
+          venue_id: string
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          role?: string
+          user_id?: string
+          venue_id?: string
+        }
+        Relationships: []
+      }
       venues: {
         Row: {
           address: string | null
           capacity: number | null
           city: string | null
           city_key: string | null
+          contact_email: string | null
+          contact_phone: string | null
           created_at: string | null
+          description: string | null
           id: string
           name: string
           name_key: string | null
           org_id: string | null
           slug: string
           tz: string | null
+          verification_status: string
+          venue_type: string | null
+          verified_at: string | null
+          website: string | null
         }
         Insert: {
           address?: string | null
           capacity?: number | null
           city?: string | null
           city_key?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string | null
+          description?: string | null
           id?: string
           name: string
           name_key?: string | null
           org_id?: string | null
           slug: string
           tz?: string | null
+          verification_status?: string
+          venue_type?: string | null
+          verified_at?: string | null
+          website?: string | null
         }
         Update: {
           address?: string | null
           capacity?: number | null
           city?: string | null
           city_key?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string | null
+          description?: string | null
           id?: string
           name?: string
           name_key?: string | null
           org_id?: string | null
           slug?: string
           tz?: string | null
+          verification_status?: string
+          venue_type?: string | null
+          verified_at?: string | null
+          website?: string | null
         }
         Relationships: []
       }
@@ -6725,6 +6856,7 @@ export type Database = {
       }
     }
     Views: {
+      v_public_event_reviews: { Row: PublicEventReview; Relationships: [] }
       admin_attention_queue: {
         Row: {
           created_at: string | null
@@ -7961,6 +8093,28 @@ export type Database = {
       }
     }
     Functions: {
+      fn_save_sponsor: {
+        Args: { p_logo_url?: string | null; p_name?: string | null; p_org_id: string; p_sponsor_id?: string | null; p_website_url?: string | null }
+        Returns: string
+      }
+      fn_admin_update_sponsor: {
+        Args: { p_clear_logo?: boolean; p_logo_url?: string | null; p_name: string; p_sponsor_id: string; p_website_url?: string | null }
+        Returns: undefined
+      }
+      fn_event_set_sponsors: {
+        Args: { p_event_id: string; p_sponsors: Json }
+        Returns: number
+      }
+      fn_public_event_sponsors: {
+        Args: { p_event_id: string }
+        Returns: { featured: boolean; logo_url: string | null; name: string; website_url: string | null }[]
+      }
+      fn_event_review_access: { Args: { p_event_id: string }; Returns: { can_review: boolean; can_reply: boolean } }
+      fn_submit_event_review: { Args: { p_event_id: string; p_rating: number; p_body: string; p_tags: string[] }; Returns: string }
+      fn_reply_event_review: { Args: { p_review_id: string; p_reply: string }; Returns: undefined }
+      fn_report_event_review: { Args: { p_review_id: string; p_reason: string }; Returns: string }
+      fn_moderate_event_review: { Args: { p_review_id: string; p_decision: string }; Returns: undefined }
+      fn_org_rating: { Args: { p_org_id: string }; Returns: { count: number; average: number | null } }
       admin_log_action: {
         Args: {
           p_action: Database["public"]["Enums"]["audit_action"]
@@ -8233,6 +8387,18 @@ export type Database = {
         Args: { p_currency?: string; p_name: string }
         Returns: Json
       }
+      fn_admin_create_organization: {
+        Args: { p_currency?: string; p_name: string; p_note: string; p_owner_user_id: string }
+        Returns: Json
+      }
+      fn_admin_create_event: {
+        Args: { p_admin_user_id?: string | null; p_note: string; p_org_id: string; p_title: string }
+        Returns: string
+      }
+      fn_admin_assign_event_admin: {
+        Args: { p_event_id: string; p_note: string; p_user_id: string }
+        Returns: undefined
+      }
       fn_create_organization_unchecked: {
         Args: { p_currency?: string; p_name: string }
         Returns: Json
@@ -8400,6 +8566,91 @@ export type Database = {
         }
         Returns: string
       }
+      fn_add_venue_member: {
+        Args: { p_email: string; p_role: string; p_venue_id: string }
+        Returns: string
+      }
+      fn_create_venue_profile: {
+        Args: {
+          p_address: string | null
+          p_capacity: number | null
+          p_city: string
+          p_contact_phone?: string | null
+          p_evidence: string
+          p_name: string
+        }
+        Returns: Json
+      }
+      fn_my_venue_claims: {
+        Args: never
+        Returns: {
+          created_at: string
+          id: string
+          kind: string
+          review_note: string | null
+          status: string
+          venue_id: string
+          venue_name: string
+        }[]
+      }
+      fn_remove_venue_member: {
+        Args: { p_user_id: string; p_venue_id: string }
+        Returns: undefined
+      }
+      fn_admin_assign_venue_member: {
+        Args: { p_note: string; p_role: string; p_user_id: string; p_venue_id: string; p_verify?: boolean }
+        Returns: Json
+      }
+      fn_admin_create_venue: {
+        Args: { p_address?: string | null; p_capacity?: number | null; p_city: string; p_name: string }
+        Returns: string
+      }
+      fn_admin_remove_venue_member: {
+        Args: { p_note: string; p_user_id: string; p_venue_id: string }
+        Returns: undefined
+      }
+      fn_admin_set_platform_flag: {
+        Args: { p_enabled: boolean; p_key: string }
+        Returns: undefined
+      }
+      fn_admin_add_flag_exclusion: {
+        Args: { p_event_id?: string | null; p_key: string; p_org_id?: string | null; p_reason?: string | null }
+        Returns: string
+      }
+      fn_admin_remove_flag_exclusion: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
+      fn_review_venue_claim: {
+        Args: { p_approve: boolean; p_claim_id: string; p_note?: string | null; p_replace_owner?: boolean }
+        Returns: Json
+      }
+      fn_search_claimable_venues: {
+        Args: { p_query: string }
+        Returns: { city: string | null; has_owner: boolean; id: string; name: string; verification_status: string }[]
+      }
+      fn_submit_venue_claim: {
+        Args: { p_claimant_role: string; p_contact_phone?: string | null; p_evidence: string; p_venue_id: string }
+        Returns: string
+      }
+      fn_update_venue_profile: {
+        Args: {
+          p_address: string | null
+          p_capacity: number | null
+          p_contact_email: string | null
+          p_contact_phone: string | null
+          p_description: string | null
+          p_venue_id: string
+          p_venue_type?: string | null
+          p_website: string | null
+        }
+        Returns: undefined
+      }
+      fn_venue_team: {
+        Args: { p_venue_id: string }
+        Returns: { created_at: string; display_name: string; role: string; user_id: string }[]
+      }
+      fn_withdraw_venue_claim: { Args: { p_claim_id: string }; Returns: undefined }
       fn_get_ticketiv_effective_roles: {
         Args: { p_user_id: string }
         Returns: {

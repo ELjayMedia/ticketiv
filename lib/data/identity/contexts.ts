@@ -1,4 +1,4 @@
-// Derives the set of "contexts" (Personal / Org / Talent / Scan / Admin) the
+// Derives the set of "contexts" (Personal / Org / Talent / Venue / Scan / Admin) the
 // current user can switch between, from fn_get_ticketiv_effective_roles (S1).
 // Single source of truth — see TICK-266.
 
@@ -8,10 +8,10 @@ import { getAuthUser } from "@/lib/auth/session"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import type { Database } from "@/types/database"
 
-export type ContextKind = "personal" | "org" | "talent" | "scan" | "admin"
+export type ContextKind = "personal" | "org" | "talent" | "venue" | "scan" | "admin"
 
 export interface UserContext {
-  /** Stable unique key: "personal" | "org:<id>" | "talent:<id>" | "scan" | "admin". */
+  /** Stable unique key: "personal" | "org:<id>" | "talent:<id>" | "venue:<id>" | "scan" | "admin". */
   key: string
   kind: ContextKind
   label: string
@@ -59,24 +59,32 @@ export async function loadContexts(
   if (rows.length === 0) return []
 
   const orgRows = rows.filter((r) => r.source === "org_members" && r.source_id)
-  const talentRows = rows.filter((r) => r.source === "artists.primary_user_id" && r.source_id)
+  // Owners (artists.primary_user_id) and managers (artist_members) both get the artist workspace.
+  const talentRows = rows.filter((r) => (r.source === "artists.primary_user_id" || r.source === "artist_members") && r.source_id)
+  const venueRows = rows.filter((r) => r.source === "venue_members" && r.source_id)
   const hasScan = rows.some((r) => r.source === "event_staff")
   const isSuperAdmin = rows.some((r) => r.source === "admin_users" && r.role_key === "super_admin")
 
   const orgIds = [...new Set(orgRows.map((r) => r.source_id as string))]
   const artistIds = [...new Set(talentRows.map((r) => r.source_id as string))]
+  const venueIds = [...new Set(venueRows.map((r) => r.source_id as string))]
 
-  const [orgsRes, artistsRes] = await Promise.all([
+  const [orgsRes, artistsRes, venuesRes] = await Promise.all([
     orgIds.length
       ? supabase.from("organizations").select("id, name").in("id", orgIds)
       : Promise.resolve({ data: [] as Array<{ id: string; name: string }> }),
     artistIds.length
       ? supabase.from("artists").select("id, name").in("id", artistIds)
       : Promise.resolve({ data: [] as Array<{ id: string; name: string }> }),
+    // Members can read their own venue row (venues_select_venue_member).
+    venueIds.length
+      ? supabase.from("venues").select("id, name").in("id", venueIds)
+      : Promise.resolve({ data: [] as Array<{ id: string; name: string }> }),
   ])
 
   const orgName = new Map((orgsRes.data ?? []).map((o) => [o.id, o.name]))
   const artistName = new Map((artistsRes.data ?? []).map((a) => [a.id, a.name]))
+  const venueName = new Map((venuesRes.data ?? []).map((v) => [v.id, v.name]))
 
   const contexts: UserContext[] = [
     { key: "personal", kind: "personal", label: "Personal", sublabel: "Your tickets", href: "/me" },
@@ -100,14 +108,27 @@ export async function loadContexts(
     })
   }
 
-  // Talent — one per artist.
+  // Talent — one per artist, into the artist workspace (TICK-484).
   for (const id of artistIds) {
+    const isOwner = talentRows.some((r) => r.source_id === id && r.source === "artists.primary_user_id")
     contexts.push({
       key: `talent:${id}`,
       kind: "talent",
       label: artistName.get(id) ?? "Talent",
-      sublabel: "Talent",
-      href: `/artists/${id}`,
+      sublabel: isOwner ? "Artist" : "Artist manager",
+      href: `/manage/artists/${id}`,
+    })
+  }
+
+  // Venues — one per venue membership (TICK-481), labelled with the role held.
+  for (const r of venueRows) {
+    const id = r.source_id as string
+    contexts.push({
+      key: `venue:${id}`,
+      kind: "venue",
+      label: venueName.get(id) ?? "Venue",
+      sublabel: r.role_label,
+      href: `/manage/venues/${id}`,
     })
   }
 

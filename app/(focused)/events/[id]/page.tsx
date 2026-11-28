@@ -4,6 +4,7 @@ import { LiveEventShell } from "@/components/quiet/screens/event-detail/live-eve
 import { HoldExpiredBanner } from "@/components/quiet/screens/event-detail/hold-expired-banner";
 import { RecordRecentlyViewed } from "@/components/quiet/screens/event-detail/record-recently-viewed";
 import { EventViewTracker } from "@/components/analytics/buyer-funnel";
+import { getOrganizerRating } from "@/lib/data/reviews";
 import { getPublicEventBySlug } from "@/lib/adapters/events";
 import { getPublicEventGuide, guidePlanFacts } from "@/lib/data/companion";
 import { mapEventDetail, mapDesktopEventDetail } from "@/lib/mappers/event-detail";
@@ -136,6 +137,7 @@ export default async function EventDetailPage({
   const planFacts = guidePlanFacts(await getPublicEventGuide(row.id), eventTimeZone(row.venue_tz));
 
   const trust = {
+    organizerRating: await getOrganizerRating(row.organizer_id),
     soldCount,
     attendeeCount,
     recentSoldCount,
@@ -151,6 +153,29 @@ export default async function EventDetailPage({
     refundPolicy,
     ...trust,
   });
+  // Link the venue name to its public page. venues RLS only returns a venue
+  // the public may see (verified, or hosting a public event), so a hidden
+  // venue simply stays unlinked.
+  const publicClient = row.venue_id ? createPublicSupabaseClient() : null;
+  if (row.venue_id && publicClient) {
+    const { data: venueRow } = await publicClient.from("venues").select("slug").eq("id", row.venue_id).maybeSingle();
+    const slug = (venueRow as { slug?: string | null } | null)?.slug ?? null;
+    mobile.venue = { ...mobile.venue, slug };
+    desktop.venue = { ...desktop.venue, slug };
+  }
+  // Sponsors the organiser added (public events only; featured first).
+  const sponsorClient = createPublicSupabaseClient();
+  const sponsorRes = sponsorClient ? await sponsorClient.rpc("fn_public_event_sponsors", { p_event_id: row.id }) : null;
+  if (sponsorRes?.error) console.error("[event] sponsors read failed", sponsorRes.error.message);
+  type SponsorRow = { name: string; logo_url: string | null; website_url: string | null; featured: boolean };
+  const sponsors = ((sponsorRes?.data ?? []) as SponsorRow[]).map((s) => ({
+    name: s.name,
+    logoUrl: s.logo_url,
+    websiteUrl: s.website_url,
+    featured: Boolean(s.featured),
+  }));
+  mobile.sponsors = sponsors;
+  desktop.sponsors = sponsors;
   if (planFacts.length) {
     mobile.facts = [...planFacts, ...mobile.facts];
     desktop.facts = [...planFacts, ...desktop.facts];

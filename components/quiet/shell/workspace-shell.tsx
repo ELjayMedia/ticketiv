@@ -238,7 +238,7 @@ function DesktopWorkspaceNav({
 
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-surface">
-      <div className="mx-auto flex max-w-[1400px] items-center gap-4 px-6 py-3 lg:px-10">
+      <div className="page-frame flex items-center gap-4 py-3">
         <Link href="/" className="flex items-center gap-2">
           <BrandLockup product={workspace === "scanner" ? "organizer" : "ticketiv"} />
         </Link>

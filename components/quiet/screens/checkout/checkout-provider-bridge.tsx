@@ -18,6 +18,14 @@ function writeProviderCookie(provider: string) {
   document.cookie = `${PAYMENT_PROVIDER_COOKIE}=${encodeURIComponent(provider)}; Path=/; Max-Age=1800; SameSite=Lax${secure}`
 }
 
+interface CheckoutPaymentPicker {
+  methods: ReadonlyArray<CheckoutProviderMethod>
+  selectedProvider: string
+  selectProvider: (id: CheckoutProviderMethod["id"]) => void
+}
+
+const CheckoutPaymentPickerContext = React.createContext<CheckoutPaymentPicker | null>(null)
+
 export function CheckoutProviderBridge({
   methods,
   eventId,
@@ -70,53 +78,71 @@ export function CheckoutProviderBridge({
     }
   }, [methods])
 
+  const picker = React.useMemo(
+    () => ({ methods, selectedProvider, selectProvider: setSelectedProvider }),
+    [methods, selectedProvider]
+  )
+
   return (
     <div ref={rootRef}>
-      {showDesktopPicker && (
-        <section className="mx-auto max-w-[1100px] px-10 pt-6">
-          <div className="rounded-[var(--radius-lg)] border border-line bg-surface p-4">
-            <div className="mb-3">
-              <h2 className="text-[16px] font-semibold">Payment method</h2>
-              <p className="mt-0.5 font-mono text-[11px] text-ink-3">
-                Choose how you want to pay. Only methods accepted by this organizer are shown.
-              </p>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {methods.map((method) => {
-                const selected = selectedProvider === method.id
-                return (
-                  <button
-                    key={method.id}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => setSelectedProvider(method.id)}
-                    className={
-                      "flex items-start gap-3 rounded-[var(--radius-md)] border p-3 text-left transition-colors " +
-                      (selected
-                        ? "border-accent bg-accent-soft"
-                        : "border-line bg-surface hover:border-line-2")
-                    }
-                  >
-                    <span
-                      className={
-                        "mt-0.5 inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2 bg-surface " +
-                        (selected ? "border-accent" : "border-line-2")
-                      }
-                    >
-                      {selected && <span className="h-2 w-2 rounded-full bg-accent" />}
-                    </span>
-                    <span className="flex flex-col">
-                      <span className="text-[14px] font-semibold">{method.label}</span>
-                      <span className="font-mono text-[11px] text-ink-3">{method.sub}</span>
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </section>
+      {showDesktopPicker ? (
+        <CheckoutPaymentPickerContext.Provider value={picker}>
+          {children}
+        </CheckoutPaymentPickerContext.Provider>
+      ) : (
+        children
       )}
-      {children}
+    </div>
+  )
+}
+
+/** Methods offered by the enclosing desktop bridge; empty elsewhere. */
+export function useCheckoutPaymentMethods(): ReadonlyArray<CheckoutProviderMethod> {
+  return React.useContext(CheckoutPaymentPickerContext)?.methods ?? []
+}
+
+/**
+ * Desktop payment-method choices. Rendered by DesktopCheckout inside its form
+ * column; the bridge above owns the selection, the provider cookie and the
+ * funnel event. Renders nothing outside a desktop bridge or with no methods.
+ */
+export function DesktopPaymentMethodPicker() {
+  const picker = React.useContext(CheckoutPaymentPickerContext)
+  if (!picker || picker.methods.length === 0) return null
+  const { methods, selectedProvider, selectProvider } = picker
+
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {methods.map((method) => {
+        const selected = selectedProvider === method.id
+        return (
+          <button
+            key={method.id}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => selectProvider(method.id)}
+            className={
+              "flex items-start gap-3 rounded-[var(--radius-md)] border p-3 text-left transition-colors " +
+              (selected
+                ? "border-accent bg-accent-soft"
+                : "border-line bg-surface hover:border-line-2")
+            }
+          >
+            <span
+              className={
+                "mt-0.5 inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2 bg-surface " +
+                (selected ? "border-accent" : "border-line-2")
+              }
+            >
+              {selected && <span className="h-2 w-2 rounded-full bg-accent" />}
+            </span>
+            <span className="flex flex-col">
+              <span className="text-[14px] font-semibold">{method.label}</span>
+              <span className="font-mono text-[11px] text-ink-3">{method.sub}</span>
+            </span>
+          </button>
+        )
+      })}
     </div>
   )
 }
