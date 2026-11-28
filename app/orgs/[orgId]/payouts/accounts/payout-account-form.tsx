@@ -54,7 +54,11 @@ export function PayoutAccountForm({ orgId, hasAccounts }: { orgId: string; hasAc
     setSubmitting(true)
     setError("")
     try {
-      await addPayoutAccountAction(orgId, provider, accountNumber.trim(), branchCode.trim(), accountName.trim(), makePrimary)
+      const result = await addPayoutAccountAction(orgId, provider, accountNumber.trim(), branchCode.trim(), accountName.trim(), makePrimary)
+      if (!result.ok) {
+        setError(result.error)
+        return
+      }
       setSuccess(true)
       setMakePrimary(false)
       setAccountNumber("")
