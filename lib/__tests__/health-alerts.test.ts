@@ -81,6 +81,36 @@ describe("health-alerts", () => {
     expect(check.details.checked).toBe(2)
   })
 
+  it("stays healthy when a URL failed once but passed on the retry", () => {
+    const check = evaluateHealthUrls([
+      { url: "https://ticketiv.test/api/health", ok: true, status: 200, durationMs: 20, attempts: 1 },
+      {
+        url: "https://ticketiv.test/api/health/supabase",
+        ok: true,
+        status: 200,
+        durationMs: 300,
+        attempts: 2,
+        recoveredFrom: "This operation was aborted",
+      },
+    ])
+
+    expect(check.status).toBe("ok")
+    expect(check.details.recovered).toEqual([
+      { url: "https://ticketiv.test/api/health/supabase", firstError: "This operation was aborted" },
+    ])
+  })
+
+  it("reports the attempt count for a URL that failed twice", () => {
+    const check = evaluateHealthUrls([
+      { url: "https://ticketiv.test/api/health/supabase", ok: false, durationMs: 5001, attempts: 2, error: "aborted" },
+    ])
+
+    expect(check.status).toBe("alert")
+    expect(check.details.failed).toEqual([
+      { url: "https://ticketiv.test/api/health/supabase", status: null, error: "aborted", durationMs: 5001, attempts: 2 },
+    ])
+  })
+
   it("keeps order-state consistency healthy when all counts are zero", () => {
     const check = evaluateOrderStateConsistency({})
     expect(check.status).toBe("ok")

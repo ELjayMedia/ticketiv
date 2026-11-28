@@ -32,6 +32,10 @@ export interface HealthUrlResult {
   status?: number
   durationMs: number
   error?: string
+  /** Checks made before this result (2 = the first check failed and was retried). */
+  attempts?: number
+  /** Set when the first check failed but the retry succeeded. */
+  recoveredFrom?: string
 }
 
 /**
@@ -146,7 +150,11 @@ export function evaluateHealthUrls(results: HealthUrlResult[]): OpsAlertCheck {
         status: result.status ?? null,
         error: result.error ?? null,
         durationMs: result.durationMs,
+        attempts: result.attempts ?? 1,
       })),
+      recovered: results
+        .filter((result) => result.ok && result.recoveredFrom)
+        .map((result) => ({ url: result.url, firstError: result.recoveredFrom })),
     },
   }
 }

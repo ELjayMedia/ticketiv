@@ -28,6 +28,9 @@ const DEFAULT_PAYMENT_MIN_ATTEMPTS = 5
 const DEFAULT_PAYMENT_SUCCESS_RATE_MIN = 0.85
 const DEFAULT_WEBHOOK_LAG_MINUTES = 5
 const DEFAULT_HEALTH_TIMEOUT_MS = 5_000
+// A URL only counts as failed after two consecutive failed checks, so a single
+// slow response (e.g. a 5.1s blip while other cron jobs run) does not page.
+const DEFAULT_HEALTH_RETRY_DELAY_MS = 3_000
 
 interface ReconciliationQueueSummary extends Record<string, unknown> {
   refreshed_at?: string
@@ -64,6 +67,7 @@ export async function GET(request: Request) {
   const paymentSuccessRateMin = readRatio("OPS_ALERT_PAYMENT_SUCCESS_RATE_MIN", DEFAULT_PAYMENT_SUCCESS_RATE_MIN)
   const webhookLagMinutes = readPositiveNumber("OPS_ALERT_WEBHOOK_LAG_MINUTES", DEFAULT_WEBHOOK_LAG_MINUTES)
   const healthTimeoutMs = readPositiveNumber("OPS_ALERT_HEALTH_TIMEOUT_MS", DEFAULT_HEALTH_TIMEOUT_MS)
+  const healthRetryDelayMs = readPositiveNumber("OPS_ALERT_HEALTH_RETRY_DELAY_MS", DEFAULT_HEALTH_RETRY_DELAY_MS)
 
   const paymentSince = new Date(now.getTime() - paymentWindowMinutes * 60_000).toISOString()
   const webhookCutoff = new Date(now.getTime() - webhookLagMinutes * 60_000).toISOString()
@@ -89,7 +93,7 @@ export async function GET(request: Request) {
       .lt("received_at", webhookCutoff)
       .order("received_at", { ascending: true })
       .limit(50),
-    checkHealthUrls(readHealthUrls(), healthTimeoutMs),
+    checkHealthUrls(readHealthUrls(), healthTimeoutMs, healthRetryDelayMs),
     // fn_ops_reconciliation_counts is service-role-only and not in the generated
     // RPC types; cast per the repo's untyped-RPC convention.
     (admin.rpc as any)("fn_ops_reconciliation_counts") as Promise<{
@@ -228,36 +232,55 @@ function settlementChecks(
   return [evaluateProviderSettlement(counts, readPositiveNumber("OPS_ALERT_SETTLEMENT_STALE_HOURS", 48))]
 }
 
-async function checkHealthUrls(urls: string[], timeoutMs: number): Promise<HealthUrlResult[]> {
+async function checkHealthUrls(
+  urls: string[],
+  timeoutMs: number,
+  retryDelayMs: number
+): Promise<HealthUrlResult[]> {
   return Promise.all(
     urls.map(async (url) => {
-      const started = Date.now()
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), timeoutMs)
+      const first = await checkHealthUrl(url, timeoutMs)
+      if (first.ok) return { ...first, attempts: 1 }
 
-      try {
-        const response = await fetch(url, {
-          cache: "no-store",
-          signal: controller.signal,
-        })
-        return {
-          url,
-          ok: response.ok,
-          status: response.status,
-          durationMs: Date.now() - started,
-        }
-      } catch (error) {
-        return {
-          url,
-          ok: false,
-          durationMs: Date.now() - started,
-          error: error instanceof Error ? error.message : "Health check failed",
-        }
-      } finally {
-        clearTimeout(timeout)
+      // Re-check once before reporting a failure: alert only on two
+      // consecutive failures.
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs))
+      const second = await checkHealthUrl(url, timeoutMs)
+      return {
+        ...second,
+        attempts: 2,
+        ...(second.ok ? { recoveredFrom: first.error ?? `HTTP ${first.status}` } : {}),
       }
     })
   )
+}
+
+async function checkHealthUrl(url: string, timeoutMs: number): Promise<HealthUrlResult> {
+  const started = Date.now()
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const response = await fetch(url, {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+    return {
+      url,
+      ok: response.ok,
+      status: response.status,
+      durationMs: Date.now() - started,
+    }
+  } catch (error) {
+    return {
+      url,
+      ok: false,
+      durationMs: Date.now() - started,
+      error: error instanceof Error ? error.message : "Health check failed",
+    }
+  } finally {
+    clearTimeout(timeout)
+  }
 }
 
 function readHealthUrls() {
